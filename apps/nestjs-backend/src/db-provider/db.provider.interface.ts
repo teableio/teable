@@ -123,7 +123,14 @@ export interface IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: string[]
+    search?: [string, string?, boolean?]
+  ): Knex.QueryBuilder;
+
+  searchCountQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    search?: [string, string?, boolean?],
+    dbTableName?: string
   ): Knex.QueryBuilder;
 
   shareFilterCollaboratorsQuery(

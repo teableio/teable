@@ -366,7 +366,7 @@ export class RecordService {
     filter?: IFilter,
     orderBy?: ISortItem[],
     groupBy?: IGroup,
-    search?: string[]
+    search?: [string, string?, boolean?]
   ) {
     if (filter || orderBy?.length || groupBy?.length || search) {
       // The field Meta is needed to construct the filter if it exists
@@ -420,8 +420,12 @@ export class RecordService {
       });
   }
 
-  private parseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
-    const [searchValue, fieldIdOrName] = search;
+  private parseSearch(
+    search: [string, string?, boolean?],
+    fieldMap?: Record<string, IFieldInstance>
+  ): [string, string?, boolean?] {
+    const [searchValue, fieldIdOrName, hideNotMatchRow] = search;
+
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
     }
@@ -432,6 +436,7 @@ export class RecordService {
         Object.values(fieldMap)
           .map((f) => f.id)
           .join(','),
+        hideNotMatchRow,
       ];
     }
     const fieldIds = fieldIdOrName.split(',');
@@ -443,7 +448,7 @@ export class RecordService {
       }
     });
 
-    return [searchValue, fieldIdOrName];
+    return [searchValue, fieldIdOrName, hideNotMatchRow];
   }
 
   async prepareQuery(
@@ -590,9 +595,11 @@ export class RecordService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    queryBuilder.where((builder) => {
-      this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
-    });
+    if (search && search[2]) {
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
+      });
+    }
 
     // ignore sorting when filterLinkCellSelected is set
     if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
@@ -1339,6 +1346,8 @@ export class RecordService {
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
 
+    // console.log('viewRecords sql', queryBuilder.toQuery());
+
     return { ids, extra: { groupPoints } };
   }
 
@@ -1609,7 +1618,7 @@ export class RecordService {
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
     filter?: IFilter,
-    search?: [string, string] | [string]
+    search?: [string, string?, boolean?]
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
@@ -1620,7 +1629,7 @@ export class RecordService {
         .appendQueryBuilder();
     }
 
-    if (search) {
+    if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
@@ -1674,7 +1683,7 @@ export class RecordService {
         .appendQueryBuilder();
     }
 
-    if (search) {
+    if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, handledSearch);

@@ -68,7 +68,7 @@ import {
   useViewId,
 } from '@teable/sdk/hooks';
 import { useToast } from '@teable/ui-lib';
-import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
+import _, { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -85,6 +85,7 @@ import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
+import { useGridSearchStore } from './useGridSearchStore';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo;
@@ -126,6 +127,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = useFieldCellEditable();
   const { undo, redo } = useUndoRedo();
+  const { setGridRef } = useGridSearchStore();
 
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
@@ -759,6 +761,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
+
+  useEffect(() => {
+    setGridRef?.(gridRef);
+  }, [setGridRef]);
 
   return (
     <div ref={containerRef} className="relative size-full">

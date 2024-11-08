@@ -7,8 +7,8 @@ export const SearchBuilder = ({
   search,
   onChange,
 }: {
-  search?: [string, string] | [string];
-  onChange: (search?: [string, string] | [string]) => void;
+  search?: [string, string?, boolean?];
+  onChange: (search?: [string, string?, boolean?]) => void;
 }) => {
   const { searchQuery } = useSearch();
 

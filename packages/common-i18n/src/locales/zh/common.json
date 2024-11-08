@@ -36,7 +36,8 @@
     "restore": "恢复",
     "permanentDelete": "永久删除",
     "globalSearch": "全局搜索",
-    "fieldSearch": "字段搜索"
+    "fieldSearch": "字段搜索",
+    "hideNotMatchRow": "仅显示匹配"
   },
   "quickAction": {
     "title": "快捷搜索...",

@@ -1,3 +1,4 @@
+import { ViewType } from '@teable/core';
 import { Search, X } from '@teable/icons';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useFields, useSearch, useTableId } from '@teable/sdk/hooks';
@@ -9,6 +10,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
 import { SearchCommand } from './SearchCommand';
+import { SearchCountPagination } from './SearchCountPagination';
 
 export function SearchButton({
   className,
@@ -20,7 +22,8 @@ export function SearchButton({
   const [active, setActive] = useState(false);
   const fields = useFields();
   const tableId = useTableId();
-  const { fieldId, value, setFieldId, setValue } = useSearch();
+  const view = useView();
+  const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);
@@ -33,7 +36,6 @@ export function SearchButton({
     LocalStorageKeys.TableSearchFieldsCache,
     {}
   );
-  const view = useView();
 
   useEffect(() => {
     if (!fieldId || fieldId === 'all_fields') {
@@ -165,10 +167,11 @@ export function SearchButton({
             <span className="truncate">{searchHeader}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-1">
+        <PopoverContent className="w-auto min-w-64 p-1">
           {fieldId && tableId && (
             <SearchCommand
               value={fieldId}
+              hideNotMatchRow={hideNotMatchRow}
               onChange={(fieldIds) => {
                 // switch to field
                 if (!fieldIds) {
@@ -185,6 +188,9 @@ export function SearchButton({
                   tableId && setSearchFieldMap({ ...searchFieldMapCache, [tableId]: fieldIds });
                 }
                 setFieldId(ids);
+              }}
+              onHideSwitchChange={(checked) => {
+                setHideNotMatchRow(checked);
               }}
             />
           )}
@@ -209,6 +215,7 @@ export function SearchButton({
           setIsFocused(true);
         }}
       />
+      {view?.type === ViewType.Grid && <SearchCountPagination />}
       <X
         className="hover:text-primary-foregrounds size-4 cursor-pointer font-light"
         onClick={() => {

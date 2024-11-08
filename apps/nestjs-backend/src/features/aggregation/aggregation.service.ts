@@ -11,6 +11,8 @@ import type {
   IRawAggregationValue,
   IRawRowCountValue,
   IGroupPointsRo,
+  ISearchIndexByQueryRo,
+  ISearchCountRo,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
@@ -61,7 +63,7 @@ export class AggregationService {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
-    search?: [string, string] | [string];
+    search?: [string, string?, boolean?];
   }): Promise<IRawAggregationValue> {
     const { tableId, withFieldIds, withView, search } = params;
     // Retrieve the current user's ID to build user-related query conditions
@@ -125,7 +127,7 @@ export class AggregationService {
     aggregations: IRawAggregations;
     statisticFields: IAggregationField[] | undefined;
     filter?: IFilter;
-    search?: [string, string] | [string];
+    search?: [string, string?, boolean?];
     groupBy?: IGroup;
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
@@ -336,7 +338,7 @@ export class AggregationService {
     return statisticsData;
   }
 
-  async getFieldsData(tableId: string, fieldIds?: string[]) {
+  async getFieldsData(tableId: string, fieldIds?: string[], withName?: boolean) {
     const fieldsRaw = await this.prisma.field.findMany({
       where: { tableId, ...(fieldIds ? { id: { in: fieldIds } } : {}), deletedTime: null },
     });
@@ -345,7 +347,9 @@ export class AggregationService {
     const fieldInstanceMap = fieldInstances.reduce(
       (map, field) => {
         map[field.id] = field;
-        map[field.name] = field;
+        if (withName || withName === undefined) {
+          map[field.name] = field;
+        }
         return map;
       },
       {} as Record<string, IFieldInstance>
@@ -396,7 +400,7 @@ export class AggregationService {
     fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
     filter?: IFilter;
     groupBy?: IGroup;
-    search?: [string, string] | [string];
+    search?: [string, string?, boolean?];
     statisticFields?: IAggregationField[];
     withUserId?: string;
   }) {
@@ -416,7 +420,7 @@ export class AggregationService {
             .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
             .appendQueryBuilder();
         }
-        if (search) {
+        if (search && search[2]) {
           qb.where((builder) => {
             this.dbProvider.searchQuery(builder, fieldInstanceMap, search);
           });
@@ -450,7 +454,7 @@ export class AggregationService {
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
     filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
     selectedRecordIds?: IGetRecordsRo['selectedRecordIds'];
-    search?: [string] | [string, string];
+    search?: [string, string?, boolean?];
     withUserId?: string;
   }) {
     const {
@@ -474,7 +478,7 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
-    if (search) {
+    if (search && search[2]) {
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, fieldInstanceMapWithoutHiddenFields, search);
       });
@@ -572,5 +576,196 @@ export class AggregationService {
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
     const { groupPoints } = await this.recordService.getGroupRelatedData(tableId, query);
     return groupPoints;
+  }
+
+  public async getSearchCount(tableId: string, queryRo: ISearchCountRo) {
+    const { search, viewId } = queryRo;
+    const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
+      tableId,
+      queryRo
+    );
+    const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
+
+    const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
+
+    if (viewId) {
+      const { columnMeta: rawColumnMeta } =
+        (await this.prisma.view.findUnique({
+          where: { id: viewId, deletedTime: null },
+        })) || {};
+
+      const columnMeta = rawColumnMeta ? JSON.parse(rawColumnMeta) : null;
+
+      if (columnMeta) {
+        Object.entries(columnMeta).forEach(([key, value]) => {
+          if (get(value, ['hidden'])) {
+            delete fieldInstanceMapWithoutHiddenFields[key];
+          }
+        });
+      }
+    }
+
+    const queryBuilder = this.knex
+      .with('viewTable', (qb) => {
+        qb.select('*').from(viewRecordsQB.as('t'));
+        // if (filter) {
+        //   this.dbProvider.filterQuery(qb, fieldInstanceMap, filter).appendQueryBuilder();
+        // }
+        // if (search) {
+        //   qb.where((builder) => {
+        //     this.dbProvider.searchQuery(builder, fieldInstanceMap, search);
+        //   });
+        // }
+      })
+      .select(this.knex.raw('COUNT(*) as count'));
+
+    if (search) {
+      queryBuilder.from((qb: Knex.QueryBuilder) => {
+        this.dbProvider.searchCountQuery(
+          qb,
+          fieldInstanceMapWithoutHiddenFields,
+          search,
+          'viewTable'
+        );
+      });
+    }
+
+    const sql = queryBuilder.toQuery();
+
+    const result = await this.prisma.$queryRawUnsafe<{ count: number }[] | null>(sql);
+
+    return {
+      count: result ? Number(result[0]?.count) : 0,
+    };
+  }
+
+  public async getRecordIndexBySearchOrder(tableId: string, queryRo: ISearchIndexByQueryRo) {
+    const { search, index = 1, orderBy, groupBy, viewId } = queryRo;
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
+
+    let viewColumnMeta = null;
+    const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
+
+    if (viewId) {
+      const { columnMeta: viewColumnRawMeta } =
+        (await this.prisma.view.findUnique({
+          where: { id: viewId, deletedTime: null },
+          select: { columnMeta: true },
+        })) || {};
+
+      viewColumnMeta = viewColumnRawMeta ? JSON.parse(viewColumnRawMeta) : null;
+
+      if (viewColumnMeta) {
+        Object.entries(viewColumnMeta).forEach(([key, value]) => {
+          if (get(value, ['hidden'])) {
+            delete fieldInstanceMapWithoutHiddenFields[key];
+          }
+        });
+      }
+    }
+
+    const fieldsWithOrder = Object.values(fieldInstanceMap)
+      .filter((field) => {
+        if (!viewColumnMeta) {
+          return true;
+        }
+        return !viewColumnMeta?.[field.id]?.hidden;
+      })
+      .map((field) => {
+        return {
+          ...field,
+          order: viewColumnMeta?.[field.id]?.order ?? 0,
+        };
+      })
+      .sort((a, b) => a.order - b.order);
+
+    const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
+      tableId,
+      queryRo
+    );
+    const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
+
+    // step 1. find the record in specific order
+    const queryBuilder = this.knex.with('table_with_view', (qb) => {
+      qb.select('*').from(viewRecordsQB.as('t_w_v'));
+    });
+
+    if (search) {
+      queryBuilder.from((qb: Knex.QueryBuilder) => {
+        this.dbProvider.searchCountQuery(
+          qb,
+          fieldInstanceMapWithoutHiddenFields,
+          search,
+          'table_with_view'
+        );
+      });
+
+      const caseStatements = fieldsWithOrder.map((field) => ({
+        sql: 'CASE WHEN ?? = ? THEN ? END',
+        bindings: ['dbFieldName', field.dbFieldName, field.id],
+      }));
+
+      queryBuilder
+        .select(
+          '__id',
+          '__auto_number',
+          this.knex.raw(`COALESCE(??) as "fieldId"`, [
+            caseStatements.map((c) => this.knex.raw(c.sql, c.bindings)),
+          ])
+        )
+        .limit(1)
+        .offset(Number(index) - 1);
+
+      this.dbProvider
+        .sortQuery(queryBuilder, fieldInstanceMap, [...(groupBy ?? []), ...(orderBy ?? [])])
+        .appendSortBuilder();
+      if (orderBy?.length) {
+        this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, orderBy).appendSortBuilder();
+      }
+
+      queryBuilder.orderBy(basicSortIndex, 'asc');
+      const cases = fieldsWithOrder.map((field, index) => {
+        return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
+          'dbFieldName',
+          field.dbFieldName,
+          index + 1,
+        ]);
+      });
+      cases.length && queryBuilder.orderByRaw(cases.join(','));
+    }
+
+    const sql = queryBuilder.toQuery();
+
+    const result = await this.prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
+
+    // no result found
+    if (result?.length === 0) {
+      return null;
+    }
+
+    const recordId = result[0]?.__id;
+
+    // step 2. find the index in current view
+    const indexQueryBuilder = this.knex
+      .select('row_num')
+      .from((qb: Knex.QueryBuilder) => {
+        qb.select('__id')
+          .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
+          .from(viewRecordsQB.as('t'))
+          .as('t1');
+      })
+      .andWhere('__id', '=', recordId)
+      .first();
+
+    // eslint-disable-next-line
+    const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number }[]>(
+      indexQueryBuilder.toQuery()
+    );
+
+    return {
+      index: Number(indexResult[0]?.row_num),
+      fieldId: result[0]?.fieldId,
+    };
   }
 }

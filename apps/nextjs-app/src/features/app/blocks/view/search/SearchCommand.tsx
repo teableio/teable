@@ -11,17 +11,19 @@ import {
   TooltipTrigger,
   TooltipContent,
   Switch,
-  Button,
+  Toggle,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
 
 interface ISearchCommand {
   value: string;
+  hideNotMatchRow?: boolean;
+  onHideSwitchChange: (hideNotMatchRow?: boolean) => void;
   onChange: (fieldIds: string[] | null) => void;
 }
 export const SearchCommand = (props: ISearchCommand) => {
-  const { onChange, value } = props;
+  const { onChange, value, hideNotMatchRow, onHideSwitchChange } = props;
   const { t } = useTranslation('common');
   const fields = useFields();
   const fieldStaticGetter = useFieldStaticGetter();
@@ -56,6 +58,31 @@ export const SearchCommand = (props: ISearchCommand) => {
 
   return (
     <Command filter={commandFilter}>
+      <div className="flex items-center justify-around gap-1">
+        <Toggle
+          pressed={enableGlobalSearch}
+          onPressedChange={(pressed) => {
+            onChange(pressed ? ['all_fields'] : null);
+          }}
+          size={'sm'}
+          className="flex flex-1 items-center p-0"
+        >
+          <span className="text-sm">{t('actions.globalSearch')}</span>
+        </Toggle>
+
+        <Toggle
+          pressed={!!hideNotMatchRow}
+          onPressedChange={(pressed) => {
+            onHideSwitchChange(pressed);
+          }}
+          size={'sm'}
+          className="flex flex-1 items-center truncate p-0"
+        >
+          <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
+            {t('actions.hideNotMatchRow')}
+          </span>
+        </Toggle>
+      </div>
       {!enableGlobalSearch && (
         <>
           <CommandInput placeholder={t('actions.search')} className="h-8 text-xs" />
@@ -106,16 +133,6 @@ export const SearchCommand = (props: ISearchCommand) => {
           </CommandList>
         </>
       )}
-      <Button
-        className="w-full"
-        variant={'outline'}
-        size="xs"
-        onClick={() => {
-          onChange(value === 'all_fields' ? null : ['all_fields']);
-        }}
-      >
-        {value === 'all_fields' ? t('actions.fieldSearch') : t('actions.globalSearch')}
-      </Button>
     </Command>
   );
 };

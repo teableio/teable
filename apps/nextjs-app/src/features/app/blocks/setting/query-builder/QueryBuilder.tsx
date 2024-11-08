@@ -30,7 +30,7 @@ export const QueryBuilder = () => {
   const [fieldKeyType, setFieldKeyType] = useState<FieldKeyType>();
   const [cellFormat, setCellFormat] = useState<CellFormat>();
   const [orderBy, setOrderBy] = useState<ISortItem[]>();
-  const [search, setSearch] = useState<[string, string] | [string]>();
+  const [search, setSearch] = useState<[string, string?, boolean?]>();
   const { data: baseListReq } = useQuery({
     queryKey: ReactQueryKeys.baseAll(),
     queryFn: () => getBaseAll().then((data) => data.data),
