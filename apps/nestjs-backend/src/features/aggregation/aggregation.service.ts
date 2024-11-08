@@ -644,7 +644,7 @@ export class AggregationService {
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
-    let viewColumnMeta = null;
+    let viewColumnMeta: IGridColumnMeta | null = null;
     const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
 
     if (viewId) {
