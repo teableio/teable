@@ -105,6 +105,11 @@ export function SearchButton({
     setInputValue('');
   }, [cancel, setValue]);
 
+  useEffect(() => {
+    setActive(false);
+    resetSearch();
+  }, [resetSearch, view?.id]);
+
   useHotkeys<HTMLInputElement>(
     `esc`,
     () => {
@@ -183,7 +188,7 @@ export function SearchButton({
               hideNotMatchRow={hideNotMatchRow}
               onChange={(fieldIds) => {
                 // switch to field
-                if (!fieldIds) {
+                if (!fieldIds || fields.length === 0) {
                   const newIds = searchFieldMapCache?.[tableId] || [fields[0].id];
                   setFieldId(newIds.join(','));
                   setEnableGlobalSearch(false);
