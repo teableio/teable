@@ -34,7 +34,7 @@ export const SearchCountPagination = () => {
       .filter((f) => !view?.columnMeta[f.id]?.hidden)
       .map((f) => ({
         ...f,
-        order: view?.columnMeta[f.id]?.order ?? 0,
+        order: view?.columnMeta[f.id]?.order ?? Number.MIN_SAFE_INTEGER,
       }))
       .sort((a, b) => a.order - b.order);
     const index = allFieldWithHidden.findIndex((f) => f.id === cellColumnId);
