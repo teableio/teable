@@ -89,11 +89,15 @@ export class AggregationOpenApiService {
     return result;
   }
 
-  public async getSearchCount(tableId: string, queryRo: ISearchCountRo) {
-    return await this.aggregationService.getSearchCount(tableId, queryRo);
+  public async getSearchCount(tableId: string, queryRo: ISearchCountRo, projection?: string[]) {
+    return await this.aggregationService.getSearchCount(tableId, queryRo, projection);
   }
 
-  public async getRecordIndexBySearchOrder(tableId: string, queryRo: ISearchIndexByQueryRo) {
-    return await this.aggregationService.getRecordIndexBySearchOrder(tableId, queryRo);
+  public async getRecordIndexBySearchOrder(
+    tableId: string,
+    queryRo: ISearchIndexByQueryRo,
+    projection?: string[]
+  ) {
+    return await this.aggregationService.getRecordIndexBySearchOrder(tableId, queryRo, projection);
   }
 }
