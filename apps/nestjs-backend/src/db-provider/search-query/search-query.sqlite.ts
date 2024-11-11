@@ -104,16 +104,19 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
 
   getNumberSqlQuery() {
     const knexInstance = this.originQueryBuilder.client;
-    return knexInstance.raw('ROUND(??::numeric, ?)::text ILIKE ?', []).toQuery();
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return knexInstance
+      .raw('ROUND(??, ?) LIKE ?', [this.field.dbFieldName, precision, `%${this.searchValue}%`])
+      .toQuery();
   }
 
   getDateSqlQuery() {
     const knexInstance = this.originQueryBuilder.client;
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
     return knexInstance
-      .raw("TO_CHAR(TIMEZONE(?, ??), 'YYYY-MM-DD HH24:MI') ILIKE ?", [
-        timeZone,
+      .raw('DATETIME(??, ?) LIKE ?', [
         this.field.dbFieldName,
+        `${getOffset(timeZone)} hour`,
         `%${this.searchValue}%`,
       ])
       .toQuery();
@@ -122,14 +125,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   getTextSqlQuery() {
     const knexInstance = this.originQueryBuilder.client;
     return knexInstance
-      .raw('?? ILIKE ?', [this.field.dbFieldName, `%${this.searchValue}%`])
+      .raw('?? LIKE ?', [this.field.dbFieldName, `%${this.searchValue}%`])
       .toQuery();
   }
 
   getJsonSqlQuery() {
     const knexInstance = this.originQueryBuilder.client;
     return knexInstance
-      .raw("??->>'title' ILIKE ?", [this.field.dbFieldName, `%${this.searchValue}%`])
+      .raw("json_extract(??, '$.title') LIKE ?", [this.field.dbFieldName, `%${this.searchValue}%`])
       .toQuery();
   }
 
@@ -139,15 +142,15 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return knexInstance
       .raw(
         `
-      EXISTS (
-        SELECT 1 FROM (
-          SELECT string_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), 'YYYY-MM-DD HH24:MI'), ', ') as aggregated
-          FROM jsonb_array_elements_text(??::jsonb) as elem
-        ) as sub
-        WHERE sub.aggregated ILIKE ?
-      )
-      `,
-        [timeZone, this.field.dbFieldName, `%${this.searchValue}%`]
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
+            FROM json_each(??) as je
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${this.searchValue}%`]
       )
       .toQuery();
   }
@@ -157,16 +160,16 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return knexInstance
       .raw(
         `
-      EXISTS (
-        SELECT 1
-        FROM (
-          SELECT string_agg(elem::text, ', ') as aggregated
-          FROM jsonb_array_elements_text(??::jsonb) as elem
-        ) as sub
-        WHERE sub.aggregated ~* ?
-      )
-    `,
-        [this.field.dbFieldName, this.searchValue]
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(je.value, ', ') as aggregated
+            FROM json_each(??) as je
+            WHERE je.key != 'title'
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [this.field.dbFieldName, `%${this.searchValue}%`]
       )
       .toQuery();
   }
@@ -177,14 +180,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return knexInstance
       .raw(
         `
-      EXISTS (
-        SELECT 1 FROM (
-          SELECT string_agg(ROUND(elem::numeric, ?)::text, ', ') as aggregated
-          FROM jsonb_array_elements_text(??::jsonb) as elem
-        ) as sub
-        WHERE sub.aggregated ILIKE ?
-      )
-      `,
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
+            FROM json_each(??) as je
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
         [precision, this.field.dbFieldName, `%${this.searchValue}%`]
       )
       .toQuery();
@@ -195,15 +198,15 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return knexInstance
       .raw(
         `
-      EXISTS (
-        SELECT 1 FROM (
-          SELECT string_agg(elem->>'title', ', ') as aggregated
-          FROM jsonb_array_elements(??::jsonb) as elem
-        ) as sub
-        WHERE sub.aggregated ~* ?
-      )
-      `,
-        [this.field.dbFieldName, this.searchValue]
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
+            FROM json_each(??) as je
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [this.field.dbFieldName, `%${this.searchValue}%`]
       )
       .toQuery();
   }

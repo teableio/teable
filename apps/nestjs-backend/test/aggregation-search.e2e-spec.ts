@@ -87,8 +87,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(result2?.data?.fieldId).toBe(table.fields[0].id);
     });
 
-    it('should');
-
     it('should return null when there is no found', async () => {
       const result2 = await getSearchIndex(table.id, {
         index: 1,
