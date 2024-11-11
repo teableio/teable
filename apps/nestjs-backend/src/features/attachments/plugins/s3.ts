@@ -257,8 +257,13 @@ export class S3Storage implements StorageAdapter {
       throw new BadRequestException("can't get image stream");
     }
     const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
-    const writeStream = fse.createWriteStream(sourceFilePath);
-    (stream as Readable).pipe(writeStream);
+    await new Promise((resolve, reject) => {
+      const writeStream = fse.createWriteStream(sourceFilePath);
+      (stream as Readable).pipe(writeStream);
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+      (stream as Readable).on('error', reject);
+    });
     const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
       width,
       height
