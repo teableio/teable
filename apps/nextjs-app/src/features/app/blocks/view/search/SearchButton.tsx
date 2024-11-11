@@ -176,7 +176,7 @@ export function SearchButton({
             <span className="truncate">{searchHeader}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto min-w-64 p-1">
+        <PopoverContent className="max-w-96 p-1">
           {fieldId && tableId && (
             <SearchCommand
               value={fieldId}

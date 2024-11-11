@@ -37,7 +37,7 @@
     "permanentDelete": "Permanent Delete",
     "globalSearch": "Global Search",
     "fieldSearch": "Search Field",
-    "hideNotMatchRow": "Show matched"
+    "hideNotMatchRow": "Hide not match row"
   },
   "quickAction": {
     "title": "Quick Actions...",
