@@ -667,7 +667,7 @@ export class AggregationService {
       .map((field) => {
         return {
           ...field,
-          order: viewColumnMeta?.[field.id]?.order ?? 0,
+          order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
         };
       })
       .sort((a, b) => a.order - b.order);
