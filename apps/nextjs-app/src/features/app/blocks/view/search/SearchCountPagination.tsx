@@ -82,12 +82,16 @@ export const SearchCountPagination = () => {
   useDebounce(
     () => {
       if (currentPage && tableId && view?.id) {
+        const orderBy =
+          view?.sort?.manualSort === undefined || view?.sort?.manualSort === false
+            ? view?.sort?.sortObjs
+            : undefined;
         getOrderIndexFn({
           tableId: tableId,
           query: {
             index: currentPage,
             viewId: view?.id,
-            orderBy: view.sort?.sortObjs,
+            orderBy,
             search: searchQuery,
             groupBy: view.group,
           },
