@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { useLocalStorage } from 'react-use';
-import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { SearchContext } from './SearchContext';
 
 export interface ISearchProviderProps {
@@ -11,10 +9,7 @@ export interface ISearchProviderProps {
 export const SearchProvider: React.FC<ISearchProviderProps> = ({ children }) => {
   const [fieldId, setFieldId] = useState<string | undefined>();
   const [value, setValue] = useState<string | undefined>();
-  const [hideNotMatchRow, setHideNotMatchRow] = useLocalStorage<boolean>(
-    LocalStorageKeys.SearchHideNotMatchRow,
-    false
-  );
+  const [hideNotMatchRow, setHideNotMatchRow] = useState<boolean>(false);
 
   const reset = useCallback(() => {
     setFieldId(undefined);

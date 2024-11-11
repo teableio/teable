@@ -32,10 +32,18 @@ export function SearchButton({
     LocalStorageKeys.EnableGlobalSearch,
     false
   );
+  const [lsHideNotMatch, setLsHideNotMatchRow] = useLocalStorage<boolean>(
+    LocalStorageKeys.SearchHideNotMatchRow,
+    false
+  );
   const [searchFieldMapCache, setSearchFieldMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.TableSearchFieldsCache,
     {}
   );
+
+  useEffect(() => {
+    setHideNotMatchRow(lsHideNotMatch);
+  }, [lsHideNotMatch, setHideNotMatchRow]);
 
   useEffect(() => {
     if (!fieldId || fieldId === 'all_fields') {
@@ -191,6 +199,7 @@ export function SearchButton({
                 setFieldId(ids);
               }}
               onHideSwitchChange={(checked) => {
+                setLsHideNotMatchRow(checked);
                 setHideNotMatchRow(checked);
               }}
             />
