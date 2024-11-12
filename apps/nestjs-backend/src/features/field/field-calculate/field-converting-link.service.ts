@@ -11,7 +11,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { groupBy, isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
-import type { IOpsMap } from '../../calculation/reference.service';
+import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import type { IFieldInstance } from '../model/factory';
 import {
   createFieldInstanceByVo,

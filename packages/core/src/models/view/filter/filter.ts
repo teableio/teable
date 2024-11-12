@@ -87,3 +87,20 @@ export const mergeFilter = (filter1?: IFilter, filter2?: IFilter) => {
     conjunction: 'and',
   } as IFilter;
 };
+
+export const extractFieldIdsFromFilter = (filter?: IFilter): string[] => {
+  if (!filter) return [];
+
+  const fieldIds: string[] = [];
+
+  const traverse = (filterItem: IFilter | IFilterItem) => {
+    if (filterItem && 'fieldId' in filterItem) {
+      fieldIds.push(filterItem.fieldId);
+    } else if (filterItem && 'filterSet' in filterItem) {
+      filterItem.filterSet.forEach((item) => traverse(item));
+    }
+  };
+
+  traverse(filter);
+  return [...new Set(fieldIds)];
+};

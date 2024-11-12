@@ -1,7 +1,7 @@
 import type { IFieldVo, IOtOperation } from '@teable/core';
 import type { IConvertFieldOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
-import type { IOpsMap } from '../../calculation/reference.service';
+import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 

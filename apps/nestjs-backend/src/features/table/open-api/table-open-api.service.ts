@@ -46,7 +46,6 @@ import { FieldCreatingService } from '../../field/field-calculate/field-creating
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
-import { GraphService } from '../../graph/graph.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -59,7 +58,6 @@ export class TableOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
-    private readonly graphService: GraphService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
     private readonly linkService: LinkService,
@@ -407,10 +405,6 @@ export class TableOpenApiService {
     this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
 
     return this.prismaService.$queryRawUnsafe(combinedQuery);
-  }
-
-  async getGraph(tableId: string, cell: [string, string]) {
-    return this.graphService.getGraph(tableId, cell);
   }
 
   async updateName(baseId: string, tableId: string, name: string) {

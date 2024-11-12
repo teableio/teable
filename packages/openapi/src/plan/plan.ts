@@ -2,9 +2,47 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { graphVoSchema } from './get-cell-graph';
 
 export const PLAN_FIELD = '/table/{tableId}/field/{fieldId}/plan';
+
+export const graphNodeSchema = z
+  .object({
+    id: z.string(),
+    label: z.string().optional(),
+    comboId: z.string().optional(),
+  })
+  .passthrough();
+
+export type IGraphNode = z.infer<typeof graphNodeSchema>;
+
+export const graphEdgeSchema = z
+  .object({
+    source: z.string(),
+    target: z.string(),
+    label: z.string().optional(),
+  })
+  .passthrough();
+
+export type IGraphEdge = z.infer<typeof graphEdgeSchema>;
+
+export const graphComboSchema = z
+  .object({
+    id: z.string(),
+    label: z.string(),
+  })
+  .passthrough();
+
+export type IGraphCombo = z.infer<typeof graphComboSchema>;
+
+export const graphVoSchema = z
+  .object({
+    nodes: z.array(graphNodeSchema),
+    edges: z.array(graphEdgeSchema),
+    combos: z.array(graphComboSchema),
+  })
+  .optional();
+
+export type IGraphVo = z.infer<typeof graphVoSchema>;
 
 export const planFieldVoSchema = z.object({
   estimateTime: z.number(),

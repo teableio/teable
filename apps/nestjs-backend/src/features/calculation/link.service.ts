@@ -806,7 +806,7 @@ export class LinkService {
     fromReset?: boolean
   ): Promise<{
     cellChanges: ICellChange[];
-    saveForeignKeyToDb: () => Promise<void>;
+    fkRecordMap: IFkRecordMap;
   }> {
     const fieldMap = fieldMapByTableId[tableId];
     const recordMapStruct = this.getRecordMapStruct(tableId, fieldMapByTableId, linkContexts);
@@ -834,12 +834,10 @@ export class LinkService {
       originRecordMapByTableId,
       updatedRecordMapByTableId
     );
-
+    await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
     return {
       cellChanges,
-      saveForeignKeyToDb: async () => {
-        return this.saveForeignKeyToDb(fieldMapByTableId[tableId], fkRecordMap);
-      },
+      fkRecordMap,
     };
   }
 
