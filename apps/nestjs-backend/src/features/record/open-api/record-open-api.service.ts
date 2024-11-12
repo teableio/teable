@@ -325,11 +325,13 @@ export class RecordOpenApiService {
       });
     }
 
-    const snapshots = await this.recordService.getSnapshotBulk(
-      tableId,
-      recordIds,
-      undefined,
-      updateRecordsRo.fieldKeyType
+    const snapshots = await this.prismaService.$tx(async () =>
+      this.recordService.getSnapshotBulk(
+        tableId,
+        recordIds,
+        undefined,
+        updateRecordsRo.fieldKeyType
+      )
     );
 
     return {

@@ -2,6 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Role } from '@teable/core';
 import type {
+  CreateAccessTokenRo,
   CreateAccessTokenVo,
   ICreateSpaceVo,
   ITableFullVo,
@@ -24,40 +25,49 @@ import {
   DELETE_SPACE,
   createAxios,
   axios as defaultAxios,
+  createSpace,
+  createBase,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
+import { createTable, initApp, permanentDeleteSpace } from './utils/init-app';
 
 describe('OpenAPI AccessTokenController (e2e)', () => {
   let app: INestApplication;
-  const baseId = globalThis.testConfig.baseId;
-  const spaceId = globalThis.testConfig.spaceId;
+  let baseId: string;
+  let spaceId: string;
   const email = globalThis.testConfig.email;
   const email2 = 'accesstoken@example.com';
   let table: ITableFullVo;
   let token: CreateAccessTokenVo;
 
-  const defaultCreateRo = {
-    name: 'token1',
-    description: 'token1',
-    scopes: ['table|read', 'record|read'],
-    baseIds: [baseId],
-    spaceIds: [spaceId],
-    expiredTime: dayjs(Date.now() + 1000 * 60 * 60 * 24).format('YYYY-MM-DD'),
-  };
+  let defaultCreateRo: CreateAccessTokenRo;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    const space = await createSpace({ name: 'access token space' }).then((res) => res.data);
+    const base = await createBase({ spaceId: space.id, name: 'access token base' }).then(
+      (res) => res.data
+    );
+    baseId = base.id;
+    spaceId = space.id;
+    defaultCreateRo = {
+      name: 'token1',
+      description: 'token1',
+      scopes: ['table|read', 'record|read'],
+      baseIds: [baseId],
+      spaceIds: [spaceId],
+      expiredTime: dayjs(Date.now() + 1000 * 60 * 60 * 24).format('YYYY-MM-DD'),
+    };
     table = await createTable(baseId, { name: 'table1' });
     token = (await createAccessToken(defaultCreateRo)).data;
     expect(token).toHaveProperty('id');
   });
 
   afterAll(async () => {
-    await permanentDeleteTable(baseId, table.id);
+    await permanentDeleteSpace(spaceId);
     const { data } = await listAccessToken();
     for (const { id } of data) {
       await deleteAccessToken(id);
