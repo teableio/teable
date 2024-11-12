@@ -153,7 +153,7 @@ export const GalleryViewBase = () => {
                       key={`placeholder-${virtualRow.index}-${i}`}
                       className={cn(
                         'flex-1 rounded-md',
-                        actualIndex >= rowCount ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-800'
+                        actualIndex >= rowCount ? 'bg-transparent' : 'bg-muted'
                       )}
                     />
                   );
