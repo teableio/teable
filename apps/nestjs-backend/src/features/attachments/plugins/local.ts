@@ -2,7 +2,7 @@
 import { createReadStream, createWriteStream } from 'fs';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
@@ -23,6 +23,7 @@ interface ITokenEncryptor {
 
 @Injectable()
 export class LocalStorage implements StorageAdapter {
+  private logger = new Logger(LocalStorage.name);
   path: string;
   storageDir: string;
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
@@ -140,6 +141,7 @@ export class LocalStorage implements StorageAdapter {
           reject(err.message);
         });
       } catch (error) {
+        this.logger.error(error);
         this.deleteFile(path);
         reject(error);
       }
