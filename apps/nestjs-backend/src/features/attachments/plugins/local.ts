@@ -147,7 +147,7 @@ export class LocalStorage implements StorageAdapter {
           reject(err.message);
         });
       } catch (error) {
-        this.logger.error(error);
+        this.logger.error('saveTemporaryFile error', error);
         this.deleteFile(path);
         reject(error);
       }
