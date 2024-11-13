@@ -13,8 +13,6 @@ import { BatchService } from './batch.service';
 import type { IFkRecordMap } from './link.service';
 import type { IGraphItem, ITopoItem } from './reference.service';
 import { ReferenceService } from './reference.service';
-import type { ICellChange } from './utils/changes';
-import { formatChangesToOps } from './utils/changes';
 import { getTopoOrders, prependStartFieldIds } from './utils/dfs';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -152,46 +150,6 @@ export class FieldCalculationService {
       );
     }
     return results;
-  }
-
-  @Timing()
-  async resetAndCalculateFields(tableId: string, fieldIds: string[]) {
-    if (!fieldIds.length) {
-      return undefined;
-    }
-
-    const context = await this.getTopoOrdersContext(fieldIds);
-    const { fieldMap, dbTableName2fields, tableId2DbTableName, fieldId2TableId } = context;
-
-    const dbTableName2records = await this.getRecordsBatchByFields(dbTableName2fields);
-
-    const changes = Object.values(fieldIds).reduce<ICellChange[]>((cellChanges, fieldId) => {
-      const tableId = fieldId2TableId[fieldId];
-      const dbTableName = tableId2DbTableName[tableId];
-      const records = dbTableName2records[dbTableName];
-      records
-        .filter((record) => record.fields[fieldId] != null)
-        .forEach((record) => {
-          cellChanges.push({
-            tableId,
-            recordId: record.id,
-            fieldId,
-            oldValue: record.fields[fieldId],
-            newValue: null,
-          });
-        });
-      return cellChanges;
-    }, []);
-
-    if (changes.length) {
-      await this.batchService.updateRecords(
-        formatChangesToOps(changes),
-        fieldMap,
-        tableId2DbTableName
-      );
-    }
-
-    await this.calculateChanges(tableId, context);
   }
 
   async calculateFields(tableId: string, fieldIds: string[], recordIds?: string[]) {

@@ -808,7 +808,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
       expect(table1RecordsAfter.records[0].fields[lookupField.id]).toEqual(['BB1', 'BB2', 'BB3']);
     });
 
-    it('should update a lookup field with filter when add records link', async () => {
+    it('should update a lookup field with filter when add or remove records link', async () => {
       const linkField = await createField(table1.id, {
         type: FieldType.Link,
         options: {
@@ -875,6 +875,24 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
       const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(table1Records.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
+
+      // remove a link
+
+      await updateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          {
+            id: table2.records[0].id,
+            fields: {
+              [symLinkFieldId]: null,
+            },
+          },
+        ],
+      });
+
+      const table2Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(table2Records.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
     });
   });
 });

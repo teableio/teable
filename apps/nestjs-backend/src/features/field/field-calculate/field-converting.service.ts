@@ -1046,11 +1046,7 @@ export class FieldConvertingService {
 
     this.logger.log(`calculating field: ${newField.name}`);
 
-    if (newField.lookupOptions) {
-      await this.fieldCalculationService.resetAndCalculateFields(tableId, [newField.id]);
-    } else {
-      await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
-    }
+    await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     await this.fieldService.resolvePending(tableId, [newField.id]);
   }
 

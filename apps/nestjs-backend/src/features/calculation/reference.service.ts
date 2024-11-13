@@ -70,7 +70,7 @@ export interface IRecordData {
 
 export interface IRelatedRecordItem {
   toId: string;
-  fromId: string;
+  fromId?: string;
 }
 
 export interface ITopoLinkOrder {
@@ -171,7 +171,9 @@ export class ReferenceService {
     const dbTableName = fieldId2DbTableName[field.id];
 
     const recordIds = relatedRecordItems.map((item) => item.toId);
-    const foreignRecordIds = relatedRecordItems.map((item) => item.fromId);
+    const foreignRecordIds = relatedRecordItems
+      .map((item) => item.fromId)
+      .filter(Boolean) as string[];
 
     // record data source
     const recordMapByTableName = await this.getRecordMapBatch({
@@ -201,7 +203,9 @@ export class ReferenceService {
 
       if (dependentRecordIds) {
         try {
-          dependencies = dependentRecordIds.map((item) => foreignRecordMap[item.fromId]);
+          dependencies = dependentRecordIds
+            .map((item) => item.fromId && foreignRecordMap[item.fromId])
+            .filter(Boolean) as IRecord[];
         } catch (e) {
           console.log('changes:field', field);
           console.log('relatedRecordItems', relatedRecordItems);
@@ -939,65 +943,6 @@ export class ReferenceService {
     return this.formatRecordQueryResult(results, dbTableName2fields);
   }
 
-  createTopoItemWithRecords(params: {
-    topoOrders: ITopoItem[];
-    tableId2DbTableName: { [tableId: string]: string };
-    fieldId2TableId: { [fieldId: string]: string };
-    fieldMap: IFieldMap;
-    dbTableName2recordMap: { [tableName: string]: IRecordMap };
-    relatedRecordItemsIndexed: Record<string, IRelatedRecordItem[]>;
-  }): ITopoItemWithRecords[] {
-    const {
-      topoOrders,
-      fieldMap,
-      tableId2DbTableName,
-      fieldId2TableId,
-      dbTableName2recordMap,
-      relatedRecordItemsIndexed,
-    } = params;
-    return topoOrders.map<ITopoItemWithRecords>((order) => {
-      const field = fieldMap[order.id];
-      const fieldId = field.id;
-      const tableId = fieldId2TableId[order.id];
-      const dbTableName = tableId2DbTableName[tableId];
-      const recordMap = dbTableName2recordMap[dbTableName];
-      const relatedItems = relatedRecordItemsIndexed[fieldId];
-
-      // console.log('withRecord:order', JSON.stringify(order, null, 2));
-      // console.log('withRecord:relatedItems', relatedItems);
-      return {
-        ...order,
-        recordItemMap:
-          recordMap &&
-          Object.values(recordMap).reduce<Record<string, IRecordItem>>((pre, record) => {
-            let dependencies: IRecord[] | undefined;
-            if (relatedItems) {
-              const options = field.lookupOptions
-                ? field.lookupOptions
-                : (field.options as ILinkFieldOptions);
-              const foreignTableId = options.foreignTableId;
-              const foreignDbTableName = tableId2DbTableName[foreignTableId];
-              const foreignRecordMap = dbTableName2recordMap[foreignDbTableName];
-              const dependentRecordIdsIndexed = groupBy(relatedItems, 'toId');
-              const dependentRecordIds = dependentRecordIdsIndexed[record.id];
-
-              if (dependentRecordIds) {
-                dependencies = dependentRecordIds.map((item) => foreignRecordMap[item.fromId]);
-              }
-            }
-
-            if (dependencies) {
-              pre[record.id] = { record, dependencies };
-            } else {
-              pre[record.id] = { record };
-            }
-
-            return pre;
-          }, {}),
-      };
-    });
-  }
-
   formatRecordQueryResult(
     formattedResults: {
       [tableName: string]: { [dbFieldName: string]: unknown }[];
@@ -1158,13 +1103,11 @@ export class ReferenceService {
         }
       })
       .select({
-        toId: `a.${selfKeyName}`,
-        fromId: `a.${foreignKeyName}`,
+        toId: knex.ref(`i.${selfKeyName}`),
+        fromId: knex.ref(`a.${foreignKeyName}`),
       })
-      .from(`${fkHostTableName} as a`)
-      .whereIn(`a.${selfKeyName}`, function () {
-        this.select(selfKeyName).from('initial_to_ids');
-      });
+      .from('initial_to_ids as i')
+      .leftJoin(`${fkHostTableName} as a`, `a.${selfKeyName}`, `i.${selfKeyName}`);
 
     if (field.lookupOptions?.filter) {
       query
