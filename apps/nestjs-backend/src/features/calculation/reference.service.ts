@@ -229,9 +229,13 @@ export class ReferenceService {
     type: FieldType
   ): Promise<{ [userId: string]: IUserInfoVo }> {
     const userKey = type === FieldType.CreatedBy ? 'createdBy' : 'lastModifiedBy';
-    const userIds = Object.values(recordMap)
-      .map((record) => record[userKey])
-      .filter(Boolean) as string[];
+    const userIds = Array.from(
+      new Set(
+        Object.values(recordMap)
+          .map((record) => record[userKey])
+          .filter(Boolean) as string[]
+      )
+    );
 
     const users = await this.prismaService.user.findMany({
       where: { id: { in: userIds } },
@@ -332,13 +336,17 @@ export class ReferenceService {
         .filter(Boolean)
         .flat();
       const toRecordIds = recordIdsMap[fieldId];
-      const relatedRecordItems = await this.getAffectedRecordItems(
+      if (!fromRecordIds?.length && !toRecordIds?.length) {
+        continue;
+      }
+      const relatedRecordItems = await this.getAffectedRecordItems({
         fieldId,
         fieldMap,
         fromRecordIds,
         toRecordIds,
-        fkRecordMap
-      );
+        fkRecordMap,
+        tableId2DbTableName,
+      });
 
       if (field.lookupOptions || field.type === FieldType.Link) {
         await this.calculateLinkRelatedRecords({
@@ -1096,13 +1104,16 @@ export class ReferenceService {
     return reverted;
   }
 
-  async getAffectedRecordItems(
-    fieldId: string,
-    fieldMap: IFieldMap,
-    fromRecordIds?: string[],
-    toRecordIds?: string[],
-    fkRecordMap?: IFkRecordMap
-  ): Promise<IRelatedRecordItem[]> {
+  async getAffectedRecordItems(params: {
+    fieldId: string;
+    fieldMap: IFieldMap;
+    fromRecordIds?: string[];
+    toRecordIds?: string[];
+    fkRecordMap?: IFkRecordMap;
+    tableId2DbTableName: { [tableId: string]: string };
+  }): Promise<IRelatedRecordItem[]> {
+    const { fieldId, fieldMap, fromRecordIds, toRecordIds, fkRecordMap, tableId2DbTableName } =
+      params;
     const knex = this.knex;
     const dbProvider = this.dbProvider;
 
@@ -1130,24 +1141,20 @@ export class ReferenceService {
     const { fkHostTableName, selfKeyName, foreignKeyName } = options;
     const query = knex
       .with('initial_to_ids', (qb) => {
-        // 处理 fromRecordIds
-        const fromQuery = knex
-          .select(selfKeyName)
-          .from(fkHostTableName)
-          .whereIn(foreignKeyName, fromRecordIds || []);
+        if (fromRecordIds?.length) {
+          const fromQuery = knex
+            .select(selfKeyName)
+            .from(fkHostTableName)
+            .whereIn(foreignKeyName, fromRecordIds);
+
+          qb.select(selfKeyName).from(fromQuery.as('t'));
+        }
 
         if (toRecordIds?.length) {
-          qb.select(selfKeyName).from(fromQuery.as('t'));
-
-          // 如果有 toRecordIds，添加 union
-          if (toRecordIds?.length) {
-            const valueQueries = toRecordIds.map((id) =>
-              knex.select(knex.raw('? as ??', [id, selfKeyName]))
-            );
-            qb.union(valueQueries);
-          }
-        } else {
-          qb.select().from(fromQuery.as('t'));
+          const valueQueries = toRecordIds.map((id) =>
+            knex.select(knex.raw('? as ??', [id, selfKeyName]))
+          );
+          qb.union(valueQueries);
         }
       })
       .select({
@@ -1156,11 +1163,19 @@ export class ReferenceService {
       })
       .from(`${fkHostTableName} as a`)
       .whereIn(`a.${selfKeyName}`, function () {
-        this.select('*').from('initial_to_ids');
+        this.select(selfKeyName).from('initial_to_ids');
       });
 
     if (field.lookupOptions?.filter) {
-      dbProvider.filterQuery(query, fieldMap, field.lookupOptions.filter).appendQueryBuilder();
+      query
+        .with('filtered_records', (qb) => {
+          const dataTableName = tableId2DbTableName[options.foreignTableId];
+          qb.select('__id').from(dataTableName);
+          dbProvider.filterQuery(qb, fieldMap, field.lookupOptions!.filter).appendQueryBuilder();
+        })
+        .whereIn(`a.${foreignKeyName}`, function () {
+          this.select('__id').from('filtered_records');
+        });
     }
 
     const affectedRecordItemsQuerySql = query.toQuery();

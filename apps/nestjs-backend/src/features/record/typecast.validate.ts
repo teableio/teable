@@ -9,7 +9,7 @@ import {
   nullsToUndefined,
 } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
-import { keyBy, map } from 'lodash';
+import { isObject, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
@@ -401,12 +401,27 @@ export class TypeCastAndValidate {
     linkTableRecordMap: Record<string, { id: string; title?: string }>
   ): ILinkCellValue[] | ILinkCellValue | null {
     const { isMultipleCellValue } = this.field;
-    if (typeof cellValue === 'string' && isMultipleCellValue) {
-      return cellValue
-        .split(',')
-        .map((v) => v.trim())
-        .map((v) => linkTableRecordMap[v])
-        .filter(Boolean);
+    if (isMultipleCellValue) {
+      if (typeof cellValue === 'string') {
+        return cellValue
+          .split(',')
+          .map((v) => v.trim())
+          .map((v) => linkTableRecordMap[v])
+          .filter(Boolean);
+      }
+      if (Array.isArray(cellValue)) {
+        return cellValue
+          .map((v) => {
+            if (typeof v === 'string') {
+              return linkTableRecordMap[v];
+            }
+            if (isObject(v) && 'id' in v && typeof v.id === 'string') {
+              return linkTableRecordMap[v.id];
+            }
+            return null;
+          })
+          .filter(Boolean) as ILinkCellValue[];
+      }
     }
     return linkTableRecordMap[cellValue as string] || null;
   }

@@ -701,6 +701,52 @@ describe('OpenAPI Lookup field (e2e)', () => {
       expect(table1Records.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
     });
 
+    it('should create a many-many lookup field with filter', async () => {
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+        },
+      });
+      const symLinkFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId as string;
+
+      await updateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: table2.records.map((r, i) => ({
+          id: r.id,
+          fields: {
+            [table2.fields[0].id]: `B${i + 1}`,
+            [symLinkFieldId]: [table1.records[0].id],
+          },
+        })),
+      });
+
+      const lookupField = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: table2.fields[0].id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: table2.fields[0].id,
+                value: 'B1',
+                operator: 'isNot',
+              },
+            ],
+          },
+        },
+      });
+
+      const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(table1Records.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
+    });
+
     it('should update a lookup field with filter', async () => {
       const linkField = await createField(table1.id, {
         type: FieldType.Link,

@@ -541,6 +541,12 @@ export class LinkService {
       const foreignKeys = foreignKeysIndexed[id];
       if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
         const newCellValue = cellContext.newValue as ILinkCellValue | undefined;
+        if (Array.isArray(newCellValue)) {
+          throw new BadRequestException(
+            `CellValue of ${relationship} link field values cannot be an array`
+          );
+        }
+
         if ((foreignKeys?.length ?? 0) > 1) {
           throw new Error('duplicate foreign key from database');
         }
@@ -564,6 +570,12 @@ export class LinkService {
 
       if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
         const newCellValue = cellContext.newValue as ILinkCellValue[] | undefined;
+        if (newCellValue && !Array.isArray(newCellValue)) {
+          throw new BadRequestException(
+            `CellValue of ${relationship} link field values should be an array`
+          );
+        }
+
         const oldKey = foreignKeys?.map((key) => key.foreignId) ?? null;
         const newKey = newCellValue?.map((item) => item.id) ?? null;
 
