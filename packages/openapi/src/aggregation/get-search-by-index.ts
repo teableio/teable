@@ -4,7 +4,7 @@ import { queryBaseSchema, contentQueryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-const searchIndexVoSchema = z
+export const searchIndexVoSchema = z
   .object({
     index: z.number(),
     fieldId: z.string(),

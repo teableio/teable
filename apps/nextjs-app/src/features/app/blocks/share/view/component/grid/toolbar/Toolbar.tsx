@@ -85,7 +85,7 @@ export const Toolbar = () => {
         )}
       </RowHeight>
       <div className="flex w-10 flex-1 justify-end">
-        <SearchButton />
+        <SearchButton shareView />
       </div>
     </div>
   );

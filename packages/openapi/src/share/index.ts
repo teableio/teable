@@ -7,3 +7,5 @@ export * from './view-copy';
 export * from './view-group-points';
 export * from './view-link-records';
 export * from './view-collaborators';
+export * from './view-search-count';
+export * from './view-search-index';

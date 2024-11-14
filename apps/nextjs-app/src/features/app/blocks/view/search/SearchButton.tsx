@@ -12,13 +12,14 @@ import { ToolBarButton } from '../tool-bar/ToolBarButton';
 import { SearchCommand } from './SearchCommand';
 import { SearchCountPagination } from './SearchCountPagination';
 
-export function SearchButton({
-  className,
-  textClassName,
-}: {
+export interface ISearchButtonProps {
   className?: string;
   textClassName?: string;
-}) {
+  shareView?: boolean;
+}
+
+export const SearchButton = (props: ISearchButtonProps) => {
+  const { className, textClassName, shareView = false } = props;
   const [active, setActive] = useState(false);
   const fields = useFields();
   const tableId = useTableId();
@@ -230,7 +231,7 @@ export function SearchButton({
           setIsFocused(true);
         }}
       />
-      {view?.type === ViewType.Grid && <SearchCountPagination />}
+      {view?.type === ViewType.Grid && <SearchCountPagination shareView={shareView} />}
       <X
         className="hover:text-primary-foregrounds size-4 cursor-pointer font-light"
         onClick={() => {
@@ -251,4 +252,4 @@ export function SearchButton({
       <Search className="size-4" />
     </ToolBarButton>
   );
-}
+};

@@ -1,7 +1,12 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ChevronRight, ChevronLeft } from '@teable/icons';
 import type { ISearchIndexByQueryRo } from '@teable/openapi';
-import { getSearchCount, getSearchIndex } from '@teable/openapi';
+import {
+  getSearchCount,
+  getSearchIndex,
+  getShareViewSearchCount,
+  getShareViewSearchIndex,
+} from '@teable/openapi';
 import type { GridView } from '@teable/sdk';
 import { CombinedSelection, SelectionRegionType } from '@teable/sdk';
 import { useTableId, useView, useFields, useSearch } from '@teable/sdk/hooks';
@@ -10,13 +15,17 @@ import { Button } from '@teable/ui-lib/shadcn';
 import { useEffect, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
+import type { ISearchButtonProps } from './SearchButton';
 
 enum PageDirection {
   Next = 1,
   Prev = -1,
 }
 
-export const SearchCountPagination = () => {
+type ISearchCountPaginationProps = Pick<ISearchButtonProps, 'shareView'>;
+
+export const SearchCountPagination = (props: ISearchCountPaginationProps) => {
+  const { shareView } = props;
   const { value, searchQuery } = useSearch();
   const tableId = useTableId();
   const view = useView() as GridView;
@@ -26,7 +35,9 @@ export const SearchCountPagination = () => {
 
   const { mutateAsync: getOrderIndexFn } = useMutation({
     mutationFn: ({ tableId, query }: { tableId: string; query: ISearchIndexByQueryRo }) =>
-      getSearchIndex(tableId, query).then(({ data }) => data),
+      shareView
+        ? getShareViewSearchIndex(view.shareId!, query).then(({ data }) => data)
+        : getSearchIndex(tableId, query).then(({ data }) => data),
   });
 
   const setIndexSelection = (row: number, cellColumnId: string) => {
@@ -53,12 +64,16 @@ export const SearchCountPagination = () => {
       JSON.stringify(view?.filter),
       JSON.stringify(searchQuery),
     ],
-    queryFn: () =>
-      getSearchCount(tableId!, {
+    queryFn: async () => {
+      const queryRo = {
         search: searchQuery,
         filter: view?.filter,
         viewId: view?.id,
-      }).then(({ data }) => data),
+      };
+      return shareView && view?.shareId
+        ? await getShareViewSearchCount(view.shareId!, queryRo).then(({ data }) => data)
+        : await getSearchCount(tableId!, queryRo).then(({ data }) => data);
+    },
     enabled: Boolean(tableId && value),
   });
 
