@@ -316,15 +316,28 @@ export class PostgresProvider implements IDbProvider {
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?],
-    dbTableName?: string
+    searchField: IFieldInstance[],
+    searchValue: string
   ) {
-    return SearchQueryAbstract.getSearchCountSql(
+    return SearchQueryAbstract.buildSearchCountQuery(
       SearchQueryPostgres,
       originQueryBuilder,
-      fieldMap,
-      search,
+      searchField,
+      searchValue
+    );
+  }
+
+  searchIndexQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string,
+    dbTableName: string
+  ) {
+    return SearchQueryAbstract.buildSearchIndexQuery(
+      SearchQueryPostgres,
+      originQueryBuilder,
+      searchField,
+      searchValue,
       dbTableName
     );
   }

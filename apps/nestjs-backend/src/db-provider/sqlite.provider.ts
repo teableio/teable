@@ -270,15 +270,28 @@ export class SqliteProvider implements IDbProvider {
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?],
-    dbTableName?: string
+    searchField: IFieldInstance[],
+    searchValue: string
   ) {
-    return SearchQueryAbstract.getSearchCountSql(
+    return SearchQueryAbstract.buildSearchCountQuery(
       SearchQuerySqlite,
       originQueryBuilder,
-      fieldMap,
-      search,
+      searchField,
+      searchValue
+    );
+  }
+
+  searchIndexQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string,
+    dbTableName: string
+  ) {
+    return SearchQueryAbstract.buildSearchIndexQuery(
+      SearchQuerySqlite,
+      originQueryBuilder,
+      searchField,
+      searchValue,
       dbTableName
     );
   }

@@ -109,6 +109,7 @@ export const SearchCountPagination = (props: ISearchCountPaginationProps) => {
             orderBy,
             search: searchQuery,
             groupBy: view.group,
+            filter: view.filter,
           },
         }).then((data) => {
           data && setIndexSelection(data.index, data.fieldId);

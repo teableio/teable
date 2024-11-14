@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
-import { mergeWithDefaultFilter, nullsToUndefined, StatisticsFunc, ViewType } from '@teable/core';
+import {
+  FieldType,
+  mergeWithDefaultFilter,
+  nullsToUndefined,
+  StatisticsFunc,
+  ViewType,
+} from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -580,55 +586,22 @@ export class AggregationService {
 
   public async getSearchCount(tableId: string, queryRo: ISearchCountRo, projection?: string[]) {
     const { search, viewId } = queryRo;
-    const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
-      tableId,
-      queryRo
-    );
+    const dbFieldName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
-    const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
-
-    if (viewId) {
-      const { columnMeta: rawColumnMeta } =
-        (await this.prisma.view.findUnique({
-          where: { id: viewId, deletedTime: null },
-        })) || {};
-
-      const columnMeta = rawColumnMeta ? JSON.parse(rawColumnMeta) : null;
-
-      if (columnMeta) {
-        Object.entries(columnMeta).forEach(([key, value]) => {
-          if (get(value, ['hidden'])) {
-            delete fieldInstanceMapWithoutHiddenFields[key];
-          }
-        });
-      }
+    if (!search) {
+      throw new Error('Search query is required');
     }
 
-    if (projection?.length) {
-      Object.keys(fieldInstanceMap).forEach((fieldId) => {
-        if (!projection.includes(fieldId)) {
-          delete fieldInstanceMapWithoutHiddenFields[fieldId];
-        }
-      });
-    }
+    const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
 
-    const queryBuilder = this.knex
-      .with('viewTable', (qb) => {
-        qb.select('*').from(viewRecordsQB.as('t'));
+    const queryBuilder = this.knex(dbFieldName);
+    this.dbProvider.searchCountQuery(queryBuilder, searchFields, search[0]);
+    this.dbProvider
+      .filterQuery(queryBuilder, fieldInstanceMap, queryRo?.filter, {
+        withUserId: this.cls.get('user.id'),
       })
-      .select(this.knex.raw('COUNT(*) as count'));
-
-    if (search) {
-      queryBuilder.from((qb: Knex.QueryBuilder) => {
-        this.dbProvider.searchCountQuery(
-          qb,
-          fieldInstanceMapWithoutHiddenFields,
-          search,
-          'viewTable'
-        );
-      });
-    }
+      .appendQueryBuilder();
 
     const sql = queryBuilder.toQuery();
 
@@ -644,114 +617,57 @@ export class AggregationService {
     queryRo: ISearchIndexByQueryRo,
     projection?: string[]
   ) {
-    const { search, index = 1, orderBy, groupBy, viewId } = queryRo;
+    const { search, index = 1, orderBy, filter, viewId } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
-    let viewColumnMeta: IGridColumnMeta | null = null;
-    const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
-
-    if (viewId) {
-      const { columnMeta: viewColumnRawMeta } =
-        (await this.prisma.view.findUnique({
-          where: { id: viewId, deletedTime: null },
-          select: { columnMeta: true },
-        })) || {};
-
-      viewColumnMeta = viewColumnRawMeta ? JSON.parse(viewColumnRawMeta) : null;
-
-      if (viewColumnMeta) {
-        Object.entries(viewColumnMeta).forEach(([key, value]) => {
-          if (get(value, ['hidden'])) {
-            delete fieldInstanceMapWithoutHiddenFields[key];
-          }
-        });
-      }
+    if (!search) {
+      throw new Error('Search query is required');
     }
 
-    if (projection?.length) {
-      Object.keys(fieldInstanceMap).forEach((fieldId) => {
-        if (!projection.includes(fieldId)) {
-          delete fieldInstanceMapWithoutHiddenFields[fieldId];
-        }
-      });
-    }
-
-    const fieldsWithOrder = Object.values(fieldInstanceMap)
-      .filter((field) => {
-        if (!viewColumnMeta) {
-          return true;
-        }
-        return !viewColumnMeta?.[field.id]?.hidden;
-      })
-      .filter((field) => {
-        if (!projection) {
-          return true;
-        }
-        return projection.includes(field.id);
-      })
-      .map((field) => {
-        return {
-          ...field,
-          order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
-        };
-      })
-      .sort((a, b) => a.order - b.order);
+    const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
 
     const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
       tableId,
       queryRo
     );
+
     const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
 
-    // step 1. find the record in specific order
-    const queryBuilder = this.knex.with('table_with_view', (qb) => {
-      qb.select('*').from(viewRecordsQB.as('t_w_v'));
-    });
+    const queryBuilder = this.knex.queryBuilder();
+
+    this.dbProvider.searchIndexQuery(
+      queryBuilder,
+      searchFields,
+      search?.[0] as string,
+      dbTableName
+    );
 
     if (search) {
-      queryBuilder.from((qb: Knex.QueryBuilder) => {
-        this.dbProvider.searchCountQuery(
-          qb,
-          fieldInstanceMapWithoutHiddenFields,
-          search,
-          'table_with_view'
-        );
-      });
-
-      const caseStatements = fieldsWithOrder.map((field) => ({
-        sql: 'CASE WHEN ?? = ? THEN ? END',
-        bindings: ['dbFieldName', field.dbFieldName, field.id],
-      }));
-
-      queryBuilder
-        .select(
-          '__id',
-          '__auto_number',
-          this.knex.raw(`COALESCE(??) as "fieldId"`, [
-            caseStatements.map((c) => this.knex.raw(c.sql, c.bindings)),
-          ])
-        )
-        .limit(1)
-        .offset(Number(index) - 1);
-
-      this.dbProvider
-        .sortQuery(queryBuilder, fieldInstanceMap, [...(groupBy ?? []), ...(orderBy ?? [])])
-        .appendSortBuilder();
       if (orderBy?.length) {
         this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, orderBy).appendSortBuilder();
       }
 
+      if (filter) {
+        this.dbProvider
+          .filterQuery(queryBuilder, fieldInstanceMap, filter, {
+            withUserId: this.cls.get('user.id'),
+          })
+          .appendQueryBuilder();
+      }
+
       queryBuilder.orderBy(basicSortIndex, 'asc');
-      const cases = fieldsWithOrder.map((field, index) => {
+      const cases = searchFields.map((field, index) => {
         return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
-          'dbFieldName',
+          'matched_column',
           field.dbFieldName,
           index + 1,
         ]);
       });
       cases.length && queryBuilder.orderByRaw(cases.join(','));
     }
+
+    queryBuilder.limit(1).offset(index - 1);
 
     const sql = queryBuilder.toQuery();
 
@@ -789,5 +705,80 @@ export class AggregationService {
       index: Number(indexResult[0]?.row_num),
       fieldId: result[0]?.fieldId,
     };
+  }
+
+  private async getSearchFields(
+    originFieldInstanceMap: Record<string, IFieldInstance>,
+    search?: [string, string?, boolean?],
+    viewId?: string,
+    projection?: string[]
+  ) {
+    let viewColumnMeta: IGridColumnMeta | null = null;
+    const fieldInstanceMap = { ...originFieldInstanceMap };
+
+    if (viewId) {
+      const { columnMeta: viewColumnRawMeta } =
+        (await this.prisma.view.findUnique({
+          where: { id: viewId, deletedTime: null },
+          select: { columnMeta: true },
+        })) || {};
+
+      viewColumnMeta = viewColumnRawMeta ? JSON.parse(viewColumnRawMeta) : null;
+
+      if (viewColumnMeta) {
+        Object.entries(viewColumnMeta).forEach(([key, value]) => {
+          if (get(value, ['hidden'])) {
+            delete fieldInstanceMap[key];
+          }
+        });
+      }
+    }
+
+    if (projection?.length) {
+      Object.keys(fieldInstanceMap).forEach((fieldId) => {
+        if (!projection.includes(fieldId)) {
+          delete fieldInstanceMap[fieldId];
+        }
+      });
+    }
+
+    return Object.values(fieldInstanceMap)
+      .map((field) => ({
+        ...field,
+        isStructuredCellValue: field.isStructuredCellValue,
+      }))
+      .filter((field) => {
+        if (!viewColumnMeta) {
+          return true;
+        }
+        return !viewColumnMeta?.[field.id]?.hidden;
+      })
+      .filter((field) => {
+        if (!projection) {
+          return true;
+        }
+        return projection.includes(field.id);
+      })
+      .filter((field) => {
+        if (!search?.[1]) {
+          return true;
+        }
+
+        const searchArr = search[1].split(',');
+        return searchArr.includes(field.id);
+      })
+      .filter((field) => {
+        if (field.type === FieldType.Checkbox) {
+          return false;
+        }
+        return true;
+      })
+      .map((field) => {
+        return {
+          ...field,
+          order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
+        };
+      })
+      .sort((a, b) => a.order - b.order) as unknown as IFieldInstance[];
   }
 }

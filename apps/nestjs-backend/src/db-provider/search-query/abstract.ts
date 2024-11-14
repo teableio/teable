@@ -80,107 +80,137 @@ export abstract class SearchQueryAbstract {
     return originQueryBuilder;
   }
 
-  static getSearchCountSql(
+  static buildSearchIndexQuery(
     // eslint-disable-next-line @typescript-eslint/naming-convention
     SearchQuery: new (
       originQueryBuilder: Knex.QueryBuilder,
       field: IFieldInstance,
       searchValue: string
     ) => SearchQueryAbstract,
-    originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?],
-    dbTableName?: string
+    queryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string,
+    dbTableName: string
   ) {
-    if (!search || !fieldMap || !dbTableName) {
-      return originQueryBuilder;
-    }
+    const knexInstance = queryBuilder.client;
+    const searchQuery = searchField
+      .map((field) => {
+        const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
+        if (field.isMultipleCellValue) {
+          switch (field.cellValueType) {
+            case CellValueType.DateTime:
+              return searchQueryBuilder.getMultipleDateSqlQuery();
+            case CellValueType.Number:
+              return searchQueryBuilder.getMultipleNumberSqlQuery();
+            case CellValueType.String:
+              if (field.isStructuredCellValue) {
+                return searchQueryBuilder.getMultipleJsonSqlQuery();
+              } else {
+                return searchQueryBuilder.getMultipleTextSqlQuery();
+              }
+          }
+        }
 
-    let searchArr = [];
-
-    if (!search?.[1]) {
-      searchArr = Object.values(fieldMap).map((f) => f.id);
-    } else {
-      searchArr = search[1]?.split(',');
-    }
-
-    const searchValue = search[0];
-
-    const knexInstance = originQueryBuilder.client;
-
-    const joinWhereSql = (index: number, whereSql: string, dbFieldName: string) => {
-      if (index === 0) {
-        originQueryBuilder
-          .select('*', knexInstance.raw('? AS "dbFieldName"', [dbFieldName]))
-          .from(knexInstance.raw('??', [dbTableName]))
-          .whereRaw(whereSql);
-      } else {
-        originQueryBuilder.unionAll(function () {
-          this.select('*', knexInstance.raw('? AS "dbFieldName"', [dbFieldName]))
-            .from(knexInstance.raw('??', [dbTableName]))
-            .whereRaw(whereSql);
-        });
-      }
-    };
-
-    searchArr.forEach((item, index) => {
-      const field = fieldMap?.[item];
-
-      if (!field) {
-        return;
-      }
-
-      if (field.cellValueType === CellValueType.Boolean) {
-        return;
-      }
-
-      const searchQueryBuilder = new SearchQuery(originQueryBuilder, field, searchValue);
-
-      let currentWhereRaw: string;
-
-      if (field.isMultipleCellValue) {
         switch (field.cellValueType) {
           case CellValueType.DateTime:
-            currentWhereRaw = searchQueryBuilder.getMultipleDateSqlQuery();
-            break;
+            return searchQueryBuilder.getDateSqlQuery();
           case CellValueType.Number:
-            currentWhereRaw = searchQueryBuilder.getMultipleNumberSqlQuery();
-            break;
+            return searchQueryBuilder.getNumberSqlQuery();
           case CellValueType.String:
             if (field.isStructuredCellValue) {
-              currentWhereRaw = searchQueryBuilder.getMultipleJsonSqlQuery();
+              return searchQueryBuilder.getJsonSqlQuery();
             } else {
-              currentWhereRaw = searchQueryBuilder.getMultipleTextSqlQuery();
+              return searchQueryBuilder.getTextSqlQuery();
             }
-            break;
         }
-        joinWhereSql(index, currentWhereRaw, field.dbFieldName);
-        return;
-      }
+      })
+      .filter((sql) => !!sql);
 
-      switch (field.cellValueType) {
-        case CellValueType.DateTime:
-          currentWhereRaw = searchQueryBuilder.getDateSqlQuery();
-          break;
-        case CellValueType.Number:
-          currentWhereRaw = searchQueryBuilder.getNumberSqlQuery();
-          break;
-        case CellValueType.String:
-          if (field.isStructuredCellValue) {
-            currentWhereRaw = searchQueryBuilder.getJsonSqlQuery();
-          } else {
-            currentWhereRaw = searchQueryBuilder.getTextSqlQuery();
-          }
-          break;
-      }
-
-      joinWhereSql(index, currentWhereRaw, field.dbFieldName);
+    queryBuilder.with('search_field_union_table', (qb) => {
+      searchField.forEach((field, index) => {
+        if (index === 0) {
+          qb.select('*', knexInstance.raw(`? as matched_column`, [field.dbFieldName]))
+            .whereRaw(`${searchQuery[index]}`)
+            .from(dbTableName);
+        } else {
+          qb.unionAll(function () {
+            this.select('*', knexInstance.raw(`? as matched_column`, [field.dbFieldName]))
+              .whereRaw(`${searchQuery[index]}`)
+              .from(dbTableName);
+          });
+        }
+      });
     });
 
-    // as sub query
-    originQueryBuilder.as('searchCountSubQuery');
+    queryBuilder
+      .select('__id', '__auto_number', 'matched_column')
+      .select(
+        knexInstance.raw(
+          `CASE
+            ${searchField.map((field) => `WHEN matched_column = '${field.dbFieldName}' THEN '${field.id}'`).join(' ')}
+          END AS "fieldId"`
+        )
+      )
+      .from('search_field_union_table');
+    return queryBuilder;
+  }
 
-    return originQueryBuilder;
+  static buildSearchCountQuery(
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    SearchQuery: new (
+      originQueryBuilder: Knex.QueryBuilder,
+      field: IFieldInstance,
+      searchValue: string
+    ) => SearchQueryAbstract,
+    queryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string
+  ) {
+    const searchQuery = searchField
+      .map((field) => {
+        const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
+
+        if (field.isMultipleCellValue) {
+          switch (field.cellValueType) {
+            case CellValueType.DateTime:
+              return searchQueryBuilder.getMultipleDateSqlQuery();
+            case CellValueType.Number:
+              return searchQueryBuilder.getMultipleNumberSqlQuery();
+            case CellValueType.String:
+              if (field.isStructuredCellValue) {
+                return searchQueryBuilder.getMultipleJsonSqlQuery();
+              } else {
+                return searchQueryBuilder.getMultipleTextSqlQuery();
+              }
+          }
+        }
+
+        switch (field.cellValueType) {
+          case CellValueType.DateTime:
+            return searchQueryBuilder.getDateSqlQuery();
+          case CellValueType.Number:
+            return searchQueryBuilder.getNumberSqlQuery();
+          case CellValueType.String:
+            if (field.isStructuredCellValue) {
+              return searchQueryBuilder.getJsonSqlQuery();
+            } else {
+              return searchQueryBuilder.getTextSqlQuery();
+            }
+        }
+      })
+      .filter((sql) => !!sql);
+
+    const knexInstance = queryBuilder.client;
+
+    queryBuilder.select(
+      knexInstance.raw(`
+        COALESCE(SUM(
+          ${searchQuery.map((sql) => `(CASE WHEN (${sql}) THEN 1 ELSE 0 END)`).join(' + ')}
+        ), 0) as count
+      `)
+    );
+
+    return queryBuilder;
   }
 
   constructor(
