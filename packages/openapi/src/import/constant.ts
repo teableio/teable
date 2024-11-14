@@ -2,7 +2,8 @@ import { SUPPORTEDTYPE } from './types';
 
 export const importTypeMap = {
   [SUPPORTEDTYPE.CSV]: {
-    accept: 'text/csv,text/tab-separated-values',
+    accept:
+      'text/csv,text/tab-separated-values,text/plain,application/csv,application/vnd.ms-excel',
     exampleUrl: 'https://www.example.com/file.csv',
     exceedSize: null,
   },
