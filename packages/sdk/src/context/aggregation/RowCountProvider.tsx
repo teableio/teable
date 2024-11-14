@@ -9,6 +9,7 @@ import {
   useLinkFilter,
   useSearch,
   useTableListener,
+  useView,
   useViewListener,
 } from '../../hooks';
 import { AnchorContext } from '../anchor';
@@ -27,9 +28,17 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const { shareId } = useContext(ShareViewContext);
   const { selectedRecordIds, filterLinkCellCandidate } = useLinkFilter();
 
+  const view = useView();
+
   const rowCountQuery = useMemo(
-    () => ({ viewId, search: searchQuery, selectedRecordIds, filterLinkCellCandidate }),
-    [filterLinkCellCandidate, selectedRecordIds, searchQuery, viewId]
+    () => ({
+      viewId,
+      search: searchQuery,
+      selectedRecordIds,
+      filterLinkCellCandidate,
+      filter: shareId ? view?.filter : undefined,
+    }),
+    [viewId, searchQuery, selectedRecordIds, filterLinkCellCandidate, shareId, view?.filter]
   );
 
   const rowCountQueryKey = useMemo(
