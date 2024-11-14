@@ -167,21 +167,23 @@ export class ShareController {
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/search-count')
   async getSearchCount(
-    @Param('shareId') shareId: string,
+    @Request() req: any,
     @Query(new ZodValidationPipe(searchCountRoSchema))
     queryRo: ISearchCountRo
   ): Promise<ISearchCountVo> {
-    return this.shareService.getShareSearchCount(shareId, queryRo);
+    const { tableId, view } = req.shareInfo as IShareViewInfo;
+    return this.shareService.getShareSearchCount(tableId, { ...queryRo, viewId: view?.id });
   }
 
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/search-index')
   async getSearchIndex(
-    @Param('shareId') shareId: string,
+    @Request() req: any,
     @Query(new ZodValidationPipe(searchIndexByQueryRoSchema))
     queryRo: ISearchIndexByQueryRo
   ): Promise<ISearchIndexVo> {
-    return this.shareService.getShareSearchIndex(shareId, queryRo);
+    const { tableId, view } = req.shareInfo as IShareViewInfo;
+    return this.shareService.getShareSearchIndex(tableId, { ...queryRo, viewId: view?.id });
   }
 
   @UseGuards(ShareAuthGuard)

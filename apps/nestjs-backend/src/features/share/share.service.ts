@@ -458,27 +458,11 @@ export class ShareService {
     return list.map((item) => pick(item, 'userId', 'email', 'userName', 'avatar'));
   }
 
-  async getShareSearchCount(shareId: string, query: ISearchCountRo) {
-    const { id: viewId, tableId } =
-      (await this.prismaService.view.findFirstOrThrow({
-        where: { shareId, enableShare: true, deletedTime: null },
-        select: {
-          id: true,
-          tableId: true,
-        },
-      })) || {};
-    return this.aggregationService.getSearchCount(tableId, { ...query, viewId });
+  async getShareSearchCount(tableId: string, query: ISearchCountRo) {
+    return this.aggregationService.getSearchCount(tableId, query);
   }
 
-  async getShareSearchIndex(shareId: string, query: ISearchIndexByQueryRo) {
-    const { id: viewId, tableId } =
-      (await this.prismaService.view.findFirstOrThrow({
-        where: { shareId, enableShare: true, deletedTime: null },
-        select: {
-          id: true,
-          tableId: true,
-        },
-      })) || {};
-    return this.aggregationService.getRecordIndexBySearchOrder(tableId, { ...query, viewId });
+  async getShareSearchIndex(tableId: string, query: ISearchIndexByQueryRo) {
+    return this.aggregationService.getRecordIndexBySearchOrder(tableId, query);
   }
 }
