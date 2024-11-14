@@ -300,7 +300,7 @@ export class ShareService {
       filter,
       take,
       skip,
-      search: search ? [search, lookupFieldId] : undefined,
+      search: search ? [search, lookupFieldId, true] : undefined,
       projection: [lookupFieldId],
       fieldKeyType: FieldKeyType.Id,
       filterLinkCellCandidate: field.id,
@@ -315,7 +315,7 @@ export class ShareService {
     return this.recordService.getRecords(foreignTableId, {
       skip,
       take,
-      search: search ? [search, lookupFieldId] : undefined,
+      search: search ? [search, lookupFieldId, true] : undefined,
       fieldKeyType: FieldKeyType.Id,
       projection: [lookupFieldId],
       filterLinkCellSelected: fieldId,
