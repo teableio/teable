@@ -891,8 +891,39 @@ describe('OpenAPI Lookup field (e2e)', () => {
         ],
       });
 
-      const table2Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
-      expect(table2Records.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
+      const table1Records2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(table1Records2.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
+
+      // set it to exist a filtered value (key state!)
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          {
+            id: table1.records[0].id,
+            fields: {
+              [linkField.id]: [{ id: table2.records[0].id }],
+            },
+          },
+        ],
+      });
+
+      // add a link in a multiple value link cell
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          {
+            id: table1.records[0].id,
+            fields: {
+              [linkField.id]: [{ id: table2.records[0].id }, { id: table2.records[1].id }],
+            },
+          },
+        ],
+      });
+
+      const table1Records3 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(table1Records3.records[0].fields[lookupField.id]).toEqual(['B2']);
     });
   });
 });

@@ -1083,6 +1083,10 @@ export class ReferenceService {
         ? this.revertFkMap(fkRecordMap?.[symmetricLinkFieldId])
         : undefined;
 
+    const unionToRecordIds = fkMap
+      ? Array.from(new Set([toRecordIds || [], Object.keys(fkMap)].flat()))
+      : toRecordIds;
+
     const { fkHostTableName, selfKeyName, foreignKeyName } = options;
     const query = knex
       .with('initial_to_ids', (qb) => {
@@ -1095,8 +1099,8 @@ export class ReferenceService {
           qb.select(selfKeyName).from(fromQuery.as('t'));
         }
 
-        if (toRecordIds?.length) {
-          const valueQueries = toRecordIds.map((id) =>
+        if (unionToRecordIds?.length) {
+          const valueQueries = unionToRecordIds.map((id) =>
             knex.select(knex.raw('? as ??', [id, selfKeyName]))
           );
           qb.union(valueQueries);
@@ -1123,28 +1127,9 @@ export class ReferenceService {
 
     const affectedRecordItemsQuerySql = query.toQuery();
 
-    const result = await this.prismaService
+    return await this.prismaService
       .txClient()
       .$queryRawUnsafe<IRelatedRecordItem[]>(affectedRecordItemsQuerySql);
-
-    if (fkMap) {
-      const relatedFromMap = keyBy(result, 'fromId');
-      const recordIds = uniq(result.map((item) => item.toId).concat(toRecordIds || []));
-      recordIds.forEach((id) => {
-        const fk = fkMap[id];
-        if (!fk) {
-          return;
-        }
-        const oldKey = [fk.oldKey].flat().filter(Boolean) as string[];
-        oldKey.forEach((key) => {
-          if (relatedFromMap[key] && relatedFromMap[key].toId === id) {
-            return;
-          }
-          result.push({ fromId: key, toId: id });
-        });
-      });
-    }
-    return result;
   }
 
   flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {
