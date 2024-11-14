@@ -28,7 +28,7 @@ export const GetShareViewSearchIndexRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['aggregation'],
+  tags: ['share'],
 });
 
 export const getShareViewSearchIndex = async (shareId: string, query?: ISearchIndexByQueryRo) => {
