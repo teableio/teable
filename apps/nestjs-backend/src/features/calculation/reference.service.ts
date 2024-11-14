@@ -687,10 +687,6 @@ export class ReferenceService {
     });
 
     if (field.type === FieldType.Rollup) {
-      // console.log('calculateRollup', field, lookupField, record, lookupValues);
-      if (lookupValues == null) {
-        return null;
-      }
       return field
         .evaluate(
           { values: virtualField },
@@ -1088,41 +1084,63 @@ export class ReferenceService {
       : toRecordIds;
 
     const { fkHostTableName, selfKeyName, foreignKeyName } = options;
-    const query = knex
-      .with('initial_to_ids', (qb) => {
-        if (fromRecordIds?.length) {
-          const fromQuery = knex
-            .select(selfKeyName)
-            .from(fkHostTableName)
-            .whereIn(foreignKeyName, fromRecordIds);
 
-          qb.select(selfKeyName).from(fromQuery.as('t'));
-        }
+    // 1. Build the base query with initial_to_ids CTE
+    const query = knex.with('initial_to_ids', (qb) => {
+      if (fromRecordIds?.length) {
+        const fromQuery = knex
+          .select(selfKeyName)
+          .from(fkHostTableName)
+          .whereIn(foreignKeyName, fromRecordIds);
 
-        if (unionToRecordIds?.length) {
-          const valueQueries = unionToRecordIds.map((id) =>
-            knex.select(knex.raw('? as ??', [id, selfKeyName]))
-          );
-          qb.union(valueQueries);
-        }
-      })
-      .select({
-        toId: knex.ref(`i.${selfKeyName}`),
-        fromId: knex.ref(`a.${foreignKeyName}`),
-      })
-      .from('initial_to_ids as i')
-      .leftJoin(`${fkHostTableName} as a`, `a.${selfKeyName}`, `i.${selfKeyName}`);
+        qb.select(selfKeyName).from(fromQuery.as('t'));
+      }
 
+      if (unionToRecordIds?.length) {
+        const valueQueries = unionToRecordIds.map((id) =>
+          knex.select(knex.raw('? as ??', [id, selfKeyName]))
+        );
+        qb.union(valueQueries);
+      }
+    });
+
+    // 2. Add filter logic and build final query
     if (field.lookupOptions?.filter) {
+      // First get filtered records
       query
         .with('filtered_records', (qb) => {
           const dataTableName = tableId2DbTableName[options.foreignTableId];
           qb.select('__id').from(dataTableName);
           dbProvider.filterQuery(qb, fieldMap, field.lookupOptions!.filter).appendQueryBuilder();
         })
-        .whereIn(`a.${foreignKeyName}`, function () {
-          this.select('__id').from('filtered_records');
-        });
+        // Get valid pairs (where fromId passes filter)
+        .with('valid_pairs', (qb) => {
+          qb.select([`i.${selfKeyName} as toId`, `a.${foreignKeyName} as fromId`])
+            .from('initial_to_ids as i')
+            .leftJoin(`${fkHostTableName} as a`, `a.${selfKeyName}`, `i.${selfKeyName}`)
+            .whereIn(`a.${foreignKeyName}`, function () {
+              this.select('__id').from('filtered_records');
+            });
+        })
+        // Union with toIds that have no valid pairs (with null fromId)
+        .select('*')
+        .from('valid_pairs')
+        .unionAll(
+          knex
+            .select([`initial_to_ids.${selfKeyName} as toId`, knex.raw('NULL as fromId')])
+            .from('initial_to_ids')
+            .whereNotExists(function () {
+              this.select('*')
+                .from('valid_pairs')
+                .where('toId', knex.ref(`initial_to_ids.${selfKeyName}`));
+            })
+        );
+    } else {
+      // No filter, just get all pairs
+      query
+        .select([`i.${selfKeyName} as toId`, `a.${foreignKeyName} as fromId`])
+        .from('initial_to_ids as i')
+        .leftJoin(`${fkHostTableName} as a`, `a.${selfKeyName}`, `i.${selfKeyName}`);
     }
 
     const affectedRecordItemsQuerySql = query.toQuery();

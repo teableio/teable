@@ -53,34 +53,33 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     try {
       this.logger.log('Starting graceful shutdown...');
-
-      await new Promise((resolve, reject) => {
-        this.shareDb.close((err) => {
-          if (err) {
-            this.logger.error('ShareDb close error', err?.stack);
-            reject(err);
-          } else {
-            this.logger.log('ShareDb closed successfully');
-            resolve(null);
-          }
-        });
-      });
-
-      this.server.clients.forEach((client) => {
+      this.server?.clients.forEach((client) => {
         client.terminate();
       });
 
-      await new Promise((resolve, reject) => {
-        this.server.close((err) => {
-          if (err) {
-            this.logger.error('DevWsGateway close error', err?.stack);
-            reject(err);
-          } else {
-            this.logger.log('WebSocket server closed successfully');
+      await Promise.all([
+        new Promise((resolve) => {
+          this.shareDb.close((err) => {
+            if (err) {
+              this.logger.error('ShareDb close error', err?.stack);
+            } else {
+              this.logger.log('ShareDb closed successfully');
+            }
             resolve(null);
-          }
-        });
-      });
+          });
+        }),
+
+        new Promise((resolve) => {
+          this.server.close((err) => {
+            if (err) {
+              this.logger.error('DevWsGateway close error', err?.stack);
+            } else {
+              this.logger.log('WebSocket server closed successfully');
+            }
+            resolve(null);
+          });
+        }),
+      ]);
 
       this.logger.log('Graceful had shutdown completed');
       process.exit(0);
