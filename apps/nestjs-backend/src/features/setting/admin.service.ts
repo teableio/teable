@@ -93,7 +93,7 @@ export class AdminService {
           if (err) {
             reject(err);
           } else {
-            snapshotStream.push(null); // 标记流结束
+            snapshotStream.push(null);
             resolve();
           }
         });
