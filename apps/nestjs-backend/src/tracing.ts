@@ -35,13 +35,10 @@ const otelSDK = new NodeSDK({
 export default otelSDK;
 
 const shutdownHandler = () => {
-  otelSDK
-    .shutdown()
-    .then(
-      () => console.log('OTEL shut down successfully'),
-      (err) => console.log('Error shutting down OTEL', err)
-    )
-    .finally(() => process.exit(0));
+  return otelSDK.shutdown().then(
+    () => console.log('OTEL shut down successfully'),
+    (err) => console.log('Error shutting down OTEL', err)
+  );
 };
 
 // Handle both SIGTERM and SIGINT

@@ -31,7 +31,7 @@ export class NextService implements OnModuleInit, OnModuleDestroy {
     await this.startNEXTjs();
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     this.server.close();
   }
 }
