@@ -101,7 +101,7 @@ export class RecordCalculateService {
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
     const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
 
-    await this.batchService.updateRecords(manualOpsMap, {}, {});
+    await this.batchService.updateRecords(manualOpsMap);
 
     await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.fkRecordMap);
   }

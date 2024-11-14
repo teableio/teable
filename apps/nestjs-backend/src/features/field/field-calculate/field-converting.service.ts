@@ -776,7 +776,7 @@ export class FieldConvertingService {
       recordOpsMap = composeOpMaps([recordOpsMap, result.opsMapByLink]);
     }
 
-    await this.batchService.updateRecords(recordOpsMap, {}, {});
+    await this.batchService.updateRecords(recordOpsMap);
 
     await this.referenceService.calculateOpsMap(recordOpsMap, fkRecordMap);
   }

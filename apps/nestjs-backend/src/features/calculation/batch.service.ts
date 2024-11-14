@@ -119,8 +119,8 @@ export class BatchService {
   @Timing()
   async updateRecords(
     opsMap: IOpsMap,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    tableId2DbTableName?: { [tableId: string]: string }
+    fieldMap: { [fieldId: string]: IFieldInstance } = {},
+    tableId2DbTableName: { [tableId: string]: string } = {}
   ) {
     const result = await this.completeMissingCtx(opsMap, fieldMap, tableId2DbTableName);
     fieldMap = result.fieldMap;
