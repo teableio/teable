@@ -33,6 +33,7 @@ export interface IRenderLayerProps
     | 'columnStatistics'
     | 'groupCollection'
     | 'rowIndexVisible'
+    | 'searchCursor'
     | 'collaborators'
     | 'columnHeaderVisible'
     | 'isMultiSelectionEnable'
@@ -76,6 +77,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     activeCell,
     activeCellBound,
     collaborators,
+    searchCursor,
     dragState,
     scrollState,
     columnFreezeState,
@@ -150,6 +152,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       activeCell,
       activeCellBound,
       collaborators,
+      searchCursor,
       dragState,
       scrollState,
       columnFreezeState,
@@ -192,6 +195,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     activeCell,
     activeCellBound,
     collaborators,
+    searchCursor,
     dragState,
     mouseState,
     scrollState,

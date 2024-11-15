@@ -7,12 +7,11 @@ import {
   getShareViewSearchCount,
   getShareViewSearchIndex,
 } from '@teable/openapi';
-import type { GridView } from '@teable/sdk';
-import { CombinedSelection, SelectionRegionType } from '@teable/sdk';
+import { type GridView } from '@teable/sdk';
 import { useTableId, useView, useFields, useSearch } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { useDebounce } from 'react-use';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import type { ISearchButtonProps } from './SearchButton';
@@ -24,14 +23,27 @@ enum PageDirection {
 
 type ISearchCountPaginationProps = Pick<ISearchButtonProps, 'shareView'>;
 
-export const SearchCountPagination = (props: ISearchCountPaginationProps) => {
+export interface ISearchCountPaginationRef {
+  nextPage: () => void;
+}
+
+export const SearchCountPagination = forwardRef<
+  ISearchCountPaginationRef,
+  ISearchCountPaginationProps
+>((props: ISearchCountPaginationProps, ref) => {
   const { shareView } = props;
   const { value, searchQuery } = useSearch();
   const tableId = useTableId();
   const view = useView() as GridView;
   const fields = useFields();
   const [currentPage, setCurrentPage] = useState(0);
-  const { gridRef } = useGridSearchStore();
+  const { gridRef, setSearchCursor } = useGridSearchStore();
+
+  useImperativeHandle(ref, () => ({
+    nextPage: () => {
+      switchPage(PageDirection.Next);
+    },
+  }));
 
   const { mutateAsync: getOrderIndexFn } = useMutation({
     mutationFn: ({ tableId, query }: { tableId: string; query: ISearchIndexByQueryRo }) =>
@@ -49,11 +61,8 @@ export const SearchCountPagination = (props: ISearchCountPaginationProps) => {
       }))
       .sort((a, b) => a.order - b.order);
     const index = allFieldWithHidden.findIndex((f) => f.id === cellColumnId);
-    const newSelectSelection = new CombinedSelection(SelectionRegionType.Cells, [
-      [index, row - 1],
-      [index, row - 1],
-    ]);
-    newSelectSelection && gridRef?.current?.setSelection(newSelectSelection);
+    setSearchCursor([index, row - 1]);
+    gridRef?.current?.scrollToItem([index, row - 1]);
   };
 
   const { data: searchCountData, isLoading: countLoading } = useQuery({
@@ -154,4 +163,6 @@ export const SearchCountPagination = (props: ISearchCountPaginationProps) => {
       </div>
     ))
   );
-};
+});
+
+SearchCountPagination.displayName = 'SearchCountPagination';

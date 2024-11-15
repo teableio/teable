@@ -58,6 +58,13 @@ const darkTheme = {
   // interaction
   interactionLineColorCommon: colors.zinc[600],
   interactionLineColorHighlight: colors.violet[700],
+
+  // search cursor
+  searchCursorBg: hexToRGBA(colors.orange[400]),
+
+  // comment
+  commentCountBg: colors.orange[400],
+  commentCountTextColor: colors.white,
 } as IGridTheme;
 
 export function useGridTheme(): IGridTheme {

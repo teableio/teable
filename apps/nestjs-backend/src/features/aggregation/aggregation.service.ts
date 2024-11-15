@@ -617,7 +617,7 @@ export class AggregationService {
     queryRo: ISearchIndexByQueryRo,
     projection?: string[]
   ) {
-    const { search, index = 1, orderBy, filter, viewId } = queryRo;
+    const { search, index = 1, orderBy, filter, viewId, groupBy } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
@@ -636,36 +636,31 @@ export class AggregationService {
 
     const queryBuilder = this.knex.queryBuilder();
 
-    this.dbProvider.searchIndexQuery(
-      queryBuilder,
-      searchFields,
-      search?.[0] as string,
-      dbTableName
-    );
+    this.dbProvider.searchIndexQuery(queryBuilder, searchFields, search?.[0], dbTableName);
 
-    if (search) {
-      if (orderBy?.length) {
-        this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, orderBy).appendSortBuilder();
-      }
-
-      if (filter) {
-        this.dbProvider
-          .filterQuery(queryBuilder, fieldInstanceMap, filter, {
-            withUserId: this.cls.get('user.id'),
-          })
-          .appendQueryBuilder();
-      }
-
-      queryBuilder.orderBy(basicSortIndex, 'asc');
-      const cases = searchFields.map((field, index) => {
-        return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
-          'matched_column',
-          field.dbFieldName,
-          index + 1,
-        ]);
-      });
-      cases.length && queryBuilder.orderByRaw(cases.join(','));
+    if (orderBy?.length || groupBy?.length) {
+      this.dbProvider
+        .sortQuery(queryBuilder, fieldInstanceMap, [...(groupBy ?? []), ...(orderBy ?? [])])
+        .appendSortBuilder();
     }
+
+    if (filter) {
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldInstanceMap, filter, {
+          withUserId: this.cls.get('user.id'),
+        })
+        .appendQueryBuilder();
+    }
+
+    queryBuilder.orderBy(basicSortIndex, 'asc');
+    const cases = searchFields.map((field, index) => {
+      return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
+        'matched_column',
+        field.dbFieldName,
+        index + 1,
+      ]);
+    });
+    cases.length && queryBuilder.orderByRaw(cases.join(','));
 
     queryBuilder.limit(1).offset(index - 1);
 

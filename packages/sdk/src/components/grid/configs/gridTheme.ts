@@ -53,6 +53,9 @@ export interface IGridTheme {
   scrollBarBg: string;
   interactionLineColorCommon: string;
   interactionLineColorHighlight: string;
+  searchCursorBg: string;
+  commentCountBg: string;
+  commentCountTextColor: string;
 }
 
 export const gridTheme: IGridTheme = {
@@ -128,4 +131,11 @@ export const gridTheme: IGridTheme = {
   // interaction
   interactionLineColorCommon: colors.slate[300],
   interactionLineColorHighlight: colors.violet[500],
+
+  // search cursor
+  searchCursorBg: hexToRGBA(colors.amber[300]),
+
+  // comment
+  commentCountBg: colors.orange[400],
+  commentCountTextColor: colors.white,
 };

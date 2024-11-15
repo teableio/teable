@@ -127,7 +127,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = useFieldCellEditable();
   const { undo, redo } = useUndoRedo();
-  const { setGridRef } = useGridSearchStore();
+  const { setGridRef, searchCursor } = useGridSearchStore();
 
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
@@ -794,6 +794,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         groupCollection={groupCollection}
         groupPoints={groupPoints as unknown as IGroupPoint[]}
         collaborators={collaborators}
+        searchCursor={searchCursor}
         getCellContent={getCellContent}
         onDelete={getAuthorizedFunction(onDelete, 'record|update')}
         onDragStart={onDragStart}

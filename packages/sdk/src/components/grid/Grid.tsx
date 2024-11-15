@@ -55,6 +55,8 @@ export interface IGridExternalProps {
   scrollBarVisible?: boolean;
   rowIndexVisible?: boolean;
   collaborators?: ICollaborator;
+  // [rowIndex, colIndex]
+  searchCursor?: [number, number] | null;
 
   /**
    * Indicates which areas can be dragged, including rows, columns or no drag
@@ -185,6 +187,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     style,
     customIcons,
     collaborators,
+    searchCursor,
     groupPoints,
     columnHeaderVisible = true,
     getCellContent,
@@ -545,6 +548,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             scrollState={scrollState}
             rowControls={rowControls}
             collaborators={collaborators}
+            searchCursor={searchCursor}
             imageManager={imageManager}
             spriteManager={spriteManager}
             coordInstance={coordInstance}
@@ -581,6 +585,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             draggable={draggable}
             selectable={selectable}
             collaborators={collaborators}
+            searchCursor={searchCursor}
             rowControls={rowControls}
             imageManager={imageManager}
             spriteManager={spriteManager}

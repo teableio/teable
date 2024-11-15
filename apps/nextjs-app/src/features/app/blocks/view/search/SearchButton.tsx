@@ -8,8 +8,10 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
+import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
 import { SearchCommand } from './SearchCommand';
+import type { ISearchCountPaginationRef } from './SearchCountPagination';
 import { SearchCountPagination } from './SearchCountPagination';
 
 export interface ISearchButtonProps {
@@ -29,6 +31,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);
   const ref = useRef<HTMLInputElement>(null);
+  const { setSearchCursor } = useGridSearchStore();
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
     LocalStorageKeys.EnableGlobalSearch,
     false
@@ -41,6 +44,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
     LocalStorageKeys.TableSearchFieldsCache,
     {}
   );
+  const searchPaginationRef = useRef<ISearchCountPaginationRef>(null);
 
   useEffect(() => {
     setHideNotMatchRow(lsHideNotMatch);
@@ -104,7 +108,8 @@ export const SearchButton = (props: ISearchButtonProps) => {
     cancel();
     setValue();
     setInputValue('');
-  }, [cancel, setValue]);
+    setSearchCursor(null);
+  }, [cancel, setSearchCursor, setValue]);
 
   useEffect(() => {
     setActive(false);
@@ -223,6 +228,9 @@ export const SearchButton = (props: ISearchButtonProps) => {
         value={inputValue || ''}
         onChange={(e) => {
           setInputValue(e.target.value);
+          if (e.target.value === '') {
+            setSearchCursor(null);
+          }
         }}
         onBlur={() => {
           setIsFocused(false);
@@ -230,8 +238,15 @@ export const SearchButton = (props: ISearchButtonProps) => {
         onFocus={() => {
           setIsFocused(true);
         }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            searchPaginationRef?.current?.nextPage();
+          }
+        }}
       />
-      {view?.type === ViewType.Grid && <SearchCountPagination shareView={shareView} />}
+      {view?.type === ViewType.Grid && (
+        <SearchCountPagination shareView={shareView} ref={searchPaginationRef} />
+      )}
       <X
         className="hover:text-primary-foregrounds size-4 cursor-pointer font-light"
         onClick={() => {
