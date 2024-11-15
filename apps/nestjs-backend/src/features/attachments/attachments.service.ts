@@ -17,6 +17,7 @@ import {
   type SignatureVo,
 } from '@teable/openapi';
 import type { Request, Response } from 'express';
+import fse from 'fs-extra';
 import mimeTypes from 'mime-types';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
@@ -31,7 +32,6 @@ import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
 import { InjectStorageAdapter } from './plugins/storage';
-
 @Injectable()
 export class AttachmentsService {
   private logger = new Logger(AttachmentsService.name);
@@ -372,11 +372,16 @@ export class AttachmentsService {
 
     return new Promise((resolve, reject) => {
       const writer = fs.createWriteStream(filePath);
+      const cleanup = () => {
+        writer.destroy();
+        response.data?.destroy?.();
+        fse.removeSync(filePath);
+      };
       try {
         response.data.on('data', (chunk: Buffer) => {
           downloadedBytes += chunk.length;
           if (downloadedBytes > maxSize) {
-            writer.close();
+            cleanup();
             throw new BadRequestException(
               `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
             );
@@ -384,19 +389,19 @@ export class AttachmentsService {
         });
 
         response.data.on('error', (error: unknown) => {
-          throw error;
+          cleanup();
+          reject(error);
         });
 
         response.data.pipe(writer);
 
         writer.on('finish', resolve);
         writer.on('error', (error: unknown) => {
-          throw error;
+          cleanup();
+          reject(error);
         });
       } catch (error) {
-        writer.destroy();
-        response.data?.destroy?.();
-        fs.unlinkSync(filePath);
+        cleanup();
         reject(error);
       }
     });
