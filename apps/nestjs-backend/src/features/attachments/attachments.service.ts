@@ -377,33 +377,23 @@ export class AttachmentsService {
           downloadedBytes += chunk.length;
           if (downloadedBytes > maxSize) {
             writer.close();
-            reject(
-              new BadRequestException(
-                `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
-              )
+            throw new BadRequestException(
+              `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
             );
           }
         });
 
         response.data.on('error', (error: unknown) => {
-          this.logger.error('downloadFile:error', error);
-          writer.destroy();
-          response.data?.destroy?.();
-          fs.unlinkSync(filePath);
-          reject(error);
+          throw error;
         });
 
         response.data.pipe(writer);
 
         writer.on('finish', resolve);
         writer.on('error', (error: unknown) => {
-          this.logger.error('downloadFile:writer:error', error);
-          response.data?.destroy?.();
-          fs.unlinkSync(filePath);
-          reject(error);
+          throw error;
         });
       } catch (error) {
-        this.logger.error('downloadFile:error', error);
         writer.destroy();
         response.data?.destroy?.();
         fs.unlinkSync(filePath);
