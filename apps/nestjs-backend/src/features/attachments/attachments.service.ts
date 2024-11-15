@@ -351,7 +351,7 @@ export class AttachmentsService {
       });
     } catch (error) {
       stream.destroy();
-      throw new BadRequestException('Upload failed');
+      throw error;
     }
   }
 
@@ -362,7 +362,6 @@ export class AttachmentsService {
   }
 
   private async downloadFile(url: string, filePath: string, maxSize: number): Promise<void> {
-    const writer = fs.createWriteStream(filePath);
     let downloadedBytes = 0;
 
     const response = await axios({
@@ -372,22 +371,44 @@ export class AttachmentsService {
     });
 
     return new Promise((resolve, reject) => {
-      response.data.on('data', (chunk: Buffer) => {
-        downloadedBytes += chunk.length;
-        if (downloadedBytes > maxSize) {
-          writer.close();
-          reject(
-            new BadRequestException(
-              `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
-            )
-          );
-        }
-      });
+      const writer = fs.createWriteStream(filePath);
+      try {
+        response.data.on('data', (chunk: Buffer) => {
+          downloadedBytes += chunk.length;
+          if (downloadedBytes > maxSize) {
+            writer.close();
+            reject(
+              new BadRequestException(
+                `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
+              )
+            );
+          }
+        });
 
-      response.data.pipe(writer);
+        response.data.on('error', (error: unknown) => {
+          this.logger.error('downloadFile:error', error);
+          writer.destroy();
+          response.data?.destroy?.();
+          fs.unlinkSync(filePath);
+          reject(error);
+        });
 
-      writer.on('finish', resolve);
-      writer.on('error', reject);
+        response.data.pipe(writer);
+
+        writer.on('finish', resolve);
+        writer.on('error', (error: unknown) => {
+          this.logger.error('downloadFile:writer:error', error);
+          response.data?.destroy?.();
+          fs.unlinkSync(filePath);
+          reject(error);
+        });
+      } catch (error) {
+        this.logger.error('downloadFile:error', error);
+        writer.destroy();
+        response.data?.destroy?.();
+        fs.unlinkSync(filePath);
+        reject(error);
+      }
     });
   }
 }
