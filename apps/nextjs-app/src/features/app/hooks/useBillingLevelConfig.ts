@@ -26,7 +26,7 @@ export const useBillingLevelConfig = (productLevel?: BillingProductLevel) => {
       [BillingProductLevel.Enterprise]: {
         name: t('level.enterprise'),
         description: t('billing.levelTips', { level: t('level.enterprise') }),
-        tagCls: 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-white',
+        tagCls: 'bg-foreground text-background',
       },
     };
   }, [t]);
