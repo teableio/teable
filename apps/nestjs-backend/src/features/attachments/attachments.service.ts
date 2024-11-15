@@ -342,14 +342,17 @@ export class AttachmentsService {
     contentType: string,
     contentLength: number
   ): Promise<void> {
-    await axios.put(url, stream, {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Length': contentLength,
-      },
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
+    try {
+      await axios.put(url, stream, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': contentLength,
+        },
+      });
+    } catch (error) {
+      stream.destroy();
+      throw new BadRequestException('Upload failed');
+    }
   }
 
   private getFilenameFromUrl(url: string): string {
