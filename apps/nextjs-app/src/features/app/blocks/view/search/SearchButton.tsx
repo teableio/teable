@@ -30,6 +30,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);
+  const searchComposition = useRef(false);
   const ref = useRef<HTMLInputElement>(null);
   const { setSearchCursor } = useGridSearchStore();
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
@@ -98,7 +99,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
 
   const [, cancel] = useDebounce(
     () => {
-      setValue(inputValue);
+      !searchComposition?.current && setValue(inputValue);
     },
     500,
     [inputValue]
@@ -226,6 +227,12 @@ export const SearchButton = (props: ISearchButtonProps) => {
         spellCheck="false"
         type="text"
         value={inputValue || ''}
+        onCompositionStart={() => {
+          searchComposition.current = true;
+        }}
+        onCompositionEnd={() => {
+          searchComposition.current = false;
+        }}
         onChange={(e) => {
           setInputValue(e.target.value);
           if (e.target.value === '') {
