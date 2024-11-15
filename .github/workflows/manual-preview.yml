@@ -1,0 +1,147 @@
+name: Preview PR
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  pull_request:
+    types: 
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+
+jobs:
+  check-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+    steps:
+      - name: Check PR labels
+        id: check
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const hasPreviewLabel = context.payload.pull_request.labels.some(
+              label => label.name === 'preview'
+            );
+            console.log('Has preview label:', hasPreviewLabel);
+            core.setOutput('should_deploy', hasPreviewLabel.toString());
+            return hasPreviewLabel;
+
+  build-push:
+    needs: check-pr
+    if: needs.check-pr.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: teable
+            file: Dockerfile
+          - image: teable-db-migrate
+            file: Dockerfile.db-migrate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Ali container registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.cn-shenzhen.aliyuncs.com
+          username: ${{ secrets.ALI_DOCKER_USERNAME }}
+          password: ${{ secrets.ALI_DOCKER_PASSWORD }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.9.0
+      - name: ⚙️ Install zx
+        run: npm install -g zx
+
+      - name: ⚙️ Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            registry.cn-shenzhen.aliyuncs.com/teable/${{ matrix.image }}
+          tags: |
+            type=raw,value=alpha-pr-${{ github.event.pull_request.number }}
+            type=raw,value=${{ github.sha }}
+      - name: ⚙️ Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 📦 Build and push
+        run: |
+          zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
+              --build-arg="ENABLE_CSP=false" \
+              --tag="${{ steps.meta.outputs.tags }}" \
+              --platform="linux/amd64" \
+              --push
+
+  deploy:
+    needs: [check-pr, build-push]
+    if: needs.check-pr.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    env:
+      INSTANCE_NAME: pr-${{ github.event.pull_request.number }}
+      INSTANCE_DOMAIN: pr-${{ github.event.pull_request.number }}
+      DISPLAY_NAME: "teable-pr-${{ github.event.pull_request.number }}"
+      MAIN_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable
+      DB_MIGRATE_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable-db-migrate
+      IMAGE_TAG: ${{ github.sha }}-amd64
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create deployment YAML
+      run: |
+        cp .github/workflows/templates/preview-template.yaml deploy.yaml
+        sed -i "s#__INSTANCE_NAME__#${{ env.INSTANCE_NAME }}#g" deploy.yaml
+        sed -i "s#__INSTANCE_DOMAIN__#${{ env.INSTANCE_DOMAIN }}#g" deploy.yaml
+        sed -i "s#__MAIN_IMAGE_REPOSITORY__#${{ env.MAIN_IMAGE_REPOSITORY }}#g" deploy.yaml
+        sed -i "s#__DB_MIGRATE_IMAGE_REPOSITORY__#${{ env.DB_MIGRATE_IMAGE_REPOSITORY }}#g" deploy.yaml
+        sed -i "s#__IMAGE_TAG__#${{ env.IMAGE_TAG }}#g" deploy.yaml
+        sed -i "s#__DISPLAY_NAME__#${{ env.DISPLAY_NAME }}#g" deploy.yaml
+
+    - name: Apply deploy job
+      uses: actions-hub/kubectl@master
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      with:
+        args: apply -f deploy.yaml
+
+    - name: Rollout status
+      uses: actions-hub/kubectl@master
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      with:
+        args: rollout status deployment/teable-${{ env.INSTANCE_NAME }} --timeout=300s
+
+    - name: Wait for application health check
+      uses: actions-hub/kubectl@master
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      with:
+        args: exec deployment/teable-${{ env.INSTANCE_NAME }} -- curl -f --retry 30 --retry-delay 5 --retry-connrefused http://localhost:3000/health
+
+    - name: Create deployment status comment
+      if: always()
+      env:
+        JOB_STATUS: ${{ job.status }}
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const success = process.env.JOB_STATUS === 'success';
+          const deploymentUrl = `https://${process.env.INSTANCE_DOMAIN}.sealosgzg.site`;
+          const status = success ? '✅ Success' : '❌ Failed';
+          console.log(process.env.JOB_STATUS);
+
+          const commentBody = `**Deployment Status: ${status}**
+          ${success ? `🔗 Preview URL: ${deploymentUrl}` : ''}`;
+
+          await github.rest.issues.createComment({
+            ...context.repo,
+            issue_number: context.payload.pull_request.number,
+            body: commentBody
+          });

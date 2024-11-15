@@ -1,0 +1,55 @@
+name: Cleanup Preview Environment
+
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  INSTANCE_NAME: pr-${{ github.event.pull_request.number }}
+  INSTANCE_DOMAIN: pr-${{ github.event.pull_request.number }}
+  DISPLAY_NAME: "teable-pr-${{ github.event.pull_request.number }}"
+  MAIN_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable
+  DB_MIGRATE_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable-db-migrate
+  IMAGE_TAG: ${{ github.sha }}-amd64
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment YAML
+        run: |
+          cp .github/workflows/templates/preview-template.yaml deploy.yaml
+          sed -i "s#__INSTANCE_NAME__#${{ env.INSTANCE_NAME }}#g" deploy.yaml
+          sed -i "s#__INSTANCE_DOMAIN__#${{ env.INSTANCE_DOMAIN }}#g" deploy.yaml
+          sed -i "s#__MAIN_IMAGE_REPOSITORY__#${{ env.MAIN_IMAGE_REPOSITORY }}#g" deploy.yaml
+          sed -i "s#__DB_MIGRATE_IMAGE_REPOSITORY__#${{ env.DB_MIGRATE_IMAGE_REPOSITORY }}#g" deploy.yaml
+          sed -i "s#__IMAGE_TAG__#${{ env.IMAGE_TAG }}#g" deploy.yaml
+          sed -i "s#__DISPLAY_NAME__#${{ env.DISPLAY_NAME }}#g" deploy.yaml
+
+      - name: Delete deployment
+        uses: actions-hub/kubectl@master
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        with:
+          args: delete -f deploy.yaml --ignore-not-found=true
+
+      - name: Create cleanup status comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const mergeStatus = context.payload.pull_request.merged ? 'Merged' : 'Closed';
+            
+            const commentBody = `## 🧹 Preview Environment Cleanup
+            * PR #${prNumber} has been ${mergeStatus}
+            * Preview environment has been deleted
+            * Cleanup time: ${new Date().toISOString()}`;
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: prNumber,
+              body: commentBody
+            });

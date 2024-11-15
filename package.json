@@ -43,7 +43,7 @@
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
     "install:husky": "node .husky/install.mjs",
-    "nuke:node_modules": "rimraf \"**/node_modules\"",
+    "nuke:node_modules": "pnpm -r exec -- rm -fr node_modules",
     "publish:beta:prerelease": "node ./scripts/publish.mjs prerelease beta",
     "publish:beta:patch": "node ./scripts/publish.mjs prepatch beta",
     "publish:beta:minor": "node ./scripts/publish.mjs preminor beta",
