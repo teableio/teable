@@ -69,7 +69,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap[id]?.toLowerCase();
+      const name = optionMap[id?.trim()]?.toLowerCase()?.trim();
       const containWord = name.indexOf(searchValue?.toLowerCase()) > -1;
       return Number(containWord);
     },
