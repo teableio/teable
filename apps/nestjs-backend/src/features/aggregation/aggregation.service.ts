@@ -22,7 +22,7 @@ import type {
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { get, groupBy, isDate, isEmpty, keyBy } from 'lodash';
+import { get, groupBy, isDate, isEmpty, keyBy, orderBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -737,43 +737,45 @@ export class AggregationService {
       });
     }
 
-    return Object.values(fieldInstanceMap)
-      .map((field) => ({
-        ...field,
-        isStructuredCellValue: field.isStructuredCellValue,
-      }))
-      .filter((field) => {
-        if (!viewColumnMeta) {
-          return true;
-        }
-        return !viewColumnMeta?.[field.id]?.hidden;
-      })
-      .filter((field) => {
-        if (!projection) {
-          return true;
-        }
-        return projection.includes(field.id);
-      })
-      .filter((field) => {
-        if (!search?.[1]) {
-          return true;
-        }
-
-        const searchArr = search[1].split(',');
-        return searchArr.includes(field.id);
-      })
-      .filter((field) => {
-        if (field.type === FieldType.Checkbox) {
-          return false;
-        }
-        return true;
-      })
-      .map((field) => {
-        return {
+    return orderBy(
+      Object.values(fieldInstanceMap)
+        .map((field) => ({
           ...field,
-          order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
-        };
-      })
-      .sort((a, b) => a.order - b.order) as unknown as IFieldInstance[];
+          isStructuredCellValue: field.isStructuredCellValue,
+        }))
+        .filter((field) => {
+          if (!viewColumnMeta) {
+            return true;
+          }
+          return !viewColumnMeta?.[field.id]?.hidden;
+        })
+        .filter((field) => {
+          if (!projection) {
+            return true;
+          }
+          return projection.includes(field.id);
+        })
+        .filter((field) => {
+          if (!search?.[1]) {
+            return true;
+          }
+
+          const searchArr = search[1].split(',');
+          return searchArr.includes(field.id);
+        })
+        .filter((field) => {
+          if (field.type === FieldType.Checkbox) {
+            return false;
+          }
+          return true;
+        })
+        .map((field) => {
+          return {
+            ...field,
+            order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
+          };
+        }),
+      ['order', 'createTime']
+    ) as unknown as IFieldInstance[];
   }
 }

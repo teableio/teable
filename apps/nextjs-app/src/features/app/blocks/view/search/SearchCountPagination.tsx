@@ -53,14 +53,7 @@ export const SearchCountPagination = forwardRef<
   });
 
   const setIndexSelection = (row: number, cellColumnId: string) => {
-    const allFieldWithHidden = fields
-      .filter((f) => !view?.columnMeta[f.id]?.hidden)
-      .map((f) => ({
-        ...f,
-        order: view?.columnMeta[f.id]?.order ?? Number.MIN_SAFE_INTEGER,
-      }))
-      .sort((a, b) => a.order - b.order);
-    const index = allFieldWithHidden.findIndex((f) => f.id === cellColumnId);
+    const index = fields.findIndex((f) => f.id === cellColumnId);
     setSearchCursor([index, row - 1]);
     gridRef?.current?.scrollToItem([index, row - 1]);
   };
