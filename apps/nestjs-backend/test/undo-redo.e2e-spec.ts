@@ -1034,12 +1034,12 @@ describe('Undo Redo (e2e)', () => {
     await undo(table.id);
 
     const viewsAfterUndo = (await getViewList(table.id)).data;
-    expect(viewsAfterUndo[0].id).toMatchObject(view.id);
+    expect(viewsAfterUndo[0].id).equal(view.id);
 
     await redo(table.id);
 
     const viewsAfterRedo = (await getViewList(table.id)).data;
-    expect(viewsAfterRedo[1].id).toMatchObject(view.id);
+    expect(viewsAfterRedo[1].id).equal(view.id);
   });
 
   describe('modify field constraint', () => {

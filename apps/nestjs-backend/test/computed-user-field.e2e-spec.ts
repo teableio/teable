@@ -138,7 +138,7 @@ describe('Computed user field (e2e)', () => {
         title: userName,
       });
 
-      expect(records.data.records[0].fields[formulaField.id]).toMatchObject(userName);
+      expect(records.data.records[0].fields[formulaField.id]).toEqual(userName);
 
       expect(records.data.records[1].fields[lastModifiedByField.id]).toBeUndefined();
 
@@ -159,7 +159,7 @@ describe('Computed user field (e2e)', () => {
         title: userName,
       });
 
-      expect(updatedRecord.data.fields[formulaField.id]).toMatchObject(userName);
+      expect(updatedRecord.data.fields[formulaField.id]).toEqual(userName);
     });
 
     it('should update formula result depends on a last modified time field', async () => {

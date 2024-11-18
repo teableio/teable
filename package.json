@@ -78,5 +78,5 @@
     "pnpm": ">=8.15.0",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.15.5"
+  "packageManager": "pnpm@9.13.0"
 }

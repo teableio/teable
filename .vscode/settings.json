@@ -34,5 +34,6 @@
       "pattern": "./packages/*/"
     }
   ],
-  "vitest.maximumConfigs": 10
+  "vitest.maximumConfigs": 10,
+  "makefile.configureOnOpen": false
 }
