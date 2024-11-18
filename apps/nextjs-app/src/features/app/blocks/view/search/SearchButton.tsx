@@ -247,7 +247,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
-            searchPaginationRef?.current?.nextPage();
+            searchPaginationRef?.current?.nextIndex();
           }
         }}
       />

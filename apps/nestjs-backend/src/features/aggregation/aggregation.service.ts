@@ -617,9 +617,13 @@ export class AggregationService {
     queryRo: ISearchIndexByQueryRo,
     projection?: string[]
   ) {
-    const { search, index = 1, orderBy, filter, viewId, groupBy } = queryRo;
+    const { search, take, skip, orderBy, filter, viewId, groupBy } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
+
+    if (take > 1000) {
+      throw new Error('The maximum search index result is 1000');
+    }
 
     if (!search) {
       throw new Error('Search query is required');
@@ -662,7 +666,8 @@ export class AggregationService {
     });
     cases.length && queryBuilder.orderByRaw(cases.join(','));
 
-    queryBuilder.limit(1).offset(index - 1);
+    queryBuilder.limit(take);
+    skip && queryBuilder.offset(skip);
 
     const sql = queryBuilder.toQuery();
 
@@ -673,22 +678,25 @@ export class AggregationService {
       return null;
     }
 
-    const recordId = result[0]?.__id;
+    const recordIds = result;
 
     // step 2. find the index in current view
     const indexQueryBuilder = this.knex
       .select('row_num')
+      .select('__id')
       .from((qb: Knex.QueryBuilder) => {
         qb.select('__id')
           .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
           .from(viewRecordsQB.as('t'))
           .as('t1');
       })
-      .andWhere('__id', '=', recordId)
-      .first();
+      .whereIn(
+        '__id',
+        recordIds.map((record) => record.__id)
+      );
 
     // eslint-disable-next-line
-    const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number }[]>(
+    const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
       indexQueryBuilder.toQuery()
     );
 
@@ -696,10 +704,16 @@ export class AggregationService {
       return null;
     }
 
-    return {
-      index: Number(indexResult[0]?.row_num),
-      fieldId: result[0]?.fieldId,
-    };
+    return result.map((item) => {
+      const index = Number(indexResult.find((indexItem) => indexItem.__id === item.__id)?.row_num);
+      if (isNaN(index)) {
+        throw new Error('Index not found');
+      }
+      return {
+        index,
+        fieldId: item.fieldId,
+      };
+    });
   }
 
   private async getSearchFields(

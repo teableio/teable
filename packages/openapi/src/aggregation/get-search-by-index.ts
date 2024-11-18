@@ -9,12 +9,14 @@ export const searchIndexVoSchema = z
     index: z.number(),
     fieldId: z.string(),
   })
+  .array()
   .nullable();
 
 export type ISearchIndexVo = z.infer<typeof searchIndexVoSchema>;
 
 export const searchIndexByQueryRoSchema = contentQueryBaseSchema.extend({
-  index: z.coerce.number(),
+  skip: z.coerce.number().optional(),
+  take: z.coerce.number(),
 });
 
 export type ISearchIndexByQueryRo = z.infer<typeof searchIndexByQueryRoSchema>;
