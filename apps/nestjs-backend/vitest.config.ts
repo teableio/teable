@@ -19,8 +19,8 @@ export default defineConfig({
     environment: 'node',
     passWithNoTests: true,
     poolOptions: {
-      threads: {
-        singleThread: true,
+      forks: {
+        singleFork: true,
       },
     },
     coverage: {
