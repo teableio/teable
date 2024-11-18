@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, BadGatewayException } from '@nestjs/common';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import {
   FieldType,
@@ -590,7 +590,7 @@ export class AggregationService {
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
     if (!search) {
-      throw new Error('Search query is required');
+      throw new BadRequestException('Search query is required');
     }
 
     const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
@@ -622,11 +622,11 @@ export class AggregationService {
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
     if (take > 1000) {
-      throw new Error('The maximum search index result is 1000');
+      throw new BadGatewayException('The maximum search index result is 1000');
     }
 
     if (!search) {
-      throw new Error('Search query is required');
+      throw new BadRequestException('Search query is required');
     }
 
     const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);

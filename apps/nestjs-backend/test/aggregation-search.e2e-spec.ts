@@ -3,6 +3,7 @@ import type { ITableFullVo } from '@teable/openapi';
 import { getSearchCount, getSearchIndex, createField, updateViewColumnMeta } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
+import { getError } from './utils/get-error';
 
 import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
 
@@ -46,6 +47,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
   describe('OpenAPI AggregationController (e2e) get count with search query', () => {
     it('should get searchCount', async () => {
       const result = await getSearchCount(table.id, {
+        // eslint-disable-next-line sonarjs/no-duplicate-string
         search: ['Text Field', '', false],
       });
       expect(result?.data?.count).toBe(22);
@@ -79,17 +81,62 @@ describe('OpenAPI AggregationController (e2e)', () => {
 
   describe('OpenAPI AggregationController (e2e) get record index with query', () => {
     it('should get search index', async () => {
-      const result2 = await getSearchIndex(table.id, {
-        index: 1,
+      const result = await getSearchIndex(table.id, {
+        take: 10,
         search: ['Text Field', '', false],
       });
-      expect(result2?.data?.index).toBe(2);
-      expect(result2?.data?.fieldId).toBe(table.fields[0].id);
+      const targetFieldId = table.fields?.[0]?.id;
+      expect(result?.data?.length).toBe(10);
+      expect(result?.data).toEqual([
+        { index: 2, fieldId: targetFieldId },
+        { index: 3, fieldId: targetFieldId },
+        { index: 4, fieldId: targetFieldId },
+        { index: 5, fieldId: targetFieldId },
+        { index: 6, fieldId: targetFieldId },
+        { index: 7, fieldId: targetFieldId },
+        { index: 8, fieldId: targetFieldId },
+        { index: 9, fieldId: targetFieldId },
+        { index: 10, fieldId: targetFieldId },
+        { index: 11, fieldId: targetFieldId },
+      ]);
+    });
+
+    it('should get search index with offset', async () => {
+      const result = await getSearchIndex(table.id, {
+        take: 10,
+        skip: 1,
+        search: ['Text Field', '', false],
+      });
+      const targetFieldId = table.fields?.[0]?.id;
+      expect(result?.data?.length).toBe(10);
+      expect(result?.data).toEqual([
+        { index: 3, fieldId: targetFieldId },
+        { index: 4, fieldId: targetFieldId },
+        { index: 5, fieldId: targetFieldId },
+        { index: 6, fieldId: targetFieldId },
+        { index: 7, fieldId: targetFieldId },
+        { index: 8, fieldId: targetFieldId },
+        { index: 9, fieldId: targetFieldId },
+        { index: 10, fieldId: targetFieldId },
+        { index: 11, fieldId: targetFieldId },
+        { index: 12, fieldId: targetFieldId },
+      ]);
+    });
+
+    it('should throw a error when take over 1000', async () => {
+      const error = await getError(() =>
+        getSearchIndex(table.id, {
+          take: 1001,
+          search: ['Text Field', '', false],
+        })
+      );
+      expect(error?.status).toBe(500);
+      expect(error?.message).toBe('The maximum search index result is 1000');
     });
 
     it('should return null when there is no found', async () => {
       const result2 = await getSearchIndex(table.id, {
-        index: 1,
+        take: 1,
         search: ['Go to Gentle night', '', false],
       });
       expect(result2?.data).toBe('');
