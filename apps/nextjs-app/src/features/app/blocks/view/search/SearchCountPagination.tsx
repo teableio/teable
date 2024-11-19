@@ -106,6 +106,7 @@ export const SearchCountPagination = forwardRef<
       JSON.stringify(searchQuery),
     ],
     queryFn: async () => {
+      setSearchCursor(null);
       const nextMap = await getNextIndex();
       if (totalCount <= PaginationBuffer) {
         return nextMap;

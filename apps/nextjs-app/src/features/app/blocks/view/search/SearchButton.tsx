@@ -225,7 +225,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
       <div className="flex flex-1 justify-between overflow-hidden">
         <input
           ref={ref}
-          className="placeholder:text-muted-foregrounds w-0 grow rounded-md bg-transparent px-1 outline-none"
+          className="placeholder:text-muted-foregrounds min-w-0 grow rounded-md bg-transparent px-1 outline-none"
           placeholder={t('actions.search')}
           autoComplete="off"
           autoCorrect="off"
