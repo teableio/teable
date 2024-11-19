@@ -150,12 +150,13 @@ export const SearchCountPagination = forwardRef<
         previousFn({ ...baseQueryRo, skip: preSkip }),
         previousFn({ ...baseQueryRo }),
       ]);
-      preResult &&
+      preResult?.data &&
         preResult?.data?.forEach((result, index) => {
           const indexNumber = preSkip + index + 1;
           finalResult[indexNumber] = result;
         });
-      nextResult &&
+
+      nextResult?.data &&
         nextResult.data?.forEach((result, index) => {
           const indexNumber = index + 1;
           finalResult[indexNumber] = result;
@@ -202,12 +203,12 @@ export const SearchCountPagination = forwardRef<
         nextFn({ ...baseQueryRo }),
       ]);
 
-      preResult &&
+      preResult?.data &&
         preResult?.data?.forEach((result, index) => {
           const indexNumber = preSkip + index + 1;
           finalResult[indexNumber] = result;
         });
-      nextResult &&
+      nextResult?.data &&
         nextResult.data?.forEach((result, index) => {
           const indexNumber = index + 1;
           finalResult[indexNumber] = result;
@@ -259,9 +260,9 @@ export const SearchCountPagination = forwardRef<
   return (
     value &&
     (countLoading || (currentPage !== 0 && indexLoading) ? (
-      <Spin className="size-3" />
+      <Spin className="size-3 shrink-0" />
     ) : (
-      <div className="flex items-center gap-0.5">
+      <div className="flex flex-1 shrink-0 items-center gap-0.5 p-0">
         <Button
           size={'xs'}
           variant={'ghost'}
@@ -273,7 +274,7 @@ export const SearchCountPagination = forwardRef<
         >
           <ChevronLeft />
         </Button>
-        <span className="pointer-events-none">
+        <span className="pointer-events-none whitespace-nowrap">
           {currentPage} / {totalCount}
         </span>
         <Button
