@@ -54,6 +54,7 @@ export interface IGridTheme {
   interactionLineColorCommon: string;
   interactionLineColorHighlight: string;
   searchCursorBg: string;
+  searchTargetIndexBg: string;
   commentCountBg: string;
   commentCountTextColor: string;
 }
@@ -134,6 +135,7 @@ export const gridTheme: IGridTheme = {
 
   // search cursor
   searchCursorBg: hexToRGBA(colors.amber[300]),
+  searchTargetIndexBg: hexToRGBA(colors.yellow[300]),
 
   // comment
   commentCountBg: colors.orange[400],

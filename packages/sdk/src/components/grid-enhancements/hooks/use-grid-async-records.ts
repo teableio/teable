@@ -1,6 +1,6 @@
 import type { IRecord } from '@teable/core';
 import type { IGetRecordsRo, IGroupPointsVo } from '@teable/openapi';
-import { inRange, debounce } from 'lodash';
+import { inRange, debounce, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
 import { useRecords } from '../../../hooks/use-records';
@@ -12,6 +12,7 @@ const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 
 type IRes = {
   groupPoints: IGroupPointsVo | null;
+  searchHitIndex?: { fieldId: string; recordId: string }[];
   recordMap: IRecordIndexMap;
   onReset: () => void;
   onForceUpdate: () => void;
@@ -137,5 +138,6 @@ export const useGridAsyncRecords = (
     recordsQuery,
     onForceUpdate,
     onReset,
+    searchHitIndex: get(extra, 'searchHitIndex'),
   };
 };

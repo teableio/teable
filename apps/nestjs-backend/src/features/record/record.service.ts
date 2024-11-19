@@ -12,6 +12,7 @@ import type {
   IExtraResult,
   IFilter,
   IFilterSet,
+  IGridColumnMeta,
   IGroup,
   ILinkCellValue,
   IRecord,
@@ -47,9 +48,10 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, difference, keyBy } from 'lodash';
+import { get, difference, keyBy, orderBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { K } from 'vitest/dist/reporters-yx5ZTtEV';
 import { CacheService } from '../../cache/cache.service';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -1347,7 +1349,148 @@ export class RecordService {
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
 
+    // this search step should not abort the query
+    try {
+      const searchHitIndex = await this.getSearchHitIndex(queryBuilder, tableId, query);
+      return { ids, extra: { groupPoints, searchHitIndex } };
+    } catch (e) {
+      this.logger.error('Get search index error:', e);
+    }
+
     return { ids, extra: { groupPoints } };
+  }
+
+  async getSearchFields(
+    originFieldInstanceMap: Record<string, IFieldInstance>,
+    search?: [string, string?, boolean?],
+    viewId?: string,
+    projection?: string[]
+  ) {
+    let viewColumnMeta: IGridColumnMeta | null = null;
+    const fieldInstanceMap = { ...originFieldInstanceMap };
+
+    if (viewId) {
+      const { columnMeta: viewColumnRawMeta } =
+        (await this.prismaService.view.findUnique({
+          where: { id: viewId, deletedTime: null },
+          select: { columnMeta: true },
+        })) || {};
+
+      viewColumnMeta = viewColumnRawMeta ? JSON.parse(viewColumnRawMeta) : null;
+
+      if (viewColumnMeta) {
+        Object.entries(viewColumnMeta).forEach(([key, value]) => {
+          if (get(value, ['hidden'])) {
+            delete fieldInstanceMap[key];
+          }
+        });
+      }
+    }
+
+    if (projection?.length) {
+      Object.keys(fieldInstanceMap).forEach((fieldId) => {
+        if (!projection.includes(fieldId)) {
+          delete fieldInstanceMap[fieldId];
+        }
+      });
+    }
+
+    return orderBy(
+      Object.values(fieldInstanceMap)
+        .map((field) => ({
+          ...field,
+          isStructuredCellValue: field.isStructuredCellValue,
+        }))
+        .filter((field) => {
+          if (!viewColumnMeta) {
+            return true;
+          }
+          return !viewColumnMeta?.[field.id]?.hidden;
+        })
+        .filter((field) => {
+          if (!projection) {
+            return true;
+          }
+          return projection.includes(field.id);
+        })
+        .filter((field) => {
+          if (!search?.[1]) {
+            return true;
+          }
+
+          const searchArr = search[1].split(',');
+          return searchArr.includes(field.id);
+        })
+        .filter((field) => {
+          if (field.type === FieldType.Checkbox) {
+            return false;
+          }
+          return true;
+        })
+        .map((field) => {
+          return {
+            ...field,
+            order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
+          };
+        }),
+      ['order', 'createTime']
+    ) as unknown as IFieldInstance[];
+  }
+
+  private async getSearchHitIndex(
+    recordQuery: Knex.QueryBuilder,
+    tableId: string,
+    query: IGetRecordsRo
+  ) {
+    const { search, viewId, projection } = query;
+
+    if (!search) {
+      return null;
+    }
+
+    const fieldsRaw = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null },
+    });
+    const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
+    const fieldInstanceMap = fieldInstances.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+    recordQuery.clearSelect();
+    const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
+    const newQuery = this.knex
+      .with('record_range', (qb) => {
+        qb.select('*').from(recordQuery.select('*').as('record_range'));
+      })
+      .with('search_index', (qb) => {
+        this.dbProvider.searchIndexQuery(qb, searchFields, search?.[0], 'record_range');
+      })
+      .from('search_index');
+
+    const cases = searchFields.map((field, index) => {
+      return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
+        'matched_column',
+        field.dbFieldName,
+        index + 1,
+      ]);
+    });
+    cases.length && newQuery.orderByRaw(cases.join(','));
+
+    const result = await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(
+      newQuery.toQuery()
+    );
+
+    if (!result.length) {
+      return null;
+    }
+
+    return result.map((res) => ({
+      fieldId: res.fieldId,
+      recordId: res.__id,
+    }));
   }
 
   async getRecordsFields(

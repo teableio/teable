@@ -61,6 +61,7 @@ const darkTheme = {
 
   // search cursor
   searchCursorBg: hexToRGBA(colors.orange[400]),
+  searchTargetIndexBg: hexToRGBA(colors.yellow[400]),
 
   // comment
   commentCountBg: colors.orange[400],

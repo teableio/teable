@@ -145,7 +145,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     generateLocalId(tableId, activeViewId)
   );
 
-  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery } =
+  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery, searchHitIndex } =
     useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
 
   const commentCountMap = useCommentCountMap(recordsQuery);
@@ -795,6 +795,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         groupPoints={groupPoints as unknown as IGroupPoint[]}
         collaborators={collaborators}
         searchCursor={searchCursor}
+        searchHitIndex={searchHitIndex}
         getCellContent={getCellContent}
         onDelete={getAuthorizedFunction(onDelete, 'record|update')}
         onDragStart={onDragStart}

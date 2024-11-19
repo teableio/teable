@@ -117,6 +117,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     collapsedGroupIds,
     collaborators,
     searchCursor,
+    searchHitIndex,
     activeCell,
     getLinearRow,
     real2RowIndex,
@@ -722,6 +723,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           visibleRegion={visibleRegion}
           collaborators={collaborators}
           searchCursor={searchCursor}
+          searchHitIndex={searchHitIndex}
           activeCellBound={activeCellBound}
           activeCell={activeCell}
           mouseState={mouseState}
