@@ -17,7 +17,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { IUserInfoVo } from '@teable/openapi';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { difference, groupBy, isEmpty, keyBy, uniq } from 'lodash';
+import { difference, groupBy, isEmpty, isEqual, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -197,15 +197,15 @@ export class ReferenceService {
 
     const tableId = fieldId2TableId[field.id];
 
-    const changes = Object.values(recordMap).reduce<ICellChange[]>((pre, record) => {
+    const changes = recordIds.reduce<ICellChange[]>((pre, recordId) => {
       let dependencies: IRecord[] | undefined;
-      const dependentRecordIds = dependentRecordIdsIndexed[record.id];
+      const recordItems = dependentRecordIdsIndexed[recordId];
+      const dependentRecordIds = recordItems.map((item) => item.fromId).filter(Boolean) as string[];
+      const record = recordMap[recordId];
 
       if (dependentRecordIds) {
         try {
-          dependencies = dependentRecordIds
-            .map((item) => item.fromId && foreignRecordMap[item.fromId])
-            .filter(Boolean) as IRecord[];
+          dependencies = dependentRecordIds.map((id) => foreignRecordMap[id]);
         } catch (e) {
           console.log('changes:field', field);
           console.log('relatedRecordItems', relatedRecordItems);
@@ -515,7 +515,7 @@ export class ReferenceService {
         : originLookupValues;
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
-      // console.log('calculateLookup:lookupValues', lookupValues, recordItem);
+      // console.log('calculateLookup:lookupValues', field.id, lookupValues, recordItem);
 
       if (field.isLookup) {
         return this.filterArrayNull(lookupValues);
@@ -806,7 +806,7 @@ export class ReferenceService {
     const value = this.calculateComputeField(field, fieldMap, recordItem, userMap);
 
     const oldValue = record.fields[field.id];
-    if (oldValue === value) {
+    if (isEqual(oldValue, value)) {
       return;
     }
 
@@ -907,7 +907,9 @@ export class ReferenceService {
       [dbTableName]: new Set(recordIds),
     };
     if (foreignDbTableName && foreignRecordIds) {
-      recordIdsByTableName[foreignDbTableName] = new Set(foreignRecordIds);
+      recordIdsByTableName[foreignDbTableName] = recordIdsByTableName[foreignDbTableName]
+        ? new Set([...recordIdsByTableName[foreignDbTableName], ...foreignRecordIds])
+        : new Set(foreignRecordIds);
     }
 
     return await this.getRecordMap(recordIdsByTableName, dbTableName2fields);
@@ -1145,9 +1147,11 @@ export class ReferenceService {
 
     const affectedRecordItemsQuerySql = query.toQuery();
 
-    return await this.prismaService
+    const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<IRelatedRecordItem[]>(affectedRecordItemsQuerySql);
+
+    return result.filter((item) => item.fromId || item.toId);
   }
 
   flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {

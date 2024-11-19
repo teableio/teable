@@ -215,10 +215,17 @@ export class TableOpenApiService {
     // handle the link field in this table
     const linkFields = await this.prismaService.txClient().field.findMany({
       where: { tableId, type: FieldType.Link, isLookup: null, deletedTime: null },
-      select: { id: true },
+      select: { id: true, options: true },
     });
 
     for (const field of linkFields) {
+      if (field.options) {
+        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
+        // if the link field is a self-link field, skip it
+        if (options.foreignTableId === tableId) {
+          continue;
+        }
+      }
       await this.fieldOpenApiService.convertField(tableId, field.id, {
         type: FieldType.SingleLineText,
       });
@@ -228,6 +235,9 @@ export class TableOpenApiService {
     const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
 
     for (const field of relatedLinkFieldRaws) {
+      if (field.tableId === tableId) {
+        continue;
+      }
       await this.fieldOpenApiService.convertField(field.tableId, field.id, {
         type: FieldType.SingleLineText,
       });

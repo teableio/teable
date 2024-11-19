@@ -955,5 +955,56 @@ describe('OpenAPI Lookup field (e2e)', () => {
       const table1Records5 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(table1Records5.records[0].fields[lookupField.id]).toBeUndefined();
     });
+
+    it('should update a many-many self-link lookup field', async () => {
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table1.id,
+        },
+      });
+      const symLinkFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId as string;
+
+      const lookupField = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: table1.fields[0].id,
+        },
+      });
+
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          {
+            id: table1.records[0].id,
+            fields: {
+              [table1.fields[0].id]: 'B1',
+              [symLinkFieldId]: [table1.records[0].id],
+            },
+          },
+        ],
+      });
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          {
+            id: table1.records[1].id,
+            fields: {
+              [table1.fields[0].id]: 'B2',
+              [symLinkFieldId]: [table1.records[0].id],
+            },
+          },
+        ],
+      });
+
+      const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(table1Records.records[0].fields[lookupField.id]).toEqual(['B1', 'B2']);
+    });
   });
 });
