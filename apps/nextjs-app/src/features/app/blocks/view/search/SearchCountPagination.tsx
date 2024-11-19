@@ -29,6 +29,7 @@ type ISearchCountPaginationProps = Pick<ISearchButtonProps, 'shareView'>;
 
 export interface ISearchCountPaginationRef {
   nextIndex: () => void;
+  prevIndex: () => void;
 }
 
 export const SearchCountPagination = forwardRef<
@@ -46,6 +47,9 @@ export const SearchCountPagination = forwardRef<
   useImperativeHandle(ref, () => ({
     nextIndex: () => {
       switchIndex(PageDirection.Next);
+    },
+    prevIndex: () => {
+      switchIndex(PageDirection.Prev);
     },
   }));
 
