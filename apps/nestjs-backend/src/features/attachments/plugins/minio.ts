@@ -76,8 +76,8 @@ export class MinioStorage implements StorageAdapter {
   }
 
   private async getShape(bucket: string, objectName: string) {
+    const stream = await this.minioClientPrivateNetwork.getObject(bucket, objectName);
     try {
-      const stream = await this.minioClientPrivateNetwork.getObject(bucket, objectName);
       const metaReader = sharp();
       const sharpReader = stream.pipe(metaReader);
       const { width, height } = await sharpReader.metadata();
@@ -88,6 +88,9 @@ export class MinioStorage implements StorageAdapter {
       };
     } catch (e) {
       return {};
+    } finally {
+      stream.removeAllListeners();
+      stream.destroy();
     }
   }
 
@@ -206,18 +209,26 @@ export class MinioStorage implements StorageAdapter {
     }
     const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
     // stream save in sourceFilePath
-    await new Promise((resolve, reject) => {
-      const writeStream = fse.createWriteStream(sourceFilePath);
-      this.minioClientPrivateNetwork
-        .getObject(bucket, objectName)
-        .then((stream) => {
-          stream.pipe(writeStream);
-          writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
-          stream.on('error', reject);
-        })
-        .catch(reject);
-    });
+    const writeStream = fse.createWriteStream(sourceFilePath);
+    try {
+      await new Promise((resolve, reject) => {
+        this.minioClientPrivateNetwork
+          .getObject(bucket, objectName)
+          .then((stream) => {
+            stream.pipe(writeStream);
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+            stream.on('error', reject);
+          })
+          .catch(reject);
+      });
+    } catch (e) {
+      fse.removeSync(sourceFilePath);
+      throw e;
+    } finally {
+      writeStream.removeAllListeners();
+      writeStream.destroy();
+    }
     const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
       width,
       height

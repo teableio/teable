@@ -373,7 +373,9 @@ export class AttachmentsService {
     return new Promise((resolve, reject) => {
       const writer = fs.createWriteStream(filePath);
       const cleanup = () => {
+        writer.removeAllListeners();
         writer.destroy();
+        response.data?.removeAllListeners();
         response.data?.destroy?.();
         fse.removeSync(filePath);
       };
