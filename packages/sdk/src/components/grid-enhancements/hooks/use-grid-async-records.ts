@@ -3,6 +3,7 @@ import type { IGetRecordsRo, IGroupPointsVo } from '@teable/openapi';
 import { inRange, debounce, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
+import { useSearch } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
 import type { Record as IRecordInstance } from '../../../model';
 
@@ -87,6 +88,8 @@ export const useGridAsyncRecords = (
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
   const queryRef = useRef(query);
   queryRef.current = query;
+
+  const { searchQuery } = useSearch();
   const { records, extra } = useRecords(recordsQuery, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
@@ -94,15 +97,15 @@ export const useGridAsyncRecords = (
       return acc;
     }, {} as IRecordIndexMap)
   );
-  const [loadedGroupedSearchHitMap, setLoadedGroupedSearchHitMap] = useState<
+  const [loadedRecordSearchHitMap, setLoadedRecordSearchHitMap] = useState<
     IRecordSearchHitIndexMap | undefined
   >(() => {
     return getRecordSearchHitIndexMap(extra);
   });
 
   const loadedSearchHitIndex = useMemo<ISearchHits | undefined>(() => {
-    return getSearchHitIndexFromRecordMap(loadedGroupedSearchHitMap);
-  }, [loadedGroupedSearchHitMap]);
+    return getSearchHitIndexFromRecordMap(loadedRecordSearchHitMap);
+  }, [loadedRecordSearchHitMap]);
 
   const [groupPoints, setGroupPoints] = useState<IGroupPointsVo>(
     () =>
@@ -135,7 +138,7 @@ export const useGridAsyncRecords = (
     });
 
     if (get(extra, 'searchHitIndex')) {
-      setLoadedGroupedSearchHitMap((preLoadedRecords) => {
+      setLoadedRecordSearchHitMap((preLoadedRecords) => {
         if (!preLoadedRecords || Object.values(preLoadedRecords).length === 0) {
           return getRecordSearchHitIndexMap(extra);
         }
@@ -199,6 +202,12 @@ export const useGridAsyncRecords = (
     });
   }, [visiblePages, initQuery]);
 
+  useEffect(() => {
+    if (!searchQuery || searchQuery?.[0] === '') {
+      setLoadedRecordSearchHitMap(undefined);
+    }
+  }, [searchQuery]);
+
   const updateVisiblePages = useMemo(() => {
     return debounce(setVisiblePages, 30, { maxWait: 500 });
   }, []);
@@ -214,7 +223,7 @@ export const useGridAsyncRecords = (
 
   const onReset = useCallback(() => {
     setLoadedRecordMap({});
-    setLoadedGroupedSearchHitMap(undefined);
+    setLoadedRecordSearchHitMap(undefined);
     setVisiblePages(defaultVisiblePages);
   }, []);
 
