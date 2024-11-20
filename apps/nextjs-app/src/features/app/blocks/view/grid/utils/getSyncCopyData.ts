@@ -66,8 +66,9 @@ export const getSyncCopyData = ({
         .sort()
         .forEach((recordIndex) => {
           const record = recordMap[recordIndex];
+          if (!record) return;
           const rowContent: string[] = selectedFields.map((field) =>
-            field.cellValue2String(record?.fields[field.id])
+            field.cellValue2String(record.fields[field.id])
           );
           content.push(rowContent);
         });
