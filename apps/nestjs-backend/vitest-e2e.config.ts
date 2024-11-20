@@ -22,8 +22,8 @@ export default defineConfig({
     testTimeout: timeout,
     passWithNoTests: true,
     poolOptions: {
-      threads: {
-        singleThread: true,
+      forks: {
+        singleFork: true,
       },
     },
     coverage: {
