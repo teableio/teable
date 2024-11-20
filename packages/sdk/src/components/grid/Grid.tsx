@@ -92,7 +92,7 @@ export interface IGridExternalProps {
 
   onUndo?: () => void;
   onRedo?: () => void;
-  onCopy?: (selection: CombinedSelection) => void;
+  onCopy?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onPaste?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onDelete?: (selection: CombinedSelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;

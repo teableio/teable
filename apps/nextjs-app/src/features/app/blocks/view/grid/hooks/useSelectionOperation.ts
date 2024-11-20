@@ -1,5 +1,7 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
+import type { IFieldVo } from '@teable/core';
 import type {
   ICopyVo,
   IPasteRo,
@@ -15,6 +17,7 @@ import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
+import { serializerHtml } from '@/features/app/utils/clipboard';
 import { tableConfig } from '@/features/i18n/table.config';
 import { selectionCoverAttachments } from '../utils';
 import {
@@ -24,6 +27,7 @@ import {
   rangeTypes,
   textPasteHandler,
 } from '../utils/copyAndPaste';
+import { getSyncCopyData } from '../utils/getSyncCopyData';
 
 export const useSelectionOperation = (props?: {
   collapsedGroupIds?: string[];
@@ -263,10 +267,58 @@ export const useSelectionOperation = (props?: {
     [deleteReq, tableId, toast, viewId, t]
   );
 
+  const doSyncCopy = useCallback(
+    (
+      e: React.ClipboardEvent,
+      params:
+        | {
+            selection: CombinedSelection;
+            recordMap: IRecordIndexMap;
+          }
+        | { getCopyData: () => ICopyVo }
+    ) => {
+      try {
+        let content: string;
+        let header: IFieldVo[];
+        if ('getCopyData' in params) {
+          const data = params.getCopyData();
+          content = data.content;
+          header = data.header;
+        } else if ('recordMap' in params && 'selection' in params) {
+          const recordMap = params.recordMap;
+          const selection = params.selection;
+          const res = getSyncCopyData({ recordMap, fields, selection });
+          content = res.content;
+          header = res.header;
+        } else {
+          return toast({
+            variant: 'destructive',
+            title: t('table:table.actionTips.copyFailed'),
+            description: 'Unsupported selection type',
+          });
+        }
+        e.clipboardData.setData(ClipboardTypes.text, content);
+        e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
+        e.preventDefault();
+        toast({ title: t('table:table.actionTips.copySuccessful') });
+      } catch (e) {
+        const error = e as Error;
+        toast({
+          variant: 'destructive',
+          title: t('table:table.actionTips.copyFailed'),
+          description: error.message,
+        });
+        console.error('Sync copy error: ', error);
+      }
+    },
+    [fields, toast, t]
+  );
+
   return {
     copy: doCopy,
     paste: doPaste,
     clear: doClear,
     deleteRecords: doDelete,
+    syncCopy: doSyncCopy,
   };
 };
