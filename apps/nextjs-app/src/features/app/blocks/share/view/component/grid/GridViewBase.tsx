@@ -83,7 +83,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const hiddenFields = useHiddenFields();
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
-  const { setGridRef } = useGridSearchStore();
+  const { setGridRef, searchCursor } = useGridSearchStore();
 
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
@@ -126,7 +126,7 @@ export const GridViewBase = (props: IGridViewProps) => {
     };
   }, [filter, sort?.sortObjs, viewQueryWithGroup]);
 
-  const { recordMap, groupPoints, onVisibleRegionChanged } = useGridAsyncRecords(
+  const { recordMap, groupPoints, onVisibleRegionChanged, searchHitIndex } = useGridAsyncRecords(
     ssrRecords,
     undefined,
     viewQuery,
@@ -254,6 +254,8 @@ export const GridViewBase = (props: IGridViewProps) => {
             columnStatistics={columnStatistics}
             freezeColumnCount={isTouchDevice ? 0 : 1}
             columns={columns}
+            searchCursor={searchCursor}
+            searchHitIndex={searchHitIndex}
             customIcons={customIcons}
             rowControls={rowControls}
             style={{

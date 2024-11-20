@@ -165,7 +165,7 @@ export const SearchCountPagination = forwardRef<
       return finalResult;
     } else {
       const result = await previousFn(baseQueryRo);
-      result &&
+      result?.data &&
         result.data?.forEach((result, index) => {
           const indexNumber = skip + index + 1;
           finalResult[indexNumber] = result;
@@ -191,7 +191,7 @@ export const SearchCountPagination = forwardRef<
     if (nextCursor <= totalCount) {
       const skip = currentPage - 1;
       const result = await nextFn({ ...baseQueryRo, skip });
-      result &&
+      result?.data &&
         result.data?.forEach((result, index) => {
           const indexNumber = skip + index + 1;
           finalResult[indexNumber] = result;
