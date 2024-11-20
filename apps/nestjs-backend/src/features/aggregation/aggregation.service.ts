@@ -714,8 +714,10 @@ export class AggregationService {
       return null;
     }
 
+    const indexResultMap = keyBy(indexResult, '__id');
+
     return result.map((item) => {
-      const index = Number(indexResult.find((indexItem) => indexItem.__id === item.__id)?.row_num);
+      const index = Number(indexResultMap[item.__id]?.row_num);
       if (isNaN(index)) {
         throw new Error('Index not found');
       }
