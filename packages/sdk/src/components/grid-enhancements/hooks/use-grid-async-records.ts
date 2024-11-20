@@ -4,7 +4,7 @@ import { inRange, debounce, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
 import { useRecords } from '../../../hooks/use-records';
-import type { Record } from '../../../model';
+import type { Record as IRecordInstance } from '../../../model';
 
 // eslint-disable-next-line
 export const LOAD_PAGE_SIZE = 300;
@@ -20,7 +20,58 @@ type IRes = {
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
 };
 
-export type IRecordIndexMap = { [i: number | string]: Record };
+export type IRecordIndexMap = { [i: number | string]: IRecordInstance };
+
+export type IRecordSearchHitIndexItem = { recordId: string; fieldId: string[] };
+export type IRecordSearchHitIndex = IRecordSearchHitIndexItem[];
+export type IRecordSearchHitIndexMap = Record<string | number, IRecordSearchHitIndexItem>;
+export type ISearchHits = {
+  recordId: string;
+  fieldId: string;
+}[];
+
+const getRecordSearchHitIndex = (extra: unknown) => {
+  const searchHitIndex = get(extra, 'searchHitIndex') as ISearchHits | undefined;
+  if (!searchHitIndex || !searchHitIndex.length) {
+    return [] as IRecordSearchHitIndex;
+  }
+
+  const groupedIndexes = [] as IRecordSearchHitIndex;
+  searchHitIndex.forEach((item) => {
+    const index = groupedIndexes.findIndex((group) => group.recordId === item.recordId);
+    if (index > -1) {
+      groupedIndexes[index] = {
+        recordId: item.recordId,
+        fieldId: [...groupedIndexes[index].fieldId, item.fieldId],
+      };
+    } else {
+      groupedIndexes.push({
+        recordId: item.recordId,
+        fieldId: [item.fieldId],
+      });
+    }
+  });
+  return groupedIndexes;
+};
+
+const getRecordSearchHitIndexMap = (extra: unknown) => {
+  const groupedSearchHitIndex = getRecordSearchHitIndex(extra);
+  return groupedSearchHitIndex.reduce((acc, item, index) => {
+    acc[index] = item;
+    return acc;
+  }, {} as IRecordSearchHitIndexMap);
+};
+
+const getSearchHitIndexFromRecordMap = (
+  groupedSearchHitIndexMap: IRecordSearchHitIndexMap | undefined
+) => {
+  if (!groupedSearchHitIndexMap || Object.values(groupedSearchHitIndexMap).length === 0) {
+    return undefined;
+  }
+  return Object.values(groupedSearchHitIndexMap)
+    .filter((item) => !!item)
+    .flatMap((item) => item.fieldId.map((fieldId) => ({ fieldId, recordId: item.recordId })));
+};
 
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
@@ -43,6 +94,16 @@ export const useGridAsyncRecords = (
       return acc;
     }, {} as IRecordIndexMap)
   );
+  const [loadedGroupedSearchHitMap, setLoadedGroupedSearchHitMap] = useState<
+    IRecordSearchHitIndexMap | undefined
+  >(() => {
+    return getRecordSearchHitIndexMap(extra);
+  });
+
+  const loadedSearchHitIndex = useMemo<ISearchHits | undefined>(() => {
+    return getSearchHitIndexFromRecordMap(loadedGroupedSearchHitMap);
+  }, [loadedGroupedSearchHitMap]);
+
   const [groupPoints, setGroupPoints] = useState<IGroupPointsVo>(
     () =>
       (extra == null
@@ -72,6 +133,31 @@ export const useGridAsyncRecords = (
       }
       return newRecordsState;
     });
+
+    if (get(extra, 'searchHitIndex')) {
+      setLoadedGroupedSearchHitMap((preLoadedRecords) => {
+        if (!preLoadedRecords || Object.values(preLoadedRecords).length === 0) {
+          return getRecordSearchHitIndexMap(extra);
+        }
+
+        const indexes = getRecordSearchHitIndex(extra);
+        const cacheLen = take * 2;
+        const [cacheStartIndex, cacheEndIndex] = [
+          Math.max(startIndex - cacheLen / 2, 0),
+          startIndex + indexes.length + cacheLen / 2,
+        ];
+
+        const newRecordsState: Record<string, IRecordSearchHitIndex[number]> = {};
+        for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
+          if (startIndex <= i && i < startIndex + indexes.length) {
+            newRecordsState[i] = indexes[i - startIndex];
+            continue;
+          }
+          newRecordsState[i] = preLoadedRecords[i];
+        }
+        return newRecordsState;
+      });
+    }
 
     if (extra != null) {
       setGroupPoints((extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints ?? null);
@@ -128,6 +214,7 @@ export const useGridAsyncRecords = (
 
   const onReset = useCallback(() => {
     setLoadedRecordMap({});
+    setLoadedGroupedSearchHitMap(undefined);
     setVisiblePages(defaultVisiblePages);
   }, []);
 
@@ -138,6 +225,6 @@ export const useGridAsyncRecords = (
     recordsQuery,
     onForceUpdate,
     onReset,
-    searchHitIndex: get(extra, 'searchHitIndex'),
+    searchHitIndex: loadedSearchHitIndex,
   };
 };
