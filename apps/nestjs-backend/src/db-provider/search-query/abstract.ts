@@ -93,53 +93,59 @@ export abstract class SearchQueryAbstract {
     dbTableName: string
   ) {
     const knexInstance = queryBuilder.client;
-    const searchQuery = searchField
-      .map((field) => {
-        const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
-        if (field.isMultipleCellValue) {
-          switch (field.cellValueType) {
-            case CellValueType.DateTime:
-              return searchQueryBuilder.getMultipleDateSqlQuery();
-            case CellValueType.Number:
-              return searchQueryBuilder.getMultipleNumberSqlQuery();
-            case CellValueType.String:
-              if (field.isStructuredCellValue) {
-                return searchQueryBuilder.getMultipleJsonSqlQuery();
-              } else {
-                return searchQueryBuilder.getMultipleTextSqlQuery();
-              }
-          }
-        }
-
+    const searchQuery = searchField.map((field) => {
+      const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
+      if (field.isMultipleCellValue) {
         switch (field.cellValueType) {
           case CellValueType.DateTime:
-            return searchQueryBuilder.getDateSqlQuery();
+            return searchQueryBuilder.getMultipleDateSqlQuery();
           case CellValueType.Number:
-            return searchQueryBuilder.getNumberSqlQuery();
+            return searchQueryBuilder.getMultipleNumberSqlQuery();
           case CellValueType.String:
             if (field.isStructuredCellValue) {
-              return searchQueryBuilder.getJsonSqlQuery();
+              return searchQueryBuilder.getMultipleJsonSqlQuery();
             } else {
-              return searchQueryBuilder.getTextSqlQuery();
+              return searchQueryBuilder.getMultipleTextSqlQuery();
             }
         }
-      })
-      .filter((sql) => !!sql);
+      }
+
+      switch (field.cellValueType) {
+        case CellValueType.DateTime:
+          return searchQueryBuilder.getDateSqlQuery();
+        case CellValueType.Number:
+          return searchQueryBuilder.getNumberSqlQuery();
+        case CellValueType.String:
+          if (field.isStructuredCellValue) {
+            return searchQueryBuilder.getJsonSqlQuery();
+          } else {
+            return searchQueryBuilder.getTextSqlQuery();
+          }
+      }
+    });
 
     queryBuilder.with('search_field_union_table', (qb) => {
-      searchField.forEach((field, index) => {
+      for (let index = 0; index < searchQuery.length; index++) {
+        const currentWhereRaw = searchQuery[index];
+        const dbFieldName = searchField[index].dbFieldName;
+
+        // boolean field or new field which does not support search should be skipped
+        if (!currentWhereRaw || !dbFieldName) {
+          continue;
+        }
+
         if (index === 0) {
-          qb.select('*', knexInstance.raw(`? as matched_column`, [field.dbFieldName]))
-            .whereRaw(`${searchQuery[index]}`)
+          qb.select('*', knexInstance.raw(`? as matched_column`, [dbFieldName]))
+            .whereRaw(`${currentWhereRaw}`)
             .from(dbTableName);
         } else {
           qb.unionAll(function () {
-            this.select('*', knexInstance.raw(`? as matched_column`, [field.dbFieldName]))
-              .whereRaw(`${searchQuery[index]}`)
+            this.select('*', knexInstance.raw(`? as matched_column`, [dbFieldName]))
+              .whereRaw(`${currentWhereRaw}`)
               .from(dbTableName);
           });
         }
-      });
+      }
     });
 
     queryBuilder

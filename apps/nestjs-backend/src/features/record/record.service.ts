@@ -51,7 +51,6 @@ import { Knex } from 'knex';
 import { get, difference, keyBy, orderBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { K } from 'vitest/dist/reporters-yx5ZTtEV';
 import { CacheService } from '../../cache/cache.service';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
