@@ -25,9 +25,6 @@ export default defineConfig({
       threads: {
         singleThread: true,
       },
-      forks: {
-        singleFork: true,
-      },
     },
     coverage: {
       provider: 'v8',
