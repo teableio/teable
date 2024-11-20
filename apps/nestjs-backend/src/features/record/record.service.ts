@@ -1351,10 +1351,10 @@ export class RecordService {
 
     // this search step should not abort the query
     try {
-      const searchHitIndex = await this.getSearchHitIndex(queryBuilder, tableId, query);
+      const searchHitIndex = await this.getSearchHitIndex(tableId, query, dbTableName, ids);
       return { ids, extra: { groupPoints, searchHitIndex } };
     } catch (e) {
-      this.logger.error('Get search index error:', e);
+      this.logger.error(`Get search index error: ${(e as Error).message}`, (e as Error)?.stack);
     }
 
     return { ids, extra: { groupPoints } };
@@ -1438,9 +1438,10 @@ export class RecordService {
   }
 
   private async getSearchHitIndex(
-    recordQuery: Knex.QueryBuilder,
     tableId: string,
-    query: IGetRecordsRo
+    query: IGetRecordsRo,
+    dbTableName: string,
+    Ids: string[]
   ) {
     const { search, viewId, projection } = query;
 
@@ -1459,14 +1460,13 @@ export class RecordService {
       },
       {} as Record<string, IFieldInstance>
     );
-    recordQuery.clearSelect();
     const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
     const newQuery = this.knex
-      .with('record_range', (qb) => {
-        qb.select('*').from(recordQuery.select('*').as('record_range'));
+      .with('current_page_records', (qb) => {
+        qb.select('*').from(dbTableName).whereIn('__id', Ids);
       })
       .with('search_index', (qb) => {
-        this.dbProvider.searchIndexQuery(qb, searchFields, search?.[0], 'record_range');
+        this.dbProvider.searchIndexQuery(qb, searchFields, search?.[0], 'current_page_records');
       })
       .from('search_index');
 
