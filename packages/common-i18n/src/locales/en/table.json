@@ -461,7 +461,7 @@
     "addPluginView": "Add Plugin View",
     "search": {
       "field_one": "{{name}}",
-      "field_other": "{{name}} and {{length}} other fields"
+      "field_other": "fields({{length}})"
     }
   },
   "lastModifiedTime": "Last modified time",
