@@ -1,6 +1,7 @@
 import { ViewType } from '@teable/core';
 import { ShareViewContext } from '@teable/sdk/context';
 import { useContext } from 'react';
+import { CalendarView } from './component/calendar/CalendarView';
 import { FormView } from './component/form/FormView';
 import { GalleryView } from './component/gallery/GalleryView';
 import { GridView } from './component/grid/GridView';
@@ -21,6 +22,8 @@ export const ShareView = () => {
         return <KanbanView />;
       case ViewType.Gallery:
         return <GalleryView />;
+      case ViewType.Calendar:
+        return <CalendarView />;
       case ViewType.Plugin:
         return <PluginView shareId={shareId} plugin={extra?.plugin} />;
       default:

@@ -45,6 +45,11 @@ export const AddView: React.FC = () => {
       Icon: VIEW_ICON_MAP[ViewType.Kanban],
     },
     {
+      name: t('view.category.calendar'),
+      type: ViewType.Calendar,
+      Icon: VIEW_ICON_MAP[ViewType.Calendar],
+    },
+    {
       name: t('view.category.form'),
       type: ViewType.Form,
       Icon: VIEW_ICON_MAP[ViewType.Form],

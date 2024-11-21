@@ -1,17 +1,24 @@
-import type { ISelectFieldOptions } from '@teable/core';
+import type { Colors, ISelectFieldOptions } from '@teable/core';
 import { ColorUtils } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
+import colors from 'tailwindcss/colors';
 import type { ICellValue } from '../type';
 import { SelectTag } from './SelectTag';
+
+export const getColorPairs = (color: Colors) => {
+  return {
+    color: ColorUtils.shouldUseLightTextOnColor(color) ? colors.white : colors.black,
+    backgroundColor: ColorUtils.getHexForColor(color),
+  };
+};
 
 export const transformSelectOptions = (choices: ISelectFieldOptions['choices']) => {
   return choices.map(({ name, color }) => ({
     label: name,
     value: name,
-    color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-    backgroundColor: ColorUtils.getHexForColor(color),
+    ...getColorPairs(color),
   }));
 };
 

@@ -1,6 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
-import { mergeWithDefaultFilter, nullsToUndefined, StatisticsFunc, ViewType } from '@teable/core';
+import {
+  FieldType,
+  identify,
+  IdPrefix,
+  mergeWithDefaultFilter,
+  nullsToUndefined,
+  StatisticsFunc,
+  ViewType,
+} from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -11,6 +25,8 @@ import type {
   IRawAggregationValue,
   IRawRowCountValue,
   IGroupPointsRo,
+  ICalendarDailyCollectionRo,
+  ICalendarDailyCollectionVo,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
@@ -280,11 +296,26 @@ export class AggregationService {
 
     return nullsToUndefined(
       await this.prisma.view.findFirst({
-        select: { id: true, columnMeta: true, filter: true, group: true },
+        select: {
+          id: true,
+          type: true,
+          filter: true,
+          group: true,
+          options: true,
+          columnMeta: true,
+        },
         where: {
           tableId,
           ...(withView?.viewId ? { id: withView.viewId } : {}),
-          type: { in: [ViewType.Grid, ViewType.Gantt, ViewType.Kanban, ViewType.Gallery] },
+          type: {
+            in: [
+              ViewType.Grid,
+              ViewType.Gantt,
+              ViewType.Kanban,
+              ViewType.Gallery,
+              ViewType.Calendar,
+            ],
+          },
           deletedTime: null,
         },
       })
@@ -572,5 +603,92 @@ export class AggregationService {
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
     const { groupPoints } = await this.recordService.getGroupRelatedData(tableId, query);
     return groupPoints;
+  }
+
+  public async getCalendarDailyCollection(
+    tableId: string,
+    query: ICalendarDailyCollectionRo
+  ): Promise<ICalendarDailyCollectionVo> {
+    const { startDate, endDate, startDateFieldId, endDateFieldId, viewId, filter, search } = query;
+
+    if (identify(tableId) !== IdPrefix.Table) {
+      throw new InternalServerErrorException('query collection must be table id');
+    }
+
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    const fields = await this.recordService.getFieldsByProjection(tableId);
+    const fieldMap = fields.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+
+    const startField = fieldMap[startDateFieldId];
+
+    if (!startField || startField.type !== FieldType.Date || startField.isMultipleCellValue) {
+      throw new BadRequestException('Invalid start date field id');
+    }
+
+    const endField = endDateFieldId ? fieldMap[endDateFieldId] : startField;
+
+    if (!endField || endField.type !== FieldType.Date || endField.isMultipleCellValue) {
+      throw new BadRequestException('Invalid end date field id');
+    }
+
+    const queryBuilder = this.knex(dbTableName);
+    const viewRaw = await this.findView(tableId, { viewId });
+    const filterStr = viewRaw?.filter;
+    const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
+    const currentUserId = this.cls.get('user.id');
+
+    if (mergedFilter) {
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldMap, mergedFilter, { withUserId: currentUserId })
+        .appendQueryBuilder();
+    }
+
+    if (search) {
+      const handledSearch = search ? this.recordService.parseSearch(search, fieldMap) : undefined;
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldMap, handledSearch);
+      });
+    }
+
+    this.dbProvider.calendarDailyCollectionQuery(queryBuilder, {
+      startDate,
+      endDate,
+      startField,
+      endField,
+    });
+
+    const result = await this.prisma
+      .txClient()
+      .$queryRawUnsafe<{ date: Date; count: number; ids: string[] }[]>(queryBuilder.toQuery());
+
+    const countMap = result.reduce(
+      (map, item) => {
+        map[item.date.toISOString().split('T')[0]] = Number(item.count);
+        return map;
+      },
+      {} as Record<string, number>
+    );
+    let recordIds = result.map((item) => item.ids).flat();
+    recordIds = Array.from(new Set(recordIds));
+
+    if (!recordIds.length) {
+      return {
+        countMap,
+        records: [],
+      };
+    }
+
+    const { records } = await this.recordService.getRecordsById(tableId, recordIds);
+
+    return {
+      countMap,
+      records,
+    };
   }
 }

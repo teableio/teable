@@ -5,12 +5,14 @@ import { Button, cn } from '@teable/ui-lib/shadcn';
 export const ColorPicker = ({
   color,
   onSelect,
+  className,
 }: {
   color: Colors;
   onSelect: (color: Colors) => void;
+  className?: string;
 }) => {
   return (
-    <div className="flex w-64 flex-wrap p-2">
+    <div className={cn('flex w-64 flex-wrap p-2', className)}>
       {COLOR_PALETTE.map((group, index) => {
         return (
           <div key={index}>

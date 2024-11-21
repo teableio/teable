@@ -405,6 +405,19 @@
       "duplicateCard": "カードを複製"
     }
   },
+  "calendar": {
+    "toolbar": {
+      "config": "カレンダー設定",
+      "startDateField": "開始日付フィールド",
+      "endDateField": "終了日付フィールド",
+      "titleField": "タイトルフィールド",
+      "colorField": "色フィールド",
+      "colorType": "色表示",
+      "customColor": "カスタマイズ",
+      "alignWithRecords": "レコードに合わせる"
+    },
+    "moreLinkText": "すべての {{count}} レコードを表示"
+  },
   "menu": {
     "insertRecordAbove": "レコードを上に挿入",
     "insertRecordBelow": "レコードを下に挿入",
@@ -439,7 +452,8 @@
       "table": "グリッドビュー",
       "form": "フォームビュー",
       "kanban": "カンバンビュー",
-      "gallery": "ギャラリービュー"
+      "gallery": "ギャラリービュー",
+      "calendar": "カレンダービュー"
     },
     "crash": {
       "title": "クラッシュしました！",

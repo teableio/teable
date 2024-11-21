@@ -420,7 +420,7 @@ export class RecordService {
       });
   }
 
-  private parseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
+  public parseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
     const [searchValue, fieldIdOrName] = search;
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
@@ -1052,7 +1052,7 @@ export class RecordService {
     await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
-  private async getFieldsByProjection(
+  public async getFieldsByProjection(
     tableId: string,
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id

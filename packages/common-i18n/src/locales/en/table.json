@@ -415,6 +415,19 @@
       "duplicateCard": "Duplicate card"
     }
   },
+  "calendar": {
+    "toolbar": {
+      "config": "Calendar Config",
+      "startDateField": "Start date field",
+      "endDateField": "End date field",
+      "titleField": "Title field",
+      "colorField": "Color field",
+      "colorType": "Color display",
+      "customColor": "Customize color",
+      "alignWithRecords": "Align with records"
+    },
+    "moreLinkText": "Show all {{count}} records"
+  },
   "menu": {
     "insertRecordAbove": "Insert <input /> record above",
     "insertRecordBelow": "Insert <input /> record below",
@@ -452,7 +465,8 @@
       "table": "Grid View",
       "form": "Form View",
       "kanban": "Kanban View",
-      "gallery": "Gallery View"
+      "gallery": "Gallery View",
+      "calendar": "Calendar View"
     },
     "crash": {
       "title": "Crash!",

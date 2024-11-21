@@ -20,6 +20,8 @@ export type IKanbanColumnMeta = z.infer<typeof kanbanColumnMetaSchema>;
 
 export type IGalleryColumnMeta = z.infer<typeof galleryColumnMetaSchema>;
 
+export type ICalendarColumnMeta = z.infer<typeof calendarColumnMetaSchema>;
+
 export type IFormColumnMeta = z.infer<typeof formColumnMetaSchema>;
 
 export type IPluginColumnMeta = z.infer<typeof pluginColumnMetaSchema>;
@@ -74,6 +76,14 @@ export const galleryColumnSchema = columnSchemaBase.merge(
   })
 );
 
+export const calendarColumnSchema = columnSchemaBase.merge(
+  z.object({
+    visible: z.boolean().optional().openapi({
+      description: 'If column visible in the calendar view.',
+    }),
+  })
+);
+
 export const formColumnSchema = columnSchemaBase.merge(
   z.object({
     visible: z.boolean().optional().openapi({
@@ -116,6 +126,11 @@ export const kanbanColumnMetaSchema = z.record(
 export const galleryColumnMetaSchema = z.record(
   z.string().startsWith(IdPrefix.Field),
   galleryColumnSchema
+);
+
+export const calendarColumnMetaSchema = z.record(
+  z.string().startsWith(IdPrefix.Field),
+  calendarColumnSchema
 );
 
 export const formColumnMetaSchema = z.record(

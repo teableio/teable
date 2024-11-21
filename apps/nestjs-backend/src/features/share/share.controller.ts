@@ -28,6 +28,8 @@ import {
   IShareViewCollaboratorsRo,
   getRecordsRoSchema,
   IGetRecordsRo,
+  shareViewCalendarDailyCollectionRoSchema,
+  IShareViewCalendarDailyCollectionRo,
 } from '@teable/openapi';
 import type {
   IRecord,
@@ -38,6 +40,7 @@ import type {
   ShareViewGetVo,
   IShareViewLinkRecordsVo,
   IShareViewCollaboratorsVo,
+  ICalendarDailyCollectionVo,
 } from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -134,6 +137,17 @@ export class ShareController {
   ): Promise<IGroupPointsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareService.getViewGroupPoints(shareInfo, query);
+  }
+
+  @UseGuards(ShareAuthGuard)
+  @Get('/:shareId/view/calendar-daily-collection')
+  async getViewCalendarDailyCollection(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewCalendarDailyCollectionRoSchema))
+    query: IShareViewCalendarDailyCollectionRo
+  ): Promise<ICalendarDailyCollectionVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareService.getViewCalendarDailyCollection(shareInfo, query);
   }
 
   @UseGuards(ShareAuthGuard)

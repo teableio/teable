@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
+import type { IQueryBaseRo } from '@teable/openapi';
 import { getRowCount, getShareViewRowCount } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
@@ -17,9 +18,10 @@ import { RowCountContext } from './RowCountContext';
 
 interface RowCountProviderProps {
   children: ReactNode;
+  query?: IQueryBaseRo;
 }
 
-export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
+export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
   const queryClient = useQueryClient();
@@ -28,8 +30,8 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const { selectedRecordIds, filterLinkCellCandidate } = useLinkFilter();
 
   const rowCountQuery = useMemo(
-    () => ({ viewId, search: searchQuery, selectedRecordIds, filterLinkCellCandidate }),
-    [filterLinkCellCandidate, selectedRecordIds, searchQuery, viewId]
+    () => ({ viewId, search: searchQuery, selectedRecordIds, filterLinkCellCandidate, ...query }),
+    [filterLinkCellCandidate, selectedRecordIds, searchQuery, viewId, query]
   );
 
   const rowCountQueryKey = useMemo(

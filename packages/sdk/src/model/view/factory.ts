@@ -2,6 +2,7 @@ import type { IViewVo } from '@teable/core';
 import { assertNever, ViewType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import type { Doc } from 'sharedb/lib/client';
+import { CalendarView } from './calendar.view';
 import { FormView } from './form.view';
 import { GalleryView } from './gallery.view';
 import { GridView } from './grid.view';
@@ -22,6 +23,7 @@ export function createViewInstance(view: IViewVo, doc?: Doc<IViewVo>) {
       case ViewType.Plugin:
         return plainToInstance(PluginView, view);
       case ViewType.Calendar:
+        return plainToInstance(CalendarView, view);
       case ViewType.Gantt:
         throw new Error('did not implement yet');
       default:

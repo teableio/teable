@@ -13,6 +13,7 @@ import type { BaseQueryAbstract } from './base-query/abstract';
 import { BaseQuerySqlite } from './base-query/base-query.sqlite';
 import type {
   IAggregationQueryExtra,
+  ICalendarDailyCollectionQueryProps,
   IDbProvider,
   IFilterQueryExtra,
   ISortQueryExtra,
@@ -284,5 +285,53 @@ export class SqliteProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQuerySqlite(this.knex);
+  }
+
+  calendarDailyCollectionQuery(
+    qb: Knex.QueryBuilder,
+    props: ICalendarDailyCollectionQueryProps
+  ): Knex.QueryBuilder {
+    const { startDate, endDate, startField, endField } = props;
+
+    return qb
+      .select([
+        this.knex.raw('dates.date'),
+        this.knex.raw('COUNT(*) as count'),
+        this.knex.raw('GROUP_CONCAT(?? ORDER BY ??) as ids', ['__id', '__id']),
+      ])
+      .crossJoin(
+        this.knex.raw(
+          `WITH RECURSIVE dates(date) AS (
+            SELECT date(?) as date
+            UNION ALL
+            SELECT date(date, '+1 day')
+            FROM dates
+            WHERE date < date(?)
+          )
+          SELECT date FROM dates`,
+          [startDate, endDate]
+        )
+      )
+      .where((builder) => {
+        builder
+          .where(startField.dbFieldName, '<', endDate)
+          .andWhere(
+            this.knex.raw(`COALESCE(??, ??) >= ?`, [
+              endField.dbFieldName,
+              startField.dbFieldName,
+              startDate,
+            ])
+          )
+          .andWhere((subBuilder) => {
+            subBuilder
+              .whereRaw(`date(??) <= dates.date`, [startField.dbFieldName])
+              .andWhereRaw(`date(COALESCE(??, ??)) >= dates.date`, [
+                endField.dbFieldName,
+                startField.dbFieldName,
+              ]);
+          });
+      })
+      .groupBy('dates.date')
+      .orderBy('dates.date', 'asc');
   }
 }

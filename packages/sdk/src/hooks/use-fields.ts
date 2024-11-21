@@ -30,7 +30,8 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
         if (
           viewType === ViewType.Form ||
           viewType === ViewType.Kanban ||
-          viewType === ViewType.Gallery
+          viewType === ViewType.Gallery ||
+          viewType === ViewType.Calendar
         ) {
           return columnMeta?.[id]?.visible;
         }

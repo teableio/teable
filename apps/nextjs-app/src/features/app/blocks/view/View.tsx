@@ -1,5 +1,6 @@
 import { ViewType } from '@teable/core';
 import { useView } from '@teable/sdk';
+import { CalendarView } from './calendar/CalendarView';
 import { FormView } from './form/FormView';
 import { GalleryView } from './gallery/GalleryView';
 import { GridView } from './grid/GridView';
@@ -21,6 +22,8 @@ export const View = (props: IViewBaseProps) => {
         return <KanbanView />;
       case ViewType.Gallery:
         return <GalleryView />;
+      case ViewType.Calendar:
+        return <CalendarView />;
       case ViewType.Plugin:
         return <PluginView />;
       default:

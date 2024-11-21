@@ -2,6 +2,7 @@ import type { IViewVo } from '@teable/core';
 import { assertNever, ViewType } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
+import { CalendarViewDto } from './calendar-view.dto';
 import { FormViewDto } from './form-view.dto';
 import { GalleryViewDto } from './gallery-view.dto';
 import { GridViewDto } from './grid-view.dto';
@@ -18,12 +19,13 @@ export function createViewInstanceByRaw(viewRaw: View) {
       return plainToInstance(KanbanViewDto, viewVo);
     case ViewType.Gallery:
       return plainToInstance(GalleryViewDto, viewVo);
+    case ViewType.Calendar:
+      return plainToInstance(CalendarViewDto, viewVo);
     case ViewType.Form:
       return plainToInstance(FormViewDto, viewVo);
     case ViewType.Plugin:
       return plainToInstance(PluginViewDto, viewVo);
     case ViewType.Gantt:
-    case ViewType.Calendar:
       throw new Error('did not implement yet');
     default:
       assertNever(viewVo.type);

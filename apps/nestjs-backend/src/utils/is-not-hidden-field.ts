@@ -1,5 +1,10 @@
-import type { IGalleryViewOptions, IKanbanViewOptions, IViewVo } from '@teable/core';
-import { ViewType } from '@teable/core';
+import type {
+  IViewVo,
+  IKanbanViewOptions,
+  IGalleryViewOptions,
+  ICalendarViewOptions,
+} from '@teable/core';
+import { ColorConfigType, ViewType } from '@teable/core';
 
 export const isNotHiddenField = (
   fieldId: string,
@@ -20,6 +25,16 @@ export const isNotHiddenField = (
     const { coverFieldId } = (options ?? {}) as IGalleryViewOptions;
     return (
       fieldId === coverFieldId || Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
+    );
+  }
+
+  if (viewType === ViewType.Calendar) {
+    const { startDateFieldId, endDateFieldId, titleFieldId, colorConfig } = (options ??
+      {}) as ICalendarViewOptions;
+    return (
+      (colorConfig?.type === ColorConfigType.Field && colorConfig.fieldId === fieldId) ||
+      [startDateFieldId, endDateFieldId, titleFieldId].includes(fieldId) ||
+      Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
     );
   }
 

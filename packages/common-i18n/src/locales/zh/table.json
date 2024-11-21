@@ -414,6 +414,19 @@
       "duplicateCard": "复制卡片"
     }
   },
+  "calendar": {
+    "toolbar": {
+      "config": "日历配置",
+      "startDateField": "开始日期字段",
+      "endDateField": "结束日期字段",
+      "titleField": "标题字段",
+      "colorField": "颜色字段",
+      "colorType": "颜色显示",
+      "customColor": "自定义颜色",
+      "alignWithRecords": "跟随字段颜色"
+    },
+    "moreLinkText": "展示全部 {{count}} 条"
+  },
   "menu": {
     "insertRecordAbove": "在上方插入 <input /> 记录",
     "insertRecordBelow": "在下方插入 <input /> 记录",
@@ -451,7 +464,8 @@
       "table": "表格视图",
       "form": "表单视图",
       "kanban": "看板视图",
-      "gallery": "画册视图"
+      "gallery": "画册视图",
+      "calendar": "日历视图"
     },
     "crash": {
       "title": "页面崩溃!",

@@ -1,13 +1,20 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable/openapi';
+import type {
+  IAggregationVo,
+  ICalendarDailyCollectionVo,
+  IGroupPointsVo,
+  IRowCountVo,
+} from '@teable/openapi';
 import {
   aggregationRoSchema,
+  calendarDailyCollectionRoSchema,
   groupPointsRoSchema,
   IAggregationRo,
   IGroupPointsRo,
   IQueryBaseRo,
   queryBaseSchema,
+  ICalendarDailyCollectionRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -43,5 +50,15 @@ export class AggregationOpenApiController {
     @Query(new ZodValidationPipe(groupPointsRoSchema), TqlPipe) query?: IGroupPointsRo
   ): Promise<IGroupPointsVo> {
     return await this.aggregationOpenApiService.getGroupPoints(tableId, query);
+  }
+
+  @Get('/calendar-daily-collection')
+  @Permissions('table|read')
+  async getCalendarDailyCollection(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(calendarDailyCollectionRoSchema), TqlPipe)
+    query: ICalendarDailyCollectionRo
+  ): Promise<ICalendarDailyCollectionVo> {
+    return await this.aggregationOpenApiService.getCalendarDailyCollection(tableId, query);
   }
 }
