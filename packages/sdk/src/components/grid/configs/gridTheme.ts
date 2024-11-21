@@ -134,8 +134,8 @@ export const gridTheme: IGridTheme = {
   interactionLineColorHighlight: colors.violet[500],
 
   // search cursor
-  searchCursorBg: hexToRGBA(colors.amber[300]),
-  searchTargetIndexBg: hexToRGBA(colors.yellow[300]),
+  searchCursorBg: colors.amber[400],
+  searchTargetIndexBg: colors.yellow[200],
 
   // comment
   commentCountBg: colors.orange[400],

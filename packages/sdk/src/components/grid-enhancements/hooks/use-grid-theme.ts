@@ -60,8 +60,8 @@ const darkTheme = {
   interactionLineColorHighlight: colors.violet[700],
 
   // search cursor
-  searchCursorBg: hexToRGBA(colors.orange[400]),
-  searchTargetIndexBg: hexToRGBA(colors.yellow[400]),
+  searchCursorBg: colors.orange[400],
+  searchTargetIndexBg: colors.yellow[700],
 
   // comment
   commentCountBg: colors.orange[400],
