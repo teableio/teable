@@ -22,6 +22,7 @@ import type {
 import {
   and,
   CellFormat,
+  DbFieldType,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -1421,7 +1422,7 @@ export class RecordService {
           return searchArr.includes(field.id);
         })
         .filter((field) => {
-          if (field.type === FieldType.Checkbox) {
+          if (field.dbFieldType === DbFieldType.Boolean) {
             return false;
           }
           return true;
@@ -1460,6 +1461,11 @@ export class RecordService {
       {} as Record<string, IFieldInstance>
     );
     const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
+
+    if (searchFields.length === 0) {
+      return null;
+    }
+
     const newQuery = this.knex
       .with('current_page_records', (qb) => {
         qb.select('*').from(dbTableName).whereIn('__id', Ids);

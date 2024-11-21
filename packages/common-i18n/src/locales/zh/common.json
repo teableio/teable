@@ -37,6 +37,7 @@
     "permanentDelete": "永久删除",
     "globalSearch": "全局搜索",
     "fieldSearch": "字段搜索",
+    "showAllRow": "显示全部",
     "hideNotMatchRow": "仅显示匹配行"
   },
   "quickAction": {

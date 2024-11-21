@@ -600,6 +600,10 @@ export class AggregationService {
       projection
     );
 
+    if (searchFields?.length === 0) {
+      return { count: 0 };
+    }
+
     const queryBuilder = this.knex(dbFieldName);
     this.dbProvider.searchCountQuery(queryBuilder, searchFields, search[0]);
     this.dbProvider
@@ -640,6 +644,10 @@ export class AggregationService {
       viewId,
       projection
     );
+
+    if (searchFields.length === 0) {
+      return null;
+    }
 
     const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
       tableId,
