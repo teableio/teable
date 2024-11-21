@@ -172,39 +172,37 @@ export abstract class SearchQueryAbstract {
     searchField: IFieldInstance[],
     searchValue: string
   ) {
-    const searchQuery = searchField
-      .map((field) => {
-        const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
+    const searchQuery = searchField.map((field) => {
+      const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
 
-        if (field.isMultipleCellValue) {
-          switch (field.cellValueType) {
-            case CellValueType.DateTime:
-              return searchQueryBuilder.getMultipleDateSqlQuery();
-            case CellValueType.Number:
-              return searchQueryBuilder.getMultipleNumberSqlQuery();
-            case CellValueType.String:
-              if (field.isStructuredCellValue) {
-                return searchQueryBuilder.getMultipleJsonSqlQuery();
-              } else {
-                return searchQueryBuilder.getMultipleTextSqlQuery();
-              }
-          }
-        }
-
+      if (field.isMultipleCellValue) {
         switch (field.cellValueType) {
           case CellValueType.DateTime:
-            return searchQueryBuilder.getDateSqlQuery();
+            return searchQueryBuilder.getMultipleDateSqlQuery();
           case CellValueType.Number:
-            return searchQueryBuilder.getNumberSqlQuery();
+            return searchQueryBuilder.getMultipleNumberSqlQuery();
           case CellValueType.String:
             if (field.isStructuredCellValue) {
-              return searchQueryBuilder.getJsonSqlQuery();
+              return searchQueryBuilder.getMultipleJsonSqlQuery();
             } else {
-              return searchQueryBuilder.getTextSqlQuery();
+              return searchQueryBuilder.getMultipleTextSqlQuery();
             }
         }
-      })
-      .filter((sql) => !!sql);
+      }
+
+      switch (field.cellValueType) {
+        case CellValueType.DateTime:
+          return searchQueryBuilder.getDateSqlQuery();
+        case CellValueType.Number:
+          return searchQueryBuilder.getNumberSqlQuery();
+        case CellValueType.String:
+          if (field.isStructuredCellValue) {
+            return searchQueryBuilder.getJsonSqlQuery();
+          } else {
+            return searchQueryBuilder.getTextSqlQuery();
+          }
+      }
+    });
 
     const knexInstance = queryBuilder.client;
 
