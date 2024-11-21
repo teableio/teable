@@ -27,7 +27,6 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const tableId = useTableId();
   const view = useView();
   const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
-  console.log('fieldId', fieldId);
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);

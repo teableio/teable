@@ -14,7 +14,7 @@ import {
   Toggle,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 interface ISearchCommand {
   value: string;
@@ -56,6 +56,8 @@ export const SearchCommand = (props: ISearchCommand) => {
 
   const enableGlobalSearch = value === 'all_fields';
 
+  const [filterText, setFilterText] = useState('');
+
   return (
     <Command filter={commandFilter}>
       {
@@ -64,6 +66,10 @@ export const SearchCommand = (props: ISearchCommand) => {
             placeholder={t('actions.search')}
             className="h-8 text-xs"
             disabled={enableGlobalSearch}
+            value={filterText}
+            onValueChange={(value) => {
+              setFilterText(value);
+            }}
           />
           <CommandList className="my-2 max-h-64">
             {<CommandEmpty>{t('listEmptyTips')}</CommandEmpty>}
@@ -124,6 +130,7 @@ export const SearchCommand = (props: ISearchCommand) => {
             pressed={enableGlobalSearch}
             onPressedChange={() => {
               onChange(['all_fields']);
+              setFilterText('');
             }}
             size={'sm'}
             className="flex flex-1 items-center truncate p-0"
