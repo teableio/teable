@@ -27,6 +27,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const tableId = useTableId();
   const view = useView();
   const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
+  console.log('fieldId', fieldId);
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);
@@ -64,14 +65,14 @@ export const SearchButton = (props: ISearchButtonProps) => {
     const filteredFields = selectedField.filter(
       (f) => !hiddenFields.includes(f) && fields.map((f) => f.id).includes(f)
     );
-    const primaryFieldId = fields.find((f) => f.isPrimary)?.id;
+    const defaultFieldId = fields?.[0]?.id;
     if (!isEqual(filteredFields, selectedField)) {
       tableId &&
         setSearchFieldMap({
           ...searchFieldMapCache,
-          [tableId]: filteredFields,
+          [tableId]: filteredFields?.length ? filteredFields : [defaultFieldId],
         });
-      setFieldId(filteredFields.length > 0 ? filteredFields.join(',') : primaryFieldId);
+      setFieldId(filteredFields.length > 0 ? filteredFields.join(',') : defaultFieldId);
     }
   }, [
     fieldId,
@@ -200,7 +201,9 @@ export const SearchButton = (props: ISearchButtonProps) => {
               onChange={(fieldIds) => {
                 // switch to field
                 if (!fieldIds || fields.length === 0) {
-                  const newIds = searchFieldMapCache?.[tableId] || [fields[0].id];
+                  const newIds = searchFieldMapCache?.[tableId]?.length
+                    ? searchFieldMapCache?.[tableId]
+                    : [fields?.[0].id];
                   setFieldId(newIds.join(','));
                   setEnableGlobalSearch(false);
                   return;
