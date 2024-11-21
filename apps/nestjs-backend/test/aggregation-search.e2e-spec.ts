@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { getSearchCount, getSearchIndex, createField, updateViewColumnMeta } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
@@ -37,6 +38,14 @@ describe('OpenAPI AggregationController (e2e)', () => {
     for (const field of x20LinkFromLookups.fields) {
       await createField(subTable.id, field);
     }
+
+    await createField(table.id, {
+      name: 'Formula_Boolean',
+      options: {
+        expression: `{${table.fields[0].id}} > 1`,
+      },
+      type: FieldType.Formula,
+    });
   });
 
   afterAll(async () => {
