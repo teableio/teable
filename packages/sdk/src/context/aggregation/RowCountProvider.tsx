@@ -57,8 +57,10 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
       prevQueryRef.current &&
       !hasChangesExceptWithKey(prevQueryRef.current, rowCountQuery, 'search') &&
       searchQuery !== undefined &&
-      !searchQuery?.[2]
+      !searchQuery?.[2] &&
+      prevQueryRef.current.search?.[2] === searchQuery?.[2]
     ) {
+      // do not update row count when search is display all rows without other view condition changes
       return ReactQueryKeys.rowCount(shareId || (tableId as string), prevQueryRef.current);
     }
     prevQueryRef.current = rowCountQuery;
