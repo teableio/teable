@@ -3,10 +3,12 @@ import { FieldType } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useFields, useTable, useFieldStaticGetter, useBaseId } from '@teable/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
+import { Button } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { tableConfig } from '@/features/i18n/table.config';
+import { LookupFilterOptions } from './LookupFilterOptions';
 
 const SelectFieldByTableId: React.FC<{
   selectedId?: string;
@@ -50,13 +52,14 @@ const SelectFieldByTableId: React.FC<{
 
 export const LookupOptions = (props: {
   options: Partial<ILookupOptionsVo> | undefined;
+  fieldId?: string;
   onChange?: (
     options: Partial<ILookupOptionsRo>,
     linkField?: LinkField,
     lookupField?: IFieldInstance
   ) => void;
 }) => {
-  const { options = {}, onChange } = props;
+  const { fieldId, options = {}, onChange } = props;
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [innerOptions, setInnerOptions] = useState<Partial<ILookupOptionsRo>>({
@@ -65,6 +68,8 @@ export const LookupOptions = (props: {
     lookupFieldId: options.lookupFieldId,
   });
   const baseId = useBaseId();
+
+  const [moreVisible, setMoreVisible] = useState(Boolean(options?.filter));
 
   const setOptions = useCallback(
     (options: Partial<ILookupOptionsRo>, linkField?: LinkField, lookupField?: IFieldInstance) => {
@@ -103,17 +108,41 @@ export const LookupOptions = (props: {
             />
           </div>
           {innerOptions.foreignTableId && (
-            <StandaloneViewProvider baseId={baseId} tableId={innerOptions.foreignTableId}>
-              <SelectFieldByTableId
-                selectedId={innerOptions.lookupFieldId}
-                onChange={(lookupField: IFieldInstance) => {
-                  const linkField = linkFields.find(
-                    (l) => l.id === innerOptions.linkFieldId
-                  ) as LinkField;
-                  setOptions?.({ lookupFieldId: lookupField.id }, linkField, lookupField);
-                }}
-              />
-            </StandaloneViewProvider>
+            <>
+              <StandaloneViewProvider baseId={baseId} tableId={innerOptions.foreignTableId}>
+                <SelectFieldByTableId
+                  selectedId={innerOptions.lookupFieldId}
+                  onChange={(lookupField: IFieldInstance) => {
+                    const linkField = linkFields.find(
+                      (l) => l.id === innerOptions.linkFieldId
+                    ) as LinkField;
+                    setOptions?.({ lookupFieldId: lookupField.id }, linkField, lookupField);
+                  }}
+                />
+              </StandaloneViewProvider>
+              <>
+                <div className="flex justify-end">
+                  <Button
+                    size="xs"
+                    variant="link"
+                    className="text-xs text-slate-500 underline"
+                    onClick={() => setMoreVisible(!moreVisible)}
+                  >
+                    {t('table:field.editor.moreOptions')}
+                  </Button>
+                </div>
+                {moreVisible && (
+                  <LookupFilterOptions
+                    fieldId={fieldId}
+                    foreignTableId={innerOptions.foreignTableId}
+                    filter={options.filter}
+                    onChange={(filter) => {
+                      setOptions?.({ filter });
+                    }}
+                  />
+                )}
+              </>
+            </>
           )}
         </>
       ) : (

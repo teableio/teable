@@ -104,7 +104,7 @@ export abstract class Importer {
 
     if (fileFormat?.length && !intersection(fileFormat, supportType).length) {
       throw new BadRequestException(
-        `File format is not supported, only ${supportType.join(',')} are supported,`
+        `File format is not supported, only ${supportType.join(',')} are supported, your file's content type is ${fileFormat.join(';')}`
       );
     }
 

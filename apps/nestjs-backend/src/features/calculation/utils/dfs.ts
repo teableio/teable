@@ -1,6 +1,3 @@
-/* eslint-disable sonarjs/cognitive-complexity */
-import { uniq } from 'lodash';
-
 // topo item is for field level reference, all id stands for fieldId;
 export interface ITopoItem {
   id: string;
@@ -10,60 +7,6 @@ export interface ITopoItem {
 export interface IGraphItem {
   fromFieldId: string;
   toFieldId: string;
-}
-
-export type IAdjacencyMap = Record<string, string[]>;
-
-export function buildAdjacencyMap(graph: IGraphItem[]): IAdjacencyMap {
-  const adjList: IAdjacencyMap = {};
-  graph.forEach((edge) => {
-    if (!adjList[edge.fromFieldId]) {
-      adjList[edge.fromFieldId] = [];
-    }
-    adjList[edge.fromFieldId].push(edge.toFieldId);
-  });
-  return adjList;
-}
-
-/**
- * Builds a compressed adjacency map based on the provided graph, linkIdSet, and startFieldIds.
- * The compressed adjacency map represents the neighbors of each node in the graph, excluding nodes that are not valid according to the linkIdSet.
- *
- * @param graph - The graph containing the nodes and their connections.
- * @param linkIdSet - A set of valid link IDs.
- * @returns The compressed adjacency map representing the neighbors of each node.
- */
-export function buildCompressedAdjacencyMap(
-  graph: IGraphItem[],
-  linkIdSet: Set<string>
-): IAdjacencyMap {
-  const adjMap = buildAdjacencyMap(graph);
-  const compressedAdjMap: IAdjacencyMap = {};
-
-  function dfs(node: string, visited: Set<string>): string[] {
-    if (visited.has(node)) return [];
-    visited.add(node);
-
-    if (linkIdSet.has(node) && node !== Array.from(visited)[0]) {
-      return [node];
-    }
-
-    const validPaths: string[] = [];
-    for (const neighbor of adjMap[node] || []) {
-      validPaths.push(...dfs(neighbor, new Set(visited)));
-    }
-
-    return validPaths;
-  }
-
-  for (const node of Object.keys(adjMap)) {
-    const paths = dfs(node, new Set());
-    if (paths.length > 0) {
-      compressedAdjMap[node] = Array.from(new Set(paths));
-    }
-  }
-
-  return compressedAdjMap;
 }
 
 export function hasCycle(graphItems: IGraphItem[]): boolean {
@@ -107,17 +50,19 @@ export function hasCycle(graphItems: IGraphItem[]): boolean {
   return false;
 }
 
-/**
- * Generate a topological order based on the starting node ID.
- *
- * @param startNodeId - The ID to start the search from.
- * @param graph - The input graph.
- * @returns An array of ITopoItem representing the topological order.
- */
-export function topoOrderWithDepends(startNodeId: string, graph: IGraphItem[]): ITopoItem[] {
+export function prependStartFieldIds(topoOrders: ITopoItem[], startFieldIds: string[]) {
+  const existFieldIds = new Set(topoOrders.map((item) => item.id));
+  const newTopoOrders = startFieldIds
+    .filter((fieldId) => !existFieldIds.has(fieldId))
+    .map((fieldId) => ({ id: fieldId, dependencies: [] }));
+  return [...newTopoOrders, ...topoOrders];
+}
+
+export function getTopoOrders(graph: IGraphItem[]): ITopoItem[] {
   const visitedNodes = new Set<string>();
   const visitingNodes = new Set<string>();
   const sortedNodes: ITopoItem[] = [];
+  const allNodes = new Set<string>();
 
   // Build adjacency list and reverse adjacency list
   const adjList: Record<string, string[]> = {};
@@ -128,6 +73,10 @@ export function topoOrderWithDepends(startNodeId: string, graph: IGraphItem[]): 
 
     if (!reverseAdjList[edge.toFieldId]) reverseAdjList[edge.toFieldId] = [];
     reverseAdjList[edge.toFieldId].push(edge.fromFieldId);
+
+    // Collect all nodes
+    allNodes.add(edge.fromFieldId);
+    allNodes.add(edge.toFieldId);
   }
 
   function visit(node: string) {
@@ -141,10 +90,10 @@ export function topoOrderWithDepends(startNodeId: string, graph: IGraphItem[]): 
       // Get incoming edges (dependencies)
       const dependencies = reverseAdjList[node] || [];
 
-      // Process outgoing edges
-      if (adjList[node]) {
-        for (const neighbor of adjList[node]) {
-          visit(neighbor);
+      // Process dependencies first
+      for (const dep of dependencies) {
+        if (!visitedNodes.has(dep)) {
+          visit(dep);
         }
       }
 
@@ -154,11 +103,24 @@ export function topoOrderWithDepends(startNodeId: string, graph: IGraphItem[]): 
     }
   }
 
-  visit(startNodeId);
-  return sortedNodes.reverse().map((node) => ({
-    id: node.id,
-    dependencies: uniq(node.dependencies),
-  }));
+  // Start with nodes that have no outgoing edges (leaf nodes)
+  const startNodes = Array.from(allNodes).filter(
+    (node) => !adjList[node] || adjList[node].length === 0
+  );
+  for (const node of startNodes) {
+    if (!visitedNodes.has(node)) {
+      visit(node);
+    }
+  }
+
+  // Process remaining nodes
+  for (const node of allNodes) {
+    if (!visitedNodes.has(node)) {
+      visit(node);
+    }
+  }
+
+  return sortedNodes;
 }
 
 /**
@@ -196,51 +158,6 @@ export function topoOrderWithStart(startNodeId: string, graph: IGraphItem[]): st
 
   visit(startNodeId);
   return sortedNodes.reverse();
-}
-
-// simple topological sort
-export function topologicalSort(graph: IGraphItem[]): string[] {
-  const adjList: Record<string, string[]> = {};
-  const visited = new Set<string>();
-  const currentStack = new Set<string>();
-  const result: string[] = [];
-
-  graph.forEach((node) => {
-    if (!adjList[node.fromFieldId]) {
-      adjList[node.fromFieldId] = [];
-    }
-    adjList[node.fromFieldId].push(node.toFieldId);
-  });
-
-  function dfs(node: string) {
-    if (currentStack.has(node)) {
-      throw new Error(`Detected a cycle involving node '${node}'`);
-    }
-
-    if (visited.has(node)) {
-      return;
-    }
-
-    currentStack.add(node);
-    visited.add(node);
-
-    const neighbors = adjList[node] || [];
-    neighbors.forEach((neighbor) => dfs(neighbor));
-
-    currentStack.delete(node);
-    result.push(node);
-  }
-
-  graph.forEach((node) => {
-    if (!visited.has(node.fromFieldId)) {
-      dfs(node.fromFieldId);
-    }
-    if (!visited.has(node.toFieldId)) {
-      dfs(node.toFieldId);
-    }
-  });
-
-  return result.reverse();
 }
 
 /**

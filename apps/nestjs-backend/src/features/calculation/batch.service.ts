@@ -19,7 +19,7 @@ import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { dbType2knexFormat, SchemaType } from '../field/util';
-import { IOpsMap } from './reference.service';
+import { IOpsMap } from './utils/compose-maps';
 
 export interface IOpsData {
   recordId: string;
@@ -42,8 +42,8 @@ export class BatchService {
 
   private async completeMissingCtx(
     opsMap: IOpsMap,
-    fieldMap: { [fieldId: string]: IFieldInstance },
-    tableId2DbTableName: { [tableId: string]: string }
+    fieldMap: { [fieldId: string]: IFieldInstance } = {},
+    tableId2DbTableName: { [tableId: string]: string } = {}
   ) {
     const tableIds = Object.keys(opsMap);
 
@@ -119,8 +119,8 @@ export class BatchService {
   @Timing()
   async updateRecords(
     opsMap: IOpsMap,
-    fieldMap: { [fieldId: string]: IFieldInstance },
-    tableId2DbTableName: { [tableId: string]: string }
+    fieldMap: { [fieldId: string]: IFieldInstance } = {},
+    tableId2DbTableName: { [tableId: string]: string } = {}
   ) {
     const result = await this.completeMissingCtx(opsMap, fieldMap, tableId2DbTableName);
     fieldMap = result.fieldMap;

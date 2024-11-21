@@ -50,10 +50,29 @@ export const queryBaseSchema = z.object({
       description: FILTER_DESCRIPTION,
     }),
   search: z
-    .union([z.tuple([z.string()]), z.tuple([z.string(), z.string()])])
+    .union([
+      z.tuple([z.string()]),
+      z.tuple([z.string(), z.string()]),
+      z.tuple([
+        z.string(),
+        z.string(),
+        z.union([
+          z.string().transform((val) => {
+            if (val === 'true') {
+              return true;
+            } else if (val === 'false') {
+              return false;
+            }
+            return true;
+          }),
+          z.boolean(),
+        ]),
+      ]),
+    ])
     .optional()
+    // because of the https params only be string, so the boolean params should transform
     .openapi({
-      default: ['searchValue', 'fieldIdOrName'],
+      default: ['searchValue', 'fieldIdOrName', false],
       description: 'Search for records that match the specified field and value',
     }),
   filterLinkCellCandidate: z

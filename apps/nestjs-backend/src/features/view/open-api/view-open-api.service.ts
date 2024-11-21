@@ -667,10 +667,7 @@ export class ViewOpenApiService {
    * @param linkFields {fieldId: foreignTableId}
    * @returns {foreignTableId: Set<recordId>}
    */
-  private async collectFilterLinkFieldRecords(
-    linkFields: Record<string, string>,
-    filter?: IFilter
-  ) {
+  private collectFilterLinkFieldRecords(linkFields: Record<string, string>, filter?: IFilter) {
     if (!filter || !filter.filterSet) {
       return undefined;
     }
@@ -686,7 +683,7 @@ export class ViewOpenApiService {
 
     for (const filterItem of filter.filterSet) {
       if ('filterSet' in filterItem) {
-        const groupTableRecordMap = await this.collectFilterLinkFieldRecords(
+        const groupTableRecordMap = this.collectFilterLinkFieldRecords(
           linkFields,
           filterItem as IFilter
         );
@@ -733,7 +730,8 @@ export class ViewOpenApiService {
       },
       {} as Record<string, string>
     );
-    const tableRecordMap = await this.collectFilterLinkFieldRecords(linkFieldTableMap, filter);
+
+    const tableRecordMap = this.collectFilterLinkFieldRecords(linkFieldTableMap, filter);
 
     if (!tableRecordMap) {
       return [];

@@ -19,7 +19,7 @@ import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import type { IOpsMap } from '../../calculation/reference.service';
+import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -441,7 +441,6 @@ export class FieldOpenApiService {
     // stage analysis and collect field changes
     const { newField, oldField, modifiedOps, supplementChange, references } =
       await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
-    this.cls.set('oldField', oldField);
 
     await this.performConvertField({
       tableId,
@@ -453,6 +452,8 @@ export class FieldOpenApiService {
 
     const oldFieldVo = instanceToPlain(oldField, { excludePrefixes: ['_'] }) as IFieldVo;
     const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
+
+    this.cls.set('oldField', oldFieldVo);
 
     if (windowId) {
       this.eventEmitterService.emitAsync(Events.OPERATION_FIELD_CONVERT, {

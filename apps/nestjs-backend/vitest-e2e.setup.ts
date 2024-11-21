@@ -44,7 +44,7 @@ function prepareSqliteEnv() {
   if (!process.env.PRISMA_DATABASE_URL?.startsWith('file:')) {
     return;
   }
-  const prevFilePath = process.env.PRISMA_DATABASE_URL.substring(5);
+  const prevFilePath = '../../db/main.db';
   const prevDir = path.dirname(prevFilePath);
   const baseName = path.basename(prevFilePath);
 

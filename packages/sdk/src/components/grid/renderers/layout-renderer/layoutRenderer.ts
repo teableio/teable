@@ -4,7 +4,7 @@ import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import type { IVisibleRegion } from '../../hooks';
 import { getDropTargetIndex } from '../../hooks';
-import type { ICellItem, ICell, IRectangle, ICollaborator } from '../../interface';
+import type { ICellItem, ICell, IRectangle, ICollaborator, ILinearRow } from '../../interface';
 import { DragRegionType, LinearRowType, RegionType, RowControlType } from '../../interface';
 import { GridInnerIcon } from '../../managers';
 import {
@@ -673,12 +673,14 @@ const getVisibleCollaborators = (
   collaborators: ICollaborator,
   visibleRegion: IVisibleRegion,
   freezeColumnCount: number,
-  getCellContent: (cell: ICellItem) => ICell
+  getCellContent: (cell: ICellItem) => ICell,
+  getLinearRow: (rowNumber: number) => ILinearRow
 ) => {
   const groupedCollaborators = groupBy(collaborators, 'activeCellId');
 
   // through visible region to find the cell that has collaborators and get the real coordinate
   const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
+
   const visibleCells = [];
   const columnIndices = [
     ...Array.from({ length: freezeColumnCount }, (_, i) => i),
@@ -690,18 +692,20 @@ const getVisibleCollaborators = (
 
   for (const i of columnIndices) {
     for (let j = startRowIndex; j < stopRowIndex; j++) {
-      const cell = getCellContent([i, j]);
+      const realIndex = getLinearRow(j).realIndex;
+      const cell = getCellContent([i, realIndex]);
       if (!cell?.id) {
         continue;
       }
       const visibleCell = groupedCollaborators[cell.id];
       if (visibleCell) {
         const newCell = cloneDeep(visibleCell);
-        newCell[0].activeCell = [i, j];
+        newCell[0].activeCell = [i, realIndex];
         visibleCells.push(newCell);
       }
     }
   }
+
   return visibleCells;
 };
 
@@ -716,6 +720,7 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     real2RowIndex,
     getCellContent,
     visibleRegion,
+    getLinearRow,
   } = props;
   const { scrollTop, scrollLeft } = scrollState;
   const { themeKey } = theme;
@@ -731,7 +736,8 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     collaborators,
     visibleRegion,
     freezeColumnCount,
-    getCellContent
+    getCellContent,
+    getLinearRow
   );
 
   for (let i = 0; i < visibleCells.length; i++) {
@@ -777,6 +783,230 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     ctx.restore();
   }
   ctx.restore();
+};
+
+export const drawSearchCursor = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
+  const {
+    theme,
+    scrollState,
+    coordInstance,
+    real2RowIndex,
+    getLinearRow,
+    searchCursor,
+    imageManager,
+    spriteManager,
+    getCellContent,
+  } = props;
+
+  if (!searchCursor) return;
+
+  const [searchColumnIndex, searchRowIndex] = searchCursor;
+
+  const { scrollTop, scrollLeft } = scrollState;
+  const { fontSizeSM, fontFamily } = theme;
+  const {
+    freezeColumnCount,
+    freezeRegionWidth,
+    containerWidth,
+    containerHeight,
+    columnCount,
+    rowInitSize,
+  } = coordInstance;
+  const activeLinearRowIndex = real2RowIndex(searchRowIndex);
+  const linearRow = getLinearRow(activeLinearRowIndex);
+
+  if (searchColumnIndex >= columnCount || linearRow?.type !== LinearRowType.Row) return;
+
+  const isFreezeRegion = searchColumnIndex < freezeColumnCount;
+  const x = coordInstance.getColumnRelativeOffset(searchColumnIndex, scrollLeft);
+  const y = coordInstance.getRowOffset(activeLinearRowIndex) - scrollTop;
+
+  const width = coordInstance.getColumnWidth(searchColumnIndex);
+  const height = coordInstance.getRowHeight(activeLinearRowIndex);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth,
+    rowInitSize,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    containerHeight - rowInitSize
+  );
+  ctx.clip();
+
+  ctx.font = `${fontSizeSM}px ${fontFamily}`;
+
+  drawRect(ctx, {
+    x: x + 1,
+    y: y + 1,
+    width: width - 1,
+    height: height - 1,
+    fill: theme.searchCursorBg,
+    radius: 0.5,
+  });
+
+  ctx.save();
+  ctx.beginPath();
+
+  drawCellContent(ctx, {
+    x: x + 0.5,
+    y: y + 0.5,
+    width,
+    height,
+    rowIndex: searchRowIndex,
+    columnIndex: searchColumnIndex,
+    getCellContent,
+    isActive: false,
+    imageManager,
+    spriteManager,
+    theme,
+  });
+
+  ctx.restore();
+  ctx.restore();
+};
+
+export const drawSearchResult = (
+  ctx: CanvasRenderingContext2D,
+  props: ILayoutDrawerProps,
+  result?: [number, number]
+) => {
+  const {
+    theme,
+    scrollState,
+    coordInstance,
+    real2RowIndex,
+    getLinearRow,
+    imageManager,
+    spriteManager,
+    getCellContent,
+  } = props;
+
+  if (!result) return;
+
+  const [searchColumnIndex, searchRowIndex] = result;
+
+  const { scrollTop, scrollLeft } = scrollState;
+  const { fontSizeSM, fontFamily, searchTargetIndexBg } = theme;
+  const {
+    freezeColumnCount,
+    freezeRegionWidth,
+    containerWidth,
+    containerHeight,
+    columnCount,
+    rowInitSize,
+  } = coordInstance;
+  const activeLinearRowIndex = real2RowIndex(searchRowIndex);
+  const linearRow = getLinearRow(activeLinearRowIndex);
+
+  if (searchColumnIndex >= columnCount || linearRow?.type !== LinearRowType.Row) return;
+
+  const isFreezeRegion = searchColumnIndex < freezeColumnCount;
+  const x = coordInstance.getColumnRelativeOffset(searchColumnIndex, scrollLeft);
+  const y = coordInstance.getRowOffset(activeLinearRowIndex) - scrollTop;
+
+  const width = coordInstance.getColumnWidth(searchColumnIndex);
+  const height = coordInstance.getRowHeight(activeLinearRowIndex);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth,
+    rowInitSize,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    containerHeight - rowInitSize
+  );
+  ctx.clip();
+
+  ctx.font = `${fontSizeSM}px ${fontFamily}`;
+
+  drawRect(ctx, {
+    x: x + 1,
+    y: y + 1,
+    width: width - 1,
+    height: height - 1,
+    fill: searchTargetIndexBg,
+    radius: 0.5,
+  });
+
+  ctx.save();
+  ctx.beginPath();
+
+  drawCellContent(ctx, {
+    x: x + 0.5,
+    y: y + 0.5,
+    width,
+    height,
+    rowIndex: linearRow.realIndex,
+    columnIndex: searchColumnIndex,
+    getCellContent,
+    isActive: false,
+    imageManager,
+    spriteManager,
+    theme,
+  });
+
+  ctx.restore();
+  ctx.restore();
+};
+
+export const getVisibleSearchTargetIndex = (
+  searchHitIndex: { fieldId: string; recordId: string }[],
+  visibleRegion: IVisibleRegion,
+  freezeColumnCount: number,
+  getCellContent: (cell: ICellItem) => ICell,
+  getLinearRow: (rowNumber: number) => ILinearRow
+) => {
+  const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
+
+  const searchCells = [];
+  const columnIndices = [
+    ...Array.from({ length: freezeColumnCount }, (_, i) => i),
+    ...Array.from(
+      { length: stopColumnIndex - Math.max(freezeColumnCount, startColumnIndex) + 1 },
+      (_, i) => Math.max(freezeColumnCount, startColumnIndex) + i
+    ),
+  ];
+
+  const searchCellIds = searchHitIndex?.map((item) => `${item.recordId}-${item.fieldId}`) || [];
+
+  for (const i of columnIndices) {
+    for (let j = startRowIndex; j < stopRowIndex; j++) {
+      const line = getLinearRow(j);
+      const { realIndex } = line;
+      const cell = getCellContent([i, realIndex]);
+
+      if (!cell?.id) {
+        continue;
+      }
+
+      if (searchCellIds.includes(cell.id)) {
+        searchCells.push([i, realIndex]);
+      }
+    }
+  }
+
+  return searchCells as [number, number][];
+};
+
+export const drawSearchTargetIndex = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
+  const { getCellContent, coordInstance, visibleRegion, searchHitIndex, getLinearRow } = props;
+
+  const { freezeColumnCount } = coordInstance;
+
+  if (!searchHitIndex?.length) return;
+
+  const searchCellIds = getVisibleSearchTargetIndex(
+    searchHitIndex,
+    visibleRegion,
+    freezeColumnCount,
+    getCellContent,
+    getLinearRow
+  );
+
+  for (let i = 0; i < searchCellIds.length; i++) {
+    drawSearchResult(ctx, props, searchCellIds[i]);
+  }
 };
 
 export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
@@ -938,15 +1168,17 @@ export const drawCommentCount = (
     theme: IGridTheme;
   }
 ) => {
+  const { theme } = props;
+  const { commentCountBg, commentCountTextColor } = theme;
   drawRect(ctx, {
     ...props,
     x: props.x,
     y: props.y,
     width: 18,
     height: 16,
-    stroke: 'rgb(251 146 60)',
+    stroke: commentCountBg,
     radius: 3,
-    fill: 'rgb(251 146 60)',
+    fill: commentCountBg,
   });
 
   drawSingleLineText(ctx, {
@@ -957,7 +1189,7 @@ export const drawCommentCount = (
     textAlign: 'center',
     verticalAlign: 'middle',
     fontSize: 10,
-    fill: '#fff',
+    fill: commentCountTextColor,
   });
 };
 
@@ -1793,6 +2025,10 @@ export const drawGrid = (
   drawFreezeRegionDivider(mainCtx, props, DividerRegion.Top);
 
   drawCollaborators(mainCtx, props);
+
+  drawSearchTargetIndex(mainCtx, props);
+
+  drawSearchCursor(mainCtx, props);
 
   drawActiveCell(mainCtx, props);
 

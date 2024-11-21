@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { CellFormat, FieldKeyType, type IFilterSet, type ISortItem } from '@teable/core';
 import { ArrowUpRight } from '@teable/icons';
+import type { IQueryBaseRo } from '@teable/openapi';
 import { getBaseAll, getTableList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { StandaloneViewProvider } from '@teable/sdk/context';
@@ -30,7 +31,7 @@ export const QueryBuilder = () => {
   const [fieldKeyType, setFieldKeyType] = useState<FieldKeyType>();
   const [cellFormat, setCellFormat] = useState<CellFormat>();
   const [orderBy, setOrderBy] = useState<ISortItem[]>();
-  const [search, setSearch] = useState<[string, string] | [string]>();
+  const [search, setSearch] = useState<IQueryBaseRo['search']>();
   const { data: baseListReq } = useQuery({
     queryKey: ReactQueryKeys.baseAll(),
     queryFn: () => getBaseAll().then((data) => data.data),
@@ -159,7 +160,14 @@ export const QueryBuilder = () => {
               <h1 className="font-bold">{t('developer:buildResult')}</h1>
               <PreviewScript
                 tableId={tableId}
-                query={{ fieldKeyType, viewId, filter, orderBy, search, cellFormat }}
+                query={{
+                  fieldKeyType,
+                  viewId,
+                  filter,
+                  orderBy,
+                  search,
+                  cellFormat,
+                }}
               />
             </div>
           ) : (

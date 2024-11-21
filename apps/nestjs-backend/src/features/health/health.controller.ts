@@ -17,4 +17,12 @@ export class HealthController {
   check() {
     return this.health.check([() => this.db.pingCheck('database', this.prismaService)]);
   }
+
+  @Get('memory')
+  memory() {
+    return {
+      memoryUsage: process.memoryUsage(),
+      pod: process.env.HOSTNAME,
+    };
+  }
 }

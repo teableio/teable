@@ -10,8 +10,6 @@ import { ShareDbService } from '../share-db/share-db.service';
 @Injectable()
 export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(DevWsGateway.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private agents: any[] = [];
 
   server!: Server;
 
@@ -24,8 +22,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     this.logger.log('ws:on:connection');
     try {
       const stream = new WebSocketJSONStream(webSocket);
-      const agent = this.shareDb.listen(stream, request);
-      this.agents.push(agent);
+      this.shareDb.listen(stream, request);
     } catch (error) {
       webSocket.send(JSON.stringify({ error }));
       webSocket.close();
@@ -37,7 +34,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   };
 
   handleClose = () => {
-    this.logger.error('ws:on:close');
+    this.logger.log('ws:on:close');
   };
 
   onModuleInit() {
@@ -53,15 +50,39 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     this.server.on('close', this.handleClose);
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
     try {
-      this.agents?.map((agent) => agent?.close());
-      this.shareDb.close();
-      this.server.close((err) => {
-        if (err) {
-          this.logger.error('DevWsGateway close error', err?.stack);
-        }
+      this.logger.log('Starting graceful shutdown...');
+      this.server?.clients.forEach((client) => {
+        client.terminate();
       });
+
+      await Promise.all([
+        new Promise((resolve) => {
+          this.shareDb.close((err) => {
+            if (err) {
+              this.logger.error('ShareDb close error', err?.stack);
+            } else {
+              this.logger.log('ShareDb closed successfully');
+            }
+            resolve(null);
+          });
+        }),
+
+        new Promise((resolve) => {
+          this.server.close((err) => {
+            if (err) {
+              this.logger.error('DevWsGateway close error', err?.stack);
+            } else {
+              this.logger.log('WebSocket server closed successfully');
+            }
+            resolve(null);
+          });
+        }),
+      ]);
+
+      this.logger.log('Graceful had shutdown completed');
+      process.exit(0);
     } catch (err) {
       this.logger.error('dev module close error: ' + (err as Error).message, (err as Error)?.stack);
     }

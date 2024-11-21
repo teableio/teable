@@ -1,6 +1,8 @@
 import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
+import type { IFieldVo } from '@teable/core';
+import { validateCellValue } from '@teable/core';
 import { ArrowRight, ChevronRight } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
@@ -114,11 +116,13 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         size: actionVisible ? 220 : 280,
         cell: ({ row }) => {
           const before = row.getValue<IRecordHistoryItemVo['before']>('before');
+          const validatedCellValue = validateCellValue(before.meta as IFieldVo, before.data);
+          const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
           return (
             <Fragment>
-              {before.data != null ? (
+              {cellValue != null ? (
                 <CellValue
-                  value={before.data}
+                  value={cellValue}
                   field={before.meta as IFieldInstance}
                   className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
                 />
@@ -147,11 +151,13 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         size: actionVisible ? 220 : 280,
         cell: ({ row }) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
+          const validatedCellValue = validateCellValue(after.meta as IFieldVo, after.data);
+          const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
           return (
             <Fragment>
-              {after.data != null ? (
+              {cellValue != null ? (
                 <CellValue
-                  value={after.data}
+                  value={cellValue}
                   field={after.meta as IFieldInstance}
                   className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
                 />

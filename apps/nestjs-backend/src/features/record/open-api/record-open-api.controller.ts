@@ -143,6 +143,7 @@ export class RecordOpenApiController {
 
   @Permissions('record|create')
   @Post(':recordId')
+  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
   async duplicateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,

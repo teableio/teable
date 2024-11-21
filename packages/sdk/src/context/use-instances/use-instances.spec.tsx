@@ -146,7 +146,7 @@ describe('useInstances hook', () => {
       const insertListener = mockQueryMethods.on.mock.calls.find(
         (args: any) => args[0] === 'insert'
       );
-      insertListener[1](insertData, 0);
+      insertListener?.[1](insertData, 0);
     });
 
     expect(result.current.instances).toEqual([
@@ -175,7 +175,7 @@ describe('useInstances hook', () => {
       const removeListener = mockQueryMethods.on.mock.calls.find(
         (args: any) => args[0] === 'remove'
       );
-      removeListener[1](removeData, 1);
+      removeListener?.[1](removeData, 1);
     });
 
     expect(result.current.instances).toEqual([defaultInstance[0]]);
@@ -193,7 +193,7 @@ describe('useInstances hook', () => {
 
     act(() => {
       const moveListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'move');
-      moveListener[1](moveData, 1, 0);
+      moveListener?.[1](moveData, 1, 0);
     });
 
     expect(result.current.instances).toEqual(

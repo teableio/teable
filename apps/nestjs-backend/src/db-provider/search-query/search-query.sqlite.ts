@@ -101,4 +101,113 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
       `%${this.searchValue}%`,
     ]);
   }
+
+  getNumberSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return knexInstance
+      .raw('ROUND(??, ?) LIKE ?', [this.field.dbFieldName, precision, `%${this.searchValue}%`])
+      .toQuery();
+  }
+
+  getDateSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
+    return knexInstance
+      .raw('DATETIME(??, ?) LIKE ?', [
+        this.field.dbFieldName,
+        `${getOffset(timeZone)} hour`,
+        `%${this.searchValue}%`,
+      ])
+      .toQuery();
+  }
+
+  getTextSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    return knexInstance
+      .raw('?? LIKE ?', [this.field.dbFieldName, `%${this.searchValue}%`])
+      .toQuery();
+  }
+
+  getJsonSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    return knexInstance
+      .raw("json_extract(??, '$.title') LIKE ?", [this.field.dbFieldName, `%${this.searchValue}%`])
+      .toQuery();
+  }
+
+  getMultipleDateSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
+    return knexInstance
+      .raw(
+        `
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
+            FROM json_each(??) as je
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${this.searchValue}%`]
+      )
+      .toQuery();
+  }
+
+  getMultipleTextSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    return knexInstance
+      .raw(
+        `
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(je.value, ', ') as aggregated
+            FROM json_each(??) as je
+            WHERE je.key != 'title'
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [this.field.dbFieldName, `%${this.searchValue}%`]
+      )
+      .toQuery();
+  }
+
+  getMultipleNumberSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return knexInstance
+      .raw(
+        `
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
+            FROM json_each(??) as je
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [precision, this.field.dbFieldName, `%${this.searchValue}%`]
+      )
+      .toQuery();
+  }
+
+  getMultipleJsonSqlQuery() {
+    const knexInstance = this.originQueryBuilder.client;
+    return knexInstance
+      .raw(
+        `
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
+            FROM json_each(??) as je
+          )
+          WHERE aggregated LIKE ?
+        )
+        `,
+        [this.field.dbFieldName, `%${this.searchValue}%`]
+      )
+      .toQuery();
+  }
 }

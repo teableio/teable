@@ -197,13 +197,13 @@ describe('LocalStorage', () => {
       const mockRename = 'mock-rename.png';
       const mockDistPath = resolve(storage.storageDir, mockRename);
       vi.spyOn(fse, 'copy').mockResolvedValueOnce(undefined);
-      vi.spyOn(fse, 'remove').mockResolvedValueOnce(undefined);
+      vi.spyOn(fs, 'unlinkSync').mockResolvedValueOnce(undefined);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await storage.save(mockFilePath, mockRename);
 
       expect(fse.copy).toHaveBeenCalledWith(mockFilePath, mockDistPath);
-      expect(fse.remove).toHaveBeenCalledWith(mockFilePath);
+      expect(fs.unlinkSync).toHaveBeenCalledWith(mockFilePath);
       expect(result).toBe(join(storage.path, mockRename));
     });
   });

@@ -378,9 +378,7 @@ export class FieldSupplementService {
 
     return {
       lookupOptions: {
-        linkFieldId,
-        lookupFieldId,
-        foreignTableId,
+        ...lookupOptions,
         relationship: linkFieldOptions.relationship,
         fkHostTableName: linkFieldOptions.fkHostTableName,
         selfKeyName: linkFieldOptions.selfKeyName,

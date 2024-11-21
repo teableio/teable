@@ -94,6 +94,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     const val = nowDate || date;
 
     if (value == val) return;
+    setDate(val);
     onChange?.(val);
   };
 

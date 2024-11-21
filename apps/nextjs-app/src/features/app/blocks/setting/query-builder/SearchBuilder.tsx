@@ -1,3 +1,4 @@
+import type { IQueryBaseRo } from '@teable/openapi';
 import { SearchInput } from '@teable/sdk/components';
 import { useSearch } from '@teable/sdk/hooks';
 import { isEqual } from 'lodash';
@@ -7,8 +8,8 @@ export const SearchBuilder = ({
   search,
   onChange,
 }: {
-  search?: [string, string] | [string];
-  onChange: (search?: [string, string] | [string]) => void;
+  search?: IQueryBaseRo['search'];
+  onChange: (search?: IQueryBaseRo['search']) => void;
 }) => {
   const { searchQuery } = useSearch();
 

@@ -1,3 +1,4 @@
+import { ViewType } from '@teable/core';
 import { Search, X } from '@teable/icons';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useFields, useSearch, useTableId } from '@teable/sdk/hooks';
@@ -7,33 +8,48 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
+import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
 import { SearchCommand } from './SearchCommand';
+import type { ISearchCountPaginationRef } from './SearchCountPagination';
+import { SearchCountPagination } from './SearchCountPagination';
 
-export function SearchButton({
-  className,
-  textClassName,
-}: {
+export interface ISearchButtonProps {
   className?: string;
   textClassName?: string;
-}) {
+  shareView?: boolean;
+}
+
+export const SearchButton = (props: ISearchButtonProps) => {
+  const { className, textClassName, shareView = false } = props;
   const [active, setActive] = useState(false);
   const fields = useFields();
   const tableId = useTableId();
-  const { fieldId, value, setFieldId, setValue } = useSearch();
+  const view = useView();
+  const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);
+  const searchComposition = useRef(false);
   const ref = useRef<HTMLInputElement>(null);
+  const { setSearchCursor } = useGridSearchStore();
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
     LocalStorageKeys.EnableGlobalSearch,
+    false
+  );
+  const [lsHideNotMatch, setLsHideNotMatchRow] = useLocalStorage<boolean>(
+    LocalStorageKeys.SearchHideNotMatchRow,
     false
   );
   const [searchFieldMapCache, setSearchFieldMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.TableSearchFieldsCache,
     {}
   );
-  const view = useView();
+  const searchPaginationRef = useRef<ISearchCountPaginationRef>(null);
+
+  useEffect(() => {
+    setHideNotMatchRow(lsHideNotMatch);
+  }, [lsHideNotMatch, setHideNotMatchRow]);
 
   useEffect(() => {
     if (!fieldId || fieldId === 'all_fields') {
@@ -83,7 +99,7 @@ export function SearchButton({
 
   const [, cancel] = useDebounce(
     () => {
-      setValue(inputValue);
+      !searchComposition?.current && setValue(inputValue);
     },
     500,
     [inputValue]
@@ -93,7 +109,13 @@ export function SearchButton({
     cancel();
     setValue();
     setInputValue('');
-  }, [cancel, setValue]);
+    setSearchCursor(null);
+  }, [cancel, setSearchCursor, setValue]);
+
+  useEffect(() => {
+    setActive(false);
+    resetSearch();
+  }, [resetSearch, view?.id]);
 
   useHotkeys<HTMLInputElement>(
     `esc`,
@@ -129,6 +151,7 @@ export function SearchButton({
     enableGlobalSearch,
     fieldId,
     fields,
+    hideNotMatchRow,
     ref,
     searchFieldMapCache,
     setFieldId,
@@ -153,7 +176,7 @@ export function SearchButton({
   return active ? (
     <div
       className={cn(
-        'left-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pr-[7px] text-xs border outline-muted-foreground',
+        'left-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pr-[7px] text-xs border outline-muted-foreground w-80',
         {
           outline: isFocused,
         }
@@ -161,17 +184,22 @@ export function SearchButton({
     >
       <Popover modal>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size={'xs'} className="max-w-40 truncate rounded-none border-r">
+          <Button
+            variant="ghost"
+            size={'xs'}
+            className="max-w-40 shrink-0 truncate rounded-none border-r"
+          >
             <span className="truncate">{searchHeader}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-1">
+        <PopoverContent className="max-w-96 p-1">
           {fieldId && tableId && (
             <SearchCommand
               value={fieldId}
+              hideNotMatchRow={hideNotMatchRow}
               onChange={(fieldIds) => {
                 // switch to field
-                if (!fieldIds) {
+                if (!fieldIds || fields.length === 0) {
                   const newIds = searchFieldMapCache?.[tableId] || [fields[0].id];
                   setFieldId(newIds.join(','));
                   setEnableGlobalSearch(false);
@@ -186,37 +214,66 @@ export function SearchButton({
                 }
                 setFieldId(ids);
               }}
+              onHideSwitchChange={(checked) => {
+                setLsHideNotMatchRow(checked);
+                setHideNotMatchRow(checked);
+              }}
             />
           )}
         </PopoverContent>
       </Popover>
-      <input
-        ref={ref}
-        className="placeholder:text-muted-foregrounds flex w-32 rounded-md bg-transparent px-1 outline-none"
-        placeholder={t('actions.search')}
-        autoComplete="off"
-        autoCorrect="off"
-        spellCheck="false"
-        type="text"
-        value={inputValue || ''}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-        }}
-        onBlur={() => {
-          setIsFocused(false);
-        }}
-        onFocus={() => {
-          setIsFocused(true);
-        }}
-      />
-      <X
-        className="hover:text-primary-foregrounds size-4 cursor-pointer font-light"
-        onClick={() => {
-          resetSearch();
-          setActive(false);
-        }}
-      />
-      <Search className="size-4" />
+      <div className="flex flex-1 justify-between overflow-hidden">
+        <input
+          ref={ref}
+          className="placeholder:text-muted-foregrounds min-w-0 grow rounded-md bg-transparent px-1 outline-none"
+          placeholder={t('actions.search')}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck="false"
+          type="text"
+          value={inputValue || ''}
+          onCompositionStart={() => {
+            searchComposition.current = true;
+          }}
+          onCompositionEnd={() => {
+            searchComposition.current = false;
+          }}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            if (e.target.value === '') {
+              setSearchCursor(null);
+            }
+          }}
+          onBlur={() => {
+            setIsFocused(false);
+          }}
+          onFocus={() => {
+            setIsFocused(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const actionFn = e.shiftKey
+                ? searchPaginationRef?.current?.prevIndex
+                : searchPaginationRef?.current?.nextIndex;
+              actionFn?.();
+            }
+          }}
+        />
+        <div className="flex shrink-0 items-center">
+          {view?.type === ViewType.Grid && (
+            <SearchCountPagination shareView={shareView} ref={searchPaginationRef} />
+          )}
+
+          <X
+            className="hover:text-primary-foregrounds size-4 shrink-0 cursor-pointer font-light"
+            onClick={() => {
+              resetSearch();
+              setActive(false);
+            }}
+          />
+          <Search className="size-4 shrink-0" />
+        </div>
+      </div>
     </div>
   ) : (
     <ToolBarButton
@@ -229,4 +286,4 @@ export function SearchButton({
       <Search className="size-4" />
     </ToolBarButton>
   );
-}
+};

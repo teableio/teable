@@ -1,6 +1,6 @@
 {
   "name": "@teable/teable",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "license": "AGPL-3.0",
   "private": true,
   "homepage": "https://github.com/teableio/teable",
@@ -78,5 +78,5 @@
     "pnpm": ">=8.15.0",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.15.5"
+  "packageManager": "pnpm@9.13.0"
 }

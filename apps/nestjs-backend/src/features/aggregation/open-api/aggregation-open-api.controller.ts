@@ -5,6 +5,8 @@ import type {
   ICalendarDailyCollectionVo,
   IGroupPointsVo,
   IRowCountVo,
+  ISearchCountVo,
+  ISearchIndexVo,
 } from '@teable/openapi';
 import {
   aggregationRoSchema,
@@ -13,8 +15,12 @@ import {
   IAggregationRo,
   IGroupPointsRo,
   IQueryBaseRo,
+  searchCountRoSchema,
+  ISearchCountRo,
   queryBaseSchema,
   ICalendarDailyCollectionRo,
+  ISearchIndexByQueryRo,
+  searchIndexByQueryRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -41,6 +47,24 @@ export class AggregationOpenApiController {
     @Query(new ZodValidationPipe(queryBaseSchema), TqlPipe) query?: IQueryBaseRo
   ): Promise<IRowCountVo> {
     return await this.aggregationOpenApiService.getRowCount(tableId, query);
+  }
+
+  @Get('/search-count')
+  @Permissions('table|read')
+  async getSearchCount(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(searchCountRoSchema), TqlPipe) query: ISearchCountRo
+  ): Promise<ISearchCountVo> {
+    return await this.aggregationOpenApiService.getSearchCount(tableId, query);
+  }
+
+  @Get('/search-index')
+  @Permissions('table|read')
+  async getRecordIndexBySearchOrder(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(searchIndexByQueryRoSchema), TqlPipe) query: ISearchIndexByQueryRo
+  ): Promise<ISearchIndexVo> {
+    return await this.aggregationOpenApiService.getRecordIndexBySearchOrder(tableId, query);
   }
 
   @Get('/group-points')

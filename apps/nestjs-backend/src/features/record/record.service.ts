@@ -12,6 +12,7 @@ import type {
   IExtraResult,
   IFilter,
   IFilterSet,
+  IGridColumnMeta,
   IGroup,
   ILinkCellValue,
   IRecord,
@@ -47,7 +48,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, difference, keyBy } from 'lodash';
+import { get, difference, keyBy, orderBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -366,7 +367,7 @@ export class RecordService {
     filter?: IFilter,
     orderBy?: ISortItem[],
     groupBy?: IGroup,
-    search?: string[]
+    search?: [string, string?, boolean?]
   ) {
     if (filter || orderBy?.length || groupBy?.length || search) {
       // The field Meta is needed to construct the filter if it exists
@@ -420,8 +421,12 @@ export class RecordService {
       });
   }
 
-  public parseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
-    const [searchValue, fieldIdOrName] = search;
+  public parseSearch(
+    search: [string, string?, boolean?],
+    fieldMap?: Record<string, IFieldInstance>
+  ): [string, string?, boolean?] {
+    const [searchValue, fieldIdOrName, hideNotMatchRow] = search;
+
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
     }
@@ -432,6 +437,7 @@ export class RecordService {
         Object.values(fieldMap)
           .map((f) => f.id)
           .join(','),
+        hideNotMatchRow,
       ];
     }
     const fieldIds = fieldIdOrName.split(',');
@@ -443,7 +449,7 @@ export class RecordService {
       }
     });
 
-    return [searchValue, fieldIdOrName];
+    return [searchValue, fieldIdOrName, hideNotMatchRow];
   }
 
   async prepareQuery(
@@ -590,9 +596,11 @@ export class RecordService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    queryBuilder.where((builder) => {
-      this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
-    });
+    if (search && search[2]) {
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
+      });
+    }
 
     // ignore sorting when filterLinkCellSelected is set
     if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
@@ -1340,7 +1348,148 @@ export class RecordService {
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
 
+    // this search step should not abort the query
+    try {
+      const searchHitIndex = await this.getSearchHitIndex(tableId, query, dbTableName, ids);
+      return { ids, extra: { groupPoints, searchHitIndex } };
+    } catch (e) {
+      this.logger.error(`Get search index error: ${(e as Error).message}`, (e as Error)?.stack);
+    }
+
     return { ids, extra: { groupPoints } };
+  }
+
+  async getSearchFields(
+    originFieldInstanceMap: Record<string, IFieldInstance>,
+    search?: [string, string?, boolean?],
+    viewId?: string,
+    projection?: string[]
+  ) {
+    let viewColumnMeta: IGridColumnMeta | null = null;
+    const fieldInstanceMap = { ...originFieldInstanceMap };
+
+    if (viewId) {
+      const { columnMeta: viewColumnRawMeta } =
+        (await this.prismaService.view.findUnique({
+          where: { id: viewId, deletedTime: null },
+          select: { columnMeta: true },
+        })) || {};
+
+      viewColumnMeta = viewColumnRawMeta ? JSON.parse(viewColumnRawMeta) : null;
+
+      if (viewColumnMeta) {
+        Object.entries(viewColumnMeta).forEach(([key, value]) => {
+          if (get(value, ['hidden'])) {
+            delete fieldInstanceMap[key];
+          }
+        });
+      }
+    }
+
+    if (projection?.length) {
+      Object.keys(fieldInstanceMap).forEach((fieldId) => {
+        if (!projection.includes(fieldId)) {
+          delete fieldInstanceMap[fieldId];
+        }
+      });
+    }
+
+    return orderBy(
+      Object.values(fieldInstanceMap)
+        .map((field) => ({
+          ...field,
+          isStructuredCellValue: field.isStructuredCellValue,
+        }))
+        .filter((field) => {
+          if (!viewColumnMeta) {
+            return true;
+          }
+          return !viewColumnMeta?.[field.id]?.hidden;
+        })
+        .filter((field) => {
+          if (!projection) {
+            return true;
+          }
+          return projection.includes(field.id);
+        })
+        .filter((field) => {
+          if (!search?.[1]) {
+            return true;
+          }
+
+          const searchArr = search[1].split(',');
+          return searchArr.includes(field.id);
+        })
+        .filter((field) => {
+          if (field.type === FieldType.Checkbox) {
+            return false;
+          }
+          return true;
+        })
+        .map((field) => {
+          return {
+            ...field,
+            order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
+          };
+        }),
+      ['order', 'createTime']
+    ) as unknown as IFieldInstance[];
+  }
+
+  private async getSearchHitIndex(
+    tableId: string,
+    query: IGetRecordsRo,
+    dbTableName: string,
+    Ids: string[]
+  ) {
+    const { search, viewId, projection } = query;
+
+    if (!search) {
+      return null;
+    }
+
+    const fieldsRaw = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null },
+    });
+    const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
+    const fieldInstanceMap = fieldInstances.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+    const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
+    const newQuery = this.knex
+      .with('current_page_records', (qb) => {
+        qb.select('*').from(dbTableName).whereIn('__id', Ids);
+      })
+      .with('search_index', (qb) => {
+        this.dbProvider.searchIndexQuery(qb, searchFields, search?.[0], 'current_page_records');
+      })
+      .from('search_index');
+
+    const cases = searchFields.map((field, index) => {
+      return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
+        'matched_column',
+        field.dbFieldName,
+        index + 1,
+      ]);
+    });
+    cases.length && newQuery.orderByRaw(cases.join(','));
+
+    const result = await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(
+      newQuery.toQuery()
+    );
+
+    if (!result.length) {
+      return null;
+    }
+
+    return result.map((res) => ({
+      fieldId: res.fieldId,
+      recordId: res.__id,
+    }));
   }
 
   async getRecordsFields(
@@ -1610,7 +1759,7 @@ export class RecordService {
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
     filter?: IFilter,
-    search?: [string, string] | [string]
+    search?: [string, string?, boolean?]
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
@@ -1621,7 +1770,7 @@ export class RecordService {
         .appendQueryBuilder();
     }
 
-    if (search) {
+    if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
@@ -1675,7 +1824,7 @@ export class RecordService {
         .appendQueryBuilder();
     }
 
-    if (search) {
+    if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, handledSearch);

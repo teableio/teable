@@ -85,6 +85,8 @@ import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
+import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
+import { useGridSearchStore } from './useGridSearchStore';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo;
@@ -126,7 +128,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = useFieldCellEditable();
   const { undo, redo } = useUndoRedo();
-
+  const { setGridRef, searchCursor } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
 
@@ -143,14 +145,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     generateLocalId(tableId, activeViewId)
   );
 
-  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery } =
+  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery, searchHitIndex } =
     useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
+
+  const isSelectionLoaded = useIsSelectionLoaded();
 
   const commentCountMap = useCommentCountMap(recordsQuery);
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
-  const { copy, paste, clear, deleteRecords } = useSelectionOperation({
+  const { copy, paste, clear, deleteRecords, syncCopy } = useSelectionOperation({
     collapsedGroupIds: viewQuery?.collapsedGroupIds
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
@@ -498,11 +502,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     clear(selection);
   };
 
-  const onCopy = async (selection: CombinedSelection) => {
+  const onCopy = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+    if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
+      // sync copy
+      syncCopy(e, { selection, recordMap });
+      return;
+    }
     copy(selection);
   };
 
   const onCopyForSingleRow = async (
+    e: React.ClipboardEvent,
     selection: CombinedSelection,
     fieldValueMap?: { [fieldId: string]: unknown }
   ) => {
@@ -510,7 +520,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
     if (type !== SelectionRegionType.Cells || fieldValueMap == null) return;
 
-    const getCopyData = async () => {
+    const getCopyData = () => {
       const [start, end] = selection.serialize();
       const selectedFields = fields.slice(start[0], end[0] + 1);
       const filteredPropsFields = selectedFields
@@ -525,7 +535,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return { content: stringifyClipboardText(content), header: filteredPropsFields };
     };
 
-    copy(selection, getCopyData);
+    syncCopy(e, { getCopyData });
   };
 
   const onPaste = (selection: CombinedSelection, e: React.ClipboardEvent) => {
@@ -768,6 +778,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   );
 
+  useEffect(() => {
+    setGridRef?.(gridRef);
+  }, [setGridRef]);
+
   return (
     <div ref={containerRef} className="relative size-full">
       <Grid
@@ -788,6 +802,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         groupCollection={groupCollection}
         groupPoints={groupPoints as unknown as IGroupPoint[]}
         collaborators={collaborators}
+        searchCursor={searchCursor}
+        searchHitIndex={searchHitIndex}
         getCellContent={getCellContent}
         onDelete={getAuthorizedFunction(onDelete, 'record|update')}
         onDragStart={onDragStart}
@@ -852,7 +868,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             getCellContent={getPrefillingCellContent}
             onScrollChanged={onPrefillingGridScrollChanged}
             onCellEdited={onPrefillingCellEdited}
-            onCopy={(selection) => onCopyForSingleRow(selection, prefillingFieldValueMap)}
+            onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
             onPaste={onPasteForPrefilling}
           />
         </PrefillingRowContainer>
@@ -884,7 +900,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             getCellContent={getPresortCellContent}
             onScrollChanged={onPrefillingGridScrollChanged}
             onCellEdited={onPresortCellEdited}
-            onCopy={(selection) => onCopyForSingleRow(selection, presortRecord.fields)}
+            onCopy={(selection, e) => onCopyForSingleRow(e, selection, presortRecord.fields)}
             onPaste={onPasteForPresort}
           />
         </PresortRowContainer>

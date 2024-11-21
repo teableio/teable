@@ -100,7 +100,7 @@ export const Card = (props: IKanbanCardProps) => {
               ) : (
                 <div
                   style={{ height: CARD_COVER_HEIGHT }}
-                  className="flex w-full items-center justify-center bg-gray-100 dark:bg-gray-800"
+                  className="flex w-full items-center justify-center bg-muted"
                 >
                   <Image className="size-20 text-gray-300 dark:text-gray-700" />
                 </div>

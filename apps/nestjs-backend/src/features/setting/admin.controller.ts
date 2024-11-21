@@ -1,4 +1,5 @@
-import { Controller, Param, Patch, Post } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { AdminService } from './admin.service';
 
@@ -15,5 +16,10 @@ export class AdminController {
   @Post('/attachment/repair-table-thumbnail')
   async repairTableAttachmentThumbnail(): Promise<void> {
     await this.adminService.repairTableAttachmentThumbnail();
+  }
+
+  @Get('/debug/heap-snapshot')
+  async getHeapSnapshot(@Res() res: Response): Promise<void> {
+    await this.adminService.getHeapSnapshot(res);
   }
 }

@@ -141,7 +141,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     coordInstance,
     onUndo,
     onRedo,
-    onCopy,
     onDelete,
     onRowExpand,
     setEditing,
@@ -284,6 +283,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onPaste?.(selection, e);
   };
 
+  const onCopyInner = (e: React.ClipboardEvent) => {
+    onCopy?.(selection, e);
+  };
+
   return (
     <div className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full">
       <div
@@ -296,6 +299,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         }}
         onKeyDown={onKeyDown}
         onPaste={onPasteInner}
+        onCopy={onCopyInner}
       >
         {EditorRenderer}
         <input className="opacity-0" ref={defaultFocusRef} />

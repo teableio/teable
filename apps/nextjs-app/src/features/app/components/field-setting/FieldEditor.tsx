@@ -103,6 +103,7 @@ export const FieldEditor = (props: {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
+          <hr className="my-2" />
           <FieldOptions field={field} onChange={updateFieldOptions} />
         </>
       );

@@ -22,7 +22,7 @@ body {
 }
 
 .select-field-type [cmdk-list] {
-  max-height: min(600px, calc(100vh - 300px));
+  max-height: min(600px, calc(100vh - 450px));
 }
 
 .height-preserving-container:empty {

@@ -1,7 +1,7 @@
 import type { IColumnMeta, IFieldVo, IOtOperation, IViewPropertyKeys, IViewVo } from '@teable/core';
 import type { IRecord } from '@teable/openapi';
-import type { IOpsMap } from '../features/calculation/reference.service';
 import type { ICellContext } from '../features/calculation/utils/changes';
+import type { IOpsMap } from '../features/calculation/utils/compose-maps';
 import type { ISessionData } from '../types/session';
 
 /* eslint-disable @typescript-eslint/naming-convention */

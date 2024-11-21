@@ -15,12 +15,17 @@ export function SearchInput({
   container?: HTMLElement;
 }) {
   const fields = useFields();
-  const { fieldId, value, setFieldId, setValue, reset } = useSearch();
+  const { fieldId, value, setFieldId, setValue, reset, setHideNotMatchRow } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation();
 
   const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // link search should filter not match row
+    setHideNotMatchRow(true);
+  }, [setHideNotMatchRow]);
 
   const [, cancel] = useDebounce(
     () => {

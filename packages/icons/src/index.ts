@@ -118,6 +118,7 @@ export { default as SendMail } from './components/SendMail';
 export { default as Settings } from './components/Settings';
 export { default as Share2 } from './components/Share2';
 export { default as Sheet } from './components/Sheet';
+export { default as ShieldCheck } from './components/ShieldCheck';
 export { default as Sidebar } from './components/Sidebar';
 export { default as SortAsc } from './components/SortAsc';
 export { default as Square } from './components/Square';

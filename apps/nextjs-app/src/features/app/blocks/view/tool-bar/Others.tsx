@@ -1,12 +1,10 @@
-import { ViewType } from '@teable/core';
-import { ArrowUpRight, Code2, Component, Database, MoreHorizontal, Share2 } from '@teable/icons';
-import { useBaseId, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
+import { ArrowUpRight, Code2, Database, MoreHorizontal } from '@teable/icons';
+import { useBaseId, useTableId, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
-import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { SearchButton } from '../search/SearchButton';
 import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
@@ -18,8 +16,6 @@ const OthersList = ({
   classNames?: { textClassName?: string; buttonClassName?: string };
   className?: string;
 }) => {
-  const { toggleGraph } = useCellGraphStore();
-  const view = useView();
   const permission = useTablePermission();
   const { t } = useTranslation('table');
   const baseId = useBaseId() as string;
@@ -40,32 +36,6 @@ const OthersList = ({
           </ToolBarButton>
         )}
       </SharePopover>
-
-      {view?.type === ViewType.Grid && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <ToolBarButton
-              text={t('toolbar.others.extensions.label')}
-              textClassName={classNames?.textClassName}
-              className={classNames?.buttonClassName}
-            >
-              <Component className="size-4" />
-            </ToolBarButton>
-          </PopoverTrigger>
-          <PopoverContent side="bottom" align="start" className="w-40 p-0">
-            <Button
-              variant={'ghost'}
-              size={'xs'}
-              className="w-full justify-start font-normal"
-              onClick={() => toggleGraph()}
-            >
-              <Share2 className="pr-1 text-lg" />
-              {t('toolbar.others.extensions.graph')}
-            </Button>
-          </PopoverContent>
-        </Popover>
-      )}
-
       <Popover>
         <PopoverTrigger asChild>
           <ToolBarButton

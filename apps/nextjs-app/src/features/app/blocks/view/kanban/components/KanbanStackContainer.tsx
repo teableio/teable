@@ -85,7 +85,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
             ) : (
               <div
                 className={cn(
-                  'w-[264px] h-full border bg-slate-50 dark:bg-slate-900 rounded-md shrink-0 flex flex-col',
+                  'w-[264px] h-full border bg-slate-50 dark:bg-muted rounded-md shrink-0 flex flex-col',
                   isDragging && 'shadow-md'
                 )}
               >
@@ -111,8 +111,8 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
 
                   {cardCreatable && (
                     <CreateRecordModal callback={onAppendCallback}>
-                      <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
-                        <Button variant="outline" className="w-full shadow-none">
+                      <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-muted">
+                        <Button variant="outline" className="w-full shadow-none hover:bg-zinc-700">
                           <Plus className="size-5" />
                         </Button>
                       </div>

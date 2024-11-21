@@ -2,14 +2,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import type { IQueryBaseRo } from '@teable/openapi';
 import { getRowCount, getShareViewRowCount } from '@teable/openapi';
+import { isEqual, omit } from 'lodash';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 import { ReactQueryKeys } from '../../config';
 import {
   useIsHydrated,
   useLinkFilter,
   useSearch,
   useTableListener,
+  useView,
   useViewListener,
 } from '../../hooks';
 import { AnchorContext } from '../anchor';
@@ -21,6 +23,14 @@ interface RowCountProviderProps {
   query?: IQueryBaseRo;
 }
 
+const hasChangesExceptWithKey = (
+  prev: Record<string, unknown>,
+  next: Record<string, unknown>,
+  key: string
+) => {
+  return !isEqual(omit(prev, [key]), omit(next, [key]));
+};
+
 export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
@@ -29,15 +39,34 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   const { shareId } = useContext(ShareViewContext);
   const { selectedRecordIds, filterLinkCellCandidate } = useLinkFilter();
 
+  const view = useView();
+
   const rowCountQuery = useMemo(
-    () => ({ viewId, search: searchQuery, selectedRecordIds, filterLinkCellCandidate, ...query }),
-    [filterLinkCellCandidate, selectedRecordIds, searchQuery, viewId, query]
+    () => ({
+      viewId,
+      search: searchQuery,
+      selectedRecordIds,
+      filterLinkCellCandidate,
+      filter: shareId ? view?.filter : undefined,
+      ...query,
+    }),
+    [viewId, searchQuery, selectedRecordIds, filterLinkCellCandidate, shareId, view?.filter, query]
   );
 
-  const rowCountQueryKey = useMemo(
-    () => ReactQueryKeys.rowCount(shareId || (tableId as string), rowCountQuery),
-    [shareId, tableId, rowCountQuery]
-  );
+  const prevQueryRef = useRef(rowCountQuery);
+
+  const rowCountQueryKey = useMemo(() => {
+    if (
+      prevQueryRef.current &&
+      !hasChangesExceptWithKey(prevQueryRef.current, rowCountQuery, 'search') &&
+      searchQuery !== undefined &&
+      !searchQuery?.[2]
+    ) {
+      return ReactQueryKeys.rowCount(shareId || (tableId as string), prevQueryRef.current);
+    }
+    prevQueryRef.current = rowCountQuery;
+    return ReactQueryKeys.rowCount(shareId || (tableId as string), rowCountQuery);
+  }, [rowCountQuery, searchQuery, shareId, tableId]);
 
   const { data: commonRowCount } = useQuery({
     queryKey: rowCountQueryKey,

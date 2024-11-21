@@ -325,11 +325,13 @@ export class RecordOpenApiService {
       });
     }
 
-    const snapshots = await this.recordService.getSnapshotBulk(
-      tableId,
-      recordIds,
-      undefined,
-      updateRecordsRo.fieldKeyType
+    const snapshots = await this.prismaService.$tx(async () =>
+      this.recordService.getSnapshotBulk(
+        tableId,
+        recordIds,
+        undefined,
+        updateRecordsRo.fieldKeyType
+      )
     );
 
     return {
@@ -582,9 +584,6 @@ export class RecordOpenApiService {
       order,
       records: [records],
     };
-    const createdRecords = await this.prismaService.$tx(async () =>
-      this.createRecords(tableId, createRecordsRo)
-    );
-    return { ids: createdRecords.records.map((record) => record.id) };
+    return await this.prismaService.$tx(async () => this.createRecords(tableId, createRecordsRo));
   }
 }

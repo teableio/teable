@@ -48,6 +48,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { StatisticMenu } from '@/features/app/blocks/view/grid/components';
 import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
+import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
 import { useHiddenFields } from '@/features/app/hooks/useHiddenFields';
@@ -82,12 +83,17 @@ export const GridViewBase = (props: IGridViewProps) => {
   const hiddenFields = useHiddenFields();
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
+  const { setGridRef, searchCursor } = useGridSearchStore();
 
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const groupCollection = useGridGroupCollection();
+
+  useEffect(() => {
+    setGridRef(gridRef);
+  }, [setGridRef]);
 
   const {
     viewQuery: viewQueryWithGroup,
@@ -120,7 +126,7 @@ export const GridViewBase = (props: IGridViewProps) => {
     };
   }, [filter, sort?.sortObjs, viewQueryWithGroup]);
 
-  const { recordMap, groupPoints, onVisibleRegionChanged } = useGridAsyncRecords(
+  const { recordMap, groupPoints, onVisibleRegionChanged, searchHitIndex } = useGridAsyncRecords(
     ssrRecords,
     undefined,
     viewQuery,
@@ -248,6 +254,8 @@ export const GridViewBase = (props: IGridViewProps) => {
             columnStatistics={columnStatistics}
             freezeColumnCount={isTouchDevice ? 0 : 1}
             columns={columns}
+            searchCursor={searchCursor}
+            searchHitIndex={searchHitIndex}
             customIcons={customIcons}
             rowControls={rowControls}
             style={{

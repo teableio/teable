@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { HttpError } from '@teable/core';
 import {
   GET_TABLE_LIST,
+  deleteBase,
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
@@ -16,7 +17,7 @@ import axiosInstance from 'axios';
 import { omit } from 'lodash';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp } from './utils/init-app';
+import { createBase, initApp } from './utils/init-app';
 
 const oauthData = {
   name: 'test',
@@ -307,9 +308,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userInfo.data.email).toBeUndefined();
-
+    const base = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: 'oauth-server-test',
+    });
     const tableListRes = await anonymousAxios.get<ITableListVo>(
-      urlBuilder(GET_TABLE_LIST, { baseId: globalThis.testConfig.baseId }),
+      urlBuilder(GET_TABLE_LIST, { baseId: base.id }),
       {
         headers: {
           Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
@@ -322,7 +326,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     // no scope table|create
     const error = await getError(() =>
       anonymousAxios.post(
-        `/base/${globalThis.testConfig.baseId}/table`,
+        `/base/${base.id}/table`,
         {},
         {
           headers: {
@@ -331,6 +335,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
+    await deleteBase(base.id);
     expect(error?.status).toBe(403);
   });
 
