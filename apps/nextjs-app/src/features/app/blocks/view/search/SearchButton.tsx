@@ -28,12 +28,13 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const view = useView();
   const viewId = view?.id;
   const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
+
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation(['common', 'table']);
   const searchComposition = useRef(false);
   const ref = useRef<HTMLInputElement>(null);
-  const { setSearchCursor } = useGridSearchStore();
+  const { setSearchCursor, setResetSearchHandler } = useGridSearchStore();
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
     LocalStorageKeys.EnableGlobalSearch,
     true
@@ -74,10 +75,15 @@ export const SearchButton = (props: ISearchButtonProps) => {
     setValue();
     setInputValue('');
     setSearchCursor(null);
+    setActive(false);
   }, [cancel, setSearchCursor, setValue]);
 
+  useEffect(() => {
+    setResetSearchHandler(resetSearch);
+  }, [resetSearch, setResetSearchHandler]);
+
   const initSearchParams = useCallback(() => {
-    if (!tableId || !viewId) {
+    if (!tableId || !viewId || fields.length === 0) {
       return;
     }
 
@@ -124,6 +130,10 @@ export const SearchButton = (props: ISearchButtonProps) => {
     view?.type,
     viewId,
   ]);
+
+  useEffect(() => {
+    setSearchCursor(null);
+  }, [viewId, tableId, setSearchCursor]);
 
   const onFieldChangeHandler = useCallback(
     (fieldIds: string[] | null) => {
@@ -172,11 +182,6 @@ export const SearchButton = (props: ISearchButtonProps) => {
     }
   }, [active, initSearchParams]);
 
-  useEffect(() => {
-    setActive(false);
-    resetSearch();
-  }, [resetSearch, view?.id]);
-
   useHotkeys<HTMLInputElement>(
     `esc`,
     () => {
@@ -189,10 +194,6 @@ export const SearchButton = (props: ISearchButtonProps) => {
       enableOnFormTags: ['input'],
     }
   );
-
-  useEffect(() => {
-    setActive(false);
-  }, [viewId]);
 
   const searchHeader = useMemo(() => {
     if (fieldId === 'all_fields') {
