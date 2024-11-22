@@ -425,6 +425,9 @@
       "customColor": "自定义颜色",
       "alignWithRecords": "跟随字段颜色"
     },
+    "placeholder": {
+      "selectColorField": "选择一个颜色字段"
+    },
     "moreLinkText": "展示全部 {{count}} 条"
   },
   "menu": {

@@ -190,7 +190,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                   onValueChange={(value) => onColorFieldIdChange(value)}
                 >
                   <SelectTrigger className="h-8 w-full bg-background">
-                    <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
+                    <SelectValue placeholder={t('table:calendar.placeholder.selectColorField')} />
                   </SelectTrigger>
                   <SelectContent className="w-full">
                     {filteredSelectFields.map(({ id, type, name, isLookup }) => {

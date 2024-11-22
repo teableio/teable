@@ -417,6 +417,9 @@
       "customColor": "Настроить цвет",
       "alignWithRecords": "Соответствовать записям"
     },
+    "placeholder": {
+      "selectColorField": "Выберите поле цвета"
+    },
     "moreLinkText": "Показать все {{count}} записей"
   },
   "menu": {

@@ -416,6 +416,9 @@
       "customColor": "カスタマイズ",
       "alignWithRecords": "レコードに合わせる"
     },
+    "placeholder": {
+      "selectColorField": "色フィールドを選択"
+    },
     "moreLinkText": "すべての {{count}} レコードを表示"
   },
   "menu": {

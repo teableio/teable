@@ -120,7 +120,7 @@ export const Calendar = (props: ICalendarProps) => {
       dayEl.style.position = 'relative';
 
       const button = document.createElement('button');
-      button.className = `${ADD_EVENT_BUTTON_CLASS_NAME} invisible absolute left-[2px] top-[2px] z-10 rounded-md bg-secondary text-secondary-foreground size-6 hover:bg-secondary/80 text-md`;
+      button.className = `${ADD_EVENT_BUTTON_CLASS_NAME} invisible absolute left-[2px] top-[2px] z-10 rounded-md bg-secondary text-secondary-foreground size-6 hover:bg-secondary/80 text-lg leading-[0.75] pb-[2px]`;
       button.textContent = '+';
 
       button.onclick = async (e: MouseEvent) => {
@@ -395,50 +395,52 @@ export const Calendar = (props: ICalendarProps) => {
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden">
-        <FullCalendar
-          ref={calendarRef}
-          locale={FULL_CALENDAR_LOCALE_MAP[lang as keyof typeof FULL_CALENDAR_LOCALE_MAP]}
-          initialView="dayGridMonth"
-          plugins={[dayGridPlugin, interactionPlugin]}
-          height="100%"
-          dayMaxEventRows
-          dayHeaderClassNames="!py-1"
-          headerToolbar={false}
-          events={events}
-          eventClassNames="outline-none text-xs px-2 h-5 border-none leading-[18px]"
-          eventDurationEditable={
-            eventEditable && !isSameField && (!isStartComputed || !isEndComputed)
-          }
-          eventResizableFromStart={eventEditable && !isStartComputed}
-          editable={eventEditable && !isStartComputed && !isEndComputed}
-          datesSet={onDatesChanged}
-          eventDidMount={onEventDidMount}
-          eventResize={onEventResize}
-          eventDrop={onEventDrop}
-          eventClick={(info) => setExpandRecordId(info.event.id)}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          eventOrder={(a: any, b: any) => {
-            if (a.start < b.start) return -1;
-            if (a.start > b.start) return 1;
-            return 0;
-          }}
-          moreLinkClick={(info) => {
-            setMoreLinkDate(info.date);
-            return 'popover';
-          }}
-          moreLinkContent={() => {
-            return (
-              <Button
-                size="xs"
-                variant="ghost"
-                className="h-[18px] w-full gap-1 rounded-sm text-xs font-normal text-muted-foreground"
-              >
-                <span className={MORE_LINK_TEXT_CLASS_NAME}>{t('notification.showMore')}</span>
-              </Button>
-            );
-          }}
-        />
+      <div className="flex-1 overflow-x-auto overflow-y-hidden sm:overflow-hidden">
+        <div className="size-full min-w-[640px]">
+          <FullCalendar
+            ref={calendarRef}
+            locale={FULL_CALENDAR_LOCALE_MAP[lang as keyof typeof FULL_CALENDAR_LOCALE_MAP]}
+            initialView="dayGridMonth"
+            plugins={[dayGridPlugin, interactionPlugin]}
+            height="100%"
+            dayMaxEventRows
+            dayHeaderClassNames="!py-1"
+            headerToolbar={false}
+            events={events}
+            eventClassNames="outline-none text-xs px-2 h-5 border-none leading-[18px]"
+            eventDurationEditable={
+              eventEditable && !isSameField && (!isStartComputed || !isEndComputed)
+            }
+            eventResizableFromStart={eventEditable && !isStartComputed}
+            editable={eventEditable && !isStartComputed && !isEndComputed}
+            datesSet={onDatesChanged}
+            eventDidMount={onEventDidMount}
+            eventResize={onEventResize}
+            eventDrop={onEventDrop}
+            eventClick={(info) => setExpandRecordId(info.event.id)}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            eventOrder={(a: any, b: any) => {
+              if (a.start < b.start) return -1;
+              if (a.start > b.start) return 1;
+              return 0;
+            }}
+            moreLinkClick={(info) => {
+              setMoreLinkDate(info.date);
+              return 'popover';
+            }}
+            moreLinkContent={() => {
+              return (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="h-[18px] w-full gap-1 rounded-sm text-xs font-normal text-muted-foreground"
+                >
+                  <span className={MORE_LINK_TEXT_CLASS_NAME}>{t('notification.showMore')}</span>
+                </Button>
+              );
+            }}
+          />
+        </div>
       </div>
       {moreLinkDate && (
         <Dialog

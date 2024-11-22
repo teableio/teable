@@ -426,6 +426,9 @@
       "customColor": "Customize color",
       "alignWithRecords": "Align with records"
     },
+    "placeholder": {
+      "selectColorField": "Select a color field"
+    },
     "moreLinkText": "Show all {{count}} records"
   },
   "menu": {

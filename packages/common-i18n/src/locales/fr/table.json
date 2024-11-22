@@ -417,6 +417,9 @@
       "customColor": "Personnaliser la couleur",
       "alignWithRecords": "Aligner avec les enregistrements"
     },
+    "placeholder": {
+      "selectColorField": "Sélectionner un champ de couleur"
+    },
     "moreLinkText": "Afficher toutes les {{count}} enregistrements"
   },
   "menu": {
