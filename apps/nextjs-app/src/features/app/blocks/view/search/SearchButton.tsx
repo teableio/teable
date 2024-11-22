@@ -26,6 +26,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const fields = useFields();
   const tableId = useTableId();
   const view = useView();
+  const viewId = view?.id;
   const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
@@ -35,7 +36,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const { setSearchCursor } = useGridSearchStore();
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
     LocalStorageKeys.EnableGlobalSearch,
-    false
+    true
   );
   const [lsHideNotMatch, setLsHideNotMatchRow] = useLocalStorage<boolean>(
     LocalStorageKeys.SearchHideNotMatchRow,
@@ -46,43 +47,6 @@ export const SearchButton = (props: ISearchButtonProps) => {
     {}
   );
   const searchPaginationRef = useRef<ISearchCountPaginationRef>(null);
-
-  useEffect(() => {
-    setHideNotMatchRow(lsHideNotMatch);
-  }, [lsHideNotMatch, setHideNotMatchRow]);
-
-  useEffect(() => {
-    if (!fieldId || fieldId === 'all_fields') {
-      return;
-    }
-    const selectedField = fieldId.split(',');
-    const hiddenFields: string[] = [];
-    const columnMeta = view?.columnMeta || {};
-    Object.entries(columnMeta).forEach(([key, value]) => {
-      value?.hidden && hiddenFields.push(key);
-    });
-    const filteredFields = selectedField.filter(
-      (f) => !hiddenFields.includes(f) && fields.map((f) => f.id).includes(f)
-    );
-    const defaultFieldId = fields?.[0]?.id;
-    if (!isEqual(filteredFields, selectedField)) {
-      tableId &&
-        setSearchFieldMap({
-          ...searchFieldMapCache,
-          [tableId]: filteredFields?.length ? filteredFields : [defaultFieldId],
-        });
-      setFieldId(filteredFields.length > 0 ? filteredFields.join(',') : defaultFieldId);
-    }
-  }, [
-    fieldId,
-    fields,
-    searchFieldMapCache,
-    setFieldId,
-    setSearchFieldMap,
-    tableId,
-    value,
-    view?.columnMeta,
-  ]);
 
   useHotkeys(
     `mod+f`,
@@ -112,6 +76,102 @@ export const SearchButton = (props: ISearchButtonProps) => {
     setSearchCursor(null);
   }, [cancel, setSearchCursor, setValue]);
 
+  const initSearchParams = useCallback(() => {
+    if (!tableId || !viewId) {
+      return;
+    }
+
+    const localSearchKey = `${tableId}-${viewId}`;
+
+    if (view?.type === ViewType.Grid) {
+      setHideNotMatchRow(lsHideNotMatch);
+    } else {
+      // other view type only support filter search, causing the search hit highlight
+      setHideNotMatchRow(true);
+    }
+
+    if (enableGlobalSearch) {
+      setFieldId('all_fields');
+      return;
+    }
+
+    // set the first field as default search field
+    if (!searchFieldMapCache?.[localSearchKey]?.length) {
+      const newIds = [fields?.[0].id];
+      setFieldId(newIds.join(','));
+      setSearchFieldMap({ ...searchFieldMapCache, [localSearchKey]: newIds });
+      return;
+    }
+
+    const currentFieldIds = fields.map((f) => f.id);
+    const fieldIds = searchFieldMapCache[localSearchKey].filter((fieldId) =>
+      currentFieldIds.includes(fieldId)
+    );
+    setFieldId(fieldIds.join(','));
+
+    if (!isEqual(fieldIds, searchFieldMapCache[localSearchKey])) {
+      setSearchFieldMap({ ...searchFieldMapCache, [localSearchKey]: fieldIds });
+    }
+  }, [
+    enableGlobalSearch,
+    fields,
+    lsHideNotMatch,
+    searchFieldMapCache,
+    setFieldId,
+    setHideNotMatchRow,
+    setSearchFieldMap,
+    tableId,
+    view?.type,
+    viewId,
+  ]);
+
+  const onFieldChangeHandler = useCallback(
+    (fieldIds: string[] | null) => {
+      if (!tableId || !viewId) {
+        return;
+      }
+      const localSearchKey = `${tableId}-${viewId}`;
+      // change the search mode to field search the default from local cache or the first field
+      if (!fieldIds || fields.length === 0) {
+        if (searchFieldMapCache?.[localSearchKey]?.length) {
+          setFieldId(searchFieldMapCache[localSearchKey].join(','));
+        } else {
+          const newIds = [fields?.[0].id];
+          setFieldId(newIds.join(','));
+          setSearchFieldMap({ ...searchFieldMapCache, [tableId]: newIds });
+        }
+        setEnableGlobalSearch(false);
+        return;
+      }
+
+      // switch to global search or update search field
+      const ids = fieldIds.join(',');
+      if (ids === 'all_fields') {
+        setEnableGlobalSearch(true);
+      } else {
+        setEnableGlobalSearch(false);
+        setSearchFieldMap({ ...searchFieldMapCache, [localSearchKey]: fieldIds });
+        setFieldId(ids);
+      }
+    },
+    [
+      fields,
+      searchFieldMapCache,
+      setEnableGlobalSearch,
+      setFieldId,
+      setSearchFieldMap,
+      tableId,
+      viewId,
+    ]
+  );
+
+  useEffect(() => {
+    if (active) {
+      ref.current?.focus();
+      initSearchParams();
+    }
+  }, [active, initSearchParams]);
+
   useEffect(() => {
     setActive(false);
     resetSearch();
@@ -131,33 +191,8 @@ export const SearchButton = (props: ISearchButtonProps) => {
   );
 
   useEffect(() => {
-    if (active) {
-      ref.current?.focus();
-      if (enableGlobalSearch) {
-        setFieldId('all_fields');
-        return;
-      }
-      // init fieldId
-      if (fieldId === undefined) {
-        if (tableId && searchFieldMapCache?.[tableId]?.length) {
-          setFieldId(searchFieldMapCache[tableId].join(','));
-          return;
-        }
-        setFieldId(fields[0].id);
-      }
-    }
-  }, [
-    active,
-    enableGlobalSearch,
-    fieldId,
-    fields,
-    hideNotMatchRow,
-    ref,
-    searchFieldMapCache,
-    setFieldId,
-    setSearchFieldMap,
-    tableId,
-  ]);
+    setActive(false);
+  }, [viewId]);
 
   const searchHeader = useMemo(() => {
     if (fieldId === 'all_fields') {
@@ -187,9 +222,11 @@ export const SearchButton = (props: ISearchButtonProps) => {
           <Button
             variant="ghost"
             size={'xs'}
-            className="max-w-40 shrink-0 truncate rounded-none border-r"
+            className="flex w-[64px] shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-r px-px"
           >
-            <span className="truncate">{searchHeader}</span>
+            <span className="truncate" title={searchHeader}>
+              {searchHeader}
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="max-w-96 p-1">
@@ -197,25 +234,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
             <SearchCommand
               value={fieldId}
               hideNotMatchRow={hideNotMatchRow}
-              onChange={(fieldIds) => {
-                // switch to field
-                if (!fieldIds || fields.length === 0) {
-                  const newIds = searchFieldMapCache?.[tableId]?.length
-                    ? searchFieldMapCache?.[tableId]
-                    : [fields?.[0].id];
-                  setFieldId(newIds.join(','));
-                  setEnableGlobalSearch(false);
-                  return;
-                }
-                const ids = fieldIds.join(',');
-                if (ids === 'all_fields') {
-                  setEnableGlobalSearch(true);
-                } else {
-                  setEnableGlobalSearch(false);
-                  tableId && setSearchFieldMap({ ...searchFieldMapCache, [tableId]: fieldIds });
-                }
-                setFieldId(ids);
-              }}
+              onChange={onFieldChangeHandler}
               onHideSwitchChange={(checked) => {
                 setLsHideNotMatchRow(checked);
                 setHideNotMatchRow(checked);

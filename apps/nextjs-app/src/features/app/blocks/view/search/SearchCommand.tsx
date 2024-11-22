@@ -1,4 +1,5 @@
-import { useFields, useFieldStaticGetter } from '@teable/sdk/hooks';
+import { ViewType } from '@teable/core';
+import { useFields, useFieldStaticGetter, useView } from '@teable/sdk/hooks';
 import {
   Command,
   CommandInput,
@@ -26,6 +27,7 @@ export const SearchCommand = (props: ISearchCommand) => {
   const { onChange, value, hideNotMatchRow, onHideSwitchChange } = props;
   const { t } = useTranslation('common');
   const fields = useFields();
+  const view = useView();
   const fieldStaticGetter = useFieldStaticGetter();
 
   const selectedFields = useMemo(() => {
@@ -154,33 +156,35 @@ export const SearchCommand = (props: ISearchCommand) => {
           </Toggle>
         </div>
 
-        <div className="flex items-center justify-around gap-1">
-          <Toggle
-            pressed={!hideNotMatchRow}
-            onPressedChange={() => {
-              onHideSwitchChange(false);
-            }}
-            size={'sm'}
-            className="flex flex-1 items-center truncate p-0"
-          >
-            <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
-              {t('actions.showAllRow')}
-            </span>
-          </Toggle>
+        {view?.type === ViewType.Grid && (
+          <div className="flex items-center justify-around gap-1">
+            <Toggle
+              pressed={!hideNotMatchRow}
+              onPressedChange={() => {
+                onHideSwitchChange(false);
+              }}
+              size={'sm'}
+              className="flex flex-1 items-center truncate p-0"
+            >
+              <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
+                {t('actions.showAllRow')}
+              </span>
+            </Toggle>
 
-          <Toggle
-            pressed={!!hideNotMatchRow}
-            onPressedChange={() => {
-              onHideSwitchChange(true);
-            }}
-            size={'sm'}
-            className="flex flex-1 items-center truncate p-0"
-          >
-            <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
-              {t('actions.hideNotMatchRow')}
-            </span>
-          </Toggle>
-        </div>
+            <Toggle
+              pressed={!!hideNotMatchRow}
+              onPressedChange={() => {
+                onHideSwitchChange(true);
+              }}
+              size={'sm'}
+              className="flex flex-1 items-center truncate p-0"
+            >
+              <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
+                {t('actions.hideNotMatchRow')}
+              </span>
+            </Toggle>
+          </div>
+        )}
       </div>
     </Command>
   );
