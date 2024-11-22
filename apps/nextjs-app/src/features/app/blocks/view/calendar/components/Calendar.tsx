@@ -14,7 +14,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from '@teable/ico
 import { updateRecord } from '@teable/openapi';
 import { AppContext, CalendarDailyCollectionContext } from '@teable/sdk/context';
 import { useTableId } from '@teable/sdk/hooks';
-import type { Record } from '@teable/sdk/model';
+import { Record } from '@teable/sdk/model';
 import {
   Button,
   Dialog,
@@ -30,14 +30,13 @@ import { addDays, format } from 'date-fns';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
 import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { tableConfig } from '@/features/i18n/table.config';
-import { ADD_EVENT_BUTTON_CLASS_NAME, AddEventButton } from '../components/AddEventButton';
 import { EventListContainer } from '../components/EventListContainer';
 import { EventMenu } from '../components/EventMenu';
 import { useCalendar, useEventMenuStore } from '../hooks';
 import { getColorByConfig } from '../util';
 
+const ADD_EVENT_BUTTON_CLASS_NAME = 'calendar-add-event-button';
 const MORE_LINK_TEXT_CLASS_NAME = 'calendar-custom-more-link-text';
 
 const FULL_CALENDAR_LOCALE_MAP = {
@@ -82,9 +81,10 @@ export const Calendar = (props: ICalendarProps) => {
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { isComputed: isStartComputed } = startDateField ?? {};
-  const { isComputed: isEndComputed } = endDateField ?? {};
+  const { id: startDateFieldId, isComputed: isStartComputed } = startDateField ?? {};
+  const { id: endDateFieldId, isComputed: isEndComputed } = endDateField ?? {};
   const { eventEditable } = permission ?? {};
+  const isSameField = startDateFieldId === endDateFieldId;
 
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -119,28 +119,41 @@ export const Calendar = (props: ICalendarProps) => {
       const date = new Date(dateAttr);
       dayEl.style.position = 'relative';
 
-      const root = createRoot(dayEl);
-      root.render(
-        <AddEventButton
-          date={date}
-          tableId={tableId}
-          startDateField={startDateField}
-          endDateField={endDateField}
-          containerEl={dayEl}
-          setExpandRecordId={setExpandRecordId}
-        />
-      );
+      const button = document.createElement('button');
+      button.className = `${ADD_EVENT_BUTTON_CLASS_NAME} invisible absolute left-[2px] top-[2px] z-10 rounded-md bg-secondary text-secondary-foreground size-6 hover:bg-secondary/80 text-md`;
+      button.textContent = '+';
+
+      button.onclick = async (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!tableId || !startDateField || !endDateField) return;
+
+        const { data } = await Record.createRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [startDateField.id]: date.toISOString(),
+                [endDateField.id]: date.toISOString(),
+              },
+            },
+          ],
+        });
+
+        setExpandRecordId?.(data.records[0].id);
+      };
+
+      dayEl.appendChild(button);
 
       dayEl.addEventListener('mouseover', (e: MouseEvent) => {
         if (e.target instanceof Element && e.target.classList.contains('fc-daygrid-day-frame')) {
-          const btn = dayEl.querySelector(`.${ADD_EVENT_BUTTON_CLASS_NAME}`);
-          btn?.classList.remove('invisible');
+          button.classList.remove('invisible');
         }
       });
 
       dayEl.addEventListener('mouseleave', () => {
-        const btn = dayEl.querySelector(`.${ADD_EVENT_BUTTON_CLASS_NAME}`);
-        btn?.classList.add('invisible');
+        button.classList.add('invisible');
       });
     };
 
@@ -166,6 +179,9 @@ export const Calendar = (props: ICalendarProps) => {
 
     return () => {
       observer.disconnect();
+      document
+        .querySelectorAll(`.${ADD_EVENT_BUTTON_CLASS_NAME}`)
+        .forEach((button) => button.remove());
     };
   }, [tableId, endDateField, startDateField, setExpandRecordId]);
 
@@ -176,30 +192,6 @@ export const Calendar = (props: ICalendarProps) => {
 
     const startStr = start.toISOString();
     const endStr = end.toISOString();
-
-    // const filter = mergeFilter(recordQuery?.filter, {
-    //   conjunction: and.value,
-    //   filterSet: [
-    //     {
-    //       fieldId: startDateField.id,
-    //       operator: isBefore.value,
-    //       value: {
-    //         exactDate: endStr,
-    //         mode: exactDate.value,
-    //         timeZone: startDateField.options.formatting.timeZone,
-    //       },
-    //     },
-    //     {
-    //       fieldId: endDateField.id,
-    //       operator: isAfter.value,
-    //       value: {
-    //         exactDate: startStr,
-    //         mode: exactDate.value,
-    //         timeZone: endDateField.options.formatting.timeZone,
-    //       },
-    //     },
-    //   ],
-    // }) as IFilter;
 
     setDateRange?.({
       startDate: startStr,
@@ -415,7 +407,9 @@ export const Calendar = (props: ICalendarProps) => {
           headerToolbar={false}
           events={events}
           eventClassNames="outline-none text-xs px-2 h-5 border-none leading-[18px]"
-          eventDurationEditable={eventEditable && (!isStartComputed || !isEndComputed)}
+          eventDurationEditable={
+            eventEditable && !isSameField && (!isStartComputed || !isEndComputed)
+          }
           eventResizableFromStart={eventEditable && !isStartComputed}
           editable={eventEditable && !isStartComputed && !isEndComputed}
           datesSet={onDatesChanged}

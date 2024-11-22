@@ -11,8 +11,8 @@ export const CalendarView = () => {
   return (
     <SearchProvider>
       <RecordProvider>
+        <CalendarToolBar />
         <CalendarProvider>
-          <CalendarToolBar />
           <div className="w-full grow overflow-hidden">{isHydrated && <CalendarViewBase />}</div>
         </CalendarProvider>
       </RecordProvider>

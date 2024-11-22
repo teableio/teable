@@ -1,9 +1,10 @@
-import { CellValueType, ColorConfigType, FieldType } from '@teable/core';
+import { ColorConfigType, FieldType } from '@teable/core';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ShareViewContext } from '@teable/sdk/context';
 import { useTableId, useView, useFields, useTablePermission } from '@teable/sdk/hooks';
-import type { CalendarView, DateField } from '@teable/sdk/model';
+import type { CalendarView } from '@teable/sdk/model';
 import { useContext, useMemo, useState, type ReactNode } from 'react';
+import { useCalendarFields } from '../hooks';
 import { CalendarContext } from './CalendarContext';
 
 export const CalendarProvider = ({ children }: { children: ReactNode }) => {
@@ -13,8 +14,9 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
   const allFields = useFields({ withHidden: true, withDenied: true });
-  const { startDateFieldId, endDateFieldId, titleFieldId, colorConfig } = view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
+
+  const { startDateField, endDateField, titleField, colorConfig } = useCalendarFields();
 
   const recordQuery = useMemo(() => {
     if (!shareId || (!sort && !filter)) return;
@@ -24,30 +26,6 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
       filter: filter,
     };
   }, [shareId, sort, filter]);
-
-  const { startDateField, endDateField, titleField } = useMemo(() => {
-    const findDateField = (fieldId?: string | null) =>
-      fieldId
-        ? (allFields.find(
-            (f) =>
-              f.id === fieldId &&
-              f.cellValueType === CellValueType.DateTime &&
-              !f.isMultipleCellValue
-          ) as DateField | undefined)
-        : undefined;
-    const titleField = titleFieldId
-      ? allFields.find((f) => f.id === titleFieldId)
-      : allFields.find((f) => f.isPrimary);
-
-    const startField = findDateField(startDateFieldId);
-    const endField = findDateField(endDateFieldId);
-
-    return {
-      startDateField: startField ?? endField,
-      endDateField: endField ?? startField,
-      titleField,
-    };
-  }, [startDateFieldId, endDateFieldId, titleFieldId, allFields]);
 
   const calendarPermission = useMemo(() => {
     return {
@@ -94,7 +72,7 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <CalendarContext.Provider value={value}>
-      {titleField && children}
+      {allFields.length > 0 && children}
       {tableId && (
         <ExpandRecorder
           tableId={tableId}

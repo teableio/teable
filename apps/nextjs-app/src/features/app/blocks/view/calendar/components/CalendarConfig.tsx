@@ -14,17 +14,17 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import type { FC, PropsWithChildren } from 'react';
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { ColorPicker } from '@/features/app/components/field-setting/options/SelectOptions';
 import { tableConfig } from '@/features/i18n/table.config';
-import { useCalendar } from '../hooks';
+import { useCalendarFields } from '../hooks';
 
 export const DEFAULT_COLOR = Colors.PurpleLight2;
 
 export const CalendarConfig: FC<PropsWithChildren> = (props) => {
   const { children } = props;
+  const { startDateField, endDateField, titleField, colorConfig } = useCalendarFields();
   const view = useView() as CalendarView | undefined;
-  const { startDateField, endDateField, titleField, colorConfig } = useCalendar();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const fields = useFields({ withHidden: true, withDenied: true });
   const fieldStaticGetter = useFieldStaticGetter();
@@ -99,113 +99,117 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
     <Popover modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="flex w-[272px] flex-col gap-y-2 p-4">
-        {dateSelects.map(({ label, key, value }) => (
-          <div key={key} className="flex flex-col gap-y-1">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <Select
-              value={value ?? undefined}
-              onValueChange={(value) => onSelectChange(key, value)}
-            >
-              <SelectTrigger className="h-8 w-full bg-background">
-                <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
-              </SelectTrigger>
-              <SelectContent className="w-56">
-                {filteredDateFields.map(({ id, type, name, isLookup }) => {
-                  const { Icon } = fieldStaticGetter(type, isLookup);
-                  return (
-                    <SelectItem key={id} value={id}>
-                      <div className="flex flex-row items-center text-[13px]">
-                        <Icon className="size-5 shrink-0 pr-1" />
-                        {name}
-                      </div>
+        {fields.length > 0 ? (
+          <Fragment>
+            {dateSelects.map(({ label, key, value }) => (
+              <div key={key} className="flex flex-col gap-y-1">
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <Select
+                  value={value ?? undefined}
+                  onValueChange={(value) => onSelectChange(key, value)}
+                >
+                  <SelectTrigger className="h-8 w-full bg-background">
+                    <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
+                  </SelectTrigger>
+                  <SelectContent className="w-full">
+                    {filteredDateFields.map(({ id, type, name, isLookup }) => {
+                      const { Icon } = fieldStaticGetter(type, isLookup);
+                      return (
+                        <SelectItem key={id} value={id}>
+                          <div className="flex flex-row items-center text-[13px]">
+                            <Icon className="size-5 shrink-0 pr-1" />
+                            {name}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+            <div className="flex flex-col gap-y-1">
+              <span className="text-xs text-muted-foreground">
+                {t('table:calendar.toolbar.titleField')}
+              </span>
+              <Select
+                value={titleField?.id ?? primaryField.id}
+                onValueChange={(value) => onSelectChange('titleFieldId', value)}
+              >
+                <SelectTrigger className="h-8 w-full bg-background">
+                  <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
+                </SelectTrigger>
+                <SelectContent className="w-full">
+                  {fields.map(({ id, type, name, isLookup }) => {
+                    const { Icon } = fieldStaticGetter(type, isLookup);
+                    return (
+                      <SelectItem key={id} value={id}>
+                        <div className="flex flex-row items-center text-[13px]">
+                          <Icon className="size-5 shrink-0 pr-1" />
+                          {name}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-y-1">
+              <span className="text-xs text-muted-foreground">
+                {t('table:calendar.toolbar.colorType')}
+              </span>
+              <Select
+                value={colorType}
+                onValueChange={(value) => onColorTypeChange(value as ColorConfigType)}
+              >
+                <SelectTrigger className="h-8 w-full bg-background">
+                  <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
+                </SelectTrigger>
+                <SelectContent className="w-full">
+                  {colorTypeSelects.map(({ label, value }) => (
+                    <SelectItem key={value} value={value} className="text-sm">
+                      {label}
                     </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
-        <div className="flex flex-col gap-y-1">
-          <span className="text-xs text-muted-foreground">
-            {t('table:calendar.toolbar.titleField')}
-          </span>
-          <Select
-            value={titleField?.id ?? primaryField.id}
-            onValueChange={(value) => onSelectChange('titleFieldId', value)}
-          >
-            <SelectTrigger className="h-8 w-full bg-background">
-              <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
-            </SelectTrigger>
-            <SelectContent className="w-56">
-              {fields.map(({ id, type, name, isLookup }) => {
-                const { Icon } = fieldStaticGetter(type, isLookup);
-                return (
-                  <SelectItem key={id} value={id}>
-                    <div className="flex flex-row items-center text-[13px]">
-                      <Icon className="size-5 shrink-0 pr-1" />
-                      {name}
-                    </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-y-1">
-          <span className="text-xs text-muted-foreground">
-            {t('table:calendar.toolbar.colorType')}
-          </span>
-          <Select
-            value={colorType}
-            onValueChange={(value) => onColorTypeChange(value as ColorConfigType)}
-          >
-            <SelectTrigger className="h-8 w-full bg-background">
-              <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
-            </SelectTrigger>
-            <SelectContent className="w-52">
-              {colorTypeSelects.map(({ label, value }) => (
-                <SelectItem key={value} value={value} className="text-sm">
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {colorType === ColorConfigType.Custom && (
-          <ColorPicker
-            color={color ?? DEFAULT_COLOR}
-            onSelect={(color) => onColorChange(color)}
-            className="p-0"
-          />
-        )}
-        {colorType === ColorConfigType.Field && (
-          <div className="flex flex-col gap-y-1">
-            <span className="text-xs text-muted-foreground">
-              {t('table:calendar.toolbar.colorField')}
-            </span>
-            <Select
-              value={colorFieldId ?? filteredSelectFields[0]?.id}
-              onValueChange={(value) => onColorFieldIdChange(value)}
-            >
-              <SelectTrigger className="h-8 w-full bg-background">
-                <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
-              </SelectTrigger>
-              <SelectContent className="w-52">
-                {filteredSelectFields.map(({ id, type, name, isLookup }) => {
-                  const { Icon } = fieldStaticGetter(type, isLookup);
-                  return (
-                    <SelectItem key={id} value={id}>
-                      <div className="flex flex-row items-center text-[13px]">
-                        <Icon className="size-5 shrink-0 pr-1" />
-                        {name}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {colorType === ColorConfigType.Custom && (
+              <ColorPicker
+                color={color ?? DEFAULT_COLOR}
+                onSelect={(color) => onColorChange(color)}
+                className="p-0"
+              />
+            )}
+            {colorType === ColorConfigType.Field && (
+              <div className="flex flex-col gap-y-1">
+                <span className="text-xs text-muted-foreground">
+                  {t('table:calendar.toolbar.colorField')}
+                </span>
+                <Select
+                  value={colorFieldId ?? filteredSelectFields[0]?.id}
+                  onValueChange={(value) => onColorFieldIdChange(value)}
+                >
+                  <SelectTrigger className="h-8 w-full bg-background">
+                    <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
+                  </SelectTrigger>
+                  <SelectContent className="w-full">
+                    {filteredSelectFields.map(({ id, type, name, isLookup }) => {
+                      const { Icon } = fieldStaticGetter(type, isLookup);
+                      return (
+                        <SelectItem key={id} value={id}>
+                          <div className="flex flex-row items-center text-[13px]">
+                            <Icon className="size-5 shrink-0 pr-1" />
+                            {name}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </Fragment>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
