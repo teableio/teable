@@ -83,7 +83,7 @@ export const Calendar = (props: ICalendarProps) => {
 
   const { id: startDateFieldId, isComputed: isStartComputed } = startDateField ?? {};
   const { id: endDateFieldId, isComputed: isEndComputed } = endDateField ?? {};
-  const { eventEditable } = permission ?? {};
+  const { eventEditable, eventCreatable } = permission ?? {};
   const isSameField = startDateFieldId === endDateFieldId;
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export const Calendar = (props: ICalendarProps) => {
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !eventCreatable) return;
 
     const addButtonToDay = (dayEl: HTMLElement) => {
       if (dayEl.querySelector(`.${ADD_EVENT_BUTTON_CLASS_NAME}`)) return;
@@ -183,7 +183,7 @@ export const Calendar = (props: ICalendarProps) => {
         .querySelectorAll(`.${ADD_EVENT_BUTTON_CLASS_NAME}`)
         .forEach((button) => button.remove());
     };
-  }, [tableId, endDateField, startDateField, setExpandRecordId]);
+  }, [tableId, endDateField, startDateField, setExpandRecordId, eventCreatable]);
 
   const onDatesChanged = (data: { start: Date; end: Date }) => {
     const { start, end } = data;
@@ -287,7 +287,7 @@ export const Calendar = (props: ICalendarProps) => {
 
     // resize start date
     if (startDelta.days !== 0) {
-      const start = event.extendedProps.meta.start;
+      const start = event.extendedProps.meta.start ?? event.extendedProps.meta.end;
       const newStart = addDays(new Date(start), startDelta.days).toISOString();
       updateRecord(tableId, event.id, {
         fieldKeyType: FieldKeyType.Id,
@@ -301,7 +301,7 @@ export const Calendar = (props: ICalendarProps) => {
 
     // resize end date
     if (endDelta.days !== 0) {
-      const end = event.extendedProps.meta.end;
+      const end = event.extendedProps.meta.end ?? event.extendedProps.meta.start;
       const newEnd = addDays(new Date(end), endDelta.days).toISOString();
       updateRecord(tableId, event.id, {
         fieldKeyType: FieldKeyType.Id,
