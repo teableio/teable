@@ -411,6 +411,10 @@ export class FieldSupplementService {
       return DbFieldType.Json;
     }
 
+    if (fieldType === FieldType.AutoNumber) {
+      return DbFieldType.Integer;
+    }
+
     switch (cellValueType) {
       case CellValueType.Number:
         return DbFieldType.Real;

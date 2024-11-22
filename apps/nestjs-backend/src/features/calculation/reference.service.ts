@@ -170,10 +170,10 @@ export class ReferenceService {
     } = props;
     const dbTableName = fieldId2DbTableName[field.id];
 
-    const recordIds = relatedRecordItems.map((item) => item.toId);
-    const foreignRecordIds = relatedRecordItems
-      .map((item) => item.fromId)
-      .filter(Boolean) as string[];
+    const recordIds = uniq(relatedRecordItems.map((item) => item.toId));
+    const foreignRecordIds = uniq(
+      relatedRecordItems.map((item) => item.fromId).filter(Boolean) as string[]
+    );
 
     // record data source
     const recordMapByTableName = await this.getRecordMapBatch({
@@ -269,7 +269,7 @@ export class ReferenceService {
     } = props;
 
     const dbTableName = fieldId2DbTableName[field.id];
-    const recordIds = relatedRecordItems.map((item) => item.toId);
+    const recordIds = uniq(relatedRecordItems.map((item) => item.toId));
 
     // record data source
     const recordIdsByTableName = await this.getRecordMapBatch({
@@ -287,9 +287,9 @@ export class ReferenceService {
         ? await this.getUserMap(recordMap, field.type)
         : undefined;
 
-    const changes = Object.values(recordMap).reduce<ICellChange[]>((pre, record) => {
+    const changes = recordIds.reduce<ICellChange[]>((pre, recordId) => {
+      const record = recordMap[recordId];
       const change = this.collectChanges({ record }, tableId, field, fieldMap, userMap);
-
       if (change) {
         pre.push(change);
       }
@@ -374,7 +374,7 @@ export class ReferenceService {
         });
       }
 
-      recordIdsMap[fieldId] = Array.from(new Set(relatedRecordItems.map((item) => item.toId)));
+      recordIdsMap[fieldId] = uniq(relatedRecordItems.map((item) => item.toId));
     }
   }
 
@@ -810,7 +810,6 @@ export class ReferenceService {
       return;
     }
 
-    record.fields[field.id] = value;
     return {
       tableId,
       fieldId: field.id,

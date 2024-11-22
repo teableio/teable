@@ -7,7 +7,7 @@ import {
   NumberFormattingType,
   Relationship,
 } from '@teable/core';
-import { getRecord, type ITableFullVo } from '@teable/openapi';
+import { getRecord, updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createRecords,
@@ -16,6 +16,7 @@ import {
   getRecords,
   initApp,
   updateRecord,
+  convertField,
 } from './utils/init-app';
 
 describe('OpenAPI formula (e2e)', () => {
@@ -181,7 +182,7 @@ describe('OpenAPI formula (e2e)', () => {
   describe('safe calculate', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
-      table = await createTable(baseId, { name: 'table2' });
+      table = await createTable(baseId, { name: 'table safe' });
     });
 
     afterEach(async () => {
@@ -221,6 +222,66 @@ describe('OpenAPI formula (e2e)', () => {
 
       const record2 = await getRecord(table.id, table.records[0].id);
       expect(record2.data.fields[field2.name]).toEqual(27);
+    });
+
+    it('should calculate auto number and number field', async () => {
+      const autoNumberField = await createField(table.id, {
+        name: 'ttttttt',
+        type: FieldType.AutoNumber,
+      });
+
+      const numberField = await createField(table.id, {
+        type: FieldType.Number,
+      });
+      const numberField1 = await createField(table.id, {
+        type: FieldType.Number,
+      });
+
+      await updateRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: table.records.map((record) => ({
+          id: record.id,
+          fields: {
+            [numberField.name]: 2,
+            [numberField1.name]: 3,
+          },
+        })),
+      });
+
+      const formulaField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${autoNumberField.id}} & "-" & {${numberField.id}} & "-" & {${numberField1.id}}`,
+        },
+      });
+
+      const record = await getRecords(table.id);
+      expect(record.records[0].fields[formulaField.name]).toEqual('1-2-3');
+      expect(record.records[0].fields[autoNumberField.name]).toEqual(1);
+
+      await convertField(table.id, formulaField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${autoNumberField.id}} & "-" & {${numberField.id}}`,
+        },
+      });
+
+      const record2 = await getRecord(table.id, table.records[0].id);
+      expect(record2.data.fields[autoNumberField.name]).toEqual(1);
+      expect(record2.data.fields[formulaField.name]).toEqual('1-2');
+
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberField.name]: 22,
+          },
+        },
+      });
+
+      const record3 = await getRecord(table.id, table.records[0].id);
+      expect(record3.data.fields[formulaField.name]).toEqual('1-22');
+      expect(record2.data.fields[autoNumberField.name]).toEqual(1);
     });
   });
 });

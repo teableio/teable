@@ -219,14 +219,20 @@ export class FieldConvertingService {
   private async generateReferenceFieldOps(fieldId: string) {
     const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
 
-    const { fieldMap, topoOrders, fieldId2TableId } = topoOrdersContext;
-    if (topoOrders.length <= 1) {
+    const { fieldMap, fieldId2TableId } = topoOrdersContext;
+
+    // get all fields after current field
+    const topoOrders = topoOrdersContext.topoOrders.slice(
+      topoOrdersContext.topoOrders.findIndex((item) => item.id === fieldId) + 1
+    );
+
+    if (!topoOrders.length) {
       return {};
     }
 
     const { pushOpsMap, getOpsMap } = this.fieldOpsMap();
 
-    for (let i = 1; i < topoOrders.length; i++) {
+    for (let i = 0; i < topoOrders.length; i++) {
       const topoOrder = topoOrders[i];
       // curField will be mutate in loop
       const curField = fieldMap[topoOrder.id];
