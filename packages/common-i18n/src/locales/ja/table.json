@@ -419,6 +419,13 @@
     "placeholder": {
       "selectColorField": "色フィールドを選択"
     },
+    "dialog": {
+      "startDate": "開始日付",
+      "endDate": "終了日付",
+      "notAdd": "追加しない",
+      "addDateField": "日付フィールドを追加",
+      "content": "カレンダービューを作成し、テーブルには開始日付と終了日付の2つの日付フィールドが必要です"
+    },
     "moreLinkText": "すべての {{count}} レコードを表示"
   },
   "menu": {

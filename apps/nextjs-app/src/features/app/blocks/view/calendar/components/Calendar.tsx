@@ -78,14 +78,13 @@ export const Calendar = (props: ICalendarProps) => {
   const { openEventMenu } = useEventMenuStore();
   const [positionDate, setPositionDate] = useState<Date>();
   const [moreLinkDate, setMoreLinkDate] = useState<Date>();
+  const [title, setTitle] = useState<string>('');
 
   const calendarRef = useRef<FullCalendar>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { id: startDateFieldId, isComputed: isStartComputed } = startDateField ?? {};
-  const { id: endDateFieldId, isComputed: isEndComputed } = endDateField ?? {};
-  const { eventEditable, eventCreatable } = permission ?? {};
-  const isSameField = startDateFieldId === endDateFieldId;
+  const { isComputed: isStartComputed } = startDateField ?? {};
+  const { eventCreatable, eventResizable, eventDraggable } = permission ?? {};
 
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -188,6 +187,10 @@ export const Calendar = (props: ICalendarProps) => {
 
   const onDatesChanged = (data: { start: Date; end: Date }) => {
     const { start, end } = data;
+
+    if (calendarRef.current) {
+      setTitle(calendarRef.current.getApi().view.title);
+    }
 
     if (!startDateField || !endDateField) return;
 
@@ -363,7 +366,7 @@ export const Calendar = (props: ICalendarProps) => {
     <div className="relative flex size-full flex-col overflow-hidden p-4 pt-2" ref={containerRef}>
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold">{calendarRef.current?.getApi().view.title}</h2>
+          <h2 className="text-xl font-semibold">{title}</h2>
         </div>
         <div className="flex items-center gap-2">
           <Popover>
@@ -409,11 +412,9 @@ export const Calendar = (props: ICalendarProps) => {
             headerToolbar={false}
             events={events}
             eventClassNames="outline-none text-xs px-2 h-5 border-none leading-[18px]"
-            eventDurationEditable={
-              eventEditable && !isSameField && (!isStartComputed || !isEndComputed)
-            }
-            eventResizableFromStart={eventEditable && !isStartComputed}
-            editable={eventEditable && !isStartComputed && !isEndComputed}
+            eventDurationEditable={eventResizable}
+            eventResizableFromStart={eventResizable && !isStartComputed}
+            editable={eventDraggable}
             datesSet={onDatesChanged}
             eventDidMount={onEventDidMount}
             eventResize={onEventResize}

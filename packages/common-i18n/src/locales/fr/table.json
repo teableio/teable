@@ -420,6 +420,13 @@
     "placeholder": {
       "selectColorField": "Sélectionner un champ de couleur"
     },
+    "dialog": {
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "notAdd": "Non ajouter",
+      "addDateField": "Ajouter des champs de date",
+      "content": "Créer un calendrier de vue, et la table doit avoir deux champs de date : date de début et date de fin"
+    },
     "moreLinkText": "Afficher toutes les {{count}} enregistrements"
   },
   "menu": {

@@ -28,13 +28,20 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
   }, [shareId, sort, filter]);
 
   const calendarPermission = useMemo(() => {
+    const startDateEditable = Boolean(startDateField && !startDateField.isComputed);
+    const endDateEditable = Boolean(endDateField && !endDateField.isComputed);
+    const isSameField = startDateField?.id === endDateField?.id;
+
     return {
-      eventCreatable: Boolean(permission['record|create']),
-      eventEditable: Boolean(permission['record|update']),
+      eventCreatable: Boolean(permission['record|create']) && startDateEditable && endDateEditable,
+      eventResizable:
+        Boolean(permission['record|update']) &&
+        (startDateEditable || endDateEditable) &&
+        !isSameField,
       eventDeletable: Boolean(permission['record|delete']),
-      eventDraggable: Boolean(permission['record|update']),
+      eventDraggable: Boolean(permission['record|update']) && startDateEditable && endDateEditable,
     };
-  }, [permission]);
+  }, [permission, startDateField, endDateField]);
 
   const colorField = useMemo(() => {
     const { type: colorType, fieldId: colorFieldId } = colorConfig ?? {};

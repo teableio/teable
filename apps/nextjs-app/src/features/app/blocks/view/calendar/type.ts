@@ -1,6 +1,6 @@
 export interface ICalendarPermission {
   eventCreatable: boolean;
-  eventEditable: boolean;
+  eventResizable: boolean;
   eventDeletable: boolean;
   eventDraggable: boolean;
 }

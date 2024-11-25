@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import {
-  FieldType,
+  CellValueType,
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
@@ -43,6 +43,7 @@ import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
+import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
 import { RecordService } from '../record/record.service';
 
 export type IWithView = {
@@ -776,13 +777,21 @@ export class AggregationService {
 
     const startField = fieldMap[startDateFieldId];
 
-    if (!startField || startField.type !== FieldType.Date || startField.isMultipleCellValue) {
+    if (
+      !startField ||
+      startField.cellValueType !== CellValueType.DateTime ||
+      startField.isMultipleCellValue
+    ) {
       throw new BadRequestException('Invalid start date field id');
     }
 
     const endField = endDateFieldId ? fieldMap[endDateFieldId] : startField;
 
-    if (!endField || endField.type !== FieldType.Date || endField.isMultipleCellValue) {
+    if (
+      !endField ||
+      endField.cellValueType !== CellValueType.DateTime ||
+      endField.isMultipleCellValue
+    ) {
       throw new BadRequestException('Invalid end date field id');
     }
 
@@ -808,8 +817,8 @@ export class AggregationService {
     this.dbProvider.calendarDailyCollectionQuery(queryBuilder, {
       startDate,
       endDate,
-      startField,
-      endField,
+      startField: startField as DateFieldDto,
+      endField: endField as DateFieldDto,
     });
 
     const result = await this.prisma

@@ -429,6 +429,13 @@
     "placeholder": {
       "selectColorField": "Select a color field"
     },
+    "dialog": {
+      "startDate": "Start date",
+      "endDate": "End date",
+      "notAdd": "Not add",
+      "addDateField": "Add date fields",
+      "content": "Create a calendar view schedule, and the table needs to have two date fields: start date and end date"
+    },
     "moreLinkText": "Show all {{count}} records"
   },
   "menu": {

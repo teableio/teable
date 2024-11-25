@@ -428,6 +428,13 @@
     "placeholder": {
       "selectColorField": "选择一个颜色字段"
     },
+    "dialog": {
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "notAdd": "暂不添加",
+      "addDateField": "添加日期字段",
+      "content": "新建日历视图日程，表格中需要存在开始和结束两个日期字段"
+    },
     "moreLinkText": "展示全部 {{count}} 条"
   },
   "menu": {
