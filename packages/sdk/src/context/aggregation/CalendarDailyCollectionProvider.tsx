@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import { getCalendarDailyCollection, getShareViewCalendarDailyCollection } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { useSearch, useIsHydrated, useTableListener, useViewListener, useView } from '../../hooks';
 import type { CalendarView } from '../../model';
@@ -101,6 +101,12 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
     () => resCalendarDailyCollection || null,
     [resCalendarDailyCollection]
   );
+
+  useEffect(() => {
+    return () => {
+      queryClient.removeQueries({ queryKey });
+    };
+  }, [queryClient, queryKey]);
 
   return (
     <CalendarDailyCollectionContext.Provider value={calendarDailyCollection}>
