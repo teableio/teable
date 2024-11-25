@@ -17,7 +17,7 @@ export const CalendarViewBase = () => {
       startDateFieldId={startDateField?.id}
       endDateFieldId={endDateField?.id}
     >
-      <Calendar setDateRange={setDateRange} />
+      <Calendar dateRange={dateRange} setDateRange={setDateRange} />
     </CalendarDailyCollectionProvider>
   );
 };

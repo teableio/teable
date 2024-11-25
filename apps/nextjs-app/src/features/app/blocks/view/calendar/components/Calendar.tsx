@@ -56,11 +56,12 @@ const DATE_PICKER_LOCAL_MAP = {
 };
 
 export interface ICalendarProps {
+  dateRange?: { startDate: string; endDate: string };
   setDateRange?: (dateRange: { startDate: string; endDate: string }) => void;
 }
 
 export const Calendar = (props: ICalendarProps) => {
-  const { setDateRange } = props;
+  const { dateRange, setDateRange } = props;
   const {
     titleField,
     startDateField,
@@ -183,7 +184,7 @@ export const Calendar = (props: ICalendarProps) => {
         .querySelectorAll(`.${ADD_EVENT_BUTTON_CLASS_NAME}`)
         .forEach((button) => button.remove());
     };
-  }, [tableId, endDateField, startDateField, setExpandRecordId, eventCreatable]);
+  }, [tableId, endDateField, startDateField, eventCreatable, dateRange, setExpandRecordId]);
 
   const onDatesChanged = (data: { start: Date; end: Date }) => {
     const { start, end } = data;
