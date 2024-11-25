@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Request, RequestHandler } from 'express';
 import session from 'express-session';
 import ms from 'ms';
@@ -8,6 +8,7 @@ import { SessionStoreService } from './session-store.service';
 
 @Injectable()
 export class SessionHandleService {
+  private readonly logger = new Logger(SessionHandleService.name);
   sessionMiddleware: RequestHandler;
   constructor(
     private readonly sessionStoreService: SessionStoreService,
@@ -31,6 +32,9 @@ export class SessionHandleService {
       this.sessionMiddleware(request, {} as any, (err) => {
         if (err) {
           return reject(err);
+        }
+        if (!request.cookies[AUTH_SESSION_COOKIE_NAME]) {
+          this.logger.error('Auth session cookie is not found in request cookies');
         }
         resolve(request.sessionID);
       });
