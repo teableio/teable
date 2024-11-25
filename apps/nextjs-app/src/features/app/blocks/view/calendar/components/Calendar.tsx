@@ -362,11 +362,19 @@ export const Calendar = (props: ICalendarProps) => {
     setPositionDate(date);
   };
 
+  useEffect(() => {
+    if (calendarRef.current) {
+      setTitle(calendarRef.current.getApi().view.title);
+    }
+  }, []);
+
   return (
     <div className="relative flex size-full flex-col overflow-hidden p-4 pt-2" ref={containerRef}>
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold">{title}</h2>
+          <h2 className="text-xl font-semibold">
+            {title || calendarRef.current?.getApi().view.title}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           <Popover>
