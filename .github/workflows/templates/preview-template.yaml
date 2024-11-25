@@ -185,7 +185,7 @@ spec:
               memory: 400Mi
             limits:
               cpu: 1000m
-              memory: 2048Mi
+              memory: 1024Mi
           ports:
             - containerPort: 3000
           imagePullPolicy: IfNotPresent
@@ -290,8 +290,8 @@ spec:
       replicas: 1
       resources:
         limits:
-          cpu: 1000m
-          memory: 1024Mi
+          cpu: 500m
+          memory: 512Mi
         requests:
           cpu: 100m
           memory: 102Mi
@@ -418,8 +418,8 @@ spec:
       replicas: 1
       resources:
         limits:
-          cpu: 500m
-          memory: 512Mi
+          cpu: 300m
+          memory: 384Mi
         requests:
           cpu: 100m
           memory: 102Mi
