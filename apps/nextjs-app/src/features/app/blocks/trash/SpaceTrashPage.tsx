@@ -1,7 +1,7 @@
 import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, RefreshCcw, Trash } from '@teable/icons';
+import { MoreHorizontal, RefreshCcw, Trash2 } from '@teable/icons';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
 import {
   getTrash,
@@ -197,7 +197,7 @@ export const SpaceTrashPage = () => {
                     });
                   }}
                 >
-                  <Trash className="size-4" />
+                  <Trash2 className="size-4" />
                   {t('actions.permanentDelete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>

@@ -2,19 +2,25 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
-import { signinSchema, signinVoSchema } from './signin';
+import { signinSchema } from './signin';
+import type { IUserMeVo } from './user-me';
+import { userMeVoSchema } from './user-me';
 
 export const SIGN_UP = '/auth/signup';
 
+export const refMetaSchema = z.object({
+  query: z.string().optional(),
+  referer: z.string().optional(),
+});
+
+export type IRefMeta = z.infer<typeof refMetaSchema>;
+
 export const signupSchema = signinSchema.extend({
   defaultSpaceName: z.string().optional(),
+  refMeta: refMetaSchema.optional(),
 });
 
 export type ISignup = z.infer<typeof signupSchema>;
-
-export const signupVoSchema = signinVoSchema;
-
-export type ISignupVo = z.infer<typeof signupVoSchema>;
 
 export const SignupRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -34,9 +40,7 @@ export const SignupRoute: RouteConfig = registerRoute({
       description: 'Sign up and sing in successfully',
       content: {
         'application/json': {
-          schema: z.object({
-            access_token: z.string(),
-          }),
+          schema: userMeVoSchema,
         },
       },
     },
@@ -45,5 +49,5 @@ export const SignupRoute: RouteConfig = registerRoute({
 });
 
 export const signup = async (body: ISignup) => {
-  return axios.post<ISignupVo>(SIGN_UP, body);
+  return axios.post<IUserMeVo>(SIGN_UP, body);
 };

@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { DraggableProvided } from '@hello-pangea/dnd';
 import { FieldKeyType, type IAttachmentCellValue } from '@teable/core';
-import { ArrowDown, ArrowUp, Copy, Maximize2, Trash } from '@teable/icons';
+import { ArrowDown, ArrowUp, Copy, Maximize2, Trash2 } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -163,7 +163,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
           <>
             <ContextMenuSeparator />
             <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
-              <Trash className="mr-2 size-4" />
+              <Trash2 className="mr-2 size-4" />
               {t('table:kanban.cardMenu.deleteCard')}
             </ContextMenuItem>
           </>

@@ -76,7 +76,7 @@ import {
   Superscript,
   Table,
   Text,
-  Trash,
+  Trash2,
   Underline,
   Ungroup,
   Unlink,
@@ -407,7 +407,7 @@ export const Icons = {
   conflict: Unlink,
   copy: Copy,
   copyDone: ClipboardCheck,
-  delete: Trash,
+  delete: Trash2,
   dependency: Link,
   discord,
   doubleColumn: DoubleColumnOutlined,
@@ -468,7 +468,7 @@ export const Icons = {
   text: Text,
   threeColumn: ThreeColumnOutlined,
   todo: Square,
-  trash: Trash,
+  trash: Trash2,
   twitter: (props: IconProps) => (
     <svg
       {...props}

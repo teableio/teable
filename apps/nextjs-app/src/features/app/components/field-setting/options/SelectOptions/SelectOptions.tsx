@@ -2,7 +2,7 @@ import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable/core';
 import { ColorUtils } from '@teable/core';
-import { DraggableHandle, Plus, Trash } from '@teable/icons';
+import { DraggableHandle, Plus, Trash2 } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
@@ -122,7 +122,7 @@ export const SelectOptions = (props: {
                         className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => deleteChoice(0)}
                       >
-                        <Trash className="size-4" />
+                        <Trash2 className="size-4" />
                       </Button>
                     )}
                   </div>
@@ -179,7 +179,7 @@ export const SelectOptions = (props: {
                                   className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                                   onClick={() => deleteChoice(index)}
                                 >
-                                  <Trash className="size-4" />
+                                  <Trash2 className="size-4" />
                                 </Button>
                               )}
                             </div>

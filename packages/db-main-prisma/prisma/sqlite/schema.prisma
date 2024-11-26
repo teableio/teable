@@ -192,6 +192,7 @@ model User {
   createdTime      DateTime  @default(now()) @map("created_time")
   deletedTime      DateTime? @map("deleted_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  refMeta          String?   @map("ref_meta")
 
   accounts         Account[]
   collaborators    Collaborator[]

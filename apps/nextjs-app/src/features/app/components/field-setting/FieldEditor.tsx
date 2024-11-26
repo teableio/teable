@@ -129,6 +129,7 @@ export const FieldEditor = (props: {
           placeholder={t('table:field.fieldNameOptional')}
           className="h-8"
           value={field['name'] || ''}
+          autoComplete="off"
           onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}
         />
         {/* should place after the name input to make sure tab index correct */}

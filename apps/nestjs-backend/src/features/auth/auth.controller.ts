@@ -29,8 +29,8 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @HttpCode(200)
   @Post('signin')
-  async signin(@Req() req: Express.Request) {
-    return req.user;
+  async signin(@Req() req: Express.Request): Promise<IUserMeVo> {
+    return req.user as IUserMeVo;
   }
 
   @Post('signout')
@@ -46,9 +46,9 @@ export class AuthController {
     @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
     @Res({ passthrough: true }) res: Response,
     @Req() req: Express.Request
-  ) {
+  ): Promise<IUserMeVo> {
     const user = pickUserMe(
-      await this.authService.signup(body.email, body.password, body.defaultSpaceName)
+      await this.authService.signup(body.email, body.password, body.defaultSpaceName, body.refMeta)
     );
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {

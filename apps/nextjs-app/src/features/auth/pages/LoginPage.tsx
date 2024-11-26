@@ -1,11 +1,11 @@
 import { TeableNew } from '@teable/icons';
 import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { authConfig } from '@/features/i18n/auth.config';
-import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
 
@@ -14,10 +14,18 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const router = useRouter();
   const redirect = router.query.redirect as string;
-  const [signType, setSignType] = useState<ISignForm['type']>('signin');
+  const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
+
   const onSuccess = useCallback(() => {
-    window.location.href = redirect ? decodeURIComponent(redirect) : '/space';
-  }, [redirect]);
+    if (redirect) {
+      window.location.href = decodeURIComponent(redirect);
+    } else {
+      router.push({
+        pathname: '/space',
+        query: router.query,
+      });
+    }
+  }, [redirect, router]);
 
   return (
     <>
@@ -28,10 +36,14 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
             <TeableNew className="size-8 text-black" />
             {t('common:brand')}
           </div>
-          <Tabs value={signType} onValueChange={(val) => setSignType(val as ISignForm['type'])}>
+          <Tabs value={signType}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
-              <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
+              <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
+                <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
+              </Link>
+              <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
+                <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
+              </Link>
             </TabsList>
           </Tabs>
         </div>

@@ -3,6 +3,8 @@ import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { passwordSchema } from './types';
+import type { IUserMeVo } from './user-me';
+import { userMeVoSchema } from './user-me';
 
 export const SIGN_IN = '/auth/signin';
 
@@ -12,12 +14,6 @@ export const signinSchema = z.object({
 });
 
 export type ISignin = z.infer<typeof signinSchema>;
-
-export const signinVoSchema = z.object({
-  access_token: z.string(),
-});
-
-export type ISigninVo = z.infer<typeof signinVoSchema>;
 
 export const SigninRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -37,7 +33,7 @@ export const SigninRoute: RouteConfig = registerRoute({
       description: 'Sign in successfully',
       content: {
         'application/json': {
-          schema: signinVoSchema,
+          schema: userMeVoSchema,
         },
       },
     },
@@ -46,5 +42,5 @@ export const SigninRoute: RouteConfig = registerRoute({
 });
 
 export const signin = async (body: ISignin) => {
-  return axios.post<ISigninVo>(SIGN_IN, body);
+  return axios.post<IUserMeVo>(SIGN_IN, body);
 };

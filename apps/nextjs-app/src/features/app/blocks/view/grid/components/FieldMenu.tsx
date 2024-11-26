@@ -2,7 +2,7 @@
 import type { IFilter, IGroup, ISort } from '@teable/core';
 import { getValidFilterOperators } from '@teable/core';
 import {
-  Trash,
+  Trash2,
   Edit,
   EyeOff,
   ArrowLeft,
@@ -305,7 +305,7 @@ export const FieldMenu = () => {
           fieldIds.length > 1
             ? t('table:menu.deleteAllSelectedFields')
             : t('table:menu.deleteField'),
-        icon: <Trash className={iconClassName} />,
+        icon: <Trash2 className={iconClassName} />,
         hidden: !menuFieldPermission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
         className: 'text-red-500 aria-selected:text-red-500',

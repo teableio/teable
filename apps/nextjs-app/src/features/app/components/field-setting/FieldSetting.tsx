@@ -5,7 +5,7 @@ import { Share2 } from '@teable/icons';
 import { planFieldCreate, type IPlanFieldConvertVo, planFieldConvert } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useTable, useView } from '@teable/sdk/hooks';
-import { ConfirmDialog } from '@teable/ui-lib/base';
+import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
 import {
   Dialog,
   DialogClose,
@@ -173,6 +173,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
   const [showGraphButton, setShowGraphButton] = useState<boolean>(operator === FieldOperator.Edit);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const isCreatingSimpleField = useCallback(
     (field: IFieldEditorRo) => {
@@ -225,13 +226,23 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
     onCancel?.();
   };
 
-  const onSave = () => {
-    !updateCount && onConfirm?.();
-    const result = convertFieldRoSchema.safeParse(field);
-    if (result.success) {
-      onConfirm?.(result.data);
+  const onSave = async () => {
+    if (!updateCount) {
+      onConfirm?.();
       return;
     }
+
+    const result = convertFieldRoSchema.safeParse(field);
+    if (result.success) {
+      setIsSaving(true);
+      try {
+        await onConfirm?.(result.data);
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
     console.error('fieldConFirm', field);
     console.error('fieldConFirmResult', fromZodError(result.error).message);
     toast.error(`Options Error`, {
@@ -294,11 +305,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
+                <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
                   {t('common:actions.cancel')}
                 </Button>
-                <Button size={'sm'} onClick={onSave}>
-                  {t('common:actions.save')}
+                <Button size={'sm'} onClick={onSave} disabled={isSaving}>
+                  {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
                 </Button>
               </div>
             </div>

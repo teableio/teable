@@ -1,6 +1,6 @@
 import { FieldType } from '@teable/core';
 import type { ISelectFieldOptions, ISelectFieldChoice } from '@teable/core';
-import { ChevronDown, Minimize2, Pencil, Trash } from '@teable/icons';
+import { ChevronDown, Minimize2, Pencil, Trash2 } from '@teable/icons';
 import { generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import {
@@ -165,7 +165,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
                     className="cursor-pointer text-destructive focus:text-destructive"
                     onClick={onStackDelete}
                   >
-                    <Trash className="mr-2 size-4" />
+                    <Trash2 className="mr-2 size-4" />
                     {t('table:kanban.stackMenu.deleteStack')}
                   </DropdownMenuItem>
                 </>

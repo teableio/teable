@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Gauge, Lock, Network, Trash } from '@teable/icons';
+import { Gauge, Lock, Trash2 } from '@teable/icons';
 import { getBaseUsage, getInstanceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
@@ -10,6 +10,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -63,7 +64,7 @@ export const BaseSideBar = () => {
         {
           href: `/base/${baseId}/automation`,
           label: t('common:noun.automation'),
-          Icon: Network,
+          Icon: Bot,
           hidden: !basePermission?.['automation|read'],
           disabled: !automationEnable,
         },
@@ -77,7 +78,7 @@ export const BaseSideBar = () => {
         {
           href: `/base/${baseId}/trash`,
           label: t('common:noun.trash'),
-          Icon: Trash,
+          Icon: Trash2,
           hidden: !basePermission?.['table|delete'],
         },
       ].filter((item) => !item.hidden),

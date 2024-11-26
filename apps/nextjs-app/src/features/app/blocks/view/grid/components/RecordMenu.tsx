@@ -1,4 +1,4 @@
-import { Trash, ArrowUp, ArrowDown, Copy } from '@teable/icons';
+import { Trash2, ArrowUp, ArrowDown, Copy } from '@teable/icons';
 import { useGridViewStore } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
@@ -199,7 +199,7 @@ export const RecordMenu = () => {
         name: isMultipleSelected
           ? t('table:menu.deleteAllSelectedRecords')
           : t('table:menu.deleteRecord'),
-        icon: <Trash className={iconClassName} />,
+        icon: <Trash2 className={iconClassName} />,
         hidden: !permission['record|delete'],
         className: 'text-red-500 aria-selected:text-red-500',
         onClick: async () => {
