@@ -14,6 +14,9 @@ import {
   TooltipTrigger,
   Input,
   Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
 import { noop } from 'lodash';
 import { useTranslation, Trans } from 'next-i18next';
@@ -216,80 +219,81 @@ export const RecordMenu = () => {
   }
 
   return (
-    <Command
-      ref={recordMenuRef}
-      className={cn('absolute rounded-sm shadow-sm w-64 h-auto border', {
-        hidden: !visible,
-      })}
-      style={style}
-    >
-      <CommandList>
-        {menuItemGroups.map((items, index) => {
-          const nextItems = menuItemGroups[index + 1] ?? [];
-          if (!items.length) return null;
+    <Popover open={visible}>
+      <PopoverTrigger asChild style={style} className="absolute">
+        <div className="size-0 opacity-0" />
+      </PopoverTrigger>
+      <PopoverContent className="h-auto w-60 rounded-md p-0" align="start">
+        <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
+          <CommandList>
+            {menuItemGroups.map((items, index) => {
+              const nextItems = menuItemGroups[index + 1] ?? [];
+              if (!items.length) return null;
 
-          return (
-            <Fragment key={index}>
-              <CommandGroup aria-valuetext="name">
-                {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
-                  return (
-                    <CommandItem
-                      className={cn('px-4 py-2', className)}
-                      key={type}
-                      value={name}
-                      onSelect={async () => {
-                        if (disabled) {
-                          return;
-                        }
-                        await onClick();
-                        closeRecordMenu();
-                      }}
-                    >
-                      {disabled ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger
-                              className={cn('flex items-center gap-2', {
-                                'opacity-50': disabled,
-                              })}
-                            >
-                              <div className="pointer-events-none">
-                                {render ? (
-                                  render
-                                ) : (
-                                  <>
-                                    {icon}
-                                    {name}
-                                  </>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent hideWhenDetached={true}>
-                              {t('table:view.insertToolTip')}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
-                        <>
-                          {render ? (
-                            render
+              return (
+                <Fragment key={index}>
+                  <CommandGroup aria-valuetext="name">
+                    {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
+                      return (
+                        <CommandItem
+                          className={cn('px-4 py-2', className)}
+                          key={type}
+                          value={name}
+                          onSelect={async () => {
+                            if (disabled) {
+                              return;
+                            }
+                            await onClick();
+                            closeRecordMenu();
+                          }}
+                        >
+                          {disabled ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  className={cn('flex items-center gap-2', {
+                                    'opacity-50': disabled,
+                                  })}
+                                >
+                                  <div className="pointer-events-none">
+                                    {render ? (
+                                      render
+                                    ) : (
+                                      <>
+                                        {icon}
+                                        {name}
+                                      </>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent hideWhenDetached={true}>
+                                  {t('table:view.insertToolTip')}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ) : (
                             <>
-                              {icon}
-                              {name}
+                              {render ? (
+                                render
+                              ) : (
+                                <>
+                                  {icon}
+                                  {name}
+                                </>
+                              )}
                             </>
                           )}
-                        </>
-                      )}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-              {nextItems.length > 0 && <CommandSeparator />}
-            </Fragment>
-          );
-        })}
-      </CommandList>
-    </Command>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                  {nextItems.length > 0 && <CommandSeparator />}
+                </Fragment>
+              );
+            })}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };

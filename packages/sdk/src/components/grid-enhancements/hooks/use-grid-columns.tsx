@@ -472,6 +472,7 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
               ...baseCellProps,
               type: CellType.User,
               data: data,
+              editorWidth: 280,
               customEditor: (props, editorRef) => (
                 <GridUserEditor ref={editorRef} field={field} record={record} {...props} />
               ),

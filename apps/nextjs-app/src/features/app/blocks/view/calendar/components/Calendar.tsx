@@ -470,7 +470,7 @@ export const Calendar = (props: ICalendarProps) => {
           </DialogContent>
         </Dialog>
       )}
-      <EventMenu containerRef={containerRef} />
+      <EventMenu />
     </div>
   );
 };

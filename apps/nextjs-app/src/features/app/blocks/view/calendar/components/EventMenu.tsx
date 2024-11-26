@@ -8,9 +8,12 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { Fragment, useMemo, useRef } from 'react';
+import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useEventMenuStore } from '../hooks';
@@ -30,9 +33,8 @@ enum MenuItemType {
 }
 
 const iconClassName = 'mr-2 h-4 w-4 shrink-0';
-const MENU_WIDTH = 220;
 
-export const EventMenu = ({ containerRef }: { containerRef: React.RefObject<HTMLDivElement> }) => {
+export const EventMenu = () => {
   const { eventMenu, closeEventMenu } = useEventMenuStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const tableId = useTableId();
@@ -40,29 +42,22 @@ export const EventMenu = ({ containerRef }: { containerRef: React.RefObject<HTML
   const viewId = view?.id;
   const recordMenuRef = useRef<HTMLDivElement>(null);
 
-  const { eventId, position } = eventMenu ?? {};
+  const { eventId } = eventMenu ?? {};
 
   useClickAway(recordMenuRef, () => {
     closeEventMenu();
   });
 
-  const style = useMemo(() => {
-    if (!position) return {};
-
-    const { x, y } = position;
-
-    if (!containerRef.current) return { left: x, top: y };
-
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const relativeX = Math.min(x, containerRect.width - MENU_WIDTH);
-    const relativeY = Math.min(y, containerRect.height - 90);
-
-    return { left: relativeX, top: relativeY };
-  }, [containerRef, position]);
-
   if (eventMenu == null || !eventId) return null;
 
-  const { permission } = eventMenu;
+  const { permission, position } = eventMenu;
+  const visible = Boolean(eventMenu);
+  const style = position
+    ? {
+        left: position.x,
+        top: position.y,
+      }
+    : {};
 
   const menuItemGroups: IMenuItemProps<MenuItemType>[][] = [
     [
@@ -101,44 +96,44 @@ export const EventMenu = ({ containerRef }: { containerRef: React.RefObject<HTML
   }
 
   return (
-    <Command
-      ref={recordMenuRef}
-      className="absolute z-10 h-auto rounded-sm border shadow-sm"
-      style={{
-        ...style,
-        width: MENU_WIDTH,
-      }}
-    >
-      <CommandList>
-        {menuItemGroups.map((items, index) => {
-          const nextItems = menuItemGroups[index + 1] ?? [];
-          if (!items.length) return null;
+    <Popover open={visible}>
+      <PopoverTrigger asChild style={style} className="absolute">
+        <div className="size-0 opacity-0" />
+      </PopoverTrigger>
+      <PopoverContent className="h-auto w-56 rounded-md p-0" align="start">
+        <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
+          <CommandList>
+            {menuItemGroups.map((items, index) => {
+              const nextItems = menuItemGroups[index + 1] ?? [];
+              if (!items.length) return null;
 
-          return (
-            <Fragment key={index}>
-              <CommandGroup aria-valuetext="name">
-                {items.map(({ type, name, icon, className, onClick }) => {
-                  return (
-                    <CommandItem
-                      className={cn('px-4 py-2', className)}
-                      key={type}
-                      value={name}
-                      onSelect={async () => {
-                        onClick();
-                        closeEventMenu();
-                      }}
-                    >
-                      {icon}
-                      {name}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-              {nextItems.length > 0 && <CommandSeparator />}
-            </Fragment>
-          );
-        })}
-      </CommandList>
-    </Command>
+              return (
+                <Fragment key={index}>
+                  <CommandGroup aria-valuetext="name">
+                    {items.map(({ type, name, icon, className, onClick }) => {
+                      return (
+                        <CommandItem
+                          className={cn('px-4 py-2', className)}
+                          key={type}
+                          value={name}
+                          onSelect={async () => {
+                            onClick();
+                            closeEventMenu();
+                          }}
+                        >
+                          {icon}
+                          {name}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                  {nextItems.length > 0 && <CommandSeparator />}
+                </Fragment>
+              );
+            })}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };

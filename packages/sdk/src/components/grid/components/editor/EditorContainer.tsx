@@ -2,7 +2,7 @@
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
-import type { IGridTheme } from '../../configs';
+import { GRID_DEFAULT, type IGridTheme } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
 import {
@@ -69,6 +69,7 @@ export interface IEditorContainerRef {
   saveValue?: () => void;
 }
 
+const { cellEditorEdgePadding } = GRID_DEFAULT;
 const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
 
 export const EditorContainerBase: ForwardRefRenderFunction<
@@ -162,13 +163,14 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     const x = clamp(
       coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
       columnInitSize,
-      containerWidth - width
+      containerWidth - width - cellEditorEdgePadding
     );
     const y = clamp(
       coordInstance.getRowOffset(rowIndex) - scrollTop,
       rowInitSize,
       containerHeight - height
     );
+
     return {
       x,
       y,
