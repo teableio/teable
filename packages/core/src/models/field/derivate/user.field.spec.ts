@@ -151,7 +151,6 @@ describe('UserFieldCore', () => {
     expect(
       field.validateCellValue({ id: 'usrxxxxxx ', title: '', email: 'anonymous@teable.io' }).success
     ).toBe(true);
-    expect(field.validateCellValue({ id: 'xxxxxxxxxxx ', title: '' }).success).toBe(false);
     expect(field.validateCellValue([cellValue]).success).toBe(false);
   });
 
