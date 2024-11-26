@@ -305,7 +305,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         openRecordMenu({
           position,
           isMultipleSelected,
-          deleteRecords: async (selection) => {
+          deleteRecords: async () => {
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
           },
@@ -341,7 +341,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
               position: 'after',
             });
           },
-          deleteRecords: async (selection) => {
+          deleteRecords: async () => {
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
           },

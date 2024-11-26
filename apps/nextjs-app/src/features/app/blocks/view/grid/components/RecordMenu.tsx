@@ -106,7 +106,7 @@ const InsertRecordRender = (props: InsertRecordRender) => {
 };
 
 export const RecordMenu = () => {
-  const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
+  const { recordMenu, closeRecordMenu } = useGridViewStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const tableId = useTableId();
   const view = useView();
@@ -206,8 +206,8 @@ export const RecordMenu = () => {
         hidden: !permission['record|delete'],
         className: 'text-red-500 aria-selected:text-red-500',
         onClick: async () => {
-          if (recordMenu && tableId && recordMenu.deleteRecords && selection) {
-            await recordMenu.deleteRecords(selection);
+          if (recordMenu && tableId && recordMenu.deleteRecords) {
+            await recordMenu.deleteRecords();
           }
         },
       },

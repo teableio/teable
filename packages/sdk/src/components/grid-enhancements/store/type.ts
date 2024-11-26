@@ -1,6 +1,5 @@
 import type { IFieldInstance, Record } from '../../../model';
 import type { IPosition, IRectangle } from '../../grid/interface';
-import type { CombinedSelection } from '../../grid/managers';
 
 export interface IHeaderMenu {
   fields: IFieldInstance[];
@@ -14,7 +13,7 @@ export interface IRecordMenu {
   neighborRecords?: (Record | null)[];
   isMultipleSelected?: boolean;
   position: IPosition;
-  deleteRecords?: (selection: CombinedSelection) => Promise<void>;
+  deleteRecords?: () => Promise<void>;
   insertRecord?: (anchorId: string, position: 'before' | 'after', num: number) => void;
   duplicateRecord?: () => Promise<void>;
 }
