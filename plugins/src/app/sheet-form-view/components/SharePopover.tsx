@@ -171,7 +171,7 @@ export const SharePopover: React.FC<{
                 </Label>
                 {Boolean(shareMeta?.password) && (
                   <Button
-                    className="h-5 py-0 hover:text-muted-foreground"
+                    className="hover:text-muted-foreground h-5 py-0"
                     variant={'link'}
                     size={'xs'}
                     onClick={() => setShowPasswordDialog(true)}
@@ -180,22 +180,20 @@ export const SharePopover: React.FC<{
                   </Button>
                 )}
               </div>
-              {
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="share-required-login"
-                    checked={Boolean(shareMeta?.submit?.requireLogin)}
-                    onCheckedChange={onSubmitRequireLoginChange}
-                  />
-                  <Label className="text-xs" htmlFor="share-required-login">
-                    {t('share.requireLogin')}
-                  </Label>
-                </div>
-              }
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="share-required-login"
+                  checked={Boolean(shareMeta?.submit?.requireLogin)}
+                  onCheckedChange={onSubmitRequireLoginChange}
+                />
+                <Label className="text-xs" htmlFor="share-required-login">
+                  {t('share.requireLogin')}
+                </Label>
+              </div>
             </div>
           </>
         ) : (
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="text-muted-foreground text-center text-sm">
             {!enableShare && permission['view|share'] ? t('share.tips') : t('share.noPermission')}
           </div>
         )}
