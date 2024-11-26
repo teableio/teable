@@ -23,6 +23,7 @@ import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
+import { getOffset } from './search-query/get-offset';
 import { SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
@@ -320,46 +321,54 @@ export class SqliteProvider implements IDbProvider {
     props: ICalendarDailyCollectionQueryProps
   ): Knex.QueryBuilder {
     const { startDate, endDate, startField, endField } = props;
+    const timezone = startField.options.formatting.timeZone;
+    const offsetStr = `${getOffset(timezone)} hour`;
+
+    const datesSubquery = this.knex.raw(
+      `WITH RECURSIVE dates(date) AS (
+        SELECT date(datetime(?, ?)) as date
+        UNION ALL
+        SELECT date(datetime(date, ?))
+        FROM dates
+        WHERE date < date(datetime(?, ?))
+      )
+      SELECT date FROM dates`,
+      [startDate, offsetStr, '+1 day', endDate, offsetStr]
+    );
 
     return qb
       .select([
-        this.knex.raw('dates.date'),
+        this.knex.raw('d.date'),
         this.knex.raw('COUNT(*) as count'),
-        this.knex.raw('GROUP_CONCAT(?? ORDER BY ??) as ids', ['__id', '__id']),
+        this.knex.raw('GROUP_CONCAT(??) as ids', ['__id']),
       ])
-      .crossJoin(
-        this.knex.raw(
-          `WITH RECURSIVE dates(date) AS (
-            SELECT date(?) as date
-            UNION ALL
-            SELECT date(date, '+1 day')
-            FROM dates
-            WHERE date < date(?)
-          )
-          SELECT date FROM dates`,
-          [startDate, endDate]
-        )
-      )
+      .crossJoin(datesSubquery.wrap('(', ') as d'))
       .where((builder) => {
         builder
-          .where(startField.dbFieldName, '<', endDate)
+          .where(this.knex.raw(`datetime(??, ?)`, [endField.dbFieldName, offsetStr]), '<', endDate)
           .andWhere(
-            this.knex.raw(`COALESCE(??, ??) >= ?`, [
+            this.knex.raw(`datetime(COALESCE(??, ??), ?)`, [
               endField.dbFieldName,
               startField.dbFieldName,
-              startDate,
-            ])
-          )
-          .andWhere((subBuilder) => {
-            subBuilder
-              .whereRaw(`date(??) <= dates.date`, [startField.dbFieldName])
-              .andWhereRaw(`date(COALESCE(??, ??)) >= dates.date`, [
-                endField.dbFieldName,
-                startField.dbFieldName,
-              ]);
-          });
+              offsetStr,
+            ]),
+            '>=',
+            startDate
+          );
       })
-      .groupBy('dates.date')
-      .orderBy('dates.date', 'asc');
+      .andWhere((builder) => {
+        builder.whereRaw(
+          `date(datetime(??, ?)) <= d.date AND date(datetime(COALESCE(??, ??), ?)) >= d.date`,
+          [
+            startField.dbFieldName,
+            offsetStr,
+            endField.dbFieldName,
+            startField.dbFieldName,
+            offsetStr,
+          ]
+        );
+      })
+      .groupBy('d.date')
+      .orderBy('d.date', 'asc');
   }
 }

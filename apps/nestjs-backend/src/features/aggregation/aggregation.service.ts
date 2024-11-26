@@ -33,7 +33,7 @@ import type {
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { get, groupBy, isDate, isEmpty, keyBy } from 'lodash';
+import { get, groupBy, isDate, isEmpty, isString, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -823,16 +823,21 @@ export class AggregationService {
 
     const result = await this.prisma
       .txClient()
-      .$queryRawUnsafe<{ date: Date; count: number; ids: string[] }[]>(queryBuilder.toQuery());
+      .$queryRawUnsafe<
+        { date: Date | string; count: number; ids: string[] | string }[]
+      >(queryBuilder.toQuery());
 
     const countMap = result.reduce(
       (map, item) => {
-        map[item.date.toISOString().split('T')[0]] = Number(item.count);
+        const key = isString(item.date) ? item.date : item.date.toISOString().split('T')[0];
+        map[key] = Number(item.count);
         return map;
       },
       {} as Record<string, number>
     );
-    let recordIds = result.map((item) => item.ids).flat();
+    let recordIds = result
+      .map((item) => (isString(item.ids) ? item.ids.split(',') : item.ids))
+      .flat();
     recordIds = Array.from(new Set(recordIds));
 
     if (!recordIds.length) {
