@@ -30,6 +30,15 @@ export const isOnOrAfter = z.literal('isOnOrAfter');
 export const today = z.literal('today');
 export const tomorrow = z.literal('tomorrow');
 export const yesterday = z.literal('yesterday');
+export const currentWeek = z.literal('currentWeek');
+export const currentMonth = z.literal('currentMonth');
+export const currentYear = z.literal('currentYear');
+export const lastWeek = z.literal('lastWeek');
+export const lastMonth = z.literal('lastMonth');
+export const lastYear = z.literal('lastYear');
+export const nextWeekPeriod = z.literal('nextWeekPeriod');
+export const nextMonthPeriod = z.literal('nextMonthPeriod');
+export const nextYearPeriod = z.literal('nextYearPeriod');
 export const oneWeekAgo = z.literal('oneWeekAgo');
 export const oneWeekFromNow = z.literal('oneWeekFromNow');
 export const oneMonthAgo = z.literal('oneMonthAgo');
@@ -78,6 +87,15 @@ export const subOperators = z.union([
   today,
   tomorrow,
   yesterday,
+  currentWeek,
+  lastWeek,
+  nextWeekPeriod,
+  currentMonth,
+  lastMonth,
+  nextMonthPeriod,
+  currentYear,
+  lastYear,
+  nextYearPeriod,
   oneWeekAgo,
   oneWeekFromNow,
   oneMonthAgo,
@@ -238,6 +256,15 @@ export const dateTimeFieldSubOperators = z.union([
   today,
   tomorrow,
   yesterday,
+  currentWeek,
+  lastWeek,
+  nextWeekPeriod,
+  currentMonth,
+  lastMonth,
+  nextMonthPeriod,
+  currentYear,
+  lastYear,
+  nextYearPeriod,
   oneWeekAgo,
   oneWeekFromNow,
   oneMonthAgo,
@@ -251,6 +278,15 @@ export const dateTimeFieldValidSubOperators = [
   today.value,
   tomorrow.value,
   yesterday.value,
+  currentWeek.value,
+  lastWeek.value,
+  nextWeekPeriod.value,
+  currentMonth.value,
+  lastMonth.value,
+  nextMonthPeriod.value,
+  currentYear.value,
+  lastYear.value,
+  nextYearPeriod.value,
   oneWeekAgo.value,
   oneWeekFromNow.value,
   oneMonthAgo.value,
