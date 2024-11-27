@@ -304,7 +304,10 @@ describe('TypeCastAndValidate', () => {
     const field = mockDeep<SingleSelectFieldDto>({
       id: 'fldxxxx',
       type: FieldType.SingleSelect,
-      options: { choices: [{ id: '1', name: 'option 1', color: Colors.Blue }] },
+      options: {
+        choices: [{ id: '1', name: 'option 1', color: Colors.Blue }],
+        preventAutoNewOptions: false,
+      },
     });
     const cellValues = ['value'];
     const typeCastAndValidate = new TypeCastAndValidate({
@@ -334,7 +337,10 @@ describe('TypeCastAndValidate', () => {
     const field = mockDeep<SingleSelectFieldDto>({
       id: 'fldxxxx',
       type: FieldType.SingleSelect,
-      options: { choices: [{ id: '1', name: 'option 1', color: Colors.Blue }] },
+      options: {
+        choices: [{ id: '1', name: 'option 1', color: Colors.Blue }],
+        preventAutoNewOptions: false,
+      },
     });
     const cellValues = ['value'];
     const typeCastAndValidate = new TypeCastAndValidate({

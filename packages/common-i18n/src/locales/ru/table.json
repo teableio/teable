@@ -397,7 +397,7 @@
     "stackMenu": {
       "collapseStack": "Свернуть группу",
       "renameStack": "Переименовать группу",
-      "deleteStack": "Удали��ь группу"
+      "deleteStack": "Удалить группу"
     },
     "cardMenu": {
       "insertCardAbove": "Вставить карточку выше",

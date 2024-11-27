@@ -233,7 +233,9 @@ export class TypeCastAndValidate {
     }) as string[];
 
     if (preventAutoNewOptions) {
-      return newCellValues.map((v) => (existsChoicesNameMap[v] ? v : null));
+      return newCellValues
+        ? newCellValues.map((v) => (existsChoicesNameMap[v] ? v : null))
+        : newCellValues;
     }
 
     await this.createOptionsIfNotExists([...allValuesSet]);
@@ -275,12 +277,14 @@ export class TypeCastAndValidate {
 
     if (preventAutoNewOptions) {
       const existsChoicesNameMap = this.cache.choicesMap as Record<string, ISelectFieldChoice>;
-      return newCellValues.map((v) => {
-        if (v) {
-          return (v as string[]).filter((v) => existsChoicesNameMap[v]);
-        }
-        return v;
-      });
+      return newCellValues
+        ? newCellValues.map((v) => {
+            if (v && Array.isArray(v)) {
+              return (v as string[]).filter((v) => existsChoicesNameMap[v]);
+            }
+            return v;
+          })
+        : newCellValues;
     }
 
     await this.createOptionsIfNotExists([...allValuesSet]);
