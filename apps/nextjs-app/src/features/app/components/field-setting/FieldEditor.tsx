@@ -127,8 +127,10 @@ export const FieldEditor = (props: {
         <p className="label-text">{t('common:name')}</p>
         <Input
           placeholder={t('table:field.fieldNameOptional')}
+          type="text"
           className="h-8"
           value={field['name'] || ''}
+          data-1p-ignore="true"
           autoComplete="off"
           onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}
         />
