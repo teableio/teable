@@ -132,6 +132,7 @@
     "buffer": "6.0.3",
     "class-variance-authority": "0.7.0",
     "date-fns": "2.30.0",
+    "date-fns-tz": "2.0.1",
     "dayjs": "1.11.10",
     "echarts": "5.5.0",
     "emoji-mart": "5.5.2",

@@ -3,7 +3,10 @@ import { RecordItem, RecordList } from '@teable/sdk/components';
 import { useRowCount } from '@teable/sdk/hooks';
 import { useInfiniteRecords } from '@teable/sdk/hooks/use-infinite-records';
 import { Skeleton } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 import { useCalendar } from '../hooks';
+import { getEventTitle } from '../util';
 
 interface IEventListProps {
   query?: IQueryBaseRo;
@@ -12,7 +15,8 @@ interface IEventListProps {
 export const EventList = (props: IEventListProps) => {
   const { query } = props;
   const rowCount = useRowCount();
-  const { setExpandRecordId } = useCalendar();
+  const { titleField, startDateField, endDateField, setExpandRecordId } = useCalendar();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const { onVisibleRegionChanged, recordMap } = useInfiniteRecords(query);
 
@@ -23,10 +27,20 @@ export const EventList = (props: IEventListProps) => {
       itemClassName="p-0 rounded-md aria-selected:bg-transparent aria-selected:text-inherit"
       itemRender={(index) => {
         const record = recordMap[index];
-        if (!record) {
+
+        if (!record || !titleField || !startDateField || !endDateField) {
           return <Skeleton className="h-[30px] w-full" />;
         }
-        return <RecordItem title={record.name} className="bg-background py-1" />;
+
+        const title = record.fields[titleField.id];
+        const start = record.fields[startDateField.id];
+        const displayTitle = getEventTitle(
+          titleField.cellValue2String(title) || t('sdk:common.unnamedRecord'),
+          start as string,
+          startDateField
+        );
+
+        return <RecordItem title={displayTitle} className="bg-background py-1" />;
       }}
       rowCount={rowCount ?? 0}
       onSelect={(index) => {
