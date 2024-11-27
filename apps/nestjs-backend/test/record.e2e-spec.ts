@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import { type ITableFullVo } from '@teable/openapi';
+import { updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,
@@ -194,6 +194,59 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(new Date(res3.fields[dateField.id] as string).toISOString().slice(0, -7)).toEqual(
         new Date().toISOString().slice(0, -7)
       );
+    });
+
+    it('should not auto create options when preventAutoNewOptions is true', async () => {
+      const singleSelectField = await createField(table.id, {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'red' }],
+          preventAutoNewOptions: true,
+        },
+      });
+
+      const multiSelectField = await createField(table.id, {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ name: 'red' }],
+          preventAutoNewOptions: true,
+        },
+      });
+
+      const records1 = (
+        await updateRecords(table.id, {
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [singleSelectField.id]: 'red' },
+            },
+            {
+              id: table.records[1].id,
+              fields: { [singleSelectField.id]: 'blue' },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        })
+      ).data;
+
+      expect(records1[0].fields[singleSelectField.id]).toEqual('red');
+      expect(records1[1].fields[singleSelectField.id]).toBeUndefined();
+
+      const records2 = (
+        await updateRecords(table.id, {
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [multiSelectField.id]: ['red', 'blue'] },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        })
+      ).data;
+
+      expect(records2[0].fields[multiSelectField.id]).toEqual(['red']);
     });
 
     it('should batch create records', async () => {

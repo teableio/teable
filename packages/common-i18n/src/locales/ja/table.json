@@ -227,7 +227,8 @@
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
-      "moreOptions": "オプションを表示"
+      "moreOptions": "オプションを表示",
+      "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可"
     },
     "subTitle": {
       "link": "選択したテーブル内のレコードへのリンク",
@@ -313,7 +314,7 @@
       "confirm": "確認して続行"
     },
     "menu": {
-      "addFromOtherSource": "他のソースから追​​加",
+      "addFromOtherSource": "他のソースから追加",
       "excelFile": "Microsoft Excelル",
       "csvFile": "CSVファイル",
       "cancel": "キャンセル",

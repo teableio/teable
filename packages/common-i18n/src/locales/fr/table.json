@@ -227,7 +227,8 @@
       "filterByView": "Filtrer les enregistrements par vue",
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",
-      "moreOptions": "Plus d'options"
+      "moreOptions": "Plus d'options",
+      "allowNewOptionsWhenEditing": "Autoriser de nouvelles options lors de l'édition"
     },
     "subTitle": {
       "link": "Lien vers les enregistrements dans la table que vous choisissez",

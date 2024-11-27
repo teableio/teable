@@ -227,7 +227,8 @@
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
-      "moreOptions": "Дополнительные параметры"
+      "moreOptions": "Дополнительные параметры",
+      "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании"
     },
     "subTitle": {
       "link": "Связать с записями в выбранной таблице",
@@ -396,7 +397,7 @@
     "stackMenu": {
       "collapseStack": "Свернуть группу",
       "renameStack": "Переименовать группу",
-      "deleteStack": "Удалить группу"
+      "deleteStack": "Удали��ь группу"
     },
     "cardMenu": {
       "insertCardAbove": "Вставить карточку выше",

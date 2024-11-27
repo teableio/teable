@@ -229,14 +229,15 @@
       "baseNoPermission": "No permission base",
       "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
       "fieldValidationRules": "Field value validation rules",
-      "enableValidateFieldUnique": "Enable unique value validation",
-      "enableValidateFieldNotNull": "Enable not null value validation",
+      "enableValidateFieldUnique": "Forbid duplicate values",
+      "enableValidateFieldNotNull": "Forbid non-empty values",
       "knowMore": "know more",
       "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
       "filterByView": "Filter records by view",
       "filter": "Filter records",
       "hideFields": "Hide fields",
-      "moreOptions": "More options"
+      "moreOptions": "More options",
+      "allowNewOptionsWhenEditing": "Allow new options when editing"
     },
     "subTitle": {
       "link": "Link to records in the table you choose",

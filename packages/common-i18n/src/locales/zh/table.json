@@ -228,14 +228,15 @@
       "baseNoPermission": "无权限数据库",
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
-      "enableValidateFieldUnique": "唯一值校验",
-      "enableValidateFieldNotNull": "非空值校验",
+      "enableValidateFieldUnique": "禁止重复值",
+      "enableValidateFieldNotNull": "禁止非空值",
       "knowMore": "了解更多",
       "linkFieldKnowMoreLink": "https://help.teable.cn/ji-ben-gong-neng/zi-duan/gao-ji-zi-duan/guan-lian",
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
-      "moreOptions": "更多配置"
+      "moreOptions": "更多配置",
+      "allowNewOptionsWhenEditing": "允许填写时添加选项"
     },
     "subTitle": {
       "link": "在表之间创建关联关系",
