@@ -24,13 +24,13 @@ export class AuthGuard extends PassportAuthGuard(['session', ACCESS_TOKEN_STRATE
       context.getClass(),
     ]);
 
+    if (isPublic) {
+      return true;
+    }
+
     const cookie = context.switchToHttp().getRequest().headers.cookie;
     if (!cookie?.includes(AUTH_SESSION_COOKIE_NAME)) {
       this.logger.error('Auth session cookie is not found in request cookies');
-    }
-
-    if (isPublic) {
-      return true;
     }
 
     try {

@@ -16,18 +16,9 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const redirect = router.query.redirect as string;
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
 
-  const isValidRedirect = (url: string) => {
-    try {
-      const parsedUrl = new URL(url, window.location.origin);
-      return parsedUrl.origin === window.location.origin;
-    } catch (e) {
-      return false;
-    }
-  };
-
   const onSuccess = useCallback(() => {
-    if (redirect && isValidRedirect(decodeURIComponent(redirect))) {
-      window.location.href = decodeURIComponent(redirect);
+    if (redirect) {
+      router.push(decodeURIComponent(redirect));
     } else {
       router.push({
         pathname: '/space',

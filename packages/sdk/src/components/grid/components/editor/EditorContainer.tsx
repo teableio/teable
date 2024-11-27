@@ -284,6 +284,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   const onCopyInner = (e: React.ClipboardEvent) => {
+    if (!activeCell || isEditing) return;
     onCopy?.(selection, e);
   };
 
