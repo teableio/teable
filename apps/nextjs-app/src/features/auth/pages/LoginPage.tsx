@@ -13,12 +13,12 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const { children } = props;
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const router = useRouter();
-  const redirect = router.query.redirect as string;
+  const redirect = decodeURIComponent((router.query.redirect as string) || '');
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
 
   const onSuccess = useCallback(() => {
-    if (redirect) {
-      router.push(decodeURIComponent(redirect));
+    if (redirect && redirect.startsWith('/')) {
+      router.push(redirect);
     } else {
       router.push({
         pathname: '/space',
