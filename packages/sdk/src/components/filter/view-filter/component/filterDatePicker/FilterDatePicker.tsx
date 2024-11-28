@@ -1,11 +1,5 @@
 import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable/core';
-import {
-  exactDate,
-  FieldType,
-  getValidFilterSubOperators,
-  isWithIn,
-  TimeFormatting,
-} from '@teable/core';
+import { exactDate, FieldType, getValidFilterSubOperators, isWithIn } from '@teable/core';
 import { Input } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
@@ -24,7 +18,6 @@ interface IFilerDatePickerProps {
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect, field } = props;
-  const { time } = field.options?.formatting || {};
   const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
   const { t } = useTranslation();
   const dateMap = useDateI18nMap();
@@ -106,7 +99,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
             value={innerValue?.exactDate}
             onChange={datePickerSelect}
             options={field.options}
-            disableTimePicker={time === TimeFormatting.None}
+            disableTimePicker={true}
             className="h-8 w-40 text-xs sm:h-8"
           />
         );
@@ -132,7 +125,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         );
     }
     return null;
-  }, [innerValue, datePickerSelect, field.options, time, t, onSelect]);
+  }, [innerValue, datePickerSelect, field.options, t, onSelect]);
 
   return (
     <div className="flex gap-2">

@@ -30,7 +30,6 @@ import {
   isOnOrBefore,
   isWithIn,
   literalValueListSchema,
-  TimeFormatting,
 } from '@teable/core';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -264,14 +263,10 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     // Helper function to determine date range for a given exact date.
     const determineDateRangeForExactDate = (): [Dayjs, Dayjs] => {
-      const { time } = dateFieldOptions.formatting;
       if (!exactDate) {
         throw new BadRequestException('Exact date must be entered');
       }
-      if (time === TimeFormatting.None) {
-        return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
-      }
-      return [dateUtil.date(exactDate), dateUtil.date(exactDate)];
+      return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
     };
 
     // Helper function to generate offset date range for a given unit (day, week, month, year).
