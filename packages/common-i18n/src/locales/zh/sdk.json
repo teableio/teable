@@ -305,7 +305,7 @@
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
-      "userRead": "查看当前用户",
+      "userProfileRead": "查看当前用户",
       "userEmailRead": "查看当前用户电子邮件",
       "recordHistoryRead": "查看记录历史",
       "baseQuery": "查询数据库",

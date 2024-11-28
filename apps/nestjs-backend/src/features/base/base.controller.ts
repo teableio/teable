@@ -125,15 +125,10 @@ export class BaseController {
     return await this.baseService.getBaseById(baseId);
   }
 
+  @Permissions('base|read_all')
   @Get('access/all')
   async getAllBase(): Promise<IGetBaseAllVo> {
     return this.baseService.getAllBaseList();
-  }
-
-  @Permissions('base|read_all')
-  @Get('access/list')
-  async getAccessBase(): Promise<{ id: string; name: string }[]> {
-    return this.baseService.getAccessBaseList();
   }
 
   @Delete(':baseId')

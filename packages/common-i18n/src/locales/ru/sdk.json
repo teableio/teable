@@ -278,7 +278,7 @@
       "automationDelete": "Удалить автоматизацию",
       "automationRead": "Читать автоматизацию",
       "automationUpdate": "Обновить автоматизацию",
-      "userRead": "Читать пользователя",
+      "userProfileRead": "Читать профиль пользователя",
       "userEmailRead": "Читать электронную почту пользователя",
       "recordHistoryRead": "Читать историю записей",
       "baseQuery": "Запрос базы",

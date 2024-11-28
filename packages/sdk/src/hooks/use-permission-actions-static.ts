@@ -149,9 +149,6 @@ const actionsI18nMap: Record<
   'automation|update': {
     description: 'permission.actionDescription.automationUpdate',
   },
-  'user|read': {
-    description: 'permission.actionDescription.userRead',
-  },
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
   },

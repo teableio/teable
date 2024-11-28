@@ -276,7 +276,7 @@
       "automationDelete": "Supprimer une automatisation",
       "automationRead": "Lire une automatisation",
       "automationUpdate": "Mettre à jour une automatisation",
-      "userRead": "Lire un utilisateur",
+      "userProfileRead": "Lire le profil de l'utilisateur",
       "userEmailRead": "Lire l'email de l'utilisateur",
       "recordHistoryRead": "Lire l'historique des enregistrements",
       "baseQuery": "Interroger la base",

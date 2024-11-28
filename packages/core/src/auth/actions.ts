@@ -91,7 +91,7 @@ export const automationActions = [
 export const automationActionSchema = z.enum(automationActions);
 export type AutomationAction = z.infer<typeof automationActionSchema>;
 
-export const userActions = ['user|read', 'user|email_read'] as const;
+export const userActions = ['user|email_read'] as const;
 export const userActionSchema = z.enum(userActions);
 export type UserAction = z.infer<typeof userActionSchema>;
 

@@ -115,7 +115,7 @@ export const AccessSelect = (props: IFormAccess) => {
                 ?.map(({ id, name }) => (
                   <CommandGroup
                     key={id}
-                    heading={<div className="truncate text-sm">{name}</div>}
+                    heading={<div className="truncate text-sm font-bold">{name}</div>}
                     title={name}
                   >
                     <CommandItem

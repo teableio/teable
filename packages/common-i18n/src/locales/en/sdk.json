@@ -291,7 +291,7 @@
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
-      "userRead": "Read current user",
+      "userProfileRead": "Read current user profile",
       "userEmailRead": "Read current user email",
       "recordHistoryRead": "Read record history",
       "baseQuery": "Query base",

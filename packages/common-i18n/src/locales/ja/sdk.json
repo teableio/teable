@@ -263,7 +263,7 @@
       "automationDelete": "オートメーションの削除",
       "automationRead": "オートメーションの読み取り",
       "automationUpdate": "オートメーションの更新",
-      "userRead": "ユーザーの読み取り",
+      "userProfileRead": "ユーザーのプロフィールの読み取り",
       "userEmailRead": "ユーザーメールの読み取り",
       "recordHistoryRead": "レコード履歴の読み取り",
       "baseQuery": "クエリベース",
