@@ -45,7 +45,6 @@ import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
-import { TokenAccess } from '../auth/decorators/token.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { BaseQueryService } from './base-query/base-query.service';
@@ -131,8 +130,8 @@ export class BaseController {
     return this.baseService.getAllBaseList();
   }
 
+  @Permissions('base|read_all')
   @Get('access/list')
-  @TokenAccess()
   async getAccessBase(): Promise<{ id: string; name: string }[]> {
     return this.baseService.getAccessBaseList();
   }

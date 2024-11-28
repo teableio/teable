@@ -41,6 +41,9 @@ const actionsI18nMap: Record<
   'base|read': {
     description: 'permission.actionDescription.baseRead',
   },
+  'base|read_all': {
+    description: 'permission.actionDescription.baseReadAll',
+  },
   'base|update': {
     description: 'permission.actionDescription.baseUpdate',
   },
@@ -145,6 +148,9 @@ const actionsI18nMap: Record<
   },
   'automation|update': {
     description: 'permission.actionDescription.automationUpdate',
+  },
+  'user|read': {
+    description: 'permission.actionDescription.userRead',
   },
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
