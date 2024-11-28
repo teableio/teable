@@ -1,6 +1,14 @@
 Service:
   RegionId: cn-hangzhou
   DeployType: ros
+  OperationMetadata:
+    StatusOperationConfigs:
+      - TemplateName: '单机版'
+        SupportOperations:
+          - Start
+          - Stop
+          - Restart
+    SupportBackup: true
   DeployMetadata:
     SupplierDeployMetadata:
       FileArtifactRelation:
@@ -26,3 +34,40 @@ Artifact:
     ArtifactProperty:
       RegionId: cn-hangzhou
       Url: 'resources/artifact_resources/docker_compose.tar'
+  Artifact_2:
+    ArtifactType: AcrImage
+    ArtifactName: AcrImage-teableio-teable
+    ArtifactProperty:
+      RepoName: ${AcrImageBuilder.AcrImage_1.RepoName}
+      Tag: ${AcrImageBuilder.AcrImage_1.Tag}
+      RepoType: Public
+  Artifact_3:
+    ArtifactType: AcrImage
+    ArtifactName: AcrImage-postgres
+    ArtifactProperty:
+      RepoName: ${AcrImageBuilder.AcrImage_2.RepoName}
+      Tag: ${AcrImageBuilder.AcrImage_2.Tag}
+      RepoType: Public
+  Artifact_4:
+    ArtifactType: AcrImage
+    ArtifactName: AcrImage-teableio-teable-db-migrate
+    ArtifactProperty:
+      RepoName: ${AcrImageBuilder.AcrImage_3.RepoName}
+      Tag: ${AcrImageBuilder.AcrImage_3.Tag}
+      RepoType: Public
+AcrImageBuilder:
+  AcrImage_1:
+    BuildType: DockerRepo
+    DockerRepoUrl: ghcr.io/teableio/teable:latest
+    RepoName: teableio/teable
+    Tag: latest
+  AcrImage_2:
+    BuildType: DockerRepo
+    DockerRepoUrl: postgres:15.4
+    RepoName: postgres
+    Tag: 15.4
+  AcrImage_3:
+    BuildType: DockerRepo
+    DockerRepoUrl: ghcr.io/teableio/teable-db-migrate:latest
+    RepoName: teableio/teable-db-migrate
+    Tag: latest

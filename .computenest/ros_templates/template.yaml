@@ -1,7 +1,4 @@
 ROSTemplateFormatVersion: '2015-09-01'
-Description:
-  en: DockerCompose service template
-  zh-cn: DockerCompose服务模板
 Conditions:
   CreateVpcConditions:
     Fn::Equals:
@@ -154,6 +151,11 @@ Parameters:
       en: Zone ID
       zh-cn: 可用区ID
     AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+    AssociationPropertyMetadata:
+      DefaultValueStrategy: random
+      InstanceChargeType: ${PayType}
+      SystemDiskCategory: cloud_essd
+      InstanceType: ${EcsInstanceType}
   VpcId:
     Type: String
     Label:
@@ -166,6 +168,7 @@ Parameters:
         - ${VpcOption}
     Default: ''
     AssociationPropertyMetadata:
+      AutoSelectFirst: true
       Visible:
         Condition:
           Fn::Equals:
@@ -183,18 +186,14 @@ Parameters:
         - ExistingVPC
         - ${VpcOption}
     AssociationPropertyMetadata:
-      VpcId: VpcId
-      ZoneId: ZoneId
+      AutoSelectFirst: true
+      VpcId: ${VpcId}
+      ZoneId: ${ZoneId}
       Visible:
         Condition:
           Fn::Equals:
             - ExistingVPC
             - ${VpcOption}
-  Password:
-    Type: String
-    AssociationProperty: ALIYUN::ECS::Instance::Password
-    Label: 密码
-    NoEcho: True
 Resources:
   # 新建vpc
   EcsVpc:
@@ -286,18 +285,10 @@ Resources:
       CommandContent:
         Fn::Sub:
           - |
-            dockerJson='{{ computenest::acr::dockerconfigjson }}'
-            decodeDockerJson=$(echo $dockerJson | base64 -d)
-            host=$(echo $decodeDockerJson | jq '.auths' | jq 'keys' | jq .[0])
-            username=$(echo $decodeDockerJson | jq ".auths.$host.username" | tr -d '"')
-            password=$(echo $decodeDockerJson | jq ".auths.$host.password" | tr -d '"')
-            host=$(echo $host | tr -d '"')
-            docker login $host --username=$username --password=$password
-
             wget '{{ computenest::file::hanans426_teable-docker-compose }}' -O /root/application/docker_compose.tar
             tar -xvf /root/application/docker_compose.tar -C /root/application
 
-            cat > /etc/systemd/system/docker-compose-app.service <<EOF
+            cat > /etc/systemd/system/teable.service <<EOF
             [Unit]
             Description=Docker Compose Application Service
             Requires=docker.service
@@ -315,24 +306,39 @@ Resources:
             WantedBy=multi-user.target
             EOF
 
-            echo 'Password=${Password}' >> /root/application/docker_compose/dockers/examples/standalone/.env
-            systemctl start docker-compose-app
+            systemctl enable teable
+
+            
+            systemctl start teable
           - RegionId:
               Ref: ALIYUN::Region
-Outputs:
-  ServerAddress:
+Outputs: 
+  teable_address:
     Description:
-      en: ServerAddress.
-      zh-cn: 访问页面。
+      en: teable address.
+      zh-cn: teable 访问页面。
     Value:
       Fn::Sub:
-        - http://${ServerAddress}:3000, http://${ServerAddress}:42345
+        - http://${ServerAddress}:3000
         - ServerAddress:
             Fn::Select:
-            - 0
-            - Fn::GetAtt:
-              - InstanceGroup
-              - PublicIps
+              - 0
+              - Fn::GetAtt:
+                  - InstanceGroup
+                  - PublicIps
+  teable-db_address:
+    Description:
+      en: teable-db address.
+      zh-cn: teable-db 访问页面。
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:42345
+        - ServerAddress:
+            Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                  - InstanceGroup
+                  - PublicIps
 Metadata:
   ALIYUN::ROS::Interface:
     ParameterGroups:
@@ -356,9 +362,4 @@ Metadata:
           - VSwitchCidrBlock
         Label:
           default: 可用区配置
-      - Parameters:
-          - Password
-        Label:
-          en: Software Configuration
-          zh-cn: 软件配置
       
