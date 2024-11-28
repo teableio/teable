@@ -27,8 +27,9 @@ import {
   Calendar as DatePicker,
   cn,
 } from '@teable/ui-lib/shadcn';
-import { addDays, subDays, format } from 'date-fns';
+import { addDays, subDays, format, set } from 'date-fns';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
+import { zonedTimeToUtc } from 'date-fns-tz';
 import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -130,13 +131,17 @@ export const Calendar = (props: ICalendarProps) => {
 
         if (!tableId || !startDateField || !endDateField) return;
 
+        const { timeZone } = startDateField.options.formatting;
+        const newDate = set(date, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
+        const newDateStr = zonedTimeToUtc(newDate, timeZone).toISOString();
+
         const { data } = await Record.createRecords(tableId, {
           fieldKeyType: FieldKeyType.Id,
           records: [
             {
               fields: {
-                [startDateField.id]: date.toISOString(),
-                [endDateField.id]: date.toISOString(),
+                [startDateField.id]: newDateStr,
+                [endDateField.id]: newDateStr,
               },
             },
           ],

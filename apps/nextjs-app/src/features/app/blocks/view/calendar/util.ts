@@ -39,7 +39,9 @@ export const getEventTitle = (title: string, startDate: string | null, dateField
 
 export const getDateByTimezone = (date: Date, timeZone: string, originalDate?: string) => {
   const originalTime = utcToZonedTime(
-    originalDate ? new Date(originalDate) : set(new Date(), { hours: 0, minutes: 0, seconds: 0 }),
+    originalDate
+      ? new Date(originalDate)
+      : set(new Date(), { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 }),
     timeZone
   );
   const newDate = set(date, {
