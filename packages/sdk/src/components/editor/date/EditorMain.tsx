@@ -137,7 +137,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
           </div>
         }
       />
-      <input className="size-0 opacity-0" ref={defaultFocusRef} />
+      <input className="absolute size-0 opacity-0" ref={defaultFocusRef} />
     </>
   );
 };

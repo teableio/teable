@@ -1,5 +1,10 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable/core';
+import {
+  TimeFormatting,
+  type IDateFieldOptions,
+  type IDateFilter,
+  type IFilterOperator,
+} from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -11,8 +16,21 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { options } = this.field;
 
+    const {
+      formatting: { time },
+    } = options as IDateFieldOptions;
+
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereBetween(this.tableColumnRef, dateTimeRange);
+
+    if (time === TimeFormatting.None) {
+      builderClient.whereBetween(this.tableColumnRef, dateTimeRange);
+    } else {
+      builderClient.whereRaw(
+        `date_trunc('minute', ??) BETWEEN date_trunc('minute', ?::timestamp) AND date_trunc('minute', ?::timestamp)`,
+        [this.tableColumnRef, dateTimeRange[0], dateTimeRange[1]]
+      );
+    }
+
     return builderClient;
   }
 
@@ -23,10 +41,22 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { options } = this.field;
 
+    const {
+      formatting: { time },
+    } = options as IDateFieldOptions;
+
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient
-      .whereNotBetween(this.tableColumnRef, dateTimeRange)
-      .orWhereNull(this.tableColumnRef);
+
+    if (time === TimeFormatting.None) {
+      builderClient
+        .whereNotBetween(this.tableColumnRef, dateTimeRange)
+        .orWhereNull(this.tableColumnRef);
+    } else {
+      builderClient.whereRaw(
+        `(date_trunc('minute', ??) NOT BETWEEN date_trunc('minute', ?::timestamp) AND date_trunc('minute', ?::timestamp) OR ?? IS NULL)`,
+        [this.tableColumnRef, dateTimeRange[0], dateTimeRange[1], this.tableColumnRef]
+      );
+    }
     return builderClient;
   }
 
@@ -37,8 +67,20 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { options } = this.field;
 
+    const {
+      formatting: { time },
+    } = options as IDateFieldOptions;
+
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '>', dateTimeRange[1]);
+
+    if (time === TimeFormatting.None) {
+      builderClient.where(this.tableColumnRef, '>', dateTimeRange[1]);
+    } else {
+      builderClient.whereRaw(`date_trunc('minute', ??) > date_trunc('minute', ?::timestamp)`, [
+        this.tableColumnRef,
+        dateTimeRange[1],
+      ]);
+    }
     return builderClient;
   }
 
@@ -49,8 +91,19 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { options } = this.field;
 
+    const {
+      formatting: { time },
+    } = options as IDateFieldOptions;
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '>=', dateTimeRange[0]);
+
+    if (time === TimeFormatting.None) {
+      builderClient.where(this.tableColumnRef, '>=', dateTimeRange[0]);
+    } else {
+      builderClient.whereRaw(`date_trunc('minute', ??) >= date_trunc('minute', ?::timestamp)`, [
+        this.tableColumnRef,
+        dateTimeRange[0],
+      ]);
+    }
     return builderClient;
   }
 
@@ -61,8 +114,20 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { options } = this.field;
 
+    const {
+      formatting: { time },
+    } = options as IDateFieldOptions;
+
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '<', dateTimeRange[0]);
+    if (time === TimeFormatting.None) {
+      builderClient.where(this.tableColumnRef, '<', dateTimeRange[0]);
+    } else {
+      builderClient.whereRaw(`date_trunc('minute', ??) < date_trunc('minute', ?::timestamp)`, [
+        this.tableColumnRef,
+        dateTimeRange[0],
+      ]);
+    }
+
     return builderClient;
   }
 
@@ -73,8 +138,20 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { options } = this.field;
 
+    const {
+      formatting: { time },
+    } = options as IDateFieldOptions;
+
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '<=', dateTimeRange[1]);
+    if (time === TimeFormatting.None) {
+      builderClient.where(this.tableColumnRef, '<=', dateTimeRange[1]);
+    } else {
+      builderClient.whereRaw(`date_trunc('minute', ??) <= date_trunc('minute', ?::timestamp)`, [
+        this.tableColumnRef,
+        dateTimeRange[1],
+      ]);
+    }
+
     return builderClient;
   }
 
