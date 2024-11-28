@@ -11,7 +11,7 @@ import { TimeZoneFormatting } from './TimeZoneFormatting';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+export const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // | Locale | Date Format | Notes |
 // |--------|-------------|-------|
@@ -22,7 +22,7 @@ const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // | ja-JP  | YYYY/MM/DD  | Japanese (Japan), e.g., 2023/12/31 |
 // | zh-CN  | YYYY-MM-DD  | Simplified Chinese (China), e.g., 2023-12-31 |
 // | ko-KR  | YYYY.MM.DD  | Korean (South Korea), e.g., 2023.12.31 |
-const localFormatStrings: { [key: string]: string } = {
+export const localFormatStrings: { [key: string]: string } = {
   en: 'M/D/YYYY',
   'en-GB': 'D/M/YYYY',
   fr: 'DD/MM/YYYY',
@@ -32,7 +32,7 @@ const localFormatStrings: { [key: string]: string } = {
   ko: 'YYYY.MM.DD',
 };
 
-const friendlyFormatStrings: { [key: string]: string } = {
+export const friendlyFormatStrings: { [key: string]: string } = {
   en: 'MMMM D, YYYY', // English
   'en-GB': 'D MMMM YYYY', // English GB
   zh: 'YYYY 年 M 月 D 日', // Chinese
@@ -51,7 +51,7 @@ const friendlyFormatStrings: { [key: string]: string } = {
   ta: 'D MMMM, YYYY', // Tamil
 };
 
-function getFormatStringForLanguage(language: string, preset: { [key: string]: string }) {
+export function getFormatStringForLanguage(language: string, preset: { [key: string]: string }) {
   // If the full language tag is not found, fallback to the base language
   const baseLanguage = language.split('-')[0];
   return preset[language] || preset[baseLanguage] || preset['en']; // Default to 'en'

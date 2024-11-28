@@ -1,4 +1,4 @@
-import { FieldType } from '@teable/core';
+import { FieldType, TimeFormatting } from '@teable/core';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Field } from '@teable/sdk/model';
 import {
@@ -12,6 +12,11 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
+import {
+  getFormatStringForLanguage,
+  localFormatStrings,
+  systemTimeZone,
+} from '@/features/app/components/field-setting/formatting/DatetimeFormatting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useCalendar } from '../hooks';
 
@@ -35,13 +40,27 @@ export const AddDateFieldDialog = () => {
   const onClick = async () => {
     if (!tableId) return;
 
+    const localDateFormatting = getFormatStringForLanguage(navigator.language, localFormatStrings);
+
+    const defaultFormatting = {
+      date: localDateFormatting,
+      time: TimeFormatting.None,
+      timeZone: systemTimeZone,
+    };
+
     const startDateField = await Field.createField(tableId, {
       name: t('table:calendar.dialog.startDate'),
       type: FieldType.Date,
+      options: {
+        formatting: defaultFormatting,
+      },
     });
     const endDateField = await Field.createField(tableId, {
       name: t('table:calendar.dialog.endDate'),
       type: FieldType.Date,
+      options: {
+        formatting: defaultFormatting,
+      },
     });
 
     if (view != null && viewUpdatable) {

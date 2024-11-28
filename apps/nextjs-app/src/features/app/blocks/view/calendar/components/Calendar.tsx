@@ -193,8 +193,6 @@ export const Calendar = (props: ICalendarProps) => {
       setTitle(calendarRef.current.getApi().view.title);
     }
 
-    if (!startDateField || !endDateField) return;
-
     const startStr = start.toISOString();
     const endStr = end.toISOString();
 
@@ -204,7 +202,7 @@ export const Calendar = (props: ICalendarProps) => {
     });
   };
 
-  const isLoading = !calendarDailyCollection;
+  const isLoading = startDateField && endDateField && !calendarDailyCollection;
   const { countMap, records = [] } = calendarDailyCollection ?? {};
 
   const events = useMemo(() => {
