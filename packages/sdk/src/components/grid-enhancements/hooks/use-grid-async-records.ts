@@ -90,6 +90,7 @@ export const useGridAsyncRecords = (
   queryRef.current = query;
 
   const { searchQuery } = useSearch();
+  const [searchValue, searchFields] = searchQuery || [];
   const { records, extra } = useRecords(recordsQuery, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
@@ -202,12 +203,6 @@ export const useGridAsyncRecords = (
     });
   }, [visiblePages, initQuery]);
 
-  useEffect(() => {
-    if (!searchQuery || searchQuery?.[0] === '') {
-      setLoadedRecordSearchHitMap(undefined);
-    }
-  }, [searchQuery]);
-
   const updateVisiblePages = useMemo(() => {
     return debounce(setVisiblePages, 30, { maxWait: 500 });
   }, []);
@@ -226,6 +221,10 @@ export const useGridAsyncRecords = (
     setLoadedRecordSearchHitMap(undefined);
     setVisiblePages(defaultVisiblePages);
   }, []);
+
+  useEffect(() => {
+    setLoadedRecordSearchHitMap(undefined);
+  }, [searchFields, searchValue]);
 
   return {
     groupPoints,
