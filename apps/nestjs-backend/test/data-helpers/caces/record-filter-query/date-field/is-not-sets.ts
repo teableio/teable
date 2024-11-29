@@ -1,9 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import {
+  currentMonth,
+  currentWeek,
+  currentYear,
   daysAgo,
   daysFromNow,
   exactDate,
   isNot,
+  lastMonth,
+  lastWeek,
+  lastYear,
+  nextMonthPeriod,
+  nextWeekPeriod,
+  nextYearPeriod,
   oneMonthAgo,
   oneMonthFromNow,
   oneWeekAgo,
@@ -37,6 +46,87 @@ export const IS_NOT_SETS = [
     operator: isNot.value,
     queryValue: {
       mode: yesterday.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 22,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextWeekPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 22,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 22,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 19,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 22,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextMonthPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 21,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 16,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 22,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 22,
@@ -133,6 +223,87 @@ export const LOOKUP_IS_NOT_SETS = [
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 19,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 18,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextWeekPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 18,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextMonthPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 17,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextYearPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 20,
   },
   {
     operator: isNot.value,
