@@ -11,6 +11,7 @@ export interface IKanbanContext {
   coverField?: AttachmentField;
   isCoverFit?: boolean;
   isFieldNameHidden?: boolean;
+  isEmptyStackHidden?: boolean;
   permission: IKanbanPermission;
   primaryField: IFieldInstance;
   displayFields: IFieldInstance[];
