@@ -602,8 +602,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/icons
       '@teable/next-themes':
-        specifier: 0.3.3
-        version: 0.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 0.3.5
+        version: 0.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@teable/openapi':
         specifier: workspace:^
         version: link:../../packages/openapi
@@ -1400,8 +1400,8 @@ importers:
         specifier: workspace:*
         version: link:../icons
       '@teable/next-themes':
-        specifier: 0.3.3
-        version: 0.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 0.3.5
+        version: 0.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@teable/openapi':
         specifier: workspace:*
         version: link:../openapi
@@ -1719,8 +1719,8 @@ importers:
         specifier: workspace:^
         version: link:../icons
       '@teable/next-themes':
-        specifier: 0.3.3
-        version: 0.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 0.3.5
+        version: 0.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       class-variance-authority:
         specifier: 0.7.0
         version: 0.7.0
@@ -1906,8 +1906,8 @@ importers:
         specifier: workspace:^
         version: link:../packages/icons
       '@teable/next-themes':
-        specifier: 0.3.3
-        version: 0.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 0.3.5
+        version: 0.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@teable/openapi':
         specifier: workspace:^
         version: link:../packages/openapi
@@ -6892,8 +6892,8 @@ packages:
   '@tanstack/virtual-core@3.2.0':
     resolution: {integrity: sha512-P5XgYoAw/vfW65byBbJQCw+cagdXDT/qH6wmABiLt4v4YBT2q2vqCOhihe+D1Nt325F/S/0Tkv6C5z0Lv+VBQQ==}
 
-  '@teable/next-themes@0.3.3':
-    resolution: {integrity: sha512-qGQWYVymiLXlIS8N38LrfPulxxG1Us+Qq25p/N5FJBmt7NAOkohuY4BhXTLPw+ovdE8UI+OlNnqPwKbfL5Azbw==}
+  '@teable/next-themes@0.3.5':
+    resolution: {integrity: sha512-/P0GxY6Yqu8OGL3Kn3/WqCz/w+Ly5WKyol9hRDBnhIm2nq+yFIkI588tdcWHXatub0ASbrS/uDW7qgcDsWmNIw==}
     peerDependencies:
       react: ^16.8 || ^17 || ^18
       react-dom: ^16.8 || ^17 || ^18
@@ -23428,7 +23428,7 @@ snapshots:
 
   '@tanstack/virtual-core@3.2.0': {}
 
-  '@teable/next-themes@0.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@teable/next-themes@0.3.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -27671,7 +27671,7 @@ snapshots:
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.10.0(eslint@8.57.0)
       eslint-plugin-react: 7.37.1(eslint@8.57.0)
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@8.57.0)
@@ -27723,7 +27723,7 @@ snapshots:
       is-bun-module: 1.2.1
       is-glob: 4.0.3
     optionalDependencies:
-      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
     transitivePeerDependencies:
       - '@typescript-eslint/parser'
       - eslint-import-resolver-node
@@ -27799,7 +27799,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.9.0(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.8

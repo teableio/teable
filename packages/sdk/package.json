@@ -72,7 +72,7 @@
     "@teable/common-i18n": "workspace:*",
     "@teable/core": "workspace:*",
     "@teable/icons": "workspace:*",
-    "@teable/next-themes": "0.3.3",
+    "@teable/next-themes": "0.3.5",
     "@teable/openapi": "workspace:*",
     "@teable/ui-lib": "workspace:*",
     "@udecode/cn": "37.0.0",
