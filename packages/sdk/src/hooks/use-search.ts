@@ -10,5 +10,6 @@ export function useSearch() {
     setFieldId: search.setFieldId || noop,
     setValue: search.setValue || noop,
     reset: search.reset || noop,
+    setHideNotMatchRow: search.setHideNotMatchRow || noop,
   };
 }

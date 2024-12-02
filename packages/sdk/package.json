@@ -1,6 +1,6 @@
 {
   "name": "@teable/sdk",
-  "version": "1.5.0",
+  "version": "1.5.2",
   "license": "MIT",
   "homepage": "https://github.com/teableio/teable",
   "publishConfig": {
@@ -91,7 +91,7 @@
     "@udecode/plate-slash-command": "37.0.0",
     "@udecode/plate-trailing-block": "37.0.0",
     "antlr4ts": "0.5.0-alpha.4",
-    "axios": "1.6.8",
+    "axios": "1.7.7",
     "class-transformer": "0.5.1",
     "class-variance-authority": "0.7.0",
     "date-fns": "2.30.0",
@@ -109,14 +109,14 @@
     "react-hammerjs": "1.0.1",
     "react-hotkeys-hook": "4.5.0",
     "react-textarea-autosize": "8.5.3",
-    "react-use": "17.5.0",
+    "react-use": "17.5.1",
     "reconnecting-websocket": "4.4.0",
     "scroller": "0.0.3",
     "sharedb": "4.1.2",
     "slate": "0.103.0",
     "slate-history": "0.109.0",
     "slate-hyperscript": "0.100.0",
-    "slate-react": "0.109.0",
+    "slate-react": "0.111.0",
     "ts-key-enum": "2.0.12",
     "ts-keycode-enum": "1.0.6",
     "ts-mixer": "6.0.4",
@@ -138,10 +138,11 @@
     "@types/scroller": "0.1.5",
     "@types/sharedb": "3.3.10",
     "@vitejs/plugin-react-swc": "3.6.0",
-    "@vitest/coverage-v8": "1.4.0",
+    "@vitest/coverage-v8": "2.1.5",
     "cross-env": "7.0.3",
     "eslint": "8.57.0",
     "get-tsconfig": "4.7.3",
+    "happy-dom": "15.11.6",
     "microbundle": "0.15.1",
     "npm-run-all2": "6.1.2",
     "prettier": "3.2.5",
@@ -152,6 +153,6 @@
     "typescript": "5.4.3",
     "vite-plugin-svgr": "4.2.0",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "1.6.0"
+    "vitest": "2.1.5"
   }
 }

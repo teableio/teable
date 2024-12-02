@@ -120,6 +120,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as ISingleSelectCellValue}
+          preventAutoNewOptions={(options as ISelectFieldOptions).preventAutoNewOptions}
           options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           readonly={readonly}

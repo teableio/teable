@@ -15,6 +15,7 @@ import type {
   ListSpaceCollaboratorRo,
   IGetRecordsRo,
   ListBaseCollaboratorRo,
+  ICalendarDailyCollectionRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -129,4 +130,7 @@ export const ReactQueryKeys = {
   viewList: (tableId: string) => ['view-list', tableId] as const,
 
   fieldList: (tableId: string, query?: IGetFieldsQuery) => ['field-list', tableId, query] as const,
+
+  calendarDailyCollection: (tableId: string, query: ICalendarDailyCollectionRo) =>
+    ['calendar-daily-collection', tableId, query] as const,
 };

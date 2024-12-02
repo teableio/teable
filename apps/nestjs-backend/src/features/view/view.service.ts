@@ -16,6 +16,8 @@ import type {
   IKanbanViewOptions,
   IFilterSet,
   IPluginViewOptions,
+  IGalleryViewOptions,
+  ICalendarViewOptions,
 } from '@teable/core';
 import {
   getUniqName,
@@ -25,6 +27,8 @@ import {
   ViewOpBuilder,
   viewVoSchema,
   ViewType,
+  FieldType,
+  CellValueType,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -139,7 +143,7 @@ export class ViewService implements IReadonlyAdapterService {
     // create view compensation data
     const innerViewRo = { ...viewRo };
     // primary field set visible default
-    if (viewRo.type === ViewType.Kanban) {
+    if ([ViewType.Kanban, ViewType.Gallery, ViewType.Calendar].includes(viewRo.type)) {
       const primaryField = await this.prismaService.txClient().field.findFirstOrThrow({
         where: { tableId, isPrimary: true, deletedTime: null },
         select: { id: true },
@@ -150,6 +154,49 @@ export class ViewService implements IReadonlyAdapterService {
         ...columnMeta,
         [primaryField.id]: { ...primaryFieldColumnMeta, visible: true },
       };
+
+      // set default cover field id for gallery view
+      if (innerViewRo.type === ViewType.Gallery) {
+        const fields = await this.prismaService.txClient().field.findMany({
+          where: { tableId, deletedTime: null },
+          select: { id: true, type: true },
+        });
+        const galleryOptions = (innerViewRo.options ?? {}) as IGalleryViewOptions;
+        const coverFieldId =
+          galleryOptions.coverFieldId ??
+          fields.find((field) => field.type === FieldType.Attachment)?.id;
+        innerViewRo.options = {
+          ...galleryOptions,
+          coverFieldId,
+        };
+      }
+
+      // set default start date and end date field ids for calendar view
+      if (innerViewRo.type === ViewType.Calendar) {
+        const fields = await this.prismaService.txClient().field.findMany({
+          where: { tableId, deletedTime: null },
+          select: { id: true, cellValueType: true, isMultipleCellValue: true },
+        });
+        const calendarOptions = (innerViewRo.options ?? {}) as ICalendarViewOptions;
+
+        const dateFieldIds = fields
+          .filter(
+            ({ cellValueType, isMultipleCellValue }) =>
+              cellValueType === CellValueType.DateTime && !isMultipleCellValue
+          )
+          .map(({ id }) => id);
+
+        if (!dateFieldIds.length) return innerViewRo;
+
+        const startDateFieldId = calendarOptions.startDateFieldId ?? dateFieldIds[0];
+        const endDateFieldId = calendarOptions.endDateFieldId ?? dateFieldIds[1] ?? dateFieldIds[0];
+
+        innerViewRo.options = {
+          ...calendarOptions,
+          startDateFieldId,
+          endDateFieldId,
+        };
+      }
     }
     return innerViewRo;
   }

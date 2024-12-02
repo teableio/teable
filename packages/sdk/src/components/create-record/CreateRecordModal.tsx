@@ -122,7 +122,6 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
         className="flex h-full max-w-3xl flex-col p-0 pt-6"
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
         onMouseDown={(e) => e.stopPropagation()}
-        onInteractOutside={(e) => e.preventDefault()}
         onKeyDown={(e) => e.stopPropagation()}
       >
         <div className="flex-1 overflow-y-auto p-10 pt-4">

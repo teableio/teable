@@ -1,4 +1,4 @@
-import { Admin, Database, Home, Trash } from '@teable/icons';
+import { Admin, Database, Home, Trash2 } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
@@ -38,7 +38,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
     {
       href: '/space/trash',
       text: t('noun.trash'),
-      Icon: Trash,
+      Icon: Trash2,
     },
   ];
   return (

@@ -43,7 +43,10 @@ export const FilePreviewItem = (props: IFilePreviewItem) => {
           e.preventDefault();
         }
       }}
-      onClick={() => openPreview(fileIdRef.current)}
+      onClick={(e) => {
+        e.stopPropagation();
+        openPreview(fileIdRef.current);
+      }}
     >
       {children}
     </div>

@@ -2358,7 +2358,7 @@ describe('OpenAPI link (e2e)', () => {
       expect(table1Records2[0].fields[lookupOneManyField.id]).toEqual(['y']);
       expect(table1Records2[0].fields[rollupOneManyField.id]).toEqual(1);
       expect(table1Records2[0].fields[lookupManyOneField.id]).toEqual(undefined);
-      expect(table1Records2[0].fields[rollupManyOneField.id]).toEqual(undefined);
+      expect(table1Records2[0].fields[rollupManyOneField.id]).toEqual(0);
     });
   });
 

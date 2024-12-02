@@ -103,6 +103,7 @@ export const FieldEditor = (props: {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
+          <hr className="my-2" />
           <FieldOptions field={field} onChange={updateFieldOptions} />
         </>
       );
@@ -126,8 +127,11 @@ export const FieldEditor = (props: {
         <p className="label-text">{t('common:name')}</p>
         <Input
           placeholder={t('table:field.fieldNameOptional')}
+          type="text"
           className="h-8"
           value={field['name'] || ''}
+          data-1p-ignore="true"
+          autoComplete="off"
           onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}
         />
         {/* should place after the name input to make sure tab index correct */}

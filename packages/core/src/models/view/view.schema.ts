@@ -3,7 +3,9 @@ import { z } from '../../zod';
 import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
 import {
+  calendarViewOptionSchema,
   formViewOptionSchema,
+  galleryViewOptionSchema,
   gridViewOptionSchema,
   kanbanViewOptionSchema,
   pluginViewOptionSchema,
@@ -73,6 +75,8 @@ export const viewRoSchema = viewVoSchema
     const optionsSchemaMap = {
       [ViewType.Form]: formViewOptionSchema,
       [ViewType.Kanban]: kanbanViewOptionSchema,
+      [ViewType.Gallery]: galleryViewOptionSchema,
+      [ViewType.Calendar]: calendarViewOptionSchema,
       [ViewType.Grid]: gridViewOptionSchema,
       [ViewType.Plugin]: pluginViewOptionSchema,
     } as const;

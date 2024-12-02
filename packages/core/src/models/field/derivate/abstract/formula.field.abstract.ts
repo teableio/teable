@@ -21,6 +21,21 @@ import { dataFieldCellValueSchema } from '../date.field';
 import { numberCellValueSchema } from '../number.field';
 import { singleLineTextCelValueSchema } from '../single-line-text.field';
 
+export const getFormulaCellValueSchema = (cellValueType: CellValueType) => {
+  switch (cellValueType) {
+    case CellValueType.Number:
+      return numberCellValueSchema;
+    case CellValueType.DateTime:
+      return dataFieldCellValueSchema;
+    case CellValueType.String:
+      return singleLineTextCelValueSchema;
+    case CellValueType.Boolean:
+      return booleanCellValueSchema;
+    default:
+      assertNever(cellValueType);
+  }
+};
+
 export abstract class FormulaAbstractCore extends FieldCore {
   static parse(expression: string) {
     const inputStream = CharStreams.fromString(expression);
@@ -98,21 +113,7 @@ export abstract class FormulaAbstractCore extends FieldCore {
   }
 
   validateCellValue(value: unknown) {
-    const getFormulaCellValueSchema = () => {
-      switch (this.cellValueType) {
-        case CellValueType.Number:
-          return numberCellValueSchema;
-        case CellValueType.DateTime:
-          return dataFieldCellValueSchema;
-        case CellValueType.String:
-          return singleLineTextCelValueSchema;
-        case CellValueType.Boolean:
-          return booleanCellValueSchema;
-        default:
-          assertNever(this.cellValueType);
-      }
-    };
-    const schema = getFormulaCellValueSchema();
+    const schema = getFormulaCellValueSchema(this.cellValueType);
 
     if (this.isMultipleCellValue) {
       return z.array(schema).nullable().safeParse(value);

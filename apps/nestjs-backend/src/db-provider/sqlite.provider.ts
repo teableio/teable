@@ -13,6 +13,7 @@ import type { BaseQueryAbstract } from './base-query/abstract';
 import { BaseQuerySqlite } from './base-query/base-query.sqlite';
 import type {
   IAggregationQueryExtra,
+  ICalendarDailyCollectionQueryProps,
   IDbProvider,
   IFilterQueryExtra,
   ISortQueryExtra,
@@ -22,6 +23,7 @@ import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
+import { getOffset } from './search-query/get-offset';
 import { SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
@@ -263,9 +265,37 @@ export class SqliteProvider implements IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: string[]
+    search?: [string, string?, boolean?]
   ) {
     return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
+  }
+
+  searchCountQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string
+  ) {
+    return SearchQueryAbstract.buildSearchCountQuery(
+      SearchQuerySqlite,
+      originQueryBuilder,
+      searchField,
+      searchValue
+    );
+  }
+
+  searchIndexQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string,
+    dbTableName: string
+  ) {
+    return SearchQueryAbstract.buildSearchIndexQuery(
+      SearchQuerySqlite,
+      originQueryBuilder,
+      searchField,
+      searchValue,
+      dbTableName
+    );
   }
 
   shareFilterCollaboratorsQuery(
@@ -284,5 +314,61 @@ export class SqliteProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQuerySqlite(this.knex);
+  }
+
+  calendarDailyCollectionQuery(
+    qb: Knex.QueryBuilder,
+    props: ICalendarDailyCollectionQueryProps
+  ): Knex.QueryBuilder {
+    const { startDate, endDate, startField, endField } = props;
+    const timezone = startField.options.formatting.timeZone;
+    const offsetStr = `${getOffset(timezone)} hour`;
+
+    const datesSubquery = this.knex.raw(
+      `WITH RECURSIVE dates(date) AS (
+        SELECT date(datetime(?, ?)) as date
+        UNION ALL
+        SELECT date(datetime(date, ?))
+        FROM dates
+        WHERE date < date(datetime(?, ?))
+      )
+      SELECT date FROM dates`,
+      [startDate, offsetStr, '+1 day', endDate, offsetStr]
+    );
+
+    return qb
+      .select([
+        this.knex.raw('d.date'),
+        this.knex.raw('COUNT(*) as count'),
+        this.knex.raw('GROUP_CONCAT(??) as ids', ['__id']),
+      ])
+      .crossJoin(datesSubquery.wrap('(', ') as d'))
+      .where((builder) => {
+        builder
+          .where(this.knex.raw(`datetime(??, ?)`, [endField.dbFieldName, offsetStr]), '<', endDate)
+          .andWhere(
+            this.knex.raw(`datetime(COALESCE(??, ??), ?)`, [
+              endField.dbFieldName,
+              startField.dbFieldName,
+              offsetStr,
+            ]),
+            '>=',
+            startDate
+          );
+      })
+      .andWhere((builder) => {
+        builder.whereRaw(
+          `date(datetime(??, ?)) <= d.date AND date(datetime(COALESCE(??, ??), ?)) >= d.date`,
+          [
+            startField.dbFieldName,
+            offsetStr,
+            endField.dbFieldName,
+            startField.dbFieldName,
+            offsetStr,
+          ]
+        );
+      })
+      .groupBy('d.date')
+      .orderBy('d.date', 'asc');
   }
 }

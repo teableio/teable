@@ -16,7 +16,6 @@ export const CellEditor = (props: ICellValueEditor) => {
         <CellValue
           field={field as unknown as IFieldInstance}
           value={cellValue}
-          maxLine={Infinity}
           className="text-sm"
           itemClassName={isRating ? 'size-5' : undefined}
         />

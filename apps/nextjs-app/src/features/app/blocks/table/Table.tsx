@@ -53,6 +53,7 @@ export const Table: React.FC<ITableProps> = ({
             ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${baseServerData.name} - Teable`
             : 'Teable'}
         </title>
+        <style data-fullcalendar></style>
       </Head>
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>

@@ -267,7 +267,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const recordAfter2 = await getRecord(table1.id, table1.records[1].id);
-    expect(recordAfter2.fields[rollupFieldVo.id]).toBeUndefined();
+    expect(recordAfter2.fields[rollupFieldVo.id]).toEqual(0);
 
     // add a link record from many - one field
     await updateRecordField(
@@ -312,7 +312,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     const record3 = await getRecord(table2.id, table2.records[1].id);
     expect(record3.fields[rollupFieldVo.id]).toEqual(123);
     const record4 = await getRecord(table2.id, table2.records[2].id);
-    expect(record4.fields[rollupFieldVo.id]).toBeUndefined();
+    expect(record4.fields[rollupFieldVo.id]).toEqual(0);
 
     // remove all link record
     await updateRecordField(
@@ -323,7 +323,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const record5 = await getRecord(table2.id, table2.records[1].id);
-    expect(record5.fields[rollupFieldVo.id]).toBeUndefined();
+    expect(record5.fields[rollupFieldVo.id]).toEqual(0);
 
     // add a link record from many - one field
     await updateRecordField(
@@ -377,7 +377,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const record1 = await getRecord(table1.id, table1.records[1].id);
-    expect(record1.fields[rollupFieldVo.id]).toBeUndefined();
+    expect(record1.fields[rollupFieldVo.id]).toEqual(0);
     const record2 = await getRecord(table1.id, table1.records[2].id);
     expect(record2.fields[rollupFieldVo.id]).toEqual(1);
   });
@@ -480,7 +480,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
     const rollupFieldVo = await rollupFrom(table2, lookedUpToField.id);
     const record0 = await getRecord(table2.id, table2.records[0].id);
-    expect(record0.fields[rollupFieldVo.id]).toEqual(undefined);
+    expect(record0.fields[rollupFieldVo.id]).toEqual(0);
     const record1 = await getRecord(table2.id, table2.records[1].id);
     expect(record1.fields[rollupFieldVo.id]).toEqual(1);
     const record2 = await getRecord(table2.id, table2.records[2].id);
@@ -578,6 +578,36 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
       const record2 = await getRecord(table2.id, table2.records[0].id);
       expect([record2.fields[rollup1.id], record2.fields[rollup2.id]]).toEqual([4, 4]);
+    });
+
+    it('should calculate rollup event has no link record', async () => {
+      const numberField = await createField(table1.id, {
+        type: FieldType.Number,
+      });
+
+      const linkField = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      });
+
+      const rollup1 = await createField(table2.id, {
+        name: `rollup 1`,
+        type: FieldType.Rollup,
+        options: {
+          expression: `sum({values})`,
+        },
+        lookupOptions: {
+          foreignTableId: table1.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: numberField.id,
+        } as ILookupOptionsRo,
+      });
+
+      const record1 = await getRecord(table2.id, table2.records[0].id);
+      expect(record1.fields[rollup1.id]).toEqual(0);
     });
   });
 });

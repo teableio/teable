@@ -2,7 +2,7 @@
 import type { IFilter, IGroup, ISort } from '@teable/core';
 import { getValidFilterOperators } from '@teable/core';
 import {
-  Trash,
+  Trash2,
   Edit,
   EyeOff,
   ArrowLeft,
@@ -32,6 +32,9 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -305,7 +308,7 @@ export const FieldMenu = () => {
           fieldIds.length > 1
             ? t('table:menu.deleteAllSelectedFields')
             : t('table:menu.deleteField'),
-        icon: <Trash className={iconClassName} />,
+        icon: <Trash2 className={iconClassName} />,
         hidden: !menuFieldPermission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
         className: 'text-red-500 aria-selected:text-red-500',
@@ -356,49 +359,54 @@ export const FieldMenu = () => {
           </SheetContent>
         </Sheet>
       ) : (
-        <Command
-          ref={fieldSettingRef}
-          className={cn('absolute rounded-lg shadow-sm w-60 h-auto border', {
-            hidden: !visible,
-          })}
-          style={style}
-        >
-          <CommandList className="max-h-96">
-            {menuGroups.map((items, index) => {
-              const nextItems = menuGroups[index + 1] ?? [];
-              if (!items.length) return null;
+        <Popover open={visible}>
+          <PopoverTrigger asChild style={style} className="absolute">
+            <div className="size-0 opacity-0" />
+          </PopoverTrigger>
+          <PopoverContent className="h-auto w-60 rounded-md p-0" align="start">
+            <Command
+              ref={fieldSettingRef}
+              className="rounded-md border-none shadow-none"
+              style={style}
+            >
+              <CommandList className="max-h-96">
+                {menuGroups.map((items, index) => {
+                  const nextItems = menuGroups[index + 1] ?? [];
+                  if (!items.length) return null;
 
-              return (
-                <Fragment key={index}>
-                  <CommandGroup aria-valuetext="name">
-                    {items.map(({ type, name, icon, disabled, className, onClick }) => (
-                      <CommandItem
-                        className={cn('px-4 py-2', className, {
-                          'cursor-not-allowed': disabled,
-                          'opacity-50': disabled,
-                        })}
-                        key={type}
-                        value={name}
-                        onSelect={async () => {
-                          if (disabled) {
-                            return;
-                          }
-                          await onClick();
-                          onSelectionClear?.();
-                          closeHeaderMenu();
-                        }}
-                      >
-                        {icon}
-                        {name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                  {nextItems.length > 0 && <CommandSeparator />}
-                </Fragment>
-              );
-            })}
-          </CommandList>
-        </Command>
+                  return (
+                    <Fragment key={index}>
+                      <CommandGroup aria-valuetext="name">
+                        {items.map(({ type, name, icon, disabled, className, onClick }) => (
+                          <CommandItem
+                            className={cn('px-4 py-2', className, {
+                              'cursor-not-allowed': disabled,
+                              'opacity-50': disabled,
+                            })}
+                            key={type}
+                            value={name}
+                            onSelect={async () => {
+                              if (disabled) {
+                                return;
+                              }
+                              await onClick();
+                              onSelectionClear?.();
+                              closeHeaderMenu();
+                            }}
+                          >
+                            {icon}
+                            {name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {nextItems.length > 0 && <CommandSeparator />}
+                    </Fragment>
+                  );
+                })}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       )}
     </>
   );

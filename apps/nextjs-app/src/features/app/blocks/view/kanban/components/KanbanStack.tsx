@@ -4,7 +4,7 @@ import type { IFilter } from '@teable/core';
 import { and, mergeFilter } from '@teable/core';
 import { useRecords } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
-import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeasure } from 'react-use';
 import type { ListRange, VirtuosoHandle } from 'react-virtuoso';
@@ -56,7 +56,6 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { stackField, permission, recordQuery } = useKanban() as Required<IKanbanContext>;
   const [skipIndex, setSkipIndex] = useState(0);
-  const skipIndexRef = useRef(skipIndex);
   const [ref, { height }] = useMeasure<HTMLDivElement>();
 
   const cardCount = cards.length;
@@ -98,7 +97,6 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
     const willSkipIndex = Math.max(0, Math.floor(startIndex / LOAD_COUNT) * LOAD_COUNT);
     if (willSkipIndex !== skipIndex) {
       setSkipIndex(willSkipIndex);
-      skipIndexRef.current = willSkipIndex;
     }
   };
 
@@ -129,7 +127,7 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
             components={{
               Item: HeightPreservingItem as never,
               EmptyPlaceholder: () => (
-                <div className="flex size-full items-center justify-center text-slate-500">
+                <div className="flex size-full items-center justify-center text-muted-foreground">
                   {t('table:kanban.stack.noCards')}
                 </div>
               ),

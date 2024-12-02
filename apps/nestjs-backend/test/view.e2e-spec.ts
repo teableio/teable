@@ -81,6 +81,33 @@ describe('OpenAPI ViewController (e2e)', () => {
     ]);
   });
 
+  it('/api/table/{tableId}/view (POST) with gallery view', async () => {
+    const viewRo: IViewRo = {
+      name: 'New gallery view',
+      description: 'the new gallery view',
+      type: ViewType.Gallery,
+    };
+
+    const fieldVo = await createField(table.id, {
+      name: 'Attachment',
+      type: FieldType.Attachment,
+    });
+    await createView(table.id, viewRo);
+
+    const result = await getViews(table.id);
+    expect(result).toMatchObject([
+      ...defaultViews,
+      {
+        name: 'New gallery view',
+        description: 'the new gallery view',
+        type: ViewType.Gallery,
+        options: {
+          coverFieldId: fieldVo.id,
+        },
+      },
+    ]);
+  });
+
   it('should update view simple properties', async () => {
     const viewRo: IViewRo = {
       name: 'New view',

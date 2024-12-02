@@ -20,6 +20,12 @@ export const VIEW_DEFAULT_SHARE_META: {
     },
   },
   {
+    viewType: ViewType.Gallery,
+    defaultShareMeta: {
+      includeRecords: true,
+    },
+  },
+  {
     viewType: ViewType.Grid,
     defaultShareMeta: {
       includeRecords: true,

@@ -29,23 +29,11 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     setSelection,
     onUndo,
     onRedo,
-    onCopy,
     onDelete,
     onRowExpand,
     editorRef,
   } = props;
   const { pureRowCount, columnCount } = coordInstance;
-
-  useHotkeys(
-    'mod+c',
-    () => {
-      onCopy?.(selection);
-    },
-    {
-      enabled: !isEditing && selection.type !== SelectionRegionType.None,
-      enableOnFormTags: ['input', 'select', 'textarea'],
-    }
-  );
 
   useHotkeys(
     'mod+z',
@@ -184,7 +172,9 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
   useHotkeys(
     ['enter'],
-    () => {
+    (keyboardEvent) => {
+      if (keyboardEvent.isComposing) return;
+
       const { isColumnSelection, ranges: selectionRanges } = selection;
       if (isEditing) {
         let range = selectionRanges[0];

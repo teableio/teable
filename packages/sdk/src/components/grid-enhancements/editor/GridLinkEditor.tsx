@@ -32,6 +32,8 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
         <DialogContent
           container={containerRef.current}
           className="flex h-[520px] max-w-4xl flex-col"
+          onMouseDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           <LinkEditorMain
             ref={linkEditorMainRef}

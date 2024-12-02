@@ -4,11 +4,13 @@ import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/co
 import type {
   ICreateRecordsRo,
   IGetRecordsRo,
+  IRecordInsertOrderRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable/openapi';
 import {
   createRecords,
+  duplicateRecord,
   getRecords,
   updateRecord,
   updateRecordOrders,
@@ -39,6 +41,11 @@ export class Record extends RecordCore {
 
   static updateRecords = requestWrap((tableId: string, recordsRo: IUpdateRecordsRo) =>
     updateRecords(tableId, recordsRo)
+  );
+
+  static duplicateRecord = requestWrap(
+    (tableId: string, recordId: string, order: IRecordInsertOrderRo) =>
+      duplicateRecord(tableId, recordId, order)
   );
 
   static updateRecordOrders = requestWrap(updateRecordOrders);

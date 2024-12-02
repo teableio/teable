@@ -78,8 +78,8 @@ Visualize and interact with data in various ways best suited for their specific 
 - Grid View: The default view of the table, which displays data in a spreadsheet-like format.
 - Form View: Input data in a form format, which is useful for collecting data.
 - Kanban View: Displays data in a Kanban board, which is a visual representation of data in columns and cards.
-- Calendar View: Displays data in a calendar format, which is useful for tracking dates and events. (coming soon)
-- Gallery View: Displays data in a gallery format, which is useful for displaying images and other media. (coming soon)
+- Gallery View: Displays data in a gallery format, which is useful for displaying images and other media.
+- Calendar View: Displays data in a calendar format, which is useful for tracking dates and events.
 - Gantt View: Displays data in a Gantt chart, which is useful for tracking project schedules. (coming soon)
 - Timeline View: Displays data in a timeline format, which is useful for tracking events over time. (coming soon)
 

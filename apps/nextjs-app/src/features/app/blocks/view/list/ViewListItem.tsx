@@ -17,6 +17,7 @@ import { useTranslation } from 'next-i18next';
 import { useState, useRef } from 'react';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { VIEW_ICON_MAP } from '../constant';
+import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { useDeleteView } from './useDeleteView';
 
 interface IProps {
@@ -38,8 +39,10 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
     downloadUrl: `/api/export/${tableId}?viewId=${view.id}`,
     key: 'view',
   });
+  const { resetSearchHandler } = useGridSearchStore();
 
   const navigateHandler = () => {
+    resetSearchHandler?.();
     router.push(
       {
         pathname: '/base/[baseId]/[tableId]/[viewId]',

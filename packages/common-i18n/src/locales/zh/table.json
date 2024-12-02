@@ -228,14 +228,15 @@
       "baseNoPermission": "无权限数据库",
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
-      "enableValidateFieldUnique": "唯一值校验",
-      "enableValidateFieldNotNull": "非空值校验",
+      "enableValidateFieldUnique": "禁止重复值",
+      "enableValidateFieldNotNull": "禁止非空值",
       "knowMore": "了解更多",
       "linkFieldKnowMoreLink": "https://help.teable.cn/ji-ben-gong-neng/zi-duan/gao-ji-zi-duan/guan-lian",
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
-      "moreOptions": "更多配置"
+      "moreOptions": "更多配置",
+      "allowNewOptionsWhenEditing": "允许填写时添加选项"
     },
     "subTitle": {
       "link": "在表之间创建关联关系",
@@ -410,8 +411,32 @@
       "insertCardAbove": "在上方插入卡片",
       "insertCardBelow": "在下方插入卡片",
       "expandCard": "展开卡片",
-      "deleteCard": "删除卡片"
+      "deleteCard": "删除卡片",
+      "duplicateCard": "复制卡片"
     }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "日历配置",
+      "startDateField": "开始日期字段",
+      "endDateField": "结束日期字段",
+      "titleField": "标题字段",
+      "colorField": "颜色字段",
+      "colorType": "颜色显示",
+      "customColor": "自定义颜色",
+      "alignWithRecords": "跟随字段颜色"
+    },
+    "placeholder": {
+      "selectColorField": "选择一个颜色字段"
+    },
+    "dialog": {
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "notAdd": "暂不添加",
+      "addDateField": "添加日期字段",
+      "content": "新建日历视图日程，表格中需要存在开始和结束两个日期字段"
+    },
+    "moreLinkText": "展示全部 {{count}} 条"
   },
   "menu": {
     "insertRecordAbove": "在上方插入 <input /> 记录",
@@ -449,7 +474,9 @@
     "category": {
       "table": "表格视图",
       "form": "表单视图",
-      "kanban": "看板视图"
+      "kanban": "看板视图",
+      "gallery": "画册视图",
+      "calendar": "日历视图"
     },
     "crash": {
       "title": "页面崩溃!",

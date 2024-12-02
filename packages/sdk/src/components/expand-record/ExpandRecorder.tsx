@@ -7,6 +7,7 @@ import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import { useBaseId, useTableId, useTablePermission } from '../../hooks';
+import { Record } from '../../model';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
@@ -47,6 +48,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     onClose,
     onUpdateRecordIdCallback,
     commentId,
+    viewId,
   } = props;
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -71,6 +73,15 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   if (!recordId) {
     return <></>;
   }
+
+  const onDuplicate = async () => {
+    await Record.duplicateRecord(tableId, recordId, {
+      viewId: viewId || '',
+      anchorId: recordId,
+      position: 'after',
+    });
+    toast({ description: t('expandRecord.duplicateRecord') });
+  };
 
   const updateCurrentRecordId = (recordId: string) => {
     onUpdateRecordIdCallback?.(recordId);
@@ -108,6 +119,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
+          onDuplicate={viewId ? onDuplicate : undefined}
           onRecordHistoryToggle={onRecordHistoryToggle}
           onCommentToggle={onCommentToggle}
           onDelete={async () => {

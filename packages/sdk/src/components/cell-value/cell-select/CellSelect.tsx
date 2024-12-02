@@ -1,17 +1,24 @@
-import type { ISelectFieldOptions } from '@teable/core';
+import type { Colors, ISelectFieldOptions } from '@teable/core';
 import { ColorUtils } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
+import colors from 'tailwindcss/colors';
 import type { ICellValue } from '../type';
 import { SelectTag } from './SelectTag';
+
+export const getColorPairs = (color: Colors) => {
+  return {
+    color: ColorUtils.shouldUseLightTextOnColor(color) ? colors.white : colors.black,
+    backgroundColor: ColorUtils.getHexForColor(color),
+  };
+};
 
 export const transformSelectOptions = (choices: ISelectFieldOptions['choices']) => {
   return choices.map(({ name, color }) => ({
     label: name,
     value: name,
-    color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-    backgroundColor: ColorUtils.getHexForColor(color),
+    ...getColorPairs(color),
   }));
 };
 
@@ -24,11 +31,12 @@ export interface ISelectOption {
 
 interface ICellSelect extends ICellValue<string | string[]> {
   options?: ISelectOption[] | null;
+  ellipsis?: boolean;
   itemClassName?: string;
 }
 
 export const CellSelect = (props: ICellSelect) => {
-  const { value, options, className, style, itemClassName } = props;
+  const { value, options, className, style, ellipsis, itemClassName } = props;
 
   const innerValue = useMemo(() => {
     if (value == null || Array.isArray(value)) return value;
@@ -40,7 +48,14 @@ export const CellSelect = (props: ICellSelect) => {
   }, [options]);
 
   return (
-    <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
+    <div
+      className={cn(
+        'flex gap-1',
+        ellipsis ? 'flex-nowrap overflow-hidden' : 'flex-wrap',
+        className
+      )}
+      style={style}
+    >
       {innerValue?.map((itemVal) => {
         const option = optionMap[itemVal];
         if (option == null) return null;

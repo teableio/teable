@@ -40,6 +40,7 @@ export const lookupOptionsVoSchema = linkFieldOptionsSchema
     fkHostTableName: true,
     selfKeyName: true,
     foreignKeyName: true,
+    filter: true,
   })
   .merge(
     z.object({
@@ -55,6 +56,7 @@ export const lookupOptionsRoSchema = lookupOptionsVoSchema.pick({
   foreignTableId: true,
   lookupFieldId: true,
   linkFieldId: true,
+  filter: true,
 });
 
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;

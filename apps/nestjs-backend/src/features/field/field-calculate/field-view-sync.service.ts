@@ -168,7 +168,7 @@ export class FieldViewSyncService {
         id: true,
         type: true,
       },
-      where: { tableId: tableId },
+      where: { tableId: tableId, deletedTime: null },
     });
 
     if (!views?.length) {

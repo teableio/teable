@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { IdPrefix } from '../../../../utils';
 import type { CellValueType } from '../../constant';
 import { FieldCore } from '../../field';
 
 export const userCellValueSchema = z.object({
-  id: z.string().startsWith(IdPrefix.User),
+  id: z.string(),
   title: z.string(),
   email: z.string().optional(),
   avatarUrl: z.string().optional().nullable(),

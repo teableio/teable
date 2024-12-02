@@ -1,6 +1,6 @@
 {
   "name": "@teable/teable",
-  "version": "1.5.0",
+  "version": "1.5.2",
   "license": "AGPL-3.0",
   "private": true,
   "homepage": "https://github.com/teableio/teable",
@@ -51,6 +51,9 @@
     "publish:next:patch": "node ./scripts/publish.mjs patch next",
     "publish:next:minor": "node ./scripts/publish.mjs minor next",
     "publish:next:major": "node ./scripts/publish.mjs major next",
+    "publish:latest:patch": "node ./scripts/publish.mjs patch latest",
+    "publish:latest:minor": "node ./scripts/publish.mjs minor latest",
+    "publish:latest:major": "node ./scripts/publish.mjs major latest",
     "prepare": "run-s install:husky",
     "run:plugin": "pnpm -F '@teable/plugin' dev"
   },
@@ -78,5 +81,5 @@
     "pnpm": ">=8.15.0",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.15.5"
+  "packageManager": "pnpm@9.13.0"
 }

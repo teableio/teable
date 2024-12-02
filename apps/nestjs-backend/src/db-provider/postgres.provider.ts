@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
 import type { IFilter, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
@@ -12,6 +13,7 @@ import type { BaseQueryAbstract } from './base-query/abstract';
 import { BaseQueryPostgres } from './base-query/base-query.postgres';
 import type {
   IAggregationQueryExtra,
+  ICalendarDailyCollectionQueryProps,
   IDbProvider,
   IFilterQueryExtra,
   ISortQueryExtra,
@@ -309,9 +311,37 @@ export class PostgresProvider implements IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string] | [string]
+    search?: [string, string?, boolean?]
   ) {
     return SearchQueryAbstract.factory(SearchQueryPostgres, originQueryBuilder, fieldMap, search);
+  }
+
+  searchCountQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string
+  ) {
+    return SearchQueryAbstract.buildSearchCountQuery(
+      SearchQueryPostgres,
+      originQueryBuilder,
+      searchField,
+      searchValue
+    );
+  }
+
+  searchIndexQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    searchField: IFieldInstance[],
+    searchValue: string,
+    dbTableName: string
+  ) {
+    return SearchQueryAbstract.buildSearchIndexQuery(
+      SearchQueryPostgres,
+      originQueryBuilder,
+      searchField,
+      searchValue,
+      dbTableName
+    );
   }
 
   shareFilterCollaboratorsQuery(
@@ -332,5 +362,55 @@ export class PostgresProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQueryPostgres(this.knex);
+  }
+
+  calendarDailyCollectionQuery(
+    qb: Knex.QueryBuilder,
+    props: ICalendarDailyCollectionQueryProps
+  ): Knex.QueryBuilder {
+    const { startDate, endDate, startField, endField } = props;
+    const timezone = startField.options.formatting.timeZone;
+
+    return qb
+      .select([
+        this.knex.raw('dates.date'),
+        this.knex.raw('COUNT(*) as count'),
+        this.knex.raw(`(array_agg(?? ORDER BY ??))[1:10] as ids`, ['__id', startField.dbFieldName]),
+      ])
+      .crossJoin(
+        this.knex.raw(
+          `(SELECT date::date as date
+      FROM generate_series(
+        (?::timestamptz AT TIME ZONE ?)::date,
+        (?::timestamptz AT TIME ZONE ?)::date,
+        '1 day'::interval
+      ) AS date) as dates`,
+          [startDate, timezone, endDate, timezone]
+        )
+      )
+      .where((builder) => {
+        builder
+          .where(startField.dbFieldName, '<', endDate)
+          .andWhere(
+            this.knex.raw(`COALESCE(??::timestamptz, ??)::timestamptz >= ?::timestamptz`, [
+              endField.dbFieldName,
+              startField.dbFieldName,
+              startDate,
+            ])
+          )
+          .andWhere((subBuilder) => {
+            subBuilder
+              .whereRaw(`(??::timestamptz AT TIME ZONE ?)::date <= dates.date`, [
+                startField.dbFieldName,
+                timezone,
+              ])
+              .andWhereRaw(
+                `(COALESCE(??::timestamptz, ??)::timestamptz AT TIME ZONE ?)::date >= dates.date`,
+                [endField.dbFieldName, startField.dbFieldName, timezone]
+              );
+          });
+      })
+      .groupBy('dates.date')
+      .orderBy('dates.date', 'asc');
   }
 }

@@ -1,6 +1,6 @@
 import { IMPORT_SUPPORTED_TYPES } from '@teable/core';
 import type { FieldType } from '@teable/core';
-import { Trash, Lock } from '@teable/icons';
+import { Trash2, Lock } from '@teable/icons';
 import type { IImportColumn } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
 import { BaseSingleSelect } from '@teable/sdk/components/filter/view-filter/component/base/BaseSingleSelect';
@@ -99,7 +99,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
                   onChange(newColumns);
                 }}
               >
-                {index === 0 ? <Lock className="size-4" /> : <Trash className="size-4" />}
+                {index === 0 ? <Lock className="size-4" /> : <Trash2 className="size-4" />}
               </Button>
             </TableCell>
           </TableRow>

@@ -20,6 +20,17 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
       ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
       const shareViewData = await ssrApi.getShareView(shareId as string);
       const driver = parseDsn(process.env.PRISMA_DATABASE_URL as string).driver as DriverClient;
+      if (shareViewData.shareMeta?.submit?.requireLogin) {
+        const user = await ssrApi.getUserMe().catch(() => null);
+        if (!user) {
+          return {
+            redirect: {
+              destination: `/auth/login?redirect=${encodeURIComponent(req?.url || '')}`,
+              permanent: false,
+            },
+          };
+        }
+      }
       return {
         props: {
           shareViewData,

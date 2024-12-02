@@ -5,9 +5,7 @@ import {
   tableRoSchema,
   ICreateTableWithDefault,
   dbTableNameRoSchema,
-  getGraphRoSchema,
   IDbTableNameRo,
-  IGetGraphRo,
   ISqlQuerySchema,
   ITableDescriptionRo,
   ITableIconRo,
@@ -132,15 +130,6 @@ export class TableController {
   @Permissions('table|delete')
   permanentDeleteTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
-  }
-
-  @Permissions('table|read')
-  @Post(':tableId/graph')
-  async getCellGraph(
-    @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell }: IGetGraphRo
-  ) {
-    return await this.tableOpenApiService.getGraph(tableId, cell);
   }
 
   @Permissions('table|read')

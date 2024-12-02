@@ -10,42 +10,42 @@ const darkTheme = {
   iconFgCommon: colors.slate[50],
 
   // Cell
-  cellBg: '#030712',
-  cellBgHovered: colors.zinc[900],
-  cellBgSelected: colors.gray[800],
-  cellBgLoading: colors.slate[800],
-  cellLineColor: colors.gray[700],
-  cellLineColorActived: colors.slate[400],
-  cellTextColor: colors.slate[50],
-  cellOptionBg: colors.gray[600],
+  cellBg: '#09090b',
+  cellBgHovered: colors.neutral[900],
+  cellBgSelected: colors.zinc[900],
+  cellBgLoading: colors.zinc[800],
+  cellLineColor: '#333338',
+  cellLineColorActived: colors.zinc[400],
+  cellTextColor: colors.zinc[50],
+  cellOptionBg: colors.zinc[700],
   cellOptionTextColor: colors.white,
 
   // Group Header
-  groupHeaderBgPrimary: colors.zinc[900],
-  groupHeaderBgSecondary: colors.zinc[800],
-  groupHeaderBgTertiary: colors.zinc[700],
+  groupHeaderBgPrimary: colors.neutral[900],
+  groupHeaderBgSecondary: colors.neutral[800],
+  groupHeaderBgTertiary: colors.neutral[700],
 
   // Column Header
-  columnHeaderBg: colors.zinc[900],
-  columnHeaderBgHovered: colors.zinc[800],
-  columnHeaderBgSelected: colors.zinc[700],
+  columnHeaderBg: colors.neutral[900],
+  columnHeaderBgHovered: colors.neutral[800],
+  columnHeaderBgSelected: colors.neutral[700],
   columnHeaderNameColor: colors.slate[50],
-  columnResizeHandlerBg: colors.gray[400],
+  columnResizeHandlerBg: colors.zinc[500],
   columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
 
   // Column Statistic
-  columnStatisticBgHovered: colors.gray[800],
+  columnStatisticBgHovered: colors.zinc[800],
 
   // Row Header
-  rowHeaderTextColor: colors.slate[50],
+  rowHeaderTextColor: colors.zinc[50],
 
   // Append Row
-  appendRowBg: colors.zinc[900],
-  appendRowBgHovered: colors.zinc[800],
+  appendRowBg: colors.neutral[900],
+  appendRowBgHovered: colors.neutral[800],
 
   // Avatar
-  avatarBg: colors.gray[800],
-  avatarTextColor: colors.gray[50],
+  avatarBg: colors.zinc[900],
+  avatarTextColor: colors.zinc[100],
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,
@@ -53,11 +53,19 @@ const darkTheme = {
   themeKey: 'dark',
 
   // ScrollBar
-  scrollBarBg: colors.gray[600],
+  scrollBarBg: colors.zinc[700],
 
   // interaction
-  interactionLineColorCommon: colors.gray[500],
+  interactionLineColorCommon: colors.zinc[600],
   interactionLineColorHighlight: colors.violet[700],
+
+  // search cursor
+  searchCursorBg: colors.orange[400],
+  searchTargetIndexBg: colors.yellow[700],
+
+  // comment
+  commentCountBg: colors.orange[400],
+  commentCountTextColor: colors.white,
 } as IGridTheme;
 
 export function useGridTheme(): IGridTheme {

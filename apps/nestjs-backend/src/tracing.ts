@@ -1,5 +1,5 @@
 import * as os from 'os';
-import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
@@ -14,10 +14,16 @@ import {
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
 const otelSDK = new NodeSDK({
-  // traceExporter: new OTLPTraceExporter({
-  //   url: 'http://localhost:4318/v1/traces',
-  // }),
-  contextManager: new AsyncLocalStorageContextManager(),
+  traceExporter: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+    ? new OTLPTraceExporter({
+        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-protobuf',
+        },
+        timeoutMillis: 15000,
+      })
+    : undefined,
   instrumentations: [
     new HttpInstrumentation(),
     new ExpressInstrumentation(),
@@ -27,19 +33,20 @@ const otelSDK = new NodeSDK({
   resource: new Resource({
     [SEMRESATTRS_HOST_NAME]: os.hostname(),
     [SEMRESATTRS_SERVICE_NAME]: 'teable',
-    [SEMRESATTRS_SERVICE_VERSION]: 'v1.0.0',
+    [SEMRESATTRS_SERVICE_VERSION]: process.env.BUILD_VERSION,
     [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
   }),
 });
 
 export default otelSDK;
 
-process.on('SIGTERM', () => {
-  otelSDK
-    .shutdown()
-    .then(
-      () => console.log('SDK shut down successfully'),
-      (err) => console.log('Error shutting down SDK', err)
-    )
-    .finally(() => process.exit(0));
-});
+const shutdownHandler = () => {
+  return otelSDK.shutdown().then(
+    () => console.log('OTEL shut down successfully'),
+    (err) => console.log('Error shutting down OTEL', err)
+  );
+};
+
+// Handle both SIGTERM and SIGINT
+process.on('SIGTERM', shutdownHandler);
+process.on('SIGINT', shutdownHandler);

@@ -378,9 +378,7 @@ export class FieldSupplementService {
 
     return {
       lookupOptions: {
-        linkFieldId,
-        lookupFieldId,
-        foreignTableId,
+        ...lookupOptions,
         relationship: linkFieldOptions.relationship,
         fkHostTableName: linkFieldOptions.fkHostTableName,
         selfKeyName: linkFieldOptions.selfKeyName,
@@ -411,6 +409,10 @@ export class FieldSupplementService {
       ].includes(fieldType)
     ) {
       return DbFieldType.Json;
+    }
+
+    if (fieldType === FieldType.AutoNumber) {
+      return DbFieldType.Integer;
     }
 
     switch (cellValueType) {

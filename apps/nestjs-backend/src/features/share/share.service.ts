@@ -9,22 +9,23 @@ import {
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  type ShareViewFormSubmitRo,
-  type ShareViewGetVo,
-  type IShareViewRowCountRo,
-  type IShareViewAggregationsRo,
-  type IRangesRo,
-  type IShareViewGroupPointsRo,
-  type IAggregationVo,
-  type IGroupPointsVo,
-  type IRowCountVo,
-  type IShareViewLinkRecordsRo,
-  type IRecordsVo,
-  type IShareViewCollaboratorsRo,
-  UploadType,
-  ShareViewLinkRecordsType,
-  PluginPosition,
+import { UploadType, ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
+import type {
+  IShareViewCalendarDailyCollectionRo,
+  ShareViewFormSubmitRo,
+  ShareViewGetVo,
+  IShareViewRowCountRo,
+  IShareViewAggregationsRo,
+  IRangesRo,
+  IShareViewGroupPointsRo,
+  IAggregationVo,
+  IGroupPointsVo,
+  IRowCountVo,
+  IShareViewLinkRecordsRo,
+  IRecordsVo,
+  IShareViewCollaboratorsRo,
+  ISearchCountRo,
+  ISearchIndexByQueryRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -300,7 +301,7 @@ export class ShareService {
       filter,
       take,
       skip,
-      search: search ? [search, lookupFieldId] : undefined,
+      search: search ? [search, lookupFieldId, true] : undefined,
       projection: [lookupFieldId],
       fieldKeyType: FieldKeyType.Id,
       filterLinkCellCandidate: field.id,
@@ -315,7 +316,7 @@ export class ShareService {
     return this.recordService.getRecords(foreignTableId, {
       skip,
       take,
-      search: search ? [search, lookupFieldId] : undefined,
+      search: search ? [search, lookupFieldId, true] : undefined,
       fieldKeyType: FieldKeyType.Id,
       projection: [lookupFieldId],
       filterLinkCellSelected: fieldId,
@@ -351,7 +352,7 @@ export class ShareService {
       return this.getViewAllCollaborators(shareInfo);
     }
 
-    // only form and kanban view can get all records
+    // only form, kanban and plugin view can get all collaborators
     if ([ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
       return this.getViewAllCollaborators(shareInfo);
     }
@@ -456,5 +457,23 @@ export class ShareService {
     });
     const list = await this.collaboratorService.getListByBase(baseId);
     return list.map((item) => pick(item, 'userId', 'email', 'userName', 'avatar'));
+  }
+
+  async getShareSearchCount(tableId: string, query: ISearchCountRo) {
+    return this.aggregationService.getSearchCount(tableId, query);
+  }
+
+  async getShareSearchIndex(tableId: string, query: ISearchIndexByQueryRo) {
+    return this.aggregationService.getRecordIndexBySearchOrder(tableId, query);
+  }
+
+  async getViewCalendarDailyCollection(
+    shareInfo: IShareViewInfo,
+    query: IShareViewCalendarDailyCollectionRo
+  ) {
+    return this.aggregationService.getCalendarDailyCollection(shareInfo.tableId, {
+      ...query,
+      viewId: shareInfo.view?.id,
+    });
   }
 }

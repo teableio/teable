@@ -101,6 +101,9 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
+    if (!options.cookie) {
+      this.logger.error(`No cookie found in options: ${JSON.stringify(options)}`);
+    }
     try {
       await this.cls.runWith(
         {
@@ -205,6 +208,9 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
+    if (!options.agentCustom.cookie) {
+      this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
+    }
     await this.cls.runWith(
       {
         ...this.cls.get(),
@@ -212,7 +218,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         shareViewId: options.agentCustom.shareId,
       },
       async () => {
-        this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
+        return this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
           if (err) {
             callback(err);
           } else {

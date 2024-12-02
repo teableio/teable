@@ -25,9 +25,18 @@ vi.mock('@teable/core', () => {
   };
 });
 
+vi.mock('zod', () => {
+  return {
+    z: {
+      array: () => ({
+        safeParse: (data: string) => ({ success: true, data }),
+      }),
+    },
+  };
+});
+
 describe('clipboard', () => {
-  const html =
-    '<meta charset="utf-8"><table data-teable-html-marker="1"><thead><tr><th id="fldziUf9QuQjkbfMuG5" data-field="%7B%22id%22%3A%22fldziUf9QuQjkbfMuG5%22%2C%22name%22%3A%22Name%22%2C%22isPrimary%22%3Atrue%2C%22columnMeta%22%3A%7B%22viwE0sl0GqGdWaBqwFi%22%3A%7B%22order%22%3A0.5%7D%7D%2C%22dbFieldName%22%3A%22Name_fldziUf9QuQjkbfMuG5%22%2C%22dbFieldType%22%3A%22TEXT%22%2C%22type%22%3A%22singleLineText%22%2C%22options%22%3A%7B%7D%2C%22cellValueType%22%3A%22string%22%7D">Name</th><th id="fldpsQvHI4ugP2luizP" data-field="%7B%22id%22%3A%22fldpsQvHI4ugP2luizP%22%2C%22name%22%3A%22Count%22%2C%22columnMeta%22%3A%7B%22viwE0sl0GqGdWaBqwFi%22%3A%7B%22order%22%3A1%7D%7D%2C%22dbFieldName%22%3A%22Count_fldpsQvHI4ugP2luizP%22%2C%22dbFieldType%22%3A%22REAL%22%2C%22type%22%3A%22number%22%2C%22options%22%3A%7B%22formatting%22%3A%7B%22type%22%3A%22decimal%22%2C%22precision%22%3A0%7D%7D%2C%22cellValueType%22%3A%22number%22%7D">Count</th><th id="fldGTKfZvXNXeMJ6nqu" data-field="%7B%22id%22%3A%22fldGTKfZvXNXeMJ6nqu%22%2C%22name%22%3A%22Status%22%2C%22columnMeta%22%3A%7B%22viwE0sl0GqGdWaBqwFi%22%3A%7B%22order%22%3A2%7D%7D%2C%22dbFieldName%22%3A%22Status_fldGTKfZvXNXeMJ6nqu%22%2C%22dbFieldType%22%3A%22TEXT%22%2C%22options%22%3A%7B%22choices%22%3A%5B%7B%22name%22%3A%22light%22%2C%22id%22%3A%22cho2caYhPrI%22%2C%22color%22%3A%22grayBright%22%7D%2C%7B%22name%22%3A%22medium%22%2C%22id%22%3A%22chor2ob8aU7%22%2C%22color%22%3A%22yellowBright%22%7D%2C%7B%22name%22%3A%22heavy%22%2C%22id%22%3A%22choArPr57sO%22%2C%22color%22%3A%22tealBright%22%7D%5D%7D%2C%22type%22%3A%22singleSelect%22%2C%22cellValueType%22%3A%22string%22%7D">Status</th></tr></thead><tbody><tr><td>John</td><td>20</td><td>light</td></tr><tr><td>Tom</td><td>30</td><td>medium</td></tr><tr><td>Bob</td><td>40</td><td>heavy</td></tr></tbody></table>';
+  const html = `<meta charset="utf-8"><table data-teable-html-marker="1" data-teable-html-header="%5B%7B%22id%22%3A%22fldziUf9QuQjkbfMuG5%22%2C%22name%22%3A%22Name%22%2C%22isPrimary%22%3Atrue%2C%22columnMeta%22%3A%7B%22viwE0sl0GqGdWaBqwFi%22%3A%7B%22order%22%3A0.5%7D%7D%2C%22dbFieldName%22%3A%22Name_fldziUf9QuQjkbfMuG5%22%2C%22dbFieldType%22%3A%22TEXT%22%2C%22type%22%3A%22singleLineText%22%2C%22options%22%3A%7B%7D%2C%22cellValueType%22%3A%22string%22%7D%2C%7B%22id%22%3A%22fldpsQvHI4ugP2luizP%22%2C%22name%22%3A%22Count%22%2C%22columnMeta%22%3A%7B%22viwE0sl0GqGdWaBqwFi%22%3A%7B%22order%22%3A1%7D%7D%2C%22dbFieldName%22%3A%22Count_fldpsQvHI4ugP2luizP%22%2C%22dbFieldType%22%3A%22REAL%22%2C%22type%22%3A%22number%22%2C%22options%22%3A%7B%22formatting%22%3A%7B%22type%22%3A%22decimal%22%2C%22precision%22%3A0%7D%7D%2C%22cellValueType%22%3A%22number%22%7D%2C%7B%22id%22%3A%22fldGTKfZvXNXeMJ6nqu%22%2C%22name%22%3A%22Status%22%2C%22columnMeta%22%3A%7B%22viwE0sl0GqGdWaBqwFi%22%3A%7B%22order%22%3A2%7D%7D%2C%22dbFieldName%22%3A%22Status_fldGTKfZvXNXeMJ6nqu%22%2C%22dbFieldType%22%3A%22TEXT%22%2C%22options%22%3A%7B%22choices%22%3A%5B%7B%22name%22%3A%22light%22%2C%22id%22%3A%22cho2caYhPrI%22%2C%22color%22%3A%22grayBright%22%7D%2C%7B%22name%22%3A%22medium%22%2C%22id%22%3A%22chor2ob8aU7%22%2C%22color%22%3A%22yellowBright%22%7D%2C%7B%22name%22%3A%22heavy%22%2C%22id%22%3A%22choArPr57sO%22%2C%22color%22%3A%22tealBright%22%7D%5D%7D%2C%22type%22%3A%22singleSelect%22%2C%22cellValueType%22%3A%22string%22%7D%5D"><tbody><tr><td>John</td><td>20</td><td>light</td></tr><tr><td>Tom</td><td>30</td><td>medium</td></tr><tr><td>Bob</td><td>40</td><td>heavy</td></tr></tbody></table>`;
 
   const expectedHeader = [
     {

@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronUp,
+  Copy,
   History,
   Link,
   MoreHorizontal,
@@ -38,6 +39,7 @@ interface IExpandRecordHeader {
   onRecordHistoryToggle?: () => void;
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
+  onDuplicate?: () => Promise<void>;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -61,6 +63,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onRecordHistoryToggle,
     onCommentToggle,
     onDelete,
+    onDuplicate,
   } = props;
 
   const permission = useTablePermission();
@@ -162,11 +165,22 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                 <MoreHorizontal />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
+                {!!onDuplicate && (
+                  <DropdownMenuItem
+                    className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm outline-none"
+                    onClick={async () => {
+                      await onDuplicate();
+                      setTimeout(() => onClose?.(), 100);
+                    }}
+                  >
+                    <Copy /> {t('expandRecord.duplicateRecord')}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
                   onClick={async () => {
                     await onDelete?.();
-                    onClose?.();
+                    setTimeout(() => onClose?.(), 100);
                   }}
                 >
                   <Trash2 /> {t('expandRecord.deleteRecord')}

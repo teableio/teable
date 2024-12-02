@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream } from 'fs';
+import { createReadStream, createWriteStream, unlinkSync, existsSync } from 'fs';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
@@ -23,6 +23,7 @@ interface ITokenEncryptor {
 
 @Injectable()
 export class LocalStorage implements StorageAdapter {
+  private logger = new Logger(LocalStorage.name);
   path: string;
   storageDir: string;
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
@@ -45,8 +46,14 @@ export class LocalStorage implements StorageAdapter {
   }
 
   private deleteFile(filePath: string) {
-    if (fse.existsSync(filePath)) {
-      fse.unlinkSync(filePath);
+    try {
+      unlinkSync(filePath);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') {
+        return;
+      }
+      throw error;
     }
   }
 
@@ -140,6 +147,7 @@ export class LocalStorage implements StorageAdapter {
           reject(err.message);
         });
       } catch (error) {
+        this.logger.error('saveTemporaryFile error', error);
         this.deleteFile(path);
         reject(error);
       }
@@ -149,9 +157,11 @@ export class LocalStorage implements StorageAdapter {
   async save(filePath: string, rename: string, isDelete: boolean = true) {
     const distPath = resolve(this.storageDir);
     const newFilePath = resolve(distPath, rename);
-    await fse.copy(filePath, newFilePath);
+    if (!existsSync(newFilePath)) {
+      await fse.copy(filePath, newFilePath);
+    }
     if (isDelete) {
-      await fse.remove(filePath);
+      this.deleteFile(filePath);
     }
     return join(this.path, rename);
   }

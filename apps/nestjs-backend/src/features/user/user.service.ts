@@ -149,7 +149,6 @@ export class UserService {
       this.cls.set('user.id', id);
       await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
     });
-    this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(id));
     return newUser;
   }
 
@@ -289,7 +288,7 @@ export class UserService {
     type: string;
     avatarUrl?: string;
   }) {
-    return this.prismaService.$tx(async () => {
+    const res = await this.prismaService.$tx(async () => {
       const { email, name, provider, providerId, type, avatarUrl } = user;
       // account exist check
       const existAccount = await this.prismaService.txClient().account.findFirst({
@@ -318,6 +317,10 @@ export class UserService {
       });
       return existUser;
     });
+    if (res) {
+      this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
+    }
+    return res;
   }
 
   async refreshLastSignTime(userId: string) {

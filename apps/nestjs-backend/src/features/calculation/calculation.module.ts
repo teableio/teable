@@ -9,17 +9,17 @@ import { SystemFieldService } from './system-field.service';
 @Module({
   providers: [
     DbProvider,
+    BatchService,
     ReferenceService,
     LinkService,
     FieldCalculationService,
-    BatchService,
     SystemFieldService,
   ],
   exports: [
+    BatchService,
     ReferenceService,
     LinkService,
     FieldCalculationService,
-    BatchService,
     SystemFieldService,
   ],
 })

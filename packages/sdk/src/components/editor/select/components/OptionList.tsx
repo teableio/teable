@@ -54,11 +54,12 @@ export const OptionList = (props: IOptionListProps) => {
               onSelect={() => onSelect?.(value)}
             >
               <SelectTag
+                className="truncate"
                 label={label || t('common.untitled')}
                 backgroundColor={backgroundColor}
                 color={color}
               />
-              {checkIsActive(value) && <Check className="ml-2 size-4" />}
+              {checkIsActive(value) && <Check className="ml-2 size-4 shrink-0" />}
             </CommandItem>
           );
         })}

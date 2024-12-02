@@ -21,11 +21,19 @@ export default defineConfig({
     setupFiles: './vitest-e2e.setup.ts',
     testTimeout: timeout,
     passWithNoTests: true,
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage/e2e',
       extension: ['.js', '.ts'],
       include: ['src/**/*'],
+    },
+    sequence: {
+      hooks: 'stack',
     },
     logHeapUsage: true,
     reporters: ['verbose'],

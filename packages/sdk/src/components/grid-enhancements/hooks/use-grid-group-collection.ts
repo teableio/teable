@@ -1,5 +1,5 @@
 import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
-import { CellValueType, ColorUtils, FieldType } from '@teable/core';
+import { CellValueType, ColorUtils, FieldType, validateDateFieldValueLoose } from '@teable/core';
 import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
@@ -51,7 +51,10 @@ const useGenerateGroupCellFn = () => {
         const { id: fieldId, type, isMultipleCellValue: isMultiple, cellValueType } = field;
         const emptyStr = '(Empty)';
 
-        const validateCellValue = field.validateCellValue(_cellValue);
+        const validateCellValue =
+          field.cellValueType === CellValueType.DateTime
+            ? validateDateFieldValueLoose(_cellValue)
+            : field.validateCellValue(_cellValue);
         const cellValue = (
           validateCellValue.success ? validateCellValue.data : undefined
         ) as unknown;

@@ -1,13 +1,16 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { generateUserId, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IChangePasswordRo, IUserInfoVo, IUserMeVo } from '@teable/openapi';
+import type { IChangePasswordRo, IRefMeta, IUserInfoVo, IUserMeVo } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
-import { omit, pick } from 'lodash';
+import { isEmpty, omit, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { AuthConfig, type IAuthConfig } from '../../configs/auth.config';
 import { MailConfig, type IMailConfig } from '../../configs/mail.config';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
+import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
@@ -25,6 +28,7 @@ export class AuthService {
     private readonly mailSenderService: MailSenderService,
     private readonly cacheService: CacheService,
     private readonly permissionService: PermissionService,
+    private readonly eventEmitterService: EventEmitterService,
     @AuthConfig() private readonly authConfig: IAuthConfig,
     @MailConfig() private readonly mailConfig: IMailConfig
   ) {}
@@ -66,13 +70,13 @@ export class AuthService {
     return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
 
-  async signup(email: string, password: string, defaultSpaceName?: string) {
+  async signup(email: string, password: string, defaultSpaceName?: string, refMeta?: IRefMeta) {
     const user = await this.userService.getUserByEmail(email);
     if (user && (user.password !== null || user.accounts.length > 0)) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
     }
     const { salt, hashPassword } = await this.encodePassword(password);
-    return await this.prismaService.$tx(async () => {
+    const res = await this.prismaService.$tx(async () => {
       if (user) {
         return await this.prismaService.user.update({
           where: { id: user.id, deletedTime: null },
@@ -80,6 +84,7 @@ export class AuthService {
             salt,
             password: hashPassword,
             lastSignTime: new Date().toISOString(),
+            refMeta: refMeta ? JSON.stringify(refMeta) : undefined,
           },
         });
       }
@@ -91,11 +96,14 @@ export class AuthService {
           salt,
           password: hashPassword,
           lastSignTime: new Date().toISOString(),
+          refMeta: isEmpty(refMeta) ? undefined : JSON.stringify(refMeta),
         },
         undefined,
         defaultSpaceName
       );
     });
+    this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
+    return res;
   }
 
   async signout(req: Express.Request) {

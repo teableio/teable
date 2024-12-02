@@ -10,7 +10,7 @@ interface ICellNumber extends ICellValue<number | number[]> {
 }
 
 export const CellNumber = (props: ICellNumber) => {
-  const { value, formatting, maxLine, className, style } = props;
+  const { value, formatting, ellipsis, className, style } = props;
 
   const displayValue = useMemo(() => {
     if (value == null) return;
@@ -26,8 +26,8 @@ export const CellNumber = (props: ICellNumber) => {
   return (
     <OverflowTooltip
       text={displayValue}
-      maxLine={maxLine}
-      className={cn('w-full text-[13px]', className)}
+      ellipsis={ellipsis}
+      className={cn('w-full text-[13px] leading-5', className)}
       style={style}
     />
   );

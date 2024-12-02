@@ -102,6 +102,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
           className="absolute rounded-sm border p-2 shadow-sm"
           value={cellValue === null ? undefined : cellValue}
           isMultiple={isMultiple}
+          preventAutoNewOptions={(options as ISelectFieldOptions)?.preventAutoNewOptions}
           options={selectOptions}
           onChange={onChange}
           onOptionAdd={onOptionAdd}

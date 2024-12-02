@@ -67,7 +67,15 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         horizontalScrollRef.current.scrollLeft = sl;
       }
       if (verticalScrollRef.current && st != null) {
-        verticalScrollRef.current.scrollTop = st;
+        const el = verticalScrollRef.current;
+        const scrollableHeight = el.scrollHeight - el.clientHeight;
+        let virtaulOffsetY = 0;
+        if (scrollableHeight > 0 && scrollHeight > el.scrollHeight + 5) {
+          const prog = st / (scrollHeight - el.clientHeight);
+          const actualScrollTop = scrollableHeight * prog;
+          virtaulOffsetY = actualScrollTop - st;
+        }
+        verticalScrollRef.current.scrollTop = st + virtaulOffsetY;
       }
     },
     scrollBy: (deltaX: number, deltaY: number) => {

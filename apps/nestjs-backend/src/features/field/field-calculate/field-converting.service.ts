@@ -33,11 +33,12 @@ import {
 } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import type { IFkRecordMap } from '../../calculation/link.service';
 import { LinkService } from '../../calculation/link.service';
-import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
+import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldService } from '../field.service';
@@ -218,15 +219,20 @@ export class FieldConvertingService {
   private async generateReferenceFieldOps(fieldId: string) {
     const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
 
-    const { fieldMap, topoOrdersByFieldId, fieldId2TableId } = topoOrdersContext;
-    const topoOrders = topoOrdersByFieldId[fieldId];
-    if (topoOrders.length <= 1) {
+    const { fieldMap, fieldId2TableId } = topoOrdersContext;
+
+    // get all fields after current field
+    const topoOrders = topoOrdersContext.topoOrders.slice(
+      topoOrdersContext.topoOrders.findIndex((item) => item.id === fieldId) + 1
+    );
+
+    if (!topoOrders.length) {
       return {};
     }
 
     const { pushOpsMap, getOpsMap } = this.fieldOpsMap();
 
-    for (let i = 1; i < topoOrders.length; i++) {
+    for (let i = 0; i < topoOrders.length; i++) {
       const topoOrder = topoOrders[i];
       // curField will be mutate in loop
       const curField = fieldMap[topoOrder.id];
@@ -757,7 +763,7 @@ export class FieldConvertingService {
 
     return {
       opsMapByLink,
-      saveForeignKeyToDb: derivate?.saveForeignKeyToDb,
+      fkRecordMap: derivate?.fkRecordMap,
     };
   }
 
@@ -770,22 +776,15 @@ export class FieldConvertingService {
       return;
     }
 
-    let saveForeignKeyToDb: (() => Promise<void>) | undefined;
+    let fkRecordMap: IFkRecordMap | undefined;
     if (field.type === FieldType.Link && !field.isLookup) {
       const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
-      saveForeignKeyToDb = result?.saveForeignKeyToDb;
       recordOpsMap = composeOpMaps([recordOpsMap, result.opsMapByLink]);
     }
 
-    const {
-      opsMap: calculatedOpsMap,
-      fieldMap,
-      tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(recordOpsMap, saveForeignKeyToDb);
+    await this.batchService.updateRecords(recordOpsMap);
 
-    const composedOpsMap = composeOpMaps([recordOpsMap, calculatedOpsMap]);
-
-    await this.batchService.updateRecords(composedOpsMap, fieldMap, tableId2DbTableName);
+    await this.referenceService.calculateOpsMap(recordOpsMap, fkRecordMap);
   }
 
   private async getExistRecords(tableId: string, newField: IFieldInstance) {
@@ -968,7 +967,7 @@ export class FieldConvertingService {
     return this.basalConvert(tableId, newField, oldField);
   }
 
-  private async updateReference(newField: IFieldInstance, oldField: IFieldInstance) {
+  async updateReference(newField: IFieldInstance, oldField: IFieldInstance) {
     if (!this.shouldUpdateReference(newField, oldField)) {
       return;
     }
@@ -982,6 +981,9 @@ export class FieldConvertingService {
 
   private shouldUpdateReference(newField: IFieldInstance, oldField: IFieldInstance) {
     const keys = this.getOriginFieldKeys(newField, oldField);
+    if (newField.type === FieldType.Link && !newField.isLookup) {
+      return false;
+    }
 
     // lookup options change
     if (newField.isLookup && oldField.isLookup) {
@@ -1050,11 +1052,7 @@ export class FieldConvertingService {
 
     this.logger.log(`calculating field: ${newField.name}`);
 
-    if (newField.lookupOptions) {
-      await this.fieldCalculationService.resetAndCalculateFields(tableId, [newField.id]);
-    } else {
-      await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
-    }
+    await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     await this.fieldService.resolvePending(tableId, [newField.id]);
   }
 
@@ -1181,6 +1179,8 @@ export class FieldConvertingService {
     // apply current field changes
     await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
 
+    await this.updateReference(newField, oldField);
+
     // apply referenced fields changes
     await this.updateReferencedFields(newField, oldField);
   }
@@ -1191,8 +1191,6 @@ export class FieldConvertingService {
     oldField: IFieldInstance,
     recordOpsMap?: IOpsMap
   ) {
-    await this.updateReference(newField, oldField);
-
     // calculate and submit records
     await this.calculateAndSaveRecords(tableId, newField, recordOpsMap);
 

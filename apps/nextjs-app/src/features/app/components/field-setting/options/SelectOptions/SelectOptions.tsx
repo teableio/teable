@@ -2,8 +2,8 @@ import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable/core';
 import { ColorUtils } from '@teable/core';
-import { DraggableHandle, Plus, Trash } from '@teable/icons';
-import { cn } from '@teable/ui-lib/shadcn';
+import { DraggableHandle, Plus, Trash2 } from '@teable/icons';
+import { cn, Label, Switch } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef } from 'react';
@@ -47,6 +47,10 @@ export const SelectOptions = (props: {
 
   const onDefaultValueChange = (defaultValue: string | string[] | undefined) => {
     onChange?.({ defaultValue });
+  };
+
+  const onPreventAutoNewOptionsChange = (checked: boolean) => {
+    onChange?.({ preventAutoNewOptions: checked });
   };
 
   const deleteChoice = (index: number) => {
@@ -122,7 +126,7 @@ export const SelectOptions = (props: {
                         className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => deleteChoice(0)}
                       >
-                        <Trash className="size-4" />
+                        <Trash2 className="size-4" />
                       </Button>
                     )}
                   </div>
@@ -179,7 +183,7 @@ export const SelectOptions = (props: {
                                   className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                                   onClick={() => deleteChoice(index)}
                                 >
-                                  <Trash className="size-4" />
+                                  <Trash2 className="size-4" />
                                 </Button>
                               )}
                             </div>
@@ -195,8 +199,8 @@ export const SelectOptions = (props: {
         </DragDropContext>
       </div>
       {!isLookup && (
-        <>
-          <div className="mt-1 shrink-0">
+        <div className="flex flex-col gap-4">
+          <div className="shrink-0">
             <Button
               className="w-full gap-2 text-sm font-normal"
               size={'sm'}
@@ -207,12 +211,26 @@ export const SelectOptions = (props: {
               {t('table:field.editor.addOption')}
             </Button>
           </div>
-          <SelectDefaultValue
-            isMultiple={isMultiple}
-            onChange={onDefaultValueChange}
-            options={options}
-          />
-        </>
+          <div className="flex gap-2">
+            <Switch
+              id="allow-auto-new-options"
+              checked={!options?.preventAutoNewOptions}
+              onCheckedChange={(checked) => {
+                onPreventAutoNewOptionsChange(!checked);
+              }}
+            />
+            <Label htmlFor="allow-auto-new-options" className="font-normal leading-tight">
+              {t('table:field.editor.allowNewOptionsWhenEditing')}
+            </Label>
+          </div>
+          <div className="flex items-center justify-between">
+            <SelectDefaultValue
+              isMultiple={isMultiple}
+              onChange={onDefaultValueChange}
+              options={options}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

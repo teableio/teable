@@ -36,7 +36,9 @@
     "restore": "恢复",
     "permanentDelete": "永久删除",
     "globalSearch": "全局搜索",
-    "fieldSearch": "字段搜索"
+    "fieldSearch": "字段搜索",
+    "showAllRow": "显示全部",
+    "hideNotMatchRow": "仅显示匹配行"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -158,7 +160,7 @@
     "createTableTooltipTitle": "创建表格",
     "createTableTooltipContent": "表格是一种结构化数据存储方式，用于存储应用内相关数据的集合。",
     "createViewTooltipTitle": "创建视图",
-    "createViewTooltipContent": "目前，用户可以创建表格和表单视图，未来的版本计划还包括相册、看板和日历视图。<br></br>这种多样性为用户提供了一个全面的工具，用于处理各种数据管理任务。",
+    "createViewTooltipContent": "目前，用户可以创建表格、画册、看板和表单视图，未来的版本计划还包括日历视图。<br></br>这种多样性为用户提供了一个全面的工具，用于处理各种数据管理任务。",
     "viewFilteringTooltipTitle": "记录筛选",
     "viewFilteringTooltipContent": "视图的核心功能之一是能够根据您设置的条件从视图中过滤掉记录。<br></br>当根据条件过滤掉记录时，它不会被删除，它只是在您用于查看表的特定视图中隐藏。",
     "viewSortingTooltipTitle": "记录排序",

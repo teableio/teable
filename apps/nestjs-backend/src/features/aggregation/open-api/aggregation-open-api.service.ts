@@ -4,10 +4,14 @@ import { getValidStatisticFunc } from '@teable/core';
 import type {
   IAggregationRo,
   IAggregationVo,
+  ICalendarDailyCollectionRo,
+  ICalendarDailyCollectionVo,
   IGroupPointsRo,
   IGroupPointsVo,
   IQueryBaseRo,
   IRowCountVo,
+  ISearchIndexByQueryRo,
+  ISearchCountRo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
 import type { IWithView } from '../aggregation.service';
@@ -57,6 +61,13 @@ export class AggregationOpenApiService {
     return await this.aggregationService.getGroupPoints(tableId, query);
   }
 
+  async getCalendarDailyCollection(
+    tableId: string,
+    query: ICalendarDailyCollectionRo
+  ): Promise<ICalendarDailyCollectionVo> {
+    return await this.aggregationService.getCalendarDailyCollection(tableId, query);
+  }
+
   private async validFieldStats(
     tableId: string,
     fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }>
@@ -85,5 +96,17 @@ export class AggregationOpenApiService {
       (result = result ?? []).push({ fieldId, statisticFunc });
     });
     return result;
+  }
+
+  public async getSearchCount(tableId: string, queryRo: ISearchCountRo, projection?: string[]) {
+    return await this.aggregationService.getSearchCount(tableId, queryRo, projection);
+  }
+
+  public async getRecordIndexBySearchOrder(
+    tableId: string,
+    queryRo: ISearchIndexByQueryRo,
+    projection?: string[]
+  ) {
+    return await this.aggregationService.getRecordIndexBySearchOrder(tableId, queryRo, projection);
   }
 }

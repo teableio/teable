@@ -119,4 +119,11 @@ export class DateFieldCore extends FieldCore {
     }
     return dataFieldCellValueSchema.nullable().safeParse(cellValue);
   }
+
+  validateCellValueLoose(cellValue: unknown) {
+    if (this.isMultipleCellValue) {
+      return z.array(z.string()).nonempty().nullable().safeParse(cellValue);
+    }
+    return z.string().nullable().safeParse(cellValue);
+  }
 }

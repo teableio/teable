@@ -325,11 +325,13 @@ export class RecordOpenApiService {
       });
     }
 
-    const snapshots = await this.recordService.getSnapshotBulk(
-      tableId,
-      recordIds,
-      undefined,
-      updateRecordsRo.fieldKeyType
+    const snapshots = await this.prismaService.$tx(async () =>
+      this.recordService.getSnapshotBulk(
+        tableId,
+        recordIds,
+        undefined,
+        updateRecordsRo.fieldKeyType
+      )
     );
 
     return {
@@ -571,5 +573,17 @@ export class RecordOpenApiService {
     };
 
     return await this.updateRecord(tableId, recordId, updateRecordRo);
+  }
+
+  async duplicateRecord(tableId: string, recordId: string, order: IRecordInsertOrderRo) {
+    const query = { fieldKeyType: FieldKeyType.Id };
+    const result = await this.recordService.getRecord(tableId, recordId, query);
+    const records = { fields: result.fields };
+    const createRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
+      order,
+      records: [records],
+    };
+    return await this.prismaService.$tx(async () => this.createRecords(tableId, createRecordsRo));
   }
 }

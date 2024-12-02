@@ -193,6 +193,7 @@
   },
   "expandRecord": {
     "copy": "复制到剪贴板",
+    "duplicateRecord": "复制记录",
     "copyRecordUrl": "复制记录链接",
     "deleteRecord": "删除记录",
     "recordHistory": {

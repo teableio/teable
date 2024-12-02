@@ -143,8 +143,6 @@ export const SharePopover: React.FC<{
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
   const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
-  // TODO: need fixed createBy not support yet
-  const needSubmit = false;
 
   return (
     <Popover>
@@ -236,7 +234,7 @@ export const SharePopover: React.FC<{
                   </Button>
                 )}
               </div>
-              {needSubmit && shareMeta?.submit && (
+              {shareMeta?.submit && (
                 <div className="flex items-center gap-2">
                   <Switch
                     id="share-required-login"

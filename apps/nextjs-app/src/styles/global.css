@@ -22,7 +22,7 @@ body {
 }
 
 .select-field-type [cmdk-list] {
-  max-height: min(600px, calc(100vh - 300px));
+  max-height: min(600px, calc(100vh - 450px));
 }
 
 .height-preserving-container:empty {
@@ -35,4 +35,98 @@ body {
   border-radius: 0.75rem;
   border-color: hsl(var(--primary)) !important;
   background-color: hsl(var(--muted-foreground)) !important;
+}
+
+.fc-scrollgrid-section > td {
+  border-radius: 0px 0px 8px 8px !important;
+}
+
+.fc-scrollgrid-section > th {
+  border-radius: 0px 8px 0px 0px !important;
+}
+
+.fc-scrollgrid,
+.fc-col-header {
+  border-radius: 8px !important;
+}
+
+.fc table {
+  font-size: 14px;
+}
+
+.fc th {
+  font-weight: normal;
+}
+
+.fc .fc-highlight {
+  @apply bg-purple-200/30 dark:bg-purple-800/30 !important;
+}
+
+.fc-daygrid-day-number {
+  @apply text-[13px] py-[2px] px-0 !important;
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  @apply bg-transparent !important;
+}
+
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  @apply bg-foreground text-background rounded-md px-1 !important;
+}
+
+.fc-daygrid-event-harness {
+  margin-bottom: 1px !important;
+}
+
+.fc-daygrid-more-link {
+  @apply w-full flex justify-center !important;
+}
+
+.fc-daygrid-more-link:hover {
+  @apply bg-transparent !important;
+}
+
+.fc-popover {
+  @apply border-none rounded-md z-10 invisible !important;
+}
+
+.fc-popover-header {
+  @apply text-sm !important;
+}
+
+.fc-popover-body {
+  @apply max-h-[320px] overflow-y-auto text-sm !important;
+}
+
+.fc-daygrid-day-top {
+  @apply pointer-events-none pt-[2px] px-[2px] !important;
+}
+
+.fc-col-header-cell-cushion {
+  @apply w-full !important;
+}
+
+.fc-event-resizer-start,
+.fc-event-resizer-end {
+  @apply cursor-ew-resize !important;
+}
+
+.fc-event-resizer-start {
+  @apply bg-zinc-500/30 w-2 rounded-l-sm left-0 !important;
+}
+
+.fc-event-resizer-end {
+  @apply bg-zinc-500/30 w-2 rounded-r-sm right-0 !important;
+}
+
+.fc-event-title {
+  @apply truncate !important;
+}
+
+.fc-event:focus {
+  @apply shadow-none !important;
+}
+
+.fc-event:focus:after {
+  @apply bg-transparent !important;
 }

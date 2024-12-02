@@ -227,7 +227,8 @@
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
-      "moreOptions": "Дополнительные параметры"
+      "moreOptions": "Дополнительные параметры",
+      "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании"
     },
     "subTitle": {
       "link": "Связать с записями в выбранной таблице",
@@ -402,8 +403,32 @@
       "insertCardAbove": "Вставить карточку выше",
       "insertCardBelow": "Вставить карточку ниже",
       "expandCard": "Развернуть карточку",
-      "deleteCard": "Удалить карточку"
+      "deleteCard": "Удалить карточку",
+      "duplicateCard": "Дублировать карточку"
     }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Настройка календаря",
+      "startDateField": "Начальная дата",
+      "endDateField": "Конечная дата",
+      "titleField": "Заголовок",
+      "colorField": "Цвет",
+      "colorType": "Отображение цвета",
+      "customColor": "Настроить цвет",
+      "alignWithRecords": "Соответствовать записям"
+    },
+    "placeholder": {
+      "selectColorField": "Выберите поле цвета"
+    },
+    "dialog": {
+      "startDate": "Начальная дата",
+      "endDate": "Конечная дата",
+      "notAdd": "Не добавлять",
+      "addDateField": "Добавить дату",
+      "content": "Создать календарный вид, и в таблице должно быть два поля даты: начальная дата и конечная дата"
+    },
+    "moreLinkText": "Показать все {{count}} записей"
   },
   "menu": {
     "insertRecordAbove": "Вставить запись выше",
@@ -438,7 +463,9 @@
     "category": {
       "table": "Табличный вид",
       "form": "Вид формы",
-      "kanban": "Канбан-вид"
+      "kanban": "Канбан-вид",
+      "gallery": "Галерея вид",
+      "calendar": "Календарь вид"
     },
     "crash": {
       "title": "Сбой!",

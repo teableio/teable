@@ -5,6 +5,7 @@ import { useTranslation } from '../../context/app/i18n';
 interface IRecordListProps {
   empty?: string | React.ReactNode;
   className?: string;
+  itemClassName?: string;
   rowCount: number;
   isLoading?: boolean;
   itemHeight?: number;
@@ -20,6 +21,7 @@ export const RecordList = (props: IRecordListProps) => {
     rowCount,
     children,
     className,
+    itemClassName,
     isLoading,
     itemHeight = 46,
     onSelect,
@@ -61,7 +63,7 @@ export const RecordList = (props: IRecordListProps) => {
       )}
       <CommandList
         ref={listRef}
-        className={cn('w-full flex-1 overflow-auto', {
+        className={cn('w-full flex-1 overflow-auto max-h-full', {
           'h-0': isLoading || rowCount > 0,
         })}
       >
@@ -83,6 +85,7 @@ export const RecordList = (props: IRecordListProps) => {
                 height: `${virtualItem.size}px`,
                 transform: `translateY(${virtualItem.start}px)`,
               }}
+              className={itemClassName}
               value={virtualItem.key.toString()}
               onSelect={() => onSelect?.(virtualItem.index)}
             >

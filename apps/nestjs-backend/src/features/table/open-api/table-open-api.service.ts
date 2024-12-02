@@ -46,7 +46,6 @@ import { FieldCreatingService } from '../../field/field-calculate/field-creating
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
-import { GraphService } from '../../graph/graph.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -59,7 +58,6 @@ export class TableOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
-    private readonly graphService: GraphService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
     private readonly linkService: LinkService,
@@ -217,10 +215,17 @@ export class TableOpenApiService {
     // handle the link field in this table
     const linkFields = await this.prismaService.txClient().field.findMany({
       where: { tableId, type: FieldType.Link, isLookup: null, deletedTime: null },
-      select: { id: true },
+      select: { id: true, options: true },
     });
 
     for (const field of linkFields) {
+      if (field.options) {
+        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
+        // if the link field is a self-link field, skip it
+        if (options.foreignTableId === tableId) {
+          continue;
+        }
+      }
       await this.fieldOpenApiService.convertField(tableId, field.id, {
         type: FieldType.SingleLineText,
       });
@@ -230,6 +235,9 @@ export class TableOpenApiService {
     const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
 
     for (const field of relatedLinkFieldRaws) {
+      if (field.tableId === tableId) {
+        continue;
+      }
       await this.fieldOpenApiService.convertField(field.tableId, field.id, {
         type: FieldType.SingleLineText,
       });
@@ -407,10 +415,6 @@ export class TableOpenApiService {
     this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
 
     return this.prismaService.$queryRawUnsafe(combinedQuery);
-  }
-
-  async getGraph(tableId: string, cell: [string, string]) {
-    return this.graphService.getGraph(tableId, cell);
   }
 
   async updateName(baseId: string, tableId: string, name: string) {

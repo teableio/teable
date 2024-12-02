@@ -1,8 +1,15 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { IGroup } from '@teable/core';
 import { is, SortFunc, StatisticsFunc } from '@teable/core';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
-import { getAggregation, getGroupPoints, getRowCount, GroupPointType } from '@teable/openapi';
+import {
+  getAggregation,
+  getCalendarDailyCollection,
+  getGroupPoints,
+  getRowCount,
+  GroupPointType,
+} from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,
@@ -561,6 +568,39 @@ describe('OpenAPI AggregationController (e2e)', () => {
         await getGroupPoints(table.id, { groupBy: groupByMultipleUserField })
       ).data!;
       expect(groupPointsForMultiple.length).toEqual(6);
+    });
+  });
+
+  describe('should get calendar daily collection', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'agg_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should get calendar daily collection', async () => {
+      const result = await getCalendarDailyCollection(table.id, {
+        startDateFieldId: table.fields[3].id,
+        endDateFieldId: table.fields[3].id,
+        startDate: '2022-01-27T16:00:00.000Z',
+        endDate: '2022-03-12T16:00:00.000Z',
+      });
+
+      expect(result).toBeDefined();
+      expect(result.data.countMap).toEqual({
+        '2022-01-28': 1,
+        '2022-03-01': 1,
+        '2022-03-02': 1,
+        '2022-03-12': 1,
+      });
+      expect(result.data.records.length).toEqual(4);
     });
   });
 });

@@ -7,6 +7,7 @@ import type {
   IRatingFieldOptions,
   IDatetimeFormatting,
   ILinkCellValue,
+  SingleLineTextDisplayType,
 } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../model';
@@ -28,19 +29,19 @@ interface ICellValueContainer extends ICellValue<unknown> {
 }
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, maxWidth, maxLine, className, itemClassName, formatImageUrl } = props;
+  const { field, value, ellipsis, className, itemClassName, formatImageUrl } = props;
   const { type, options, cellValueType } = field;
 
   switch (type) {
     case FieldType.LongText: {
-      return <CellText value={value as string} className={className} maxLine={maxLine} />;
+      return <CellText value={value as string} className={className} ellipsis={ellipsis} />;
     }
     case FieldType.SingleLineText: {
       return (
         <CellText
           value={value as string}
           className={className}
-          maxLine={maxLine}
+          ellipsis={ellipsis}
           displayType={options.showAs?.type}
         />
       );
@@ -51,17 +52,23 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as number}
           formatting={options.formatting as INumberFormatting}
           className={className}
+          ellipsis={ellipsis}
         />
       );
     }
     case FieldType.AutoNumber: {
-      return <CellNumber value={value as number} className={className} />;
+      return <CellNumber value={value as number} ellipsis={ellipsis} className={className} />;
     }
     case FieldType.Date:
     case FieldType.CreatedTime:
     case FieldType.LastModifiedTime: {
       return (
-        <CellDate value={value as string} formatting={options.formatting} className={className} />
+        <CellDate
+          value={value as string}
+          formatting={options.formatting}
+          ellipsis={ellipsis}
+          className={className}
+        />
       );
     }
     case FieldType.SingleSelect:
@@ -72,7 +79,7 @@ export const CellValue = (props: ICellValueContainer) => {
           options={transformSelectOptions(options.choices)}
           className={className}
           itemClassName={itemClassName}
-          maxWidth={maxWidth}
+          ellipsis={ellipsis}
         />
       );
     }
@@ -84,7 +91,6 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as IUserCellValue | IUserCellValue[]}
           className={className}
           itemClassName={itemClassName}
-          maxWidth={maxWidth}
           formatImageUrl={formatImageUrl}
         />
       );
@@ -124,6 +130,7 @@ export const CellValue = (props: ICellValueContainer) => {
             value={value as string}
             formatting={options.formatting as IDatetimeFormatting}
             className={className}
+            ellipsis={ellipsis}
           />
         );
       }
@@ -134,11 +141,19 @@ export const CellValue = (props: ICellValueContainer) => {
             value={value as number}
             formatting={options.formatting as INumberFormatting}
             className={className}
+            ellipsis={ellipsis}
           />
         );
       }
 
-      return <CellText value={value as string} className={className} />;
+      return (
+        <CellText
+          value={value as string}
+          className={className}
+          ellipsis={ellipsis}
+          displayType={options.showAs?.type as SingleLineTextDisplayType}
+        />
+      );
     }
     case FieldType.Link: {
       return (
@@ -146,7 +161,6 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as ILinkCellValue | ILinkCellValue[]}
           className={className}
           itemClassName={itemClassName}
-          maxWidth={maxWidth}
         />
       );
     }

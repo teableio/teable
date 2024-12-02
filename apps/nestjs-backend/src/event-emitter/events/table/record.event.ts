@@ -1,6 +1,5 @@
-import type { IRecord } from '@teable/core';
+import type { IFieldVo, IRecord } from '@teable/core';
 import { match } from 'ts-pattern';
-import type { IFieldInstance } from '../../../features/field/model/factory';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';
 import { Events } from '../event.enum';
@@ -16,7 +15,7 @@ type IRecordDeletePayload = { tableId: string; recordId: string | string[] };
 type IRecordUpdatePayload = {
   tableId: string;
   record: IChangeRecord | IChangeRecord[];
-  oldField: IFieldInstance | undefined;
+  oldField: IFieldVo | undefined;
 };
 
 export class RecordCreateEvent extends OpEvent<IRecordCreatePayload> {
@@ -44,7 +43,7 @@ export class RecordUpdateEvent extends OpEvent<IRecordUpdatePayload> {
   constructor(
     tableId: string,
     record: IChangeRecord | IChangeRecord[],
-    oldField: IFieldInstance | undefined,
+    oldField: IFieldVo | undefined,
     context: IEventContext
   ) {
     super({ tableId, record, oldField }, context, Array.isArray(record));

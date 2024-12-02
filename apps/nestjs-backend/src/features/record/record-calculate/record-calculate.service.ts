@@ -3,16 +3,16 @@ import type { IMakeOptional, IUserFieldOptions } from '@teable/core';
 import { FieldKeyType, generateRecordId, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
-import { isEmpty, keyBy, uniq } from 'lodash';
+import { keyBy, uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
-import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
+import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
@@ -93,32 +93,17 @@ export class RecordCalculateService {
     return cellContexts;
   }
 
-  private async getRecordUpdateDerivation(
-    tableId: string,
-    opsMapOrigin: IOpsMap,
-    opContexts: ICellContext[]
-  ) {
+  private async calculate(tableId: string, opsMapOrigin: IOpsMap, opContexts: ICellContext[]) {
     const derivate = await this.linkService.getDerivateByLink(tableId, opContexts);
 
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
     const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
-    // console.log('composedOpsMap', JSON.stringify(composedOpsMap, null, 2));
 
-    // calculate by origin ops and link derivation
-    const {
-      opsMap: opsMapByCalculation,
-      fieldMap,
-      tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.saveForeignKeyToDb);
+    await this.batchService.updateRecords(manualOpsMap);
 
-    // console.log('opsMapByCalculation', JSON.stringify(opsMapByCalculation, null, 2));
-    return {
-      opsMap: composeOpMaps([manualOpsMap, opsMapByCalculation]),
-      fieldMap,
-      tableId2DbTableName,
-    };
+    await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.fkRecordMap);
   }
 
   async calculateDeletedRecord(tableId: string, recordIds: string[]) {
@@ -143,17 +128,7 @@ export class RecordCalculateService {
         })
       );
 
-      // 2. get cell changes by derivation
-      const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
-        effectedTableId,
-        opsMapOrigin,
-        cellContexts
-      );
-
-      // 3. save all ops
-      if (!isEmpty(opsMap)) {
-        await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
-      }
+      await this.calculate(effectedTableId, opsMapOrigin, cellContexts);
     }
   }
 
@@ -184,18 +159,8 @@ export class RecordCalculateService {
     );
 
     // 2. get cell changes by derivation
-    const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
-      tableId,
-      opsMapOrigin,
-      originCellContexts
-    );
+    await this.calculate(tableId, opsMapOrigin, originCellContexts);
 
-    // console.log('final:opsMap', JSON.stringify(opsMap, null, 2));
-
-    // 3. save all ops
-    if (!isEmpty(opsMap)) {
-      await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
-    }
     return originCellContexts;
   }
 
@@ -369,7 +334,7 @@ export class RecordCalculateService {
 
     const recordIds = plainRecords.map((r) => r.id);
 
-    await this.fieldCalculationService.calculateFieldsByRecordIds(tableId, recordIds);
+    await this.fieldCalculationService.calComputedFieldsByRecordIds(tableId, recordIds);
 
     await this.calculateUpdatedRecord(tableId, fieldKeyType, plainRecords, true);
 

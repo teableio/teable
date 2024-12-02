@@ -227,7 +227,8 @@
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
-      "moreOptions": "オプションを表示"
+      "moreOptions": "オプションを表示",
+      "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可"
     },
     "subTitle": {
       "link": "選択したテーブル内のレコードへのリンク",
@@ -313,7 +314,7 @@
       "confirm": "確認して続行"
     },
     "menu": {
-      "addFromOtherSource": "他のソースから追​​加",
+      "addFromOtherSource": "他のソースから追加",
       "excelFile": "Microsoft Excelル",
       "csvFile": "CSVファイル",
       "cancel": "キャンセル",
@@ -401,8 +402,32 @@
       "insertCardAbove": "カードを上に挿入",
       "insertCardBelow": "カードを下に挿入",
       "expandCard": "カードを展開",
-      "deleteCard": "カードを削除"
+      "deleteCard": "カードを削除",
+      "duplicateCard": "カードを複製"
     }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "カレンダー設定",
+      "startDateField": "開始日付フィールド",
+      "endDateField": "終了日付フィールド",
+      "titleField": "タイトルフィールド",
+      "colorField": "色フィールド",
+      "colorType": "色表示",
+      "customColor": "カスタマイズ",
+      "alignWithRecords": "レコードに合わせる"
+    },
+    "placeholder": {
+      "selectColorField": "色フィールドを選択"
+    },
+    "dialog": {
+      "startDate": "開始日付",
+      "endDate": "終了日付",
+      "notAdd": "追加しない",
+      "addDateField": "日付フィールドを追加",
+      "content": "カレンダービューを作成し、テーブルには開始日付と終了日付の2つの日付フィールドが必要です"
+    },
+    "moreLinkText": "すべての {{count}} レコードを表示"
   },
   "menu": {
     "insertRecordAbove": "レコードを上に挿入",
@@ -437,7 +462,9 @@
     "category": {
       "table": "グリッドビュー",
       "form": "フォームビュー",
-      "kanban": "カンバンビュー"
+      "kanban": "カンバンビュー",
+      "gallery": "ギャラリービュー",
+      "calendar": "カレンダービュー"
     },
     "crash": {
       "title": "クラッシュしました！",

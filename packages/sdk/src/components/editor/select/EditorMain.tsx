@@ -1,5 +1,5 @@
 import { Plus } from '@teable/icons';
-import { Command, CommandInput, CommandItem, cn } from '@teable/ui-lib';
+import { Command, CommandInput, CommandItem } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -10,6 +10,7 @@ import { OptionList } from './components';
 export type ISelectValue<T extends boolean> = T extends true ? string[] : string;
 
 export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelectValue<T>> {
+  preventAutoNewOptions?: boolean;
   options?: ISelectOption[];
   isMultiple?: T;
   style?: React.CSSProperties;
@@ -28,6 +29,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   ISelectEditorMain<boolean>
 > = (props, ref) => {
   const {
+    preventAutoNewOptions,
     value: originValue,
     options = [],
     isMultiple,
@@ -78,7 +80,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   );
 
   const onOptionAddInner = async () => {
-    if (!searchValue) return;
+    if (!searchValue || preventAutoNewOptions) return;
     setSearchValue('');
     await onOptionAdd?.(searchValue);
     if (isMultiple) {
@@ -89,9 +91,6 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     setValue([searchValue]);
     onChange?.(searchValue);
   };
-
-  const optionAddable =
-    searchValue && filteredOptions.findIndex((v) => v.value === searchValue) === -1;
 
   return (
     <Command className={className} style={style} shouldFilter={false}>
@@ -109,17 +108,19 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
         }}
       />
       <OptionList options={filteredOptions} onSelect={onSelect} checkIsActive={checkIsActive} />
-      {onOptionAdd && (filteredOptions.length === 0 || optionAddable) && (
-        <CommandItem
-          className={cn('items-center justify-center', !optionAddable && 'opacity-0 h-0 p-0')}
-          onSelect={onOptionAddInner}
-        >
-          <Plus className="size-4 shrink-0" />
-          <span className="ml-2 truncate text-[13px]">
-            {t('editor.select.addOption', { option: searchValue })}
-          </span>
-        </CommandItem>
-      )}
+      {filteredOptions.length === 0 &&
+        (onOptionAdd && !preventAutoNewOptions ? (
+          <CommandItem className="items-center justify-center" onSelect={onOptionAddInner}>
+            <Plus className="size-4 shrink-0" />
+            <span className="ml-2 truncate text-[13px]">
+              {t('editor.select.addOption', { option: searchValue })}
+            </span>
+          </CommandItem>
+        ) : (
+          <CommandItem className="items-center justify-center">
+            <span className="ml-2 truncate text-[13px]">{t('common.empty')}</span>
+          </CommandItem>
+        ))}
     </Command>
   );
 };

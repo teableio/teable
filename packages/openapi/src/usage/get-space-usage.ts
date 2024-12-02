@@ -31,6 +31,8 @@ export enum UsageFeatureLimit {
   AdvancedExtensionsEnable = 'advancedExtensionsEnable',
   AdvancedPermissionsEnable = 'advancedPermissionsEnable',
   PasswordRestrictedSharesEnable = 'passwordRestrictedSharesEnable',
+  AuthenticationEnable = 'authenticationEnable',
+  DomainVerificationEnable = 'domainVerificationEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -48,6 +50,8 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.AdvancedExtensionsEnable]: z.boolean(),
   [UsageFeatureLimit.AdvancedPermissionsEnable]: z.boolean(),
   [UsageFeatureLimit.PasswordRestrictedSharesEnable]: z.boolean(),
+  [UsageFeatureLimit.AuthenticationEnable]: z.boolean(),
+  [UsageFeatureLimit.DomainVerificationEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({

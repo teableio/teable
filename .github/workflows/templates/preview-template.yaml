@@ -1,0 +1,524 @@
+apiVersion: app.sealos.io/v1
+kind: Instance
+metadata:
+  name: teable-__INSTANCE_NAME__
+  labels:
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  gitRepo: https://github.com/teableio/teable
+  templateType: inline
+  categories:
+    - database
+    - low-code
+  defaults:
+    app_host:
+      type: string
+      value: __INSTANCE_DOMAIN__
+    app_name:
+      type: string
+      value: teable-__INSTANCE_NAME__
+    jwt_secret:
+      type: string
+      value: exdpbfxmlqhjnqxu
+    session_secret:
+      type: string
+      value: lvgxahpasprcclii
+  inputs: null
+  title: teable
+  url: teable.cn
+  author: Sealos
+  description: >-
+    Teable is a Super fast, Real-time, Professional, Developer friendly, No-code
+    database built on Postgres.
+  readme: https://cdn.jsdelivr.net/gh/teableio/teable@develop/README.md
+  icon: https://framerusercontent.com/images/x9gZmjwbtvaGd95qbfUmsZ8Jc.png
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teable-__INSTANCE_NAME__
+  annotations:
+    originImageName: >-
+      __MAIN_IMAGE_REPOSITORY__:__IMAGE_TAG__
+    deploy.cloud.sealos.io/minReplicas: '1'
+    deploy.cloud.sealos.io/maxReplicas: '1'
+  labels:
+    cloud.sealos.io/app-deploy-manager: teable-__INSTANCE_NAME__
+    app: teable-__INSTANCE_NAME__
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  minReadySeconds: 10
+  selector:
+    matchLabels:
+      app: teable-__INSTANCE_NAME__
+  template:
+    metadata:
+      labels:
+        app: teable-__INSTANCE_NAME__
+    spec:
+      terminationGracePeriodSeconds: 10
+      automountServiceAccountToken: false
+      initContainers:
+        - name: db-migrate
+          image: >-
+            __DB_MIGRATE_IMAGE_REPOSITORY__:__IMAGE_TAG__
+          env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-pg-conn-credential
+                  key: password
+            - name: PG_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-pg-conn-credential
+                  key: port
+            - name: PRISMA_DATABASE_URL
+              value: >-
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-rbcflj0l.svc:$(PG_PORT)/teable
+            - name: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
+              value: '1'
+          resources:
+            requests:
+              cpu: 100m
+              memory: 102Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+      containers:
+        - name: teable-__INSTANCE_NAME__
+          image: >-
+            __MAIN_IMAGE_REPOSITORY__:__IMAGE_TAG__
+          env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-pg-conn-credential
+                  key: password
+            - name: PG_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-pg-conn-credential
+                  key: port
+            - name: PRISMA_DATABASE_URL
+              value: >-
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-rbcflj0l.svc:$(PG_PORT)/teable
+            - name: PUBLIC_ORIGIN
+              value: https://__INSTANCE_DOMAIN__.sealosgzg.site
+            - name: BACKEND_JWT_SECRET
+              value: exdpbfxmlqhjnqxu
+            - name: BACKEND_SESSION_SECRET
+              value: lvgxahpasprcclii
+            - name: BACKEND_STORAGE_PROVIDER
+              value: minio
+            - name: BACKEND_STORAGE_PUBLIC_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-key-rbcflj0l-teable-__INSTANCE_NAME__-public
+                  key: bucket
+            - name: BACKEND_STORAGE_PRIVATE_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-key-rbcflj0l-teable-__INSTANCE_NAME__-private
+                  key: bucket
+            - name: BACKEND_STORAGE_MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-key
+                  key: external
+            - name: BACKEND_STORAGE_MINIO_INTERNAL_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-key
+                  key: internal
+            - name: BACKEND_STORAGE_MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-key
+                  key: accessKey
+            - name: BACKEND_STORAGE_MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: object-storage-key
+                  key: secretKey
+            - name: BACKEND_STORAGE_MINIO_PORT
+              value: '443'
+            - name: BACKEND_STORAGE_MINIO_INTERNAL_PORT
+              value: '80'
+            - name: BACKEND_STORAGE_MINIO_USE_SSL
+              value: 'true'
+            - name: STORAGE_PREFIX
+              value: https://$(BACKEND_STORAGE_MINIO_ENDPOINT)
+            - name: BACKEND_CACHE_PROVIDER
+              value: redis
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-redis-conn-credential
+                  key: host
+            - name: REDIS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-redis-conn-credential
+                  key: port
+            - name: REDIS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-redis-conn-credential
+                  key: username
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-redis-conn-credential
+                  key: password
+            - name: BACKEND_CACHE_REDIS_URI
+              value: >-
+                redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).ns-rbcflj0l.svc:$(REDIS_PORT)/1
+            - name: NEXT_ENV_IMAGES_ALL_REMOTE
+              value: 'true'
+          resources:
+            requests:
+              cpu: 200m
+              memory: 400Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          ports:
+            - containerPort: 3000
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 3
+      securityContext:
+        fsGroup: 1000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teable-__INSTANCE_NAME__
+  labels:
+    cloud.sealos.io/app-deploy-manager: teable-__INSTANCE_NAME__
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  ports:
+    - port: 3000
+  selector:
+    app: teable-__INSTANCE_NAME__
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: teable-__INSTANCE_NAME__
+  labels:
+    cloud.sealos.io/app-deploy-manager: teable-__INSTANCE_NAME__
+    cloud.sealos.io/app-deploy-manager-domain: __INSTANCE_DOMAIN__
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: 32m
+    nginx.ingress.kubernetes.io/server-snippet: |
+      client_header_buffer_size 64k;
+      large_client_header_buffers 4 128k;
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/client-body-buffer-size: 64k
+    nginx.ingress.kubernetes.io/proxy-buffer-size: 64k
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+spec:
+  rules:
+    - host: __INSTANCE_DOMAIN__.sealosgzg.site
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: teable-__INSTANCE_NAME__
+                port:
+                  number: 3000
+  tls:
+    - hosts:
+        - __INSTANCE_DOMAIN__.sealosgzg.site
+      secretName: wildcard-cert
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-pg
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-pg
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-pg
+
+---
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: Cluster
+metadata:
+  finalizers:
+    - cluster.kubeblocks.io/finalizer
+  labels:
+    clusterdefinition.kubeblocks.io/name: postgresql
+    clusterversion.kubeblocks.io/name: postgresql-14.8.0
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-pg
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  annotations: {}
+  name: teable-__INSTANCE_NAME__-pg
+spec:
+  affinity:
+    nodeLabels: {}
+    podAntiAffinity: Preferred
+    tenancy: SharedNode
+    topologyKeys: []
+  clusterDefinitionRef: postgresql
+  clusterVersionRef: postgresql-14.8.0
+  componentSpecs:
+    - componentDefRef: postgresql
+      monitor: true
+      name: postgresql
+      replicas: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 102Mi
+      serviceAccountName: teable-__INSTANCE_NAME__-pg
+      switchPolicy:
+        type: Noop
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+            storageClassName: openebs-backup
+  terminationPolicy: Delete
+  tolerations: []
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-pg
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-pg
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-pg
+rules:
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - '*'
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-pg
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-pg
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-pg
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: teable-__INSTANCE_NAME__-pg
+subjects:
+  - kind: ServiceAccount
+    name: teable-__INSTANCE_NAME__-pg
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: teable-__INSTANCE_NAME__-init
+  labels:
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  completions: 1
+  template:
+    spec:
+      containers:
+        - name: pgsql-init
+          image: senzing/postgresql-client:2.2.4
+          env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: teable-__INSTANCE_NAME__-pg-conn-credential
+                  key: password
+            - name: DATABASE_URL
+              value: >-
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-rbcflj0l.svc:5432
+          command:
+            - /bin/sh
+            - '-c'
+            - >
+              until psql ${DATABASE_URL} -c 'CREATE DATABASE teable;'
+              &>/dev/null; do sleep 1; done
+      restartPolicy: Never
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-redis
+
+---
+apiVersion: apps.kubeblocks.io/v1alpha1
+kind: Cluster
+metadata:
+  finalizers:
+    - cluster.kubeblocks.io/finalizer
+  labels:
+    clusterdefinition.kubeblocks.io/name: redis
+    clusterversion.kubeblocks.io/name: redis-7.0.6
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-redis
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  annotations: {}
+  name: teable-__INSTANCE_NAME__-redis
+spec:
+  affinity:
+    nodeLabels: {}
+    podAntiAffinity: Preferred
+    tenancy: SharedNode
+    topologyKeys: []
+  clusterDefinitionRef: redis
+  clusterVersionRef: redis-7.0.6
+  componentSpecs:
+    - componentDefRef: redis
+      monitor: true
+      name: redis
+      replicas: 1
+      resources:
+        limits:
+          cpu: 300m
+          memory: 384Mi
+        requests:
+          cpu: 100m
+          memory: 102Mi
+      serviceAccountName: teable-__INSTANCE_NAME__-redis
+      switchPolicy:
+        type: Noop
+      volumeClaimTemplates:
+        - name: data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+            storageClassName: openebs-backup
+    - componentDefRef: redis-sentinel
+      monitor: true
+      name: redis-sentinel
+      replicas: 1
+      resources:
+        limits:
+          cpu: 100m
+          memory: 100Mi
+        requests:
+          cpu: 100m
+          memory: 100Mi
+      serviceAccountName: teable-__INSTANCE_NAME__-redis
+  terminationPolicy: Delete
+  tolerations: []
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-redis
+rules:
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - '*'
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-redis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: teable-__INSTANCE_NAME__-redis
+subjects:
+  - kind: ServiceAccount
+    name: teable-__INSTANCE_NAME__-redis
+    namespace: ns-rbcflj0l
+
+---
+apiVersion: objectstorage.sealos.io/v1
+kind: ObjectStorageBucket
+metadata:
+  name: teable-__INSTANCE_NAME__-private
+  labels:
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  policy: private
+
+---
+apiVersion: objectstorage.sealos.io/v1
+kind: ObjectStorageBucket
+metadata:
+  name: teable-__INSTANCE_NAME__-public
+  labels:
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  policy: publicRead
+
+---
+apiVersion: app.sealos.io/v1
+kind: App
+metadata:
+  name: teable-__INSTANCE_NAME__
+  labels:
+    cloud.sealos.io/app-deploy-manager: teable-__INSTANCE_NAME__
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+spec:
+  data:
+    url: https://__INSTANCE_DOMAIN__.sealosgzg.site
+  displayType: normal
+  icon: https://framerusercontent.com/images/x9gZmjwbtvaGd95qbfUmsZ8Jc.png
+  name: __DISPLAY_NAME__
+  type: link

@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import { type ITableFullVo } from '@teable/openapi';
+import { updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,
@@ -12,6 +12,7 @@ import {
   deleteRecord,
   deleteRecords,
   permanentDeleteTable,
+  duplicateRecord,
   getField,
   getRecord,
   getRecords,
@@ -195,6 +196,59 @@ describe('OpenAPI RecordController (e2e)', () => {
       );
     });
 
+    it('should not auto create options when preventAutoNewOptions is true', async () => {
+      const singleSelectField = await createField(table.id, {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'red' }],
+          preventAutoNewOptions: true,
+        },
+      });
+
+      const multiSelectField = await createField(table.id, {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ name: 'red' }],
+          preventAutoNewOptions: true,
+        },
+      });
+
+      const records1 = (
+        await updateRecords(table.id, {
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [singleSelectField.id]: 'red' },
+            },
+            {
+              id: table.records[1].id,
+              fields: { [singleSelectField.id]: 'blue' },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        })
+      ).data;
+
+      expect(records1[0].fields[singleSelectField.id]).toEqual('red');
+      expect(records1[1].fields[singleSelectField.id]).toBeUndefined();
+
+      const records2 = (
+        await updateRecords(table.id, {
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [multiSelectField.id]: ['red', 'blue'] },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        })
+      ).data;
+
+      expect(records2[0].fields[multiSelectField.id]).toEqual(['red']);
+    });
+
     it('should batch create records', async () => {
       const count = 100;
       console.time(`create ${count} records`);
@@ -279,6 +333,31 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         ],
       });
+    });
+
+    it('should duplicate a record', async () => {
+      const value1 = 'New Record';
+      const addRecordRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: value1,
+            },
+          },
+        ],
+      });
+      const addRecord = await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+      expect(addRecord.fields[table.fields[0].id]).toEqual(value1);
+
+      const viewId = table.views[0].id;
+      const duplicateRes = await duplicateRecord(table.id, addRecord.id, {
+        viewId,
+        anchorId: addRecord.id,
+        position: 'after',
+      });
+      const record = await getRecord(table.id, duplicateRes.records[0].id, undefined, 200);
+      expect(record.fields[table.fields[0].id]).toEqual(value1);
     });
   });
 

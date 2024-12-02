@@ -7,7 +7,13 @@ CREATE TABLE "setting" (
     CONSTRAINT "setting_pkey" PRIMARY KEY ("instance_id")
 );
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
--- Insert initial record
-INSERT INTO "setting" ("instance_id", "disallow_sign_up", "disallow_space_creation") VALUES (gen_random_uuid(), NULL, NULL);
+-- Insert initial record using UUID v4 format
+INSERT INTO "setting" ("instance_id", "disallow_sign_up", "disallow_space_creation") 
+VALUES (LOWER(
+    SUBSTR(md5(random()::text), 1, 8) || '-' ||
+    SUBSTR(md5(random()::text), 9, 4) || '-' ||
+    '4' || SUBSTR(md5(random()::text), 13, 3) || '-' ||
+    SUBSTR('89ab', 1 + (random() * 3)::integer, 1) ||
+    SUBSTR(md5(random()::text), 17, 3) || '-' ||
+    SUBSTR(md5(random()::text), 21, 12)
+), NULL, NULL);

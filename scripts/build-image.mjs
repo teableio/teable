@@ -33,13 +33,17 @@ const getSemver = async () => {
     isCi = true;
     const refType = env.GITHUB_REF_TYPE;
     const runNumber = env.GITHUB_RUN_NUMBER;
-
+    const isPR = Boolean(env.GITHUB_HEAD_REF);
+    
+    console.log('isPR:', isPR);
     console.log('refType: ', refType);
     console.log('runNumber: ', runNumber);
 
     switch (refType) {
       case 'branch':
-        semver = `${version}-alpha+build.${runNumber}`;
+        semver = isPR
+          ? `${version}-alpha+pr-build.${runNumber}`
+          : `${version}-alpha+build.${runNumber}`;
         break;
       case 'tag':
         semver = `${version}+build.${runNumber}`;

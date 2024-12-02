@@ -33,4 +33,24 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
       }
     });
   }
+
+  async onModuleDestroy() {
+    try {
+      this.logger.log('Starting graceful shutdown....');
+      // 修改 ShareDB 关闭方式为回调形式
+      await new Promise<void>((resolve, reject) => {
+        this.shareDb.close((err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      this.logger.log('Graceful had shutdown completed');
+    } catch (err) {
+      this.logger.error('dev module close error: ' + (err as Error).message, (err as Error)?.stack);
+    }
+  }
 }

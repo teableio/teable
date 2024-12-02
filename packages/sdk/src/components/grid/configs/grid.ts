@@ -43,6 +43,7 @@ export const GRID_DEFAULT = {
   cellScrollBarMinHeight: 16,
   cellScrollBarPaddingX: 1,
   cellScrollBarPaddingY: 4,
+  cellEditorEdgePadding: 32,
 };
 
 export const DEFAULT_MOUSE_STATE = {

@@ -67,9 +67,11 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
         });
       }
 
-      setActiveCell(undefined);
-      setSelection(emptySelection);
-      gridRef.current?.setSelection(emptySelection);
+      if (isDeleted) {
+        setActiveCell(undefined);
+        setSelection(emptySelection);
+        gridRef.current?.setSelection(emptySelection);
+      }
     },
   });
 
