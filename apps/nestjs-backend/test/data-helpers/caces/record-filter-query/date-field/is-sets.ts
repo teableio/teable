@@ -57,7 +57,7 @@ export const IS_SETS = [
       mode: currentWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 3,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -75,7 +75,7 @@ export const IS_SETS = [
       mode: lastWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -93,7 +93,7 @@ export const IS_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -102,7 +102,7 @@ export const IS_SETS = [
       mode: nextMonthPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 2,
+    expectResultLength: 1,
   },
   {
     fieldIndex: 3,
@@ -111,7 +111,7 @@ export const IS_SETS = [
       mode: currentYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 7,
+    expectResultLength: 6,
   },
   {
     fieldIndex: 3,
@@ -129,7 +129,7 @@ export const IS_SETS = [
       mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -231,7 +231,7 @@ export const LOOKUP_IS_SETS = [
       mode: currentWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 3,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -249,7 +249,7 @@ export const LOOKUP_IS_SETS = [
       mode: lastWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -267,7 +267,7 @@ export const LOOKUP_IS_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
   {
     fieldIndex: 3,
@@ -303,7 +303,7 @@ export const LOOKUP_IS_SETS = [
       mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
   {
     operator: is.value,

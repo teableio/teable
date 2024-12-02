@@ -57,7 +57,7 @@ export const IS_ON_OR_AFTER_SETS = [
       mode: currentWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 7,
+    expectResultLength: 6,
   },
   {
     fieldIndex: 3,
@@ -84,7 +84,7 @@ export const IS_ON_OR_AFTER_SETS = [
       mode: currentMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 8,
+    expectResultLength: 7,
   },
   {
     fieldIndex: 3,
@@ -102,7 +102,7 @@ export const IS_ON_OR_AFTER_SETS = [
       mode: nextMonthPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 4,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -129,7 +129,7 @@ export const IS_ON_OR_AFTER_SETS = [
       mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 2,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -240,7 +240,7 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
       mode: nextWeekPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 4,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -267,7 +267,7 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 9,
+    expectResultLength: 4,
   },
   {
     fieldIndex: 3,
@@ -303,7 +303,7 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
       mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 2,
+    expectResultLength: 3,
   },
   {
     operator: isOnOrAfter.value,

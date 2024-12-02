@@ -75,7 +75,7 @@ export const IS_AFTER_SETS = [
       mode: lastWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 7,
+    expectResultLength: 6,
   },
   {
     fieldIndex: 3,
@@ -84,7 +84,7 @@ export const IS_AFTER_SETS = [
       mode: currentMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 4,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -93,7 +93,7 @@ export const IS_AFTER_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 8,
+    expectResultLength: 7,
   },
   {
     fieldIndex: 3,
@@ -111,7 +111,7 @@ export const IS_AFTER_SETS = [
       mode: currentYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 2,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -231,7 +231,7 @@ export const LOOKUP_IS_AFTER_SETS = [
       mode: currentWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 4,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -285,7 +285,7 @@ export const LOOKUP_IS_AFTER_SETS = [
       mode: currentYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 2,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,

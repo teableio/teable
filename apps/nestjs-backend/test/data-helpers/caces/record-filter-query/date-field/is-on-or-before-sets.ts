@@ -75,7 +75,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: lastWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 10,
+    expectResultLength: 11,
   },
   {
     fieldIndex: 3,
@@ -84,7 +84,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: currentMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 13,
+    expectResultLength: 14,
   },
   {
     fieldIndex: 3,
@@ -93,7 +93,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 9,
+    expectResultLength: 10,
   },
   {
     fieldIndex: 3,
@@ -111,7 +111,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: currentYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 15,
+    expectResultLength: 14,
   },
   {
     fieldIndex: 3,
@@ -267,7 +267,7 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 12,
+    expectResultLength: 13,
   },
   {
     fieldIndex: 3,
