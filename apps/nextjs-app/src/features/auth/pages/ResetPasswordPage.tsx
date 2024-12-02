@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import type { HttpError } from '@teable/core';
 import { resetPassword } from '@teable/openapi';
 import { passwordSchema } from '@teable/openapi/src/auth/types';
 import { Spin, Error } from '@teable/ui-lib/base';
@@ -19,7 +20,7 @@ export const ResetPasswordPage = () => {
   const { toast } = useToast();
 
   const {
-    mutate: resetPasswordMutate,
+    mutateAsync: resetPasswordMutate,
     isLoading,
     isSuccess,
   } = useMutation({
@@ -72,9 +73,14 @@ export const ResetPasswordPage = () => {
         </div>
         <Separator className="my-2" />
         <Button
-          onClick={() => {
+          onClick={async () => {
             if (error || isLoading || !password || isSuccess) return;
-            resetPasswordMutate({ code, password });
+
+            try {
+              await resetPasswordMutate({ code, password });
+            } catch (err) {
+              setError((err as HttpError).message);
+            }
           }}
         >
           {isLoading && <Spin />}

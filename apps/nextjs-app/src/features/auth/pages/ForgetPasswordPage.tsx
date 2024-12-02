@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import type { HttpError } from '@teable/core';
 import { sendResetPasswordEmail } from '@teable/openapi';
 import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn';
@@ -60,9 +61,13 @@ export const ForgetPasswordPage = () => {
         </div>
         <Separator className="my-2" />
         <Button
-          onClick={() => {
+          onClick={async () => {
             if (error || isLoading || !email) return;
-            sendResetPasswordEmailMutate({ email });
+            try {
+              await sendResetPasswordEmailMutate({ email });
+            } catch (err) {
+              setError((err as HttpError).message);
+            }
           }}
         >
           {isLoading && <Spin />}
