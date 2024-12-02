@@ -189,6 +189,8 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/teable)
 
+[![Deploy on AlibabaCloud ComputeNest](https://service-info-public.oss-cn-hangzhou.aliyuncs.com/computenest-en.svg)](https://computenest.console.aliyun.com/service/instance/create/default?type=user&ServiceName=Teable%20%E7%A4%BE%E5%8C%BA%E7%89%88)
+
 ## Development
 
 #### 1. Initialize
