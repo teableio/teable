@@ -56,4 +56,6 @@ export const envValidationSchema = Joi.object({
         'The `BACKEND_GITHUB_CLIENT_SECRET` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
     }),
   }),
+
+  PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
 });

@@ -10,6 +10,7 @@ export interface IServerEnv {
   socialAuthProviders?: string[];
   storagePrefix?: string;
   edition?: string;
+  passwordLoginDisabled?: boolean;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

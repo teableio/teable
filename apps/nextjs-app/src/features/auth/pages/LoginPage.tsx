@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import { useCallback } from 'react';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { authConfig } from '@/features/i18n/auth.config';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
@@ -15,6 +16,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const router = useRouter();
   const redirect = decodeURIComponent((router.query.redirect as string) || '');
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
+  const { passwordLoginDisabled } = useEnv();
 
   const onSuccess = useCallback(() => {
     if (redirect && redirect.startsWith('/')) {
@@ -48,7 +50,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
           </Tabs>
         </div>
         <div className="relative top-1/2 mx-auto w-80 -translate-y-1/2 py-[5em] lg:py-24">
-          <SignForm type={signType} onSuccess={onSuccess} />
+          {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
           <SocialAuth />
           {children}
         </div>
