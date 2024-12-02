@@ -66,6 +66,10 @@ export class AuthService {
       throw new BadRequestException('Password is not set');
     }
 
+    if (user.isSystem) {
+      throw new BadRequestException('User is system user');
+    }
+
     const { password, salt, ...result } = user;
     return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
@@ -74,6 +78,9 @@ export class AuthService {
     const user = await this.userService.getUserByEmail(email);
     if (user && (user.password !== null || user.accounts.length > 0)) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
+    }
+    if (user && user.isSystem) {
+      throw new HttpException(`User ${email} is system user`, HttpStatus.BAD_REQUEST);
     }
     const { salt, hashPassword } = await this.encodePassword(password);
     const res = await this.prismaService.$tx(async () => {
