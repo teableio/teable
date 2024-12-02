@@ -1,6 +1,6 @@
 import https from 'https';
 import { join } from 'path';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import {
   generateAccountId,
   generateSpaceId,
@@ -300,6 +300,9 @@ export class UserService {
 
       // user exist check
       const existUser = await this.getUserByEmail(email);
+      if (existUser && existUser.isSystem) {
+        throw new UnauthorizedException('User is system user');
+      }
       if (!existUser) {
         const userId = generateUserId();
         let avatar: string | undefined = undefined;
