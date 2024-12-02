@@ -218,13 +218,25 @@ export class FieldConvertingService {
 
   private async generateReferenceFieldOps(fieldId: string) {
     const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
+    const { fieldMap, fieldId2TableId, directedGraph } = topoOrdersContext;
 
-    const { fieldMap, fieldId2TableId } = topoOrdersContext;
+    // Find affected fields using directedGraph
+    const affectedFields = new Set<string>();
 
-    // get all fields after current field
-    const topoOrders = topoOrdersContext.topoOrders.slice(
-      topoOrdersContext.topoOrders.findIndex((item) => item.id === fieldId) + 1
-    );
+    function findAffectedFields(currentId: string) {
+      for (const { fromFieldId, toFieldId } of directedGraph) {
+        if (fromFieldId === currentId && !affectedFields.has(toFieldId)) {
+          affectedFields.add(toFieldId);
+          findAffectedFields(toFieldId);
+        }
+      }
+    }
+
+    // Start from the initial field
+    findAffectedFields(fieldId);
+
+    // Filter topoOrders to only include affected fields
+    const topoOrders = topoOrdersContext.topoOrders.filter((item) => affectedFields.has(item.id));
 
     if (!topoOrders.length) {
       return {};
@@ -234,9 +246,9 @@ export class FieldConvertingService {
 
     for (let i = 0; i < topoOrders.length; i++) {
       const topoOrder = topoOrders[i];
-      // curField will be mutate in loop
       const curField = fieldMap[topoOrder.id];
       const tableId = fieldId2TableId[curField.id];
+
       if (curField.isLookup) {
         pushOpsMap(tableId, curField.id, this.updateLookupField(curField, fieldMap));
       } else if (curField.type === FieldType.Formula) {
