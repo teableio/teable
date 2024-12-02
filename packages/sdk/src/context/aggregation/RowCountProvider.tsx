@@ -76,6 +76,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
     enabled: Boolean(!shareId && tableId && isHydrated),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+    keepPreviousData: true,
   });
 
   const { data: shareRowCount } = useQuery({
@@ -85,6 +86,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
     enabled: Boolean(shareId && tableId && isHydrated),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+    keepPreviousData: true,
   });
 
   const resRowCount = shareId ? shareRowCount : commonRowCount;
