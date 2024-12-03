@@ -15,14 +15,18 @@ import {
 import { Response, Request } from 'express';
 import { AUTH_SESSION_COOKIE_NAME } from '../../../const';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
-import { AuthService } from '../auth.service';
 import { Public } from '../decorators/public.decorator';
 import { LocalAuthGuard } from '../guard/local-auth.guard';
+import { SessionService } from '../session/session.service';
 import { pickUserMe } from '../utils';
+import { LocalAuthService } from './local-auth.service';
 
 @Controller('api/auth')
 export class LocalAuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly sessionService: SessionService,
+    private readonly authService: LocalAuthService
+  ) {}
 
   @Public()
   @UseGuards(LocalAuthGuard)
@@ -56,7 +60,7 @@ export class LocalAuthController {
     @Res({ passthrough: true }) res: Response
   ) {
     await this.authService.changePassword(changePasswordRo);
-    await this.authService.signout(req);
+    await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 

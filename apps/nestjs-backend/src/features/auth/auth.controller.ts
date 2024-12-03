@@ -4,15 +4,19 @@ import { Response } from 'express';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { AuthService } from './auth.service';
 import { TokenAccess } from './decorators/token.decorator';
+import { SessionService } from './session/session.service';
 
 @Controller('api/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService
+  ) {}
 
   @Post('signout')
   @HttpCode(200)
   async signout(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    await this.authService.signout(req);
+    await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
