@@ -72,6 +72,9 @@ export const SignForm: FC<ISignForm> = (props) => {
       setError(error);
       return;
     }
+
+    // Using custom isLoading instead of submitMutation.isLoading because isLoading only reflects the mutation state,
+    // and we need the loader to persist during the delay between the request completion and the redirect.
     try {
       setIsLoading(true);
       await submitMutation.mutateAsync({ type, form });

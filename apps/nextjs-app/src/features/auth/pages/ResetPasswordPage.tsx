@@ -20,7 +20,7 @@ export const ResetPasswordPage = () => {
   const { toast } = useToast();
 
   const {
-    mutateAsync: resetPasswordMutate,
+    mutate: resetPasswordMutate,
     isLoading,
     isSuccess,
   } = useMutation({
@@ -33,6 +33,9 @@ export const ResetPasswordPage = () => {
       setTimeout(() => {
         router.push('/auth/login');
       }, 2000);
+    },
+    onError: (err) => {
+      setError((err as HttpError).message);
     },
   });
 
@@ -73,14 +76,9 @@ export const ResetPasswordPage = () => {
         </div>
         <Separator className="my-2" />
         <Button
-          onClick={async () => {
+          onClick={() => {
             if (error || isLoading || !password || isSuccess) return;
-
-            try {
-              await resetPasswordMutate({ code, password });
-            } catch (err) {
-              setError((err as HttpError).message);
-            }
+            resetPasswordMutate({ code, password });
           }}
         >
           {isLoading && <Spin />}

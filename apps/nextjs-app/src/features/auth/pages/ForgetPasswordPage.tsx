@@ -15,13 +15,16 @@ export const ForgetPasswordPage = () => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const { toast } = useToast();
 
-  const { mutateAsync: sendResetPasswordEmailMutate, isLoading } = useMutation({
+  const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({
     mutationFn: sendResetPasswordEmail,
     onSuccess: () => {
       toast({
         title: t('auth:forgetPassword.success.title'),
         description: t('auth:forgetPassword.success.description'),
       });
+    },
+    onError: (err) => {
+      setError((err as HttpError).message);
     },
   });
 
@@ -61,13 +64,9 @@ export const ForgetPasswordPage = () => {
         </div>
         <Separator className="my-2" />
         <Button
-          onClick={async () => {
+          onClick={() => {
             if (error || isLoading || !email) return;
-            try {
-              await sendResetPasswordEmailMutate({ email });
-            } catch (err) {
-              setError((err as HttpError).message);
-            }
+            sendResetPasswordEmailMutate({ email });
           }}
         >
           {isLoading && <Spin />}
