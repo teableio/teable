@@ -5,9 +5,9 @@
       <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
     </picture>
   </h1>
-  <h3 align="center"><strong>The Fastest Spreadsheet Database for Teams</strong></h3>
-  <p>Teable uses a simple, spreadsheet-like interface to create powerful database applications. Collaborate with your team in real-time, and scale to millions of rows.</p>
-  <p>Try out Teable using our hosted version at <a href="https://teable.io">teable.io</a>.</p>
+  <h3 align="center"><strong>Manage Your Data & Connect Your Team</strong></h3>
+  <p>Teable uses a simple, spreadsheet-like interface to create powerful database applications. Collaborate with your team in real-time, and scale to millions of rows
+  <p>Try out Teable using our hosted version at <a href="https://teable.io">teable.io</a></p>
 </div>
 
 <div align="center">
@@ -54,35 +54,41 @@
 
 ## ✨Features
 
-#### 📊 Spreadsheet-like Interface
+#### 🍺 Feature Packed
 
-Database is never easier like this
+Everything you need, right out of the box:
 
-- [x] Aggregation Function
+- [x] Aggregation
 - [x] Attachments preview
-- [x] Batch Cell Editing
+- [x] Batch Editing
 - [x] Charts
 - [x] Comments
 - [x] Custom Columns
-- [x] Data Formatting
-- [x] Data Sorting and Filtering
-- [x] Data Validation
+- [x] Field conversion
+- [x] Filtering
+- [x] Formatting
 - [x] Formula Support
 - [x] Grouping
+- [x] History
 - [x] Import/Export
-- [x] Search
-- [x] Undo/Redo
+- [x] Millions of rows
+- [x] Plugins
 - [x] Real-time
+- [x] Search
+- [x] Sorting
+- [x] SQL Query
+- [x] Undo/Redo
+- [x] Validation
 
-#### 🗂️ Multiple Views
+#### 🏞️ Multiple Views
 
 Visualize and interact with data in various ways best suited for their specific tasks.
 
-- Grid View
-- Form View
-- Kanban View
-- Gallery View
-- Calendar View
+- [x] Grid View
+- [x] Form View
+- [x] Kanban View
+- [x] Gallery View
+- [x] Calendar View
 
 <table align="center" style="width: 100%;">
   <tr>
@@ -107,44 +113,7 @@ Visualize and interact with data in various ways best suited for their specific 
 
   <img alt="Teable Dashboard" width="100%" src="static/assets/images/dashboard.png">
 
-
-#### 🚀 Super Fast
-
-Amazing response speed and data capacity
-
-- Millions of data are easily processed, and there is no pressure to filter and sort
-- Automatic database indexing for maximum speed
-- Supports batch data operations at one time
-
-#### 👨‍💻 Full-featured SQL Support
-
-Seamless integration with the software you are familiar with
-
-- BI tools like Metabase PowerBi...
-- No-code tools like Appsmith...
-- Direct retrieve data with native SQL
-
-#### 🔒 Privacy-First
-
-You own your data, in spite of the cloud
-
-- Bring your own database (coming soon)
-
-#### ⚡️ Real-time Collaboration
-
-Designed for teams
-
-- No need to refresh the page, data is updated in real-time
-- Seamlessly integrate collaboration member invitation and management
-- Perfect permission management mechanism, from table to column level
-
-#### 🧩 Extensions
-
-Expand infinite possibilities
-
-- Backend-less programming capability based on React
-- Customize your own application with extremely low cost
-- Extremely easy-to-use script extensions mode
+More features coming soon, see our <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a>
 
 ---
 
@@ -256,4 +225,10 @@ In essence, Teable isn't just another no-code solution, it's a comprehensive ans
 
 # License
 
-AGPL-3.0
+### Editions
+
+Teable Community Edition (CE) is the current available version, it's free for self-host under the AGPL license.
+
+Teable Enterprise Edition (EE) is yet to be published, it will have more advanced features and enterprise-oriented offerings, including but not exclusive to authority matrix, automation, advanced admin and audit, etc., you may refer to https://help.teable.io/deployment/docker-compose for more information
+
+See [./LICENSE](./LICENSE) for details.
