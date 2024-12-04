@@ -50,16 +50,16 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       }
       if (INPUTOPTIONS.includes(val)) {
         innerValue?.numberOfDays &&
-          onSelect?.({ ...mergedValue, numberOfDays: innerValue?.numberOfDays });
+          onSelect({ ...mergedValue, numberOfDays: innerValue.numberOfDays });
         return;
       }
 
       if (DATEPICKEROPTIONS.includes(val)) {
-        innerValue?.exactDate && onSelect?.({ ...mergedValue, exactDate: innerValue?.exactDate });
+        innerValue?.exactDate && onSelect({ ...mergedValue, exactDate: innerValue.exactDate });
         return;
       }
 
-      onSelect?.(mergedValue as IDateFilter);
+      onSelect(mergedValue as IDateFilter);
     },
     [innerValue?.exactDate, innerValue?.numberOfDays, onSelect]
   );
