@@ -21,6 +21,12 @@ import {
   tomorrow,
   yesterday,
 } from '@teable/core';
+import dayjs from 'dayjs';
+import { getDates } from './utils';
+
+const tz = 'Asia/Singapore';
+const now = dayjs().tz(tz);
+const { dates, lookupDates } = getDates();
 
 export const IS_ON_OR_BEFORE_SETS = [
   {
@@ -57,7 +63,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: currentWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 13,
+    expectResultLength: dates.filter((t) => t.isBefore(now.add(1, 'week'), 'week')).length,
   },
   {
     fieldIndex: 3,
@@ -66,7 +72,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: nextWeekPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: dates.filter((t) => t.isBefore(now.add(2, 'week'), 'week')).length,
   },
   {
     fieldIndex: 3,
@@ -75,7 +81,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: lastWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 11,
+    expectResultLength: dates.filter((t) => t.isBefore(now, 'week')).length,
   },
   {
     fieldIndex: 3,
@@ -84,7 +90,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: currentMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: dates.filter((t) => t.isBefore(now.add(1, 'month'), 'month')).length,
   },
   {
     fieldIndex: 3,
@@ -93,7 +99,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 10,
+    expectResultLength: dates.filter((t) => t.isBefore(now, 'month')).length,
   },
   {
     fieldIndex: 3,
@@ -102,7 +108,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: nextMonthPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 15,
+    expectResultLength: dates.filter((t) => t.isBefore(now.add(2, 'month'), 'month')).length,
   },
   {
     fieldIndex: 3,
@@ -111,7 +117,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: currentYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: dates.filter((t) => t.isBefore(now.add(1, 'year'), 'year')).length,
   },
   {
     fieldIndex: 3,
@@ -120,7 +126,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: lastYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 8,
+    expectResultLength: dates.filter((t) => t.isBefore(now, 'year')).length,
   },
   {
     fieldIndex: 3,
@@ -129,7 +135,7 @@ export const IS_ON_OR_BEFORE_SETS = [
       mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: dates.filter((t) => t.isBefore(now.add(2, 'year'), 'year')).length,
   },
   {
     fieldIndex: 3,
@@ -231,7 +237,9 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: currentWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: lookupDates.filter((dates) =>
+      dates.some((t) => t.isBefore(now.add(1, 'week'), 'week'))
+    ).length,
   },
   {
     fieldIndex: 3,
@@ -240,7 +248,9 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: nextWeekPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: lookupDates.filter((dates) =>
+      dates.some((t) => t.isBefore(now.add(2, 'week'), 'week'))
+    ).length,
   },
   {
     fieldIndex: 3,
@@ -249,7 +259,8 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: lastWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 13,
+    expectResultLength: lookupDates.filter((dates) => dates.some((t) => t.isBefore(now, 'week')))
+      .length,
   },
   {
     fieldIndex: 3,
@@ -258,7 +269,9 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: currentMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: lookupDates.filter((dates) =>
+      dates.some((t) => t.isBefore(now.add(1, 'month'), 'month'))
+    ).length,
   },
   {
     fieldIndex: 3,
@@ -267,7 +280,8 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: lastMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 13,
+    expectResultLength: lookupDates.filter((dates) => dates.some((t) => t.isBefore(now, 'month')))
+      .length,
   },
   {
     fieldIndex: 3,
@@ -276,7 +290,9 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: nextMonthPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: lookupDates.filter((dates) =>
+      dates.some((t) => t.isBefore(now.add(2, 'month'), 'month'))
+    ).length,
   },
   {
     fieldIndex: 3,
@@ -285,7 +301,9 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: currentYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: lookupDates.filter((dates) =>
+      dates.some((t) => t.isBefore(now.add(1, 'year'), 'year'))
+    ).length,
   },
   {
     fieldIndex: 3,
@@ -294,7 +312,8 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: lastYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 12,
+    expectResultLength: lookupDates.filter((dates) => dates.some((t) => t.isBefore(now, 'year')))
+      .length,
   },
   {
     fieldIndex: 3,
@@ -303,7 +322,9 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       mode: nextYearPeriod.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 14,
+    expectResultLength: lookupDates.filter((dates) =>
+      dates.some((t) => t.isBefore(now.add(2, 'year'), 'year'))
+    ).length,
   },
   {
     operator: isOnOrBefore.value,
