@@ -8,7 +8,7 @@ export const NoDraggableList: React.FC = () => {
   return (
     <ul>
       {tables.map((table) => (
-        <li key={table.id}>
+        <li key={table.id} className={'group relative cursor-pointer overflow-y-auto'}>
           <TableListItem table={table} isActive={table.id === tableId} />
         </li>
       ))}
