@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   cn,
+  PopoverAnchor,
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import Image from 'next/image';
@@ -57,7 +58,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   };
   const ViewIcon = VIEW_ICON_MAP[view.type];
 
-  const showViewMenu = permission['view|delete'] || permission['view|update'];
+  const showViewMenu = !isEditing && (permission['view|delete'] || permission['view|update']);
 
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">
@@ -72,17 +73,9 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       ) : (
         <ViewIcon className="mr-1 size-4 shrink-0" />
       )}
-      {isActive && showViewMenu ? (
-        <PopoverTrigger asChild>
-          <div className="flex flex-1 items-center justify-center overflow-hidden">
-            <div className="truncate text-xs font-medium leading-5">{view.name}</div>
-          </div>
-        </PopoverTrigger>
-      ) : (
-        <div className="flex flex-1 items-center justify-center overflow-hidden">
-          <div className="truncate text-xs font-medium leading-5">{view.name}</div>
-        </div>
-      )}
+      <div className="flex flex-1 items-center justify-center overflow-hidden">
+        <div className="truncate text-xs font-medium leading-5">{view.name}</div>
+      </div>
       {isEditing && (
         <Input
           type="text"
@@ -138,6 +131,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
         }
         navigateHandler();
       }}
+      onContextMenu={() => showViewMenu && setOpen(true)}
     >
       <Popover open={open} onOpenChange={setOpen}>
         <Button
@@ -147,10 +141,15 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
             'bg-secondary': isActive,
           })}
         >
-          {commonPart}
+          {isActive && showViewMenu ? (
+            <PopoverTrigger asChild>{commonPart}</PopoverTrigger>
+          ) : (
+            <PopoverAnchor asChild>{commonPart}</PopoverAnchor>
+          )}
         </Button>
         <PopoverContent className="w-32 p-1">
-          <div className="flex flex-col">
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+          <div className="flex flex-col" onClick={(ev) => ev.stopPropagation()}>
             {permission['view|update'] && (
               <Button
                 size="xs"

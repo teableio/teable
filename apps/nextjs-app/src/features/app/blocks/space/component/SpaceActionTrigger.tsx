@@ -20,6 +20,8 @@ interface ISpaceActionTrigger {
   onRename?: () => void;
   onDelete?: () => void;
   onSpaceSetting?: () => void;
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
 }
 
 export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTrigger>> = (
@@ -34,6 +36,8 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
     onDelete,
     onRename,
     onSpaceSetting,
+    open,
+    setOpen,
   } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
@@ -42,7 +46,7 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
   }
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {showRename && (

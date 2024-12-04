@@ -4,6 +4,7 @@ import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
+import { useClickAway } from 'react-use';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { TableOperation } from './TableOperation';
@@ -13,10 +14,12 @@ interface IProps {
   isActive: boolean;
   isDragging?: boolean;
   className?: string;
+  open?: boolean;
 }
 
 export const TableListItem: React.FC<IProps> = ({ table, isActive, className, isDragging }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { baseId } = router.query;
@@ -43,6 +46,12 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
     }
   }, [isEditing]);
 
+  useClickAway(inputRef, () => {
+    if (isEditing && inputRef.current?.value && inputRef.current.value !== table.name)
+      table.updateName(inputRef.current.value);
+    setIsEditing(false);
+  });
+
   return (
     <>
       <Button
@@ -57,6 +66,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
           }
         )}
         onClick={navigateHandler}
+        onContextMenu={() => setOpen(true)}
       >
         <div>
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
@@ -86,6 +96,8 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
               table={table}
               className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
               onRename={() => setIsEditing(true)}
+              open={open}
+              setOpen={setOpen}
             />
           )}
         </div>
@@ -100,12 +112,6 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
             boxShadow: 'none',
           }}
           className="round-none absolute left-0 top-0 size-full cursor-text bg-background px-4 outline-none"
-          onBlur={(e) => {
-            if (e.target.value && e.target.value !== table.name) {
-              table.updateName(e.target.value);
-            }
-            setIsEditing(false);
-          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               if (e.currentTarget.value && e.currentTarget.value !== table.name) {
