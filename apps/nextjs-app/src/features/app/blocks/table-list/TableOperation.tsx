@@ -57,7 +57,6 @@ export const TableOperation = (props: ITableOperationProps) => {
       updateTable: table.permission?.['table|update'],
       exportTable: table.permission?.['table|export'],
       importTable: table.permission?.['table|import'],
-      deleteTable: table.permission?.['table|delete'],
     };
   }, [table.permission]);
 
