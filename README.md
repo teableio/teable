@@ -2,7 +2,7 @@
   <h1 align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="static/assets/images/teable-vertical-dark.png">
-      <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
+      <img alt="teable logo" max-height="150" src="static/assets/images/teable-vertical-light.png">
     </picture>
   </h1>
   <h3 align="center"><strong>Manage Your Data & Connect Your Team</strong></h3>
@@ -229,6 +229,6 @@ In essence, Teable isn't just another no-code solution, it's a comprehensive ans
 
 Teable Community Edition (CE) is the current available version, it's free for self-host under the AGPL license.
 
-Teable Enterprise Edition (EE) is yet to be published, it will have more advanced features and enterprise-oriented offerings, including but not exclusive to authority matrix, automation, advanced admin and audit, etc., you may refer to https://help.teable.io/deployment/docker-compose for more information
+Teable Enterprise Edition (EE), it will have more advanced features and enterprise-oriented offerings, including but not exclusive to authority matrix, automation, advanced admin and audit, etc., you may refer to https://help.teable.io/deployment/docker-compose for more information
 
 See [./LICENSE](./LICENSE) for details.

@@ -13,7 +13,26 @@ env:
   IMAGE_TAG: ${{ github.sha }}-amd64
 
 jobs:
+  check-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      should_cleanup: ${{ steps.check.outputs.should_cleanup }}
+    steps:
+      - name: Check PR labels
+        id: check
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const hasPreviewLabel = context.payload.pull_request.labels.some(
+              label => label.name === 'preview'
+            );
+            console.log('Has preview label:', hasPreviewLabel);
+            core.setOutput('should_cleanup', hasPreviewLabel.toString());
+            return hasPreviewLabel;
+
   cleanup:
+    needs: check-pr
+    if: needs.check-pr.outputs.should_cleanup == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
