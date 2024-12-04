@@ -5,8 +5,9 @@
       <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
     </picture>
   </h1>
-  <h3 align="center"><strong>Postgres-Airtable Fusion</strong></h3>
-  <p>Teable is a Super fast, Real-time, Professional, Developer friendly, No-code database built on Postgres. It uses a simple, spreadsheet-like interface to create complex enterprise-level database applications. Unlock efficient app development with no-code, free from the hurdles of data security and scalability. </p>
+  <h3 align="center"><strong>The Fastest Spreadsheet Database for Teams</strong></h3>
+  <p>Teable uses a simple, spreadsheet-like interface to create powerful database applications. Collaborate with your team in real-time, and scale to millions of rows.</p>
+  <p>Try out Teable using our hosted version at <a href="https://teable.io">teable.io</a>.</p>
 </div>
 
 <div align="center">
@@ -55,33 +56,57 @@
 
 #### 📊 Spreadsheet-like Interface
 
-All you want is here
+Database is never easier like this
 
-- Batch Cell Editing
-- Formula Support
-- Data Sorting and Filtering
-- Aggregation Function
-- Data Formatting
-- Grouping
-- Freeze Columns
-- Import/Export
-- Undo/Redo
-- Data Validation
-- Charts & Visualization
-- Comments
-- Row Styling(coming soon)
+- [x] Aggregation Function
+- [x] Attachments preview
+- [x] Batch Cell Editing
+- [x] Charts
+- [x] Comments
+- [x] Custom Columns
+- [x] Data Formatting
+- [x] Data Sorting and Filtering
+- [x] Data Validation
+- [x] Formula Support
+- [x] Grouping
+- [x] Import/Export
+- [x] Search
+- [x] Undo/Redo
+- [x] Real-time
 
 #### 🗂️ Multiple Views
 
 Visualize and interact with data in various ways best suited for their specific tasks.
 
-- Grid View: The default view of the table, which displays data in a spreadsheet-like format.
-- Form View: Input data in a form format, which is useful for collecting data.
-- Kanban View: Displays data in a Kanban board, which is a visual representation of data in columns and cards.
-- Gallery View: Displays data in a gallery format, which is useful for displaying images and other media.
-- Calendar View: Displays data in a calendar format, which is useful for tracking dates and events.
-- Gantt View: Displays data in a Gantt chart, which is useful for tracking project schedules. (coming soon)
-- Timeline View: Displays data in a timeline format, which is useful for tracking events over time. (coming soon)
+- Grid View
+- Form View
+- Kanban View
+- Gallery View
+- Calendar View
+
+<table align="center" style="width: 100%;">
+  <tr>
+    <td width="50%"><img alt="Grid View" src="static/assets/images/view-grid.png"></td>
+    <td width="50%"><img alt="Search" src="static/assets/images/search.png"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Calendar View" src="static/assets/images/view-calendar.png"></td>
+    <td width="50%"><img alt="Gallery View" src="static/assets/images/view-gallary.png"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Kanban View" src="static/assets/images/view-kanban.png"></td>
+    <td width="50%"><img alt="Form View" src="static/assets/images/view-form.png"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img alt="Comments" src="static/assets/images/comments.png"></td>
+    <td width="50%"><img alt="Record history" src="static/assets/images/record-history.png"></td>
+  </tr>
+</table>
+
+#### 📊 Charts & Dashboard
+
+  <img alt="Teable Dashboard" width="100%" src="static/assets/images/dashboard.png">
+
 
 #### 🚀 Super Fast
 
@@ -113,36 +138,13 @@ Designed for teams
 - Seamlessly integrate collaboration member invitation and management
 - Perfect permission management mechanism, from table to column level
 
-#### 🧩 Extensions (Coming Soon)
+#### 🧩 Extensions
 
 Expand infinite possibilities
 
 - Backend-less programming capability based on React
 - Customize your own application with extremely low cost
 - Extremely easy-to-use script extensions mode
-
-#### 🤖 Automation (Coming Soon)
-
-Empower data-driven workflows effortlessly and seamlessly
-
-- Design your workflow with AI or Visual programming
-- Super easy to retrieve data from the table
-
-#### 🧠 Copilot (Coming Soon)
-
-Native Integrated AI ability
-
-- Chat 2 App. "Create a project management app for me"
-- Chat 2 Chart. "Analyze the data in the order table using a bar chart"
-- Chat 2 View. "I want to see the schedule for the past week and only display participants"
-- Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer"
-- More actions...
-
-#### 🗄️ Support for Multiple Databases (Coming Soon)
-
-Choose the SQL database you like
-
-- Sqlite, PostgreSQL, MySQL, MariaDB, TiDB...
 
 ---
 
@@ -152,16 +154,18 @@ Choose the SQL database you like
 
 ```
 .
-├── apps
-│   ├── nextjs-app          (front-end, include a nextjs app)
-│   └── nestjs-backend      (backend, include a nestjs app)
-└── packages
-    ├── common-i18n         (locales)
-    ├── core                (share code and interface)
-    ├── sdk                 (sdk for extensions)
-    ├── db-main-prisma      (schema, migrations, prisma client)
-    ├── eslint-config-bases (to shared eslint configs)
-    └── ui-lib              (ui component)
+├── apps (AGPL 3.0) 
+│   ├── nextjs-app          (front-end)
+│   └── nestjs-backend      (backend)
+├── packages (MIT)
+│   ├── common-i18n         (locales)
+│   ├── core                (share code and interface)
+│   ├── sdk                 (sdk for extensions)
+│   ├── db-main-prisma      (schema, migrations, prisma client)
+│   ├── eslint-config-bases (to shared eslint configs)
+│   └── ui-lib              (ui component)
+└── plugins (AGPL 3.0)      (custom plugins)
+
 ```
 
 ## Deploy
@@ -203,7 +207,7 @@ pnpm install
 
 #### 2. Select Database
 
-we currently support `sqlite` and `postgres`, you can switch between them by running the following command
+we currently support `sqlite` (dev only) and `postgres`, you can switch between them by running the following command
 
 ```sh
 make switch-db-mode
@@ -249,11 +253,6 @@ Giving non-techy people the ability to create their software sounds exciting. Bu
 - Last, native AI integration to takes usability to the next level.
 
 In essence, Teable isn't just another no-code solution, it's a comprehensive answer to the evolving demands of modern software development, ensuring that everyone, regardless of their technical proficiency, has a platform tailored to their needs.
-
-## Sponsors :heart:
-
-If you are enjoying some this project in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teableio), a [coffee](https://ko-fi.com/teable) or a dropped star.
-That gives me some more time to improve it to the next level.
 
 # License
 
