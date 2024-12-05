@@ -210,6 +210,29 @@ export class AccessTokenService {
         lastUsedTime: true,
       },
     });
-    return this.transformAccessTokenEntity(item);
+    const res = this.transformAccessTokenEntity(item);
+    // filter deleted spaceIds and baseIds
+    const { spaceIds, baseIds } = res;
+    let filteredSpaceIds: string[] | undefined;
+    let filteredBaseIds: string[] | undefined;
+    if (spaceIds) {
+      const spaces = await this.prismaService.space.findMany({
+        where: { id: { in: spaceIds }, deletedTime: null },
+        select: { id: true },
+      });
+      filteredSpaceIds = spaces.map((space) => space.id);
+    }
+    if (baseIds) {
+      const bases = await this.prismaService.base.findMany({
+        where: { id: { in: baseIds }, deletedTime: null },
+        select: { id: true },
+      });
+      filteredBaseIds = bases.map((base) => base.id);
+    }
+    return {
+      ...res,
+      spaceIds: filteredSpaceIds,
+      baseIds: filteredBaseIds,
+    };
   }
 }

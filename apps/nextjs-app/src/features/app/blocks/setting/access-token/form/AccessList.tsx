@@ -58,6 +58,9 @@ export const AccessList = (props: IAccessListProps) => {
 
     baseIds.forEach((baseId) => {
       const base = baseMap[baseId];
+      if (!base) {
+        return;
+      }
       const cur = displayBaseMap[base.spaceId];
       allDisplaySpaceIds.add(base.spaceId);
       displayBaseMap[base.spaceId] = cur ? [...cur, base] : [base];
@@ -74,7 +77,7 @@ export const AccessList = (props: IAccessListProps) => {
         const displayBases = displayBaseMap[spaceId];
         return (
           <div key={spaceId} className="space-y-1">
-            <div className="text-xs text-muted-foreground">{space.name}</div>
+            <div className="text-xs text-muted-foreground">{space?.name}</div>
             <div>
               {displaySpace && (
                 <div className="flex h-8 items-center justify-between">
