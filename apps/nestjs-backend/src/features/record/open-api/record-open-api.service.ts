@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { IAttachmentCellValue, IAttachmentItem, IMakeOptional } from '@teable/core';
-import { FieldKeyType, FieldType } from '@teable/core';
+import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import type {
@@ -56,11 +56,12 @@ export class RecordOpenApiService {
 
   async multipleCreateRecords(
     tableId: string,
-    createRecordsRo: ICreateRecordsRo
+    createRecordsRo: ICreateRecordsRo,
+    ignoreMissingFields: boolean = false
   ): Promise<ICreateRecordsVo> {
     return await this.prismaService.$tx(
       async () => {
-        return await this.createRecords(tableId, createRecordsRo);
+        return await this.createRecords(tableId, createRecordsRo, ignoreMissingFields);
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -128,7 +129,8 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsRo: ICreateRecordsRo & {
       records: IMakeOptional<IRecordInnerRo, 'id'>[];
-    }
+    },
+    ignoreMissingFields: boolean = false
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
     const chunkSize = this.thresholdConfig.calcChunkSize;
@@ -136,7 +138,8 @@ export class RecordOpenApiService {
       tableId,
       records,
       fieldKeyType,
-      typecast
+      typecast,
+      ignoreMissingFields
     );
 
     const preparedRecords = await this.appendRecordOrderIndexes(tableId, typecastRecords, order);
@@ -175,7 +178,8 @@ export class RecordOpenApiService {
   private async getEffectFieldInstances(
     tableId: string,
     recordsFields: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    ignoreMissingFields: boolean = false
   ) {
     const fieldIdsOrNamesSet = recordsFields.reduce<Set<string>>((acc, recordFields) => {
       const fieldIds = Object.keys(recordFields);
@@ -193,7 +197,7 @@ export class RecordOpenApiService {
       },
     });
 
-    if (usedFields.length !== usedFieldIdsOrNames.length) {
+    if (!ignoreMissingFields && usedFields.length !== usedFieldIdsOrNames.length) {
       const usedSet = new Set(map(usedFields, fieldKeyType));
       const missedFields = usedFieldIdsOrNames.filter(
         (fieldIdOrName) => !usedSet.has(fieldIdOrName)
@@ -211,13 +215,15 @@ export class RecordOpenApiService {
     tableId: string,
     records: T[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    typecast?: boolean
+    typecast: boolean = false,
+    ignoreMissingFields: boolean = false
   ): Promise<T[]> {
     const recordsFields = map(records, 'fields');
     const effectFieldInstance = await this.getEffectFieldInstances(
       tableId,
       recordsFields,
-      fieldKeyType
+      fieldKeyType,
+      ignoreMissingFields
     );
 
     const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
@@ -385,17 +391,16 @@ export class RecordOpenApiService {
       return { records, orders };
     });
 
-    if (windowId) {
-      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
-        windowId,
-        tableId,
-        userId: this.cls.get('user.id'),
-        records: records.records.map((record, index) => ({
-          ...record,
-          order: orders?.[index],
-        })),
-      });
-    }
+    this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
+      operationId: generateOperationId(),
+      windowId,
+      tableId,
+      userId: this.cls.get('user.id'),
+      records: records.records.map((record, index) => ({
+        ...record,
+        order: orders?.[index],
+      })),
+    });
 
     return records;
   }

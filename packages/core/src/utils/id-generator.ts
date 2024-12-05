@@ -44,6 +44,10 @@ export enum IdPrefix {
   PluginUser = 'plu',
 
   Dashboard = 'dsh',
+
+  RecordTrash = 'rtr',
+
+  Operation = 'opr',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -178,4 +182,12 @@ export function generatePluginUserId() {
 
 export function generateDashboardId() {
   return IdPrefix.Dashboard + getRandomString(12);
+}
+
+export function generateOperationId() {
+  return IdPrefix.Operation + getRandomString(16);
+}
+
+export function generateRecordTrashId() {
+  return IdPrefix.RecordTrash + getRandomString(16);
 }

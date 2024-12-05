@@ -1,7 +1,7 @@
 {
   "brand": "Teable",
   "actions": {
-    "title": "actions",
+    "title": "Actions",
     "save": "Save",
     "doNotSave": "Don't Save",
     "submit": "Submit",

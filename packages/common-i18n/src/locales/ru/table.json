@@ -472,5 +472,10 @@
     }
   },
   "lastModifiedTime": "Время последнего изменения",
-  "lastModify": "Последнее изменение: "
+  "lastModify": "Последнее изменение: ",
+  "tableTrash": {
+    "title": "Корзина таблицы",
+    "resourceType": "Тип ресурса",
+    "deletedResource": "Удаленный ресурс"
+  }
 }

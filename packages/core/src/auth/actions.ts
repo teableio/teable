@@ -49,6 +49,9 @@ export const tableActions = [
   'table|update',
   'table|import',
   'table|export',
+  'table|trash_read',
+  'table|trash_update',
+  'table|trash_reset',
 ] as const;
 export const tableActionSchema = z.enum(tableActions);
 export type TableAction = z.infer<typeof tableActionSchema>;

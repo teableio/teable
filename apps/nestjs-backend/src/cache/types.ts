@@ -94,6 +94,8 @@ export interface IUndoRedoOperationBase {
   name: OperationName;
   params: Record<string, unknown>;
   result?: unknown;
+  userId?: string;
+  operationId?: string;
 }
 
 export interface IUpdateRecordsOperation extends IUndoRedoOperationBase {

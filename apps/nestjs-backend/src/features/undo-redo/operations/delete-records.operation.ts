@@ -1,11 +1,13 @@
 import type { IRecord } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import type { IDeleteRecordsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import type { IThresholdConfig } from '../../../configs/threshold.config';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import type { RecordService } from '../../record/record.service';
 
 export interface IDeleteRecordsPayload {
+  operationId: string;
   windowId: string;
   tableId: string;
   userId: string;
@@ -15,7 +17,8 @@ export interface IDeleteRecordsPayload {
 export class DeleteRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly recordService: RecordService
+    private readonly prismaService: PrismaService,
+    private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async event2Operation(payload: IDeleteRecordsPayload): Promise<IDeleteRecordsOperation> {
@@ -27,16 +30,43 @@ export class DeleteRecordsOperation {
       result: {
         records: payload.records,
       },
+      operationId: payload.operationId,
     };
   }
 
   async undo(operation: IDeleteRecordsOperation) {
-    const { params, result } = operation;
+    const { params, result, operationId = '' } = operation;
 
-    await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: result.records,
+    const count = await this.prismaService.tableTrash.count({
+      where: { id: operationId },
     });
+
+    if (operationId && Number(count) === 0) return operation;
+
+    await this.prismaService.$tx(
+      async (prisma) => {
+        await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: result.records,
+        });
+
+        if (operationId) {
+          const recordIds = result.records.map((record) => record.id);
+
+          await prisma.tableTrash.delete({
+            where: { id: operationId },
+          });
+          await prisma.recordTrash.deleteMany({
+            where: {
+              recordId: { in: recordIds },
+            },
+          });
+        }
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
 
     return operation;
   }

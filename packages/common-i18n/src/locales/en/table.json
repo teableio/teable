@@ -493,5 +493,10 @@
   "pasteNewRecords": {
     "title": "Do you want to add multiple records?",
     "description": "The {{count}} records will be added to the table."
+  },
+  "tableTrash": {
+    "title": "Table trash",
+    "resourceType": "Resource type",
+    "deletedResource": "Deleted resource"
   }
 }

@@ -1,15 +1,19 @@
 import { FieldKeyType } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import type { IDeleteFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import type { IThresholdConfig } from '../../../configs/threshold.config';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { ICreateFieldsPayload } from './create-fields.operation';
 
-export type IDeleteFieldsPayload = ICreateFieldsPayload;
+export type IDeleteFieldsPayload = ICreateFieldsPayload & { operationId: string };
 export class DeleteFieldsOperation {
   constructor(
     private readonly fieldOpenApiService: FieldOpenApiService,
-    private readonly recordOpenApiService: RecordOpenApiService
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly prismaService: PrismaService,
+    private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async event2Operation(payload: IDeleteFieldsPayload): Promise<IDeleteFieldsOperation> {
@@ -22,22 +26,42 @@ export class DeleteFieldsOperation {
         fields: payload.fields,
         records: payload.records,
       },
+      operationId: payload.operationId,
     };
   }
 
   async undo(operation: IDeleteFieldsOperation) {
-    const { params, result } = operation;
+    const { params, result, operationId = '' } = operation;
     const { tableId } = params;
     const { fields, records } = result;
 
-    await this.fieldOpenApiService.createFields(tableId, fields);
+    const count = await this.prismaService.tableTrash.count({
+      where: { id: operationId },
+    });
 
-    if (records) {
-      await this.recordOpenApiService.updateRecords(tableId, {
-        fieldKeyType: FieldKeyType.Id,
-        records,
-      });
-    }
+    if (operationId && Number(count) === 0) return operation;
+
+    await this.prismaService.$tx(
+      async (prisma) => {
+        await this.fieldOpenApiService.createFields(tableId, fields);
+
+        if (records) {
+          await this.recordOpenApiService.updateRecords(tableId, {
+            fieldKeyType: FieldKeyType.Id,
+            records,
+          });
+        }
+
+        if (operationId) {
+          await prisma.tableTrash.delete({
+            where: { id: operationId },
+          });
+        }
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
     return operation;
   }
 

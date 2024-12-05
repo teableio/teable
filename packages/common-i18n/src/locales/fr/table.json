@@ -472,5 +472,10 @@
     }
   },
   "lastModifiedTime": "Dernière modification",
-  "lastModify": "Dernière modification : "
+  "lastModify": "Dernière modification : ",
+  "tableTrash": {
+    "title": "Corbeille de Table",
+    "resourceType": "Type de Ressource",
+    "deletedResource": "Ressource Supprimée"
+  }
 }

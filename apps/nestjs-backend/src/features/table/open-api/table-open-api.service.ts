@@ -330,6 +330,16 @@ export class TableOpenApiService {
     await this.prismaService.txClient().trash.deleteMany({
       where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
     });
+
+    // clean table trash
+    await this.prismaService.txClient().tableTrash.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // clean record trash
+    await this.prismaService.txClient().recordTrash.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
   }
 
   async deleteTable(baseId: string, tableId: string) {

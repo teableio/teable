@@ -63,7 +63,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     if (!tableId) return;
 
     await base.deleteTable(tableId);
-    queryClient.invalidateQueries(ReactQueryKeys.getBaseTrashItems(baseId as string));
+    queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId as string));
 
     const firstTableId = tables.find((t) => t.id !== tableId)?.id;
     if (routerTableId === tableId) {

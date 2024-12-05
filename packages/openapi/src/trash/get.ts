@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { IdPrefix } from '@teable/core';
+import { FieldType, IdPrefix, ViewType } from '@teable/core';
 import { axios } from '../axios';
 import { itemSpaceCollaboratorSchema } from '../space/collaborator-get-list';
 import { registerRoute } from '../utils';
@@ -31,6 +31,25 @@ export const userMapVoSchema = z.record(
     )
 );
 
+const fieldSnapshotItemVoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.nativeEnum(FieldType),
+  isLookup: z.boolean().nullable(),
+  options: z.array(z.string()).nullish(),
+});
+
+const recordSnapshotItemVoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+const viewSnapshotItemVoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.nativeEnum(ViewType),
+});
+
 export const resourceMapVoSchema = z.record(
   z.string(),
   z.union([
@@ -47,8 +66,15 @@ export const resourceMapVoSchema = z.record(
       id: z.string().startsWith(IdPrefix.Table),
       name: z.string(),
     }),
+    viewSnapshotItemVoSchema,
+    fieldSnapshotItemVoSchema,
+    recordSnapshotItemVoSchema,
   ])
 );
+
+export type IViewSnapshotItemVo = z.infer<typeof viewSnapshotItemVoSchema>;
+export type IFieldSnapshotItemVo = z.infer<typeof fieldSnapshotItemVoSchema>;
+export type IRecordSnapshotItemVo = z.infer<typeof recordSnapshotItemVoSchema>;
 
 export type IResourceMapVo = z.infer<typeof resourceMapVoSchema>;
 
@@ -61,15 +87,24 @@ export type ITrashRo = z.infer<typeof trashRoSchema>;
 export const trashItemVoSchema = z.object({
   id: z.string(),
   resourceId: z.string(),
-  resourceType: z.nativeEnum(ResourceType),
+  resourceType: z.enum([ResourceType.Space, ResourceType.Base, ResourceType.Table]),
+  deletedTime: z.string(),
+  deletedBy: z.string(),
+});
+
+export const tableTrashItemVoSchema = z.object({
+  id: z.string(),
+  resourceIds: z.array(z.string()),
+  resourceType: z.enum([ResourceType.View, ResourceType.Field, ResourceType.Record]),
   deletedTime: z.string(),
   deletedBy: z.string(),
 });
 
 export type ITrashItemVo = z.infer<typeof trashItemVoSchema>;
+export type ITableTrashItemVo = z.infer<typeof tableTrashItemVoSchema>;
 
 export const trashVoSchema = z.object({
-  trashItems: z.array(trashItemVoSchema),
+  trashItems: z.array(z.union([trashItemVoSchema, tableTrashItemVoSchema])),
   userMap: userMapVoSchema,
   resourceMap: resourceMapVoSchema,
   nextCursor: z.string().nullish(),

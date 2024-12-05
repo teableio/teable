@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FieldKeyType, FieldOpBuilder, FieldType, IFieldRo } from '@teable/core';
+import {
+  FieldKeyType,
+  FieldOpBuilder,
+  FieldType,
+  generateOperationId,
+  IFieldRo,
+} from '@teable/core';
 import type {
   IFieldVo,
   IConvertFieldRo,
@@ -291,6 +297,7 @@ export class FieldOpenApiService {
     });
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_DELETE, {
+      operationId: generateOperationId(),
       windowId,
       tableId,
       userId: this.cls.get('user.id'),

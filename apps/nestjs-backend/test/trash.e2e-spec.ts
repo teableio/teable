@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship } from '@teable/core';
+import type { ITrashItemVo } from '@teable/openapi';
 import {
   getTrash,
   getTrashItems,
@@ -87,7 +88,7 @@ describe('Trash (e2e)', () => {
       const res = await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
 
       expect(res.data.trashItems.length).toBe(1);
-      expect(res.data.trashItems[0].resourceId).toBe(tableId);
+      expect((res.data.trashItems[0] as ITrashItemVo).resourceId).toBe(tableId);
     });
 
     it('should retrieve trash items for base when a linked foreign table is deleted', async () => {
@@ -107,7 +108,7 @@ describe('Trash (e2e)', () => {
       const res = await getTrashItems({ resourceId: baseId, resourceType: ResourceType.Base });
 
       expect(res.data.trashItems.length).toBe(1);
-      expect(res.data.trashItems[0].resourceId).toBe(foreignTableId);
+      expect((res.data.trashItems[0] as ITrashItemVo).resourceId).toBe(foreignTableId);
     });
   });
 
@@ -176,7 +177,7 @@ describe('Trash (e2e)', () => {
       }
     });
 
-    it('should restore space successfully', async () => {
+    it('should reset trash items successfully', async () => {
       const tableId1 = (await createTable(baseId, {})).id;
       const tableId2 = (await createTable(baseId, {})).id;
       const tableId3 = (await createTable(baseId, {})).id;
