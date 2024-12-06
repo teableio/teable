@@ -2,11 +2,10 @@ import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import type {
-  IFieldSnapshotItemVo,
-  ITableTrashItemVo,
-  ITrashItemVo,
   ITrashVo,
+  ITableTrashItemVo,
   IViewSnapshotItemVo,
+  IFieldSnapshotItemVo,
 } from '@teable/openapi';
 import { getTrashItems, ResourceType, restoreTrash } from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
@@ -68,10 +67,13 @@ export const TableTrash = () => {
     },
   });
 
-  const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);
+  const allRows = useMemo(
+    () => (data ? data.pages.flatMap((d) => d) : []) as ITableTrashItemVo[],
+    [data]
+  );
 
-  const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
-    const result: ColumnDef<ITrashItemVo>[] = [
+  const columns: ColumnDef<ITableTrashItemVo>[] = useMemo(() => {
+    const result: ColumnDef<ITableTrashItemVo>[] = [
       {
         accessorKey: 'deletedTime',
         header: t('trash.deletedTime'),

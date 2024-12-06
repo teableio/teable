@@ -65,7 +65,10 @@ export const BaseTrashPage = () => {
     },
   });
 
-  const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);
+  const allRows = useMemo(
+    () => (data ? data.pages.flatMap((d) => d) : []) as ITrashItemVo[],
+    [data]
+  );
 
   const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
     const tableColumns: ColumnDef<ITrashItemVo>[] = [
