@@ -470,6 +470,7 @@
     "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
     "action": {
       "rename": "Rename view",
+      "duplicate": "Duplicate view",
       "delete": "Delete view"
     },
     "category": {

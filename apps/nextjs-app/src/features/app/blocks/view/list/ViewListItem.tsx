@@ -1,5 +1,5 @@
 import { ViewType } from '@teable/core';
-import { Pencil, Trash2, Export } from '@teable/icons';
+import { Pencil, Trash2, Export, Copy } from '@teable/icons';
 import { useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import {
@@ -19,6 +19,7 @@ import { useDownload } from '../../../hooks/useDownLoad';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { useDeleteView } from './useDeleteView';
+import { useDuplicateView } from './useDuplicateView';
 
 interface IProps {
   view: IViewInstance;
@@ -28,9 +29,11 @@ interface IProps {
 
 export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const tableId = useTableId();
   const router = useRouter();
   const baseId = router.query.baseId as string;
+  const duplicateView = useDuplicateView(view);
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
   const { t } = useTranslation('table');
@@ -136,7 +139,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
         navigateHandler();
       }}
     >
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <Button
           variant="ghost"
           size="xs"
@@ -173,6 +176,22 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                 <Export className="size-3" />
                 {t('import.menu.downAsCsv')}
               </Button>
+            )}
+            {permission['view|create'] && (
+              <>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={async () => {
+                    await duplicateView();
+                    setOpen(false);
+                  }}
+                  className="flex justify-start"
+                >
+                  <Copy className="size-3" />
+                  {t('view.action.duplicate')}
+                </Button>
+              </>
             )}
             {permission['view|delete'] && (
               <>
