@@ -10,7 +10,8 @@ import { getHorizontalRangeInfo, getVerticalRangeInfo, useEventListener } from '
 import type { ILinearRow, IScrollState } from './interface';
 import type { CoordinateManager } from './managers';
 import type { ITimeoutID } from './utils';
-import { cancelTimeout, isWindowsOS, requestTimeout } from './utils/utils';
+import { getWheelDelta } from './utils';
+import { cancelTimeout, requestTimeout } from './utils/utils';
 
 export interface ScrollerProps
   extends Pick<
@@ -203,12 +204,10 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     (event: Event) => {
       if (!scrollEnable) return;
       event.preventDefault();
-      const { deltaX, deltaY, shiftKey } = event as WheelEvent;
-      const fixedDeltaY = shiftKey && isWindowsOS() ? 0 : deltaY;
-      const fixedDeltaX = shiftKey && isWindowsOS() ? deltaY : deltaX;
+      const [fixedDeltaX, fixedDeltaY] = getWheelDelta(event as WheelEvent, coordInstance);
       scrollHandler(fixedDeltaX, fixedDeltaY);
     },
-    [scrollEnable, scrollHandler]
+    [scrollEnable, scrollHandler, coordInstance]
   );
 
   const onTouchStart = useCallback((e: TouchEvent) => {

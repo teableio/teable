@@ -3,7 +3,7 @@ import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from 'r
 import { GRID_DEFAULT } from './configs';
 import { useEventListener } from './hooks';
 import type { IActiveCellBound } from './interface';
-import { isWindowsOS } from './utils/utils';
+import { getWheelDelta } from './utils/utils';
 
 export interface CellScrollerProps {
   containerRef: MutableRefObject<HTMLDivElement | null>;
@@ -73,8 +73,7 @@ const CellScrollerBase: ForwardRefRenderFunction<CellScrollerRef, CellScrollerPr
     (event: Event) => {
       if (!scrollEnable) return;
       event.preventDefault();
-      const { deltaY, shiftKey } = event as WheelEvent;
-      const fixedDeltaY = shiftKey && isWindowsOS() ? 0 : deltaY;
+      const [, fixedDeltaY] = getWheelDelta(event as WheelEvent);
       scrollHandler(fixedDeltaY);
     },
     [scrollEnable, scrollHandler]
