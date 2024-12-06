@@ -2,7 +2,6 @@ import { FieldKeyType } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import type { IDeleteFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
-import type { IThresholdConfig } from '../../../configs/threshold.config';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { ICreateFieldsPayload } from './create-fields.operation';
@@ -12,8 +11,7 @@ export class DeleteFieldsOperation {
   constructor(
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly prismaService: PrismaService,
-    private readonly thresholdConfig: IThresholdConfig
+    private readonly prismaService: PrismaService
   ) {}
 
   async event2Operation(payload: IDeleteFieldsPayload): Promise<IDeleteFieldsOperation> {
@@ -41,27 +39,20 @@ export class DeleteFieldsOperation {
 
     if (operationId && Number(count) === 0) return operation;
 
-    await this.prismaService.$tx(
-      async (prisma) => {
-        await this.fieldOpenApiService.createFields(tableId, fields);
+    await this.fieldOpenApiService.createFields(tableId, fields);
 
-        if (records) {
-          await this.recordOpenApiService.updateRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records,
-          });
-        }
+    if (records) {
+      await this.recordOpenApiService.updateRecords(tableId, {
+        fieldKeyType: FieldKeyType.Id,
+        records,
+      });
+    }
 
-        if (operationId) {
-          await prisma.tableTrash.delete({
-            where: { id: operationId },
-          });
-        }
-      },
-      {
-        timeout: this.thresholdConfig.bigTransactionTimeout,
-      }
-    );
+    if (operationId) {
+      await this.prismaService.tableTrash.delete({
+        where: { id: operationId },
+      });
+    }
     return operation;
   }
 

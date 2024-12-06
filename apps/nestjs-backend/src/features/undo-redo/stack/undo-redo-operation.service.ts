@@ -78,8 +78,7 @@ export class UndoRedoOperationService {
     this.deleteFields = new DeleteFieldsOperation(
       this.fieldOpenApiService,
       this.recordOpenApiService,
-      this.prismaService,
-      this.thresholdConfig
+      this.prismaService
     );
     this.convertField = new ConvertFieldOperation(this.fieldOpenApiService);
     this.pasteSelection = new PasteSelectionOperation(
