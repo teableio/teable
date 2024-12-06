@@ -120,10 +120,14 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   );
 
   useHotkeys(
-    'tab',
+    ['tab', 'shift+tab'],
     () => {
       const [columnIndex, rowIndex] = selection.ranges[0];
-      const newColumnIndex = Math.min(columnIndex + 1, columnCount - 1);
+
+      let newColumnIndex = Math.min(columnIndex + 1, columnCount - 1);
+      if (isHotkeyPressed('shift') && isHotkeyPressed('tab'))
+        newColumnIndex = Math.max(columnIndex - 1, 0);
+
       const newRange = <IRange>[newColumnIndex, rowIndex];
       const ranges = [newRange, newRange];
 
