@@ -8,12 +8,14 @@ export enum UsageFeature {
   NumRows = 'numRows',
   AttachmentSize = 'attachmentSize',
   NumDatabaseConnections = 'numDatabaseConnections',
+  NumCollaborators = 'numCollaborators',
 }
 
 export const usageFeatureSchema = z.object({
   [UsageFeature.NumRows]: z.number(),
   [UsageFeature.AttachmentSize]: z.number(),
   [UsageFeature.NumDatabaseConnections]: z.number(),
+  [UsageFeature.NumCollaborators]: z.number(),
 });
 
 export enum UsageFeatureLimit {
