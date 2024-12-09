@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { ICreateOpBuilder, IOpBuilder, IOpContextBase, IOtOperation } from '@teable/core';
+import type {
+  ICreateOpBuilder,
+  IOpBuilder,
+  IOpContextBase,
+  IOtOperation,
+  IRecord,
+} from '@teable/core';
 import {
   FieldOpBuilder,
   IdPrefix,
@@ -262,7 +268,10 @@ export class EventEmitterService {
         ...existingEvent.payload,
         record: {
           ...existingEvent.payload.record,
-          fields,
+          fields: {
+            ...(existingEvent.payload.record as IRecord).fields,
+            ...fields,
+          },
         },
       },
     };

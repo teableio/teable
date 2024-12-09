@@ -40,8 +40,11 @@ export const NumberOptions = (props: {
         <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
           <Input
             type="number"
-            value={options?.defaultValue || ''}
-            onChange={(e) => onDefaultValueChange(Number(e.target.value))}
+            value={options?.defaultValue !== undefined ? options.defaultValue : ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              onDefaultValueChange(value === '' ? undefined : Number(value));
+            }}
           />
         </DefaultValue>
       )}

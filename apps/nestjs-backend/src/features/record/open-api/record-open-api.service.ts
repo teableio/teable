@@ -267,7 +267,7 @@ export class RecordOpenApiService {
     },
     windowId?: string
   ) {
-    const { records, order, fieldKeyType, typecast } = updateRecordsRo;
+    const { records, order, fieldKeyType = FieldKeyType.Name, typecast } = updateRecordsRo;
     const orderIndexesBefore =
       order != null && windowId
         ? await this.recordService.getRecordIndexes(
@@ -298,6 +298,7 @@ export class RecordOpenApiService {
 
       const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
         tableId,
+        fieldKeyType,
         typecastRecords
       );
 

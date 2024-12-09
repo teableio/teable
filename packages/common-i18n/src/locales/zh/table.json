@@ -229,7 +229,7 @@
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
       "enableValidateFieldUnique": "禁止重复值",
-      "enableValidateFieldNotNull": "禁止非空值",
+      "enableValidateFieldNotNull": "禁止空值",
       "knowMore": "了解更多",
       "linkFieldKnowMoreLink": "https://help.teable.cn/ji-ben-gong-neng/zi-duan/gao-ji-zi-duan/guan-lian",
       "filterByView": "从视图筛选记录",
