@@ -170,7 +170,7 @@ export class CollaboratorService {
           },
         },
       },
-      orderBy: { createdTime: 'asc' },
+      orderBy: { createdTime: 'desc' },
     });
     return collaborators.map((collaborator) => ({
       userId: collaborator.user.id,
