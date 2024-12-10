@@ -458,6 +458,7 @@
     "insertToolTip": "Le tri automatique est activé, l'insertion avec ordre n'est pas disponible",
     "action": {
       "rename": "Renommer la vue",
+      "duplicate": "Dupliquer la vue",
       "delete": "Supprimer la vue"
     },
     "category": {

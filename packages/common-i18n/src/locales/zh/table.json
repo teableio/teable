@@ -469,6 +469,7 @@
     "insertToolTip": "自动排序已经打开，无法指定插入位置",
     "action": {
       "rename": "重命名",
+      "duplicate": "复制视图",
       "delete": "删除视图"
     },
     "category": {
