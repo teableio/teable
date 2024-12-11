@@ -73,7 +73,9 @@ const CellScrollerBase: ForwardRefRenderFunction<CellScrollerRef, CellScrollerPr
     (event: Event) => {
       if (!scrollEnable) return;
       event.preventDefault();
-      const [, fixedDeltaY] = getWheelDelta(event as WheelEvent);
+      const [, fixedDeltaY] = getWheelDelta({
+        event: event as WheelEvent,
+      });
       scrollHandler(fixedDeltaY);
     },
     [scrollEnable, scrollHandler]

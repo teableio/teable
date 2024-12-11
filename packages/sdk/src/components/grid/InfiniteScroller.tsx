@@ -204,7 +204,11 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     (event: Event) => {
       if (!scrollEnable) return;
       event.preventDefault();
-      const [fixedDeltaX, fixedDeltaY] = getWheelDelta(event as WheelEvent, coordInstance);
+      const [fixedDeltaX, fixedDeltaY] = getWheelDelta({
+        event: event as WheelEvent,
+        pageHeight: coordInstance.containerHeight - coordInstance.rowInitSize - 1,
+        lineHeight: coordInstance.rowHeight,
+      });
       scrollHandler(fixedDeltaX, fixedDeltaY);
     },
     [scrollEnable, scrollHandler, coordInstance]
