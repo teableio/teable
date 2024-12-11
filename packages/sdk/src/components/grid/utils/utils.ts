@@ -27,7 +27,7 @@ export const requestTimeout = (callback: () => void, delay: number): ITimeoutID 
 
 export const getWheelDelta = (event: WheelEvent, coordInstance?: CoordinateManager) => {
   // This value is approximate, it does not have to be precise.
-  const page_height = coordInstance
+  const pageHeight = coordInstance
     ? coordInstance.containerHeight - coordInstance.rowInitSize - 1
     : document.body.clientHeight - 180;
 
@@ -39,7 +39,7 @@ export const getWheelDelta = (event: WheelEvent, coordInstance?: CoordinateManag
   if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
     y *= coordInstance ? coordInstance.rowHeight : 32;
   } else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-    y *= page_height;
+    y *= pageHeight;
   }
   return [x, y];
 };
