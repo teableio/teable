@@ -37,11 +37,12 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
   }, [isEditing]);
 
   useClickAway(inputRef, async () => {
-    if (isEditing && inputRef.current?.value && inputRef.current.value !== space.name)
+    if (isEditing && inputRef.current?.value && inputRef.current.value !== space.name) {
       await updateSpaceMutator({
         spaceId: space.id,
         updateSpaceRo: { name: inputRef.current.value },
       });
+    }
     setIsEditing(false);
   });
 

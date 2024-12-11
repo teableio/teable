@@ -47,8 +47,9 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
   }, [isEditing]);
 
   useClickAway(inputRef, () => {
-    if (isEditing && inputRef.current?.value && inputRef.current.value !== table.name)
+    if (isEditing && inputRef.current?.value && inputRef.current.value !== table.name) {
       table.updateName(inputRef.current.value);
+    }
     setIsEditing(false);
   });
 
