@@ -1,5 +1,5 @@
 import type { IDateFilter, IFilterItem } from '@teable/core';
-import { CellValueType, FieldType } from '@teable/core';
+import { assertNever, CellValueType, FieldType } from '@teable/core';
 import { useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../../model';
@@ -49,6 +49,35 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       className="min-w-28 max-w-40"
     />
   );
+
+  const getFormulaValueComponent = (cType: CellValueType) => {
+    switch (cType) {
+      case CellValueType.Boolean:
+        return <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-10" />;
+      case CellValueType.DateTime:
+        return (
+          <FilterDatePicker
+            field={field as unknown as DateField}
+            value={value as IDateFilter}
+            onSelect={onSelect}
+            operator={operator}
+          />
+        );
+      case CellValueType.Number:
+        return (
+          <NumberEditor
+            value={value as number}
+            onChange={onSelect as (value?: number | null) => void}
+            className="min-w-28 max-w-40 placeholder:text-xs"
+            placeholder={t('filter.default.placeholder')}
+          />
+        );
+      case CellValueType.String:
+        return InputComponent;
+      default:
+        assertNever(cType);
+    }
+  };
 
   switch (field?.type) {
     case FieldType.Number:
@@ -146,10 +175,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       return <FilterUserSelect {...props} />;
     }
     case FieldType.Formula: {
-      if (field.cellValueType === CellValueType.Boolean) {
-        return <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-10" />;
-      }
-      return InputComponent;
+      return getFormulaValueComponent(field.cellValueType);
     }
     default:
       return InputComponent;
