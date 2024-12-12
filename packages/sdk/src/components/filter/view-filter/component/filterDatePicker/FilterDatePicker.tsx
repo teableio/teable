@@ -111,7 +111,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
           <Input
             placeholder={t('filter.default.placeholder')}
             defaultValue={innerValue?.numberOfDays ?? ''}
-            className="h-8 w-24 placeholder:text-[13px]"
+            className="h-8 w-24 placeholder:text-xs"
             onInput={(e) => {
               // limit the number positive
               e.currentTarget.value = e.currentTarget.value?.replace(/\D/g, '');
