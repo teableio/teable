@@ -49,6 +49,7 @@ const FULL_CALENDAR_LOCALE_MAP = {
   fr: frLocale,
 };
 
+// Remember to update in @sdk/src/components/editor/date/EditorMain.tsx
 const DATE_PICKER_LOCAL_MAP = {
   zh: zhCN,
   en: enUS,

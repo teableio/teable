@@ -1,6 +1,6 @@
 import { type IDateFieldOptions, TimeFormatting } from '@teable/core';
 import { Button, Calendar, Input } from '@teable/ui-lib';
-import { enUS, zhCN } from 'date-fns/locale';
+import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
 import { formatInTimeZone, toDate, utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -14,9 +14,13 @@ export interface IDateEditorMain extends ICellEditor<string | null> {
   disableTimePicker?: boolean;
 }
 
+// Remember to update in @nextjs-app/src/features/app/blocks/view/calendar/components/Calendar.tsx
 const LOCAL_MAP = {
   zh: zhCN,
   en: enUS,
+  ja: ja,
+  ru: ru,
+  fr: fr,
 };
 
 const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (
