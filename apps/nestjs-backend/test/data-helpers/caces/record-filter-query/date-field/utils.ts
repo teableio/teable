@@ -6,6 +6,9 @@ import { DEFAULT_LINK_VALUE_INDEXS } from '../../../20x-link';
 export const getDates = () => {
   const tz = 'Asia/Singapore';
   const dateFieldName = x_20.fields[3].name;
+  dayjs.locale(dayjs.locale(), {
+    weekStart: 1,
+  });
   const dates = x_20.records
     .filter((r) => r.fields?.[dateFieldName])
     .map((r) => {
