@@ -2,6 +2,7 @@
   "brand": "Teable",
   "actions": {
     "title": "Actions",
+    "add": "Add",
     "save": "Save",
     "doNotSave": "Don't Save",
     "submit": "Submit",
@@ -134,7 +135,8 @@
     "instanceId": "Instance ID",
     "beta": "Beta",
     "trash": "Trash",
-    "global": "Global"
+    "global": "Global",
+    "organizationPanel": "Organization Panel"
   },
   "level": {
     "free": "Free",
