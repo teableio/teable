@@ -1,5 +1,4 @@
-import { SubscriptionStatus } from '@teable/openapi';
-import { BillingProductLevel } from '@teable/openapi';
+import { SubscriptionStatus, BillingProductLevel } from '@teable/openapi';
 import {
   Button,
   Tooltip,
