@@ -2,6 +2,7 @@
   "brand": "Teable",
   "actions": {
     "title": "Actions",
+    "add": "Add",
     "save": "保存",
     "doNotSave": "不保存",
     "submit": "提交",
@@ -134,7 +135,8 @@
     "instanceId": "实例 ID",
     "beta": "测试版",
     "trash": "Trash",
-    "global": "Global"
+    "global": "Global",
+    "organizationPanel": "Organization Panel"
   },
   "level": {
     "free": "免费版",
