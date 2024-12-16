@@ -30,6 +30,7 @@ export class NextController {
     'oauth/?*',
     'developer/?*',
     'public/?*',
+    'enterprise/?*',
   ])
   public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.nextService.server.getRequestHandler()(req, res);

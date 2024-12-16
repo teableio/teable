@@ -519,8 +519,9 @@ export class RecordOpenApiService {
   }
 
   private async getValidateAttachmentRecord(tableId: string, recordId: string, fieldId: string) {
-    const field = await this.prismaService.field
-      .findFirstOrThrow({
+    const field = await this.prismaService
+      .txClient()
+      .field.findFirstOrThrow({
         where: {
           id: fieldId,
           deletedTime: null,

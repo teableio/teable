@@ -158,6 +158,12 @@ const actionsI18nMap: Record<
   'instance|update': {
     description: 'permission.actionDescription.instanceUpdate',
   },
+  'enterprise|read': {
+    description: 'permission.actionDescription.enterpriseRead',
+  },
+  'enterprise|update': {
+    description: 'permission.actionDescription.enterpriseUpdate',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
@@ -190,6 +196,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
   [ActionPrefix.Instance]: {
     title: 'noun.instance',
+  },
+  [ActionPrefix.Enterprise]: {
+    title: 'noun.enterprise',
   },
 };
 

@@ -34,7 +34,8 @@
     "user": "用户",
     "recordHistory": "记录历史",
     "you": "你",
-    "instance": "实例"
+    "instance": "实例",
+    "enterprise": "企业"
   },
   "preview": {
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
@@ -307,7 +308,9 @@
       "recordHistoryRead": "查看记录历史",
       "baseQuery": "查询数据库",
       "instanceRead": "查看实例",
-      "instanceUpdate": "更新实例"
+      "instanceUpdate": "更新实例",
+      "enterpriseRead": "查看企业配置",
+      "enterpriseUpdate": "更新企业配置"
     }
   },
   "formula": {

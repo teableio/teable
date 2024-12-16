@@ -18,16 +18,17 @@ export interface ISidebarContentRoute {
 }
 
 interface ISidebarContentProps {
+  className?: string;
   title?: string;
   routes: ISidebarContentRoute[];
 }
 
 export const SidebarContent = (props: ISidebarContentProps) => {
-  const { title, routes } = props;
+  const { title, routes, className } = props;
   const router = useRouter();
 
   return (
-    <div className="flex flex-col gap-2 border-t px-4 py-2">
+    <div className={cn('flex flex-col gap-2 border-t px-4 py-2', className)}>
       {title && <span className="text-sm text-slate-500">{title}</span>}
       <ul>
         {routes.map(({ Icon, label, route, pathTo, disabledTip }) => {

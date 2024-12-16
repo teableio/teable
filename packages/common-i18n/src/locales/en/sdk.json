@@ -294,7 +294,9 @@
       "recordHistoryRead": "Read record history",
       "baseQuery": "Query base",
       "instanceRead": "Read instance",
-      "instanceUpdate": "Update instance"
+      "instanceUpdate": "Update instance",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -308,7 +310,8 @@
     "user": "User",
     "recordHistory": "Record History",
     "you": "You",
-    "instance": "Instance"
+    "instance": "Instance",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {

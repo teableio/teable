@@ -35,6 +35,7 @@ export enum UsageFeatureLimit {
   PasswordRestrictedSharesEnable = 'passwordRestrictedSharesEnable',
   AuthenticationEnable = 'authenticationEnable',
   DomainVerificationEnable = 'domainVerificationEnable',
+  OrganizationEnable = 'organizationEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -54,6 +55,7 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.PasswordRestrictedSharesEnable]: z.boolean(),
   [UsageFeatureLimit.AuthenticationEnable]: z.boolean(),
   [UsageFeatureLimit.DomainVerificationEnable]: z.boolean(),
+  [UsageFeatureLimit.OrganizationEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({

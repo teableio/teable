@@ -281,12 +281,17 @@ export class CollaboratorService {
         },
       },
     });
+    let spaceId: string = resourceId;
     if (resourceType === CollaboratorType.Space) {
-      this.eventEmitterService.emitAsync(
-        Events.COLLABORATOR_DELETE,
-        new CollaboratorDeleteEvent(resourceId)
-      );
+      const space = await this.prismaService
+        .txClient()
+        .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
+      spaceId = space.spaceId;
     }
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_DELETE,
+      new CollaboratorDeleteEvent(spaceId)
+    );
     return result;
   }
 
@@ -389,7 +394,7 @@ export class CollaboratorService {
       throw new BadRequestException('has already existed in base');
     }
 
-    return this.prismaService.txClient().collaborator.create({
+    const res = await this.prismaService.txClient().collaborator.create({
       data: {
         resourceId: baseId,
         resourceType: CollaboratorType.Base,
@@ -398,6 +403,11 @@ export class CollaboratorService {
         createdBy: currentUserId!,
       },
     });
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_CREATE,
+      new CollaboratorCreateEvent(base.spaceId)
+    );
+    return res;
   }
 
   async getSharedBase() {

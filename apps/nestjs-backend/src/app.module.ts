@@ -22,6 +22,7 @@ import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { NotificationModule } from './features/notification/notification.module';
 import { OAuthModule } from './features/oauth/oauth.module';
+import { OrganizationModule } from './features/organization/organization.module';
 import { PinModule } from './features/pin/pin.module';
 import { PluginModule } from './features/plugin/plugin.module';
 import { SelectionModule } from './features/selection/selection.module';
@@ -66,6 +67,7 @@ export const appModules = {
     PluginModule,
     DashboardModule,
     CommentOpenApiModule,
+    OrganizationModule,
   ],
   providers: [InitBootstrapProvider],
 };
