@@ -282,7 +282,7 @@ export class CollaboratorService {
       },
     });
     let spaceId: string = resourceId;
-    if (resourceType === CollaboratorType.Space) {
+    if (resourceType === CollaboratorType.Base) {
       const space = await this.prismaService
         .txClient()
         .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
