@@ -32,7 +32,7 @@ const linkField = (foreignTableId: string) => {
   };
 };
 
-const DEFAULT_LINK_VALUE_INDEXS = [
+export const DEFAULT_LINK_VALUE_INDEXS = [
   [0],
   [1],
   [3],

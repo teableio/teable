@@ -520,6 +520,54 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.name).toEqual('my name');
       expect(newField.description).toEqual('world');
     });
+
+    // A -> B -> C
+    // D -> E -> C
+    // should not update E when A update
+    // all context: A, B, C, E
+    // update context: A, B, C
+    it('should not update E when A update', async () => {
+      const aField = await createField(table1.id, {
+        type: FieldType.Number,
+      });
+
+      const bField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${aField.id}}`,
+        },
+      });
+
+      const dField = await createField(table1.id, {
+        type: FieldType.Number,
+      });
+
+      const eField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${dField.id}}`,
+        },
+      });
+
+      const cField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${bField.id}} + {${eField.id}}`,
+        },
+      });
+
+      await updateRecordByApi(table1.id, table1.records[0].id, aField.id, 1);
+
+      await convertField(table1.id, bField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${aField.id}} & ''`,
+        },
+      });
+
+      const record1 = await getRecord(table1.id, table1.records[0].id);
+      expect(record1.fields[cField.id]).toEqual('1null');
+    });
   });
 
   describe('convert text field', () => {

@@ -10,6 +10,7 @@ import { Spin } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { useOrganization } from '@/features/app/hooks/useOrganization';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 import { RequireCom } from '../../components/RequireCom';
 import { ScopesSelect } from '../../components/ScopesSelect';
@@ -46,6 +47,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
 
   const { user } = useSession();
+  const { organization } = useOrganization();
 
   const [spaceIds, setSpaceIds] = useState<string[] | undefined | null>(defaultData?.spaceIds);
   const [baseIds, setBaseIds] = useState<string[] | undefined | null>(defaultData?.baseIds);
@@ -70,8 +72,11 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
     if (user.isAdmin) {
       prefixes.push(ActionPrefix.Instance);
     }
+    if (organization?.isAdmin) {
+      prefixes.push(ActionPrefix.Enterprise);
+    }
     return prefixes;
-  }, [user.isAdmin]);
+  }, [user.isAdmin, organization?.isAdmin]);
 
   const disableSubmit = useMemo(() => {
     if (type === 'new') {

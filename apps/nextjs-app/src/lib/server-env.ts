@@ -10,7 +10,7 @@ export interface IServerEnv {
   socialAuthProviders?: string[];
   storagePrefix?: string;
   edition?: string;
-
+  passwordLoginDisabled?: boolean;
   // global settings
   globalSettings?: {
     disallowSignUp?: boolean;

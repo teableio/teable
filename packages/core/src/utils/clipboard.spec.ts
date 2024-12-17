@@ -74,6 +74,11 @@ describe('clipboard', () => {
       const data = parseClipboardText('text1\n\n"text2"');
       expect(data).toEqual([['text1'], [''], ['"text2"']]);
     });
+
+    it('content has windows newline', () => {
+      const data = parseClipboardText('text1"\r\ntext2');
+      expect(data).toEqual([['text1"'], ['text2']]);
+    });
   });
 
   describe('stringify', () => {

@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IRole } from '@teable/core';
 import { canManageRole, Role } from '@teable/core';
 import { Settings } from '@teable/icons';
-import type { ListSpaceCollaboratorRo } from '@teable/openapi';
+import type { ListSpaceCollaboratorRo, UpdateBaseCollaborateRo } from '@teable/openapi';
 import {
+  deleteBaseCollaborator,
   deleteSpaceCollaborator,
   getSpaceCollaboratorList,
+  updateBaseCollaborator,
   updateSpaceCollaborator,
 } from '@teable/openapi';
 import { ReactQueryKeys, useSession } from '@teable/sdk';
@@ -14,6 +16,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC, PropsWithChildren } from 'react';
 import React, { useMemo } from 'react';
+import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../base/useFilteredRoleStatic';
 import { CollaboratorItem } from '../components/CollaboratorItem';
 import { CollaboratorList } from '../components/CollaboratorList';
 import { RoleSelect } from '../components/RoleSelect';
@@ -43,16 +46,50 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
-    mutationFn: updateSpaceCollaborator,
-    onSuccess: async () => {
+    mutationFn: ({
+      resourceId,
+      updateCollaborateRo,
+      isBase,
+    }: {
+      resourceId: string;
+      updateCollaborateRo: { userId: string; role: IRole };
+      isBase?: boolean;
+    }) =>
+      isBase
+        ? updateBaseCollaborator({
+            baseId: resourceId,
+            updateBaseCollaborateRo: updateCollaborateRo as UpdateBaseCollaborateRo,
+          })
+        : updateSpaceCollaborator({
+            spaceId: resourceId,
+            updateSpaceCollaborateRo: updateCollaborateRo,
+          }),
+    onSuccess: async (_, context) => {
+      const { isBase, resourceId } = context;
+
       await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
-      queryClient.invalidateQueries(ReactQueryKeys.space(spaceId));
-      queryClient.invalidateQueries(ReactQueryKeys.spaceList());
+      if (isBase) {
+        queryClient.invalidateQueries(ReactQueryKeys.baseCollaboratorList(resourceId));
+      } else {
+        queryClient.invalidateQueries(ReactQueryKeys.space(spaceId));
+        queryClient.invalidateQueries(ReactQueryKeys.spaceList());
+      }
     },
   });
 
   const { mutate: deleteCollaborator, isLoading: deleteCollaboratorLoading } = useMutation({
-    mutationFn: deleteSpaceCollaborator,
+    mutationFn: ({
+      userId,
+      resourceId,
+      isBase,
+    }: {
+      userId: string;
+      resourceId: string;
+      isBase?: boolean;
+    }) =>
+      isBase
+        ? deleteBaseCollaborator({ baseId: resourceId, userId })
+        : deleteSpaceCollaborator({ spaceId: resourceId, userId }),
     onSuccess: async (_, context) => {
       if (context.userId === user.id) {
         router.push('/space');
@@ -69,6 +106,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   );
 
   const filteredRoleStatic = useFilteredRoleStatic(currentRole);
+  const filteredBaseRoleStatic = useFilteredBaseRoleStatic(currentRole);
 
   const goBase = (baseId: string) => {
     router.push(`/base/${baseId}`);
@@ -94,9 +132,9 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
               avatar={avatar}
               createdTime={createdTime}
               onDeleted={(userId) => {
-                deleteCollaborator({ spaceId, userId });
+                deleteCollaborator({ resourceId: base ? base.id : spaceId, userId, isBase });
               }}
-              showDelete={canOperator && !isBase}
+              showDelete={canOperator}
               deletable={!deleteCollaboratorLoading && canOperator}
               collaboratorTips={
                 isBase && (
@@ -119,10 +157,14 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
               <RoleSelect
                 className="mx-1"
                 value={role}
-                options={filteredRoleStatic}
-                disabled={updateCollaboratorLoading || !canOperator || isBase}
+                options={isBase ? filteredBaseRoleStatic : filteredRoleStatic}
+                disabled={updateCollaboratorLoading || !canOperator}
                 onChange={(role) =>
-                  updateCollaborator({ spaceId, updateSpaceCollaborateRo: { userId, role } })
+                  updateCollaborator({
+                    resourceId: base ? base.id : spaceId,
+                    updateCollaborateRo: { userId, role },
+                    isBase,
+                  })
                 }
               />
             </CollaboratorItem>

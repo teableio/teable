@@ -31,6 +31,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storagePrefix: process.env.STORAGE_PREFIX,
+        passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true' ? true : undefined,
       },
       isUndefined
     );

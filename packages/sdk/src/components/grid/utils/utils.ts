@@ -1,3 +1,5 @@
+import type { CoordinateManager } from '../managers';
+
 export type ITimeoutID = {
   id: number;
 };
@@ -23,9 +25,27 @@ export const requestTimeout = (callback: () => void, delay: number): ITimeoutID 
   return timeoutID;
 };
 
-export const isWindowsOS = () => {
-  const agent = navigator.userAgent.toLowerCase();
-  return /win32|wow32|win64|wow64/.test(agent);
+export const getWheelDelta = ({
+  event,
+  pageHeight,
+  lineHeight,
+}: {
+  event: WheelEvent;
+  pageHeight?: number;
+  lineHeight?: number;
+}) => {
+  let [x, y] = [event.deltaX, event.deltaY];
+  if (x === 0 && event.shiftKey) {
+    [y, x] = [0, y];
+  }
+
+  // This value is approximate, it does not have to be precise.
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    y *= lineHeight ?? 32;
+  } else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    y *= pageHeight ?? document.body.clientHeight - 180;
+  }
+  return [x, y];
 };
 
 export const hexToRGBA = (hex: string, alpha = 1) => {

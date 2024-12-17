@@ -136,6 +136,10 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
           }
       );
       stackList.unshift(UNCATEGORIZED_STACK_DATA);
+      if (isEmptyStackHidden) {
+        return stackList.filter(({ count }) => count > 0);
+      }
+
       return stackList;
     }
 
@@ -154,11 +158,14 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
           }
       );
       stackList.unshift(UNCATEGORIZED_STACK_DATA);
+      if (isEmptyStackHidden) {
+        return stackList.filter(({ count }) => count > 0);
+      }
+
       return stackList;
     }
 
     stackList.unshift(UNCATEGORIZED_STACK_DATA);
-
     if (isEmptyStackHidden) {
       return stackList.filter(({ count }) => count > 0);
     }
@@ -194,6 +201,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       recordQuery,
       isCoverFit,
       isFieldNameHidden,
+      isEmptyStackHidden,
       permission: kanbanPermission,
       stackField,
       coverField,
@@ -206,6 +214,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     recordQuery,
     isCoverFit,
     isFieldNameHidden,
+    isEmptyStackHidden,
     kanbanPermission,
     stackField,
     coverField,

@@ -791,6 +791,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         getCellContent={getCellContent}
         real2RowIndex={real2RowIndex}
         scrollToItem={scrollToItem}
+        scrollBy={scrollBy}
       />
     </div>
   );

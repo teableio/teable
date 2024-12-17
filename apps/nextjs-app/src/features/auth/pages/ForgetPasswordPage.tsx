@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import type { HttpError } from '@teable/core';
 import { sendResetPasswordEmail } from '@teable/openapi';
 import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn';
@@ -14,13 +15,16 @@ export const ForgetPasswordPage = () => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const { toast } = useToast();
 
-  const { mutateAsync: sendResetPasswordEmailMutate, isLoading } = useMutation({
+  const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({
     mutationFn: sendResetPasswordEmail,
     onSuccess: () => {
       toast({
         title: t('auth:forgetPassword.success.title'),
         description: t('auth:forgetPassword.success.description'),
       });
+    },
+    onError: (err) => {
+      setError((err as HttpError).message);
     },
   });
 

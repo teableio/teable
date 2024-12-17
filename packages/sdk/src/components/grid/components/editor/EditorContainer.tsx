@@ -36,6 +36,7 @@ export interface IEditorContainerProps
     | 'onDelete'
     | 'onRowAppend'
     | 'onRowExpand'
+    | 'scrollBy'
   > {
   isEditing?: boolean;
   scrollState: IScrollState;
@@ -97,6 +98,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setSelection,
     real2RowIndex,
     getCellContent,
+    scrollBy,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
   const { rowIndex, realRowIndex, columnIndex } = useMemo(() => {
@@ -148,6 +150,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setActiveCell,
     setSelection,
     scrollToItem,
+    scrollBy,
   });
 
   const editorStyle = useMemo(

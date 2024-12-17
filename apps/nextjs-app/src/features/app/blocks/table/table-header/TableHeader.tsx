@@ -1,4 +1,4 @@
-import { HelpCircle, History, MoreHorizontal, Settings, UserPlus } from '@teable/icons';
+import { HelpCircle, History, MoreHorizontal, Settings, Trash2, UserPlus } from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { useBase, useBasePermission, useTableId } from '@teable/sdk/hooks';
 import {
@@ -8,7 +8,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -20,8 +23,11 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
 import { tableConfig } from '@/features/i18n/table.config';
+import { TableTrash } from '../../trash/components/TableTrash';
+import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
 
@@ -42,6 +48,12 @@ const RightList = ({
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
 
+  const hasTableHistoryPermission = basePermission?.['table_record_history|read'];
+  const hasTableTrashPermission = basePermission?.['table|trash_read'];
+
+  const [isHistoryDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [isTrashDialogOpen, setTrashDialogOpen] = useState(false);
+
   const onRecordClick = (recordId: string) => {
     router.push(
       {
@@ -59,25 +71,28 @@ const RightList = ({
     <div className={cn('flex', className)}>
       <Collaborators className="flex" />
       <div className="flex">
-        {basePermission?.['table_record_history|read'] && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={cn('flex', buttonClassName)}
-                title={t('table:table.tableRecordHistory')}
-              >
+        {(hasTableHistoryPermission || hasTableTrashPermission) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
                 <History className="size-4" />
               </Button>
-            </DialogTrigger>
-            <DialogContent className="flex h-[90%] max-w-4xl flex-col gap-0 p-0">
-              <DialogHeader className="border-b p-4">
-                <DialogTitle>{t('table:table.tableRecordHistory')}</DialogTitle>
-              </DialogHeader>
-              <RecordHistory onRecordClick={onRecordClick} />
-            </DialogContent>
-          </Dialog>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-52">
+              {hasTableHistoryPermission && (
+                <DropdownMenuItem onSelect={() => setHistoryDialogOpen(true)}>
+                  <History className="mr-1 size-4" />
+                  {t('table:table.tableRecordHistory')}
+                </DropdownMenuItem>
+              )}
+              {hasTableTrashPermission && (
+                <DropdownMenuItem onSelect={() => setTrashDialogOpen(true)}>
+                  <Trash2 className="mr-1 size-4" />
+                  {t('table:tableTrash.title')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
         <Button asChild variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
@@ -109,6 +124,21 @@ const RightList = ({
           <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
         </Button>
       </BaseCollaboratorModalTrigger>
+
+      {hasTableHistoryPermission && (
+        <Dialog open={isHistoryDialogOpen} onOpenChange={setHistoryDialogOpen}>
+          <DialogContent className="flex h-[90%] max-w-4xl flex-col gap-0 p-0">
+            <DialogHeader className="border-b p-4">
+              <DialogTitle>{t('table:table.tableRecordHistory')}</DialogTitle>
+            </DialogHeader>
+            <RecordHistory onRecordClick={onRecordClick} />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {hasTableTrashPermission && (
+        <TableTrashDialog open={isTrashDialogOpen} onOpenChange={setTrashDialogOpen} />
+      )}
     </div>
   );
 };
@@ -119,6 +149,9 @@ const RightMenu = ({ className }: { className?: string }) => {
   const tableId = useTableId();
   const basePermission = useBasePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const hasTableHistoryPermission = basePermission?.['table_record_history|read'];
+  const hasTableTrashPermission = basePermission?.['table|trash_read'];
 
   // eslint-disable-next-line sonarjs/no-identical-functions
   const onRecordClick = (recordId: string) => {
@@ -159,7 +192,7 @@ const RightMenu = ({ className }: { className?: string }) => {
               <UserPlus className="size-4" /> {t('space:action.invite')}
             </Button>
           </BaseCollaboratorModalTrigger>
-          {basePermission?.['table_record_history|read'] && (
+          {hasTableHistoryPermission && (
             <Sheet modal={true}>
               <SheetTrigger asChild>
                 <Button size="xs" variant="ghost" className="flex justify-start">
@@ -176,6 +209,26 @@ const RightMenu = ({ className }: { className?: string }) => {
                   {t('table:table.tableRecordHistory')}
                 </SheetHeader>
                 <RecordHistory onRecordClick={onRecordClick} />
+              </SheetContent>
+            </Sheet>
+          )}
+          {hasTableTrashPermission && (
+            <Sheet modal={true}>
+              <SheetTrigger asChild>
+                <Button size="xs" variant="ghost" className="flex justify-start">
+                  <Trash2 className="size-4" />
+                  {t('table:tableTrash.title')}
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                className="h-5/6 overflow-hidden rounded-t-lg p-0"
+                side="bottom"
+                closeable={false}
+              >
+                <SheetHeader className="h-16 justify-center border-b text-2xl">
+                  {t('table:tableTrash.title')}
+                </SheetHeader>
+                <TableTrash />
               </SheetContent>
             </Sheet>
           )}

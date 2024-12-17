@@ -28,6 +28,11 @@ export class SessionStrategy extends PassportStrategy(PassportSessionStrategy) {
     if (user.deactivatedTime) {
       throw new UnauthorizedException('Your account has been deactivated by the administrator');
     }
+
+    if (user.isSystem) {
+      throw new UnauthorizedException('User is system user');
+    }
+
     this.cls.set('user.id', user.id);
     this.cls.set('user.name', user.name);
     this.cls.set('user.email', user.email);

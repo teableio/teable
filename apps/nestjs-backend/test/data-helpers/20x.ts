@@ -37,7 +37,7 @@ const singleSelectField = {
   },
 };
 
-const dateField = {
+export const dateField = {
   name: 'date field',
   description: 'the date field',
   type: FieldType.Date,

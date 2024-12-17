@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
+import type { FieldKeyType } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -37,6 +38,7 @@ export class SystemFieldService {
 
   async getModifiedSystemOpsMap(
     tableId: string,
+    fieldKeyType: FieldKeyType,
     records: {
       fields: Record<string, unknown>;
       id: string;
@@ -74,13 +76,13 @@ export class SystemFieldService {
 
     const systemRecordFields = fieldsRaw.reduce<{ [fieldId: string]: unknown }>((pre, fieldRaw) => {
       const field = createFieldInstanceByRaw(fieldRaw);
-      const { id, type } = field;
+      const { type } = field;
       if (type === FieldType.LastModifiedTime) {
-        pre[id] = timeStr;
+        pre[field[fieldKeyType]] = timeStr;
       }
 
       if (type === FieldType.LastModifiedBy) {
-        pre[id] = field.convertDBValue2CellValue({
+        pre[field[fieldKeyType]] = field.convertDBValue2CellValue({
           id: user.id,
           title: user.name,
           email: user.email,

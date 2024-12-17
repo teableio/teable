@@ -114,7 +114,11 @@ export const SpaceInnerPage: React.FC = () => {
                 status={subscriptionSummary?.status}
                 spaceId={space.id}
                 withUpgrade={space.role === Role.Owner}
+                organization={space.organization}
               />
+            )}
+            {!isCloud && space.organization && (
+              <div className="text-sm text-gray-500">{space.organization.name}</div>
             )}
           </div>
 

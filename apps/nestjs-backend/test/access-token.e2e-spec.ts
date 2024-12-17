@@ -27,6 +27,9 @@ import {
   axios as defaultAxios,
   createSpace,
   createBase,
+  deleteSpace,
+  deleteBase,
+  getAccessToken,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -123,6 +126,24 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
     });
     expect(res.status).toEqual(200);
     expect(refreshAccessTokenVoSchema.safeParse(res.data).success).toEqual(true);
+  });
+
+  it('/api/access-token/:accessTokenId (GET) include deleted spaceIds and baseIds', async () => {
+    const space = await createSpace({ name: 'deleted space' }).then((res) => res.data);
+    const base = await createBase({ spaceId: space.id, name: 'deleted base' }).then(
+      (res) => res.data
+    );
+    const ro = {
+      ...defaultCreateRo,
+      spaceIds: [space.id],
+      baseIds: [base.id],
+    };
+    const { data: newAccessToken } = await createAccessToken(ro);
+    await deleteSpace(space.id);
+    await deleteBase(base.id);
+    const { data } = await getAccessToken(newAccessToken.id);
+    expect(data.spaceIds).toEqual([]);
+    expect(data.baseIds).toEqual([]);
   });
 
   describe('validate accessToken permission', () => {

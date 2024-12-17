@@ -10,6 +10,12 @@ export const getSpaceVoSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: roleSchema,
+  organization: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .optional(),
 });
 
 export type IGetSpaceVo = z.infer<typeof getSpaceVoSchema>;

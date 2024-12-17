@@ -84,7 +84,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       conjunction,
     };
 
-    const { records } = await getFilterRecord(tableId, viewId, filter);
+    const { records } = await getFilterRecord(tableId, viewId!, filter);
     expect(records.length).toBe(expectResultLength);
     if (!expectMoreResults) {
       expect(records).not.toMatchObject([

@@ -27,15 +27,16 @@ import {
   Calendar as DatePicker,
   cn,
 } from '@teable/ui-lib/shadcn';
-import { addDays, format } from 'date-fns';
+import { addDays, subDays, format, set } from 'date-fns';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
+import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { EventListContainer } from '../components/EventListContainer';
 import { EventMenu } from '../components/EventMenu';
 import { useCalendar, useEventMenuStore } from '../hooks';
-import { getColorByConfig, getEventTitle } from '../util';
+import { getColorByConfig, getDateByTimezone, getEventTitle } from '../util';
 
 const ADD_EVENT_BUTTON_CLASS_NAME = 'calendar-add-event-button';
 const MORE_LINK_TEXT_CLASS_NAME = 'calendar-custom-more-link-text';
@@ -48,6 +49,7 @@ const FULL_CALENDAR_LOCALE_MAP = {
   fr: frLocale,
 };
 
+// Remember to update in @sdk/src/components/editor/date/EditorMain.tsx
 const DATE_PICKER_LOCAL_MAP = {
   zh: zhCN,
   en: enUS,
@@ -130,13 +132,17 @@ export const Calendar = (props: ICalendarProps) => {
 
         if (!tableId || !startDateField || !endDateField) return;
 
+        const { timeZone } = startDateField.options.formatting;
+        const newDate = set(date, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
+        const newDateStr = zonedTimeToUtc(newDate, timeZone).toISOString();
+
         const { data } = await Record.createRecords(tableId, {
           fieldKeyType: FieldKeyType.Id,
           records: [
             {
               fields: {
-                [startDateField.id]: date.toISOString(),
-                [endDateField.id]: date.toISOString(),
+                [startDateField.id]: newDateStr,
+                [endDateField.id]: newDateStr,
               },
             },
           ],
@@ -193,8 +199,6 @@ export const Calendar = (props: ICalendarProps) => {
       setTitle(calendarRef.current.getApi().view.title);
     }
 
-    if (!startDateField || !endDateField) return;
-
     const startStr = start.toISOString();
     const endStr = end.toISOString();
 
@@ -204,7 +208,7 @@ export const Calendar = (props: ICalendarProps) => {
     });
   };
 
-  const isLoading = !calendarDailyCollection;
+  const isLoading = startDateField && endDateField && !calendarDailyCollection;
   const { countMap, records = [] } = calendarDailyCollection ?? {};
 
   const events = useMemo(() => {
@@ -215,12 +219,14 @@ export const Calendar = (props: ICalendarProps) => {
         const title = r.fields[titleField.id];
         const start = r.fields[startDateField.id];
         const end = r.fields[endDateField.id];
+        const { timeZone } = startDateField.options.formatting;
 
         const { color: textColor, backgroundColor } = getColorByConfig(
           r as unknown as Record,
           colorConfig,
           colorField
         );
+        const endDate = end ? addDays(new Date(end as string), 1).toISOString() : undefined;
 
         return {
           id: r.id,
@@ -229,8 +235,8 @@ export const Calendar = (props: ICalendarProps) => {
             start as string,
             startDateField
           ),
-          start,
-          end: end ? addDays(new Date(end as string), 1).toISOString() : undefined,
+          start: start ? utcToZonedTime(new Date(start as string), timeZone) : undefined,
+          end: endDate ? utcToZonedTime(new Date(endDate), timeZone) : undefined,
           textColor,
           backgroundColor,
           allDay: true,
@@ -295,15 +301,21 @@ export const Calendar = (props: ICalendarProps) => {
 
     if (!tableId || !startDateField || !endDateField) return;
 
+    const { timeZone } = startDateField.options.formatting;
+
     // resize start date
     if (startDelta.days !== 0) {
-      const start = event.extendedProps.meta.start ?? event.extendedProps.meta.end;
-      const newStart = addDays(new Date(start), startDelta.days).toISOString();
+      const newDate = getDateByTimezone(
+        new Date(event.startStr),
+        timeZone,
+        event.extendedProps.meta.start
+      );
+
       updateRecord(tableId, event.id, {
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: {
-            [startDateField.id]: newStart,
+            [startDateField.id]: newDate,
           },
         },
       });
@@ -311,13 +323,17 @@ export const Calendar = (props: ICalendarProps) => {
 
     // resize end date
     if (endDelta.days !== 0) {
-      const end = event.extendedProps.meta.end ?? event.extendedProps.meta.start;
-      const newEnd = addDays(new Date(end), endDelta.days).toISOString();
+      const newDate = getDateByTimezone(
+        subDays(new Date(event.endStr), 1),
+        timeZone,
+        event.extendedProps.meta.end
+      );
+
       updateRecord(tableId, event.id, {
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: {
-            [endDateField.id]: newEnd,
+            [endDateField.id]: newDate,
           },
         },
       });
@@ -325,15 +341,17 @@ export const Calendar = (props: ICalendarProps) => {
   };
 
   const onEventDrop = (info: EventDropArg) => {
-    const { event, delta } = info;
+    const { event } = info;
 
     if (!tableId || !startDateField || !endDateField) return;
 
-    const start = event.extendedProps.meta.start;
-    const newStart = addDays(new Date(start), delta.days).toISOString();
+    const { timeZone } = startDateField.options.formatting;
 
-    const end = event.extendedProps.meta.end;
-    const newEnd = end ? addDays(new Date(end), delta.days).toISOString() : undefined;
+    const { start, end } = event.extendedProps.meta;
+    const newStart = getDateByTimezone(new Date(event.startStr), timeZone, start);
+    const newEnd = end
+      ? getDateByTimezone(subDays(new Date(event.endStr), 1), timeZone, end)
+      : undefined;
 
     updateRecord(tableId, event.id, {
       fieldKeyType: FieldKeyType.Id,

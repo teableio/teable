@@ -12,6 +12,7 @@ export enum ActionPrefix {
   User = 'user',
   TableRecordHistory = 'table_record_history',
   Instance = 'instance',
+  Enterprise = 'enterprise',
 }
 
 export const spaceActions = [
@@ -49,6 +50,9 @@ export const tableActions = [
   'table|update',
   'table|import',
   'table|export',
+  'table|trash_read',
+  'table|trash_update',
+  'table|trash_reset',
 ] as const;
 export const tableActionSchema = z.enum(tableActions);
 export type TableAction = z.infer<typeof tableActionSchema>;
@@ -98,6 +102,10 @@ export const instanceActions = ['instance|read', 'instance|update'] as const;
 export const instanceActionSchema = z.enum(instanceActions);
 export type InstanceAction = z.infer<typeof instanceActionSchema>;
 
+export const enterpriseActions = ['enterprise|read', 'enterprise|update'] as const;
+export const enterpriseActionSchema = z.enum(enterpriseActions);
+export type EnterpriseAction = z.infer<typeof enterpriseActionSchema>;
+
 export type Action =
   | SpaceAction
   | BaseAction
@@ -108,7 +116,8 @@ export type Action =
   | AutomationAction
   | UserAction
   | TableRecordHistoryAction
-  | InstanceAction;
+  | InstanceAction
+  | EnterpriseAction;
 
 export type ActionPrefixMap = {
   [ActionPrefix.Space]: SpaceAction[];
@@ -121,6 +130,7 @@ export type ActionPrefixMap = {
   [ActionPrefix.User]: UserAction[];
   [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
   [ActionPrefix.Instance]: InstanceAction[];
+  [ActionPrefix.Enterprise]: EnterpriseAction[];
 };
 export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.Space]: [...spaceActions],
@@ -133,4 +143,5 @@ export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
   [ActionPrefix.User]: [...userActions],
   [ActionPrefix.Instance]: [...instanceActions],
+  [ActionPrefix.Enterprise]: [...enterpriseActions],
 };

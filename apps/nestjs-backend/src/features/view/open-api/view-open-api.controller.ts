@@ -91,9 +91,12 @@ export class ViewOpenApiController {
 
   @Permissions('view|delete')
   @Delete('/:viewId')
-  @EmitControllerEvent(Events.OPERATION_VIEW_DELETE)
-  async deleteView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
-    return await this.viewOpenApiService.deleteView(tableId, viewId);
+  async deleteView(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Headers('x-window-id') windowId?: string
+  ) {
+    return await this.viewOpenApiService.deleteView(tableId, viewId, windowId);
   }
 
   @Permissions('view|update')

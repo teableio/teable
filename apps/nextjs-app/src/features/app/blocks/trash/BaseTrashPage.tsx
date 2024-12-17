@@ -42,7 +42,7 @@ export const BaseTrashPage = () => {
   };
 
   const { data, isFetching, isLoading, fetchNextPage } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.getBaseTrashItems(baseId),
+    queryKey: ReactQueryKeys.getTrashItems(baseId),
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
@@ -50,9 +50,9 @@ export const BaseTrashPage = () => {
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
-    mutationFn: (props: { baseId: string; trashId: string }) => restoreTrash(props.trashId),
+    mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getBaseTrashItems(baseId));
+      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId));
       toast.success(t('actions.restoreSucceed'));
     },
   });
@@ -60,12 +60,15 @@ export const BaseTrashPage = () => {
   const { mutateAsync: mutateResetTrash } = useMutation({
     mutationFn: () => resetTrashItems({ resourceType: ResourceType.Base, resourceId: baseId }),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getBaseTrashItems(baseId));
+      queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId));
       toast.success(t('actions.resetSucceed'));
     },
   });
 
-  const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);
+  const allRows = useMemo(
+    () => (data ? data.pages.flatMap((d) => d) : []) as ITrashItemVo[],
+    [data]
+  );
 
   const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
     const tableColumns: ColumnDef<ITrashItemVo>[] = [
@@ -120,11 +123,7 @@ export const BaseTrashPage = () => {
         cell: ({ row }) => {
           const trashId = row.getValue<string>('id');
           return (
-            <Button
-              size="xs"
-              className="text-[13px]"
-              onClick={() => mutateRestore({ baseId: baseId as string, trashId })}
-            >
+            <Button size="xs" className="text-[13px]" onClick={() => mutateRestore({ trashId })}>
               {t('actions.restore')}
             </Button>
           );
@@ -133,7 +132,7 @@ export const BaseTrashPage = () => {
     }
 
     return tableColumns;
-  }, [t, resourceMap, userMap, mutateRestore, baseId, permission]);
+  }, [t, resourceMap, userMap, mutateRestore, permission]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && nextCursor) {

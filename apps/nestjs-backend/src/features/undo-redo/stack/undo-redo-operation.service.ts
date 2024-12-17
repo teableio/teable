@@ -2,8 +2,10 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { assertNever } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IUndoRedoOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { Events, IEventRawContext } from '../../../event-emitter/events';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -21,8 +23,7 @@ import {
   DeleteRecordsOperation,
   IDeleteRecordsPayload,
 } from '../operations/delete-records.operation';
-import type { IDeleteViewPayload } from '../operations/delete-view.operation';
-import { DeleteViewOperation } from '../operations/delete-view.operation';
+import { IDeleteViewPayload, DeleteViewOperation } from '../operations/delete-view.operation';
 import {
   IPasteSelectionPayload,
   PasteSelectionOperation,
@@ -58,10 +59,16 @@ export class UndoRedoOperationService {
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly recordService: RecordService,
-    private readonly viewService: ViewService
+    private readonly viewService: ViewService,
+    private readonly prismaService: PrismaService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
     this.createRecords = new CreateRecordsOperation(this.recordOpenApiService, this.recordService);
-    this.deleteRecords = new DeleteRecordsOperation(this.recordOpenApiService, this.recordService);
+    this.deleteRecords = new DeleteRecordsOperation(
+      this.recordOpenApiService,
+      this.prismaService,
+      this.thresholdConfig
+    );
     this.updateRecords = new UpdateRecordsOperation(this.recordOpenApiService, this.recordService);
     this.updateRecordsOrder = new UpdateRecordsOrderOperation(this.viewOpenApiService);
     this.createFields = new CreateFieldsOperation(
@@ -70,14 +77,19 @@ export class UndoRedoOperationService {
     );
     this.deleteFields = new DeleteFieldsOperation(
       this.fieldOpenApiService,
-      this.recordOpenApiService
+      this.recordOpenApiService,
+      this.prismaService
     );
     this.convertField = new ConvertFieldOperation(this.fieldOpenApiService);
     this.pasteSelection = new PasteSelectionOperation(
       this.recordOpenApiService,
       this.fieldOpenApiService
     );
-    this.deleteView = new DeleteViewOperation(this.viewOpenApiService, this.viewService);
+    this.deleteView = new DeleteViewOperation(
+      this.viewOpenApiService,
+      this.viewService,
+      this.prismaService
+    );
     this.createView = new CreateViewOperation(this.viewOpenApiService, this.viewService);
     this.updateView = new UpdateViewOperation(this.viewOpenApiService);
   }
@@ -229,9 +241,8 @@ export class UndoRedoOperationService {
   }
 
   @OnEvent(Events.OPERATION_VIEW_DELETE)
-  private async onDeleteView(payload: IEventRawContext) {
-    const windowId = payload.reqHeaders['x-window-id'] as string;
-    const userId = payload.reqUser?.id;
+  private async onDeleteView(payload: IDeleteViewPayload) {
+    const { windowId, userId } = payload;
     if (!windowId || !userId) {
       return;
     }

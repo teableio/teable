@@ -1,6 +1,8 @@
 import type { IFilter } from '@teable/core';
-import { mergeFilter, and, exactDate, isOnOrBefore, isOnOrAfter } from '@teable/core';
+import { mergeFilter, and, exactDate, isOnOrBefore, isOnOrAfter, or, is } from '@teable/core';
 import { RowCountProvider } from '@teable/sdk/context';
+import { format } from 'date-fns';
+import { zonedTimeToUtc } from 'date-fns-tz';
 import { useMemo } from 'react';
 import { useCalendar } from '../hooks';
 import { EventList } from './EventList';
@@ -16,28 +18,51 @@ export const EventListContainer = (props: IEventListContainerProps) => {
   const query = useMemo(() => {
     if (!startDateField || !endDateField) return;
 
-    const dateStr = date.toISOString();
+    const { timeZone } = startDateField.options.formatting;
+
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const startDateUtc = zonedTimeToUtc(`${dateStr} 00:00:00`, timeZone);
+    const endDateUtc = zonedTimeToUtc(`${dateStr} 23:59:59.999`, timeZone);
 
     const filter = mergeFilter(recordQuery?.filter, {
       conjunction: and.value,
       filterSet: [
         {
-          fieldId: startDateField.id,
-          operator: isOnOrBefore.value,
-          value: {
-            exactDate: dateStr,
-            mode: exactDate.value,
-            timeZone: startDateField.options.formatting.timeZone,
-          },
-        },
-        {
-          fieldId: endDateField.id,
-          operator: isOnOrAfter.value,
-          value: {
-            exactDate: dateStr,
-            mode: exactDate.value,
-            timeZone: endDateField.options.formatting.timeZone,
-          },
+          conjunction: or.value,
+          filterSet: [
+            {
+              conjunction: and.value,
+              filterSet: [
+                {
+                  fieldId: startDateField.id,
+                  operator: isOnOrBefore.value,
+                  value: {
+                    exactDate: endDateUtc.toISOString(),
+                    mode: exactDate.value,
+                    timeZone,
+                  },
+                },
+                {
+                  fieldId: endDateField.id,
+                  operator: isOnOrAfter.value,
+                  value: {
+                    exactDate: startDateUtc.toISOString(),
+                    mode: exactDate.value,
+                    timeZone,
+                  },
+                },
+              ],
+            },
+            {
+              fieldId: startDateField.id,
+              operator: is.value,
+              value: {
+                exactDate: startDateUtc.toISOString(),
+                mode: exactDate.value,
+                timeZone,
+              },
+            },
+          ],
         },
       ],
     }) as IFilter;

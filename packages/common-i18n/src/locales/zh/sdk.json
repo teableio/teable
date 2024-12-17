@@ -34,7 +34,8 @@
     "user": "用户",
     "recordHistory": "记录历史",
     "you": "你",
-    "instance": "实例"
+    "instance": "实例",
+    "enterprise": "企业"
   },
   "preview": {
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
@@ -155,13 +156,21 @@
         "daysAgo": "几天前",
         "daysFromNow": "几天后",
         "exactDate": "具体日期",
-
+        "currentWeek": "本周",
+        "currentMonth": "本月",
+        "currentYear": "今年",
+        "lastWeek": "上周",
+        "lastMonth": "上个月",
+        "lastYear": "去年",
+        "nextWeekPeriod": "下周",
+        "nextMonthPeriod": "下个月",
+        "nextYearPeriod": "明年",
         "pastWeek": "过去一周",
         "pastMonth": "过去一个月",
         "pastYear": "过去一年",
-        "nextWeek": "下周",
-        "nextMonth": "下个月",
-        "nextYear": "明年",
+        "nextWeek": "未来一周",
+        "nextMonth": "未来一个月",
+        "nextYear": "未来一年",
         "pastNumberOfDays": "过去几天",
         "nextNumberOfDays": "接下来几天"
       }
@@ -274,6 +283,9 @@
       "tableUpdate": "更新表格",
       "tableImport": "导入数据到表格",
       "tableExport": "导出表格数据",
+      "tableTrashRead": "查看表格回收站",
+      "tableTrashUpdate": "更新表格回收站",
+      "tableTrashReset": "清空表格回收站",
       "viewCreate": "创建视图",
       "viewDelete": "删除视图",
       "viewRead": "查看视图",
@@ -296,7 +308,9 @@
       "recordHistoryRead": "查看记录历史",
       "baseQuery": "查询数据库",
       "instanceRead": "查看实例",
-      "instanceUpdate": "更新实例"
+      "instanceUpdate": "更新实例",
+      "enterpriseRead": "查看企业配置",
+      "enterpriseUpdate": "更新企业配置"
     }
   },
   "formula": {

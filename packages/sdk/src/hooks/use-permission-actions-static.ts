@@ -80,6 +80,15 @@ const actionsI18nMap: Record<
   'table|export': {
     description: 'permission.actionDescription.tableExport',
   },
+  'table|trash_read': {
+    description: 'permission.actionDescription.tableTrashRead',
+  },
+  'table|trash_update': {
+    description: 'permission.actionDescription.tableTrashUpdate',
+  },
+  'table|trash_reset': {
+    description: 'permission.actionDescription.tableTrashReset',
+  },
   'table_record_history|read': {
     description: 'permission.actionDescription.recordHistoryRead',
   },
@@ -149,6 +158,12 @@ const actionsI18nMap: Record<
   'instance|update': {
     description: 'permission.actionDescription.instanceUpdate',
   },
+  'enterprise|read': {
+    description: 'permission.actionDescription.enterpriseRead',
+  },
+  'enterprise|update': {
+    description: 'permission.actionDescription.enterpriseUpdate',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
@@ -181,6 +196,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
   [ActionPrefix.Instance]: {
     title: 'noun.instance',
+  },
+  [ActionPrefix.Enterprise]: {
+    title: 'noun.enterprise',
   },
 };
 

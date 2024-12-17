@@ -1,5 +1,4 @@
-import type { SubscriptionStatus } from '@teable/openapi';
-import { BillingProductLevel } from '@teable/openapi';
+import { SubscriptionStatus, BillingProductLevel } from '@teable/openapi';
 import {
   Button,
   Tooltip,
@@ -18,10 +17,14 @@ interface ILevelWithUpgradeProps {
   level?: BillingProductLevel;
   status?: SubscriptionStatus;
   withUpgrade?: boolean;
+  organization?: {
+    id: string;
+    name: string;
+  };
 }
 
 export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
-  const { level, spaceId, withUpgrade, status } = props;
+  const { level, spaceId, withUpgrade, status, organization } = props;
   const isEnterprise = level === BillingProductLevel.Enterprise;
   const { t } = useTranslation('common');
   const { description } = useBillingLevelConfig(level);
@@ -48,6 +51,9 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      {status === SubscriptionStatus.Active && organization?.name && (
+        <span className="text-xs text-muted-foreground">{organization.name}</span>
+      )}
       <Status status={status} />
       {withUpgrade && !isEnterprise && (
         <Button

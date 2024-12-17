@@ -1,9 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import {
+  currentMonth,
+  currentWeek,
+  currentYear,
   daysAgo,
   daysFromNow,
   exactDate,
   isNot,
+  lastMonth,
+  lastWeek,
+  lastYear,
+  nextMonthPeriod,
+  nextWeekPeriod,
+  nextYearPeriod,
   oneMonthAgo,
   oneMonthFromNow,
   oneWeekAgo,
@@ -12,6 +21,12 @@ import {
   tomorrow,
   yesterday,
 } from '@teable/core';
+import dayjs from 'dayjs';
+import { getDates } from './utils';
+
+const tz = 'Asia/Singapore';
+const now = dayjs().tz(tz);
+const { dates, lookupDates } = getDates();
 
 export const IS_NOT_SETS = [
   {
@@ -40,6 +55,88 @@ export const IS_NOT_SETS = [
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 22,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now, 'week')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextWeekPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now.add(1, 'week'), 'week')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now.subtract(1, 'week'), 'week')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now, 'month')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      23 - dates.filter((t) => t.isSame(now.subtract(1, 'month'), 'month')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextMonthPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now.add(1, 'month'), 'month')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now, 'year')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now.subtract(1, 'year'), 'year')).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextYearPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 23 - dates.filter((t) => t.isSame(now.add(1, 'year'), 'year')).length,
   },
   {
     fieldIndex: 3,
@@ -133,6 +230,106 @@ export const LOOKUP_IS_NOT_SETS = [
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 19,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 - lookupDates.filter((dates) => dates.some((t) => t.isSame(now, 'week'))).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextWeekPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 -
+      lookupDates.filter((dates) => dates.some((t) => t.isSame(now.add(1, 'week'), 'week'))).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastWeek.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 -
+      lookupDates.filter((dates) => dates.some((t) => t.isSame(now.subtract(1, 'week'), 'week')))
+        .length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 - lookupDates.filter((dates) => dates.some((t) => t.isSame(now, 'month'))).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastMonth.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 -
+      lookupDates.filter((dates) => dates.some((t) => t.isSame(now.subtract(1, 'month'), 'month')))
+        .length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextMonthPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 -
+      lookupDates.filter((dates) => dates.some((t) => t.isSame(now.add(1, 'month'), 'month')))
+        .length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: currentYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 - lookupDates.filter((dates) => dates.some((t) => t.isSame(now, 'year'))).length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: lastYear.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 -
+      lookupDates.filter((dates) => dates.some((t) => t.isSame(now.subtract(1, 'year'), 'year')))
+        .length,
+  },
+  {
+    fieldIndex: 3,
+    operator: isNot.value,
+    queryValue: {
+      mode: nextYearPeriod.value,
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength:
+      21 -
+      lookupDates.filter((dates) => dates.some((t) => t.isSame(now.add(1, 'year'), 'year'))).length,
   },
   {
     operator: isNot.value,

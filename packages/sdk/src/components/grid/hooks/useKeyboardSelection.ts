@@ -32,6 +32,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     onDelete,
     onRowExpand,
     editorRef,
+    scrollBy,
   } = props;
   const { pureRowCount, columnCount } = coordInstance;
 
@@ -120,10 +121,14 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   );
 
   useHotkeys(
-    'tab',
+    ['tab', 'shift+tab'],
     () => {
       const [columnIndex, rowIndex] = selection.ranges[0];
-      const newColumnIndex = Math.min(columnIndex + 1, columnCount - 1);
+
+      let newColumnIndex = Math.min(columnIndex + 1, columnCount - 1);
+      if (isHotkeyPressed('shift') && isHotkeyPressed('tab'))
+        newColumnIndex = Math.max(columnIndex - 1, 0);
+
       const newRange = <IRange>[newColumnIndex, rowIndex];
       const ranges = [newRange, newRange];
 
@@ -139,6 +144,17 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     }
   );
 
+  useHotkeys(
+    ['PageUp', 'PageDown'],
+    () => {
+      const delta = coordInstance.containerHeight - coordInstance.rowInitSize - 1;
+      scrollBy(0, isHotkeyPressed('PageUp') ? -delta : delta);
+    },
+    {
+      enabled: Boolean(activeCell && !isEditing),
+      enableOnFormTags: ['input', 'select', 'textarea'],
+    }
+  );
   useHotkeys(
     'mod+a',
     () => {
@@ -172,7 +188,9 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
   useHotkeys(
     ['enter'],
-    () => {
+    (keyboardEvent) => {
+      if (keyboardEvent.isComposing) return;
+
       const { isColumnSelection, ranges: selectionRanges } = selection;
       if (isEditing) {
         let range = selectionRanges[0];

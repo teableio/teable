@@ -178,7 +178,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
       const recordId = cell.id?.split('-')[0];
 
       if (linearRowType === LinearRowType.Group) {
-        const { depth, value, isCollapsed } = linearRow;
+        const { depth, value, isCollapsed, realIndex } = linearRow;
         if (isFirstColumn) {
           groupRowHeaderList.push({
             x: 0.5,
@@ -201,7 +201,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           width: columnWidth,
           height: rowHeight,
           columnIndex,
-          rowIndex,
+          rowIndex: realIndex,
           depth,
           theme,
           value,

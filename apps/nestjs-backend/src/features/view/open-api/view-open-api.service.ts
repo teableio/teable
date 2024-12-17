@@ -28,6 +28,7 @@ import {
   FieldType,
   IdPrefix,
   generatePluginInstallId,
+  generateOperationId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, PluginStatus } from '@teable/openapi';
@@ -86,11 +87,21 @@ export class ViewOpenApiService {
     });
   }
 
-  async deleteView(tableId: string, viewId: string) {
-    return await this.prismaService.$tx(async () => {
+  async deleteView(tableId: string, viewId: string, windowId?: string) {
+    const result = await this.prismaService.$tx(async () => {
       await this.fieldViewSyncService.deleteLinkOptionsDependenciesByViewId(tableId, viewId);
       return await this.deleteViewInner(tableId, viewId);
     });
+
+    this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_DELETE, {
+      operationId: generateOperationId(),
+      windowId,
+      tableId,
+      viewId,
+      userId: this.cls.get('user.id'),
+    });
+
+    return result;
   }
 
   private async createViewInner(tableId: string, viewRo: IViewRo): Promise<IViewVo> {

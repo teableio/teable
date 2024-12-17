@@ -141,7 +141,7 @@
     "@radix-ui/react-toggle-group": "1.1.0",
     "@radix-ui/react-tooltip": "1.0.7",
     "@teable/icons": "workspace:^",
-    "@teable/next-themes": "0.3.3",
+    "@teable/next-themes": "0.3.5",
     "class-variance-authority": "0.7.0",
     "clsx": "2.1.0",
     "cmdk": "1.0.0",

@@ -24,9 +24,12 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient
-      .whereNotBetween(this.tableColumnRef, dateTimeRange)
-      .orWhereNull(this.tableColumnRef);
+
+    // Wrap conditions in a nested `.where()` to ensure proper SQL grouping with parentheses,
+    // generating `WHERE ("data" NOT BETWEEN ... OR "data" IS NULL) AND other_query`.
+    builderClient.where((builder) => {
+      builder.whereNotBetween(this.tableColumnRef, dateTimeRange).orWhereNull(this.tableColumnRef);
+    });
     return builderClient;
   }
 

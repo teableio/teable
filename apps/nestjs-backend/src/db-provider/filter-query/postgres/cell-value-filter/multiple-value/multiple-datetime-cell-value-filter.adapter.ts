@@ -27,12 +27,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient
-      .whereRaw(
-        `NOT ??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-        [this.tableColumnRef]
-      )
-      .orWhereNull(this.tableColumnRef);
+    builderClient.where((builder) => {
+      builder
+        .whereRaw(
+          `NOT ??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
+          [this.tableColumnRef]
+        )
+        .orWhereNull(this.tableColumnRef);
+    });
+
     return builderClient;
   }
 

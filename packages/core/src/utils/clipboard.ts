@@ -54,12 +54,18 @@ export const parseClipboardText = (content: string) => {
           endOfCell = true;
           break;
         }
-      } else if (content[cursor] === _newline) {
+      } else if (
+        content[cursor] === _newline ||
+        `${content[cursor]}${content[cursor + 1]}` === _newline
+      ) {
         if (quoted) {
           cell += _newline;
         } else {
           endOfCell = true;
           endOfRow = true;
+        }
+        if (`${content[cursor]}${content[cursor + 1]}` === _newline) {
+          cursor++;
         }
       } else {
         cell += content[cursor];

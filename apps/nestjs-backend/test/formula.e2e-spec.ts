@@ -283,5 +283,23 @@ describe('OpenAPI formula (e2e)', () => {
       expect(record3.data.fields[formulaField.name]).toEqual('1-22');
       expect(record2.data.fields[autoNumberField.name]).toEqual(1);
     });
+
+    it('should update record by name wile have create last modified field', async () => {
+      await createField(table.id, {
+        type: FieldType.LastModifiedTime,
+      });
+
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [table.fields[0].name]: '1',
+          },
+        },
+      });
+
+      const record = await getRecord(table.id, table.records[0].id);
+      expect(record.data.fields[table.fields[0].name]).toEqual('1');
+    });
   });
 });

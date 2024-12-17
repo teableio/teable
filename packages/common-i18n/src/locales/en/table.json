@@ -470,6 +470,7 @@
     "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
     "action": {
       "rename": "Rename view",
+      "duplicate": "Duplicate view",
       "delete": "Delete view"
     },
     "category": {
@@ -494,5 +495,10 @@
   "pasteNewRecords": {
     "title": "Do you want to add multiple records?",
     "description": "The {{count}} records will be added to the table."
+  },
+  "tableTrash": {
+    "title": "Table trash",
+    "resourceType": "Resource type",
+    "deletedResource": "Deleted resource"
   }
 }

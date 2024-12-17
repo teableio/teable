@@ -1,5 +1,4 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { IdPrefix } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
@@ -9,8 +8,9 @@ import { ResourceType, trashVoSchema } from './get';
 export const GET_TRASH_ITEMS = '/trash/items';
 
 export const trashItemsRoSchema = z.object({
-  resourceId: z.string().startsWith(IdPrefix.Base),
-  resourceType: z.literal(ResourceType.Base),
+  resourceId: z.string(),
+  resourceType: z.enum([ResourceType.Base, ResourceType.Table]),
+  cursor: z.string().nullish(),
 });
 
 export type ITrashItemsRo = z.infer<typeof trashItemsRoSchema>;

@@ -64,9 +64,11 @@ export const SearchButton = (props: ISearchButtonProps) => {
 
   const [, cancel] = useDebounce(
     () => {
-      !searchComposition?.current && setValue(inputValue);
+      if (!searchComposition?.current && inputValue) {
+        setValue(inputValue);
+      }
     },
-    500,
+    inputValue ? 500 : 0,
     [inputValue]
   );
 
@@ -134,6 +136,12 @@ export const SearchButton = (props: ISearchButtonProps) => {
   useEffect(() => {
     setSearchCursor(null);
   }, [viewId, tableId, setSearchCursor]);
+
+  useEffect(() => {
+    if (!inputValue) {
+      setValue(inputValue);
+    }
+  }, [inputValue, setValue]);
 
   const onFieldChangeHandler = useCallback(
     (fieldIds: string[] | null) => {

@@ -457,6 +457,7 @@
     "insertToolTip": "自動並べ替えがオンになっているため、順序付き挿入は利用できません",
     "action": {
       "rename": "ビューの名前を変更",
+      "duplicate": "ビューを複製",
       "delete": "ビューの削除"
     },
     "category": {
@@ -472,5 +473,10 @@
     }
   },
   "lastModifiedTime": "最終更新日時",
-  "lastModify": "最終更新: "
+  "lastModify": "最終更新: ",
+  "tableTrash": {
+    "title": "テーブルのごみ箱",
+    "resourceType": "リソースタイプ",
+    "deletedResource": "削除されたリソース"
+  }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Store } from 'express-session';
 import { pick } from 'lodash';
 import { CacheService } from '../../../cache/cache.service';
@@ -13,6 +13,7 @@ const SESSION_STORE_KEYS = ['passport', 'cookie'] as const;
 export class SessionStoreService extends Store {
   private readonly ttl: number;
   private readonly userSessionExpire: number;
+  private readonly logger = new Logger(SessionStoreService.name);
 
   constructor(
     private readonly cacheService: CacheService,
@@ -43,15 +44,18 @@ export class SessionStoreService extends Store {
   private async getCache(sid: string) {
     const expire = await this.cacheService.get(`auth:session-expire:${sid}`);
     if (expire) {
+      this.logger.log(`Session ${sid} is expired`);
       return null;
     }
     const session = await this.cacheService.get(`auth:session-store:${sid}`);
     if (!session) {
+      this.logger.log(`Session ${sid} not found`);
       return null;
     }
     const userId = session.passport.user.id;
     const userSessions = (await this.cacheService.get(`auth:session-user:${userId}`)) ?? {};
     if (!userSessions[sid]) {
+      this.logger.log(`Session ${sid} not found in userSessions`);
       await this.cacheService.del(`auth:session-store:${sid}`);
       return null;
     }
@@ -62,6 +66,7 @@ export class SessionStoreService extends Store {
       delete userSessions[sid];
       await this.cacheService.del(`auth:session-store:${sid}`);
       await this.cacheService.set(`auth:session-user:${userId}`, userSessions, this.ttl);
+      this.logger.log(`Session ${sid} expired, remove from userSessions`);
       return null;
     }
     return session;

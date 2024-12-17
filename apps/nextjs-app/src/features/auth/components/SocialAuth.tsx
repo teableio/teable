@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
 
-const providersAll = [
+export const providersAll = [
   {
     id: 'github',
     text: 'Github',
@@ -25,7 +25,7 @@ const providersAll = [
 ];
 
 export const SocialAuth = () => {
-  const { socialAuthProviders } = useEnv();
+  const { socialAuthProviders, passwordLoginDisabled } = useEnv();
   const router = useRouter();
   const redirect = router.query.redirect as string;
 
@@ -46,7 +46,7 @@ export const SocialAuth = () => {
 
   return (
     <>
-      <Separator className="my-5" />
+      {!passwordLoginDisabled && <Separator className="my-5" />}
       <div className="space-y-2">
         {providers.map(({ id, text, Icon, authUrl }) => (
           <Button key={id} className="w-full" variant="outline" onClick={() => onClick(authUrl)}>

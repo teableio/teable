@@ -8,12 +8,14 @@ export enum UsageFeature {
   NumRows = 'numRows',
   AttachmentSize = 'attachmentSize',
   NumDatabaseConnections = 'numDatabaseConnections',
+  NumCollaborators = 'numCollaborators',
 }
 
 export const usageFeatureSchema = z.object({
   [UsageFeature.NumRows]: z.number(),
   [UsageFeature.AttachmentSize]: z.number(),
   [UsageFeature.NumDatabaseConnections]: z.number(),
+  [UsageFeature.NumCollaborators]: z.number(),
 });
 
 export enum UsageFeatureLimit {
@@ -33,6 +35,7 @@ export enum UsageFeatureLimit {
   PasswordRestrictedSharesEnable = 'passwordRestrictedSharesEnable',
   AuthenticationEnable = 'authenticationEnable',
   DomainVerificationEnable = 'domainVerificationEnable',
+  OrganizationEnable = 'organizationEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -52,6 +55,7 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.PasswordRestrictedSharesEnable]: z.boolean(),
   [UsageFeatureLimit.AuthenticationEnable]: z.boolean(),
   [UsageFeatureLimit.DomainVerificationEnable]: z.boolean(),
+  [UsageFeatureLimit.OrganizationEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({

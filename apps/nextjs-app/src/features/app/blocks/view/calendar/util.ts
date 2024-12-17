@@ -2,7 +2,8 @@ import type { IColorConfig } from '@teable/core';
 import { ColorConfigType, TimeFormatting } from '@teable/core';
 import { getColorPairs } from '@teable/sdk/components';
 import type { DateField, Record, SingleSelectField } from '@teable/sdk/model';
-import { formatInTimeZone } from 'date-fns-tz';
+import { set } from 'date-fns';
+import { formatInTimeZone, utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 import { DEFAULT_COLOR } from './components/CalendarConfig';
 
 export const getColorByConfig = (
@@ -34,4 +35,19 @@ export const getEventTitle = (title: string, startDate: string | null, dateField
       : '';
 
   return `${prefixStr}${title}`;
+};
+
+export const getDateByTimezone = (date: Date, timeZone: string, originalDate?: string) => {
+  const originalTime = utcToZonedTime(
+    originalDate
+      ? new Date(originalDate)
+      : set(new Date(), { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 }),
+    timeZone
+  );
+  const newDate = set(date, {
+    hours: originalTime.getHours(),
+    minutes: originalTime.getMinutes(),
+    seconds: originalTime.getSeconds(),
+  });
+  return zonedTimeToUtc(newDate, timeZone).toISOString();
 };

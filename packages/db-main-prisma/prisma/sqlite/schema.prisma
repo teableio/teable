@@ -412,6 +412,28 @@ model Trash {
   @@map("trash")
 }
 
+model TableTrash {
+  id               String    @id @default(cuid())
+  tableId          String    @map("table_id")
+  resourceType     String    @map("resource_type")
+  snapshot         String    @map("snapshot")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+
+  @@map("table_trash")
+}
+
+model RecordTrash {
+  id               String    @id @default(cuid())
+  tableId          String    @map("table_id")
+  recordId         String    @map("record_id")
+  snapshot         String    @map("snapshot")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+
+  @@map("record_trash")
+}
+
 model Plugin {
   id               String    @id @default(cuid())
   name             String
