@@ -287,7 +287,6 @@ export const GridViewBase = (props: IGridViewProps) => {
           </div>
         </div>
       )}
-      <StatisticMenu />
       <DomBox id={componentId} />
       <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />
     </div>
