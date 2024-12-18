@@ -13,6 +13,7 @@ export { default as ArrowUpRight } from './components/ArrowUpRight';
 export { default as BarChart2 } from './components/BarChart2';
 export { default as Bell } from './components/Bell';
 export { default as Boolean } from './components/Boolean';
+export { default as Building2 } from './components/Building2';
 export { default as Calendar } from './components/Calendar';
 export { default as Check } from './components/Check';
 export { default as CheckCircle2 } from './components/CheckCircle2';
