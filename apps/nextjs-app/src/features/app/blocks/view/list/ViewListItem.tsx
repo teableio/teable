@@ -159,7 +159,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                 }}
                 className="flex justify-start"
               >
-                <Pencil className="size-3" />
+                <Pencil className="size-3 shrink-0" />
                 {t('view.action.rename')}
               </Button>
             )}
@@ -172,7 +172,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                 }}
                 className="flex justify-start"
               >
-                <Export className="size-3" />
+                <Export className="size-3 shrink-0" />
                 {t('import.menu.downAsCsv')}
               </Button>
             )}
@@ -205,7 +205,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                     deleteView();
                   }}
                 >
-                  <Trash2 className="size-3" />
+                  <Trash2 className="size-3 shrink-0" />
                   {t('view.action.delete')}
                 </Button>
               </>
