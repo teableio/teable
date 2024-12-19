@@ -147,71 +147,73 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
             <PopoverAnchor asChild>{commonPart}</PopoverAnchor>
           )}
         </Button>
-        <PopoverContent className="w-32 p-1">
-          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-          <div className="flex flex-col" onClick={(ev) => ev.stopPropagation()}>
-            {permission['view|update'] && (
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  setIsEditing(true);
-                }}
-                className="flex justify-start"
-              >
-                <Pencil className="size-3 shrink-0" />
-                {t('view.action.rename')}
-              </Button>
-            )}
-            {view.type === 'grid' && permission['view|read'] && (
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  trigger?.();
-                }}
-                className="flex justify-start"
-              >
-                <Export className="size-3 shrink-0" />
-                {t('import.menu.downAsCsv')}
-              </Button>
-            )}
-            {permission['view|create'] && (
-              <>
+        {open && (
+          <PopoverContent className="w-32 p-1">
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+            <div className="flex flex-col" onClick={(ev) => ev.stopPropagation()}>
+              {permission['view|update'] && (
                 <Button
                   size="xs"
                   variant="ghost"
-                  onClick={async () => {
-                    await duplicateView();
-                    setOpen(false);
+                  onClick={() => {
+                    setIsEditing(true);
                   }}
                   className="flex justify-start"
                 >
-                  <Copy className="size-3" />
-                  {t('view.action.duplicate')}
+                  <Pencil className="size-3 shrink-0" />
+                  {t('view.action.rename')}
                 </Button>
-              </>
-            )}
-            {permission['view|delete'] && (
-              <>
-                <Separator className="my-0.5" />
+              )}
+              {view.type === 'grid' && permission['view|read'] && (
                 <Button
                   size="xs"
-                  disabled={!removable}
                   variant="ghost"
-                  className="flex justify-start text-red-500"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    deleteView();
+                  onClick={() => {
+                    trigger?.();
                   }}
+                  className="flex justify-start"
                 >
-                  <Trash2 className="size-3 shrink-0" />
-                  {t('view.action.delete')}
+                  <Export className="size-3 shrink-0" />
+                  {t('import.menu.downAsCsv')}
                 </Button>
-              </>
-            )}
-          </div>
-        </PopoverContent>
+              )}
+              {permission['view|create'] && (
+                <>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={async () => {
+                      await duplicateView();
+                      setOpen(false);
+                    }}
+                    className="flex justify-start"
+                  >
+                    <Copy className="size-3" />
+                    {t('view.action.duplicate')}
+                  </Button>
+                </>
+              )}
+              {permission['view|delete'] && (
+                <>
+                  <Separator className="my-0.5" />
+                  <Button
+                    size="xs"
+                    disabled={!removable}
+                    variant="ghost"
+                    className="flex justify-start text-red-500"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      deleteView();
+                    }}
+                  >
+                    <Trash2 className="size-3 shrink-0" />
+                    {t('view.action.delete')}
+                  </Button>
+                </>
+              )}
+            </div>
+          </PopoverContent>
+        )}
       </Popover>
       <iframe ref={iframeRef} title="This for export csv download" style={{ display: 'none' }} />
     </div>
