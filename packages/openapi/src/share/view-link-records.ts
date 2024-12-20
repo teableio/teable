@@ -18,7 +18,10 @@ export const shareViewLinkRecordsRoSchema = getRecordsRoSchema
   .extend({
     fieldId: z.string(),
     search: z.string().optional(),
-    type: z.nativeEnum(ShareViewLinkRecordsType).optional().openapi('Only used for plugin views'),
+    type: z
+      .nativeEnum(ShareViewLinkRecordsType)
+      .optional()
+      .openapi({ description: 'Only used for plugin views' }),
   });
 
 export type IShareViewLinkRecordsRo = z.infer<typeof shareViewLinkRecordsRoSchema>;
