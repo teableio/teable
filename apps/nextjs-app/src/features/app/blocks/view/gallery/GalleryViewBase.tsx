@@ -143,8 +143,9 @@ export const GalleryViewBase = () => {
                 {Array.from({ length: columnsPerRow }).map((_, i) => {
                   const actualIndex = virtualRow.index * columnsPerRow + i;
                   const card = loadedRecordMap[actualIndex];
+                  const isOverflowItem = virtualRow.index * columnsPerRow + i >= rowCount;
 
-                  return card ? (
+                  return !isOverflowItem && card ? (
                     <SortableItem key={card.id} id={card.id}>
                       <Card card={card} />
                     </SortableItem>
