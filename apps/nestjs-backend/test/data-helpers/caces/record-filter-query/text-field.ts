@@ -5,14 +5,14 @@ export const TEXT_FIELD_CASES = [
     fieldIndex: 0,
     operator: isEmpty.value,
     queryValue: null,
-    expectResultLength: 1,
+    expectResultLength: 2,
     expectMoreResults: false,
   },
   {
     fieldIndex: 0,
     operator: isNotEmpty.value,
     queryValue: null,
-    expectResultLength: 22,
+    expectResultLength: 21,
     expectMoreResults: false,
   },
   {
@@ -33,14 +33,14 @@ export const TEXT_FIELD_CASES = [
     fieldIndex: 0,
     operator: contains.value,
     queryValue: 'Text',
-    expectResultLength: 22,
+    expectResultLength: 21,
     expectMoreResults: true,
   },
   {
     fieldIndex: 0,
     operator: doesNotContain.value,
     queryValue: 'Text',
-    expectResultLength: 1,
+    expectResultLength: 2,
     expectMoreResults: false,
   },
 ];
