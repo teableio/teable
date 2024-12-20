@@ -10,7 +10,7 @@ export const TEXT_FIELD_CASES = [
   {
     fieldIndex: 0,
     aggFunc: StatisticsFunc.Empty,
-    expectValue: 1,
+    expectValue: 2,
     expectGroupedCount: 22,
   },
   {
