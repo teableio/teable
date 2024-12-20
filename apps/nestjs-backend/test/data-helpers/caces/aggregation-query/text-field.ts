@@ -22,25 +22,25 @@ export const TEXT_FIELD_CASES = [
   {
     fieldIndex: 0,
     aggFunc: StatisticsFunc.Unique,
-    expectValue: 21,
+    expectValue: 20,
     expectGroupedCount: 22,
   },
   {
     fieldIndex: 0,
     aggFunc: StatisticsFunc.PercentEmpty,
-    expectValue: 4.347826,
+    expectValue: 8.695652,
     expectGroupedCount: 22,
   },
   {
     fieldIndex: 0,
     aggFunc: StatisticsFunc.PercentFilled,
-    expectValue: 95.652173,
+    expectValue: 91.304347,
     expectGroupedCount: 22,
   },
   {
     fieldIndex: 0,
     aggFunc: StatisticsFunc.PercentUnique,
-    expectValue: 91.304347,
-    expectGroupedCount: 22,
+    expectValue: 86.956521,
+    expectGroupedCount: 21,
   },
 ];
