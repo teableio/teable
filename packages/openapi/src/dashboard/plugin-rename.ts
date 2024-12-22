@@ -4,7 +4,7 @@ import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const DASHBOARD_PLUGIN_RENAME =
-  'base/{baseId}/dashboard/{dashboardId}/plugin/{pluginInstallId}/rename';
+  '/base/{baseId}/dashboard/{dashboardId}/plugin/{pluginInstallId}/rename';
 
 export const dashboardPluginRenameRoSchema = z.object({
   name: z.string(),

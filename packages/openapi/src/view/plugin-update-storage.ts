@@ -5,7 +5,7 @@ import { pluginInstallStorageSchema } from '../dashboard';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_PLUGIN_UPDATE_STORAGE = 'table/{tableId}/view/{viewId}/plugin/{pluginInstallId}';
+export const VIEW_PLUGIN_UPDATE_STORAGE = '/table/{tableId}/view/{viewId}/plugin/{pluginInstallId}';
 
 export const viewPluginUpdateStorageRoSchema = z.object({
   storage: pluginInstallStorageSchema.optional(),

@@ -14,8 +14,7 @@ function registerAllRoute() {
       type: 'http',
       scheme: 'bearer',
     });
-    const path = routeObj.path.startsWith('/') ? routeObj.path : `/${routeObj.path}`;
-    registry.registerPath({ ...routeObj, path, security: [{ [bearerAuth.name]: [] }] });
+    registry.registerPath({ ...routeObj, security: [{ [bearerAuth.name]: [] }] });
   }
   return registry;
 }

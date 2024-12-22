@@ -4,7 +4,7 @@ import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const DASHBOARD_REMOVE_PLUGIN =
-  'base/{baseId}/dashboard/{dashboardId}/plugin/{pluginInstallId}';
+  '/base/{baseId}/dashboard/{dashboardId}/plugin/{pluginInstallId}';
 
 export const DashboardRemovePluginRoute: RouteConfig = registerRoute({
   method: 'delete',
