@@ -62,7 +62,7 @@ const InsertRecordRender = (props: InsertRecordRender) => {
     <Button
       variant={'ghost'}
       size="sm"
-      className="mt-px size-full h-9 justify-start gap-0 px-4 py-2"
+      className="size-full h-9 justify-start gap-0 px-4 py-2"
       onClick={() => {
         onClick(num);
       }}
@@ -223,7 +223,7 @@ export const RecordMenu = () => {
       <PopoverTrigger asChild style={style} className="absolute">
         <div className="size-0 opacity-0" />
       </PopoverTrigger>
-      <PopoverContent className="h-auto w-60 rounded-md p-0" align="start">
+      <PopoverContent className="size-auto min-w-40 rounded-md p-0" align="start">
         <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
           <CommandList>
             {menuItemGroups.map((items, index) => {
