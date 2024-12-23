@@ -62,7 +62,7 @@ const InsertRecordRender = (props: InsertRecordRender) => {
     <Button
       variant={'ghost'}
       size="sm"
-      className="m-0 flex size-full h-5 justify-start gap-0 p-0"
+      className="mt-px size-full h-9 justify-start gap-0 px-4 py-2"
       onClick={() => {
         onClick(num);
       }}
@@ -236,7 +236,12 @@ export const RecordMenu = () => {
                     {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
                       return (
                         <CommandItem
-                          className={cn('px-4 py-2', className)}
+                          className={cn('px-4 py-2', className, {
+                            'px-0 py-0': [
+                              MenuItemType.InsertBelow,
+                              MenuItemType.InsertAbove,
+                            ].includes(type),
+                          })}
                           key={type}
                           value={name}
                           onSelect={async () => {
