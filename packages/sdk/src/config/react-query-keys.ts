@@ -16,6 +16,8 @@ import type {
   IGetRecordsRo,
   ListBaseCollaboratorRo,
   ICalendarDailyCollectionRo,
+  IGetDepartmentListRo,
+  IGetDepartmentUserRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -133,4 +135,10 @@ export const ReactQueryKeys = {
 
   calendarDailyCollection: (tableId: string, query: ICalendarDailyCollectionRo) =>
     ['calendar-daily-collection', tableId, query] as const,
+
+  getDepartmentList: (ro?: IGetDepartmentListRo) => ['department-list', ro] as const,
+
+  getDepartmentUsers: (ro?: IGetDepartmentUserRo) => ['department-users', ro] as const,
+
+  getOrganizationMe: () => ['organization-me'] as const,
 };

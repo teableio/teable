@@ -26,4 +26,13 @@ export interface IClsStore extends ClsStore {
   // for share db adapter
   cookie?: string;
   oldField?: IFieldVo;
+  organization?: {
+    id: string;
+    name: string;
+    isAdmin: boolean;
+    departments?: {
+      id: string;
+      name: string;
+    }[];
+  };
 }

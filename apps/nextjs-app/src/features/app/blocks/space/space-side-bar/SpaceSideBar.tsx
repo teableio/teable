@@ -1,10 +1,10 @@
 import { Admin, Database, Home, Trash2 } from '@teable/icons';
+import { useOrganization } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useOrganization } from '@/features/app/hooks/useOrganization';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { PinList } from './PinList';
 import { SpaceList } from './SpaceList';

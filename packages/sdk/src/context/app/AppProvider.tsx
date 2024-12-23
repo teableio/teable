@@ -15,10 +15,11 @@ interface IAppProviderProps {
   lang?: string;
   locale?: ILocalePartial;
   dehydratedState?: unknown;
+  disabledWs?: boolean;
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { forcedTheme, children, wsPath, lang, locale, dehydratedState } = props;
+  const { forcedTheme, children, wsPath, lang, locale, dehydratedState, disabledWs } = props;
   const [queryClient] = useState(() => createQueryClient());
   const value = useMemo(() => {
     return {
@@ -26,6 +27,16 @@ export const AppProvider = (props: IAppProviderProps) => {
       locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
     };
   }, [lang, locale]);
+
+  if (disabledWs) {
+    <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
+      <AppContext.Provider value={value}>
+        <QueryClientProvider client={queryClient}>
+          <Hydrate state={dehydratedState}>{children}</Hydrate>
+        </QueryClientProvider>
+      </AppContext.Provider>
+    </ThemeProvider>;
+  }
 
   // forcedTheme is not work as expected https://github.com/pacocoursey/next-themes/issues/252
   return (

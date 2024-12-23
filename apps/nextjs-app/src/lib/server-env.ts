@@ -20,6 +20,7 @@ export interface IServerEnv {
       enable: boolean;
     };
   };
+  enableDomainEmail?: boolean;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});
