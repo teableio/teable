@@ -10,18 +10,28 @@
 
 BEGIN;
 
--- DropIndex
-DROP INDEX "collaborator_resource_type_resource_id_user_id_key";
-
 -- AlterTable
 ALTER TABLE "collaborator"
-ADD COLUMN     "principal_id" TEXT NOT NULL,
-ADD COLUMN     "principal_type" TEXT NOT NULL;
+ADD COLUMN "principal_id" TEXT,
+ADD COLUMN "principal_type" TEXT;
 
 UPDATE "collaborator" 
 SET principal_id = user_id,
     principal_type = 'user'
 WHERE user_id IS NOT NULL;
+
+ALTER TABLE "collaborator" 
+ALTER COLUMN "principal_id" SET NOT NULL,
+ALTER COLUMN "principal_type" SET NOT NULL;
+
+
+-- DropForeignKey
+ALTER TABLE "collaborator" DROP CONSTRAINT "collaborator_user_id_fkey";
+
+-- DropIndex
+DROP INDEX "collaborator_resource_type_resource_id_user_id_key";
+
+ALTER TABLE "collaborator" DROP COLUMN "user_id";
 
 -- CreateIndex
 CREATE UNIQUE INDEX "collaborator_resource_type_resource_id_principal_id_princip_key" ON "collaborator"("resource_type", "resource_id", "principal_id", "principal_type");
@@ -29,9 +39,5 @@ CREATE UNIQUE INDEX "collaborator_resource_type_resource_id_principal_id_princip
 -- AddForeignKey
 ALTER TABLE "collaborator" ADD CONSTRAINT "collaborator_principal_id_fkey" FOREIGN KEY ("principal_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- DropForeignKey
-ALTER TABLE "collaborator" DROP CONSTRAINT "collaborator_user_id_fkey";
-
-ALTER TABLE "collaborator" DROP COLUMN "user_id";
 
 COMMIT;
