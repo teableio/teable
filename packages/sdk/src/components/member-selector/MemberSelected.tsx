@@ -36,7 +36,7 @@ export function MemberSelected({ selectedMembers, onRemove }: SelectedMembersPro
               </span>
             </Button>
           );
-          return data.type === TreeNodeType.ORGANIZATION ? (
+          return data.type === TreeNodeType.DEPARTMENT ? (
             <DepartmentItem
               key={id}
               name={data.name}

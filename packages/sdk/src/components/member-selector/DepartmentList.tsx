@@ -23,7 +23,6 @@ import { TreeNodeType, type SelectedMember, type TreeNode } from './types';
 import { useDebounce } from './use-debounce';
 
 interface DepartmentListProps {
-  organizationId: string;
   departmentId?: string;
   selectedMembers: SelectedMember[];
   onSelect: (member: TreeNode) => void;
@@ -66,7 +65,7 @@ export function DepartmentList({
         parentId: search ? undefined : currentDepartment,
         includeChildrenDepartment: search ? true : ro?.includeChildrenDepartment,
       }).then((res) => res.data),
-    enabled: !excludeType?.includes(TreeNodeType.ORGANIZATION),
+    enabled: !excludeType?.includes(TreeNodeType.DEPARTMENT),
   });
 
   const {
@@ -93,7 +92,7 @@ export function DepartmentList({
       const allUsers = pages.flatMap((page) => page.users);
       return allUsers.length >= lastPage.total ? undefined : pages.length;
     },
-    enabled: !excludeType?.includes(TreeNodeType.PERSON),
+    enabled: !excludeType?.includes(TreeNodeType.USER),
   });
 
   const isLoading = isLoadingDepartments || isLoadingMembers;
@@ -101,14 +100,14 @@ export function DepartmentList({
     const departmentNodes =
       departments?.map((dept) => ({
         ...dept,
-        type: TreeNodeType.ORGANIZATION,
+        type: TreeNodeType.DEPARTMENT,
       })) ?? [];
     const memberNodes =
       members?.pages
         .flatMap((page) => page.users)
         .map((member) => ({
           ...member,
-          type: TreeNodeType.PERSON,
+          type: TreeNodeType.USER,
         })) ?? [];
     return [...departmentNodes, ...memberNodes] as TreeNode[];
   }, [departments, members]);
@@ -183,7 +182,7 @@ export function DepartmentList({
           ) : (
             <>
               {items
-                .filter((item) => item.type === TreeNodeType.ORGANIZATION)
+                .filter((item) => item.type === TreeNodeType.DEPARTMENT)
                 .map((item) => (
                   <DepartmentItem
                     key={item.id}
@@ -196,7 +195,7 @@ export function DepartmentList({
                 ))}
 
               {items
-                .filter((item) => item.type === TreeNodeType.PERSON)
+                .filter((item) => item.type === TreeNodeType.USER)
                 .map((item) => (
                   <UserItem
                     key={item.id}

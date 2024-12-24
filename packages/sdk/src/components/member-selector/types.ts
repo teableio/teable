@@ -1,19 +1,19 @@
 import type { IGetDepartmentVo, IGetDepartmentUserItem } from '@teable/openapi';
 
 export enum TreeNodeType {
-  PERSON = 'person',
-  ORGANIZATION = 'organization',
+  USER = 'user',
+  DEPARTMENT = 'department',
 }
 
-export type PersonNode = IGetDepartmentUserItem & {
-  type: TreeNodeType.PERSON;
+export type UserNode = Pick<IGetDepartmentUserItem, 'id' | 'name' | 'email' | 'avatar'> & {
+  type: TreeNodeType.USER;
 };
 
-export type OrganizationNode = IGetDepartmentVo & {
-  type: TreeNodeType.ORGANIZATION;
+export type DepartmentNode = Pick<IGetDepartmentVo, 'id' | 'name'> & {
+  type: TreeNodeType.DEPARTMENT;
 };
 
-export type TreeNode = PersonNode | OrganizationNode;
+export type TreeNode = UserNode | DepartmentNode;
 
 export type SelectedMember = {
   id: string;
