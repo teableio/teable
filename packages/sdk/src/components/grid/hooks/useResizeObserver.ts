@@ -22,9 +22,13 @@ export function useResizeObserver<T extends HTMLElement = HTMLElement>(
 
   useLayoutEffect(() => {
     const resizeCallback: ResizeObserverCallback = (entries) => {
+      let diffHeight = document.body.clientHeight - window.innerHeight;
+      diffHeight = isNaN(diffHeight) ? 0 : diffHeight;
       for (const entry of entries) {
         const { width, height } = (entry && entry.contentRect) || {};
-        setSize((cv) => (cv.width === width && cv.height === height ? cv : { width, height }));
+        setSize((cv) =>
+          cv.width === width && cv.height === height ? cv : { width, height: height - diffHeight }
+        );
       }
     };
 
