@@ -4,13 +4,7 @@ import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useRafState } from 'react-use';
 import type { IGridTheme } from './configs';
-import {
-  gridTheme,
-  GRID_DEFAULT,
-  DEFAULT_SCROLL_STATE,
-  DEFAULT_MOUSE_STATE,
-  GRID_CONTAINER_ID,
-} from './configs';
+import { gridTheme, GRID_DEFAULT, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useResizeObserver } from './hooks';
 import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
@@ -533,7 +527,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   return (
     <div className="size-full" style={style} ref={ref}>
       <div
-        id={GRID_CONTAINER_ID}
+        data-t-grid-container
         ref={containerRef}
         tabIndex={0}
         className="relative outline-none"

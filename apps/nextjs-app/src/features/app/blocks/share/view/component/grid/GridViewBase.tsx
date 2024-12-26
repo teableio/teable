@@ -46,7 +46,6 @@ import { uniqueId } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
-import { StatisticMenu } from '@/features/app/blocks/view/grid/components';
 import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';

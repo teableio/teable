@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
+import { getRandomString } from '@teable/core';
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
@@ -57,7 +58,7 @@ export interface IEditorRef<T extends IInnerCell = IInnerCell> {
 
 export interface IEditorProps<T extends IInnerCell = IInnerCell> {
   cell: T;
-  rect: IRectangle;
+  rect: IRectangle & { editorId: string };
   theme: IGridTheme;
   style?: CSSProperties;
   isEditing?: boolean;
@@ -118,6 +119,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const height = activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex);
   const editorRef = useRef<IEditorRef | null>(null);
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
+  const editorId = useMemo(() => `editor-container-${getRandomString(8)}`, []);
 
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus?.(),
@@ -179,8 +181,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       y,
       width,
       height,
+      editorId,
     };
-  }, [coordInstance, rowIndex, columnIndex, width, height, scrollLeft, scrollTop]);
+  }, [coordInstance, rowIndex, columnIndex, width, height, scrollLeft, scrollTop, editorId]);
 
   const EditorRenderer = useMemo(() => {
     if (readonly) return null;
@@ -294,7 +297,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   return (
-    <div className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full">
+    <div
+      id={editorId}
+      className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full"
+    >
       <div
         className="absolute z-10"
         style={{
