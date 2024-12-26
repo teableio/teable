@@ -10,6 +10,7 @@ import { canManageRole, generateInvitationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
+  PrincipalType,
   type AcceptInvitationLinkRo,
   type EmailInvitationVo,
   type EmailSpaceInvitationRo,
@@ -71,7 +72,8 @@ export class InvitationService {
       .txClient()
       .collaborator.findFirstOrThrow({
         where: {
-          userId,
+          principalId: userId,
+          principalType: PrincipalType.User,
           resourceId: {
             in: [spaceId, resourceId],
           },
@@ -156,13 +158,19 @@ export class InvitationService {
       for (const sendUser of sendUsers) {
         // create collaborator link
         if (resourceType === CollaboratorType.Space) {
-          await this.collaboratorService.createSpaceCollaborator(sendUser.id, resourceId, role);
+          await this.collaboratorService.createSpaceCollaborator({
+            principalId: sendUser.id,
+            principalType: PrincipalType.User,
+            spaceId: resourceId,
+            role: role as IRole,
+          });
         } else {
-          await this.collaboratorService.createBaseCollaborator(
-            sendUser.id,
-            resourceId,
-            role as IBaseRole
-          );
+          await this.collaboratorService.createBaseCollaborator({
+            principalId: sendUser.id,
+            principalType: PrincipalType.User,
+            baseId: resourceId,
+            role: role as IBaseRole,
+          });
         }
         // generate invitation record
         const { id, invitationCode } = await this.generateInvitation({
@@ -417,26 +425,29 @@ export class InvitationService {
     }
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
-        userId: currentUserId,
+        principalId: currentUserId,
+        principalType: PrincipalType.User,
         resourceId: { in: baseSpaceId ? [baseSpaceId, baseId!] : [spaceId!] },
       },
     });
     if (!exist) {
       await this.prismaService.$tx(async () => {
         if (resourceType === CollaboratorType.Space) {
-          await this.collaboratorService.createSpaceCollaborator(
-            currentUserId,
-            spaceId!,
-            role as IRole,
-            createdBy
-          );
+          await this.collaboratorService.createSpaceCollaborator({
+            principalId: currentUserId,
+            principalType: PrincipalType.User,
+            spaceId: spaceId!,
+            role: role as IRole,
+            createdBy,
+          });
         } else {
-          await this.collaboratorService.createBaseCollaborator(
-            currentUserId,
-            baseId!,
-            role as IBaseRole,
-            createdBy
-          );
+          await this.collaboratorService.createBaseCollaborator({
+            principalId: currentUserId,
+            principalType: PrincipalType.User,
+            baseId: baseId!,
+            role: role as IBaseRole,
+            createdBy,
+          });
         }
         // save invitation record for audit
         await this.prismaService.txClient().invitationRecord.create({

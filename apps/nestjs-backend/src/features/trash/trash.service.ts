@@ -16,7 +16,7 @@ import type {
   ITrashRo,
   ITrashVo,
 } from '@teable/openapi';
-import { CollaboratorType, ResourceType } from '@teable/openapi';
+import { CollaboratorType, PrincipalType, ResourceType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { ICreateFieldsOperation } from '../../cache/types';
@@ -47,7 +47,8 @@ export class TrashService {
     const userId = this.cls.get('user.id');
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
         roleName: { in: [Role.Owner, Role.Creator] },
       },
       select: {

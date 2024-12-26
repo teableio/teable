@@ -1,25 +1,28 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { CollaboratorType, itemSpaceCollaboratorSchema } from '../space/collaborator-get-list';
+import { collaboratorItem } from '../space/types';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const BASE_COLLABORATE_LIST = '/base/{baseId}/collaborators';
 
-export const itemBaseCollaboratorSchema = itemSpaceCollaboratorSchema.extend({
-  resourceType: z.nativeEnum(CollaboratorType),
-  isSystem: z.boolean().optional(),
-});
+export const itemBaseCollaboratorSchema = collaboratorItem;
 
 export const listBaseCollaboratorRoSchema = z.object({
   includeSystem: z.coerce.boolean().optional(),
+  skip: z.coerce.number().optional(),
+  take: z.coerce.number().optional(),
+  search: z.string().optional(),
 });
 
 export type ListBaseCollaboratorRo = z.infer<typeof listBaseCollaboratorRoSchema>;
 
 export type ItemBaseCollaborator = z.infer<typeof itemBaseCollaboratorSchema>;
 
-export const listBaseCollaboratorVoSchema = z.array(itemBaseCollaboratorSchema);
+export const listBaseCollaboratorVoSchema = z.object({
+  collaborators: z.array(itemBaseCollaboratorSchema),
+  total: z.number(),
+});
 
 export type ListBaseCollaboratorVo = z.infer<typeof listBaseCollaboratorVoSchema>;
 

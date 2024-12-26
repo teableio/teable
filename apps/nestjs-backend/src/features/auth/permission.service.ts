@@ -3,7 +3,7 @@ import type { IBaseRole, Action, IRole } from '@teable/core';
 import { IdPrefix, canManageRole, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
-import { intersection } from 'lodash';
+import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 
@@ -30,14 +30,14 @@ export class PermissionService {
     const departmentIds = this.getDepartmentIds();
     const collaborators = await this.prismaService.collaborator.findMany({
       where: {
-        userId: { in: [...departmentIds, userId] },
+        principalId: { in: [...departmentIds, userId] },
         resourceId: spaceId,
         resourceType: CollaboratorType.Space,
       },
       select: { roleName: true },
     });
     if (!collaborators.length) {
-      throw new ForbiddenException(`you have no permission to access this space`);
+      return null;
     }
     return this.getMaxLevelRole(collaborators);
   }
@@ -48,7 +48,7 @@ export class PermissionService {
 
     const collaborators = await this.prismaService.collaborator.findMany({
       where: {
-        userId: { in: [...departmentIds, userId] },
+        principalId: { in: [...departmentIds, userId] },
         resourceId: baseId,
         resourceType: CollaboratorType.Base,
       },
@@ -64,7 +64,7 @@ export class PermissionService {
     const departmentIds = this.getDepartmentIds();
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
-        userId: { in: [...departmentIds, userId] },
+        principalId: { in: [...departmentIds, userId] },
       },
       select: { roleName: true, resourceId: true, resourceType: true },
     });
@@ -218,17 +218,25 @@ export class PermissionService {
 
   private async getPermissionBySpaceId(spaceId: string) {
     const role = await this.getRoleBySpaceId(spaceId);
+    if (!role) {
+      throw new ForbiddenException(`you have no permission to access this space`);
+    }
     return getPermissions(role);
   }
 
   private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const role = await this.getRoleByBaseId(baseId);
-    if (role) {
-      return getPermissions(role);
-    }
-    return this.getPermissionBySpaceId(
+    const spaceRole = await this.getRoleBySpaceId(
       (await this.getUpperIdByBaseId(baseId, includeInactiveResource)).spaceId
     );
+    if (!role && !spaceRole) {
+      throw new ForbiddenException(`you have no permission to access this base`);
+    }
+    const basePermissions = role ? getPermissions(role) : [];
+    const spacePermissions = spaceRole ? getPermissions(spaceRole) : [];
+    // In the presence of an organization, a user can have concurrent permissions at both space and base levels,
+    // requiring a merge operation to determine the highest applicable permission level
+    return union(basePermissions, spacePermissions);
   }
 
   private async getPermissionByTableId(tableId: string, includeInactiveResource?: boolean) {

@@ -8,6 +8,7 @@ interface IMemberSelectorDialogProps {
   defaultSelectedMembers?: SelectedMemberWithData[];
   departmentId?: string;
   children: React.ReactNode;
+  disabledDepartment?: boolean;
   onConfirm: (members: SelectedMemberWithData[]) => void;
   onCancel?: () => void;
 }
@@ -28,6 +29,7 @@ export const MemberSelectorDialog = React.forwardRef<
       defaultSelectedMembers,
       onConfirm,
       onCancel,
+      disabledDepartment,
     }: IMemberSelectorDialogProps,
     ref
   ) => {
@@ -69,6 +71,7 @@ export const MemberSelectorDialog = React.forwardRef<
               handleChange(false);
             }}
             onConfirm={handleConfirm}
+            disabledDepartment={disabledDepartment}
           />
         </DialogContent>
       </Dialog>

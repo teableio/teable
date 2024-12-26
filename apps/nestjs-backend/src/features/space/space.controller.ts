@@ -36,6 +36,10 @@ import {
   updateSpaceCollaborateRoSchema,
   UpdateSpaceCollaborateRo,
   CollaboratorType,
+  deleteSpaceCollaboratorRoSchema,
+  DeleteSpaceCollaboratorRo,
+  listSpaceCollaboratorRoSchema,
+  ListSpaceCollaboratorRo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -164,10 +168,13 @@ export class SpaceController {
   @Get(':spaceId/collaborators')
   async listCollaborator(
     @Param('spaceId') spaceId: string,
-    @Query('includeBase') includeBase?: boolean,
-    @Query('includeSystem') includeSystem?: boolean
+    @Query(new ZodValidationPipe(listSpaceCollaboratorRoSchema))
+    options: ListSpaceCollaboratorRo
   ): Promise<ListSpaceCollaboratorVo> {
-    return await this.collaboratorService.getListBySpace(spaceId, { includeSystem, includeBase });
+    return {
+      collaborators: await this.collaboratorService.getListBySpace(spaceId, options),
+      total: await this.collaboratorService.getTotalSpace(spaceId, options),
+    };
   }
 
   @Patch(':spaceId/collaborators')
@@ -178,30 +185,38 @@ export class SpaceController {
   ): Promise<void> {
     if (
       updateSpaceCollaborateRo.role !== Role.Owner &&
-      (await this.collaboratorService.isUniqueOwnerUser(spaceId, updateSpaceCollaborateRo.userId))
+      (await this.collaboratorService.isUniqueOwnerUser(
+        spaceId,
+        updateSpaceCollaborateRo.principalId
+      ))
     ) {
       throw new BadRequestException('Cannot change the role of the only owner of the space');
     }
     await this.collaboratorService.updateCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
-      userId: updateSpaceCollaborateRo.userId,
-      role: updateSpaceCollaborateRo.role,
+      ...updateSpaceCollaborateRo,
     });
   }
 
   @Delete(':spaceId/collaborators')
   async deleteCollaborator(
     @Param('spaceId') spaceId: string,
-    @Query('userId') userId: string
+    @Query(new ZodValidationPipe(deleteSpaceCollaboratorRoSchema))
+    deleteSpaceCollaboratorRo: DeleteSpaceCollaboratorRo
   ): Promise<void> {
-    if (await this.collaboratorService.isUniqueOwnerUser(spaceId, userId)) {
+    if (
+      await this.collaboratorService.isUniqueOwnerUser(
+        spaceId,
+        deleteSpaceCollaboratorRo.principalId
+      )
+    ) {
       throw new BadRequestException('Cannot delete the only owner of the space');
     }
     await this.collaboratorService.deleteCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
-      userId,
+      ...deleteSpaceCollaboratorRo,
     });
   }
 

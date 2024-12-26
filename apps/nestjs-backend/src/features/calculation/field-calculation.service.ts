@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -53,12 +54,12 @@ export class FieldCalculationService {
     });
 
     const collaborators = await this.prismaService.collaborator.findMany({
-      where: { resourceId: { in: [spaceId, baseId] } },
-      select: { userId: true },
+      where: { resourceId: { in: [spaceId, baseId] }, principalType: PrincipalType.User },
+      select: { principalId: true },
     });
 
     const users = await this.prismaService.user.findMany({
-      where: { id: { in: collaborators.map((c) => c.userId) } },
+      where: { id: { in: collaborators.map((c) => c.principalId) } },
       select: { id: true, name: true, avatar: true },
     });
 

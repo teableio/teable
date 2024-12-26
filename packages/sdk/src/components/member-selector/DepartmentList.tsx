@@ -29,6 +29,7 @@ interface DepartmentListProps {
   className?: string;
   search?: string;
   excludeType?: TreeNodeType[];
+  disabledDepartment?: boolean;
 }
 
 interface BreadcrumbItem {
@@ -45,6 +46,7 @@ export function DepartmentList({
   className,
   search,
   excludeType,
+  disabledDepartment,
 }: DepartmentListProps) {
   const { t } = useTranslation();
   const [currentDepartment, setCurrentDepartment] = React.useState<string | undefined>(
@@ -190,6 +192,7 @@ export function DepartmentList({
                     checked={isSelected(item.id)}
                     onClick={() => handleDepartmentClick(item)}
                     onCheckedChange={() => onSelect(item)}
+                    showCheckbox={!disabledDepartment}
                     suffix={<ChevronRight className="size-4 text-muted-foreground" />}
                   />
                 ))}

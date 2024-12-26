@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import type { IRole } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, ResourceType } from '@teable/openapi';
+import { CollaboratorType, PrincipalType, ResourceType } from '@teable/openapi';
 import type {
   ICreateBaseFromTemplateRo,
   ICreateBaseRo,
@@ -60,7 +60,8 @@ export class BaseService {
       .findFirstOrThrow({
         where: {
           resourceId: { in: [baseId, base.spaceId] },
-          userId,
+          principalId: userId,
+          principalType: PrincipalType.User,
         },
       })
       .catch(() => {

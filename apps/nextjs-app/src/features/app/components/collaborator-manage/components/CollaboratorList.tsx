@@ -1,21 +1,30 @@
+import { Spin } from '@teable/ui-lib/base';
 import { Input } from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface ICollaboratorListProps {
   children?: React.ReactNode | React.ReactNode[];
   inputRight?: React.ReactNode;
   searchPlaceholder?: string;
+  isSearching?: boolean;
   onSearch: (search: string) => void;
 }
 
 export const CollaboratorList = (props: ICollaboratorListProps) => {
-  const { searchPlaceholder, onSearch, children, inputRight } = props;
+  const { searchPlaceholder, onSearch, children, inputRight, isSearching } = props;
   const [search, setSearch] = useState<string>('');
+  const [isComposing, setIsComposing] = useState(false);
 
   const setApplySearchDebounced = useMemo(() => {
     return debounce(onSearch, 200);
   }, [onSearch]);
+
+  useEffect(() => {
+    if (!isComposing) {
+      setApplySearchDebounced(search);
+    }
+  }, [search, isComposing, onSearch, setApplySearchDebounced]);
 
   return (
     <div>
@@ -28,12 +37,21 @@ export const CollaboratorList = (props: ICollaboratorListProps) => {
           onChange={(e) => {
             const value = e.target.value;
             setSearch(value);
-            setApplySearchDebounced(value);
           }}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
         />
         {inputRight}
       </div>
-      <div className="mb-0.5 space-y-5">{children}</div>
+      <div className="mb-0.5 space-y-5">
+        {isSearching ? (
+          <div className="flex justify-center">
+            <Spin />
+          </div>
+        ) : (
+          children
+        )}
+      </div>
     </div>
   );
 };

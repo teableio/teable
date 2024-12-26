@@ -1,13 +1,15 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { baseRolesSchema } from '@teable/core';
 import { axios } from '../axios';
+import { PrincipalType } from '../space/types';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const UPDATE_BASE_COLLABORATE = '/base/{baseId}/collaborators';
 
 export const updateBaseCollaborateRoSchema = z.object({
-  userId: z.string(),
+  principalId: z.string(),
+  principalType: z.nativeEnum(PrincipalType),
   role: baseRolesSchema,
 });
 

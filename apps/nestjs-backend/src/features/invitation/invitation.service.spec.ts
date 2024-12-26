@@ -4,7 +4,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { getPermissions, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType } from '@teable/openapi';
+import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
@@ -125,11 +125,13 @@ describe('InvitationService', () => {
           })
       );
 
-      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith(
-        mockInvitedUser.id,
-        mockSpace.id,
-        Role.Owner
-      );
+      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith({
+        principalId: mockInvitedUser.id,
+        principalType: PrincipalType.User,
+        spaceId: mockSpace.id,
+        role: Role.Owner,
+      });
+
       expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
         data: {
           inviter: mockUser.id,
@@ -204,11 +206,12 @@ describe('InvitationService', () => {
           })
       );
 
-      expect(collaboratorService.createBaseCollaborator).toHaveBeenCalledWith(
-        mockInvitedUser.id,
-        'base1',
-        Role.Creator
-      );
+      expect(collaboratorService.createBaseCollaborator).toHaveBeenCalledWith({
+        principalId: mockInvitedUser.id,
+        principalType: PrincipalType.User,
+        baseId: 'base1',
+        role: Role.Creator,
+      });
       expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
         data: {
           inviter: mockUser.id,
@@ -389,12 +392,13 @@ describe('InvitationService', () => {
           baseId: mockInvitation.baseId,
         },
       });
-      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith(
-        mockUser.id,
-        mockSpace.id,
-        Role.Owner,
-        'createdBy'
-      );
+      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith({
+        principalId: mockUser.id,
+        principalType: PrincipalType.User,
+        spaceId: mockSpace.id,
+        role: Role.Owner,
+        createdBy: 'createdBy',
+      });
       expect(result.spaceId).toEqual(mockInvitation.spaceId);
     });
   });

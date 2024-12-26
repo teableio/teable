@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IBaseRole, ExcludeAction, IRole, TableAction } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, getPermissionMap } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { PrincipalType } from '@teable/openapi';
 import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -41,8 +42,9 @@ export class TablePermissionService {
       .txClient()
       .collaborator.findFirstOrThrow({
         where: {
-          userId,
+          principalId: userId,
           resourceId: { in: [baseId, base.spaceId] },
+          principalType: PrincipalType.User,
         },
       })
       .catch(() => {

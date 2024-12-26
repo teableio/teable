@@ -1,13 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  CollaboratorType,
-  UploadType,
-  type ListBaseCollaboratorVo,
-  type ListSpaceCollaboratorVo,
-} from '@teable/openapi';
+import type { UserCollaboratorItem } from '@teable/openapi';
+import { CollaboratorType, UploadType, PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -31,11 +28,31 @@ export class CollaboratorService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  async createSpaceCollaborator(userId: string, spaceId: string, role: IRole, createdBy?: string) {
+  private checkPrincipalType(principalType: PrincipalType) {
+    if (principalType === PrincipalType.Department) {
+      throw new BadRequestException('only support user principal type');
+    }
+  }
+
+  async createSpaceCollaborator({
+    principalId,
+    principalType,
+    spaceId,
+    role,
+    createdBy,
+  }: {
+    principalId: string;
+    principalType: PrincipalType;
+    spaceId: string;
+    role: IRole;
+    createdBy?: string;
+  }) {
+    this.checkPrincipalType(principalType);
     const currentUserId = createdBy || this.cls.get('user.id');
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
-        userId,
+        principalId,
+        principalType,
         resourceId: spaceId,
         resourceType: CollaboratorType.Space,
       },
@@ -52,7 +69,8 @@ export class CollaboratorService {
     });
     await this.prismaService.txClient().collaborator.deleteMany({
       where: {
-        userId,
+        principalId,
+        principalType,
         resourceId: { in: bases.map((base) => base.id) },
         resourceType: CollaboratorType.Base,
       },
@@ -62,7 +80,8 @@ export class CollaboratorService {
         resourceId: spaceId,
         resourceType: CollaboratorType.Space,
         roleName: role,
-        userId,
+        principalId,
+        principalType,
         createdBy: currentUserId!,
       },
     });
@@ -73,19 +92,117 @@ export class CollaboratorService {
     return collaborator;
   }
 
-  async getListByBase(
+  private async getBaseWhere(
     baseId: string,
-    options?: { includeSystem?: boolean }
-  ): Promise<ListBaseCollaboratorVo> {
-    const { includeSystem } = options ?? {};
+    options?: { includeSystem?: boolean; search?: string }
+  ): Promise<Prisma.CollaboratorWhereInput> {
+    const { includeSystem, search } = options ?? {};
     const base = await this.prismaService
       .txClient()
       .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
+    return {
+      resourceId: { in: [baseId, base.spaceId] },
+      ...(search
+        ? {
+            OR: [
+              {
+                user: {
+                  name: { contains: search },
+                  ...(includeSystem ? {} : { isSystem: null }),
+                },
+              },
+              {
+                user: { email: { contains: search }, ...(includeSystem ? {} : { isSystem: null }) },
+              },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  async getTotalBase(baseId: string, options?: { includeSystem?: boolean; search?: string }) {
+    const where = await this.getBaseWhere(baseId, options);
+    return this.prismaService.txClient().collaborator.count({
+      where,
+    });
+  }
+
+  async getListByBase(
+    baseId: string,
+    options?: { includeSystem?: boolean; skip?: number; take?: number; search?: string }
+  ): Promise<UserCollaboratorItem[]> {
+    const { skip = 0, take = 50 } = options ?? {};
+    const where = await this.getBaseWhere(baseId, options);
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where,
+      skip,
+      take,
+      select: {
+        roleName: true,
+        createdTime: true,
+        resourceType: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            isSystem: true,
+          },
+        },
+      },
+      orderBy: { createdTime: 'asc' },
+    });
+
+    return collaborators
+      .filter((collaborator) => collaborator.user)
+      .map((collaborator) => ({
+        type: PrincipalType.User,
+        userId: collaborator.user!.id,
+        userName: collaborator.user!.name,
+        email: collaborator.user!.email,
+        avatar: collaborator.user!.avatar
+          ? getFullStorageUrl(
+              StorageAdapter.getBucket(UploadType.Avatar),
+              collaborator.user!.avatar
+            )
+          : null,
+        role: collaborator.roleName as IRole,
+        createdTime: collaborator.createdTime.toISOString(),
+        resourceType: collaborator.resourceType as CollaboratorType,
+        isSystem: collaborator.user!.isSystem || undefined,
+      }));
+  }
+
+  async getUserCollaboratorsByTableId(
+    tableId: string,
+    query: {
+      containsIn: {
+        keys: ('id' | 'name' | 'email' | 'phone')[];
+        values: string[];
+      };
+    }
+  ) {
+    const { baseId } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      select: { baseId: true },
+      where: { id: tableId },
+    });
+
+    const base = await this.prismaService.txClient().base.findUniqueOrThrow({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
 
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
         resourceId: { in: [baseId, base.spaceId] },
-        ...(includeSystem ? {} : { user: { isSystem: null } }),
+        ...(query.containsIn
+          ? {
+              OR: query.containsIn.keys.map((key) => ({
+                user: { [key]: { contains: query.containsIn.values[0] } },
+              })),
+            }
+          : {}),
       },
       select: {
         roleName: true,
@@ -104,39 +221,62 @@ export class CollaboratorService {
       orderBy: { createdTime: 'asc' },
     });
 
-    return collaborators.map((collaborator) => ({
-      userId: collaborator.user.id,
-      userName: collaborator.user.name,
-      email: collaborator.user.email,
-      avatar: collaborator.user.avatar
-        ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), collaborator.user.avatar)
-        : null,
-      role: collaborator.roleName as IRole,
-      createdTime: collaborator.createdTime.toISOString(),
-      resourceType: collaborator.resourceType as CollaboratorType,
-      isSystem: collaborator.user.isSystem || undefined,
-    }));
+    return collaborators.map(({ user }) => user!);
   }
 
-  async getBaseCollabsWithPrimary(tableId: string) {
-    const { baseId } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      select: { baseId: true },
-      where: { id: tableId },
-    });
+  private getSpaceWhere(
+    spaceId: string,
+    options?: { includeSystem?: boolean; baseIds?: string[]; search?: string }
+  ): Prisma.CollaboratorWhereInput {
+    const { includeSystem, baseIds, search } = options ?? {};
+    return {
+      resourceId: baseIds?.length ? { in: [...baseIds, spaceId] } : spaceId,
+      ...(search
+        ? {
+            OR: [
+              {
+                user: { name: { contains: search }, ...(includeSystem ? {} : { isSystem: null }) },
+              },
+              {
+                user: { email: { contains: search }, ...(includeSystem ? {} : { isSystem: null }) },
+              },
+            ],
+          }
+        : {}),
+    };
+  }
 
-    const baseCollabs = await this.getListByBase(baseId);
-    return baseCollabs.map(({ userId, userName, email }) => ({
-      id: userId,
-      name: userName,
-      email,
-    }));
+  async getTotalSpace(
+    spaceId: string,
+    options?: { includeSystem?: boolean; includeBase?: boolean; search?: string }
+  ) {
+    const { includeBase } = options ?? {};
+    let baseIds: string[] = [];
+    if (includeBase) {
+      const bases = await this.prismaService.txClient().base.findMany({
+        where: { spaceId, deletedTime: null, space: { deletedTime: null } },
+      });
+      baseIds = map(bases, 'id') as string[];
+    }
+    return this.prismaService.txClient().collaborator.count({
+      where: this.getSpaceWhere(spaceId, {
+        ...options,
+        baseIds,
+      }),
+    });
   }
 
   async getListBySpace(
     spaceId: string,
-    options?: { includeSystem?: boolean; includeBase?: boolean }
-  ): Promise<ListSpaceCollaboratorVo> {
-    const { includeSystem, includeBase } = options ?? {};
+    options?: {
+      includeSystem?: boolean;
+      includeBase?: boolean;
+      skip?: number;
+      take?: number;
+      search?: string;
+    }
+  ): Promise<UserCollaboratorItem[]> {
+    const { includeBase, skip = 0, take = 50 } = options ?? {};
     let baseIds: string[] = [];
     let baseMap: Record<string, { name: string; id: string }> = {};
     if (includeBase) {
@@ -153,10 +293,12 @@ export class CollaboratorService {
       );
     }
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
-      where: {
-        resourceId: baseIds.length ? { in: [...baseIds, spaceId] } : spaceId,
-        ...(includeSystem ? {} : { user: { isSystem: null } }),
-      },
+      where: this.getSpaceWhere(spaceId, {
+        ...options,
+        baseIds,
+      }),
+      skip,
+      take,
       select: {
         resourceId: true,
         roleName: true,
@@ -172,17 +314,24 @@ export class CollaboratorService {
       },
       orderBy: { createdTime: 'desc' },
     });
-    return collaborators.map((collaborator) => ({
-      userId: collaborator.user.id,
-      userName: collaborator.user.name,
-      email: collaborator.user.email,
-      avatar: collaborator.user.avatar
-        ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), collaborator.user.avatar)
-        : null,
-      role: collaborator.roleName as IRole,
-      createdTime: collaborator.createdTime.toISOString(),
-      base: baseMap[collaborator.resourceId],
-    }));
+    return collaborators
+      .filter((collaborator) => collaborator.user)
+      .map((collaborator) => ({
+        type: PrincipalType.User,
+        resourceType: CollaboratorType.Space,
+        userId: collaborator.user!.id,
+        userName: collaborator.user!.name,
+        email: collaborator.user!.email,
+        avatar: collaborator.user!.avatar
+          ? getFullStorageUrl(
+              StorageAdapter.getBucket(UploadType.Avatar),
+              collaborator.user!.avatar
+            )
+          : null,
+        role: collaborator.roleName as IRole,
+        createdTime: collaborator.createdTime.toISOString(),
+        base: baseMap[collaborator.resourceId],
+      }));
   }
 
   private async getOperatorCollaborators({
@@ -196,12 +345,22 @@ export class CollaboratorService {
     targetUserId: string;
     currentUserId: string;
   }) {
-    const currentUserWhere: { userId: string; resourceId: string | Record<string, string[]> } = {
-      userId: currentUserId,
+    const currentUserWhere: {
+      principalId: string;
+      principalType: PrincipalType;
+      resourceId: string | Record<string, string[]>;
+    } = {
+      principalId: currentUserId,
+      principalType: PrincipalType.User,
       resourceId,
     };
-    const targetUserWhere: { userId: string; resourceId: string | Record<string, string[]> } = {
-      userId: targetUserId,
+    const targetUserWhere: {
+      principalId: string;
+      principalType: PrincipalType;
+      resourceId: string | Record<string, string[]>;
+    } = {
+      principalId: targetUserId,
+      principalType: PrincipalType.User,
       resourceId,
     };
 
@@ -222,8 +381,8 @@ export class CollaboratorService {
       },
     });
 
-    const currentColl = colls.find((coll) => coll.userId === currentUserId);
-    const targetColl = colls.find((coll) => coll.userId === targetUserId);
+    const currentColl = colls.find((coll) => coll.principalId === currentUserId);
+    const targetColl = colls.find((coll) => coll.principalId === targetUserId);
     if (!currentColl || !targetColl) {
       throw new BadRequestException('User not found in collaborator');
     }
@@ -243,19 +402,23 @@ export class CollaboratorService {
         },
       },
     });
-    return collaborators.length === 1 && collaborators[0].userId === userId;
+    return collaborators.length === 1 && collaborators[0].principalId === userId;
   }
 
   async deleteCollaborator({
     resourceId,
     resourceType,
-    userId,
+    principalId,
+    principalType,
   }: {
-    userId: string;
+    principalId: string;
+    principalType: PrincipalType;
     resourceId: string;
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
+    this.checkPrincipalType(principalType);
+    const userId = principalId;
     const { currentColl, targetColl } = await this.getOperatorCollaborators({
       currentUserId,
       targetUserId: userId,
@@ -274,10 +437,11 @@ export class CollaboratorService {
     const result = await this.prismaService.txClient().collaborator.delete({
       where: {
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        resourceType_resourceId_userId: {
+        resourceType_resourceId_principalId_principalType: {
           resourceId: resourceId,
           resourceType: resourceType,
-          userId,
+          principalId: userId,
+          principalType: PrincipalType.User,
         },
       },
     });
@@ -297,16 +461,20 @@ export class CollaboratorService {
 
   async updateCollaborator({
     role,
-    userId,
+    principalId,
+    principalType,
     resourceId,
     resourceType,
   }: {
     role: IRole;
-    userId: string;
+    principalId: string;
+    principalType: PrincipalType;
     resourceId: string;
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
+    this.checkPrincipalType(principalType);
+    const userId = principalId;
     const { currentColl, targetColl } = await this.getOperatorCollaborators({
       currentUserId,
       targetUserId: userId,
@@ -332,7 +500,8 @@ export class CollaboratorService {
       where: {
         resourceId: resourceId,
         resourceType: resourceType,
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
       },
       data: {
         roleName: role,
@@ -344,7 +513,8 @@ export class CollaboratorService {
   async getCollaboratorsBaseAndSpaceArray(userId: string, searchRoles?: IRole[]) {
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
         ...(searchRoles && searchRoles.length > 0 ? { roleName: { in: searchRoles } } : {}),
       },
       select: {
@@ -373,19 +543,29 @@ export class CollaboratorService {
     };
   }
 
-  async createBaseCollaborator(
-    userId: string,
-    baseId: string,
-    role: IBaseRole,
-    createdBy?: string
-  ) {
+  async createBaseCollaborator({
+    principalId,
+    principalType,
+    baseId,
+    role,
+    createdBy,
+  }: {
+    principalId: string;
+    principalType: PrincipalType;
+    baseId: string;
+    role: IBaseRole;
+    createdBy?: string;
+  }) {
+    this.checkPrincipalType(principalType);
+    const userId = principalId;
     const currentUserId = createdBy || this.cls.get('user.id');
     const base = await this.prismaService.txClient().base.findUniqueOrThrow({
       where: { id: baseId },
     });
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
         resourceId: { in: [baseId, base.spaceId] },
       },
     });
@@ -399,7 +579,8 @@ export class CollaboratorService {
         resourceId: baseId,
         resourceType: CollaboratorType.Base,
         roleName: role,
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
         createdBy: currentUserId!,
       },
     });
@@ -414,7 +595,8 @@ export class CollaboratorService {
     const userId = this.cls.get('user.id');
     const coll = await this.prismaService.txClient().collaborator.findMany({
       where: {
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
         resourceType: CollaboratorType.Base,
       },
       select: {

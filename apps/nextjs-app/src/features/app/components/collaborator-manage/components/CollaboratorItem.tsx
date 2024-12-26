@@ -8,37 +8,24 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import type { ICollaborator } from './Collaborator';
 import { Collaborator } from './Collaborator';
 
 export const CollaboratorItem = (props: {
-  userId: string;
-  userName: string;
-  email: string;
-  avatar?: string | null;
+  item: ICollaborator;
   createdTime: string;
   children: React.ReactNode;
   collaboratorTips?: React.ReactNode;
-  onDeleted: (userId: string) => void;
+  onDeleted: () => void;
   deletable?: boolean;
   showDelete?: boolean;
 }) => {
-  const {
-    userId,
-    userName,
-    email,
-    avatar,
-    createdTime,
-    children,
-    onDeleted,
-    deletable,
-    showDelete,
-    collaboratorTips,
-  } = props;
+  const { item, createdTime, children, onDeleted, deletable, showDelete, collaboratorTips } = props;
   const { t } = useTranslation('common');
   const dayjs = useLanDayjs();
   return (
-    <div key={userId} className="relative flex items-center gap-3 pr-6">
-      <Collaborator tips={collaboratorTips} name={userName} email={email} avatar={avatar} />
+    <div className="relative flex items-center gap-3 pr-6">
+      <Collaborator item={item} tips={collaboratorTips} />
       <div className="text-xs text-muted-foreground">
         {t('invite.dialog.collaboratorJoin', {
           joinTime: dayjs(createdTime).fromNow(),
@@ -54,7 +41,7 @@ export const CollaboratorItem = (props: {
                 size="sm"
                 variant="ghost"
                 disabled={!deletable}
-                onClick={() => onDeleted(userId)}
+                onClick={() => onDeleted()}
               >
                 <X className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
               </Button>

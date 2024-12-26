@@ -4,7 +4,7 @@ import { Role, generateSpaceId, getUniqName } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
-import { ResourceType, CollaboratorType } from '@teable/openapi';
+import { ResourceType, CollaboratorType, PrincipalType } from '@teable/openapi';
 import { keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -33,11 +33,12 @@ export class SpaceService {
         },
         data: spaceCreateInput,
       });
-      await this.collaboratorService.createSpaceCollaborator(
-        spaceCreateInput.createdBy,
-        result.id,
-        Role.Owner
-      );
+      await this.collaboratorService.createSpaceCollaborator({
+        principalId: spaceCreateInput.createdBy,
+        principalType: PrincipalType.User,
+        spaceId: result.id,
+        role: Role.Owner,
+      });
       return result;
     });
   }
@@ -64,7 +65,8 @@ export class SpaceService {
       },
       where: {
         resourceId: spaceId,
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
       },
     });
     if (!collaborator) {
@@ -85,7 +87,8 @@ export class SpaceService {
         roleName: true,
       },
       where: {
-        userId,
+        principalId: userId,
+        principalType: PrincipalType.User,
         resourceType: CollaboratorType.Space,
       },
     });

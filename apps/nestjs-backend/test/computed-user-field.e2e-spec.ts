@@ -14,6 +14,7 @@ import {
   CREATE_FIELD,
   CREATE_TABLE,
   emailBaseInvitation,
+  PrincipalType,
 } from '@teable/openapi';
 import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
@@ -255,7 +256,10 @@ describe('Computed user field (e2e)', () => {
     afterAll(async () => {
       await deleteSpaceCollaborator({
         spaceId: globalThis.testConfig.spaceId,
-        userId: user2.id,
+        deleteSpaceCollaboratorRo: {
+          principalId: user2.id,
+          principalType: PrincipalType.User,
+        },
       });
       await deleteTable(baseId, table1.id);
     });

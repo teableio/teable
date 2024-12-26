@@ -6,6 +6,9 @@ export const SHARE_VIEW_COLLABORATORS = '/share/{shareId}/view/collaborators';
 
 export const shareViewCollaboratorsRoSchema = z.object({
   fieldId: z.string().optional(),
+  skip: z.coerce.number().optional(),
+  take: z.coerce.number().optional(),
+  search: z.string().optional(),
 });
 
 export type IShareViewCollaboratorsRo = z.infer<typeof shareViewCollaboratorsRoSchema>;

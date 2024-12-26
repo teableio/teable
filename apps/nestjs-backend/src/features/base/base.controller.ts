@@ -25,6 +25,8 @@ import {
   CollaboratorType,
   listBaseCollaboratorRoSchema,
   ListBaseCollaboratorRo,
+  deleteBaseCollaboratorRoSchema,
+  DeleteBaseCollaboratorRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -163,7 +165,10 @@ export class BaseController {
     @Param('baseId') baseId: string,
     @Query(new ZodValidationPipe(listBaseCollaboratorRoSchema)) options: ListBaseCollaboratorRo
   ): Promise<ListBaseCollaboratorVo> {
-    return await this.collaboratorService.getListByBase(baseId, options);
+    return {
+      collaborators: await this.collaboratorService.getListByBase(baseId, options),
+      total: await this.collaboratorService.getTotalBase(baseId, options),
+    };
   }
 
   @Permissions('base|read')
@@ -259,20 +264,20 @@ export class BaseController {
     await this.collaboratorService.updateCollaborator({
       resourceId: baseId,
       resourceType: CollaboratorType.Base,
-      userId: updateBaseCollaborateRo.userId,
-      role: updateBaseCollaborateRo.role,
+      ...updateBaseCollaborateRo,
     });
   }
 
   @Delete(':baseId/collaborators')
   async deleteCollaborator(
     @Param('baseId') baseId: string,
-    @Query('userId') userId: string
+    @Query(new ZodValidationPipe(deleteBaseCollaboratorRoSchema))
+    deleteBaseCollaboratorRo: DeleteBaseCollaboratorRo
   ): Promise<void> {
     await this.collaboratorService.deleteCollaborator({
       resourceId: baseId,
       resourceType: CollaboratorType.Base,
-      userId,
+      ...deleteBaseCollaboratorRo,
     });
   }
 

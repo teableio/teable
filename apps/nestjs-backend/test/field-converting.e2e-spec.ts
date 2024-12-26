@@ -8,6 +8,7 @@ import type {
   IRecord,
   IRollupFieldOptions,
   ISelectFieldOptions,
+  IUserCellValue,
 } from '@teable/core';
 import {
   Relationship,
@@ -3543,6 +3544,43 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       await convertField(table2.id, rollupField.id, rollupFieldRo2);
+    });
+  });
+
+  describe('convert user field', () => {
+    bfAf();
+
+    it('should convert user field', async () => {
+      const oldFieldRo: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        type: FieldType.SingleLineText,
+      };
+      const newFieldRo: IFieldRo = {
+        name: 'New Name',
+        type: FieldType.User,
+      };
+
+      const { newField } = await expectUpdate(table1, oldFieldRo, newFieldRo, [
+        globalThis.testConfig.userName,
+        globalThis.testConfig.email,
+        globalThis.testConfig.userId,
+      ]);
+      expect(newField.type).toEqual(FieldType.User);
+
+      const { records } = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        projection: [newField.id],
+      });
+      const notEmptyRecordsFields = records
+        .filter((r) => r.fields[newField.id] != null)
+        .map((r) => (r.fields[newField.id] as IUserCellValue).id);
+      expect(notEmptyRecordsFields).toHaveLength(3);
+      expect(notEmptyRecordsFields).toEqual([
+        globalThis.testConfig.userId,
+        globalThis.testConfig.userId,
+        globalThis.testConfig.userId,
+      ]);
     });
   });
 });

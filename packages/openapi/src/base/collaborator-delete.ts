@@ -1,9 +1,14 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
+import { deleteSpaceCollaboratorRoSchema } from '../space';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const DELETE_BASE_COLLABORATOR = '/base/{baseId}/collaborators';
+
+export const deleteBaseCollaboratorRoSchema = deleteSpaceCollaboratorRoSchema;
+
+export type DeleteBaseCollaboratorRo = z.infer<typeof deleteBaseCollaboratorRoSchema>;
 
 export const DeleteBaseCollaboratorRoute: RouteConfig = registerRoute({
   method: 'delete',
@@ -13,9 +18,7 @@ export const DeleteBaseCollaboratorRoute: RouteConfig = registerRoute({
     params: z.object({
       baseId: z.string(),
     }),
-    query: z.object({
-      userId: z.string(),
-    }),
+    query: deleteBaseCollaboratorRoSchema,
   },
   responses: {
     200: {
@@ -25,7 +28,12 @@ export const DeleteBaseCollaboratorRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
-export const deleteBaseCollaborator = (params: { baseId: string; userId: string }) => {
-  const { baseId, userId } = params;
-  return axios.delete(urlBuilder(DELETE_BASE_COLLABORATOR, { baseId }), { params: { userId } });
+export const deleteBaseCollaborator = (params: {
+  baseId: string;
+  deleteBaseCollaboratorRo: DeleteBaseCollaboratorRo;
+}) => {
+  const { baseId, deleteBaseCollaboratorRo } = params;
+  return axios.delete(urlBuilder(DELETE_BASE_COLLABORATOR, { baseId }), {
+    params: deleteBaseCollaboratorRo,
+  });
 };

@@ -2,7 +2,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { Role, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType } from '@teable/openapi';
+import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { mockDeep } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
@@ -51,13 +51,19 @@ describe('CollaboratorService', () => {
           permissions: getPermissions(Role.Owner),
         },
         async () => {
-          await collaboratorService.createSpaceCollaborator(mockUser.id, mockSpace.id, Role.Owner);
+          await collaboratorService.createSpaceCollaborator({
+            principalId: mockUser.id,
+            principalType: PrincipalType.User,
+            spaceId: mockSpace.id,
+            role: Role.Owner,
+          });
         }
       );
 
       expect(prismaService.collaborator.deleteMany).toBeCalledWith({
         where: {
-          userId: mockUser.id,
+          principalId: mockUser.id,
+          principalType: PrincipalType.User,
           resourceId: { in: ['base1'] },
           resourceType: CollaboratorType.Base,
         },
@@ -78,7 +84,12 @@ describe('CollaboratorService', () => {
       prismaService.collaborator.count.mockResolvedValue(1);
 
       await expect(
-        collaboratorService.createSpaceCollaborator(mockUser.id, mockSpace.id, Role.Owner)
+        collaboratorService.createSpaceCollaborator({
+          principalId: mockUser.id,
+          principalType: PrincipalType.User,
+          spaceId: mockSpace.id,
+          role: Role.Owner,
+        })
       ).rejects.toThrow('has already existed in space');
     });
   });

@@ -303,9 +303,26 @@ export class TypeCastAndValidate {
   }
 
   private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
-    const ctx = this.typecast
-      ? await this.services.collaboratorService.getBaseCollabsWithPrimary(this.tableId)
-      : [];
+    let ctx: { id: string; name: string; email: string }[] = [];
+    if (this.typecast) {
+      const userStrArray = cellValues.map((v) => {
+        const stringCv = convertUser(v);
+        if (!stringCv) {
+          return [];
+        }
+        const stringCvArr = stringCv.split(',').map((s) => s.trim());
+        if (this.field.isMultipleCellValue) {
+          return stringCvArr;
+        }
+        return stringCvArr[0];
+      });
+      ctx = await this.services.collaboratorService.getUserCollaboratorsByTableId(this.tableId, {
+        containsIn: {
+          keys: ['id', 'name', 'email', 'phone'],
+          values: userStrArray.flat(),
+        },
+      });
+    }
 
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       const strValue = convertUser(cellValue);

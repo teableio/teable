@@ -12,13 +12,13 @@ export const BaseCollaboratorContent = (props: { baseId: string; role: IRole }) 
   const { baseId, role } = props;
   const { t } = useTranslation('common');
 
-  const { data: collaborators } = useQuery({
+  const { data: collaborators, isLoading } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true }),
     queryFn: ({ queryKey }) =>
       getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
-  if (!collaborators?.length) {
+  if (!collaborators || isLoading) {
     return <div>{t('actions.loading')}</div>;
   }
 
@@ -28,7 +28,7 @@ export const BaseCollaboratorContent = (props: { baseId: string; role: IRole }) 
         <Trans
           ns="common"
           i18nKey={'invite.base.desc'}
-          count={collaborators.length}
+          count={collaborators.total}
           components={{ b: <b /> }}
         />
       </div>

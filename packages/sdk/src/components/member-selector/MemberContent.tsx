@@ -10,6 +10,7 @@ interface IMemberContentProps {
   className?: string;
   departmentId?: string;
   defaultSelectedMembers?: SelectedMemberWithData[];
+  disabledDepartment?: boolean;
   onCancel?: () => void;
   onConfirm?: (selectedMembers: SelectedMemberWithData[]) => void;
 }
@@ -22,7 +23,14 @@ const _defaultSelectedMembers: SelectedMemberWithData[] = [];
 
 export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
   (
-    { className, departmentId, defaultSelectedMembers, onCancel, onConfirm }: IMemberContentProps,
+    {
+      className,
+      departmentId,
+      defaultSelectedMembers,
+      disabledDepartment,
+      onCancel,
+      onConfirm,
+    }: IMemberContentProps,
     ref
   ) => {
     const [search, setSearch] = useState('');
@@ -73,6 +81,7 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
                 onSelect={handleSelect}
                 className="h-full"
                 search={search}
+                disabledDepartment={disabledDepartment}
               />
             </div>
           </div>

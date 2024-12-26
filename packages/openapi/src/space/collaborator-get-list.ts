@@ -1,41 +1,27 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { roleSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { collaboratorItem } from './types';
 
 export const SPACE_COLLABORATE_LIST = '/space/{spaceId}/collaborators';
 
-export enum CollaboratorType {
-  Space = 'space',
-  Base = 'base',
-}
-
-export const itemSpaceCollaboratorSchema = z.object({
-  userId: z.string(),
-  userName: z.string(),
-  email: z.string(),
-  role: roleSchema,
-  avatar: z.string().nullable(),
-  createdTime: z.string(),
-  base: z
-    .object({
-      id: z.string(),
-      name: z.string(),
-    })
-    .optional(),
-});
-
 export const listSpaceCollaboratorRoSchema = z.object({
-  includeSystem: z.boolean().optional(),
-  includeBase: z.boolean().optional(),
+  includeSystem: z.coerce.boolean().optional(),
+  includeBase: z.coerce.boolean().optional(),
+  skip: z.coerce.number().optional(),
+  take: z.coerce.number().optional(),
+  search: z.string().optional(),
 });
 
 export type ListSpaceCollaboratorRo = z.infer<typeof listSpaceCollaboratorRoSchema>;
 
-export type ItemSpaceCollaboratorVo = z.infer<typeof itemSpaceCollaboratorSchema>;
+export type ItemSpaceCollaboratorVo = z.infer<typeof collaboratorItem>;
 
-export const listSpaceCollaboratorVoSchema = z.array(itemSpaceCollaboratorSchema);
+export const listSpaceCollaboratorVoSchema = z.object({
+  collaborators: z.array(collaboratorItem),
+  total: z.number(),
+});
 
 export type ListSpaceCollaboratorVo = z.infer<typeof listSpaceCollaboratorVoSchema>;
 
