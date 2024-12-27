@@ -355,18 +355,18 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   return (
     <div className="w-[620px]">
       <div className="flex h-12 w-full items-center justify-between border-b-DEFAULT pl-4 pr-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <h1 className="text-base">{t('editor.formula.title')}</h1>
           {enableAI && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
-                size="sm"
+                size="xs"
                 variant="ghost"
                 onClick={handleGenerateFormula}
                 disabled={!isReadyToGenerate || loading}
               >
                 <MagicAI
-                  className={cn('w-4 h-4', loading && 'animate-[pulse_1s_ease-in-out_infinite]')}
+                  className={cn('size-4', loading && 'animate-[pulse_1s_ease-in-out_infinite]')}
                   active={isReadyToGenerate || loading}
                 />
               </Button>
