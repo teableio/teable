@@ -1471,18 +1471,11 @@ export class RecordService {
         qb.select('*').from(dbTableName).whereIn('__id', Ids);
       })
       .with('search_index', (qb) => {
-        this.dbProvider.searchIndexQuery(qb, searchFields, search?.[0], 'current_page_records');
+        this.dbProvider.searchIndexQuery(qb, 'current_page_records', searchFields, {
+          search,
+        });
       })
       .from('search_index');
-
-    const cases = searchFields.map((field, index) => {
-      return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
-        'matched_column',
-        field.dbFieldName,
-        index + 1,
-      ]);
-    });
-    cases.length && newQuery.orderByRaw(cases.join(','));
 
     const result = await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(
       newQuery.toQuery()

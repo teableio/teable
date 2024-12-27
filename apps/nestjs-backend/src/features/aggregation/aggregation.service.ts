@@ -683,33 +683,29 @@ export class AggregationService {
 
     const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
 
-    const queryBuilder = this.knex.queryBuilder();
-
-    this.dbProvider.searchIndexQuery(queryBuilder, searchFields, search?.[0], dbTableName);
-
-    if (orderBy?.length || groupBy?.length) {
+    const filterQuery = (qb: Knex.QueryBuilder) => {
       this.dbProvider
-        .sortQuery(queryBuilder, fieldInstanceMap, [...(groupBy ?? []), ...(orderBy ?? [])])
-        .appendSortBuilder();
-    }
-
-    if (filter) {
-      this.dbProvider
-        .filterQuery(queryBuilder, fieldInstanceMap, filter, {
+        .filterQuery(qb, fieldInstanceMap, filter, {
           withUserId: this.cls.get('user.id'),
         })
         .appendQueryBuilder();
-    }
+    };
 
-    queryBuilder.orderBy(basicSortIndex, 'asc');
-    const cases = searchFields.map((field, index) => {
-      return this.knex.raw(`CASE WHEN ?? = ? THEN ? END`, [
-        'matched_column',
-        field.dbFieldName,
-        index + 1,
-      ]);
-    });
-    cases.length && queryBuilder.orderByRaw(cases.join(','));
+    const sortQuery = (qb: Knex.QueryBuilder) => {
+      this.dbProvider
+        .sortQuery(qb, fieldInstanceMap, [...(groupBy ?? []), ...(orderBy ?? [])])
+        .appendSortBuilder();
+    };
+
+    const queryBuilder = this.dbProvider.searchIndexQuery(
+      this.knex.queryBuilder(),
+      dbTableName,
+      searchFields,
+      queryRo,
+      basicSortIndex,
+      filterQuery,
+      sortQuery
+    );
 
     queryBuilder.limit(take);
     skip && queryBuilder.offset(skip);

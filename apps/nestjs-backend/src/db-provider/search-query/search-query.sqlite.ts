@@ -1,4 +1,5 @@
-import type { IDateFieldOptions } from '@teable/core';
+import { CellValueType, type IDateFieldOptions } from '@teable/core';
+import type { ISearchIndexByQueryRo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
@@ -209,5 +210,99 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
         [this.field.dbFieldName, `%${this.searchValue}%`]
       )
       .toQuery();
+  }
+}
+
+export class SearchQueryBuilder {
+  constructor(
+    public queryBuilder: Knex.QueryBuilder,
+    public dbTableName: string,
+    public searchField: IFieldInstance[],
+    public searchIndexRo: ISearchIndexByQueryRo,
+    public baseSortIndex?: string,
+    public setFilterQuery?: (qb: Knex.QueryBuilder) => void,
+    public setSortQuery?: (qb: Knex.QueryBuilder) => void
+  ) {
+    this.queryBuilder = queryBuilder;
+    this.dbTableName = dbTableName;
+    this.searchField = searchField;
+    this.baseSortIndex = baseSortIndex;
+    this.searchIndexRo = searchIndexRo;
+    this.setFilterQuery = setFilterQuery;
+    this.setSortQuery = setSortQuery;
+  }
+
+  getSearchIndexQuery() {
+    const {
+      queryBuilder,
+      searchIndexRo,
+      dbTableName,
+      searchField,
+      baseSortIndex,
+      setFilterQuery,
+      setSortQuery,
+    } = this;
+    const { search, take, skip, filter, orderBy, groupBy } = searchIndexRo;
+    const knexInstance = queryBuilder.client;
+
+    if (!search || !searchField?.length) {
+      return queryBuilder;
+    }
+
+    queryBuilder.with('search_field_union_table', (qb) => {
+      for (let index = 0; index < searchField.length; index++) {
+        const currentWhereRaw = searchField[index];
+        const dbFieldName = searchField[index].dbFieldName;
+
+        // boolean field or new field which does not support search should be skipped
+        if (!currentWhereRaw || !dbFieldName) {
+          continue;
+        }
+
+        if (index === 0) {
+          qb.select('*', knexInstance.raw(`? as matched_column`, [dbFieldName]))
+            .whereRaw(`${currentWhereRaw}`)
+            .from(dbTableName);
+        } else {
+          qb.unionAll(function () {
+            this.select('*', knexInstance.raw(`? as matched_column`, [dbFieldName]))
+              .whereRaw(`${currentWhereRaw}`)
+              .from(dbTableName);
+          });
+        }
+      }
+    });
+
+    queryBuilder
+      .select('__id', '__auto_number', 'matched_column')
+      .select(
+        knexInstance.raw(
+          `CASE
+            ${searchField.map((field) => `WHEN matched_column = '${field.dbFieldName}' THEN '${field.id}'`).join(' ')}
+          END AS "fieldId"`
+        )
+      )
+      .from('search_field_union_table');
+
+    if (orderBy?.length || groupBy?.length) {
+      setSortQuery?.(queryBuilder);
+    }
+
+    if (filter) {
+      setFilterQuery?.(queryBuilder);
+    }
+
+    baseSortIndex && queryBuilder.orderBy(baseSortIndex, 'asc');
+
+    const cases = searchField.map((field, index) => {
+      return knexInstance.raw(`CASE WHEN ?? = ? THEN ? END`, [
+        'matched_column',
+        field.dbFieldName,
+        index + 1,
+      ]);
+    });
+    cases.length && queryBuilder.orderByRaw(cases.join(','));
+
+    return queryBuilder;
   }
 }

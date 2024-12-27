@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { IFilter, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
-import type { IAggregationField } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -24,7 +24,7 @@ import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
-import { SearchQuerySqlite } from './search-query/search-query.sqlite';
+import { SearchQueryBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
@@ -285,19 +285,23 @@ export class SqliteProvider implements IDbProvider {
 
   searchIndexQuery(
     originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     searchField: IFieldInstance[],
-    searchValue: string,
-    dbTableName: string
+    searchIndexRo: ISearchIndexByQueryRo,
+    baseSortIndex?: string,
+    setFilterQuery?: (qb: Knex.QueryBuilder) => void,
+    setSortQuery?: (qb: Knex.QueryBuilder) => void
   ) {
-    return SearchQueryAbstract.buildSearchIndexQuery(
-      SearchQuerySqlite,
+    return new SearchQueryBuilder(
       originQueryBuilder,
+      dbTableName,
       searchField,
-      searchValue,
-      dbTableName
-    );
+      searchIndexRo,
+      baseSortIndex,
+      setFilterQuery,
+      setSortQuery
+    ).getSearchIndexQuery();
   }
-
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,
     dbFieldName: string,

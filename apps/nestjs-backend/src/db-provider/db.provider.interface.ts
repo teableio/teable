@@ -1,6 +1,6 @@
 import type { DriverClient, IFilter, ISortItem } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import type { IAggregationField } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
@@ -136,9 +136,12 @@ export interface IDbProvider {
 
   searchIndexQuery(
     originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     searchField: IFieldInstance[],
-    searchValue: string,
-    dbTableName: string
+    searchIndexRo: Partial<ISearchIndexByQueryRo>,
+    baseSortIndex?: string,
+    setFilterQuery?: (qb: Knex.QueryBuilder) => void,
+    setSortQuery?: (qb: Knex.QueryBuilder) => void
   ): Knex.QueryBuilder;
 
   searchCountQuery(
