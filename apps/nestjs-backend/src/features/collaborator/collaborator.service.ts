@@ -3,7 +3,11 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { UserCollaboratorItem } from '@teable/openapi';
+import type {
+  AddBaseCollaboratorRo,
+  AddSpaceCollaboratorRo,
+  UserCollaboratorItem,
+} from '@teable/openapi';
 import { CollaboratorType, UploadType, PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { map } from 'lodash';
@@ -16,6 +20,7 @@ import {
   Events,
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getFullStorageUrl } from '../attachments/plugins/utils';
 
@@ -47,7 +52,6 @@ export class CollaboratorService {
     role: IRole;
     createdBy?: string;
   }) {
-    this.checkPrincipalType(principalType);
     const currentUserId = createdBy || this.cls.get('user.id');
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
@@ -592,16 +596,14 @@ export class CollaboratorService {
     role: IBaseRole;
     createdBy?: string;
   }) {
-    this.checkPrincipalType(principalType);
-    const userId = principalId;
     const currentUserId = createdBy || this.cls.get('user.id');
     const base = await this.prismaService.txClient().base.findUniqueOrThrow({
       where: { id: baseId },
     });
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
-        principalId: userId,
-        principalType: PrincipalType.User,
+        principalId,
+        principalType,
         resourceId: { in: [baseId, base.spaceId] },
       },
     });
@@ -615,8 +617,8 @@ export class CollaboratorService {
         resourceId: baseId,
         resourceType: CollaboratorType.Base,
         roleName: role,
-        principalId: userId,
-        principalType: PrincipalType.User,
+        principalId,
+        principalType,
         createdBy: currentUserId!,
       },
     });
@@ -664,5 +666,90 @@ export class CollaboratorService {
       spaceId: base.spaceId,
       collaboratorType: CollaboratorType.Base,
     }));
+  }
+
+  async addSpaceCollaborator(spaceId: string, collaborator: AddSpaceCollaboratorRo) {
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.validateUserAddRole({
+      departmentIds,
+      userId: this.cls.get('user.id'),
+      addRole: collaborator.role,
+      resourceId: spaceId,
+      resourceType: CollaboratorType.Space,
+    });
+    return this.createSpaceCollaborator({
+      principalId: collaborator.principalId,
+      principalType: collaborator.principalType,
+      spaceId,
+      role: collaborator.role,
+    });
+  }
+
+  async addBaseCollaborator(baseId: string, collaborator: AddBaseCollaboratorRo) {
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.validateUserAddRole({
+      departmentIds,
+      userId: this.cls.get('user.id'),
+      addRole: collaborator.role,
+      resourceId: baseId,
+      resourceType: CollaboratorType.Base,
+    });
+    return this.createBaseCollaborator({
+      principalId: collaborator.principalId,
+      principalType: collaborator.principalType,
+      baseId,
+      role: collaborator.role,
+    });
+  }
+
+  async validateUserAddRole({
+    departmentIds,
+    userId,
+    addRole,
+    resourceId,
+    resourceType,
+  }: {
+    departmentIds?: string[];
+    userId: string;
+    addRole: IRole;
+    resourceId: string;
+    resourceType: CollaboratorType;
+  }) {
+    let spaceId = resourceType === CollaboratorType.Space ? resourceId : '';
+    if (resourceType === CollaboratorType.Base) {
+      const base = await this.prismaService
+        .txClient()
+        .base.findFirstOrThrow({
+          where: {
+            id: resourceId,
+            deletedTime: null,
+          },
+        })
+        .catch(() => {
+          throw new BadRequestException('Base not found');
+        });
+      spaceId = base.spaceId;
+    }
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        principalId: departmentIds ? { in: [...departmentIds, userId] } : userId,
+        resourceId: {
+          in: [spaceId, resourceId],
+        },
+      },
+    });
+    if (collaborators.length === 0) {
+      throw new BadRequestException('User not found in collaborator');
+    }
+    const userRole = getMaxLevelRole(collaborators);
+
+    if (userRole === addRole) {
+      return;
+    }
+    if (!canManageRole(userRole, addRole)) {
+      throw new ForbiddenException(
+        `You do not have permission to add this role collaborator: ${addRole}`
+      );
+    }
   }
 }

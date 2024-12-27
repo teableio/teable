@@ -40,6 +40,8 @@ import {
   DeleteSpaceCollaboratorRo,
   listSpaceCollaboratorRoSchema,
   ListSpaceCollaboratorRo,
+  addSpaceCollaboratorRoSchema,
+  AddSpaceCollaboratorRo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -223,5 +225,14 @@ export class SpaceController {
   @Delete(':spaceId/permanent')
   async permanentDeleteSpace(@Param('spaceId') spaceId: string) {
     return await this.spaceService.permanentDeleteSpace(spaceId);
+  }
+
+  @Post(':spaceId/collaborator')
+  async addCollaborator(
+    @Param('spaceId') spaceId: string,
+    @Body(new ZodValidationPipe(addSpaceCollaboratorRoSchema))
+    addSpaceCollaboratorRo: AddSpaceCollaboratorRo
+  ) {
+    return this.collaboratorService.addSpaceCollaborator(spaceId, addSpaceCollaboratorRo);
   }
 }

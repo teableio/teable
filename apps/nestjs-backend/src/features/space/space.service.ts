@@ -44,8 +44,6 @@ export class SpaceService {
   }
 
   async getSpaceById(spaceId: string) {
-    const userId = this.cls.get('user.id');
-
     const space = await this.prismaService.space.findFirst({
       select: {
         id: true,
@@ -59,22 +57,13 @@ export class SpaceService {
     if (!space) {
       throw new NotFoundException('Space not found');
     }
-    const collaborator = await this.prismaService.collaborator.findFirst({
-      select: {
-        roleName: true,
-      },
-      where: {
-        resourceId: spaceId,
-        principalId: userId,
-        principalType: PrincipalType.User,
-      },
-    });
-    if (!collaborator) {
+    const role = await this.permissionService.getRoleBySpaceId(spaceId);
+    if (!role) {
       throw new ForbiddenException();
     }
     return {
       ...space,
-      role: collaborator.roleName as IRole,
+      role,
     };
   }
 

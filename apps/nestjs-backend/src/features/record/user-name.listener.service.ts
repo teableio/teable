@@ -27,14 +27,14 @@ export class UserNameListener {
       .join('base', 'space.id', 'base.space_id')
       .whereNull('space.deleted_time')
       .whereNull('base.deleted_time')
-      .where('collaborator.user_id', userId)
-      .select('base.id as base_id', 'collaborator.user_id as user_id');
+      .where('collaborator.principal_id', userId)
+      .select('base.id as base_id', 'collaborator.principal_id as user_id');
     const baseQuery = this.knex('collaborator')
       .join('base', 'collaborator.resource_id', 'base.id')
       .join('space', 'base.space_id', 'space.id')
       .whereNull('space.deleted_time')
       .whereNull('base.deleted_time')
-      .select('base.id as base_id', 'collaborator.user_id as user_id');
+      .select('base.id as base_id', 'collaborator.principal_id as user_id');
     const query = this.knex
       .with('c', this.knex.union([spaceBaseQuery, baseQuery]))
       .join('table_meta', 'c.base_id', 'table_meta.base_id')

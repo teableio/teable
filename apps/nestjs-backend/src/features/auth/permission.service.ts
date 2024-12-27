@@ -1,11 +1,12 @@
 import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/common';
-import type { IBaseRole, Action, IRole } from '@teable/core';
-import { IdPrefix, canManageRole, getPermissions } from '@teable/core';
+import type { IBaseRole, Action } from '@teable/core';
+import { IdPrefix, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { getMaxLevelRole } from '../../utils/get-max-level-role';
 
 @Injectable()
 export class PermissionService {
@@ -17,12 +18,6 @@ export class PermissionService {
   private getDepartmentIds() {
     const departments = this.cls.get('organization.departments');
     return departments?.map((department) => department.id) || [];
-  }
-
-  private getMaxLevelRole(collaborators: { roleName: string | IRole }[]): IRole {
-    return collaborators.sort((a, b) => {
-      return canManageRole(a.roleName as IRole, b.roleName as IRole) ? -1 : 1;
-    })[0].roleName as IRole;
   }
 
   async getRoleBySpaceId(spaceId: string) {
@@ -39,7 +34,7 @@ export class PermissionService {
     if (!collaborators.length) {
       return null;
     }
-    return this.getMaxLevelRole(collaborators);
+    return getMaxLevelRole(collaborators);
   }
 
   async getRoleByBaseId(baseId: string) {
@@ -57,7 +52,7 @@ export class PermissionService {
     if (!collaborators.length) {
       return null;
     }
-    return this.getMaxLevelRole(collaborators) as IBaseRole;
+    return getMaxLevelRole(collaborators) as IBaseRole;
   }
 
   async getOAuthAccessBy(userId: string) {

@@ -27,6 +27,8 @@ import {
   ListBaseCollaboratorRo,
   deleteBaseCollaboratorRoSchema,
   DeleteBaseCollaboratorRo,
+  addBaseCollaboratorRoSchema,
+  AddBaseCollaboratorRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -284,5 +286,14 @@ export class BaseController {
   @Delete(':baseId/permanent')
   async permanentDeleteBase(@Param('baseId') baseId: string) {
     return await this.baseService.permanentDeleteBase(baseId);
+  }
+
+  @Post(':baseId/collaborator')
+  async addCollaborator(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(addBaseCollaboratorRoSchema))
+    addBaseCollaboratorRo: AddBaseCollaboratorRo
+  ) {
+    return await this.collaboratorService.addBaseCollaborator(baseId, addBaseCollaboratorRo);
   }
 }

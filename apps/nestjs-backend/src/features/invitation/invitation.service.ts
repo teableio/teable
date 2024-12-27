@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import {
   BadRequestException,
   ForbiddenException,
@@ -6,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IBaseRole, IRole } from '@teable/core';
-import { canManageRole, generateInvitationId } from '@teable/core';
+import { generateInvitationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
@@ -40,56 +41,6 @@ export class InvitationService {
   private generateInviteUrl(invitationId: string, invitationCode: string) {
     const mailConfig = this.configService.get<IMailConfig>('mail');
     return `${mailConfig?.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
-  }
-
-  private async validateUserInviteRole({
-    userId,
-    inviteRole,
-    resourceId,
-    resourceType,
-  }: {
-    userId: string;
-    inviteRole: IRole;
-    resourceId: string;
-    resourceType: CollaboratorType;
-  }) {
-    let spaceId = resourceType === CollaboratorType.Space ? resourceId : '';
-    if (resourceType === CollaboratorType.Base) {
-      const base = await this.prismaService
-        .txClient()
-        .base.findFirstOrThrow({
-          where: {
-            id: resourceId,
-            deletedTime: null,
-          },
-        })
-        .catch(() => {
-          throw new BadRequestException('Base not found');
-        });
-      spaceId = base.spaceId;
-    }
-    const coll = await this.prismaService
-      .txClient()
-      .collaborator.findFirstOrThrow({
-        where: {
-          principalId: userId,
-          principalType: PrincipalType.User,
-          resourceId: {
-            in: [spaceId, resourceId],
-          },
-        },
-      })
-      .catch(() => {
-        throw new BadRequestException('User not found in collaborator');
-      });
-    const userRole = coll.roleName as IRole;
-
-    if (userRole === inviteRole) {
-      return;
-    }
-    if (!canManageRole(userRole, inviteRole)) {
-      throw new ForbiddenException(`You do not have permission to invite this role: ${inviteRole}`);
-    }
   }
 
   private async createNotExistedUser(emails: string[]) {
@@ -133,9 +84,11 @@ export class InvitationService {
     resourceType: CollaboratorType;
   }) {
     const user = this.cls.get('user');
-    await this.validateUserInviteRole({
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.collaboratorService.validateUserAddRole({
+      departmentIds,
       userId: user.id,
-      inviteRole: role,
+      addRole: role,
       resourceId,
       resourceType,
     });
@@ -258,9 +211,11 @@ export class InvitationService {
     resourceId: string;
     resourceType: CollaboratorType;
   }): Promise<ItemSpaceInvitationLinkVo> {
-    await this.validateUserInviteRole({
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.collaboratorService.validateUserAddRole({
+      departmentIds,
       userId: this.cls.get('user.id'),
-      inviteRole: role,
+      addRole: role,
       resourceId,
       resourceType,
     });
@@ -338,9 +293,11 @@ export class InvitationService {
     resourceId: string;
     resourceType: CollaboratorType;
   }) {
-    await this.validateUserInviteRole({
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.collaboratorService.validateUserAddRole({
+      departmentIds,
       userId: this.cls.get('user.id'),
-      inviteRole: role,
+      addRole: role,
       resourceId,
       resourceType,
     });
