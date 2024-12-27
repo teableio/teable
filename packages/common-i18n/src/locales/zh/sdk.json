@@ -68,7 +68,9 @@
       "guideSyntax": "语法",
       "guideExample": "示例",
       "helperExample": "示例：",
-      "fieldValue": "返回 {{fieldName}} 字段的值."
+      "fieldValue": "返回 {{fieldName}} 字段的值.",
+      "placeholder": "请输入公式",
+      "placeholderForAI": "请输入公式或输入以 // 开头的注释使用 AI 生成公式"
     },
     "link": {
       "placeholder": "选择要链接的记录",

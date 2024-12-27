@@ -53,7 +53,9 @@
       "guideSyntax": "Синтаксис",
       "guideExample": "Пример",
       "helperExample": "Пример: ",
-      "fieldValue": "Возвращает значение для поля {{fieldName}}."
+      "fieldValue": "Возвращает значение для поля {{fieldName}}.",
+      "placeholder": "Введите формулу",
+      "placeholderForAI": "Введите формулу или введите // для генерации с помощью AI"
     },
     "link": {
       "placeholder": "Выберите записи для ссылки",

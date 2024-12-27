@@ -41,7 +41,9 @@
       "guideSyntax": "Syntaxe",
       "guideExample": "Exemple",
       "helperExample": "Exemple : ",
-      "fieldValue": "Renvoie la valeur aux cellules du champ {{fieldName}}."
+      "fieldValue": "Renvoie la valeur aux cellules du champ {{fieldName}}.",
+      "placeholder": "Entrez une expression",
+      "placeholderForAI": "Entrez une expression ou entrez // pour générer avec AI"
     },
     "link": {
       "placeholder": "Sélectionner des enregistrements à lier",

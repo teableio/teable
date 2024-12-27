@@ -269,7 +269,10 @@
         "translationModelDescription": "The translation model to use",
         "codingModel": "Coding model",
         "codingModelDescription": "The coding model to use",
-        "configUpdated": "AI config updated"
+        "configUpdated": "AI config updated",
+        "noModelFound": "No model found.",
+        "searchModel": "Search model...",
+        "selectModel": "Select model..."
       }
     }
   },

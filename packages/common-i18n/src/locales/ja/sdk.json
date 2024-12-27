@@ -41,7 +41,9 @@
       "guideSyntax": "構文",
       "guideExample": "例",
       "helperExample": "例: ",
-      "fieldValue": "{{fieldName}}フィールドのセルに値を返します。"
+      "fieldValue": "{{fieldName}}フィールドのセルに値を返します。",
+      "placeholder": "数式を入力",
+      "placeholderForAI": "数式を入力するか、//を入力してAIで生成"
     },
     "link": {
       "placeholder": "リンクするレコードを選択",

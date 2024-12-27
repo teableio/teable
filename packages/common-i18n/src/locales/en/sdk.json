@@ -55,7 +55,8 @@
       "guideExample": "Example",
       "helperExample": "Example: ",
       "fieldValue": "Returns the value to the cells of the {{fieldName}} field.",
-      "placeholder": "Enter an expression or press // to generate with AI"
+      "placeholder": "Enter an expression",
+      "placeholderForAI": "Enter an expression or press // to generate with AI"
     },
     "link": {
       "placeholder": "Select records to link",
