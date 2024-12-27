@@ -211,9 +211,9 @@ export class CollaboratorService {
       builder.where((db) => {
         const keys = query.containsIn.keys;
         const values = query.containsIn.values;
-        keys
-          .map((key) => db.where('users.' + key, 'like', `%${values[0]}%`))
-          .reduce((acc, curr) => acc.orWhere(curr), db);
+        keys.forEach((key) => {
+          db.orWhereIn('users.' + key, values);
+        });
         return db;
       });
     }
@@ -230,11 +230,10 @@ export class CollaboratorService {
         user_id: string;
         user_name: string;
         user_email: string;
-        user_avatar: string;
+        user_avatar: string | null;
         user_is_system: boolean | null;
       }[]
     >(builder.toQuery());
-
     return collaborators.map(({ user_id, user_name, user_email, user_avatar, user_is_system }) => ({
       id: user_id,
       name: user_name,

@@ -341,7 +341,6 @@ describe('Computed user field (e2e)', () => {
       );
 
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
-
       expect(records.data.records[0].fields[field.id]).toMatchObject([
         {
           title: 'test',
