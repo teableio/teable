@@ -26,21 +26,30 @@ export class AiService {
 
   async getModelConfig(task: Task) {
     const { aiConfig } = await this.settingService.getSetting();
-    // aiConfig?.codingModel model@provider
+    // aiConfig?.codingModel type@model@provider
     const currentTaskModel = TASK_MODEL_MAP[task];
-    const [model, provider] =
+    const [type, model, provider] =
       (aiConfig?.[currentTaskModel as keyof typeof aiConfig] as string)?.split('@') || [];
     const llmProviders = aiConfig?.llmProviders || [];
 
     const providerConfig = llmProviders.find(
-      (p) => p.name.toLowerCase() === provider.toLowerCase()
+      (p) =>
+        p.name.toLowerCase() === provider.toLowerCase() &&
+        p.type.toLowerCase() === type.toLowerCase()
     );
 
     if (!providerConfig) {
       throw new Error('AI provider configuration is not set');
     }
 
-    return { model, baseUrl: providerConfig.baseUrl, apiKey: providerConfig.apiKey };
+    const { baseUrl, apiKey } = providerConfig;
+
+    return {
+      type,
+      model,
+      baseUrl,
+      apiKey,
+    };
   }
 
   async getModelInstance(
@@ -48,24 +57,24 @@ export class AiService {
   ): Promise<
     ReturnType<ReturnType<(typeof this.modelProviders)[keyof typeof this.modelProviders]>>
   > {
-    const config = await this.getModelConfig(task);
+    const { type, model, baseUrl, apiKey } = await this.getModelConfig(task);
 
-    if (!config.baseUrl || !config.apiKey) {
+    if (!baseUrl || !apiKey) {
       throw new Error('AI configuration is not set');
     }
 
     const provider = Object.entries(this.modelProviders).find(([key]) =>
-      config.model.toLowerCase().includes(key.toLowerCase())
+      type.toLowerCase().includes(key.toLowerCase())
     )?.[1];
 
     if (!provider) {
-      throw new Error(`Unsupported AI provider for model: ${config.model}`);
+      throw new Error(`Unsupported AI provider: ${type}`);
     }
 
     return provider({
-      baseURL: config.baseUrl,
-      apiKey: config.apiKey,
-    })(config.model);
+      baseURL: baseUrl,
+      apiKey,
+    })(model);
   }
 
   async generate(prompt: string, task: Task = Task.Coding) {

@@ -16,6 +16,16 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import * as React from 'react';
+import { LLM_PROVIDER_ICONS } from './constant';
+import { parseModelKey } from './util';
+
+interface IAIModelSelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  size?: 'xs' | 'sm' | 'lg' | 'default' | null | undefined;
+  className?: string;
+  options?: string[];
+}
 
 export function AIModelSelect({
   value = '',
@@ -23,15 +33,12 @@ export function AIModelSelect({
   size = 'default',
   className,
   options = [],
-}: {
-  onValueChange: (value: string) => void;
-  value: string;
-  size?: 'xs' | 'sm' | 'lg' | 'default' | null | undefined;
-  className?: string;
-  options?: string[];
-}) {
+}: IAIModelSelectProps) {
   const [open, setOpen] = React.useState(false);
   const currentModel = options.find((model) => model.toLowerCase() === value.toLowerCase());
+  const { type, name, model } = parseModelKey(currentModel);
+  const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
+
   const { t } = useTranslation('common');
 
   return (
@@ -44,9 +51,19 @@ export function AIModelSelect({
           size={size}
           className={cn('grow justify-between', className)}
         >
-          <p className="max-w-[200px] truncate sm:max-w-full">
-            {currentModel ?? t('admin.setting.ai.selectModel')}
-          </p>
+          <div className="flex max-w-[300px] items-center truncate sm:max-w-full">
+            {!currentModel ? (
+              t('admin.setting.ai.selectModel')
+            ) : (
+              <>
+                <div className="mr-1 max-w-[300px] truncate">{name}</div>
+                <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
+                  <Icon className="size-4 shrink-0 pr-1" />
+                  {model}
+                </div>
+              </>
+            )}
+          </div>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -57,24 +74,34 @@ export function AIModelSelect({
           <ScrollArea className="w-full">
             <div className="max-h-[500px]">
               <CommandList>
-                {options.map((model) => (
-                  <CommandItem
-                    key={model}
-                    value={model}
-                    onSelect={(model) => {
-                      setValue(model.toLowerCase() === value.toLowerCase() ? '' : model);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        value.toLowerCase() === model.toLowerCase() ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    <p className="max-w-[300px] truncate">{model}</p>{' '}
-                  </CommandItem>
-                ))}
+                {options.map((modelKey) => {
+                  const { type, model, name } = parseModelKey(modelKey);
+                  const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
+                  return (
+                    <CommandItem
+                      key={modelKey}
+                      value={modelKey}
+                      onSelect={(modelKey) => {
+                        setValue(modelKey.toLowerCase() === value.toLowerCase() ? '' : modelKey);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          'mr-2 h-4 w-4',
+                          value.toLowerCase() === modelKey.toLowerCase()
+                            ? 'opacity-100'
+                            : 'opacity-0'
+                        )}
+                      />
+                      <p className="mr-1 max-w-[300px] truncate">{name}</p>
+                      <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
+                        <Icon className="size-4 shrink-0 pr-1" />
+                        {model}
+                      </div>
+                    </CommandItem>
+                  );
+                })}
               </CommandList>
             </div>
           </ScrollArea>

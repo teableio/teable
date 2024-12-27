@@ -180,9 +180,12 @@ export const LLMProviderForm = ({ onAdd, value, onChange }: LLMProviderFormProps
                     <SelectValue placeholder={t('admin.setting.ai.providerType')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {LLM_PROVIDERS.map((provider) => (
-                      <SelectItem key={provider.value} value={provider.value}>
-                        {provider.label}
+                    {LLM_PROVIDERS.map(({ value, label, Icon }) => (
+                      <SelectItem key={value} value={value}>
+                        <div className="flex flex-row items-center text-[13px]">
+                          <Icon className="size-5 shrink-0 pr-1" />
+                          {label}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

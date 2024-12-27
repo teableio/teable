@@ -24,6 +24,7 @@ import { useForm } from 'react-hook-form';
 
 import { AIModelSelect } from './ai-model-select';
 import { LLMProviderManage } from './llm-provider-manage';
+import { generateModelKeyList } from './util';
 
 export function AIConfigForm({
   aiConfig,
@@ -45,9 +46,8 @@ export function AIConfigForm({
     resolver: zodResolver(aiConfigSchema),
     defaultValues: defaultValues,
   });
-  const models = (form.watch('llmProviders') ?? []).map((provider) =>
-    provider.models.split(',').map((model) => model.trim() + '@' + provider.name)
-  );
+  const llmProviders = form.watch('llmProviders') ?? [];
+  const models = generateModelKeyList(llmProviders);
   const { reset } = form;
   const { t } = useTranslation('common');
 
@@ -138,7 +138,7 @@ export function AIConfigForm({
                             field.onChange(value);
                             onSubmit(form.getValues());
                           }}
-                          options={models.flat()}
+                          options={models}
                         />
                       </FormControl>
                     </div>
@@ -168,7 +168,7 @@ export function AIConfigForm({
                             field.onChange(value);
                             onSubmit(form.getValues());
                           }}
-                          options={models.flat()}
+                          options={models}
                         />
                       </FormControl>
                     </div>

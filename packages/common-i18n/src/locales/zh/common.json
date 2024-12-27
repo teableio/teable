@@ -243,7 +243,7 @@
       "aiSettings": "AI 配置",
       "ai": {
         "name": "名称",
-        "nameDescription": "模型提供商的名称",
+        "nameDescription": "名称可自定义，用于区分不同的模型提供商",
         "enable": "启用 AI",
         "enableDescription": "启用当前实例的 AI 功能，所有用户将能够使用 AI 功能",
         "updateLLMProvider": "更新模型提供商",
