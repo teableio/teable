@@ -10,6 +10,7 @@ import { Button, cn } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
 import Fuse from 'fuse.js';
 import { cloneDeep, keyBy } from 'lodash';
+import { AlertCircle } from 'lucide-react';
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -35,7 +36,6 @@ import type {
 } from './interface';
 import { SuggestionItemType } from './interface';
 import { FormulaNodePathVisitor } from './visitor';
-import { AlertCircle } from 'lucide-react';
 
 interface IFormulaEditorProps {
   expression?: string;
@@ -346,7 +346,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
     if (expressionByName.startsWith('//')) {
       generateAIResponse(getFormulaPrompt(expressionByName.slice(2), fields));
     }
-  }, [expressionByName, fields, loading]);
+  }, [expressionByName, fields, generateAIResponse, loading]);
   const codeBg = isLightTheme ? 'bg-slate-100' : 'bg-gray-900';
 
   // only generate formula when the expression starts with //
@@ -372,7 +372,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
               </Button>
               {error && (
                 <div className="flex items-center gap-1 text-xs text-destructive">
-                  <AlertCircle className="h-3 w-3" />
+                  <AlertCircle className="size-3" />
                   <span>{error}</span>
                 </div>
               )}
@@ -381,14 +381,16 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         </div>
       </div>
 
-      <div className="flex w-full flex-col border-b-DEFAULT caret-foreground">
+      <div className={cn('flex w-full flex-col border-b caret-foreground', codeBg)}>
         <CodeEditor
           ref={editorRef}
           value={expressionByName}
           extensions={extensions}
           onChange={onValueChange}
           onSelectionChange={onSelectionChange}
-          placeholder={enableAI ? t('editor.formula.placeholder') : undefined}
+          placeholder={
+            enableAI ? t('editor.formula.placeholderForAI') : t('editor.formula.placeholder')
+          }
         />
         <div className="h-5 w-full truncate px-2 text-xs text-destructive">{errMsg}</div>
       </div>
