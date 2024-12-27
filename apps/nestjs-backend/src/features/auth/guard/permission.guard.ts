@@ -48,8 +48,18 @@ export class PermissionGuard {
     return true;
   }
 
+  private async permissionBaseReadAll() {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
+      return scopes.includes('base|read_all');
+    }
+    return true;
+  }
+
   protected async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
+      console.log('permissions', permissions);
       throw new ForbiddenException('permission check ID does not exist');
     }
     const accessTokenId = this.cls.get('accessTokenId');
@@ -106,10 +116,13 @@ export class PermissionGuard {
     if (permissions?.includes('instance|read')) {
       return this.instancePermissionChecker('instance|read');
     }
-    // space create permission check
     if (permissions?.includes('space|create')) {
       return await this.permissionCreateSpace();
     }
+    if (permissions?.includes('base|read_all')) {
+      return await this.permissionBaseReadAll();
+    }
+
     // resource permission check
     return await this.resourcePermission(this.getResourceId(context), permissions);
   }

@@ -4,7 +4,7 @@ import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { dashboardLayoutSchema, dashboardPluginItemSchema } from './types';
 
-export const GET_DASHBOARD = 'base/{baseId}/dashboard/{id}';
+export const GET_DASHBOARD = '/base/{baseId}/dashboard/{id}';
 
 export const getDashboardVoSchema = z.object({
   id: z.string(),

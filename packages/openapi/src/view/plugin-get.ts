@@ -4,7 +4,7 @@ import { pluginInstallStorageSchema } from '../dashboard';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_VIEW_INSTALL_PLUGIN = 'table/{tableId}/view/{viewId}/plugin';
+export const GET_VIEW_INSTALL_PLUGIN = '/table/{tableId}/view/{viewId}/plugin';
 
 export const getViewInstallPluginVoSchema = z.object({
   pluginId: z.string(),

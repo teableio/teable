@@ -30,6 +30,7 @@ import {
   deleteSpace,
   deleteBase,
   getAccessToken,
+  GET_BASE_ALL,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -149,6 +150,7 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
   describe('validate accessToken permission', () => {
     let tableReadToken: string;
     let recordReadToken: string;
+    let baseReadAllToken: string;
     const axios = createAxios();
 
     beforeAll(async () => {
@@ -164,6 +166,12 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         scopes: ['record|read'],
       });
       recordReadToken = recordReadTokenData.token;
+      const { data: baseReadAllTokenData } = await createAccessToken({
+        ...defaultCreateRo,
+        name: 'base read all token',
+        scopes: ['base|read_all'],
+      });
+      baseReadAllToken = baseReadAllTokenData.token;
       axios.defaults.baseURL = defaultAxios.defaults.baseURL;
     });
 
@@ -185,6 +193,26 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         })
       );
       expect(error?.status).toEqual(403);
+    });
+
+    it('get base list has not base|read_all permission', async () => {
+      const error = await getError(() =>
+        axios.get(urlBuilder(GET_BASE_ALL), {
+          headers: {
+            Authorization: `Bearer ${tableReadToken}`,
+          },
+        })
+      );
+      expect(error?.status).toEqual(403);
+    });
+
+    it('get base list has base|read_all permission', async () => {
+      const res = await axios.get(urlBuilder(GET_BASE_ALL), {
+        headers: {
+          Authorization: `Bearer ${baseReadAllToken}`,
+        },
+      });
+      expect(res.status).toEqual(200);
     });
 
     it('get record list has record|read permission', async () => {

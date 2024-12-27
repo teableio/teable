@@ -6,7 +6,7 @@ import type { IPluginInstallStorage } from './types';
 import { pluginInstallStorageSchema } from './types';
 
 export const DASHBOARD_PLUGIN_UPDATE_STORAGE =
-  'base/{baseId}/dashboard/{dashboardId}/plugin/{pluginInstallId}/update-storage';
+  '/base/{baseId}/dashboard/{dashboardId}/plugin/{pluginInstallId}/update-storage';
 
 export const dashboardPluginUpdateStorageRoSchema = z.object({
   storage: pluginInstallStorageSchema.optional(),

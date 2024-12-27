@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_INSTALL_PLUGIN = 'table/{tableId}/view/plugin';
+export const VIEW_INSTALL_PLUGIN = '/table/{tableId}/view/plugin';
 
 export const viewInstallPluginRoSchema = z.object({
   name: z.string().optional(),

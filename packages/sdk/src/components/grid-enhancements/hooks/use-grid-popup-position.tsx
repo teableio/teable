@@ -1,21 +1,22 @@
 import { useMemo } from 'react';
-import { GRID_CONTAINER_ID } from '../../grid/configs';
-import type { IRectangle } from '../../grid/interface';
+import type { IEditorProps } from '../../grid/components';
+import { GRID_CONTAINER_ATTR } from '../../grid/configs';
 
 const SAFE_SPACING = 32;
 
-export const useGridPopupPosition = (rect: IRectangle, maxHeight?: number) => {
-  const { y, height } = rect;
+export const useGridPopupPosition = (rect: IEditorProps['rect'], maxHeight?: number) => {
+  const { y, height, editorId } = rect;
 
   return useMemo(() => {
-    const gridElement = document.querySelector('#' + GRID_CONTAINER_ID);
+    const editorElement = document.querySelector('#' + editorId);
+    const gridElement = editorElement?.closest(`[${GRID_CONTAINER_ATTR}]`);
     const gridBound = gridElement?.getBoundingClientRect();
 
     if (gridBound == null) return;
 
     const screenH = window.innerHeight;
     const { y: gridY } = gridBound;
-    const spaceAbove = y;
+    const spaceAbove = Math.max(y, gridY);
     const spaceBelow = screenH - gridY - y - height;
     const isAbove = spaceAbove > spaceBelow;
     const finalHeight = Math.min((isAbove ? y : spaceBelow) - SAFE_SPACING, maxHeight ?? Infinity);
@@ -25,5 +26,5 @@ export const useGridPopupPosition = (rect: IRectangle, maxHeight?: number) => {
       bottom: isAbove ? height : 'unset',
       maxHeight: finalHeight,
     };
-  }, [y, height, maxHeight]);
+  }, [editorId, y, height, maxHeight]);
 };

@@ -6,7 +6,6 @@ import { useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useContext } from 'react';
-import { isSafari } from '@/features/app/blocks/view/grid/utils/copyAndPaste';
 import { EmbedFooter } from '../../EmbedFooter';
 import { AggregationProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
@@ -37,7 +36,7 @@ export const GridView = () => {
               <RowCountProvider>
                 {!hideToolBar && <Toolbar />}
                 {isHydrated && (
-                  <div className={cn('w-full grow overflow-hidden', isSafari() && 'pb-20 sm:pb-0')}>
+                  <div className="w-full grow overflow-hidden">
                     <GridViewBase groupPointsServerData={extra?.groupPoints} />
                   </div>
                 )}

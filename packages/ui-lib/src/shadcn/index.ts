@@ -38,3 +38,4 @@ export * from './ui/carousel';
 export * from './ui/toggle-group';
 export * from './ui/chart';
 export * from './ui/input-otp';
+export * from './ui/breadcrumb';

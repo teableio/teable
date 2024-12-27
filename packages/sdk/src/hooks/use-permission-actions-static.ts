@@ -41,6 +41,9 @@ const actionsI18nMap: Record<
   'base|read': {
     description: 'permission.actionDescription.baseRead',
   },
+  'base|read_all': {
+    description: 'permission.actionDescription.baseReadAll',
+  },
   'base|update': {
     description: 'permission.actionDescription.baseUpdate',
   },

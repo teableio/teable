@@ -37,6 +37,9 @@
   <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
     <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
   </a>
+  <a aria-label="Gurubase" href="https://gurubase.io/g/teable">
+    <img alt="Gurubase" src="https://img.shields.io/badge/Gurubase-Ask%20Teable%20Guru-006BFF" />
+  </a>
 </p>
   <h1 align="center">
     <picture>

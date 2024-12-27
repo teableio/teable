@@ -31,6 +31,7 @@ export const baseActions = [
   'base|create',
   'base|delete',
   'base|read',
+  'base|read_all',
   'base|update',
   'base|invite_email',
   'base|invite_link',

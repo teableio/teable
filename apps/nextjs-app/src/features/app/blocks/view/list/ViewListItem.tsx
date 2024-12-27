@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   cn,
+  PopoverAnchor,
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import Image from 'next/image';
@@ -57,7 +58,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   };
   const ViewIcon = VIEW_ICON_MAP[view.type];
 
-  const showViewMenu = permission['view|delete'] || permission['view|update'];
+  const showViewMenu = !isEditing && (permission['view|delete'] || permission['view|update']);
 
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">
@@ -72,17 +73,9 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       ) : (
         <ViewIcon className="mr-1 size-4 shrink-0" />
       )}
-      {isActive && showViewMenu ? (
-        <PopoverTrigger asChild>
-          <div className="flex flex-1 items-center justify-center overflow-hidden">
-            <div className="truncate text-xs font-medium leading-5">{view.name}</div>
-          </div>
-        </PopoverTrigger>
-      ) : (
-        <div className="flex flex-1 items-center justify-center overflow-hidden">
-          <div className="truncate text-xs font-medium leading-5">{view.name}</div>
-        </div>
-      )}
+      <div className="flex flex-1 items-center justify-center overflow-hidden">
+        <div className="truncate text-xs font-medium leading-5">{view.name}</div>
+      </div>
       {isEditing && (
         <Input
           type="text"
@@ -138,6 +131,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
         }
         navigateHandler();
       }}
+      onContextMenu={() => showViewMenu && setOpen(true)}
     >
       <Popover open={open} onOpenChange={setOpen}>
         <Button
@@ -147,72 +141,79 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
             'bg-secondary': isActive,
           })}
         >
-          {commonPart}
+          {isActive && showViewMenu ? (
+            <PopoverTrigger asChild>{commonPart}</PopoverTrigger>
+          ) : (
+            <PopoverAnchor asChild>{commonPart}</PopoverAnchor>
+          )}
         </Button>
-        <PopoverContent className="w-32 p-1">
-          <div className="flex flex-col">
-            {permission['view|update'] && (
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  setIsEditing(true);
-                }}
-                className="flex justify-start"
-              >
-                <Pencil className="size-3" />
-                {t('view.action.rename')}
-              </Button>
-            )}
-            {view.type === 'grid' && permission['view|read'] && (
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  trigger?.();
-                }}
-                className="flex justify-start"
-              >
-                <Export className="size-3" />
-                {t('import.menu.downAsCsv')}
-              </Button>
-            )}
-            {permission['view|create'] && (
-              <>
+        {open && (
+          <PopoverContent className="w-32 p-1">
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+            <div className="flex flex-col" onClick={(ev) => ev.stopPropagation()}>
+              {permission['view|update'] && (
                 <Button
                   size="xs"
                   variant="ghost"
-                  onClick={async () => {
-                    await duplicateView();
-                    setOpen(false);
+                  onClick={() => {
+                    setIsEditing(true);
                   }}
                   className="flex justify-start"
                 >
-                  <Copy className="size-3" />
-                  {t('view.action.duplicate')}
+                  <Pencil className="size-3 shrink-0" />
+                  {t('view.action.rename')}
                 </Button>
-              </>
-            )}
-            {permission['view|delete'] && (
-              <>
-                <Separator className="my-0.5" />
+              )}
+              {view.type === 'grid' && permission['view|read'] && (
                 <Button
                   size="xs"
-                  disabled={!removable}
                   variant="ghost"
-                  className="flex justify-start text-red-500"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    deleteView();
+                  onClick={() => {
+                    trigger?.();
                   }}
+                  className="flex justify-start"
                 >
-                  <Trash2 className="size-3" />
-                  {t('view.action.delete')}
+                  <Export className="size-3 shrink-0" />
+                  {t('import.menu.downAsCsv')}
                 </Button>
-              </>
-            )}
-          </div>
-        </PopoverContent>
+              )}
+              {permission['view|create'] && (
+                <>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={async () => {
+                      await duplicateView();
+                      setOpen(false);
+                    }}
+                    className="flex justify-start"
+                  >
+                    <Copy className="size-3" />
+                    {t('view.action.duplicate')}
+                  </Button>
+                </>
+              )}
+              {permission['view|delete'] && (
+                <>
+                  <Separator className="my-0.5" />
+                  <Button
+                    size="xs"
+                    disabled={!removable}
+                    variant="ghost"
+                    className="flex justify-start text-red-500"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      deleteView();
+                    }}
+                  >
+                    <Trash2 className="size-3 shrink-0" />
+                    {t('view.action.delete')}
+                  </Button>
+                </>
+              )}
+            </div>
+          </PopoverContent>
+        )}
       </Popover>
       <iframe ref={iframeRef} title="This for export csv download" style={{ display: 'none' }} />
     </div>

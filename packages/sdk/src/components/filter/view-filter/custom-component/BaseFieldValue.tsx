@@ -67,6 +67,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         return (
           <NumberEditor
             value={value as number}
+            saveOnChange={true}
             onChange={onSelect as (value?: number | null) => void}
             className="min-w-28 max-w-40 placeholder:text-xs"
             placeholder={t('filter.default.placeholder')}
@@ -84,6 +85,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       return (
         <NumberEditor
           value={value as number}
+          saveOnChange={true}
           onChange={onSelect as (value?: number | null) => void}
           className="min-w-28 max-w-40 placeholder:text-xs"
           placeholder={t('filter.default.placeholder')}

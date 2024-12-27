@@ -13,8 +13,7 @@ on:
     paths:
       - 'apps/nestjs-backend/**'
       - 'apps/nextjs-app/**'
-      - 'packages/core/**'
-      - 'packages/sdk/**'
+      - 'packages/**'
       - '.github/**'
       - 'scripts/**'
 

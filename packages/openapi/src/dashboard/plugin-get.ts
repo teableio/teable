@@ -5,7 +5,7 @@ import { z } from '../zod';
 import { pluginInstallStorageSchema } from './types';
 
 export const GET_DASHBOARD_INSTALL_PLUGIN =
-  'base/{baseId}/dashboard/{dashboardId}/plugin/{installPluginId}';
+  '/base/{baseId}/dashboard/{dashboardId}/plugin/{installPluginId}';
 
 export const getDashboardInstallPluginVoSchema = z.object({
   pluginId: z.string(),

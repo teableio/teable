@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DASHBOARD_INSTALL_PLUGIN = 'base/{baseId}/dashboard/{id}/plugin';
+export const DASHBOARD_INSTALL_PLUGIN = '/base/{baseId}/dashboard/{id}/plugin';
 
 export const dashboardInstallPluginRoSchema = z.object({
   name: z.string(),

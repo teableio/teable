@@ -36,10 +36,12 @@ interface ITableOperationProps {
   className?: string;
   table: Table;
   onRename?: () => void;
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
 }
 
 export const TableOperation = (props: ITableOperationProps) => {
-  const { table, className, onRename } = props;
+  const { table, className, onRename, open, setOpen } = props;
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
@@ -91,7 +93,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div onMouseDown={(e) => e.stopPropagation()}>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <div>
             <MoreHorizontal className={className} />

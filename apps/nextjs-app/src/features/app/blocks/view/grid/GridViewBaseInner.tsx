@@ -421,9 +421,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (num === 0) {
       return;
     }
+    setPrefillingRowOrder(rowOrder);
     if (num === 1 || num === undefined) {
       setPrefillingFieldValueMap(fieldValueMap);
-      setPrefillingRowOrder(rowOrder);
+
       setPrefillingRowIndex(index);
       setSelection(emptySelection);
       gridRef.current?.setSelection(emptySelection);

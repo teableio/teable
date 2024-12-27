@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
+import { useDroppable } from '@dnd-kit/core';
 import type { FieldType } from '@teable/core';
 import { DraggableHandle, Plus } from '@teable/icons';
 import { useView } from '@teable/sdk';
@@ -16,6 +17,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useMemo } from 'react';
+import { FORM_SIDEBAR_DROPPABLE_ID } from '@/features/app/blocks/view/form/constant';
 import { FieldOperator } from '@/features/app/components/field-setting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
@@ -67,7 +69,12 @@ export const DragItem: FC<IDragItemProps> = (props) => {
   );
 };
 
-export const FormSidebar = () => {
+interface IFormSidebarProps {
+  sidebarAdditionalFieldId: string | null;
+}
+
+export const FormSidebar: FC<IFormSidebarProps> = (props) => {
+  const { sidebarAdditionalFieldId } = props;
   const isHydrated = useIsHydrated();
   const view = useView() as FormView | undefined;
   const activeViewId = view?.id;
@@ -75,6 +82,7 @@ export const FormSidebar = () => {
   const getFieldStatic = useFieldStaticGetter();
   const { openSetting } = useFieldSettingStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { setNodeRef } = useDroppable({ id: FORM_SIDEBAR_DROPPABLE_ID });
 
   const { hiddenFields, visibleFields, unavailableFields } = useMemo(() => {
     if (!activeViewId) {
@@ -93,6 +101,9 @@ export const FormSidebar = () => {
         return unavailableFields.push(field);
       }
       if (view.columnMeta?.[id]?.visible) {
+        if (sidebarAdditionalFieldId && sidebarAdditionalFieldId === id) {
+          hiddenFields.push(field);
+        }
         return visibleFields.push(field);
       }
       hiddenFields.push(field);
@@ -102,7 +113,7 @@ export const FormSidebar = () => {
       visibleFields,
       unavailableFields,
     };
-  }, [activeViewId, allFields, view?.columnMeta]);
+  }, [activeViewId, allFields, view?.columnMeta, sidebarAdditionalFieldId]);
 
   const onFieldShown = (field: IFieldInstance) => {
     view &&
@@ -151,11 +162,16 @@ export const FormSidebar = () => {
 
       <div className="mb-4 h-auto grow overflow-y-auto px-4">
         {isHydrated && (
-          <>
+          <div ref={setNodeRef}>
             {hiddenFields.map((field) => {
               const { id } = field;
               return (
-                <DraggableItem key={id} id={id} field={field}>
+                <DraggableItem
+                  key={'sidebar_' + id}
+                  id={id}
+                  field={field}
+                  draggingClassName={'opacity-50'}
+                >
                   <DragItem
                     field={field}
                     onClick={() => onFieldShown(field)}
@@ -176,11 +192,11 @@ export const FormSidebar = () => {
                 />
               );
             })}
-          </>
+            <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400 dark:text-slate-600">
+              {t('table:form.hideFieldTip')}
+            </div>
+          </div>
         )}
-        <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400 dark:text-slate-600">
-          {t('table:form.hideFieldTip')}
-        </div>
       </div>
 
       <div className="w-full px-4">

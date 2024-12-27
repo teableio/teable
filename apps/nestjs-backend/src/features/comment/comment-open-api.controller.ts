@@ -17,12 +17,10 @@ import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { TokenAccess } from '../auth/decorators/token.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { CommentOpenApiService } from './comment-open-api.service';
 
 @Controller('api/comment/:tableId')
-@TokenAccess()
 export class CommentOpenApiController {
   constructor(
     private readonly commentOpenApiService: CommentOpenApiService,
