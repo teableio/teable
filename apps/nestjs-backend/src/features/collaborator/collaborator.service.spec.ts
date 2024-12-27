@@ -74,7 +74,8 @@ describe('CollaboratorService', () => {
           resourceId: mockSpace.id,
           resourceType: CollaboratorType.Space,
           roleName: Role.Owner,
-          userId: mockUser.id,
+          principalId: mockUser.id,
+          principalType: PrincipalType.User,
           createdBy: mockUser.id,
         },
       });

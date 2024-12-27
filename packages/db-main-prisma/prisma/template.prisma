@@ -195,7 +195,6 @@ model User {
   refMeta          String?   @map("ref_meta")
 
   accounts         Account[]
-  collaborators    Collaborator[]
   @@map("users")
 }
 
@@ -258,8 +257,6 @@ model Collaborator {
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
-
-  user             User?     @relation(fields: [principalId], references: [id], onDelete: Cascade)
 
   @@unique([resourceType, resourceId, principalId, principalType])
   @@map("collaborator")
