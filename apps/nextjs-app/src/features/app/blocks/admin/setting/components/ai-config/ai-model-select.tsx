@@ -14,6 +14,7 @@ import {
   ScrollArea,
 } from '@teable/ui-lib/shadcn';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import { useTranslation } from 'next-i18next';
 import * as React from 'react';
 
 export function AIModelSelect({
@@ -31,6 +32,8 @@ export function AIModelSelect({
 }) {
   const [open, setOpen] = React.useState(false);
   const currentModel = options.find((model) => model.toLowerCase() === value.toLowerCase());
+  const { t } = useTranslation('common');
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -39,17 +42,19 @@ export function AIModelSelect({
           role="combobox"
           aria-expanded={open}
           size={size}
-          className={cn('grow justify-between ', className)}
+          className={cn('grow justify-between', className)}
         >
-          <p className="w-[200px] truncate">{value ? currentModel : 'Select model...'}</p>
+          <p className="max-w-[200px] truncate sm:max-w-full">
+            {currentModel ?? t('admin.setting.ai.selectModel')}
+          </p>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
+      <PopoverContent className="w-full p-0">
         <Command>
-          <CommandInput placeholder="Search model..." />
-          <CommandEmpty>No model found.</CommandEmpty>
-          <ScrollArea className="w-[350px]">
+          <CommandInput placeholder={t('admin.setting.ai.searchModel')} />
+          <CommandEmpty>{t('admin.setting.ai.noModelFound')}</CommandEmpty>
+          <ScrollArea className="w-full">
             <div className="max-h-[500px]">
               <CommandList>
                 {options.map((model) => (
@@ -67,7 +72,7 @@ export function AIModelSelect({
                         value.toLowerCase() === model.toLowerCase() ? 'opacity-100' : 'opacity-0'
                       )}
                     />
-                    <p className="max-w-[250px] truncate">{model}</p>{' '}
+                    <p className="max-w-[300px] truncate">{model}</p>{' '}
                   </CommandItem>
                 ))}
               </CommandList>

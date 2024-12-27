@@ -18,9 +18,9 @@ import {
   Switch,
   toast,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 
 import { AIModelSelect } from './ai-model-select';
 import { LLMProviderManage } from './llm-provider-manage';
@@ -49,16 +49,14 @@ export function AIConfigForm({
     provider.models.split(',').map((model) => model.trim() + '@' + provider.name)
   );
   const { reset } = form;
-  const { t } = useTranslation();
+  const { t } = useTranslation('common');
 
   useEffect(() => {
     reset(defaultValues);
   }, [defaultValues, reset]);
 
   function onSubmit(data: NonNullable<ISettingVo['aiConfig']>) {
-    console.log(data);
     setAiConfig(data);
-    // data.token = "sk-**********"
     toast({
       title: t('admin.setting.ai.configUpdated'),
     });
@@ -122,12 +120,15 @@ export function AIConfigForm({
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
-              name="translationModel"
+              name="codingModel"
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
                     <FormLabel className="w-1/3">
-                      {t('admin.setting.ai.translationModel')}
+                      {t('admin.setting.ai.codingModel')}
+                      <FormDescription className="mt-2">
+                        {t('admin.setting.ai.codingModelDescription')}
+                      </FormDescription>
                     </FormLabel>
                     <div className="flex w-2/3 space-x-2">
                       <FormControl className="grow">
@@ -140,29 +141,25 @@ export function AIConfigForm({
                           options={models.flat()}
                         />
                       </FormControl>
-                      {/* <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => testModel(TaskType.Translation, field.value)}
-                      >
-                        {t('common.test')}
-                      </Button> */}
                     </div>
                   </div>
-                  <FormDescription>
-                    {t('admin.setting.ai.translationModelDescription')}
-                  </FormDescription>
+
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="codingModel"
+              name="embeddingModel"
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel className="w-1/3">{t('admin.setting.ai.codingModel')}</FormLabel>
+                    <FormLabel className="w-1/3">
+                      {t('admin.setting.ai.embeddingModel')}
+                      <FormDescription className="mt-2">
+                        {t('admin.setting.ai.embeddingModelDescription')}
+                      </FormDescription>
+                    </FormLabel>
                     <div className="flex w-2/3 space-x-2">
                       <FormControl className="grow">
                         <AIModelSelect
@@ -174,16 +171,9 @@ export function AIConfigForm({
                           options={models.flat()}
                         />
                       </FormControl>
-                      {/* <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => testModel(TaskType.Coding, field.value)}
-                      >
-                        {t('common.test')}
-                      </Button> */}
                     </div>
                   </div>
-                  <FormDescription>{t('admin.setting.ai.codingModelDescription')}</FormDescription>
+
                   <FormMessage />
                 </FormItem>
               )}

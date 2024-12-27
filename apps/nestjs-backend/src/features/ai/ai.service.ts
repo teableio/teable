@@ -1,27 +1,33 @@
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createAzure } from '@ai-sdk/azure';
+import { createCohere } from '@ai-sdk/cohere';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
+import { LLMProviderType } from '@teable/openapi';
 import { streamText } from 'ai';
 import { SettingService } from '../setting/setting.service';
-
-export enum Task {
-  Translation = 'translation',
-  Coding = 'coding',
-}
+import { TASK_MODEL_MAP } from './constant';
+import { Task } from './type';
 
 @Injectable()
 export class AiService {
   constructor(private readonly settingService: SettingService) {}
 
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  static taskModelMap = {
-    [Task.Coding]: 'codingModel',
-    [Task.Translation]: 'translationModel',
-  };
+  readonly modelProviders = {
+    [LLMProviderType.OPENAI]: createOpenAI,
+    [LLMProviderType.ANTHROPIC]: createAnthropic,
+    [LLMProviderType.GOOGLE]: createGoogleGenerativeAI,
+    [LLMProviderType.AZURE]: createAzure,
+    [LLMProviderType.COHERE]: createCohere,
+    [LLMProviderType.MISTRAL]: createMistral,
+  } as const;
 
-  private async getModelConfig(task: Task) {
+  async getModelConfig(task: Task) {
     const { aiConfig } = await this.settingService.getSetting();
     // aiConfig?.codingModel model@provider
-    const currentTaskModel = AiService.taskModelMap[task];
+    const currentTaskModel = TASK_MODEL_MAP[task];
     const [model, provider] =
       (aiConfig?.[currentTaskModel as keyof typeof aiConfig] as string)?.split('@') || [];
     const llmProviders = aiConfig?.llmProviders || [];
@@ -37,20 +43,36 @@ export class AiService {
     return { model, baseUrl: providerConfig.baseUrl, apiKey: providerConfig.apiKey };
   }
 
-  async generate(prompt: string, task: Task = Task.Coding) {
-    const { baseUrl, apiKey, model } = await this.getModelConfig(task);
+  async getModelInstance(
+    task: Task
+  ): Promise<
+    ReturnType<ReturnType<(typeof this.modelProviders)[keyof typeof this.modelProviders]>>
+  > {
+    const config = await this.getModelConfig(task);
 
-    if (!baseUrl || !apiKey) {
+    if (!config.baseUrl || !config.apiKey) {
       throw new Error('AI configuration is not set');
     }
 
-    const openai = createOpenAI({
-      baseURL: baseUrl,
-      apiKey,
-    });
+    const provider = Object.entries(this.modelProviders).find(([key]) =>
+      config.model.toLowerCase().includes(key.toLowerCase())
+    )?.[1];
+
+    if (!provider) {
+      throw new Error(`Unsupported AI provider for model: ${config.model}`);
+    }
+
+    return provider({
+      baseURL: config.baseUrl,
+      apiKey: config.apiKey,
+    })(config.model);
+  }
+
+  async generate(prompt: string, task: Task = Task.Coding) {
+    const modelInstance = await this.getModelInstance(task);
 
     return await streamText({
-      model: openai(model),
+      model: modelInstance,
       prompt: prompt,
     });
   }

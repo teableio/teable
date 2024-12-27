@@ -7,5 +7,6 @@ import { AiService } from './ai.service';
   imports: [SettingModule],
   controllers: [AiController],
   providers: [AiService],
+  exports: [AiService],
 })
 export class AiModule {}

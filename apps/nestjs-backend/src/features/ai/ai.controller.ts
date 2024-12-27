@@ -1,6 +1,7 @@
 import { Body, Controller, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
-import { AiService, Task } from './ai.service';
+import { AiService } from './ai.service';
+import { Task } from './type';
 
 @Controller('api/ai')
 export class AiController {

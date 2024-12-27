@@ -3,8 +3,17 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
 
+export enum LLMProviderType {
+  OPENAI = 'openai',
+  ANTHROPIC = 'anthropic',
+  GOOGLE = 'google',
+  AZURE = 'azure',
+  COHERE = 'cohere',
+  MISTRAL = 'mistral',
+}
+
 export const llmProviderSchema = z.object({
-  type: z.enum(['openai']).default('openai'),
+  type: z.nativeEnum(LLMProviderType),
   name: z.string(),
   apiKey: z.string().optional(),
   baseUrl: z.string().url().optional(),

@@ -28,7 +28,7 @@ export const LLMProviderManage = ({ value, onChange }: ILLMProviderManageProps) 
   }
   return (
     <div>
-      <div className="flex max-w-xs flex-col gap-2">
+      <div className="flex max-w-lg flex-col gap-2">
         {value.map((provider, index) => (
           <div
             className="group flex w-full justify-between gap-2 rounded-sm p-1 hover:ring"
