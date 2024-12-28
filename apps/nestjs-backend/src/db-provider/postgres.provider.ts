@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ISortItem } from '@teable/core';
+import type { IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
@@ -417,5 +417,27 @@ export class PostgresProvider implements IDbProvider {
       })
       .groupBy('dates.date')
       .orderBy('dates.date', 'asc');
+  }
+
+  // select id and lookup_options for "field" table options is a json saved in string format, match optionsKey and value
+  // please use json method in postgres
+  lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string {
+    return this.knex('field')
+      .select({
+        id: 'id',
+        lookupOptions: 'lookup_options',
+      })
+      .whereRaw(`lookup_options::json->>'${optionsKey}' = ?`, [value])
+      .toQuery();
+  }
+
+  optionsQuery(optionsKey: string, value: string): string {
+    return this.knex('field')
+      .select({
+        id: 'id',
+        options: 'options',
+      })
+      .whereRaw(`options::json->>'${optionsKey}' = ?`, [value])
+      .toQuery();
   }
 }

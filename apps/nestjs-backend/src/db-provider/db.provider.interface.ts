@@ -1,4 +1,4 @@
-import type { DriverClient, IFilter, ISortItem } from '@teable/core';
+import type { DriverClient, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -162,4 +162,8 @@ export interface IDbProvider {
     qb: Knex.QueryBuilder,
     props: ICalendarDailyCollectionQueryProps
   ): Knex.QueryBuilder;
+
+  lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string;
+
+  optionsQuery(optionsKey: string, value: string): string;
 }

@@ -469,55 +469,39 @@ export class TableOpenApiService {
         throw new NotFoundException(`table ${tableId} not found`);
       });
 
-    const linkFieldsRaw = await this.prismaService.field.findMany({
-      where: { table: { baseId }, type: FieldType.Link },
-      select: { id: true, options: true },
-    });
-
-    const relationalFieldsRaw = await this.prismaService.field.findMany({
-      where: { table: { baseId }, lookupOptions: { not: null } },
-      select: { id: true, lookupOptions: true },
-    });
+    const linkFieldsQuery = this.dbProvider.optionsQuery('fkHostTableName', oldDbTableName);
+    const lookupFieldsQuery = this.dbProvider.lookupOptionsQuery('fkHostTableName', oldDbTableName);
 
     await this.prismaService.$tx(async (prisma) => {
-      await Promise.all(
-        linkFieldsRaw
-          .map((field) => ({
-            ...field,
-            options: JSON.parse(field.options as string) as ILinkFieldOptions,
-          }))
-          .filter((field) => {
-            return field.options.fkHostTableName === oldDbTableName;
-          })
-          .map((field) => {
-            return prisma.field.update({
-              where: { id: field.id },
-              data: { options: JSON.stringify({ ...field.options, fkHostTableName: dbTableName }) },
-            });
-          })
-      );
+      const linkFieldsRaw =
+        await this.prismaService.$queryRawUnsafe<{ id: string; options: string }[]>(
+          linkFieldsQuery
+        );
+      const lookupFieldsRaw =
+        await this.prismaService.$queryRawUnsafe<{ id: string; lookupOptions: string }[]>(
+          lookupFieldsQuery
+        );
 
-      await Promise.all(
-        relationalFieldsRaw
-          .map((field) => ({
-            ...field,
-            lookupOptions: JSON.parse(field.lookupOptions as string) as ILookupOptionsVo,
-          }))
-          .filter((field) => {
-            return field.lookupOptions.fkHostTableName === oldDbTableName;
-          })
-          .map((field) => {
-            return prisma.field.update({
-              where: { id: field.id },
-              data: {
-                lookupOptions: JSON.stringify({
-                  ...field.lookupOptions,
-                  fkHostTableName: dbTableName,
-                }),
-              },
-            });
-          })
-      );
+      for (const field of linkFieldsRaw) {
+        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
+        await prisma.field.update({
+          where: { id: field.id },
+          data: { options: JSON.stringify({ ...options, fkHostTableName: dbTableName }) },
+        });
+      }
+
+      for (const field of lookupFieldsRaw) {
+        const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
+        await prisma.field.update({
+          where: { id: field.id },
+          data: {
+            lookupOptions: JSON.stringify({
+              ...lookupOptions,
+              fkHostTableName: dbTableName,
+            }),
+          },
+        });
+      }
 
       await this.tableService.updateTable(baseId, tableId, { dbTableName });
       const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);

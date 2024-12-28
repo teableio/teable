@@ -2997,6 +2997,61 @@ describe('OpenAPI link (e2e)', () => {
       );
       expect((symUpdatedLinkField.options as ILinkFieldOptions).baseId).toEqual(baseId);
     });
+
+    it('should correct update db table name when link field is cross base', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(table1.id, linkFieldRo);
+
+      const symLinkField = await getField(
+        table2.id,
+        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      expect((linkField.options as ILinkFieldOptions).fkHostTableName).toEqual(table1.dbTableName);
+      expect((symLinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
+        table1.dbTableName
+      );
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          linkFieldId: symLinkField.id,
+        },
+      };
+
+      const lookupField = await createField(table2.id, lookupFieldRo);
+
+      await updateDbTableName(baseId, table1.id, { dbTableName: 'newAwesomeName' });
+      const newTable1 = await getTable(baseId, table1.id);
+      const updatedLink1 = await getField(table1.id, linkField.id);
+      const updatedLink2 = await getField(table2.id, symLinkField.id);
+      const updatedLookupField = await getField(table2.id, lookupField.id);
+
+      expect(newTable1.dbTableName.split(/[._]/)).toEqual(['bseTestBaseId', 'newAwesomeName']);
+      expect((updatedLink1.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
+      expect((updatedLink2.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
+      expect(
+        (updatedLookupField.lookupOptions as ILookupOptionsVo).fkHostTableName.split(/[._]/)
+      ).toEqual(['bseTestBaseId', 'newAwesomeName']);
+    });
   });
 
   describe('lookup a link field cross 2 table', () => {
