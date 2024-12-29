@@ -113,7 +113,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           <DropdownMenuItem asChild>
             <Link
               href={{
-                pathname: '/base/[baseId]/[tableId]/design',
+                pathname: '/base/[baseId]/design',
                 query: { baseId, tableId: table.id },
               }}
               title={t('table:table.design')}

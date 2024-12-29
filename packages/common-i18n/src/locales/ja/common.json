@@ -33,7 +33,8 @@
     "loadMore": "されに読み込む",
     "collapseSidebar": "サイドバーを折りたたむ",
     "restore": "復元",
-    "permanentDelete": "永久削除"
+    "permanentDelete": "永久削除",
+    "more": "もっと"
   },
   "quickAction": {
     "title": "クイックアクション...",

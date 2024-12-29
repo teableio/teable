@@ -140,7 +140,7 @@ export class BaseController {
 
   @Permissions('base|db_connection')
   @Post(':baseId/connection')
-  async createDbConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo> {
+  async createDbConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo | null> {
     return await this.dbConnectionService.create(baseId);
   }
 

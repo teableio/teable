@@ -266,8 +266,7 @@
     "deleteConfirm": "本当に \"{{tableName}}\" を削除してもよろしいですか?",
     "dbTableName": "物理データベース内のテーブル名",
     "schemaName": "物理データベースのスキーマ名",
-    "tableInfo": "テーブル情報",
-    "tableInfoDetail": "テーブルの基本情報",
+    "baseInfo": "ベース情報",
     "typeOfDatabase": "データベースの種類",
     "descriptionForTable": "このテーブルの説明",
     "nameForTable": "このテーブルの名前",
@@ -448,6 +447,7 @@
     "description": "データベース接続を介して、現在のベースにあるすべてのテーブルを含むデータベースに直接アクセスできます。",
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
+    "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
     "helpLink": "https://help.teable.io/developer/database-connection"
   },
   "view": {

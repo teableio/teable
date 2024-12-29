@@ -39,7 +39,8 @@
     "globalSearch": "Global Search",
     "fieldSearch": "Search Field",
     "showAllRow": "Display all rows",
-    "hideNotMatchRow": "Hide not match row"
+    "hideNotMatchRow": "Hide not match row",
+    "more": "More"
   },
   "quickAction": {
     "title": "Quick Actions...",

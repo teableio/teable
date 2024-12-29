@@ -1,20 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Database, HelpCircle } from '@teable/icons';
+import { Code2, HelpCircle } from '@teable/icons';
 import { deleteDbConnection, getDbConnection, createDbConnection } from '@teable/openapi';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Skeleton,
-} from '@teable/ui-lib/shadcn';
+import { Button, Skeleton } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
+import { CopyButton } from '../../components/CopyButton';
 
 const ContentCard = () => {
   const baseId = useBaseId() as string;
@@ -26,8 +18,11 @@ const ContentCard = () => {
   });
 
   const mutationCreate = useMutation(createDbConnection, {
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries(['connection', baseId]);
+      if (!data.data) {
+        toast.error(t('table:connection.createFailed'));
+      }
     },
   });
 
@@ -39,28 +34,29 @@ const ContentCard = () => {
   const dataArray = data?.dsn
     ? Object.entries(data?.dsn).map(([label, value]) => {
         if (label === 'params') {
+          const display = Object.entries(value)
+            .map((v) => v.join('='))
+            .join('&');
           return {
             label,
-            type: 'text',
-            value: Object.entries(value)
-              .map((v) => v.join('='))
-              .join('&'),
+            display,
+            value: display,
           };
         }
         if (label === 'pass') {
           return {
             label,
-            type: 'password',
+            display: '********',
             value: String(value ?? ''),
           };
         }
-        return { label, type: 'text', value: String(value ?? '') };
+        return { label, value: String(value ?? ''), display: String(value ?? '') };
       })
     : [];
 
   dataArray.unshift({
     label: 'url',
-    type: 'text',
+    display: (data?.url || '').replace(data?.dsn?.pass || '', '********'),
     value: data?.url || '',
   });
 
@@ -71,80 +67,55 @@ const ContentCard = () => {
           <Skeleton className="h-6 w-full" />
           <Skeleton className="h-6 w-full" />
           <Skeleton className="h-6 w-full" />
-          <Skeleton className="h-6 w-full" />
-          <Skeleton className="h-6 w-full" />
         </div>
       ) : (
-        <>
-          <div className="flex flex-col gap-2">
-            {dataArray.map(({ label, type, value }) => (
-              <div key={label} className="flex flex-col gap-2">
-                {data ? (
+        data && (
+          <>
+            <div className="grid gap-2">
+              {dataArray.map(({ label, value, display }) => (
+                <div key={label} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{label}</span>
                   <div className="flex items-center gap-2">
-                    <Label className="w-20" htmlFor="subject">
-                      {label}
-                    </Label>
-                    <Input
-                      readOnly
-                      data-pass={label === 'pass' ? true : undefined}
-                      type={type}
-                      value={value}
-                      onMouseEnter={(e) => {
-                        if ((e.target as HTMLInputElement).type === 'password') {
-                          (e.target as HTMLInputElement).type = 'text';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        console.log(e.target);
-                        if ((e.target as HTMLInputElement).getAttribute('data-pass')) {
-                          (e.target as HTMLInputElement).type = 'password';
-                        }
-                      }}
-                    />
-                    <Button
-                      className="shrink-0"
-                      size="icon"
-                      variant={'outline'}
-                      onClick={() => {
-                        navigator.clipboard.writeText(value);
-                      }}
-                    >
-                      <Copy className="size-4" />
-                    </Button>
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {label === 'pass' || label === 'url' ? (
+                        <span className="group relative">
+                          <span className="group-hover:hidden">{display}</span>
+                          <span className="hidden group-hover:inline">{value}</span>
+                        </span>
+                      ) : (
+                        value
+                      )}
+                    </code>
+                    <CopyButton variant="ghost" size="icon" className="size-6" text={value} />
                   </div>
-                ) : (
-                  <div className="flex h-20 justify-center">
-                    <Database className="size-20 text-neutral-600" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          {data && (
-            <div className="text-sm text-secondary-foreground">
-              <Trans
-                ns="table"
-                i18nKey="connection.connectionCountTip"
-                components={{ b: <b /> }}
-                values={{
-                  max: data.connection.max,
-                  current: data.connection.current,
-                }}
-              />
+                </div>
+              ))}
             </div>
-          )}
-          <div className="flex justify-end">
-            {data ? (
-              <Button size="sm" onClick={() => mutationDelete.mutate(baseId)}>
+            <div className="flex items-center justify-between text-sm">
+              <div className="text-sm text-muted-foreground">
+                <Trans
+                  ns="table"
+                  i18nKey="connection.connectionCountTip"
+                  components={{ b: <b /> }}
+                  values={{
+                    max: data.connection.max,
+                    current: data.connection.current,
+                  }}
+                />
+              </div>
+              <Button size="sm" variant="link" onClick={() => mutationDelete.mutate(baseId)}>
                 {t('common:actions.delete')}
               </Button>
-            ) : (
-              <Button size="sm" onClick={() => mutationCreate.mutate(baseId)}>
-                {t('common:actions.create')}
-              </Button>
-            )}
-          </div>
-        </>
+            </div>
+          </>
+        )
+      )}
+      {!data && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => mutationCreate.mutate(baseId)}>
+            {t('common:actions.create')}
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -155,21 +126,20 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
   const permissions = useBasePermission();
 
   return (
-    <Card className={className}>
-      <CardHeader className="py-4">
-        <CardTitle>
-          {t('table:connection.title')}
-          <Button variant="ghost" size="icon">
-            <a href={t('table:connection.helpLink')} target="_blank" rel="noreferrer">
-              <HelpCircle className="size-4" />
-            </a>
-          </Button>
-        </CardTitle>
-        <CardDescription>{t('table:connection.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col">
-        {permissions?.['base|db_connection'] ? <ContentCard /> : t('table:connection.noPermission')}
-      </CardContent>
-    </Card>
+    <div className={className}>
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Code2 className="size-4" />
+          <h2 className="font-semibold">{t('table:connection.title')}</h2>
+        </div>
+        <Button variant="ghost" size="icon">
+          <a href={t('table:connection.helpLink')} target="_blank" rel="noreferrer">
+            <HelpCircle className="size-4" />
+          </a>
+        </Button>
+      </div>
+      <p className="mb-2 text-sm text-muted-foreground">{t('table:connection.description')}</p>
+      {permissions?.['base|db_connection'] ? <ContentCard /> : t('table:connection.noPermission')}
+    </div>
   );
 };

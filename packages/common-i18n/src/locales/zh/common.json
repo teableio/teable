@@ -39,7 +39,8 @@
     "globalSearch": "全局搜索",
     "fieldSearch": "字段搜索",
     "showAllRow": "显示全部",
-    "hideNotMatchRow": "仅显示匹配行"
+    "hideNotMatchRow": "仅显示匹配行",
+    "more": "更多"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -144,7 +145,7 @@
     "pro": "专业版",
     "enterprise": "企业版"
   },
-  "noResult": "无结果。",
+  "noResult": "无结果",
   "untitled": "未命名",
   "name": "名称",
   "description": "描述",

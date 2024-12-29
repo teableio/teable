@@ -1,8 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { Gauge, Lock, Trash2 } from '@teable/icons';
+import { Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
 import { getBaseUsage, getInstanceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -75,12 +79,6 @@ export const BaseSideBar = () => {
           hidden: !basePermission?.['base|authority_matrix_config'],
           disabled: !advancedPermissionsEnable,
         },
-        {
-          href: `/base/${baseId}/trash`,
-          label: t('common:noun.trash'),
-          Icon: Trash2,
-          hidden: !basePermission?.['table|delete'],
-        },
       ].filter((item) => !item.hidden),
     [advancedPermissionsEnable, automationEnable, baseId, basePermission, t]
   );
@@ -138,6 +136,51 @@ export const BaseSideBar = () => {
               </li>
             );
           })}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="my-[2px] w-full justify-start text-sm font-normal"
+              >
+                <MoreHorizontal className="size-4 shrink-0" />
+                <p className="truncate">{t('common:actions.more')}</p>
+                <div className="grow basis-0"></div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="min-w-[200px]">
+              {basePermission?.['base|delete'] && (
+                <DropdownMenuItem asChild>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    asChild
+                    className="my-[2px] w-full justify-start text-sm"
+                  >
+                    <Link href={`/base/${baseId}/trash`} className="font-normal">
+                      <Trash2 className="size-4 shrink-0" />
+                      <p className="truncate">{t('common:noun.trash')}</p>
+                      <div className="grow basis-0"></div>
+                    </Link>
+                  </Button>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  asChild
+                  className="my-[2px] w-full justify-start text-sm"
+                >
+                  <Link href={`/base/${baseId}/design`} className="font-normal">
+                    <Settings className="size-4 shrink-0" />
+                    <p className="truncate">{t('table:table.design')}</p>
+                    <div className="grow basis-0"></div>
+                  </Link>
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </ul>
       </div>
       <TableList />
