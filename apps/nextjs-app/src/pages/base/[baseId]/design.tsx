@@ -11,15 +11,15 @@ import type { IViewPageProps } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
 
-const Node: NextPageWithLayout<IDesignPageProps> = (props) => {
-  return <Design {...props} />;
+const Node: NextPageWithLayout<IDesignPageProps> = () => {
+  return <Design />;
 };
 
 export const getServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR<IDesignPageProps>(async (context, ssrApi) => {
-      const { tableId, baseId } = context.query;
-      const pageData = await getDesignPageServerData(ssrApi, baseId as string, tableId as string);
+      const { baseId } = context.query;
+      const pageData = await getDesignPageServerData(ssrApi, baseId as string);
       if (pageData) {
         const { i18nNamespaces } = tableConfig;
         return {

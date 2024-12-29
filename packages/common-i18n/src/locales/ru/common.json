@@ -34,7 +34,8 @@
     "loadMore": "Загрузить больше",
     "collapseSidebar": "Свернуть боковую панель",
     "restore": "Восстановить",
-    "permanentDelete": "Удалить навсегда"
+    "permanentDelete": "Удалить навсегда",
+    "more": "Больше"
   },
   "quickAction": {
     "title": "Быстрые действия...",

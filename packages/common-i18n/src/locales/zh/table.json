@@ -274,8 +274,7 @@
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
-    "tableInfo": "表信息",
-    "tableInfoDetail": "当前表的基础属性",
+    "baseInfo": "数据库信息",
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
@@ -460,6 +459,7 @@
     "description": "你可以通过数据库连接来直接访问数据库",
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
+    "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
     "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/shu-ju-ku-lian-jie"
   },
   "view": {

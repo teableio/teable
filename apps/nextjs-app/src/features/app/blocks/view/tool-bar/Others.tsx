@@ -4,7 +4,6 @@ import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
-import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
 import { SearchButton } from '../search/SearchButton';
 import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
@@ -64,12 +63,22 @@ const OthersList = ({
               {t('toolbar.others.api.restfulApi')}
             </Link>
           </Button>
-          <DbConnectionPanelTrigger>
-            <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
+          <Button
+            variant={'ghost'}
+            size={'xs'}
+            className="w-full justify-start font-normal"
+            asChild
+          >
+            <Link
+              href={{
+                pathname: '/base/[baseId]/design',
+                query: { baseId, tableId },
+              }}
+            >
               <Database className="pr-1 text-lg" />
               {t('toolbar.others.api.databaseConnection')}
-            </Button>
-          </DbConnectionPanelTrigger>
+            </Link>
+          </Button>
         </PopoverContent>
       </Popover>
     </div>

@@ -2,7 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
@@ -12,17 +12,16 @@ import type { IDbConnectionVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
-import { ClsService } from 'nestjs-cls';
 import { BaseConfig, type IBaseConfig } from '../../configs/base.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class DbConnectionService {
+  private readonly logger = new Logger(DbConnectionService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
@@ -118,7 +117,8 @@ export class DbConnectionService {
     const readOnlyRole = `read_only_role_${baseId}`;
     const publicDatabaseProxy = this.baseConfig.publicDatabaseProxy;
     if (!publicDatabaseProxy) {
-      throw new NotFoundException('PUBLIC_DATABASE_PROXY is not found in env');
+      this.logger.error('PUBLIC_DATABASE_PROXY is not found in env');
+      return null;
     }
 
     const { hostname: dbHostProxy, port: dbPortProxy } = new URL(`https://${publicDatabaseProxy}`);
@@ -185,7 +185,8 @@ export class DbConnectionService {
       const password = nanoid();
       const publicDatabaseProxy = this.baseConfig.publicDatabaseProxy;
       if (!publicDatabaseProxy) {
-        throw new NotFoundException('PUBLIC_DATABASE_PROXY is not found in env');
+        this.logger.error('PUBLIC_DATABASE_PROXY is not found in env');
+        return null;
       }
 
       const { hostname: dbHostProxy, port: dbPortProxy } = new URL(

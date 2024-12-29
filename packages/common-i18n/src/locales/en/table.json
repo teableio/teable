@@ -275,8 +275,7 @@
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
-    "tableInfo": "Table Info",
-    "tableInfoDetail": "Basic information for the table",
+    "baseInfo": "Base Info",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
@@ -461,6 +460,7 @@
     "description": "You can access the database directly through the database connection, including all the tables under the current base",
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
+    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
     "helpLink": "https://help.teable.io/developer/database-connection"
   },
   "view": {
