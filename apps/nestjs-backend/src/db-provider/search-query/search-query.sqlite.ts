@@ -232,6 +232,47 @@ export class SearchQueryBuilder {
     this.setSortQuery = setSortQuery;
   }
 
+  getSearchQuery() {
+    const { queryBuilder, searchIndexRo, searchField } = this;
+    const { search } = searchIndexRo;
+    const searchValue = search?.[0];
+
+    if (!search || !searchField?.length || !searchValue) {
+      return queryBuilder;
+    }
+
+    return searchField.map((field) => {
+      const searchQueryBuilder = new SearchQuerySqlite(queryBuilder, field, searchValue);
+      if (field.isMultipleCellValue) {
+        switch (field.cellValueType) {
+          case CellValueType.DateTime:
+            return searchQueryBuilder.getMultipleDateSqlQuery();
+          case CellValueType.Number:
+            return searchQueryBuilder.getMultipleNumberSqlQuery();
+          case CellValueType.String:
+            if (field.isStructuredCellValue) {
+              return searchQueryBuilder.getMultipleJsonSqlQuery();
+            } else {
+              return searchQueryBuilder.getMultipleTextSqlQuery();
+            }
+        }
+      }
+
+      switch (field.cellValueType) {
+        case CellValueType.DateTime:
+          return searchQueryBuilder.getDateSqlQuery();
+        case CellValueType.Number:
+          return searchQueryBuilder.getNumberSqlQuery();
+        case CellValueType.String:
+          if (field.isStructuredCellValue) {
+            return searchQueryBuilder.getJsonSqlQuery();
+          } else {
+            return searchQueryBuilder.getTextSqlQuery();
+          }
+      }
+    });
+  }
+
   getSearchIndexQuery() {
     const {
       queryBuilder,
@@ -242,16 +283,18 @@ export class SearchQueryBuilder {
       setFilterQuery,
       setSortQuery,
     } = this;
-    const { search, take, skip, filter, orderBy, groupBy } = searchIndexRo;
+    const { search, filter, orderBy, groupBy } = searchIndexRo;
     const knexInstance = queryBuilder.client;
 
     if (!search || !searchField?.length) {
       return queryBuilder;
     }
 
+    const searchQuerySql = this.getSearchQuery() as string[];
+
     queryBuilder.with('search_field_union_table', (qb) => {
       for (let index = 0; index < searchField.length; index++) {
-        const currentWhereRaw = searchField[index];
+        const currentWhereRaw = searchQuerySql[index];
         const dbFieldName = searchField[index].dbFieldName;
 
         // boolean field or new field which does not support search should be skipped
