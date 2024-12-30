@@ -83,7 +83,7 @@ export function DepartmentList({
     queryFn: ({ pageParam = 0, queryKey: [_, ro] }) =>
       getDepartmentUsers({
         ...ro,
-        departmentId: ro?.search ? undefined : departmentId,
+        departmentId: ro?.search ? undefined : ro?.departmentId,
         includeChildrenDepartment: ro?.search ? true : ro?.includeChildrenDepartment,
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
