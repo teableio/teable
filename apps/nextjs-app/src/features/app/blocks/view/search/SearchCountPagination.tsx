@@ -23,7 +23,7 @@ enum PageDirection {
 type ISearchMap = Record<number, NonNullable<ISearchIndexVo>[number]>;
 
 const PaginationBuffer = 300;
-const PaginationGap = 100;
+const PaginationGap = 200;
 
 type ISearchCountPaginationProps = Pick<ISearchButtonProps, 'shareView'>;
 
@@ -41,7 +41,7 @@ export const SearchCountPagination = forwardRef<
   const tableId = useTableId();
   const view = useView() as GridView;
   const fields = useFields();
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const { gridRef, setSearchCursor } = useGridSearchStore();
 
   useImperativeHandle(ref, () => ({
@@ -108,31 +108,33 @@ export const SearchCountPagination = forwardRef<
     queryFn: async () => {
       setSearchCursor(null);
       const nextMap = await getNextIndex();
-      if (totalCount <= PaginationBuffer) {
+      if (totalCount <= PaginationBuffer || currentIndex === 1) {
         return nextMap;
       }
+
       const preMap = await getPreviousIndex();
+
       return {
         ...preMap,
         ...nextMap,
       };
     },
-    enabled: Boolean(tableId && value && currentPage !== 0),
+    enabled: Boolean(tableId && value && currentIndex !== 0),
     refetchOnWindowFocus: false,
   });
 
   const getPreviousIndex = async () => {
     const finalResult: ISearchMap = {};
     let skip = 0;
-    const previousCursor = currentPage - PaginationBuffer - 1;
+    const previousCursor = currentIndex - PaginationBuffer - 1;
     if (previousCursor === 0) {
-      skip = totalCount - PaginationBuffer;
+      skip = 0;
     }
     if (previousCursor > 0) {
-      skip = currentPage - PaginationBuffer;
+      skip = currentIndex - PaginationBuffer;
     }
     const baseQueryRo = {
-      skip: skip,
+      skip: skip || undefined,
       take: PaginationBuffer,
       viewId: view?.id,
       orderBy: viewOrderBy,
@@ -145,33 +147,13 @@ export const SearchCountPagination = forwardRef<
       ? (baseQueryRo: ISearchIndexByQueryRo) => getShareViewSearchIndex(view.shareId!, baseQueryRo)
       : (baseQueryRo: ISearchIndexByQueryRo) => getSearchIndex(tableId!, baseQueryRo);
 
-    if (previousCursor < 0) {
-      const preSkip = previousCursor + totalCount;
-      const [preResult, nextResult] = await Promise.all([
-        previousFn({ ...baseQueryRo, skip: preSkip }),
-        previousFn({ ...baseQueryRo }),
-      ]);
-      preResult?.data &&
-        preResult?.data?.forEach((result, index) => {
-          const indexNumber = preSkip + index + 1;
-          finalResult[indexNumber] = result;
-        });
-
-      nextResult?.data &&
-        nextResult.data?.forEach((result, index) => {
-          const indexNumber = index + 1;
-          finalResult[indexNumber] = result;
-        });
-      return finalResult;
-    } else {
-      const result = await previousFn(baseQueryRo);
-      result?.data &&
-        result.data?.forEach((result, index) => {
-          const indexNumber = skip + index + 1;
-          finalResult[indexNumber] = result;
-        });
-      return finalResult;
-    }
+    const result = await previousFn(baseQueryRo);
+    result?.data &&
+      result.data?.forEach((result, index) => {
+        const indexNumber = skip + index + 1;
+        finalResult[indexNumber] = result;
+      });
+    return finalResult;
   };
 
   const getNextIndex = async () => {
@@ -184,69 +166,58 @@ export const SearchCountPagination = forwardRef<
       groupBy: view.group,
       filter: view.filter,
     };
-    const nextCursor = currentPage + PaginationBuffer - 1;
     const nextFn = shareView
       ? (baseQueryRo: ISearchIndexByQueryRo) => getShareViewSearchIndex(view.shareId!, baseQueryRo)
       : (baseQueryRo: ISearchIndexByQueryRo) => getSearchIndex(tableId!, baseQueryRo);
-    if (nextCursor <= totalCount) {
-      const skip = currentPage - 1;
-      const result = await nextFn({ ...baseQueryRo, skip });
-      result?.data &&
-        result.data?.forEach((result, index) => {
-          const indexNumber = skip + index + 1;
-          finalResult[indexNumber] = result;
-        });
-      return finalResult;
-    } else {
-      const preSkip = currentPage - 1;
-      const [preResult, nextResult] = await Promise.all([
-        nextFn({ ...baseQueryRo, skip: preSkip }),
-        nextFn({ ...baseQueryRo }),
-      ]);
 
-      preResult?.data &&
-        preResult?.data?.forEach((result, index) => {
-          const indexNumber = preSkip + index + 1;
-          finalResult[indexNumber] = result;
-        });
-      nextResult?.data &&
-        nextResult.data?.forEach((result, index) => {
-          const indexNumber = index + 1;
-          finalResult[indexNumber] = result;
-        });
-      return finalResult;
-    }
+    const skip = currentIndex - 1 < 0 ? 0 : currentIndex - 1;
+    const result = await nextFn({ ...baseQueryRo, skip });
+
+    result?.data &&
+      result.data?.forEach((result, index) => {
+        const indexNumber = skip + index + 1;
+        finalResult[indexNumber] = result;
+      });
+    return finalResult;
   };
 
   useEffect(() => {
-    if (currentPage && indexData?.[currentPage]) {
-      const index = indexData?.[currentPage];
+    if (currentIndex && indexData?.[currentIndex]) {
+      const index = indexData?.[currentIndex];
       index && setIndexSelection(index.index, index.fieldId);
     }
-  }, [currentPage, indexData, setIndexSelection]);
+  }, [currentIndex, indexData, setIndexSelection]);
 
   useEffect(() => {
     if (totalCount) {
-      setCurrentPage(1);
+      setCurrentIndex(1);
       return;
     }
 
-    setCurrentPage(0);
+    setCurrentIndex(0);
   }, [totalCount]);
 
   // refetch the index window
   useEffect(() => {
     if (!indexData || totalCount <= PaginationBuffer || indexFetching) return;
-    const nextAnchor = ((currentPage + totalCount + PaginationGap - 1) % totalCount) + 1;
-    const prevAnchor = ((currentPage + totalCount - PaginationGap - 1) % totalCount) + 1;
+
+    const nextAnchor =
+      currentIndex + PaginationBuffer - PaginationGap >= totalCount
+        ? totalCount
+        : currentIndex + PaginationBuffer - PaginationGap;
+
+    const prevAnchor =
+      currentIndex - PaginationBuffer + PaginationGap <= 0
+        ? 1
+        : currentIndex - PaginationBuffer + PaginationGap;
 
     if (!indexData[nextAnchor] || !indexData[prevAnchor]) {
       refetch();
     }
-  }, [currentPage, indexData, indexFetching, refetch, totalCount]);
+  }, [currentIndex, indexData, indexFetching, refetch, totalCount]);
 
   const switchIndex = (direction: PageDirection) => {
-    const newIndex = ((currentPage - 1 + direction + totalCount) % totalCount) + 1;
+    const newIndex = ((currentIndex - 1 + direction + totalCount) % totalCount) + 1;
     if (
       !totalCount ||
       totalCount === 1 ||
@@ -255,12 +226,12 @@ export const SearchCountPagination = forwardRef<
     ) {
       return;
     }
-    setCurrentPage(newIndex);
+    setCurrentIndex(newIndex);
   };
 
   return (
     value &&
-    (countLoading || (currentPage !== 0 && indexLoading) ? (
+    (indexFetching || countLoading || (currentIndex !== 0 && indexLoading) ? (
       <Spin className="size-3 shrink-0" />
     ) : (
       <div className="flex flex-1 shrink-0 items-center gap-0.5 p-0">
@@ -276,7 +247,7 @@ export const SearchCountPagination = forwardRef<
           <ChevronLeft />
         </Button>
         <span className="pointer-events-none whitespace-nowrap">
-          {currentPage} / {totalCount}
+          {currentIndex} / {totalCount}
         </span>
         <Button
           size={'xs'}
