@@ -19,7 +19,8 @@ import { useTranslation } from '../../context/app/i18n';
 import { useOrganization } from '../../hooks';
 import { DepartmentItem } from './components/DepartmentItem';
 import { UserItem } from './components/UserItem';
-import { TreeNodeType, type SelectedMember, type TreeNode } from './types';
+import { TreeNodeType } from './types';
+import type { DepartmentNode, UserNode, SelectedMember, TreeNode } from './types';
 import { useDebounce } from './use-debounce';
 
 interface DepartmentListProps {
@@ -98,21 +99,26 @@ export function DepartmentList({
   });
 
   const isLoading = isLoadingDepartments || isLoadingMembers;
-  const items = React.useMemo(() => {
-    const departmentNodes =
-      departments?.map((dept) => ({
-        ...dept,
-        type: TreeNodeType.DEPARTMENT,
-      })) ?? [];
-    const memberNodes =
+
+  const memberNodes = React.useMemo<UserNode[]>(() => {
+    return (
       members?.pages
         .flatMap((page) => page.users)
         .map((member) => ({
           ...member,
           type: TreeNodeType.USER,
-        })) ?? [];
-    return [...departmentNodes, ...memberNodes] as TreeNode[];
-  }, [departments, members]);
+        })) ?? []
+    );
+  }, [members]);
+
+  const departmentNodes = React.useMemo<DepartmentNode[]>(() => {
+    return (
+      departments?.map((dept) => ({
+        ...dept,
+        type: TreeNodeType.DEPARTMENT,
+      })) ?? []
+    );
+  }, [departments]);
 
   const handleBreadcrumbClick = async (index: number) => {
     if (index === -1) {
@@ -177,38 +183,34 @@ export function DepartmentList({
                 <Skeleton key={i} className="h-[52px]" />
               ))}
             </div>
-          ) : items.length === 0 ? (
+          ) : memberNodes.length === 0 && departmentNodes.length === 0 ? (
             <div className="py-4 text-center text-sm text-muted-foreground">
               {t('memberSelector.empty')}
             </div>
           ) : (
             <>
-              {items
-                .filter((item) => item.type === TreeNodeType.DEPARTMENT)
-                .map((item) => (
-                  <DepartmentItem
-                    key={item.id}
-                    name={item.name}
-                    checked={isSelected(item.id)}
-                    onClick={() => handleDepartmentClick(item)}
-                    onCheckedChange={() => onSelect(item)}
-                    showCheckbox={!disabledDepartment}
-                    suffix={<ChevronRight className="size-4 text-muted-foreground" />}
-                  />
-                ))}
+              {departmentNodes.map((item) => (
+                <DepartmentItem
+                  key={item.id}
+                  name={item.name}
+                  checked={isSelected(item.id)}
+                  onClick={() => handleDepartmentClick(item)}
+                  onCheckedChange={() => onSelect(item)}
+                  showCheckbox={!disabledDepartment}
+                  suffix={<ChevronRight className="size-4 text-muted-foreground" />}
+                />
+              ))}
 
-              {items
-                .filter((item) => item.type === TreeNodeType.USER)
-                .map((item) => (
-                  <UserItem
-                    key={item.id}
-                    name={item.name}
-                    email={item.email}
-                    avatar={item.avatar}
-                    checked={isSelected(item.id)}
-                    onCheckedChange={() => onSelect(item)}
-                  />
-                ))}
+              {memberNodes.map((item) => (
+                <UserItem
+                  key={item.id}
+                  name={item.name}
+                  email={item.email}
+                  avatar={item.avatar}
+                  checked={isSelected(item.id)}
+                  onCheckedChange={() => onSelect(item)}
+                />
+              ))}
               {hasNextPage && (
                 <div className="flex justify-center py-4">
                   <Button onClick={() => fetchNextPage()}>{t('common.loadMore')}</Button>
