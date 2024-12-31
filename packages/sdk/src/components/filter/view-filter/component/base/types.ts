@@ -13,6 +13,7 @@ interface IBaseSelect<V, O = IOption<V>> {
   options: O[];
   value: string | null;
   search?: boolean | (() => void);
+  onSearch?: (value: string) => void;
   className?: string;
   popoverClassName?: string;
   placeholderClassName?: string;

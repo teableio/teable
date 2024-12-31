@@ -9,7 +9,12 @@ import {
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
+import {
+  UploadType,
+  ShareViewLinkRecordsType,
+  PluginPosition,
+  PrincipalType,
+} from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
   ShareViewFormSubmitRo,
@@ -396,8 +401,8 @@ export class ShareService {
     if (search) {
       resQuery.where((db) => {
         return db
-          .orWhere('users.name', 'like', `%${search}%`)
-          .orWhere('users.email', 'like', `%${search}%`);
+          .orWhereILike('users.name', `%${search}%`)
+          .orWhereILike('users.email', `%${search}%`);
       });
     }
     if (skip) {
@@ -483,6 +488,7 @@ export class ShareService {
       skip,
       take,
       search,
+      type: PrincipalType.User,
     });
     return list.map((item) => pick(item, 'userId', 'email', 'userName', 'avatar'));
   }

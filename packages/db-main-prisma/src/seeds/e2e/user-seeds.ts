@@ -16,15 +16,19 @@ const createUser = (
   baseName: string,
   pas: any,
   index?: number
-): Prisma.UserCreateInput => ({
-  id: index === undefined ? baseId : `${baseId}_${index}`,
-  name: index === undefined ? baseName : `${baseName}_${index}`,
-  email: index === undefined ? `${baseName}@e2e.com` : `${baseName}_${index}@e2e.com`,
-  salt: pas.salt,
-  password: pas.password,
-  notifyMeta: JSON.stringify({ email: true }),
-  isAdmin: index === undefined,
-});
+): Prisma.UserCreateInput => {
+  const id = index === undefined ? baseId : `${baseId}_${index}`;
+  return {
+    id,
+    name: index === undefined ? baseName : `${baseName}_${index}`,
+    email: index === undefined ? `${baseName}@e2e.com` : `${baseName}_${index}@e2e.com`,
+    salt: pas.salt,
+    password: pas.password,
+    notifyMeta: JSON.stringify({ email: true }),
+    avatar: `avatar/${id}`,
+    isAdmin: index === undefined,
+  };
+};
 
 export const generateUser = async (max: number): Promise<Prisma.UserCreateInput[]> => {
   const userId = 'usrTestUserId';

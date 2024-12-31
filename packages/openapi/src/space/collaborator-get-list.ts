@@ -2,7 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { collaboratorItem } from './types';
+import { collaboratorItem, PrincipalType } from './types';
 
 export const SPACE_COLLABORATE_LIST = '/space/{spaceId}/collaborators';
 
@@ -12,6 +12,7 @@ export const listSpaceCollaboratorRoSchema = z.object({
   skip: z.coerce.number().optional(),
   take: z.coerce.number().optional(),
   search: z.string().optional(),
+  type: z.nativeEnum(PrincipalType).optional(),
 });
 
 export type ListSpaceCollaboratorRo = z.infer<typeof listSpaceCollaboratorRoSchema>;

@@ -12,8 +12,9 @@ import {
   cn,
 } from '@teable/ui-lib';
 
+import { debounce } from 'lodash';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { IOption, IBaseMultipleSelect } from './types';
 
@@ -32,8 +33,12 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     optionRender,
     notFoundText = t('common.noRecords'),
     displayRender,
+    onSearch,
   } = props;
   const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
+
   const values = useMemo<V[]>(() => {
     if (Array.isArray(value) && value.length) {
       return value;
@@ -76,6 +81,16 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     [optionMap]
   );
 
+  const setApplySearchDebounced = useMemo(() => {
+    return onSearch ? debounce(onSearch, 200) : undefined;
+  }, [onSearch]);
+
+  useEffect(() => {
+    if (!isComposing) {
+      setApplySearchDebounced?.(searchValue);
+    }
+  }, [searchValue, isComposing, onSearch, setApplySearchDebounced]);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -109,11 +124,18 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn('p-1', popoverClassName)}>
-        <Command className="rounded-sm" filter={commandFilter}>
+        <Command
+          className="rounded-sm"
+          filter={onSearch ? undefined : commandFilter}
+          shouldFilter={!onSearch}
+        >
           <CommandList className="mt-1">
             <CommandInput
               placeholder={t('common.search.placeholder')}
               className="placeholder:text-[13px]"
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => setIsComposing(false)}
+              onValueChange={(value) => setSearchValue(value)}
             />
             <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">

@@ -14,7 +14,6 @@ import {
   focusEditor,
 } from '@udecode/plate-common/react';
 import { LinkPlugin } from '@udecode/plate-link/react';
-import type { TMentionElement } from '@udecode/plate-mention';
 import { MentionPlugin, MentionInputPlugin } from '@udecode/plate-mention/react';
 import { DeletePlugin, SelectOnBackspacePlugin } from '@udecode/plate-select';
 import { SlashPlugin } from '@udecode/plate-slash-command';
@@ -70,9 +69,10 @@ export const CommentEditor = (props: ICommentEditorProps) => {
   const { quoteId, setQuoteId, setEditorRef, editingCommentId, setEditingCommentId } =
     useCommentStore();
   const [composition, setComposition] = useState(false);
-  const mentionUserRender = (element: TMentionElement) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mentionUserRender = (element: any) => {
     const value = element.value;
-    return <MentionUser id={value} />;
+    return <MentionUser id={value.id} name={value.name} avatar={value.avatar} />;
   };
   const [value, setValue] = useState(defaultEditorValue);
   const permission = useTablePermission();

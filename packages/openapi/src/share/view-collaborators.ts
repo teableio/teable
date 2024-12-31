@@ -1,4 +1,5 @@
 import { axios } from '../axios';
+import { PrincipalType } from '../space/types';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -9,6 +10,7 @@ export const shareViewCollaboratorsRoSchema = z.object({
   skip: z.coerce.number().optional(),
   take: z.coerce.number().optional(),
   search: z.string().optional(),
+  type: z.nativeEnum(PrincipalType).optional(),
 });
 
 export type IShareViewCollaboratorsRo = z.infer<typeof shareViewCollaboratorsRoSchema>;
@@ -49,7 +51,7 @@ export const ShareViewCollaboratorsRoute = registerRoute({
 
 export const getShareViewCollaborators = async (
   shareId: string,
-  query: IShareViewCollaboratorsRo
+  query?: IShareViewCollaboratorsRo
 ) => {
   return axios.get<IShareViewCollaboratorsVo>(urlBuilder(SHARE_VIEW_COLLABORATORS, { shareId }), {
     params: query,

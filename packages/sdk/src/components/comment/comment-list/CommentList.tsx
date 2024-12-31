@@ -1,21 +1,12 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getCommentList, CommentPatchType } from '@teable/openapi';
-import type { ICommentVo, ListBaseCollaboratorVo, ICommentPatchData } from '@teable/openapi';
+import type { ICommentVo, ICommentPatchData } from '@teable/openapi';
 import { Spin, Button } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
-import {
-  forwardRef,
-  useImperativeHandle,
-  useRef,
-  useMemo,
-  useEffect,
-  useCallback,
-  useState,
-} from 'react';
+import { forwardRef, useImperativeHandle, useRef, useEffect, useCallback, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useSession } from '../../../hooks';
-import { useCollaborators } from '../hooks';
 import type { IBaseQueryParams } from '../types';
 import { CommentItem } from './CommentItem';
 import { CommentSkeleton } from './CommentSkeleton';
@@ -32,7 +23,6 @@ export interface CommentListRefHandle {
 export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((props, ref) => {
   const { tableId, recordId, commentId } = props;
   const { t } = useTranslation();
-  const collaborators = useCollaborators();
   const listRef = useRef<HTMLDivElement>(null);
   const [commentList, setCommentList] = useState<ICommentVo[]>([]);
   const { user: self } = useSession();
@@ -176,15 +166,6 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
 
   useCommentPatchListener(tableId, recordId, commentListener);
 
-  const commentListWithCollaborators = useMemo(() => {
-    return commentList.map((comment) => ({
-      ...comment,
-      createdBy: collaborators?.find(
-        (collaborator) => collaborator.userId === comment.createdBy
-      ) as ListBaseCollaboratorVo[number],
-    }));
-  }, [commentList, collaborators]);
-
   return (
     <div className="my-1 flex w-full flex-1 flex-col overflow-y-auto px-1" ref={listRef}>
       {isLoading ? (
@@ -208,8 +189,8 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
             )
           )}
 
-          {commentListWithCollaborators?.length ? (
-            commentListWithCollaborators.map((comment) => (
+          {commentList?.length ? (
+            commentList.map((comment) => (
               <CommentItem
                 key={comment.id}
                 {...comment}

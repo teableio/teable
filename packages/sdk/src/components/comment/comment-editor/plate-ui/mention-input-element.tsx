@@ -1,11 +1,15 @@
+import { useQuery } from '@tanstack/react-query';
+import type { UserCollaboratorItem } from '@teable/openapi';
+import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
 import { cn, withRef } from '@udecode/cn';
 import { PlateElement } from '@udecode/plate-common/react';
 import { getMentionOnSelectItem } from '@udecode/plate-mention';
 import React, { useState } from 'react';
+import { ReactQueryKeys } from '../../../../config';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useSession } from '../../../../hooks';
 import { UserAvatar } from '../../../cell-value';
-import { useCollaborators } from '../../hooks';
+import { useBaseId } from '../../hooks';
 import {
   InlineCombobox,
   InlineComboboxContent,
@@ -14,15 +18,35 @@ import {
   InlineComboboxItem,
 } from './inline-combobox';
 
-const onSelectItem = getMentionOnSelectItem();
+const onSelectItem = getMentionOnSelectItem<{
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  text: any;
+}>();
 
 export const MentionInputElement = withRef<typeof PlateElement>(({ className, ...props }, ref) => {
   const { children, editor, element } = props;
   const { t } = useTranslation();
-  const [search, setSearch] = useState('');
   const { user } = useSession();
-  const collaborators = useCollaborators();
-  const mentionUsers = collaborators.filter((item) => item.userId !== user.id);
+  const [search, setSearch] = useState('');
+  const baseId = useBaseId();
+
+  const { data: collaboratorsData } = useQuery({
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId!, {
+      search,
+      type: PrincipalType.User,
+      take: 100,
+      skip: 0,
+    }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], { search, type: PrincipalType.User }).then(
+        (res) => res.data
+      ),
+    enabled: !!baseId,
+  });
+
+  const mentionUsers = (collaboratorsData?.collaborators as UserCollaboratorItem[])?.filter(
+    (item) => item.userId !== user.id
+  );
 
   return (
     <PlateElement
@@ -53,14 +77,18 @@ export const MentionInputElement = withRef<typeof PlateElement>(({ className, ..
         <InlineComboboxContent className="my-1.5">
           <InlineComboboxEmpty>{t('common.search.empty')}</InlineComboboxEmpty>
 
-          {mentionUsers.map((item) => (
+          {mentionUsers?.map((item) => (
             <InlineComboboxItem
               key={item.userId}
               onClick={() =>
                 onSelectItem(
                   editor,
                   {
-                    text: item.userId,
+                    text: {
+                      id: item.userId,
+                      name: item.userName,
+                      avatar: item.avatar ?? undefined,
+                    },
                   },
                   search
                 )

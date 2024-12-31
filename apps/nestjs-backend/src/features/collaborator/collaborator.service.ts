@@ -99,7 +99,7 @@ export class CollaboratorService {
   private async getBaseCollaboratorBuilder(
     knex: Knex.QueryBuilder,
     baseId: string,
-    options?: { includeSystem?: boolean; search?: string }
+    options?: { includeSystem?: boolean; search?: string; type?: PrincipalType }
   ) {
     const base = await this.prismaService
       .txClient()
@@ -109,7 +109,7 @@ export class CollaboratorService {
       .from('collaborator')
       .leftJoin('users', 'collaborator.principal_id', 'users.id')
       .whereIn('collaborator.resource_id', [baseId, base.spaceId]);
-    const { includeSystem, search } = options ?? {};
+    const { includeSystem, search, type } = options ?? {};
     if (!includeSystem) {
       builder.where((db) => {
         return db.whereNull('users.is_system').orWhere('users.is_system', false);
@@ -118,13 +118,19 @@ export class CollaboratorService {
     if (search) {
       builder.where((db) => {
         return db
-          .where('users.name', 'like', `%${search}%`)
-          .orWhere('users.email', 'like', `%${search}%`);
+          .orWhereILike('users.name', `%${search}%`)
+          .orWhereILike('users.email', `%${search}%`);
       });
+    }
+    if (type) {
+      builder.where('collaborator.principal_type', type);
     }
   }
 
-  async getTotalBase(baseId: string, options?: { includeSystem?: boolean; search?: string }) {
+  async getTotalBase(
+    baseId: string,
+    options?: { includeSystem?: boolean; search?: string; type?: PrincipalType }
+  ) {
     const builder = this.knex();
     await this.getBaseCollaboratorBuilder(builder, baseId, options);
     const res = await this.prismaService
@@ -137,7 +143,13 @@ export class CollaboratorService {
 
   async getListByBase(
     baseId: string,
-    options?: { includeSystem?: boolean; skip?: number; take?: number; search?: string }
+    options?: {
+      includeSystem?: boolean;
+      skip?: number;
+      take?: number;
+      search?: string;
+      type?: PrincipalType;
+    }
   ): Promise<UserCollaboratorItem[]> {
     const { skip = 0, take = 50 } = options ?? {};
     const builder = this.knex();
@@ -246,9 +258,9 @@ export class CollaboratorService {
   private getSpaceCollaboratorBuilder(
     knex: Knex.QueryBuilder,
     spaceId: string,
-    options?: { includeSystem?: boolean; baseIds?: string[]; search?: string }
+    options?: { includeSystem?: boolean; baseIds?: string[]; search?: string; type?: PrincipalType }
   ) {
-    const { includeSystem, baseIds, search } = options ?? {};
+    const { includeSystem, baseIds, search, type } = options ?? {};
 
     const builder = knex
       .from('collaborator')
@@ -267,15 +279,23 @@ export class CollaboratorService {
     if (search) {
       builder.where((db) => {
         return db
-          .where('users.name', 'like', `%${search}%`)
-          .orWhere('users.email', 'like', `%${search}%`);
+          .orWhereILike('users.name', `%${search}%`)
+          .orWhereILike('users.email', `%${search}%`);
       });
+    }
+    if (type) {
+      builder.where('collaborator.principal_type', type);
     }
   }
 
   async getTotalSpace(
     spaceId: string,
-    options?: { includeSystem?: boolean; includeBase?: boolean; search?: string }
+    options?: {
+      includeSystem?: boolean;
+      includeBase?: boolean;
+      search?: string;
+      type?: PrincipalType;
+    }
   ) {
     const { includeBase } = options ?? {};
     let baseIds: string[] = [];
@@ -306,6 +326,7 @@ export class CollaboratorService {
       skip?: number;
       take?: number;
       search?: string;
+      type?: PrincipalType;
     }
   ): Promise<UserCollaboratorItem[]> {
     const { includeBase, skip = 0, take = 50 } = options ?? {};

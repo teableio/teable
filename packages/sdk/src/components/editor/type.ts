@@ -21,5 +21,6 @@ export interface ICellEditorContext {
   [FieldType.User]: {
     isLoading?: boolean;
     data?: ICollaborator[];
+    onSearch?: (value: string) => void;
   };
 }

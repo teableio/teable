@@ -103,6 +103,7 @@ describe('OpenAPI CommentController (e2e)', () => {
 
     const createdReactionResult = await getCommentDetail(tableId, recordId, createRes.data.id);
     expect(createdReactionResult?.data?.reaction?.[0]?.reaction).toEqual(EmojiSymbol.eyes);
+    expect(createdReactionResult?.data?.reaction?.[0]?.user?.[0]?.id).toEqual(userId);
 
     // delete reaction
     await deleteCommentReaction(tableId, recordId, createRes.data.id, {
@@ -165,6 +166,61 @@ describe('OpenAPI CommentController (e2e)', () => {
         comments.slice(1, 11).map((com) => com.id)
       );
       expect(result.data.nextCursor).toBe(comments[11].id);
+    });
+
+    it('should get comment list with mention user and image', async () => {
+      await createComment(tableId, recordId, {
+        content: [
+          {
+            type: CommentNodeType.Paragraph,
+            children: [
+              { type: CommentNodeType.Text, value: 'hello' },
+              {
+                type: CommentNodeType.Mention,
+                value: userId,
+                name: 'a',
+                avatar: 'b',
+              },
+            ],
+          },
+          {
+            type: CommentNodeType.Img,
+            path: 'comment/xxxxxx',
+            url: 'c',
+          },
+        ],
+        quoteId: null,
+      });
+
+      const result = await getCommentList(tableId, recordId, {
+        cursor: null,
+        take: 1,
+        direction: 'forward',
+      });
+      expect(result.data.comments[0].content).toEqual([
+        {
+          type: CommentNodeType.Paragraph,
+          children: [
+            { type: CommentNodeType.Text, value: 'hello' },
+            {
+              type: CommentNodeType.Mention,
+              value: userId,
+              name: globalThis.testConfig.userName,
+              avatar: expect.any(String),
+            },
+          ],
+        },
+        {
+          type: CommentNodeType.Img,
+          path: 'comment/xxxxxx',
+          url: expect.any(String),
+        },
+      ]);
+      expect(result.data.comments[0].createdBy).toEqual({
+        id: userId,
+        name: globalThis.testConfig.userName,
+        avatar: expect.any(String),
+      });
     });
   });
 

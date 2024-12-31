@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { getBaseCollaboratorList } from '@teable/openapi';
+import type { UserCollaboratorItem } from '@teable/openapi';
+import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBaseId } from '../../../hooks';
@@ -15,6 +16,7 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
   isMultiple?: boolean;
   includeMe?: boolean;
   onChange?: (value?: IUserCellValue | IUserCellValue[]) => void;
+  onSearch?: (value: string) => void;
   style?: React.CSSProperties;
   className?: string;
 }
@@ -22,17 +24,31 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
 const DefaultDataWrapper = forwardRef<IUserEditorRef, IUserEditorMainProps>((props, ref) => {
   const { t } = useTranslation();
   const baseId = useBaseId();
+  const [search, setSearch] = useState('');
   const { data, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, {
+      search: search,
+      type: PrincipalType.User,
+    }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
   const collaborators = props.includeMe
-    ? [{ userId: 'me', userName: t('filter.currentUser'), email: '' }, ...(data || [])]
-    : data;
+    ? [
+        { userId: 'me', userName: t('filter.currentUser'), email: '' },
+        ...(data?.collaborators || []),
+      ]
+    : data?.collaborators;
 
   return (
-    <UserEditorBase {...props} collaborators={collaborators} isLoading={isLoading} ref={ref} />
+    <UserEditorBase
+      {...props}
+      collaborators={collaborators as UserCollaboratorItem[]}
+      isLoading={isLoading}
+      ref={ref}
+      onSearch={setSearch}
+    />
   );
 });
 
@@ -44,8 +60,16 @@ const ContextDataWrapper = forwardRef<
     contextData: ICellEditorContext[FieldType.User];
   }
 >((props, ref) => {
-  const { isLoading, data } = props.contextData;
-  return <UserEditorBase {...props} collaborators={data} isLoading={isLoading} ref={ref} />;
+  const { isLoading, data, onSearch } = props.contextData;
+  return (
+    <UserEditorBase
+      {...props}
+      collaborators={data}
+      isLoading={isLoading}
+      ref={ref}
+      onSearch={onSearch}
+    />
+  );
 });
 
 ContextDataWrapper.displayName = 'UserContextDataWrapper';

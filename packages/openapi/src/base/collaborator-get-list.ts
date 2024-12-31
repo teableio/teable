@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { collaboratorItem } from '../space/types';
+import { collaboratorItem, PrincipalType } from '../space/types';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -13,6 +13,7 @@ export const listBaseCollaboratorRoSchema = z.object({
   skip: z.coerce.number().optional(),
   take: z.coerce.number().optional(),
   search: z.string().optional(),
+  type: z.nativeEnum(PrincipalType).optional(),
 });
 
 export type ListBaseCollaboratorRo = z.infer<typeof listBaseCollaboratorRoSchema>;

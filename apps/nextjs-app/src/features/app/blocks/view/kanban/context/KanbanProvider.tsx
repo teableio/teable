@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
-import type { ListBaseCollaboratorRo } from '@teable/openapi';
+import type { IShareViewCollaboratorsRo, UserCollaboratorItem } from '@teable/openapi';
 import {
   getBaseCollaboratorList,
   getShareViewCollaborators,
   GroupPointType,
+  PrincipalType,
 } from '@teable/openapi';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -62,18 +63,34 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
   const { type, isMultipleCellValue } = stackField ?? {};
 
-  const { data: userList } = useQuery({
-    queryKey: shareId
-      ? ReactQueryKeys.shareViewCollaborators(shareId)
-      : ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true }),
+  const { data: shareViewCollaborators } = useQuery({
+    queryKey: ReactQueryKeys.shareViewCollaborators(shareId, {
+      type: PrincipalType.User,
+      skip: 0,
+      take: 5000,
+    }),
     queryFn: ({ queryKey }) =>
-      shareId
-        ? getShareViewCollaborators(queryKey[1], {}).then((data) => data.data)
-        : getBaseCollaboratorList(queryKey[1], queryKey[2] as ListBaseCollaboratorRo).then(
-            (data) => data.data
-          ),
-    enabled: Boolean((shareId || baseId) && type === FieldType.User && !isMultipleCellValue),
+      getShareViewCollaborators(queryKey[1], queryKey[2] as IShareViewCollaboratorsRo).then(
+        (data) => data.data
+      ),
+    enabled: Boolean(shareId && type === FieldType.User && !isMultipleCellValue),
   });
+
+  const { data: baseCollaborators } = useQuery({
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId, {
+      includeSystem: true,
+      skip: 0,
+      take: 5000,
+      type: PrincipalType.User,
+    }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((data) => data.data),
+    enabled: !shareId && Boolean(baseId && type === FieldType.User && !isMultipleCellValue),
+  });
+
+  const userList = shareId
+    ? shareViewCollaborators
+    : (baseCollaborators?.collaborators as UserCollaboratorItem[]);
 
   const kanbanPermission = useMemo(() => {
     return {
