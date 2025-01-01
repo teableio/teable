@@ -19,12 +19,16 @@ interface ISocketRecordListProps {
 export const SocketRecordList = (props: ISocketRecordListProps) => {
   const { selectedRecordIds, primaryFieldId, onSelected, onClick } = props;
   const rowCount = useRowCount();
-  const { setValue: setSearch, setFieldId } = useSearch();
+  const { setValue: setSearch, setFieldId, setHideNotMatchRow } = useSearch();
   const [searchInput, setSearchInput] = useState('');
 
   useEffect(() => {
     setFieldId(primaryFieldId);
   }, [primaryFieldId, setFieldId]);
+
+  useEffect(() => {
+    setHideNotMatchRow(true);
+  }, [setHideNotMatchRow]);
 
   const updateSearchParam = useMemo(() => {
     return debounce((search: string) => {
