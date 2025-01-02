@@ -3,7 +3,7 @@ import { getPublicSetting } from '@teable/openapi';
 
 export function useAI() {
   const { data } = useQuery({
-    queryKey: ['public-ai-config'],
+    queryKey: ['public-setting'],
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
 

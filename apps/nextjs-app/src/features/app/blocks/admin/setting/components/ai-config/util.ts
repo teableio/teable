@@ -1,6 +1,6 @@
-import type { LLMProvider } from '@teable/openapi';
+import type { ISimpleLLMProvider } from '@teable/openapi';
 
-export const generateModelKeyList = (llmProviders: LLMProvider[]) => {
+export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[]) => {
   return llmProviders
     .map(({ models, type, name }) => models.split(',').map((model) => `${type}@${model}@${name}`))
     .flat();

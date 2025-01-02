@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Patch } from '@nestjs/common';
-import type { ISettingVo } from '@teable/openapi';
+import type { IPublicSettingVo, ISettingVo } from '@teable/openapi';
 import { IUpdateSettingRo, updateSettingRoSchema } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -19,6 +19,28 @@ export class SettingController {
     return await this.settingService.getSetting();
   }
 
+  /**
+   * Public endpoint for getting public settings without authentication
+   */
+  @Public()
+  @Get('public')
+  async getPublicSetting(): Promise<IPublicSettingVo> {
+    const setting = await this.settingService.getSetting();
+    const { aiConfig, ...rest } = setting;
+    return {
+      ...rest,
+      aiConfig: {
+        enable: aiConfig?.enable ?? false,
+        llmProviders:
+          aiConfig?.llmProviders?.map((provider) => ({
+            type: provider.type,
+            name: provider.name,
+            models: provider.models,
+          })) ?? [],
+      },
+    };
+  }
+
   @Patch()
   @Permissions('instance|update')
   async updateSetting(
@@ -29,28 +51,6 @@ export class SettingController {
     return {
       ...res,
       aiConfig: res.aiConfig ? JSON.parse(res.aiConfig) : null,
-    };
-  }
-
-  /**
-   * Public endpoint for getting public settings without authentication
-   */
-  @Public()
-  @Get('public')
-  async getPublicSetting(): Promise<
-    Pick<ISettingVo, 'disallowSignUp' | 'disallowSpaceCreation' | 'disallowSpaceInvitation'> & {
-      aiConfig: {
-        enable: boolean;
-      };
-    }
-  > {
-    const setting = await this.settingService.getSetting();
-    const { aiConfig, ...rest } = setting;
-    return {
-      ...rest,
-      aiConfig: {
-        enable: aiConfig?.enable ?? false,
-      },
     };
   }
 }

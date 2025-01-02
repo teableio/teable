@@ -5,6 +5,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
+import type { LLMProvider } from '@teable/openapi';
 import { LLMProviderType } from '@teable/openapi';
 import { streamText } from 'ai';
 import { SettingService } from '../setting/setting.service';
@@ -24,13 +25,14 @@ export class AiService {
     [LLMProviderType.MISTRAL]: createMistral,
   } as const;
 
-  async getModelConfig(task: Task) {
-    const { aiConfig } = await this.settingService.getSetting();
-    // aiConfig?.codingModel type@model@provider
-    const currentTaskModel = TASK_MODEL_MAP[task];
-    const [type, model, provider] =
-      (aiConfig?.[currentTaskModel as keyof typeof aiConfig] as string)?.split('@') || [];
-    const llmProviders = aiConfig?.llmProviders || [];
+  public parseModelKey(modelKey: string) {
+    const [type, model, provider] = modelKey.split('@');
+    return { type, model, provider };
+  }
+
+  // modelKey-> type@model@provider
+  async getModelConfig(modelKey: string, llmProviders: LLMProvider[] = []) {
+    const { type, model, provider } = this.parseModelKey(modelKey);
 
     const providerConfig = llmProviders.find(
       (p) =>
@@ -53,11 +55,12 @@ export class AiService {
   }
 
   async getModelInstance(
-    task: Task
+    modelKey: string,
+    llmProviders: LLMProvider[] = []
   ): Promise<
     ReturnType<ReturnType<(typeof this.modelProviders)[keyof typeof this.modelProviders]>>
   > {
-    const { type, model, baseUrl, apiKey } = await this.getModelConfig(task);
+    const { type, model, baseUrl, apiKey } = await this.getModelConfig(modelKey, llmProviders);
 
     if (!baseUrl || !apiKey) {
       throw new Error('AI configuration is not set');
@@ -77,8 +80,25 @@ export class AiService {
     })(model);
   }
 
+  async getAIConfig() {
+    const { aiConfig } = await this.settingService.getSetting();
+
+    if (!aiConfig) {
+      throw new Error('AI configuration is not set');
+    }
+
+    if (!aiConfig.enable) {
+      throw new Error('AI is not enabled');
+    }
+
+    return aiConfig;
+  }
+
   async generate(prompt: string, task: Task = Task.Coding) {
-    const modelInstance = await this.getModelInstance(task);
+    const config = await this.getAIConfig();
+    const currentTaskModel = TASK_MODEL_MAP[task];
+    const modelKey = config[currentTaskModel as keyof typeof config] as string;
+    const modelInstance = await this.getModelInstance(modelKey, config.llmProviders);
 
     return await streamText({
       model: modelInstance,

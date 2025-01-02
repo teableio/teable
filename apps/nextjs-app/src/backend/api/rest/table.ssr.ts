@@ -19,6 +19,7 @@ import type {
   IGroupPointsRo,
   IGroupPointsVo,
   ListSpaceCollaboratorRo,
+  IPublicSettingVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -27,6 +28,7 @@ import {
   GET_DEFAULT_VIEW_ID,
   GET_FIELD_LIST,
   GET_GROUP_POINTS,
+  GET_PUBLIC_SETTING,
   GET_RECORDS_URL,
   GET_RECORD_URL,
   GET_SETTING,
@@ -166,6 +168,10 @@ export class SsrApi {
 
   async getSetting() {
     return this.axios.get<ISettingVo>(GET_SETTING).then(({ data }) => data);
+  }
+
+  async getPublicSetting() {
+    return this.axios.get<IPublicSettingVo>(GET_PUBLIC_SETTING).then(({ data }) => data);
   }
 
   async getUserMe() {

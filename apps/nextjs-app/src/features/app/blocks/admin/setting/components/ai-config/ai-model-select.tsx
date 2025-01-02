@@ -25,6 +25,7 @@ interface IAIModelSelectProps {
   size?: 'xs' | 'sm' | 'lg' | 'default' | null | undefined;
   className?: string;
   options?: string[];
+  disabled?: boolean;
 }
 
 export function AIModelSelect({
@@ -33,6 +34,7 @@ export function AIModelSelect({
   size = 'default',
   className,
   options = [],
+  disabled,
 }: IAIModelSelectProps) {
   const [open, setOpen] = React.useState(false);
   const currentModel = options.find((model) => model.toLowerCase() === value.toLowerCase());
@@ -43,7 +45,7 @@ export function AIModelSelect({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild disabled={disabled}>
         <Button
           variant="outline"
           role="combobox"
