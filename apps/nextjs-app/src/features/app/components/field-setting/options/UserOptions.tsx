@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { CellValueType, IUserCellValue, IUserFieldOptions } from '@teable/core';
-import { getBaseCollaboratorList } from '@teable/openapi';
+import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
 import { UserEditor } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
@@ -21,11 +21,21 @@ export const UserOptions = (props: {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const baseId = useBaseId();
 
-  const { data: collaborators, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, { includeSystem: true }),
+  // TODO: Here is just to get the complete information of the user selected by defaultValue, only need to provide the interface to query by userId.
+  const { data: collaboratorsData, isLoading } = useQuery({
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, {
+      includeSystem: true,
+      skip: 0,
+      take: 1000,
+      type: PrincipalType.User,
+    }),
     queryFn: ({ queryKey }) =>
-      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
+      getBaseCollaboratorList(queryKey[1], {
+        ...queryKey[2],
+        type: PrincipalType.User,
+      }).then((res) => res.data),
   });
+  const collaborators = collaboratorsData?.collaborators;
 
   const onIsMultipleChange = (checked: boolean) => {
     onChange?.({
