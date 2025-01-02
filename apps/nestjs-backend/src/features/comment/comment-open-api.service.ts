@@ -211,6 +211,11 @@ export class CommentOpenApiService {
       mentionUserMap,
     });
 
+    const fullReaction = reaction.map((item) => ({
+      reaction: item.reaction,
+      user: item.user.map((id) => mentionUserMap[id]).filter(Boolean),
+    }));
+
     return {
       ...rest,
       quoteId: quoteId || undefined,
@@ -219,10 +224,7 @@ export class CommentOpenApiService {
       createdTime: rawComment.createdTime.toISOString(),
       lastModifiedTime: rawComment.lastModifiedTime?.toISOString(),
       deletedTime: rawComment.deletedTime?.toISOString(),
-      reaction: reaction.map((item) => ({
-        reaction: item.reaction,
-        user: item.user.map((id) => mentionUserMap[id]).filter(Boolean),
-      })),
+      reaction: fullReaction.length ? fullReaction : null,
     };
   }
 
