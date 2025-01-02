@@ -142,7 +142,7 @@ export const LLMProviderForm = ({ onAdd, value, onChange }: LLMProviderFormProps
   //   }
   // }
 
-  const mode = onChange ? 'Update' : 'Add';
+  const mode = onChange ? t('actions.update') : t('actions.add');
   const type = form.watch('type');
   const currentProvider = LLM_PROVIDERS.find((provider) => provider.value === type);
 
