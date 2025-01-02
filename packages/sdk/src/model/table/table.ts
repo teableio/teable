@@ -8,7 +8,6 @@ import {
   getAggregation,
   getGroupPoints,
   getRowCount,
-  tableSqlQuery,
   updateDbTableName,
   updateTableDescription,
   updateTableIcon,
@@ -25,8 +24,6 @@ export class Table extends TableCore {
   static createTable = requestWrap(createTable);
 
   static deleteTable = requestWrap(deleteTable);
-
-  static sqlQuery = requestWrap(tableSqlQuery);
 
   static getAggregations = requestWrap(getAggregation);
 

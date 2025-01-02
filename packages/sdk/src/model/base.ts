@@ -20,10 +20,6 @@ export class Base implements IGetBaseVo {
     this.collaboratorType = collaboratorType;
   }
 
-  async sqlQuery(tableId: string, viewId: string, sql: string) {
-    return Table.sqlQuery(this.id, tableId, { viewId, sql });
-  }
-
   async createTable(tableRo?: ICreateTableRo) {
     return Table.createTable(this.id, tableRo);
   }
