@@ -38,7 +38,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
   useInitializationZodI18n();
 
   const { data: shareCollaborators } = useQuery({
-    queryKey: ['sheet_form_collaborator', shareId, baseId],
+    queryKey: ['sheet_form_collaborator', shareId, baseId] as const,
     queryFn: () =>
       shareId
         ? getShareViewCollaborators(shareId!, {}).then((res) => res.data)

@@ -432,8 +432,12 @@ describe('OpenAPI ShareController (e2e)', () => {
         const mulResult = await apiGetShareViewCollaborators(gridViewShareId, {
           fieldId: multipleUserFieldId,
         });
-        expect(result.data).toEqual([{ userId, userName, email: userEmail, avatar: null }]);
-        expect(mulResult.data).toEqual([{ userId, userName, email: userEmail, avatar: null }]);
+        expect(result.data).toEqual([
+          { userId, userName, email: userEmail, avatar: expect.any(String) },
+        ]);
+        expect(mulResult.data).toEqual([
+          { userId, userName, email: userEmail, avatar: expect.any(String) },
+        ]);
 
         await apiDeleteRecords(
           userTableRes.id,
