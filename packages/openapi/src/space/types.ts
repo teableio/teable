@@ -46,6 +46,8 @@ export const departmentCollaboratorItem = z.object({
     .optional(),
 });
 
+export type DepartmentCollaboratorItem = z.infer<typeof departmentCollaboratorItem>;
+
 export const collaboratorItem = z.discriminatedUnion('type', [
   userCollaboratorItem,
   departmentCollaboratorItem,

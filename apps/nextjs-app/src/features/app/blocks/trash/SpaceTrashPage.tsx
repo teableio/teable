@@ -9,6 +9,7 @@ import {
   restoreTrash,
   permanentDeleteBase,
   permanentDeleteSpace,
+  PrincipalType,
 } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -154,7 +155,12 @@ export const SpaceTrashPage = () => {
 
           const { name, avatar, email } = user;
 
-          return <Collaborator name={name} email={email} avatar={avatar} />;
+          return (
+            <Collaborator
+              item={{ name, email, avatar, type: PrincipalType.User }}
+              className="flex-1"
+            />
+          );
         },
       },
       {

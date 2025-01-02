@@ -2,7 +2,13 @@ import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
-import { getTrashItems, resetTrashItems, ResourceType, restoreTrash } from '@teable/openapi';
+import {
+  getTrashItems,
+  PrincipalType,
+  resetTrashItems,
+  ResourceType,
+  restoreTrash,
+} from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission, useIsHydrated } from '@teable/sdk/hooks';
@@ -100,7 +106,12 @@ export const BaseTrashPage = () => {
 
           const { name, avatar, email } = user;
 
-          return <Collaborator name={name} email={email} avatar={avatar} />;
+          return (
+            <Collaborator
+              item={{ name, email, avatar, type: PrincipalType.User }}
+              className="flex-1"
+            />
+          );
         },
       },
       {

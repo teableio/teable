@@ -2,6 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { CollaboratorItem, DepartmentCollaboratorItem, UserCollaboratorItem } from './types';
 import { collaboratorItem, PrincipalType } from './types';
 
 export const SPACE_COLLABORATE_LIST = '/space/{spaceId}/collaborators';
@@ -26,6 +27,22 @@ export const listSpaceCollaboratorVoSchema = z.object({
 
 export type ListSpaceCollaboratorVo = z.infer<typeof listSpaceCollaboratorVoSchema>;
 
+type GetFilteredCollaborator<T extends { type?: PrincipalType }> = T extends {
+  type: PrincipalType.User;
+}
+  ? Extract<UserCollaboratorItem, { type: PrincipalType.User }>
+  : T extends { type: PrincipalType.Department }
+    ? Extract<DepartmentCollaboratorItem, { type: PrincipalType.Department }>
+    : CollaboratorItem;
+
+export type IGetCollaboratorsResponse<T extends { type?: PrincipalType }> = Omit<
+  ListSpaceCollaboratorVo,
+  'collaborators'
+> & {
+  collaborators: GetFilteredCollaborator<T>[];
+  total: number;
+};
+
 export const ListSpaceCollaboratorRoute: RouteConfig = registerRoute({
   method: 'get',
   path: SPACE_COLLABORATE_LIST,
@@ -49,11 +66,11 @@ export const ListSpaceCollaboratorRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
-export const getSpaceCollaboratorList = async (
+export const getSpaceCollaboratorList = async <T extends ListSpaceCollaboratorRo>(
   spaceId: string,
   query?: ListSpaceCollaboratorRo
 ) => {
-  return axios.get<ListSpaceCollaboratorVo>(
+  return axios.get<IGetCollaboratorsResponse<T>>(
     urlBuilder(SPACE_COLLABORATE_LIST, {
       spaceId,
     }),
