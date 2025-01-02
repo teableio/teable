@@ -460,4 +460,12 @@ export class PostgresProvider implements IDbProvider {
       .where('type', type)
       .toQuery();
   }
+
+  searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder {
+    return qb.where((builder) => {
+      search.forEach(([field, value]) => {
+        builder.orWhere(field, 'ilike', `%${value}%`);
+      });
+    });
+  }
 }

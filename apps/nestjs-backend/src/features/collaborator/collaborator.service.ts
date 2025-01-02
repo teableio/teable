@@ -13,6 +13,8 @@ import { Knex } from 'knex';
 import { map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import {
   CollaboratorCreateEvent,
@@ -30,7 +32,8 @@ export class CollaboratorService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   private checkPrincipalType(principalType: PrincipalType) {
@@ -116,11 +119,10 @@ export class CollaboratorService {
       });
     }
     if (search) {
-      builder.where((db) => {
-        return db
-          .orWhereILike('users.name', `%${search}%`)
-          .orWhereILike('users.email', `%${search}%`);
-      });
+      this.dbProvider.searchBuilder(builder, [
+        ['users.name', search],
+        ['users.email', search],
+      ]);
     }
     if (type) {
       builder.where('collaborator.principal_type', type);
@@ -277,11 +279,10 @@ export class CollaboratorService {
       });
     }
     if (search) {
-      builder.where((db) => {
-        return db
-          .orWhereILike('users.name', `%${search}%`)
-          .orWhereILike('users.email', `%${search}%`);
-      });
+      this.dbProvider.searchBuilder(builder, [
+        ['users.name', search],
+        ['users.email', search],
+      ]);
     }
     if (type) {
       builder.where('collaborator.principal_type', type);

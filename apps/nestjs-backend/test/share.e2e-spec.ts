@@ -34,13 +34,9 @@ import {
   updateViewShareMeta,
   shareViewFormSubmit,
   deleteView,
+  PrincipalType,
 } from '@teable/openapi';
-import type {
-  ITableFullVo,
-  ShareViewAuthVo,
-  ShareViewGetVo,
-  UserCollaboratorItem,
-} from '@teable/openapi';
+import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
@@ -472,11 +468,11 @@ describe('OpenAPI ShareController (e2e)', () => {
           },
         ]);
         const result = await apiGetShareViewCollaborators(fromViewShareId, {});
-        const baseCollaborators = await apiGetBaseCollaboratorList(baseId);
+        const baseCollaborators = await apiGetBaseCollaboratorList(baseId, {
+          type: PrincipalType.User,
+        });
         expect(result.data.map((user) => user.userId)).toEqual(
-          (baseCollaborators.data.collaborators as UserCollaboratorItem[]).map(
-            (item) => item.userId
-          )
+          baseCollaborators.data.collaborators.map((item) => item.userId)
         );
         await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
           {

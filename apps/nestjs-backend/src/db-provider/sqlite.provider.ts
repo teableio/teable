@@ -417,4 +417,12 @@ export class SqliteProvider implements IDbProvider {
       .whereRaw(`json_extract(options, '$."${optionsKey}"') = ?`, [value])
       .toQuery();
   }
+
+  searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder {
+    return qb.where((builder) => {
+      search.forEach(([field, value]) => {
+        builder.orWhereRaw('LOWER(??) LIKE LOWER(?)', [field, `%${value}%`]);
+      });
+    });
+  }
 }

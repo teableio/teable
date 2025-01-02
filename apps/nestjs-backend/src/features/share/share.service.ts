@@ -399,11 +399,10 @@ export class ShareService {
       .from(this.knex.raw(`(${queryBuilder.toQuery()}) AS coll`))
       .leftJoin('users', 'users.id', '=', 'coll.user_id');
     if (search) {
-      resQuery.where((db) => {
-        return db
-          .orWhereILike('users.name', `%${search}%`)
-          .orWhereILike('users.email', `%${search}%`);
-      });
+      this.dbProvider.searchBuilder(resQuery, [
+        ['users.name', search],
+        ['users.email', search],
+      ]);
     }
     if (skip) {
       resQuery.offset(skip);
