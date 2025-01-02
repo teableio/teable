@@ -388,16 +388,12 @@ export const MagicAI = (
       fill={props.active ? '#FF7B72' : '#6e7681'}
     />
     <path
-      d="M20 3v4M22 5h-4"
-      stroke={props.active ? '#79C0FF' : '#6e7681'}
-      strokeWidth="2"
-      strokeLinecap="round"
+      d="M19 2L20 4L22 5L20 6L19 8L18 6L16 5L18 4L19 2Z"
+      fill={props.active ? '#79C0FF' : '#6e7681'}
     />
     <path
-      d="M4 17v2M5 18H3"
-      stroke={props.active ? '#7EE787' : '#6e7681'}
-      strokeWidth="2"
-      strokeLinecap="round"
+      d="M5 16L6 18L8 19L6 20L5 22L4 20L2 19L4 18L5 16Z"
+      fill={props.active ? '#7EE787' : '#6e7681'}
     />
   </svg>
 );
