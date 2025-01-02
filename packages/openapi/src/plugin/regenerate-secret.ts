@@ -26,7 +26,7 @@ export const pluginRegenerateSecretRoute: RouteConfig = registerRoute({
     params: pluginRegenerateSecretRoSchema,
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about the plugin.',
       content: {
         'application/json': {

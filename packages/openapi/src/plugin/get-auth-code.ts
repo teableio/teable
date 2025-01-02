@@ -25,7 +25,7 @@ export const pluginGetAuthCodeRouter = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns auth code.',
       content: {
         'application/json': {

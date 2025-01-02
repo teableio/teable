@@ -16,7 +16,7 @@ export const CreateCommentSubscribeRoute: RouteConfig = registerRoute({
     }),
   },
   responses: {
-    200: {
+    201: {
       description: 'Successfully subscribe record comment.',
     },
   },

@@ -1,4 +1,4 @@
-import type { DriverClient, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type { DriverClient, FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -71,6 +71,8 @@ export interface IDbProvider {
     columnName: string,
     prisma: Prisma.TransactionClient
   ): Promise<boolean>;
+
+  checkTableExist(tableName: string): string;
 
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[];
 
@@ -165,5 +167,5 @@ export interface IDbProvider {
 
   lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string;
 
-  optionsQuery(optionsKey: string, value: string): string;
+  optionsQuery(type: FieldType, optionsKey: string, value: string): string;
 }

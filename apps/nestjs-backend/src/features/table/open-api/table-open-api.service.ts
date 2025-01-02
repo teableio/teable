@@ -469,7 +469,11 @@ export class TableOpenApiService {
         throw new NotFoundException(`table ${tableId} not found`);
       });
 
-    const linkFieldsQuery = this.dbProvider.optionsQuery('fkHostTableName', oldDbTableName);
+    const linkFieldsQuery = this.dbProvider.optionsQuery(
+      FieldType.Link,
+      'fkHostTableName',
+      oldDbTableName
+    );
     const lookupFieldsQuery = this.dbProvider.lookupOptionsQuery('fkHostTableName', oldDbTableName);
 
     await this.prismaService.$tx(async (prisma) => {

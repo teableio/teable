@@ -26,7 +26,7 @@ export const ImportTableFromFileRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about a table without records',
       content: {
         'application/json': {
