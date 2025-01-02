@@ -37,7 +37,7 @@ export const accessTokenRoute = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns access token.',
       content: {
         'application/json': {

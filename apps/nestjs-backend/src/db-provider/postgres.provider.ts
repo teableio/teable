@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
@@ -73,6 +73,16 @@ export class PostgresProvider implements IDbProvider {
       .toQuery();
     const res = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(sql);
     return res[0].exists;
+  }
+
+  checkTableExist(tableName: string): string {
+    const [schemaName, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(
+        'SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = ? AND table_name = ?) AS exists',
+        [schemaName, dbTableName]
+      )
+      .toQuery();
   }
 
   renameColumn(tableName: string, oldName: string, newName: string): string[] {
@@ -424,20 +434,29 @@ export class PostgresProvider implements IDbProvider {
   lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
+        type: 'type',
+        name: 'name',
         lookupOptions: 'lookup_options',
       })
+      .whereNull('deleted_time')
       .whereRaw(`lookup_options::json->>'${optionsKey}' = ?`, [value])
       .toQuery();
   }
 
-  optionsQuery(optionsKey: string, value: string): string {
+  optionsQuery(type: FieldType, optionsKey: string, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
+        type: 'type',
+        name: 'name',
         options: 'options',
       })
+      .whereNull('deleted_time')
       .whereRaw(`options::json->>'${optionsKey}' = ?`, [value])
+      .where('type', type)
       .toQuery();
   }
 }

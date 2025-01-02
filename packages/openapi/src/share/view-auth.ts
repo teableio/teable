@@ -31,7 +31,7 @@ export const ShareViewAuthRouter: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Successfully authenticated',
       content: {
         'application/json': {

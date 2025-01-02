@@ -25,7 +25,7 @@ export const sendResetPasswordEmailRoute = registerRoute({
   },
   tags: ['auth'],
   responses: {
-    200: {
+    201: {
       description: 'Successfully sent reset password email',
     },
   },

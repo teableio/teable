@@ -13,7 +13,7 @@ export const revokeAccessRoute = registerRoute({
     }),
   },
   responses: {
-    200: {
+    201: {
       description: 'Revoke access permission successfully',
     },
   },

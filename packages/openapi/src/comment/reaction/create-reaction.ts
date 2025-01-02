@@ -46,7 +46,7 @@ export const CreateCommentReactionRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Successfully create comment reaction.',
     },
   },

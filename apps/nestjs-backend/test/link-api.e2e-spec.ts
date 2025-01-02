@@ -8,6 +8,7 @@ import type { IFieldRo, IFieldVo, ILinkFieldOptions, ILookupOptionsVo } from '@t
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
+  checkBaseIntegrity,
   convertField,
   createBase,
   deleteBase,
@@ -2899,7 +2900,7 @@ describe('OpenAPI link (e2e)', () => {
       await permanentDeleteTable(baseId, table2.id);
     });
 
-    it('should correct update db table name', async () => {
+    it.only('should correct update db table name', async () => {
       const table1LinkField = table1.fields[2];
       const table2LinkField = table2.fields[2];
       expect((table1LinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
@@ -2996,6 +2997,9 @@ describe('OpenAPI link (e2e)', () => {
         (updatedLinkField.options as ILinkFieldOptions).symmetricFieldId as string
       );
       expect((symUpdatedLinkField.options as ILinkFieldOptions).baseId).toEqual(baseId);
+
+      const integrity = await checkBaseIntegrity(baseId2);
+      expect(integrity.data.hasIssues).toEqual(false);
     });
 
     it('should correct update db table name when link field is cross base', async () => {

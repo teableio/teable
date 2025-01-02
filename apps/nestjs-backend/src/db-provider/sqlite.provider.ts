@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
@@ -63,6 +63,18 @@ export class SqliteProvider implements IDbProvider {
     const sql = this.columnInfo(tableName);
     const columns = await prisma.$queryRawUnsafe<{ name: string }[]>(sql);
     return columns.some((column) => column.name === columnName);
+  }
+
+  checkTableExist(tableName: string): string {
+    return this.knex
+      .raw(
+        `SELECT EXISTS (
+          SELECT 1 FROM sqlite_master 
+          WHERE type='table' AND name = ?
+        ) as exists`,
+        [tableName]
+      )
+      .toQuery();
   }
 
   renameColumn(tableName: string, oldName: string, newName: string): string[] {
@@ -382,18 +394,25 @@ export class SqliteProvider implements IDbProvider {
     return this.knex('field')
       .select({
         id: 'id',
+        type: 'type',
+        name: 'name',
         lookupOptions: 'lookup_options',
       })
+      .whereNull('deleted_time')
       .whereRaw(`json_extract(lookup_options, '$."${optionsKey}"') = ?`, [value])
       .toQuery();
   }
 
-  optionsQuery(optionsKey: string, value: string): string {
+  optionsQuery(type: FieldType, optionsKey: string, value: string): string {
     return this.knex('field')
       .select({
         id: 'id',
+        type: 'type',
+        name: 'name',
         options: 'options',
       })
+      .where('type', type)
+      .whereNull('deleted_time')
       .whereRaw(`json_extract(options, '$."${optionsKey}"') = ?`, [value])
       .toQuery();
   }

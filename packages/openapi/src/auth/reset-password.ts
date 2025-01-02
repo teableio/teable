@@ -27,7 +27,7 @@ export const resetPasswordRoute = registerRoute({
   },
   tags: ['auth'],
   responses: {
-    200: {
+    201: {
       description: 'Successfully reset password',
     },
   },

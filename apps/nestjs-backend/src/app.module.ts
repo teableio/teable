@@ -19,6 +19,7 @@ import { ExportOpenApiModule } from './features/export/open-api/export-open-api.
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
+import { IntegrityModule } from './features/integrity/integrity.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { NotificationModule } from './features/notification/notification.module';
@@ -45,6 +46,7 @@ export const appModules = {
     NextModule,
     FieldOpenApiModule,
     BaseModule,
+    IntegrityModule,
     ChatModule,
     AttachmentsModule,
     WsModule,

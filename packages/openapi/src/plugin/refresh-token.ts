@@ -34,7 +34,7 @@ export const PluginRefreshTokenRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns token.',
       content: {
         'application/json': {

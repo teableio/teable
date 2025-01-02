@@ -108,6 +108,9 @@ model Field {
   lastModifiedBy      String?   @map("last_modified_by")
   table               TableMeta @relation(fields: [tableId], references: [id])
 
+  fromReferences Reference[] @relation("FromFields")
+  toReferences   Reference[] @relation("ToFields")
+
   @@index([lookupLinkedFieldId])
   @@map("field")
 }
@@ -169,6 +172,9 @@ model Reference {
   fromFieldId String @map("from_field_id")
   toFieldId   String @map("to_field_id")
   createdTime DateTime @default(now()) @map("created_time")
+
+  fromField   Field @relation("FromFields", fields: [fromFieldId], references: [id])
+  toField     Field @relation("ToFields", fields: [toFieldId], references: [id])
 
   @@unique([toFieldId, fromFieldId])
   @@index([fromFieldId])

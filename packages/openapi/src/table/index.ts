@@ -2,7 +2,6 @@ export * from './create';
 export * from './delete';
 export * from './get-list';
 export * from './get';
-export * from './sql-query';
 export * from './permanent-delete';
 export * from './update-name';
 export * from './update-icon';

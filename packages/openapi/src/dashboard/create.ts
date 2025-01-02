@@ -35,7 +35,7 @@ export const CreateDashboardRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about the created dashboard.',
       content: {
         'application/json': {
