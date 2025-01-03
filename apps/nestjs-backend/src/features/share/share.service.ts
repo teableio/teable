@@ -31,6 +31,7 @@ import type {
   IShareViewCollaboratorsRo,
   ISearchCountRo,
   ISearchIndexByQueryRo,
+  UserCollaboratorItem,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -483,12 +484,12 @@ export class ShareService {
       select: { baseId: true },
       where: { id: tableId },
     });
-    const list = await this.collaboratorService.getListByBase(baseId, {
+    const list = (await this.collaboratorService.getListByBase(baseId, {
       skip,
       take,
       search,
       type: PrincipalType.User,
-    });
+    })) as UserCollaboratorItem[];
     return list.map((item) => pick(item, 'userId', 'email', 'userName', 'avatar'));
   }
 

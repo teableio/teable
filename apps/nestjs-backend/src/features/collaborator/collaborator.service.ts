@@ -616,11 +616,15 @@ export class CollaboratorService {
     const roleMap: Record<string, IRole> = {};
     const baseIds = new Set<string>();
     const spaceIds = new Set<string>();
-    collaborators.forEach(({ resourceId, roleName }) => {
+    collaborators.forEach(({ resourceId, roleName, resourceType }) => {
       if (!roleMap[resourceId] || canManageRole(roleName as IRole, roleMap[resourceId])) {
         roleMap[resourceId] = roleName as IRole;
       }
-      baseIds.add(resourceId);
+      if (resourceType === CollaboratorType.Base) {
+        baseIds.add(resourceId);
+      } else {
+        spaceIds.add(resourceId);
+      }
     });
     return {
       baseIds: Array.from(baseIds),
