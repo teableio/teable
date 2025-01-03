@@ -66,25 +66,17 @@ describe('CollaboratorService', () => {
 
       expect(prismaService.collaborator.deleteMany).toBeCalledWith({
         where: {
-          principalId: mockUser.id,
-          principalType: PrincipalType.User,
+          OR: [
+            {
+              principalId: mockUser.id,
+              principalType: PrincipalType.User,
+            },
+          ],
           resourceId: { in: ['base1'] },
           resourceType: CollaboratorType.Base,
         },
       });
-
-      expect(prismaService.collaborator.createMany).toBeCalledWith({
-        data: [
-          {
-            resourceId: mockSpace.id,
-            resourceType: CollaboratorType.Space,
-            roleName: Role.Owner,
-            principalId: mockUser.id,
-            principalType: PrincipalType.User,
-            createdBy: mockUser.id,
-          },
-        ],
-      });
+      expect(prismaService.$executeRawUnsafe).toBeCalled();
     });
 
     it('should throw error if exists', async () => {

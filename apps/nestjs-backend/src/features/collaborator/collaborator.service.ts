@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
+import { canManageRole, getRandomString, Role, type IBaseRole, type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   AddBaseCollaboratorRo,
@@ -71,33 +71,37 @@ export class CollaboratorService {
         deletedTime: null,
       },
     });
+
     await this.prismaService.txClient().collaborator.deleteMany({
       where: {
-        OR: bases.map((base) => ({
-          principalId: collaborators.find((collaborator) => collaborator.principalId === base.id)
-            ?.principalId,
-          principalType: collaborators.find((collaborator) => collaborator.principalId === base.id)
-            ?.principalType,
-          resourceId: base.id,
+        OR: collaborators.map((collaborator) => ({
+          principalId: collaborator.principalId,
+          principalType: collaborator.principalType,
         })),
+        resourceId: { in: bases.map((base) => base.id) },
         resourceType: CollaboratorType.Base,
       },
     });
-    const collaborator = await this.prismaService.txClient().collaborator.createMany({
-      data: collaborators.map((collaborator) => ({
-        resourceId: spaceId,
-        resourceType: CollaboratorType.Space,
-        roleName: role,
-        principalId: collaborator.principalId,
-        principalType: collaborator.principalType,
-        createdBy: currentUserId!,
-      })),
-    });
+
+    const query = this.knex
+      .insert(
+        collaborators.map((collaborator) => ({
+          id: getRandomString(16),
+          resource_id: spaceId,
+          resource_type: CollaboratorType.Space,
+          role_name: role,
+          principal_id: collaborator.principalId,
+          principal_type: collaborator.principalType,
+          created_by: currentUserId!,
+        }))
+      )
+      .into('collaborator')
+      .toQuery();
+    await this.prismaService.$executeRawUnsafe(query);
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_CREATE,
       new CollaboratorCreateEvent(spaceId)
     );
-    return collaborator;
   }
 
   protected async getBaseCollaboratorBuilder(
@@ -657,16 +661,22 @@ export class CollaboratorService {
       throw new BadRequestException('has already existed in base');
     }
 
-    const res = await this.prismaService.txClient().collaborator.createMany({
-      data: collaborators.map((collaborator) => ({
-        resourceId: baseId,
-        resourceType: CollaboratorType.Base,
-        roleName: role,
-        principalId: collaborator.principalId,
-        principalType: collaborator.principalType,
-        createdBy: currentUserId!,
-      })),
-    });
+    const query = this.knex
+      .insert(
+        collaborators.map((collaborator) => ({
+          id: getRandomString(16),
+          resource_id: baseId,
+          resource_type: CollaboratorType.Base,
+          role_name: role,
+          principal_id: collaborator.principalId,
+          principal_type: collaborator.principalType,
+          created_by: currentUserId!,
+        }))
+      )
+      .into('collaborator')
+      .toQuery();
+
+    const res = await this.prismaService.$executeRawUnsafe(query);
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_CREATE,
       new CollaboratorCreateEvent(base.spaceId)

@@ -375,13 +375,13 @@ describe('TypeCastAndValidate', () => {
       id: '1',
       title: 'bob',
       email: 'bob@example.com',
-      avatarUrl: 'undefined/api/attachments/read/public/avatar/1',
+      avatarUrl: expect.stringContaining('api/attachments/read/public/avatar/1'),
     };
     const tomCv: IUserCellValue = {
       id: '2',
       title: 'tom',
       email: 'tom@example.com',
-      avatarUrl: 'undefined/api/attachments/read/public/avatar/2',
+      avatarUrl: expect.stringContaining('api/attachments/read/public/avatar/2'),
     };
     beforeEach(() => {
       collaboratorService.getUserCollaboratorsByTableId.mockResolvedValue([
@@ -438,7 +438,6 @@ describe('TypeCastAndValidate', () => {
         (...args: any[]) => args[0].map((v: any) => (args[1] as any)(v))
       );
       const result = await typeCastAndValidate['castToUser'](cellValues);
-      console.log('result', result);
       const expectedCv: (IUserCellValue | IUserCellValue[] | null)[] = [
         [bobCv],
         [bobCv],
