@@ -97,6 +97,7 @@ export const filePasteHandler = async ({
 };
 
 export const textPasteHandler = async (
+  e: React.ClipboardEvent,
   selection: CombinedSelection,
   requestPaste: (
     content: string,
@@ -105,14 +106,11 @@ export const textPasteHandler = async (
     header: IPasteRo['header']
   ) => Promise<void>
 ) => {
-  const clipboardContent = await navigator.clipboard.read();
-  const hasHtml = clipboardContent[0].types.includes(ClipboardTypes.html);
-  const text = clipboardContent[0].types.includes(ClipboardTypes.text)
-    ? await (await clipboardContent[0].getType(ClipboardTypes.text)).text()
+  const hasHtml = e.clipboardData.types.includes(ClipboardTypes.html);
+  const text = e.clipboardData.types.includes(ClipboardTypes.text)
+    ? e.clipboardData.getData(ClipboardTypes.text)
     : '';
-  const html = hasHtml
-    ? await (await clipboardContent[0].getType(ClipboardTypes.html)).text()
-    : undefined;
+  const html = hasHtml ? e.clipboardData.getData(ClipboardTypes.html) : undefined;
   const header = extractTableHeader(html);
 
   if (header.error) {

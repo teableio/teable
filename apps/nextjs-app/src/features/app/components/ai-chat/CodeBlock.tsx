@@ -1,7 +1,9 @@
 import CopyIcon from '@teable/ui-lib/icons/app/copy.svg';
-import { useToast } from '@teable/ui-lib/shadcn/ui/use-toast';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { useTranslation } from 'next-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { syncCopy } from '../../utils/sync-copy';
 import type { IChat } from './type';
 
 interface Props {
@@ -16,22 +18,12 @@ export const checkStatementIsSelect = (statement: string) => {
 };
 
 export const CodeBlock: React.FC<Props> = ({ language, value, onExecute }) => {
-  const { toast } = useToast();
   const showExecuteButton = language.toUpperCase() === 'AI';
+  const { t } = useTranslation(['table']);
 
   const copyToClipboard = () => {
-    console.log('copy!');
-    if (!navigator.clipboard || !navigator.clipboard.writeText) {
-      toast({
-        description: 'Failed to copy to clipboard',
-      });
-      return;
-    }
-    navigator.clipboard.writeText(value).then(() => {
-      toast({
-        description: 'Failed to copy to clipboard',
-      });
-    });
+    syncCopy(value);
+    toast(t('table:table.actionTips.copySuccessful'));
   };
 
   const handleExecuteQuery = () => {

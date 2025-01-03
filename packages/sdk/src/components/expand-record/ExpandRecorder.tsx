@@ -8,6 +8,7 @@ import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import { useBaseId, useTableId, useTablePermission } from '../../hooks';
 import { Record } from '../../model';
+import { syncCopy } from './copy';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
@@ -89,7 +90,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
 
   const onCopyUrl = () => {
     const url = window.location.href;
-    navigator.clipboard.writeText(url);
+    syncCopy(url);
     toast({ description: t('expandRecord.copy') });
   };
 

@@ -87,7 +87,6 @@ export const useSelectionOperation = (props?: {
     if (
       !navigator.clipboard ||
       !navigator.clipboard.write ||
-      !navigator.clipboard.read ||
       typeof ClipboardItem === 'undefined'
     ) {
       toast({
@@ -149,7 +148,6 @@ export const useSelectionOperation = (props?: {
       recordMap: IRecordIndexMap,
       updateTemporaryData?: (records: ITemporaryPasteVo) => void
     ) => {
-      if (!checkCopyAndPasteEnvironment()) return;
       if (!viewId || !tableId) return;
 
       const { files, types } = e.clipboardData;
@@ -181,7 +179,7 @@ export const useSelectionOperation = (props?: {
             },
           });
         } else {
-          await textPasteHandler(selection, async (content, type, ranges, header) => {
+          await textPasteHandler(e, selection, async (content, type, ranges, header) => {
             if (updateTemporaryData) {
               const res = await temporaryPasteReq({ content, ranges, header });
               updateTemporaryData(res.data);
@@ -206,17 +204,7 @@ export const useSelectionOperation = (props?: {
         console.error('Paste error: ', error);
       }
     },
-    [
-      baseId,
-      viewId,
-      tableId,
-      fields,
-      toast,
-      temporaryPasteReq,
-      pasteReq,
-      checkCopyAndPasteEnvironment,
-      t,
-    ]
+    [baseId, viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, t]
   );
 
   const doClear = useCallback(
