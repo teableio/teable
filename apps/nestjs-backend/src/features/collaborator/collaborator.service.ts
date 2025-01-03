@@ -10,7 +10,7 @@ import type {
 } from '@teable/openapi';
 import { CollaboratorType, UploadType, PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { map } from 'lodash';
+import { difference, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -716,6 +716,25 @@ export class CollaboratorService {
     }));
   }
 
+  protected async validateCollaboratorUser(userIds: string[]) {
+    const users = await this.prismaService.txClient().user.findMany({
+      where: {
+        id: { in: userIds },
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+    const diffIds = difference(
+      userIds,
+      users.map((u) => u.id)
+    );
+    if (diffIds.length > 0) {
+      throw new BadRequestException(`User not found: ${diffIds.join(', ')}`);
+    }
+  }
+
   async addSpaceCollaborators(spaceId: string, collaborator: AddSpaceCollaboratorRo) {
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     await this.validateUserAddRole({
@@ -725,6 +744,11 @@ export class CollaboratorService {
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
     });
+    await this.validateCollaboratorUser(
+      collaborator.collaborators
+        .filter((c) => c.principalType === PrincipalType.User)
+        .map((c) => c.principalId)
+    );
     return this.createSpaceCollaborator({
       collaborators: collaborator.collaborators,
       spaceId,
@@ -742,6 +766,11 @@ export class CollaboratorService {
       resourceId: baseId,
       resourceType: CollaboratorType.Base,
     });
+    await this.validateCollaboratorUser(
+      collaborator.collaborators
+        .filter((c) => c.principalType === PrincipalType.User)
+        .map((c) => c.principalId)
+    );
     return this.createBaseCollaborator({
       collaborators: collaborator.collaborators,
       baseId,
