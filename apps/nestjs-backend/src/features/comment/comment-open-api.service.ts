@@ -105,7 +105,7 @@ export class CommentOpenApiService {
       const cacheUrls = await this.cacheService.getMany(
         tokens.map((token) => `attachment:preview:${token}` as const)
       );
-      urls = cacheUrls.map((url) => url?.url).filter((url) => url !== undefined) as string[];
+      urls = cacheUrls.map((url) => url?.url) as string[];
     }
     const presignedUrls = await Promise.all(
       urls.map(async (url, index) => {
@@ -121,7 +121,7 @@ export class CommentOpenApiService {
     );
     return presignedUrls.reduce(
       (acc, url, index) => {
-        acc[encodeURIComponent(paths[index])] = url;
+        acc[paths[index]] = url;
         return acc;
       },
       {} as Record<string, string>
@@ -144,7 +144,7 @@ export class CommentOpenApiService {
         case CommentNodeType.Img:
           return {
             ...item,
-            url: imagePathMap[encodeURIComponent(item.path)],
+            url: imagePathMap[item.path],
           };
         case CommentNodeType.Paragraph:
           return {
@@ -291,7 +291,6 @@ export class CommentOpenApiService {
     }
     const imagePathMap = await this.getPresignedUrlMap(Array.from(imagePaths));
     const mentionUserMap = await this.getUserInfoMap(Array.from(mentionUserIds));
-
     const comments: ICommentVo[] = [];
     for (let i = 0; i < parsedComments.length; i++) {
       const { createdTime, lastModifiedTime, content, quoteId, reaction, ...rest } =
@@ -525,7 +524,7 @@ export class CommentOpenApiService {
     return this.prismaService.commentSubscription.findUnique({
       where: {
         // eslint-disable-next-line
-          tableId_recordId: {
+        tableId_recordId: {
           tableId,
           recordId,
         },
