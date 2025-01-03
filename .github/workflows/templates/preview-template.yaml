@@ -434,7 +434,6 @@ spec:
             resources:
               requests:
                 storage: 1Gi
-            storageClassName: openebs-backup
     - componentDefRef: redis-sentinel
       monitor: true
       name: redis-sentinel
@@ -468,6 +467,24 @@ rules:
     verbs:
       - '*'
 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    sealos-db-provider-cr: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/instance: teable-__INSTANCE_NAME__-redis
+    app.kubernetes.io/managed-by: kbcli
+    cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
+  name: teable-__INSTANCE_NAME__-redis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: teable-__INSTANCE_NAME__-redis
+subjects:
+  - kind: ServiceAccount
+    name: teable-__INSTANCE_NAME__-redis
+    namespace: __NAMESPACE__
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
