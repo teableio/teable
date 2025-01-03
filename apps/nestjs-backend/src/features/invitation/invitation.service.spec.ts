@@ -110,7 +110,7 @@ describe('InvitationService', () => {
         id: mockInvitationId,
         invitationCode: mockInvitationCode,
       } as any);
-      vi.spyOn(collaboratorService, 'validateUserAddRole').mockResolvedValue();
+      collaboratorService.validateUserAddRole.mockResolvedValue();
 
       const result = await clsService.runWith(
         {
@@ -154,7 +154,7 @@ describe('InvitationService', () => {
       prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
       prismaService.$tx.mockRejectedValue(new Error('tx error'));
-      vi.spyOn(collaboratorService, 'validateUserAddRole').mockResolvedValue();
+      collaboratorService.validateUserAddRole.mockResolvedValue();
       vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
 
       await clsService.runWith(
@@ -195,7 +195,7 @@ describe('InvitationService', () => {
         id: mockInvitationId,
         invitationCode: mockInvitationCode,
       } as any);
-      vi.spyOn(collaboratorService, 'validateUserAddRole').mockResolvedValue();
+      collaboratorService.validateUserAddRole.mockResolvedValue();
 
       const result = await clsService.runWith(
         {
@@ -238,7 +238,7 @@ describe('InvitationService', () => {
       prismaService.base.findFirst.mockResolvedValue({ id: 'base1' } as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
       prismaService.$tx.mockRejectedValue(new Error('tx error'));
-      vi.spyOn(collaboratorService, 'validateUserAddRole').mockResolvedValue();
+      collaboratorService.validateUserAddRole.mockResolvedValue();
       vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
       await clsService.runWith(
         {
@@ -401,8 +401,12 @@ describe('InvitationService', () => {
         },
       });
       expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith({
-        principalId: mockUser.id,
-        principalType: PrincipalType.User,
+        collaborators: [
+          {
+            principalId: mockUser.id,
+            principalType: PrincipalType.User,
+          },
+        ],
         spaceId: mockSpace.id,
         role: Role.Owner,
         createdBy: 'createdBy',
