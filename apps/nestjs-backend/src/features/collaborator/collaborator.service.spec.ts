@@ -52,10 +52,14 @@ describe('CollaboratorService', () => {
         },
         async () => {
           await collaboratorService.createSpaceCollaborator({
-            principalId: mockUser.id,
-            principalType: PrincipalType.User,
-            spaceId: mockSpace.id,
+            collaborators: [
+              {
+                principalId: mockUser.id,
+                principalType: PrincipalType.User,
+              },
+            ],
             role: Role.Owner,
+            spaceId: mockSpace.id,
           });
         }
       );
@@ -69,15 +73,17 @@ describe('CollaboratorService', () => {
         },
       });
 
-      expect(prismaService.collaborator.create).toBeCalledWith({
-        data: {
-          resourceId: mockSpace.id,
-          resourceType: CollaboratorType.Space,
-          roleName: Role.Owner,
-          principalId: mockUser.id,
-          principalType: PrincipalType.User,
-          createdBy: mockUser.id,
-        },
+      expect(prismaService.collaborator.createMany).toBeCalledWith({
+        data: [
+          {
+            resourceId: mockSpace.id,
+            resourceType: CollaboratorType.Space,
+            roleName: Role.Owner,
+            principalId: mockUser.id,
+            principalType: PrincipalType.User,
+            createdBy: mockUser.id,
+          },
+        ],
       });
     });
 
@@ -86,10 +92,14 @@ describe('CollaboratorService', () => {
 
       await expect(
         collaboratorService.createSpaceCollaborator({
-          principalId: mockUser.id,
-          principalType: PrincipalType.User,
-          spaceId: mockSpace.id,
+          collaborators: [
+            {
+              principalId: mockUser.id,
+              principalType: PrincipalType.User,
+            },
+          ],
           role: Role.Owner,
+          spaceId: mockSpace.id,
         })
       ).rejects.toThrow('has already existed in space');
     });

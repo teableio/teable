@@ -1,5 +1,5 @@
 import { Button, cn, DialogFooter, DialogHeader, DialogTitle, Separator } from '@teable/ui-lib';
-import { forwardRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { DepartmentList } from './DepartmentList';
 import { MemberSelected } from './MemberSelected';
@@ -11,6 +11,7 @@ interface IMemberContentProps {
   departmentId?: string;
   defaultSelectedMembers?: SelectedMemberWithData[];
   disabledDepartment?: boolean;
+  onLoadData?: () => SelectedMemberWithData[];
   onCancel?: () => void;
   onConfirm?: (selectedMembers: SelectedMemberWithData[]) => void;
 }
@@ -30,6 +31,7 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
       disabledDepartment,
       onCancel,
       onConfirm,
+      onLoadData,
     }: IMemberContentProps,
     ref
   ) => {
@@ -38,6 +40,13 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
       defaultSelectedMembers ?? _defaultSelectedMembers
     );
     const { t } = useTranslation();
+
+    useEffect(() => {
+      const data = onLoadData?.();
+      if (data) {
+        setSelectedMembers(data);
+      }
+    }, [onLoadData]);
 
     useImperativeHandle(ref, () => ({
       open: (selectedMembers) => {
@@ -51,7 +60,10 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
         if (exists) {
           return prev.filter((m) => m.id !== member.id);
         }
-        return [...prev, { id: member.id, type: member.type, data: member }];
+        return [
+          ...prev,
+          { id: member.id, type: member.type, data: member } as SelectedMemberWithData,
+        ];
       });
     };
 

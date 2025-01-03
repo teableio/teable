@@ -289,11 +289,11 @@ export class BaseController {
   }
 
   @Post(':baseId/collaborator')
-  async addCollaborator(
+  async addCollaborators(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(addBaseCollaboratorRoSchema))
     addBaseCollaboratorRo: AddBaseCollaboratorRo
   ) {
-    return await this.collaboratorService.addBaseCollaborator(baseId, addBaseCollaboratorRo);
+    return await this.collaboratorService.addBaseCollaborators(baseId, addBaseCollaboratorRo);
   }
 }

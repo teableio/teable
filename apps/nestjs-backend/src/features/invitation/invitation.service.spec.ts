@@ -126,8 +126,12 @@ describe('InvitationService', () => {
       );
 
       expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith({
-        principalId: mockInvitedUser.id,
-        principalType: PrincipalType.User,
+        collaborators: [
+          {
+            principalId: mockInvitedUser.id,
+            principalType: PrincipalType.User,
+          },
+        ],
         spaceId: mockSpace.id,
         role: Role.Owner,
       });
@@ -207,8 +211,12 @@ describe('InvitationService', () => {
       );
 
       expect(collaboratorService.createBaseCollaborator).toHaveBeenCalledWith({
-        principalId: mockInvitedUser.id,
-        principalType: PrincipalType.User,
+        collaborators: [
+          {
+            principalId: mockInvitedUser.id,
+            principalType: PrincipalType.User,
+          },
+        ],
         baseId: 'base1',
         role: Role.Creator,
       });

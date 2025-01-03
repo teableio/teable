@@ -7,9 +7,10 @@ import type { SelectedMemberWithData } from './types';
 interface IMemberSelectorDialogProps {
   defaultSelectedMembers?: SelectedMemberWithData[];
   departmentId?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   disabledDepartment?: boolean;
-  onConfirm: (members: SelectedMemberWithData[]) => void;
+  onLoadData?: () => SelectedMemberWithData[];
+  onConfirm?: (members: SelectedMemberWithData[]) => void;
   onCancel?: () => void;
 }
 
@@ -30,6 +31,7 @@ export const MemberSelectorDialog = React.forwardRef<
       onConfirm,
       onCancel,
       disabledDepartment,
+      onLoadData,
     }: IMemberSelectorDialogProps,
     ref
   ) => {
@@ -47,7 +49,7 @@ export const MemberSelectorDialog = React.forwardRef<
     }));
 
     const handleConfirm = (members: SelectedMemberWithData[]) => {
-      onConfirm(members);
+      onConfirm?.(members);
       setOpen(false);
     };
 
@@ -70,6 +72,7 @@ export const MemberSelectorDialog = React.forwardRef<
             onCancel={() => {
               handleChange(false);
             }}
+            onLoadData={onLoadData}
             onConfirm={handleConfirm}
             disabledDepartment={disabledDepartment}
           />

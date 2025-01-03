@@ -15,11 +15,24 @@ export type DepartmentNode = Pick<IGetDepartmentVo, 'id' | 'name'> & {
 
 export type TreeNode = UserNode | DepartmentNode;
 
-export type SelectedMember = {
+export type SelectedUser = {
   id: string;
-  type: TreeNodeType;
+  type: TreeNodeType.USER;
 };
 
-export interface SelectedMemberWithData extends SelectedMember {
-  data: TreeNode;
-}
+export type SelectedDepartment = {
+  id: string;
+  type: TreeNodeType.DEPARTMENT;
+};
+
+export type SelectedMember = SelectedUser | SelectedDepartment;
+
+type SelectedUserWithData = SelectedUser & {
+  data: UserNode;
+};
+
+type SelectedDepartmentWithData = SelectedDepartment & {
+  data: DepartmentNode;
+};
+
+export type SelectedMemberWithData = SelectedUserWithData | SelectedDepartmentWithData;

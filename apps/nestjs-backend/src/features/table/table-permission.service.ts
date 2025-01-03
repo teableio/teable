@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IBaseRole, ExcludeAction, IRole, TableAction } from '@teable/core';
+import type { ExcludeAction, IRole, TableAction } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, getPermissionMap } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PrincipalType } from '@teable/openapi';
 import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { getMaxLevelRole } from '../../utils/get-max-level-role';
 
 @Injectable()
 export class TablePermissionService {
@@ -30,6 +31,7 @@ export class TablePermissionService {
     tableIds?: string[]
   ): Promise<Record<string, Record<ExcludeAction<TableAction, 'table|create'>, boolean>>> {
     const userId = this.cls.get('user.id');
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     const base = await this.prismaService
       .txClient()
       .base.findUniqueOrThrow({
@@ -38,20 +40,18 @@ export class TablePermissionService {
       .catch(() => {
         throw new NotFoundException('Base not found');
       });
-    const collaborator = await this.prismaService
-      .txClient()
-      .collaborator.findFirstOrThrow({
-        where: {
-          principalId: userId,
-          resourceId: { in: [baseId, base.spaceId] },
-          principalType: PrincipalType.User,
-        },
-      })
-      .catch(() => {
-        throw new NotFoundException('Collaborator not found');
-      });
-    const roleName = collaborator.roleName;
-    return this.getTablePermissionMapByRole(baseId, roleName as IBaseRole, tableIds);
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        principalId: { in: [userId, ...(departmentIds || [])] },
+        resourceId: { in: [baseId, base.spaceId] },
+        principalType: PrincipalType.User,
+      },
+    });
+    if (collaborators.length === 0) {
+      throw new NotFoundException('Collaborator not found');
+    }
+    const roleName = getMaxLevelRole(collaborators);
+    return this.getTablePermissionMapByRole(baseId, roleName, tableIds);
   }
 
   async getTablePermissionMapByRole(baseId: string, roleName: IRole, tableIds?: string[]) {

@@ -35,7 +35,7 @@ type GetFilteredCollaborator<T extends { type?: PrincipalType }> = T extends {
     ? Extract<DepartmentCollaboratorItem, { type: PrincipalType.Department }>
     : CollaboratorItem;
 
-export type IGetCollaboratorsResponse<T extends { type?: PrincipalType }> = Omit<
+export type IGetCollaboratorsResponse<T extends { type?: PrincipalType } = object> = Omit<
   ListSpaceCollaboratorVo,
   'collaborators'
 > & {

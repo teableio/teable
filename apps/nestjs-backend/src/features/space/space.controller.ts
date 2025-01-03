@@ -228,11 +228,11 @@ export class SpaceController {
   }
 
   @Post(':spaceId/collaborator')
-  async addCollaborator(
+  async addCollaborators(
     @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(addSpaceCollaboratorRoSchema))
     addSpaceCollaboratorRo: AddSpaceCollaboratorRo
   ) {
-    return this.collaboratorService.addSpaceCollaborator(spaceId, addSpaceCollaboratorRo);
+    return this.collaboratorService.addSpaceCollaborators(spaceId, addSpaceCollaboratorRo);
   }
 }

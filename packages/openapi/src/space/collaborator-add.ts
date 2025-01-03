@@ -7,9 +7,15 @@ import { z } from '../zod';
 
 export const ADD_SPACE_COLLABORATOR = '/space/{spaceId}/collaborator';
 
-export const addSpaceCollaboratorRoSchema = z.object({
+export const addCollaboratorSchema = z.object({
   principalId: z.string(),
   principalType: z.nativeEnum(PrincipalType),
+});
+
+export type IAddCollaborator = z.infer<typeof addCollaboratorSchema>;
+
+export const addSpaceCollaboratorRoSchema = z.object({
+  collaborators: z.array(addCollaboratorSchema),
   role: roleSchema,
 });
 

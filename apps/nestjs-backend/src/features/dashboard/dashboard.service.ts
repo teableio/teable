@@ -218,8 +218,12 @@ export class DashboardService {
 
         if (!exist) {
           await this.collaboratorService.createBaseCollaborator({
-            principalId: newInstallPlugin.plugin.pluginUser,
-            principalType: PrincipalType.User,
+            collaborators: [
+              {
+                principalId: newInstallPlugin.plugin.pluginUser,
+                principalType: PrincipalType.User,
+              },
+            ],
             baseId,
             role: Role.Owner as IBaseRole,
           });

@@ -112,15 +112,23 @@ export class InvitationService {
         // create collaborator link
         if (resourceType === CollaboratorType.Space) {
           await this.collaboratorService.createSpaceCollaborator({
-            principalId: sendUser.id,
-            principalType: PrincipalType.User,
+            collaborators: [
+              {
+                principalId: sendUser.id,
+                principalType: PrincipalType.User,
+              },
+            ],
             spaceId: resourceId,
             role: role as IRole,
           });
         } else {
           await this.collaboratorService.createBaseCollaborator({
-            principalId: sendUser.id,
-            principalType: PrincipalType.User,
+            collaborators: [
+              {
+                principalId: sendUser.id,
+                principalType: PrincipalType.User,
+              },
+            ],
             baseId: resourceId,
             role: role as IBaseRole,
           });
@@ -391,16 +399,24 @@ export class InvitationService {
       await this.prismaService.$tx(async () => {
         if (resourceType === CollaboratorType.Space) {
           await this.collaboratorService.createSpaceCollaborator({
-            principalId: currentUserId,
-            principalType: PrincipalType.User,
+            collaborators: [
+              {
+                principalId: currentUserId,
+                principalType: PrincipalType.User,
+              },
+            ],
             spaceId: spaceId!,
             role: role as IRole,
             createdBy,
           });
         } else {
           await this.collaboratorService.createBaseCollaborator({
-            principalId: currentUserId,
-            principalType: PrincipalType.User,
+            collaborators: [
+              {
+                principalId: currentUserId,
+                principalType: PrincipalType.User,
+              },
+            ],
             baseId: baseId!,
             role: role as IBaseRole,
             createdBy,
