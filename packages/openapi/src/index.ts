@@ -32,3 +32,4 @@ export * from './plugin';
 export * from './dashboard';
 export * from './comment';
 export * from './organization';
+export * from './ai';

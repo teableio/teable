@@ -5,12 +5,11 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
-import type { LLMProvider } from '@teable/openapi';
-import { LLMProviderType } from '@teable/openapi';
+import type { IAiGenerateRo, LLMProvider } from '@teable/openapi';
+import { LLMProviderType, Task } from '@teable/openapi';
 import { streamText } from 'ai';
 import { SettingService } from '../setting/setting.service';
 import { TASK_MODEL_MAP } from './constant';
-import { Task } from './type';
 
 @Injectable()
 export class AiService {
@@ -94,7 +93,8 @@ export class AiService {
     return aiConfig;
   }
 
-  async generate(prompt: string, task: Task = Task.Coding) {
+  async generateStream(aiGenerateRo: IAiGenerateRo) {
+    const { prompt, task = Task.Coding } = aiGenerateRo;
     const config = await this.getAIConfig();
     const currentTaskModel = TASK_MODEL_MAP[task];
     const modelKey = config[currentTaskModel as keyof typeof config] as string;

@@ -1,6 +1,6 @@
+import { aiGenerateStream } from '@teable/openapi';
 import { useCallback, useState, useRef } from 'react';
-
-const aiApiEndpoint = '/api/ai';
+import { useBaseId } from './use-base-id';
 
 interface IUseAIStreamOptions {
   timeout?: number; // unit: ms
@@ -8,6 +8,7 @@ interface IUseAIStreamOptions {
 
 export const useAIStream = (options?: IUseAIStreamOptions) => {
   const { timeout = 30000 } = options || {};
+  const baseId = useBaseId();
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -23,21 +24,17 @@ export const useAIStream = (options?: IUseAIStreamOptions) => {
       const timeoutId = setTimeout(() => controllerRef.current?.abort(), timeout);
 
       try {
-        const result = await fetch(aiApiEndpoint, {
-          method: 'POST',
-          headers: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ prompt }),
-          signal: controllerRef.current.signal,
-        });
+        const result = await aiGenerateStream(
+          { prompt, baseId: baseId! },
+          controllerRef.current.signal
+        );
 
         if (!result.ok) {
           throw new Error(`HTTP error! status: ${result.status}`);
         }
 
         const reader = result.body?.getReader();
+
         if (!reader) throw new Error('No reader available');
 
         let reading = true;
@@ -60,7 +57,7 @@ export const useAIStream = (options?: IUseAIStreamOptions) => {
         setLoading(false);
       }
     },
-    [timeout]
+    [baseId, timeout]
   );
 
   const stop = useCallback(() => {
