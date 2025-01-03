@@ -121,7 +121,7 @@ export class CommentOpenApiService {
     );
     return presignedUrls.reduce(
       (acc, url, index) => {
-        acc[paths[index]] = url;
+        acc[encodeURIComponent(paths[index])] = url;
         return acc;
       },
       {} as Record<string, string>
@@ -144,7 +144,7 @@ export class CommentOpenApiService {
         case CommentNodeType.Img:
           return {
             ...item,
-            url: imagePathMap[item.path],
+            url: imagePathMap[encodeURIComponent(item.path)],
           };
         case CommentNodeType.Paragraph:
           return {
