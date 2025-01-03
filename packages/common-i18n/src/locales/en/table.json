@@ -303,6 +303,13 @@
       "tableLabel": "Table label",
       "effectCells": "May effect cells",
       "estimatedTime": "Estimated time"
+    },
+    "integrity": {
+      "check": "Check",
+      "title": "Integrity check",
+      "loading": "Checking integrity...",
+      "allGood": "All good!",
+      "fixIssues": "Fix Issues"
     }
   },
   "import": {

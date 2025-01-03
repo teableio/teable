@@ -294,6 +294,13 @@
       "tableLabel": "テーブルラベル",
       "effectCells": "セルに影響を与える可能性があります",
       "estimatedTime": "推定所要時間"
+    },
+    "integrity": {
+      "check": "チェック",
+      "title": "整合性チェック",
+      "loading": "整合性チェック中...",
+      "allGood": "すべて正常です！",
+      "fixIssues": "問題を修正"
     }
   },
   "import": {

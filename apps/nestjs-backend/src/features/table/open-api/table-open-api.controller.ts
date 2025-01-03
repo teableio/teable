@@ -6,12 +6,10 @@ import {
   ICreateTableWithDefault,
   dbTableNameRoSchema,
   IDbTableNameRo,
-  ISqlQuerySchema,
   ITableDescriptionRo,
   ITableIconRo,
   ITableNameRo,
   IUpdateOrderRo,
-  sqlQuerySchema,
   tableDescriptionRoSchema,
   tableIconRoSchema,
   tableNameRoSchema,
@@ -130,15 +128,6 @@ export class TableController {
   @Permissions('table|delete')
   permanentDeleteTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
-  }
-
-  @Permissions('table|read')
-  @Post(':tableId/sql-query')
-  async sqlQuery(
-    @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(sqlQuerySchema)) query: ISqlQuerySchema
-  ) {
-    return await this.tableOpenApiService.sqlQuery(tableId, query.viewId, query.sql);
   }
 
   @Permissions('table|read')

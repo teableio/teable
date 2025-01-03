@@ -294,6 +294,13 @@
       "tableLabel": "Étiquette de la table",
       "effectCells": "Peut affecter les cellules",
       "estimatedTime": "Temps estimé"
+    },
+    "integrity": {
+      "check": "Vérifier",
+      "title": "Vérification de l'intégrité",
+      "loading": "Vérification de l'intégrité...",
+      "allGood": "Tout va bien !",
+      "fixIssues": "Corriger les problèmes"
     }
   },
   "import": {

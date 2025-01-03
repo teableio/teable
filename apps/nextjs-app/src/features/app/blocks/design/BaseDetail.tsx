@@ -2,6 +2,7 @@ import { Database } from '@teable/icons';
 import { useBase } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { IntegrityButton } from './components/Integrity';
 
 export const BaseDetail = () => {
   const { t } = useTranslation(['table']);
@@ -19,6 +20,10 @@ export const BaseDetail = () => {
         <div>{base.id}</div>
         <div className="text-muted-foreground">{t('table:table.typeOfDatabase')}</div>
         <div>{driver}</div>
+        <div className="text-muted-foreground">{t('table:table.integrity.title')}</div>
+        <div>
+          <IntegrityButton />
+        </div>
       </div>
     </div>
   );

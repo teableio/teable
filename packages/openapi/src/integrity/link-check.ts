@@ -12,24 +12,26 @@ export enum IntegrityIssueType {
   SelfKeyNotFound = 'SelfKeyNotFound',
   SymmetricFieldNotFound = 'SymmetricFieldNotFound',
   InvalidRecordReference = 'InvalidRecordReference',
-  SameBaseReference = 'SameBaseReference',
   ForeignKeyHostTableNotFound = 'ForeignKeyHostTableNotFound',
 }
 
 // Define the schema for a single issue
-const integrityIssueSchema = z.object({
+export const integrityIssueSchema = z.object({
   type: z.nativeEnum(IntegrityIssueType),
   message: z.string(),
 });
 
 // Define the schema for a link field check item
-const linkFieldCheckItemSchema = z.object({
+export const linkFieldCheckItemSchema = z.object({
   baseId: z
     .string()
     .optional()
     .openapi({ description: 'The base id of the link field with is cross-base' }),
+  baseName: z.string().optional(),
   fieldId: z.string(),
+  fieldName: z.string(),
   tableId: z.string(),
+  tableName: z.string(),
   issues: z.array(integrityIssueSchema),
 });
 

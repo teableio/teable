@@ -302,6 +302,13 @@
       "tableLabel": "表格名称",
       "effectCells": "影响单元格数",
       "estimatedTime": "预计完成"
+    },
+    "integrity": {
+      "check": "检查",
+      "title": "检查完整性",
+      "loading": "检查完整性...",
+      "allGood": "一切正常！",
+      "fixIssues": "修复问题"
     }
   },
   "import": {

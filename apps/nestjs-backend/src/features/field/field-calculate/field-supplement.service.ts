@@ -276,8 +276,22 @@ export class FieldSupplementService {
   }
 
   private async prepareLinkField(tableId: string, field: IFieldRo) {
-    const options = field.options as ILinkFieldOptionsRo;
-    const { relationship, foreignTableId } = options;
+    let options = field.options as ILinkFieldOptionsRo;
+    const { baseId, relationship, foreignTableId } = options;
+
+    // if link target is in the same base, we should not set baseId
+    if (baseId) {
+      const tableMeta = await this.prismaService.tableMeta.findFirstOrThrow({
+        where: { id: tableId, baseId, deletedTime: null },
+        select: { id: true, baseId: true },
+      });
+      if (tableMeta.baseId === baseId) {
+        options = {
+          ...options,
+          baseId: undefined,
+        };
+      }
+    }
 
     const fieldId = field.id ?? generateFieldId();
     const optionsVo = await this.generateNewLinkOptionsVo(tableId, fieldId, options);

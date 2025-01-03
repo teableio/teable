@@ -41,10 +41,12 @@ export class LinkIntegrityService {
     const linkFieldIssues: IIntegrityCheckVo['linkFieldIssues'] = [];
 
     for (const table of tables) {
-      const tableIssues = await this.checkTableLinkFields(table, baseId);
+      const tableIssues = await this.checkTableLinkFields(table);
       if (tableIssues.length > 0) {
         linkFieldIssues.push({
           tableId: table.id,
+          tableName: table.name,
+          fieldName: table.fields[0].name,
           fieldId: table.fields[0].id,
           issues: tableIssues,
         });
@@ -57,20 +59,25 @@ export class LinkIntegrityService {
         select: { id: true, name: true, baseId: true },
       });
 
-      const tableIssues = await this.checkTableLinkFields(
-        {
-          id: table.id,
-          name: table.name,
-          fields: [field],
-        },
-        table.baseId
-      );
+      const tableIssues = await this.checkTableLinkFields({
+        id: table.id,
+        name: table.name,
+        fields: [field],
+      });
+
+      const base = await this.prismaService.base.findFirstOrThrow({
+        where: { id: table.baseId, deletedTime: null },
+        select: { id: true, name: true },
+      });
 
       if (tableIssues.length > 0) {
         linkFieldIssues.push({
-          baseId: table.baseId,
+          baseId: base.id,
+          baseName: base.name,
           tableId: field.tableId,
+          tableName: table.name,
           fieldId: field.id,
+          fieldName: field.name,
           issues: tableIssues,
         });
       }
@@ -83,14 +90,11 @@ export class LinkIntegrityService {
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private async checkTableLinkFields(
-    table: {
-      id: string;
-      name: string;
-      fields: Field[];
-    },
-    baseId: string
-  ): Promise<IIntegrityIssue[]> {
+  private async checkTableLinkFields(table: {
+    id: string;
+    name: string;
+    fields: Field[];
+  }): Promise<IIntegrityIssue[]> {
     const issues: IIntegrityIssue[] = [];
 
     for (const field of table.fields) {
@@ -105,13 +109,6 @@ export class LinkIntegrityService {
         issues.push({
           type: IntegrityIssueType.ForeignTableNotFound,
           message: `Foreign table with ID ${options.foreignTableId} not found for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
-        });
-      }
-
-      if (options.baseId === baseId) {
-        issues.push({
-          type: IntegrityIssueType.SameBaseReference,
-          message: `Link field ${field.name} in table ${table.name} references the same base ID ${baseId}, which should not be configured`,
         });
       }
 
@@ -277,60 +274,78 @@ export class LinkIntegrityService {
     return issues;
   }
 
-  async linkIntegrityFix(baseId: string) {
+  async linkIntegrityFix(baseId: string): Promise<IIntegrityIssue[]> {
     const checkResult = await this.linkIntegrityCheck(baseId);
+    const fixResults: IIntegrityIssue[] = [];
 
     for (const issues of checkResult.linkFieldIssues) {
       for (const issue of issues.issues) {
         // eslint-disable-next-line sonarjs/no-small-switch
         switch (issue.type) {
-          case IntegrityIssueType.InvalidRecordReference:
-            await this.fixInvalidRecordReferences(issues.tableId, issues.fieldId);
+          case IntegrityIssueType.InvalidRecordReference: {
+            const result = await this.fixInvalidRecordReferences(issues.tableId, issues.fieldId);
+            result && fixResults.push(result);
             break;
+          }
           default:
             break;
         }
       }
     }
+
+    return fixResults;
   }
 
-  async fixInvalidRecordReferences(tableId: string, fieldId: string) {
+  async fixInvalidRecordReferences(
+    tableId: string,
+    fieldId: string
+  ): Promise<IIntegrityIssue | undefined> {
     const field = await this.prismaService.field.findFirstOrThrow({
       where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
     });
 
     const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-
     const { foreignTableId, fkHostTableName, foreignKeyName, selfKeyName } = options;
 
     const { dbTableName: selfTableDbTableName } =
       await this.prismaService.tableMeta.findFirstOrThrow({
         where: { id: tableId, deletedTime: null },
-        select: { name: true, dbTableName: true },
+        select: { dbTableName: true },
       });
 
     const { dbTableName: foreignTableDbTableName } =
       await this.prismaService.tableMeta.findFirstOrThrow({
         where: { id: foreignTableId, deletedTime: null },
-        select: { name: true, dbTableName: true },
+        select: { dbTableName: true },
       });
 
-    // Delete invalid self references
+    let totalDeleted = 0;
+
+    // Fix invalid self references
     if (selfTableDbTableName !== fkHostTableName) {
-      await this.deleteInvalidReferences({
+      const selfDeleted = await this.deleteInvalidReferences({
         fkHostTableName,
         targetTableName: selfTableDbTableName,
         keyName: selfKeyName,
       });
+      totalDeleted += selfDeleted;
     }
 
-    // Delete invalid foreign references
+    // Fix invalid foreign references
     if (foreignTableDbTableName !== fkHostTableName) {
-      await this.deleteInvalidReferences({
+      const foreignDeleted = await this.deleteInvalidReferences({
         fkHostTableName,
         targetTableName: foreignTableDbTableName,
         keyName: foreignKeyName,
       });
+      totalDeleted += foreignDeleted;
+    }
+
+    if (totalDeleted > 0) {
+      return {
+        type: IntegrityIssueType.InvalidRecordReference,
+        message: `Fixed ${totalDeleted} invalid references for link field (Field Name: ${field.name}, Field ID: ${field.id})`,
+      };
     }
   }
 
@@ -353,7 +368,6 @@ export class LinkIntegrityService {
       .delete()
       .toQuery();
 
-    const result = await this.prismaService.$executeRawUnsafe(deleteQuery);
-    this.logger.log('deleteQuery result:', result);
+    return await this.prismaService.$executeRawUnsafe(deleteQuery);
   }
 }

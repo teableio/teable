@@ -2,6 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { integrityIssueSchema } from './link-check';
 
 export const FIX_BASE_INTEGRITY = '/integrity/base/{baseId}/link-fix';
 
@@ -17,6 +18,11 @@ export const IntegrityFixRoute: RouteConfig = registerRoute({
   responses: {
     201: {
       description: 'Success',
+      content: {
+        'application/json': {
+          schema: z.array(integrityIssueSchema),
+        },
+      },
     },
   },
   tags: ['integrity'],

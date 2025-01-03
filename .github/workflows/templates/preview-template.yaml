@@ -78,7 +78,7 @@ spec:
                   key: port
             - name: PRISMA_DATABASE_URL
               value: >-
-                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-rbcflj0l.svc:$(PG_PORT)/teable
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.__NAMESPACE__.svc:$(PG_PORT)/teable
             - name: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
               value: '1'
           resources:
@@ -105,9 +105,9 @@ spec:
                   key: port
             - name: PRISMA_DATABASE_URL
               value: >-
-                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-rbcflj0l.svc:$(PG_PORT)/teable
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.__NAMESPACE__.svc:$(PG_PORT)/teable
             - name: PUBLIC_ORIGIN
-              value: https://__INSTANCE_DOMAIN__.sealosgzg.site
+              value: https://__INSTANCE_DOMAIN__.sealoshzh.site
             - name: BACKEND_JWT_SECRET
               value: exdpbfxmlqhjnqxu
             - name: BACKEND_SESSION_SECRET
@@ -176,7 +176,7 @@ spec:
                   key: password
             - name: BACKEND_CACHE_REDIS_URI
               value: >-
-                redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).ns-rbcflj0l.svc:$(REDIS_PORT)/1
+                redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).__NAMESPACE__.svc:$(REDIS_PORT)/1
             - name: NEXT_ENV_IMAGES_ALL_REMOTE
               value: 'true'
           resources:
@@ -236,7 +236,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
 spec:
   rules:
-    - host: __INSTANCE_DOMAIN__.sealosgzg.site
+    - host: __INSTANCE_DOMAIN__.sealoshzh.site
       http:
         paths:
           - pathType: Prefix
@@ -248,7 +248,7 @@ spec:
                   number: 3000
   tls:
     - hosts:
-        - __INSTANCE_DOMAIN__.sealosgzg.site
+        - __INSTANCE_DOMAIN__.sealoshzh.site
       secretName: wildcard-cert
 
 ---
@@ -368,7 +368,7 @@ spec:
                   key: password
             - name: DATABASE_URL
               value: >-
-                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-rbcflj0l.svc:5432
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.__NAMESPACE__.svc:5432
           command:
             - /bin/sh
             - '-c'
@@ -485,7 +485,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: teable-__INSTANCE_NAME__-redis
-    namespace: ns-rbcflj0l
+    namespace: __NAMESPACE__
 
 ---
 apiVersion: objectstorage.sealos.io/v1
@@ -517,7 +517,7 @@ metadata:
     cloud.sealos.io/deploy-on-sealos: teable-__INSTANCE_NAME__
 spec:
   data:
-    url: https://__INSTANCE_DOMAIN__.sealosgzg.site
+    url: https://__INSTANCE_DOMAIN__.sealoshzh.site
   displayType: normal
   icon: https://framerusercontent.com/images/x9gZmjwbtvaGd95qbfUmsZ8Jc.png
   name: __DISPLAY_NAME__
