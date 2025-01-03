@@ -202,6 +202,10 @@
       "desc_other": "This base is shared with {{count}} collaborators.",
       "baseTitle": "Base collaborators",
       "collaboratorSearchPlaceholder": "Find a base collaborator by name or email"
+    },
+    "addOrgCollaborator": {
+      "title": "Add organization collaborator",
+      "placeholder": "Select organization member or department"
     }
   },
   "help": {

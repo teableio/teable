@@ -12,6 +12,7 @@ import type { IMemberSelectorDialogRef, ISelectedMember } from '@teable/sdk/comp
 import { MemberSelectorDialog, MemberSelectorNodeType, UserAvatar } from '@teable/sdk/components';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useCallback, useRef, useState } from 'react';
 import {
   useFilteredRoleStatic,
@@ -29,7 +30,7 @@ interface ICollaboratorAddProps {
 export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
   const { resourceId, resourceType, currentRole, onConfirm } = props;
   const isBase = resourceType === CollaboratorType.Base;
-
+  const { t } = useTranslation(['common']);
   const [role, setRole] = useState<IRole>(() =>
     isBase && currentRole === Role.Owner ? Role.Creator : currentRole
   );
@@ -89,7 +90,9 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">添加组织协作者</div>
+        <div className="text-sm text-muted-foreground">
+          {t('common:invite.addOrgCollaborator.title')}
+        </div>
         <div className="flex items-center gap-2">
           <RoleSelect
             value={role}
@@ -113,7 +116,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
             disabled={isLoading}
           >
             {isLoading && <Spin />}
-            添加
+            {t('common:actions.add')}
           </Button>
         </div>
       </div>
@@ -129,7 +132,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
             }}
           >
             <Plus />
-            选择组织成员或者部门
+            {t('common:invite.addOrgCollaborator.placeholder')}
           </Button>
         </div>
       </div>
@@ -137,10 +140,14 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
         {selectedMembers.map((member) => {
           if (member.type === MemberSelectorNodeType.USER) {
             return (
-              <div key={member.id} className="flex items-center gap-2 rounded-full border p-1">
+              <div
+                key={member.id}
+                className="flex items-center gap-1.5 rounded-full border p-1 text-[13px]"
+              >
                 <UserAvatar avatar={member.data.avatar} name={member.data.name} />
                 {member.data.name}
                 <Button
+                  className="h-6"
                   disabled={isLoading}
                   size={'xs'}
                   variant={'ghost'}
@@ -154,10 +161,14 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
             );
           }
           return (
-            <div key={member.id} className="flex items-center gap-2 rounded-full border p-1">
+            <div
+              key={member.id}
+              className="flex items-center gap-1.5 rounded-full border p-1 text-[13px]"
+            >
               <Building2 className="ml-2 size-4" />
               {member.data.name}
               <Button
+                className="h-6"
                 disabled={isLoading}
                 size={'xs'}
                 variant={'ghost'}

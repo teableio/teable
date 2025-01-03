@@ -108,7 +108,7 @@ export const BaseCollaborators = (props: { baseId: string; role: IRole }) => {
                 },
               });
             }}
-            showDelete={canOperator}
+            showDelete={resourceType === CollaboratorType.Base && canOperator}
             deletable={!deleteCollaboratorLoading && canOperator}
             collaboratorTips={
               resourceType === CollaboratorType.Space && (

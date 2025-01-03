@@ -36,12 +36,6 @@ export class CollaboratorService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
-  private checkPrincipalType(principalType: PrincipalType) {
-    if (principalType === PrincipalType.Department) {
-      throw new BadRequestException('only support user principal type');
-    }
-  }
-
   async createSpaceCollaborator({
     collaborators,
     spaceId,
@@ -504,7 +498,6 @@ export class CollaboratorService {
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
-    this.checkPrincipalType(principalType);
     const { currentColl, targetColl } = await this.getOperatorCollaborators({
       currentPrincipalId: currentUserId,
       targetPrincipalId: principalId,
@@ -561,7 +554,6 @@ export class CollaboratorService {
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
-    this.checkPrincipalType(principalType);
     const { currentColl, targetColl } = await this.getOperatorCollaborators({
       currentPrincipalId: currentUserId,
       targetPrincipalId: principalId,

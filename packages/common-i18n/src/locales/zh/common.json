@@ -201,6 +201,10 @@
       "desc_other": "此数据库与 {{count}} 位协作者共享。",
       "baseTitle": "此数据库协作者",
       "collaboratorSearchPlaceholder": "通过姓名或电子邮件查找数据库协作者"
+    },
+    "addOrgCollaborator": {
+      "title": "添加组织协作者",
+      "placeholder": "选择组织成员或部门"
     }
   },
   "help": {
