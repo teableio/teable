@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
-import { FieldType, ViewType } from '@teable/core';
+import type { IAttachmentCellValue, IFilter } from '@teable/core';
+import { FieldType, mergeFilter, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
 import Papa from 'papaparse';
@@ -17,7 +17,15 @@ export class ExportOpenApiService {
     private readonly recordService: RecordService,
     private readonly prismaService: PrismaService
   ) {}
-  async exportCsvFromTable(response: Response, tableId: string, viewId?: string) {
+  async exportCsvFromTable(
+    response: Response,
+    tableId: string,
+    viewId?: string,
+    exportQuery?: {
+      projection?: string[];
+      recordFilter?: IFilter;
+    }
+  ) {
     let count = 0;
     let isOver = false;
     const csvStream = new Readable({
@@ -47,6 +55,7 @@ export class ExportOpenApiService {
             name: true,
             id: true,
             type: true,
+            filter: true,
           },
         })
         .catch((e) => {
@@ -68,9 +77,17 @@ export class ExportOpenApiService {
     csvStream.pipe(response);
 
     // set headers as first row
-    const headers = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId: viewRaw?.id ? viewRaw?.id : undefined,
-      filterHidden: viewRaw?.id ? true : undefined,
+    const headers = (
+      await this.fieldService.getFieldsByQuery(tableId, {
+        viewId: viewRaw?.id ? viewRaw?.id : undefined,
+        filterHidden: viewRaw?.id ? true : undefined,
+      })
+    ).filter((field) => {
+      if (exportQuery?.projection?.length) {
+        return exportQuery?.projection.includes(field.id);
+      }
+
+      return true;
     });
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
 
@@ -89,12 +106,17 @@ export class ExportOpenApiService {
     csvStream.push('\uFEFF');
     csvStream.push(headerData);
 
+    const mergedFilter = viewRaw?.filter
+      ? mergeFilter(JSON.parse(viewRaw?.filter), exportQuery?.recordFilter)
+      : exportQuery?.recordFilter;
+
     try {
       while (!isOver) {
         const { records } = await this.recordService.getRecords(tableId, {
           take: 1000,
           skip: count,
           viewId: viewRaw?.id ? viewRaw?.id : undefined,
+          filter: mergedFilter,
         });
         if (records.length === 0) {
           isOver = true;
