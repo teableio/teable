@@ -71,7 +71,7 @@ export class SqliteProvider implements IDbProvider {
         `SELECT EXISTS (
           SELECT 1 FROM sqlite_master 
           WHERE type='table' AND name = ?
-        ) as exists`,
+        ) as "exists"`,
         [tableName]
       )
       .toQuery();
