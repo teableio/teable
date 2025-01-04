@@ -282,7 +282,7 @@ export class FieldSupplementService {
     // if link target is in the same base, we should not set baseId
     if (baseId) {
       const tableMeta = await this.prismaService.tableMeta.findFirstOrThrow({
-        where: { id: tableId, baseId, deletedTime: null },
+        where: { id: tableId, deletedTime: null },
         select: { id: true, baseId: true },
       });
       if (tableMeta.baseId === baseId) {

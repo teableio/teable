@@ -344,9 +344,6 @@ export class ReferenceService {
         continue;
       }
 
-      console.log('order', JSON.stringify(order, null, 2));
-      console.log('order:fromRecordIds', fromRecordIds);
-      console.log('order:toRecordIds', toRecordIds);
       const relatedRecordItems = await this.getAffectedRecordItems({
         fieldId,
         fieldMap,
@@ -355,7 +352,6 @@ export class ReferenceService {
         fkRecordMap,
         tableId2DbTableName,
       });
-      console.log('relatedRecordItems', relatedRecordItems);
 
       if (field.lookupOptions || field.type === FieldType.Link) {
         await this.calculateLinkRelatedRecords({
