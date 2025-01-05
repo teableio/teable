@@ -455,6 +455,7 @@ export class PostgresProvider implements IDbProvider {
         options: 'options',
       })
       .whereNull('deleted_time')
+      .whereNull('is_lookup')
       .whereRaw(`options::json->>'${optionsKey}' = ?`, [value])
       .where('type', type)
       .toQuery();

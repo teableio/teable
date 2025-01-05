@@ -66,7 +66,7 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
 
   return (
     <div className="flex flex-col gap-2 pb-2">
-      <div className="flex items-center gap-2 pb-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 pb-2 text-sm">
         {t('table.graph.tableLabel')}
         {tables.map((table) => {
           return (

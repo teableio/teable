@@ -20,7 +20,7 @@ export class LinkIntegrityService {
 
   async linkIntegrityCheck(baseId: string): Promise<IIntegrityCheckVo> {
     const tables = await this.prismaService.tableMeta.findMany({
-      where: { baseId },
+      where: { baseId, deletedTime: null },
       select: {
         id: true,
         name: true,
@@ -54,10 +54,18 @@ export class LinkIntegrityService {
     }
 
     for (const field of crossBaseLinkFields) {
-      const table = await this.prismaService.tableMeta.findFirstOrThrow({
-        where: { id: field.tableId, deletedTime: null },
+      const table = await this.prismaService.tableMeta.findFirst({
+        where: {
+          id: field.tableId,
+          deletedTime: null,
+          base: { deletedTime: null, space: { deletedTime: null } },
+        },
         select: { id: true, name: true, baseId: true },
       });
+
+      if (!table) {
+        continue;
+      }
 
       const tableIssues = await this.checkTableLinkFields({
         id: table.id,

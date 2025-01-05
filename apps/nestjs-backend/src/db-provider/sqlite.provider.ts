@@ -412,6 +412,7 @@ export class SqliteProvider implements IDbProvider {
         options: 'options',
       })
       .where('type', type)
+      .whereNull('is_lookup')
       .whereNull('deleted_time')
       .whereRaw(`json_extract(options, '$."${optionsKey}"') = ?`, [value])
       .toQuery();
