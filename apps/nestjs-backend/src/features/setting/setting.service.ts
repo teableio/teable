@@ -28,12 +28,16 @@ export class SettingService {
 
   async updateSetting(updateSettingRo: IUpdateSettingRo) {
     const setting = await this.getSetting();
+
+    const data: object = updateSettingRo;
+    if ('aiConfig' in data) {
+      // if statement to prevent "aiConfig" removal in case that field is not provided
+      data['aiConfig'] = updateSettingRo.aiConfig ? JSON.stringify(updateSettingRo.aiConfig) : null;
+    }
+
     return await this.prismaService.setting.update({
       where: { instanceId: setting.instanceId },
-      data: {
-        ...updateSettingRo,
-        aiConfig: updateSettingRo.aiConfig ? JSON.stringify(updateSettingRo.aiConfig) : null,
-      },
+      data,
     });
   }
 }
