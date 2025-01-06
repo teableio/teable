@@ -137,6 +137,9 @@ export const SearchCountPagination = forwardRef<
 
   const switchIndex = (direction: PageDirection) => {
     const newIndex = currentIndex + direction;
+    if (isFetching || isLoading) {
+      return;
+    }
     if (newIndex < 1) {
       setCurrentIndex(1);
       return;
