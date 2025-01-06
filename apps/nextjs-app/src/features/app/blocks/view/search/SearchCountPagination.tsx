@@ -141,6 +141,9 @@ export const SearchCountPagination = forwardRef<
       setCurrentIndex(1);
       return;
     }
+    if (Object.values(allSearchResults)?.length === 0) {
+      return;
+    }
     if (newIndex > Object.values(allSearchResults)?.length && !isEnd) {
       fetchNextPage();
       return;
@@ -181,6 +184,7 @@ export const SearchCountPagination = forwardRef<
             switchIndex(PageDirection.Prev);
           }}
           className="size-5 p-0"
+          disabled={currentIndex === 1}
         >
           <ChevronLeft />
         </Button>
@@ -192,6 +196,10 @@ export const SearchCountPagination = forwardRef<
             switchIndex(PageDirection.Next);
           }}
           className="size-5 p-0"
+          disabled={
+            (currentIndex === Object.values(allSearchResults).length && isEnd) ||
+            Object.values(allSearchResults).length === 0
+          }
         >
           <ChevronRight />
         </Button>
