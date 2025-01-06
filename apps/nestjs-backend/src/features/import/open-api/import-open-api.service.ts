@@ -128,7 +128,8 @@ export class ImportOpenApiService {
     baseId: string,
     tableId: string,
     inplaceImportRo: IInplaceImportOptionRo,
-    maxRowCount?: number
+    maxRowCount?: number,
+    projection?: string[]
   ) {
     const userId = this.cls.get('user.id');
     const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
@@ -144,13 +145,17 @@ export class ImportOpenApiService {
         throw new BadRequestException('table is not found');
       });
 
-    const fieldRaws = await this.prismaService.field.findMany({
+    let fieldRaws = await this.prismaService.field.findMany({
       where: { tableId, deletedTime: null, hasError: null },
       select: {
         id: true,
         type: true,
       },
     });
+
+    if (projection?.length) {
+      fieldRaws = fieldRaws.filter(({ id }) => projection.includes(id));
+    }
 
     if (!tableRaw || !fieldRaws) {
       return;
