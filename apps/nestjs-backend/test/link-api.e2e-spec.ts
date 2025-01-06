@@ -5,7 +5,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
-import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import { Colors, FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   convertField,
@@ -1840,6 +1840,135 @@ describe('OpenAPI link (e2e)', () => {
       });
     }
   );
+
+  describe('many many link field cell update with a multiple-value lookupField', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      // create tables
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'Number field',
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+        },
+      };
+
+      const multipleSelectFieldRo: IFieldRo = {
+        name: 'multiple select field',
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { name: 'A', color: Colors.Blue },
+            { name: 'B', color: Colors.Red },
+            { name: 'C', color: Colors.Green },
+          ],
+        },
+      };
+
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
+
+      // create link field
+      const table2LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo, multipleSelectFieldRo, table2LinkFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1', 'multiple select field': ['A'] } },
+          { fields: { 'text field': 'table2_2', 'multiple select field': ['B', 'C'] } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
+
+      await convertField(table2.id, table2.fields[0].id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${table2.fields[2].id}}`,
+        },
+      });
+
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should update foreign link field when set a new link in to link field cell', async () => {
+      expect(table2.fields[0].isMultipleCellValue).toEqual(true);
+      const table1LinkField = table1.fields.find((field) => field.type === FieldType.Link)!;
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table1.id, table1.records[0].id, table1LinkField.id, [
+        {
+          id: table2.records[0].id,
+        },
+      ]);
+
+      await updateRecordByApi(table1.id, table1.records[1].id, table1LinkField.id, [
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+
+      await updateRecordByApi(table1.id, table1.records[2].id, table1LinkField.id, [
+        {
+          id: table2.records[0].id,
+        },
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+
+      const table1RecordResult = await getRecords(table1.id);
+
+      console.log('table1RecordResult', JSON.stringify(table1RecordResult.records, null, 2));
+
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toEqual([
+        {
+          title: 'A',
+          id: table2.records[0].id,
+        },
+      ]);
+      expect(table1RecordResult.records[1].fields[table1.fields[2].name]).toEqual([
+        {
+          title: 'B, C',
+          id: table2.records[1].id,
+        },
+      ]);
+      expect(table1RecordResult.records[2].fields[table1.fields[2].name]).toEqual([
+        {
+          title: 'A',
+          id: table2.records[0].id,
+        },
+        {
+          title: 'B, C',
+          id: table2.records[1].id,
+        },
+      ]);
+    });
+  });
 
   describe('isOneWay many one and one many link field cell update', () => {
     let table1: ITableFullVo;

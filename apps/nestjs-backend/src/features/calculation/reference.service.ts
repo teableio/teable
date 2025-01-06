@@ -511,18 +511,23 @@ export class ReferenceService {
       const lookedField = fieldMap[lookupFieldId];
       // nameConsole('calculateLookup:dependencies', recordItem.dependencies, fieldMap);
       const originLookupValues = this.calculateLookup(field, lookedField, recordItem);
-      const lookupValues = Array.isArray(originLookupValues)
-        ? originLookupValues.flat()
-        : originLookupValues;
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
       // console.log('calculateLookup:lookupValues', field.id, lookupValues, recordItem);
 
       if (field.isLookup) {
-        return this.filterArrayNull(lookupValues);
+        return this.filterArrayNull(
+          Array.isArray(originLookupValues) ? originLookupValues.flat() : originLookupValues
+        );
       }
 
-      return this.calculateRollupAndLink(field, relationship, lookedField, record, lookupValues);
+      return this.calculateRollupAndLink(
+        field,
+        relationship,
+        lookedField,
+        record,
+        originLookupValues
+      );
     }
 
     if (field.type === FieldType.CreatedBy || field.type === FieldType.LastModifiedBy) {
@@ -640,39 +645,46 @@ export class ReferenceService {
     field: LinkFieldDto,
     virtualField: IFieldInstance,
     record: IRecord,
-    lookupValues: unknown
+    originLookupValues: unknown
   ) {
     const linkCellValues = record.fields[field.id] as ILinkCellValue[] | ILinkCellValue | undefined;
     if (!linkCellValues) {
       return null;
     }
 
-    if (virtualField.isMultipleCellValue) {
-      if (!Array.isArray(lookupValues)) {
-        throw new Error('lookupValues should be array when virtualField is multiple cell value');
+    if (field.isMultipleCellValue) {
+      if (!Array.isArray(originLookupValues)) {
+        throw new Error('lookupValues should be array when link field is multiple cell value');
       }
 
       if (!Array.isArray(linkCellValues)) {
-        throw new Error('linkCellValues should be array when virtualField is multiple cell value');
+        throw new Error('linkCellValues should be array when link field is multiple cell value');
       }
 
-      if (linkCellValues.length !== lookupValues.length) {
+      if (linkCellValues.length !== originLookupValues.length) {
         throw new Error(
           'lookupValues length should be same as linkCellValues length, now: ' +
             linkCellValues.length +
             ' - ' +
-            lookupValues.length
+            originLookupValues.length
         );
       }
 
-      const titles = lookupValues.map((item) => {
-        return virtualField.item2String(item);
+      const titles = originLookupValues.map((item) => {
+        return Array.isArray(item)
+          ? item.map((i) => virtualField.item2String(i)).join(', ')
+          : virtualField.item2String(item);
       });
 
       return field.updateCellTitle(linkCellValues, titles);
     }
 
-    return field.updateCellTitle(linkCellValues, virtualField.cellValue2String(lookupValues));
+    return field.updateCellTitle(
+      linkCellValues,
+      virtualField.cellValue2String(
+        Array.isArray(originLookupValues) ? originLookupValues.flat() : originLookupValues
+      )
+    );
   }
 
   private calculateRollupAndLink(
@@ -680,7 +692,7 @@ export class ReferenceService {
     relationship: Relationship,
     lookupField: IFieldInstance,
     record: IRecord,
-    lookupValues: unknown
+    originLookupValues: unknown
   ): unknown {
     if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
       throw new BadRequestException('rollup only support link and rollup field currently');
@@ -698,13 +710,21 @@ export class ReferenceService {
       return field
         .evaluate(
           { values: virtualField },
-          { ...record, fields: { ...record.fields, values: lookupValues } }
+          {
+            ...record,
+            fields: {
+              ...record.fields,
+              values: Array.isArray(originLookupValues)
+                ? originLookupValues.flat()
+                : originLookupValues,
+            },
+          }
         )
         .toPlain();
     }
 
     if (field.type === FieldType.Link) {
-      return this.calculateLink(field, virtualField, record, lookupValues);
+      return this.calculateLink(field, virtualField, record, originLookupValues);
     }
   }
 

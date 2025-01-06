@@ -78,7 +78,7 @@ spec:
                   key: port
             - name: PRISMA_DATABASE_URL
               value: >-
-                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.__NAMESPACE__.svc:$(PG_PORT)/teable
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-__NAMESPACE__.svc:$(PG_PORT)/teable
             - name: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
               value: '1'
           resources:
@@ -105,7 +105,7 @@ spec:
                   key: port
             - name: PRISMA_DATABASE_URL
               value: >-
-                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.__NAMESPACE__.svc:$(PG_PORT)/teable
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-__NAMESPACE__.svc:$(PG_PORT)/teable
             - name: PUBLIC_ORIGIN
               value: https://__INSTANCE_DOMAIN__.sealoshzh.site
             - name: BACKEND_JWT_SECRET
@@ -117,12 +117,12 @@ spec:
             - name: BACKEND_STORAGE_PUBLIC_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: object-storage-key-rbcflj0l-teable-__INSTANCE_NAME__-public
+                  name: object-storage-key-__NAMESPACE__-teable-__INSTANCE_NAME__-public
                   key: bucket
             - name: BACKEND_STORAGE_PRIVATE_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: object-storage-key-rbcflj0l-teable-__INSTANCE_NAME__-private
+                  name: object-storage-key-__NAMESPACE__-teable-__INSTANCE_NAME__-private
                   key: bucket
             - name: BACKEND_STORAGE_MINIO_ENDPOINT
               valueFrom:
@@ -176,7 +176,7 @@ spec:
                   key: password
             - name: BACKEND_CACHE_REDIS_URI
               value: >-
-                redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).__NAMESPACE__.svc:$(REDIS_PORT)/1
+                redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).ns-__NAMESPACE__.svc:$(REDIS_PORT)/1
             - name: NEXT_ENV_IMAGES_ALL_REMOTE
               value: 'true'
           resources:
@@ -367,7 +367,7 @@ spec:
                   key: password
             - name: DATABASE_URL
               value: >-
-                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.__NAMESPACE__.svc:5432
+                postgresql://postgres:$(PG_PASSWORD)@teable-__INSTANCE_NAME__-pg-postgresql.ns-__NAMESPACE__.svc:5432
           command:
             - /bin/sh
             - '-c'
@@ -483,7 +483,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: teable-__INSTANCE_NAME__-redis
-    namespace: __NAMESPACE__
+    namespace: ns-__NAMESPACE__
 
 ---
 apiVersion: objectstorage.sealos.io/v1
