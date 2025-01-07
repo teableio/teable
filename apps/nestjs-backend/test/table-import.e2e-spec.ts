@@ -17,11 +17,14 @@ import {
   SUPPORTEDTYPE,
   UploadType,
 } from '@teable/openapi';
+import dayjs, { extend } from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
 import * as XLSX from 'xlsx';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
-
 import { initApp, permanentDeleteTable, getTable as apiGetTableById } from './utils/init-app';
+
+extend(timezone);
 
 enum TestFileFormat {
   'CSV' = 'csv',
@@ -359,7 +362,7 @@ describe('OpenAPI ImportController (e2e)', () => {
       const tableRecords = records?.map((r) => {
         const newFields = { ...r.fields };
         if (newFields['field_4']) {
-          newFields['field_4'] = +new Date(newFields['field_4'] as string);
+          newFields['field_4'] = new Date(newFields['field_4'] as string).getTime();
         }
         return newFields;
       });
@@ -369,13 +372,19 @@ describe('OpenAPI ImportController (e2e)', () => {
           field_1: 1,
           field_2: 'string_1',
           field_3: true,
-          field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
+          field_4: dayjs
+            .tz('2022-11-10 16:00:00', defaultDatetimeFormatting.timeZone)
+            .toDate()
+            .getTime(),
           field_6: 'long\ntext',
         },
         {
           field_1: 2,
           field_2: 'string_2',
-          field_4: +new Date(new Date('2022-11-11 16:00:00').toUTCString()),
+          field_4: dayjs
+            .tz('2022-11-11 16:00:00', defaultDatetimeFormatting.timeZone)
+            .toDate()
+            .getTime(),
         },
       ];
 
