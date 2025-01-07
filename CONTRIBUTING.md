@@ -62,13 +62,18 @@ make gen-prisma-schema
 ```
 This generates both SQLite and PostgreSQL schemas and TypeScript definitions.
 
-3. Create and apply migrations:
+3. Create migrations file:
 ```bash
 make db-migration
 ```
 
+4. Apply migrations:
+```bash
+make switch-db-mode
+```
+
 > **Note**
-> If you need to modify the schema after migration, delete the generated migration files and database records, then start over from step 1.
+> If you need to modify the schema after applying migrations, you need to delete the latest migration file and run `pnpm prisma-migrate-reset` in `packages/db-main-prisma` to reset the database. (Make sure you run it in the development database.)
 
 ## Testing
 
@@ -138,6 +143,8 @@ We have two main Docker images:
 - `teable-db-migrate`: Database migration tool (one-time setup tool)
 
 #### Build the Application Image
+> **Note**
+> You should run this command in the root directory.
 
 ```bash
 # Build the main application image
@@ -162,13 +169,12 @@ docker build -f dockers/teable/Dockerfile.db-migrate -t teable-db-migrate:latest
 ```bash
 # Tag your local image
 docker tag teable:latest your-username/teable:latest
+docker tag teable-db-migrate:latest your-username/teable-db-migrate:latest
 
 # Login to Docker Hub
 docker login
 
 # Push the image
 docker push your-username/teable:latest
+docker push your-username/teable-db-migrate:latest
 ```
-
-> **Note**
-> For production builds, we use GitHub Actions to automatically build and push multi-architecture images to our container registries.
