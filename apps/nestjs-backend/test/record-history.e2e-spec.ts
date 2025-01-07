@@ -1,12 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, Relationship } from '@teable/core';
-import {
-  getRecordHistory,
-  getRecordListHistory,
-  recordHistoryVoSchema,
-  type ITableFullVo,
-} from '@teable/openapi';
+import { getRecordHistory, getRecordListHistory, recordHistoryVoSchema } from '@teable/openapi';
+import type { IRecordHistoryVo, ITableFullVo } from '@teable/openapi';
 import type { IBaseConfig } from '../src/configs/base.config';
 import { baseConfig } from '../src/configs/base.config';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -79,9 +75,16 @@ describe('Record history (e2e)', () => {
         })
       );
 
-      const { data: recordHistory } = await getRecordHistory(mainTable.id, recordId, {});
-      const { data: tableRecordHistory } = await getRecordListHistory(mainTable.id, {});
-
+      const { recordHistory, tableRecordHistory } = await new Promise<{
+        recordHistory: IRecordHistoryVo;
+        tableRecordHistory: IRecordHistoryVo;
+      }>((resolve) => {
+        setTimeout(async () => {
+          const { data: recordHistory } = await getRecordHistory(mainTable.id, recordId, {});
+          const { data: tableRecordHistory } = await getRecordListHistory(mainTable.id, {});
+          resolve({ recordHistory, tableRecordHistory });
+        }, 2000);
+      });
       expect(recordHistory.historyList.length).toEqual(1);
       expect(tableRecordHistory.historyList.length).toEqual(1);
     });
