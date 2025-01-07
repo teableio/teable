@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream, unlinkSync, existsSync } from 'fs';
+import { createReadStream, createWriteStream, unlinkSync } from 'fs';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
@@ -157,9 +157,7 @@ export class LocalStorage implements StorageAdapter {
   async save(filePath: string, rename: string, isDelete: boolean = true) {
     const distPath = resolve(this.storageDir);
     const newFilePath = resolve(distPath, rename);
-    if (!existsSync(newFilePath)) {
-      await fse.copy(filePath, newFilePath);
-    }
+    await fse.copy(filePath, newFilePath);
     if (isDelete) {
       this.deleteFile(filePath);
     }
