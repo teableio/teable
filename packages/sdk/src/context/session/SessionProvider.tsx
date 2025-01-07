@@ -53,7 +53,14 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   }, [currentUser, refresh]);
 
   const value = useMemo(
-    () => ({ user: userQuery || currentUser, refresh, refreshAvatar }),
+    () => ({
+      user: {
+        ...(userQuery ?? {}),
+        ...(currentUser ?? {}),
+      } as IUser,
+      refresh,
+      refreshAvatar,
+    }),
     [currentUser, userQuery, refresh, refreshAvatar]
   );
 
