@@ -168,7 +168,6 @@ export interface IDbProvider {
   lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string;
 
   optionsQuery(type: FieldType, optionsKey: string, value: string): string;
-  optionsQuery(optionsKey: string, value: string): string;
 
   searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder;
 }
