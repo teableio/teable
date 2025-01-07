@@ -24,7 +24,8 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.containsOperatorHandler(builderClient, operator, value);
+    builderClient.where(this.tableColumnRef, 'iLIKE', `%${value}%`);
+    return builderClient;
   }
 
   doesNotContainOperatorHandler(
