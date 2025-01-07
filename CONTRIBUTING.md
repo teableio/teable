@@ -38,6 +38,18 @@ pnpm dev
 ```
 This will automatically start both backend and frontend servers with hot reload enabled.
 
+## Continuous Development
+
+After pulling the latest code, ensure your development environment stays up-to-date:
+
+```bash
+# Update dependencies to latest versions
+pnpm install
+
+# Update database schema to latest version
+make switch-db-mode
+```
+
 ## Database Migration Workflow
 
 Teable uses Prisma as ORM for database management. Follow these steps for schema changes:
