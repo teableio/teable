@@ -27,11 +27,11 @@ export type SelectedDepartment = {
 
 export type SelectedMember = SelectedUser | SelectedDepartment;
 
-type SelectedUserWithData = SelectedUser & {
+export interface SelectedUserWithData extends SelectedUser {
   data: UserNode;
-};
+}
 
-type SelectedDepartmentWithData = SelectedDepartment & {
+export type SelectedDepartmentWithData = SelectedDepartment & {
   data: DepartmentNode;
 };
 

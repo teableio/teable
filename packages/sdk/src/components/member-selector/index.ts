@@ -1,7 +1,10 @@
 export * from './MemberSelectorDialog';
 export * from './MemberContent';
 export * from './DepartmentSelector';
-export {
-  type SelectedMemberWithData as ISelectedMember,
-  TreeNodeType as MemberSelectorNodeType,
+export { TreeNodeType as MemberSelectorNodeType } from './types';
+
+export type {
+  SelectedMemberWithData as ISelectedMember,
+  SelectedUserWithData as ISelectedUser,
+  SelectedDepartmentWithData as ISelectedDepartment,
 } from './types';

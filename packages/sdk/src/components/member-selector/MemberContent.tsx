@@ -1,4 +1,5 @@
 import { Button, cn, DialogFooter, DialogHeader, DialogTitle, Separator } from '@teable/ui-lib';
+import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { DepartmentList } from './DepartmentList';
@@ -11,6 +12,7 @@ interface IMemberContentProps {
   departmentId?: string;
   defaultSelectedMembers?: SelectedMemberWithData[];
   disabledDepartment?: boolean;
+  header?: ReactNode;
   onLoadData?: () => SelectedMemberWithData[];
   onCancel?: () => void;
   onConfirm?: (selectedMembers: SelectedMemberWithData[]) => void;
@@ -25,6 +27,7 @@ const _defaultSelectedMembers: SelectedMemberWithData[] = [];
 export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
   (
     {
+      header,
       className,
       departmentId,
       defaultSelectedMembers,
@@ -74,7 +77,7 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
     return (
       <div className={cn('flex flex-col gap-4', className)}>
         <DialogHeader>
-          <DialogTitle>{t('memberSelector.title')}</DialogTitle>
+          <DialogTitle>{header ?? t('memberSelector.title')}</DialogTitle>
         </DialogHeader>
         <div className="mb-2">
           <SearchInput

@@ -30,7 +30,11 @@ export const Collaborator = (props: ICollaboratorProps) => {
       {item.type === PrincipalType.User && (
         <UserAvatar user={{ name: item.name, avatar: item.avatar }} />
       )}
-      {item.type === PrincipalType.Department && <Building2 className="size-6" />}
+      {item.type === PrincipalType.Department && (
+        <div className=" flex size-7 items-center justify-center rounded-full bg-accent">
+          <Building2 className="size-4" />
+        </div>
+      )}
       <div className="ml-2 flex flex-1 flex-col space-y-1">
         <p className="text-sm font-medium leading-none">
           {item.name}

@@ -274,7 +274,6 @@ describe('BaseSqlQuery e2e', () => {
         from: table.id,
         groupBy: [{ column: table.fields[0].id, type: BaseQueryColumnType.Field }],
       });
-      console.log('res.data', res.data);
       expect(res.data.columns).toHaveLength(1);
       expect(res.data.rows).toEqual([
         {},

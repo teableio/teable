@@ -1,7 +1,9 @@
 import { Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
 import type { IUserMeVo } from '@teable/openapi';
 import { Response } from 'express';
+import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
+import type { IClsStore } from '../../types/cls';
 import { AuthService } from './auth.service';
 import { TokenAccess } from './decorators/token.decorator';
 import { SessionService } from './session/session.service';
@@ -10,7 +12,8 @@ import { SessionService } from './session/session.service';
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly sessionService: SessionService
+    private readonly sessionService: SessionService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Post('signout')
@@ -22,7 +25,10 @@ export class AuthController {
 
   @Get('/user/me')
   async me(@Req() request: Express.Request) {
-    return request.user;
+    return {
+      ...request.user,
+      organization: this.cls.get('organization'),
+    };
   }
 
   @Get('/user')
