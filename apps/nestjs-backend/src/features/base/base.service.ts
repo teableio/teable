@@ -60,7 +60,6 @@ export class BaseService {
       where: {
         resourceId: { in: [baseId, base.spaceId] },
         principalId: { in: [userId, ...(departmentIds || [])] },
-        principalType: PrincipalType.User,
       },
     });
 

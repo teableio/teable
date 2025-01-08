@@ -44,7 +44,6 @@ export class TablePermissionService {
       where: {
         principalId: { in: [userId, ...(departmentIds || [])] },
         resourceId: { in: [baseId, base.spaceId] },
-        principalType: PrincipalType.User,
       },
     });
     if (collaborators.length === 0) {

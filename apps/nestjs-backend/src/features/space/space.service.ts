@@ -81,7 +81,6 @@ export class SpaceService {
       },
       where: {
         principalId: { in: [userId, ...(departmentIds || [])] },
-        principalType: PrincipalType.User,
         resourceType: CollaboratorType.Space,
       },
     });

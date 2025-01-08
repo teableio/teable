@@ -690,7 +690,6 @@ export class CollaboratorService {
     const coll = await this.prismaService.txClient().collaborator.findMany({
       where: {
         principalId: { in: [userId, ...(departmentIds || [])] },
-        principalType: PrincipalType.User,
         resourceType: CollaboratorType.Base,
       },
       select: {
