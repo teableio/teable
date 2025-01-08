@@ -123,7 +123,7 @@ export class UserService {
       where: { isSystem: null },
     });
 
-    const isAdmin = !this.baseConfig.isCloud && userTotalCount === 0;
+    const isAdmin = userTotalCount === 0;
 
     if (!user?.avatar) {
       const avatar = await this.generateDefaultAvatar(user.id!);
