@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads';
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import {
   FieldType,
@@ -15,7 +15,7 @@ import type {
   IInplaceImportOptionRo,
   IImportColumn,
 } from '@teable/openapi';
-import { toString } from 'lodash';
+import { difference, toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp } from 'sharedb';
 import type { LocalPresence } from 'sharedb/lib/client';
@@ -145,7 +145,7 @@ export class ImportOpenApiService {
         throw new BadRequestException('table is not found');
       });
 
-    let fieldRaws = await this.prismaService.field.findMany({
+    const fieldRaws = await this.prismaService.field.findMany({
       where: { tableId, deletedTime: null, hasError: null },
       select: {
         id: true,
@@ -154,7 +154,12 @@ export class ImportOpenApiService {
     });
 
     if (projection?.length) {
-      fieldRaws = fieldRaws.filter(({ id }) => projection.includes(id));
+      const inplaceFieldIds = Object.keys(sourceColumnMap);
+      const noUpdateFields = difference(projection, inplaceFieldIds);
+      if (noUpdateFields.length !== 0) {
+        const tips = noUpdateFields.join(',');
+        throw new ForbiddenException(`There is no permission to update there field ${tips}`);
+      }
     }
 
     if (!tableRaw || !fieldRaws) {
