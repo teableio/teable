@@ -246,9 +246,7 @@ export class BatchService {
     await prisma.$executeRawUnsafe(insertTempTableSql);
 
     // 3.update data
-    await wrapWithValidationErrorHandler(
-      async () => await prisma.$executeRawUnsafe(updateRecordSql)
-    );
+    await wrapWithValidationErrorHandler(() => prisma.$executeRawUnsafe(updateRecordSql));
 
     // 4.delete temporary table
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();

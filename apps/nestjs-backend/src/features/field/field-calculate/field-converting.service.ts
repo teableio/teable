@@ -1111,8 +1111,8 @@ export class FieldConvertingService {
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();
-    await wrapWithValidationErrorHandler(
-      async () => await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery)
+    await wrapWithValidationErrorHandler(() =>
+      this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery)
     );
   }
 

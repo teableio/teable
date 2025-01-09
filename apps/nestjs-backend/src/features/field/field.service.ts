@@ -534,8 +534,8 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'dbFieldType') {
-      await wrapWithValidationErrorHandler(
-        async () => await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType)
+      await wrapWithValidationErrorHandler(() =>
+        this.alterTableModifyFieldType(fieldId, newValue as DbFieldType)
       );
     }
 
@@ -544,9 +544,8 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'unique' || key === 'notNull') {
-      await wrapWithValidationErrorHandler(
-        async () =>
-          await this.alterTableModifyFieldValidation(fieldId, key, newValue as boolean | undefined)
+      await wrapWithValidationErrorHandler(() =>
+        this.alterTableModifyFieldValidation(fieldId, key, newValue as boolean | undefined)
       );
     }
 
