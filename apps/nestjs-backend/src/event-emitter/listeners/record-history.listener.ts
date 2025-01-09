@@ -9,6 +9,7 @@ import { Knex } from 'knex';
 import { isString } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { EventEmitterService } from '../event-emitter.service';
 import { Events, RecordUpdateEvent } from '../events';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -18,6 +19,7 @@ const SELECT_FIELD_TYPE_SET = new Set([FieldType.SingleSelect, FieldType.Multipl
 export class RecordHistoryListener {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly eventEmitterService: EventEmitterService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -130,6 +132,10 @@ export class RecordHistoryListener {
 
       await this.prismaService.$executeRawUnsafe(query);
     }
+
+    this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
+      recordIds: records.map((record) => record.id),
+    });
   }
 
   private minimizeFieldOptions(
