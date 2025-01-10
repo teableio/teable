@@ -22,7 +22,7 @@ import {
   PRIMARY_SUPPORTED_TYPES,
   RecordOpBuilder,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -1134,7 +1134,9 @@ export class FieldConvertingService {
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();
-    await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
+    await wrapWithValidationErrorHandler(() =>
+      this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery)
+    );
   }
 
   async closeConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {

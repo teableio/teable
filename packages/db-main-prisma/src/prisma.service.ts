@@ -13,47 +13,30 @@ interface ITx {
   rawOpMaps?: unknown;
 }
 
-function proxyClient(tx: Prisma.TransactionClient) {
-  return new Proxy(tx, {
-    get(target, p) {
-      if (p === '$queryRawUnsafe' || p === '$executeRawUnsafe') {
-        return async function (query: string, ...args: unknown[]) {
-          try {
-            return await target[p](query, ...args);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } catch (e: any) {
-            const code = e.meta?.code ?? e.code;
-            if (
-              code === PostgresErrorCode.UNIQUE_VIOLATION ||
-              code === SqliteErrorCode.UNIQUE_VIOLATION
-            ) {
-              throw new HttpException(
-                'Duplicate detected! Please ensure that all fields with unique value validation are indeed unique.',
-                HttpStatus.BAD_REQUEST
-              );
-            }
-            if (
-              code === PostgresErrorCode.NOT_NULL_VIOLATION ||
-              code === SqliteErrorCode.NOT_NULL_VIOLATION
-            ) {
-              throw new HttpException(
-                'One or more required fields were not provided! Please ensure all mandatory fields are filled.',
-                HttpStatus.BAD_REQUEST
-              );
-            }
-            throw new HttpException(
-              `An error occurred in ${p}: ${e.message}`,
-              HttpStatus.INTERNAL_SERVER_ERROR
-            );
-          }
-        };
-      }
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      return target[p];
-    },
-  });
-}
+export const wrapWithValidationErrorHandler = async (fn: () => Promise<unknown>) => {
+  try {
+    await fn();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (e: any) {
+    const code = e.meta?.code ?? e.code;
+    if (code === PostgresErrorCode.UNIQUE_VIOLATION || code === SqliteErrorCode.UNIQUE_VIOLATION) {
+      throw new HttpException(
+        'Duplicate detected! Please ensure that all fields with unique value validation are indeed unique.',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+    if (
+      code === PostgresErrorCode.NOT_NULL_VIOLATION ||
+      code === SqliteErrorCode.NOT_NULL_VIOLATION
+    ) {
+      throw new HttpException(
+        'One or more required fields were not provided! Please ensure all mandatory fields are filled.',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+    throw new HttpException(`An error occurred: ${e.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+};
 
 @Injectable()
 export class PrismaService
@@ -118,7 +101,6 @@ export class PrismaService
 
     await this.cls.runWith(this.cls.get(), async () => {
       result = await super.$transaction<R>(async (prisma) => {
-        prisma = proxyClient(prisma);
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
         this.cls.set('tx.timeStr', new Date().toISOString());

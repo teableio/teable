@@ -2,7 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable/core';
 import { IdPrefix, RecordOpBuilder } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
@@ -246,7 +246,7 @@ export class BatchService {
     await prisma.$executeRawUnsafe(insertTempTableSql);
 
     // 3.update data
-    await prisma.$executeRawUnsafe(updateRecordSql);
+    await wrapWithValidationErrorHandler(() => prisma.$executeRawUnsafe(updateRecordSql));
 
     // 4.delete temporary table
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();

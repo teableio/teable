@@ -31,11 +31,11 @@ describe('Record history (e2e)', () => {
     const baseConfigService = app.get(baseConfig.KEY) as IBaseConfig;
     baseConfigService.recordHistoryDisabled = false;
 
-    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.TABLE_RECORD_UPDATE);
+    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.RECORD_HISTORY_CREATE);
   });
 
   afterAll(async () => {
-    eventEmitterService.eventEmitter.removeAllListeners(Events.TABLE_RECORD_UPDATE);
+    eventEmitterService.eventEmitter.removeAllListeners(Events.RECORD_HISTORY_CREATE);
     await app.close();
   });
 
