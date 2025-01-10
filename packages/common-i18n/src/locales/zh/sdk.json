@@ -751,6 +751,7 @@
     "departmentSelectorSearchPlaceholder": "搜索部门...",
     "selected": "已选择",
     "noSelected": "未选择",
-    "empty": "暂无成员"
+    "empty": "暂无成员",
+    "emptyDepartment": "暂无部门"
   }
 }

@@ -143,7 +143,7 @@ export const DepartmentSelector = forwardRef<IDepartmentSelectorRef, IDepartment
               <div className="space-y-2 px-4">
                 {departments?.length === 0 && !isLoading && (
                   <div className="py-4 text-center text-sm text-muted-foreground">
-                    {t('memberSelector.empty')}
+                    {t('memberSelector.emptyDepartment')}
                   </div>
                 )}
                 <>

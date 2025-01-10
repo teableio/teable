@@ -751,6 +751,7 @@
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
     "noSelected": "No selected",
-    "empty": "No members"
+    "empty": "No members",
+    "emptyDepartment": "No departments"
   }
 }
