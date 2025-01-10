@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, Relationship } from '@teable/core';
 import { getRecordHistory, getRecordListHistory, recordHistoryVoSchema } from '@teable/openapi';
-import type { IRecordHistoryVo, ITableFullVo } from '@teable/openapi';
+import type { ITableFullVo } from '@teable/openapi';
 import type { IBaseConfig } from '../src/configs/base.config';
 import { baseConfig } from '../src/configs/base.config';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -75,18 +75,39 @@ describe('Record history (e2e)', () => {
         })
       );
 
-      const { recordHistory, tableRecordHistory } = await new Promise<{
-        recordHistory: IRecordHistoryVo;
-        tableRecordHistory: IRecordHistoryVo;
-      }>((resolve) => {
-        setTimeout(async () => {
-          const { data: recordHistory } = await getRecordHistory(mainTable.id, recordId, {});
-          const { data: tableRecordHistory } = await getRecordListHistory(mainTable.id, {});
-          resolve({ recordHistory, tableRecordHistory });
-        }, 2000);
-      });
+      const { data: recordHistory } = await getRecordHistory(mainTable.id, recordId, {});
+      const { data: tableRecordHistory } = await getRecordListHistory(mainTable.id, {});
+
       expect(recordHistory.historyList.length).toEqual(1);
       expect(tableRecordHistory.historyList.length).toEqual(1);
+    });
+
+    it('should get record history of changes in the modified cell values is referenced by a formula', async () => {
+      const recordId = mainTable.records[0].id;
+      const textField = await createField(mainTable.id, {
+        type: FieldType.SingleLineText,
+      });
+      await createField(mainTable.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${textField.id}}`,
+        },
+      });
+
+      await awaitWithEvent(() =>
+        updateRecord(mainTable.id, recordId, {
+          record: {
+            fields: {
+              [textField.id]: 'test',
+            },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        })
+      );
+
+      const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, recordId, {});
+
+      expect(mainTableRecordHistory.historyList.length).toEqual(1);
     });
 
     it('should get record history of changes in the link field cell values', async () => {
