@@ -240,7 +240,10 @@ export class EventEmitterService {
       return;
     }
 
-    if (existingEvent.rawOpType === RawOpType.Create && event.name === Events.TABLE_RECORD_UPDATE) {
+    if (
+      [RawOpType.Create, RawOpType.Edit].includes(existingEvent.rawOpType) &&
+      event.name === Events.TABLE_RECORD_UPDATE
+    ) {
       const fields = this.getUpdateFieldsFromEvent(event as RecordUpdateEvent);
       event = this.combineUpdateEvents(existingEvent as RecordCreateEvent, fields);
     }
