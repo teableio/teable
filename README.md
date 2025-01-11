@@ -204,6 +204,14 @@ cd apps/nestjs-backend
 pnpm dev
 ```
 
+By default, the plugin development server is not started. To preview and develop plugins, run:
+```sh
+cd plugins
+pnpm dev
+```
+This will start the plugin development server on port 3002.
+
+
 ## Why Teable?
 
 No-code tools have significantly speed up how we get things done, allowing non-tech users to build amazing apps and changing the way many work and live. People like using spreadsheet-like UI to handle their data because it's easy, flexible, and great for team collaboration. They also prefer designing their app screens without being stuck with clunky templates.

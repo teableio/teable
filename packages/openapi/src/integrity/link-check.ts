@@ -11,7 +11,8 @@ export enum IntegrityIssueType {
   ForeignKeyNotFound = 'ForeignKeyNotFound',
   SelfKeyNotFound = 'SelfKeyNotFound',
   SymmetricFieldNotFound = 'SymmetricFieldNotFound',
-  InvalidRecordReference = 'InvalidRecordReference',
+  MissingRecordReference = 'MissingRecordReference',
+  InvalidLinkReference = 'InvalidLinkReference',
   ForeignKeyHostTableNotFound = 'ForeignKeyHostTableNotFound',
 }
 

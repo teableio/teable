@@ -406,10 +406,24 @@ export class SqliteProvider implements IDbProvider {
   optionsQuery(type: FieldType, optionsKey: string, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
-        type: 'type',
         name: 'name',
+        description: 'description',
+        notNull: 'not_null',
+        unique: 'unique',
+        isPrimary: 'is_primary',
+        dbFieldName: 'db_field_name',
+        isComputed: 'is_computed',
+        isPending: 'is_pending',
+        hasError: 'has_error',
+        dbFieldType: 'db_field_type',
+        isMultipleCellValue: 'is_multiple_cell_value',
+        isLookup: 'is_lookup',
+        lookupOptions: 'lookup_options',
+        type: 'type',
         options: 'options',
+        cellValueType: 'cell_value_type',
       })
       .where('type', type)
       .whereNull('is_lookup')

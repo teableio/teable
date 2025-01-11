@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable/core';
 import { IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -103,6 +103,12 @@ export class BatchService {
       opsPair.map(([recordId]) => recordId)
     );
     const versionGroup = keyBy(raw, '__id');
+
+    opsPair.map(([recordId]) => {
+      if (!versionGroup[recordId]) {
+        throw new BadRequestException(`Record ${recordId} not found in ${tableId}`);
+      }
+    });
 
     const opsData = this.buildRecordOpsData(opsPair, versionGroup);
     if (!opsData.length) return;

@@ -1,12 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType, type ILinkFieldOptions } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
-import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityCheckVo, type IIntegrityIssue } from '@teable/openapi';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { createFieldInstanceByRaw } from '../field/model/factory';
+import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
+import { ForeignKeyIntegrityService } from './foreign-key.service';
+import { LinkFieldIntegrityService } from './link-field.service';
 
 @Injectable()
 export class LinkIntegrityService {
@@ -14,8 +16,9 @@ export class LinkIntegrityService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly foreignKeyIntegrityService: ForeignKeyIntegrityService,
+    private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   async linkIntegrityCheck(baseId: string): Promise<IIntegrityCheckVo> {
@@ -171,111 +174,19 @@ export class LinkIntegrityService {
       }
 
       if (foreignTable) {
-        const invalidReferences = await this.checkInvalidRecordReferences(table.id, field, options);
+        const linkField = createFieldInstanceByRaw(field) as LinkFieldDto;
+        const invalidReferences = await this.foreignKeyIntegrityService.getIssues(
+          table.id,
+          linkField
+        );
+        const invalidLinks = await this.linkFieldIntegrityService.getIssues(table.id, linkField);
 
         if (invalidReferences.length > 0) {
           issues.push(...invalidReferences);
         }
-      }
-    }
-
-    return issues;
-  }
-
-  private async checkInvalidRecordReferences(
-    tableId: string,
-    field: { id: string; name: string },
-    options: ILinkFieldOptions
-  ): Promise<IIntegrityIssue[]> {
-    const { foreignTableId, fkHostTableName, foreignKeyName, selfKeyName } = options;
-
-    const { name: selfTableName, dbTableName: selfTableDbTableName } =
-      await this.prismaService.tableMeta.findFirstOrThrow({
-        where: { id: tableId, deletedTime: null },
-        select: { name: true, dbTableName: true },
-      });
-
-    const { name: foreignTableName, dbTableName: foreignTableDbTableName } =
-      await this.prismaService.tableMeta.findFirstOrThrow({
-        where: { id: foreignTableId, deletedTime: null },
-        select: { name: true, dbTableName: true },
-      });
-
-    const issues: IIntegrityIssue[] = [];
-
-    // Check self references
-    if (selfTableDbTableName !== fkHostTableName) {
-      const selfIssues = await this.checkInvalidReferences({
-        fkHostTableName,
-        targetTableName: selfTableDbTableName,
-        keyName: selfKeyName,
-        field,
-        referencedTableName: selfTableName,
-        isSelfReference: true,
-      });
-      issues.push(...selfIssues);
-    }
-
-    // Check foreign references
-    if (foreignTableDbTableName !== fkHostTableName) {
-      const foreignIssues = await this.checkInvalidReferences({
-        fkHostTableName,
-        targetTableName: foreignTableDbTableName,
-        keyName: foreignKeyName,
-        field,
-        referencedTableName: foreignTableName,
-        isSelfReference: false,
-      });
-      issues.push(...foreignIssues);
-    }
-
-    return issues;
-  }
-
-  private async checkInvalidReferences({
-    fkHostTableName,
-    targetTableName,
-    keyName,
-    field,
-    referencedTableName,
-    isSelfReference,
-  }: {
-    fkHostTableName: string;
-    targetTableName: string;
-    keyName: string;
-    field: { id: string; name: string };
-    referencedTableName: string;
-    isSelfReference: boolean;
-  }): Promise<IIntegrityIssue[]> {
-    const issues: IIntegrityIssue[] = [];
-
-    const invalidQuery = this.knex(fkHostTableName)
-      .leftJoin(targetTableName, `${fkHostTableName}.${keyName}`, `${targetTableName}.__id`)
-      .whereNull(`${targetTableName}.__id`)
-      .count(`${fkHostTableName}.${keyName} as count`)
-      .first()
-      .toQuery();
-
-    try {
-      const invalidRefs =
-        await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(invalidQuery);
-      const refCount = Number(invalidRefs[0]?.count || 0);
-
-      if (refCount > 0) {
-        const message = isSelfReference
-          ? `Found ${refCount} invalid self references in table ${referencedTableName}`
-          : `Found ${refCount} invalid foreign references to table ${referencedTableName}`;
-
-        issues.push({
-          type: IntegrityIssueType.InvalidRecordReference,
-          message: `${message} (Field Name: ${field.name}, Field ID: ${field.id})`,
-        });
-      }
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2010') {
-        console.error('error ignored:', error);
-      } else {
-        throw error;
+        if (invalidLinks.length > 0) {
+          issues.push(...invalidLinks);
+        }
       }
     }
 
@@ -290,8 +201,16 @@ export class LinkIntegrityService {
       for (const issue of issues.issues) {
         // eslint-disable-next-line sonarjs/no-small-switch
         switch (issue.type) {
-          case IntegrityIssueType.InvalidRecordReference: {
-            const result = await this.fixInvalidRecordReferences(issues.tableId, issues.fieldId);
+          case IntegrityIssueType.MissingRecordReference: {
+            const result = await this.foreignKeyIntegrityService.fix(
+              issues.tableId,
+              issues.fieldId
+            );
+            result && fixResults.push(result);
+            break;
+          }
+          case IntegrityIssueType.InvalidLinkReference: {
+            const result = await this.linkFieldIntegrityService.fix(issues.tableId, issues.fieldId);
             result && fixResults.push(result);
             break;
           }
@@ -302,80 +221,5 @@ export class LinkIntegrityService {
     }
 
     return fixResults;
-  }
-
-  async fixInvalidRecordReferences(
-    tableId: string,
-    fieldId: string
-  ): Promise<IIntegrityIssue | undefined> {
-    const field = await this.prismaService.field.findFirstOrThrow({
-      where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
-    });
-
-    const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-    const { foreignTableId, fkHostTableName, foreignKeyName, selfKeyName } = options;
-
-    const { dbTableName: selfTableDbTableName } =
-      await this.prismaService.tableMeta.findFirstOrThrow({
-        where: { id: tableId, deletedTime: null },
-        select: { dbTableName: true },
-      });
-
-    const { dbTableName: foreignTableDbTableName } =
-      await this.prismaService.tableMeta.findFirstOrThrow({
-        where: { id: foreignTableId, deletedTime: null },
-        select: { dbTableName: true },
-      });
-
-    let totalDeleted = 0;
-
-    // Fix invalid self references
-    if (selfTableDbTableName !== fkHostTableName) {
-      const selfDeleted = await this.deleteInvalidReferences({
-        fkHostTableName,
-        targetTableName: selfTableDbTableName,
-        keyName: selfKeyName,
-      });
-      totalDeleted += selfDeleted;
-    }
-
-    // Fix invalid foreign references
-    if (foreignTableDbTableName !== fkHostTableName) {
-      const foreignDeleted = await this.deleteInvalidReferences({
-        fkHostTableName,
-        targetTableName: foreignTableDbTableName,
-        keyName: foreignKeyName,
-      });
-      totalDeleted += foreignDeleted;
-    }
-
-    if (totalDeleted > 0) {
-      return {
-        type: IntegrityIssueType.InvalidRecordReference,
-        message: `Fixed ${totalDeleted} invalid references for link field (Field Name: ${field.name}, Field ID: ${field.id})`,
-      };
-    }
-  }
-
-  private async deleteInvalidReferences({
-    fkHostTableName,
-    targetTableName,
-    keyName,
-  }: {
-    fkHostTableName: string;
-    targetTableName: string;
-    keyName: string;
-  }) {
-    const deleteQuery = this.knex(fkHostTableName)
-      .whereNotExists(
-        this.knex
-          .select('__id')
-          .from(targetTableName)
-          .where('__id', this.knex.ref(`${fkHostTableName}.${keyName}`))
-      )
-      .delete()
-      .toQuery();
-
-    return await this.prismaService.$executeRawUnsafe(deleteQuery);
   }
 }

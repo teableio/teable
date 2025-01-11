@@ -14,6 +14,10 @@ import {
   createBase,
   deleteBase,
   fixBaseIntegrity,
+  getRecord,
+  getRecords,
+  updateRecord,
+  updateRecords,
 } from '@teable/openapi';
 import type { Knex } from 'knex';
 import {
@@ -161,6 +165,324 @@ describe('OpenAPI integrity (e2e)', () => {
 
       const integrity3 = await checkBaseIntegrity(baseId2);
       expect(integrity3.data.hasIssues).toEqual(false);
+    });
+
+    it('should check integrity when a many-one link field cell value is more than foreignKey', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyOne,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const symLinkField = await getField(
+        base2table2.id,
+        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      expect((symLinkField.options as ILinkFieldOptions).baseId).toBeUndefined();
+
+      await updateRecords(base2table1.id, {
+        records: [
+          {
+            id: base2table1.records[0].id,
+            fields: {
+              [base2table1.fields[0].name]: 'a1',
+            },
+          },
+          {
+            id: base2table1.records[1].id,
+            fields: {
+              [base2table1.fields[0].name]: 'a2',
+            },
+          },
+        ],
+      });
+
+      await updateRecord(base2table2.id, base2table2.records[0].id, {
+        record: {
+          fields: {
+            [base2table2.fields[0].name]: 'b1',
+            [symLinkField.name]: [
+              { id: base2table1.records[0].id },
+              { id: base2table1.records[1].id },
+            ],
+          },
+        },
+      });
+
+      const integrity = await checkBaseIntegrity(baseId2);
+      expect(integrity.data.hasIssues).toEqual(false);
+
+      // test multiple link
+      await executeKnex(
+        db(base2table2.dbTableName)
+          .where('__id', base2table2.records[0].id)
+          .update({
+            [symLinkField.dbFieldName]: db.raw(`jsonb_set(
+              "${symLinkField.dbFieldName}",
+              '{0,id}',
+              '"xxx"'
+            )`),
+          })
+      );
+
+      const record = await getRecord(base2table2.id, base2table2.records[0].id);
+      expect(record.data.fields[symLinkField.name]).toEqual([
+        { id: 'xxx', title: 'a1' },
+        { id: base2table1.records[1].id, title: 'a2' },
+      ]);
+
+      const integrity2 = await checkBaseIntegrity(baseId2);
+      expect(integrity2.data.hasIssues).toEqual(true);
+      expect(integrity2.data.linkFieldIssues.length).toEqual(1);
+
+      await fixBaseIntegrity(baseId2);
+
+      const integrity3 = await checkBaseIntegrity(baseId2);
+      expect(integrity3.data.hasIssues).toEqual(false);
+
+      // test single link
+      await executeKnex(
+        db(base2table1.dbTableName)
+          .where('__id', base2table1.records[0].id)
+          .update({
+            [linkField.dbFieldName]: db.raw(`jsonb_set(
+              "${linkField.dbFieldName}",
+              '{id}',
+              '"xxx"'
+            )`),
+          })
+      );
+
+      const record2 = await getRecord(base2table1.id, base2table1.records[0].id);
+      expect(record2.data.fields[linkField.name]).toEqual({ id: 'xxx', title: 'b1' });
+
+      const integrity4 = await checkBaseIntegrity(baseId2);
+      expect(integrity4.data.hasIssues).toEqual(true);
+
+      await fixBaseIntegrity(baseId2);
+
+      const integrity5 = await checkBaseIntegrity(baseId2);
+      expect(integrity5.data.hasIssues).toEqual(false);
+    });
+
+    it('should check integrity when a one-one link field cell value is more than foreignKey', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.OneOne,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const symLinkField = await getField(
+        base2table2.id,
+        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      expect((symLinkField.options as ILinkFieldOptions).baseId).toBeUndefined();
+
+      await updateRecords(base2table1.id, {
+        records: [
+          {
+            id: base2table1.records[0].id,
+            fields: {
+              [base2table1.fields[0].name]: 'a1',
+            },
+          },
+          {
+            id: base2table1.records[1].id,
+            fields: {
+              [base2table1.fields[0].name]: 'a2',
+            },
+          },
+        ],
+      });
+
+      await updateRecords(base2table2.id, {
+        records: [
+          {
+            id: base2table2.records[0].id,
+            fields: {
+              [base2table2.fields[0].name]: 'b1',
+              [symLinkField.name]: { id: base2table1.records[0].id },
+            },
+          },
+          {
+            id: base2table2.records[1].id,
+            fields: {
+              [base2table2.fields[0].name]: 'b2',
+              [symLinkField.name]: { id: base2table1.records[1].id },
+            },
+          },
+        ],
+      });
+
+      const integrity = await checkBaseIntegrity(baseId2);
+      expect(integrity.data.hasIssues).toEqual(false);
+
+      // test multiple link
+      await executeKnex(
+        db(base2table2.dbTableName)
+          .whereIn('__id', [base2table2.records[0].id, base2table2.records[1].id])
+          .update({
+            [symLinkField.dbFieldName]: db.raw(`jsonb_set(
+              "${symLinkField.dbFieldName}",
+              '{id}',
+              '"xxx"'
+            )`),
+          })
+      );
+
+      const records = await getRecords(base2table2.id);
+      expect(records.data.records[0].fields[symLinkField.name]).toEqual({ id: 'xxx', title: 'a1' });
+      expect(records.data.records[1].fields[symLinkField.name]).toEqual({ id: 'xxx', title: 'a2' });
+
+      const integrity2 = await checkBaseIntegrity(baseId2);
+      expect(integrity2.data.hasIssues).toEqual(true);
+      expect(integrity2.data.linkFieldIssues.length).toEqual(1);
+
+      await fixBaseIntegrity(baseId2);
+
+      const integrity3 = await checkBaseIntegrity(baseId2);
+      expect(integrity3.data.hasIssues).toEqual(false);
+
+      // test single link
+      await executeKnex(
+        db(base2table1.dbTableName)
+          .whereIn('__id', [base2table1.records[0].id, base2table1.records[1].id])
+          .update({
+            [linkField.dbFieldName]: db.raw(`jsonb_set(
+              "${linkField.dbFieldName}",
+              '{id}',
+              '"xxx"'
+            )`),
+          })
+      );
+
+      const records2 = await getRecords(base2table1.id);
+      expect(records2.data.records[0].fields[linkField.name]).toEqual({ id: 'xxx', title: 'b1' });
+      expect(records2.data.records[1].fields[linkField.name]).toEqual({ id: 'xxx', title: 'b2' });
+
+      const integrity4 = await checkBaseIntegrity(baseId2);
+      expect(integrity4.data.hasIssues).toEqual(true);
+
+      await fixBaseIntegrity(baseId2);
+
+      const integrity5 = await checkBaseIntegrity(baseId2);
+      expect(integrity5.data.hasIssues).toEqual(false);
+    });
+
+    it('should check integrity when a many-many link field cell value is more than foreignKey', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyMany,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const symLinkField = await getField(
+        base2table2.id,
+        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      expect((symLinkField.options as ILinkFieldOptions).baseId).toBeUndefined();
+
+      await updateRecords(base2table1.id, {
+        records: [
+          {
+            id: base2table1.records[0].id,
+            fields: {
+              [base2table1.fields[0].name]: 'a1',
+            },
+          },
+          {
+            id: base2table1.records[1].id,
+            fields: {
+              [base2table1.fields[0].name]: 'a2',
+            },
+          },
+        ],
+      });
+
+      await updateRecord(base2table2.id, base2table2.records[0].id, {
+        record: {
+          fields: {
+            [base2table2.fields[0].name]: 'b1',
+            [symLinkField.name]: [
+              { id: base2table1.records[0].id },
+              { id: base2table1.records[1].id },
+            ],
+          },
+        },
+      });
+
+      const integrity = await checkBaseIntegrity(baseId2);
+      expect(integrity.data.hasIssues).toEqual(false);
+
+      // test multiple link
+      await executeKnex(
+        db(base2table2.dbTableName)
+          .where('__id', base2table2.records[0].id)
+          .update({
+            [symLinkField.dbFieldName]: db.raw(`jsonb_set(
+              "${symLinkField.dbFieldName}",
+              '{0,id}',
+              '"xxx"'
+            )`),
+          })
+      );
+
+      const record = await getRecord(base2table2.id, base2table2.records[0].id);
+      expect(record.data.fields[symLinkField.name]).toEqual([
+        { id: 'xxx', title: 'a1' },
+        { id: base2table1.records[1].id, title: 'a2' },
+      ]);
+
+      const integrity2 = await checkBaseIntegrity(baseId2);
+      expect(integrity2.data.hasIssues).toEqual(true);
+      expect(integrity2.data.linkFieldIssues.length).toEqual(1);
+
+      await fixBaseIntegrity(baseId2);
+
+      const integrity3 = await checkBaseIntegrity(baseId2);
+      expect(integrity3.data.hasIssues).toEqual(false);
+
+      // test single link
+      await executeKnex(
+        db(base2table1.dbTableName)
+          .where('__id', base2table1.records[0].id)
+          .update({
+            [linkField.dbFieldName]: db.raw(`jsonb_set(
+              "${linkField.dbFieldName}",
+              '{0,id}',
+              '"xxx"'
+            )`),
+          })
+      );
+
+      const record2 = await getRecord(base2table1.id, base2table1.records[0].id);
+      expect(record2.data.fields[linkField.name]).toEqual([{ id: 'xxx', title: 'b1' }]);
+
+      const integrity4 = await checkBaseIntegrity(baseId2);
+      expect(integrity4.data.hasIssues).toEqual(true);
+
+      await fixBaseIntegrity(baseId2);
+
+      const integrity5 = await checkBaseIntegrity(baseId2);
+      expect(integrity5.data.hasIssues).toEqual(false);
     });
   });
 });
