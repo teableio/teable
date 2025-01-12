@@ -14,6 +14,8 @@ import {
   tableIconRoSchema,
   tableNameRoSchema,
   updateOrderRoSchema,
+  IEnableSearchIndexRo,
+  enableSearchIndexRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -159,5 +161,19 @@ export class TableController {
   @Get('/socket/doc-ids')
   async getDocIds(@Param('baseId') baseId: string) {
     return this.tableService.getDocIdsByQuery(baseId, undefined);
+  }
+
+  @Post(':tableId/search-index')
+  async enableSearchIndex(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(enableSearchIndexRoSchema)) searchIndexRo: IEnableSearchIndexRo
+  ) {
+    return this.tableService.enableSearchIndex(baseId, tableId, searchIndexRo);
+  }
+
+  @Get(':tableId/full-text-search-index/status')
+  async getFullTextSearchStatus(@Param('tableId') tableId: string): Promise<boolean> {
+    return this.tableOpenApiService.getFullTextSearchStatus(tableId);
   }
 }

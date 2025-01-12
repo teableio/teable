@@ -1,80 +1,25 @@
-import { CellValueType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { ISearchQueryConstructor } from './types';
 
 export abstract class SearchQueryAbstract {
-  static factory(
+  static appendQueryBuilder(
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    SearchQuery: new (
-      originQueryBuilder: Knex.QueryBuilder,
-      field: IFieldInstance,
-      searchValue: string
-    ) => SearchQueryAbstract,
+    SearchQuery: ISearchQueryConstructor,
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?]
+    searchFields: IFieldInstance[],
+    search?: [string, string?, boolean?],
+    withFullTextIndex?: boolean
   ) {
-    if (!search || !fieldMap) {
+    if (!search || !searchFields?.length) {
       return originQueryBuilder;
-    }
-
-    let searchArr = [];
-
-    if (!search?.[1]) {
-      searchArr = Object.values(fieldMap).map((f) => f.id);
-    } else {
-      searchArr = search[1]?.split(',');
     }
 
     const searchValue = search[0];
 
-    searchArr.forEach((item) => {
-      const field = fieldMap?.[item];
-
-      if (!field) {
-        return;
-      }
-
-      if (field.cellValueType === CellValueType.Boolean) {
-        return;
-      }
-
-      const searchQueryBuilder = new SearchQuery(originQueryBuilder, field, searchValue);
-
-      if (field.isMultipleCellValue) {
-        switch (field.cellValueType) {
-          case CellValueType.DateTime:
-            searchQueryBuilder.multipleDate();
-            break;
-          case CellValueType.Number:
-            searchQueryBuilder.multipleNumber();
-            break;
-          case CellValueType.String:
-            if (field.isStructuredCellValue) {
-              searchQueryBuilder.multipleJson();
-            } else {
-              searchQueryBuilder.multipleText();
-            }
-            break;
-        }
-        return;
-      }
-
-      switch (field.cellValueType) {
-        case CellValueType.DateTime:
-          searchQueryBuilder.date();
-          break;
-        case CellValueType.Number:
-          searchQueryBuilder.number();
-          break;
-        case CellValueType.String:
-          if (field.isStructuredCellValue) {
-            searchQueryBuilder.json();
-          } else {
-            searchQueryBuilder.text();
-          }
-          break;
-      }
+    searchFields.forEach((fIns) => {
+      const builder = new SearchQuery(originQueryBuilder, fIns, searchValue, withFullTextIndex);
+      builder.appendBuilder();
     });
 
     return originQueryBuilder;
@@ -82,46 +27,22 @@ export abstract class SearchQueryAbstract {
 
   static buildSearchIndexQuery(
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    SearchQuery: new (
-      originQueryBuilder: Knex.QueryBuilder,
-      field: IFieldInstance,
-      searchValue: string
-    ) => SearchQueryAbstract,
+    SearchQuery: ISearchQueryConstructor,
     queryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
     searchValue: string,
-    dbTableName: string
+    dbTableName: string,
+    withFullTextIndex?: boolean
   ) {
     const knexInstance = queryBuilder.client;
     const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
-      if (field.isMultipleCellValue) {
-        switch (field.cellValueType) {
-          case CellValueType.DateTime:
-            return searchQueryBuilder.getMultipleDateSqlQuery();
-          case CellValueType.Number:
-            return searchQueryBuilder.getMultipleNumberSqlQuery();
-          case CellValueType.String:
-            if (field.isStructuredCellValue) {
-              return searchQueryBuilder.getMultipleJsonSqlQuery();
-            } else {
-              return searchQueryBuilder.getMultipleTextSqlQuery();
-            }
-        }
-      }
-
-      switch (field.cellValueType) {
-        case CellValueType.DateTime:
-          return searchQueryBuilder.getDateSqlQuery();
-        case CellValueType.Number:
-          return searchQueryBuilder.getNumberSqlQuery();
-        case CellValueType.String:
-          if (field.isStructuredCellValue) {
-            return searchQueryBuilder.getJsonSqlQuery();
-          } else {
-            return searchQueryBuilder.getTextSqlQuery();
-          }
-      }
+      const searchQueryBuilder = new SearchQuery(
+        queryBuilder,
+        field,
+        searchValue,
+        withFullTextIndex
+      );
+      return searchQueryBuilder.getSql();
     });
 
     queryBuilder.with('search_field_union_table', (qb) => {
@@ -163,45 +84,20 @@ export abstract class SearchQueryAbstract {
 
   static buildSearchCountQuery(
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    SearchQuery: new (
-      originQueryBuilder: Knex.QueryBuilder,
-      field: IFieldInstance,
-      searchValue: string
-    ) => SearchQueryAbstract,
+    SearchQuery: ISearchQueryConstructor,
     queryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string
+    searchValue: string,
+    withFullTextIndex?: boolean
   ) {
     const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(queryBuilder, field, searchValue);
-
-      if (field.isMultipleCellValue) {
-        switch (field.cellValueType) {
-          case CellValueType.DateTime:
-            return searchQueryBuilder.getMultipleDateSqlQuery();
-          case CellValueType.Number:
-            return searchQueryBuilder.getMultipleNumberSqlQuery();
-          case CellValueType.String:
-            if (field.isStructuredCellValue) {
-              return searchQueryBuilder.getMultipleJsonSqlQuery();
-            } else {
-              return searchQueryBuilder.getMultipleTextSqlQuery();
-            }
-        }
-      }
-
-      switch (field.cellValueType) {
-        case CellValueType.DateTime:
-          return searchQueryBuilder.getDateSqlQuery();
-        case CellValueType.Number:
-          return searchQueryBuilder.getNumberSqlQuery();
-        case CellValueType.String:
-          if (field.isStructuredCellValue) {
-            return searchQueryBuilder.getJsonSqlQuery();
-          } else {
-            return searchQueryBuilder.getTextSqlQuery();
-          }
-      }
+      const searchQueryBuilder = new SearchQuery(
+        queryBuilder,
+        field,
+        searchValue,
+        withFullTextIndex
+      );
+      return searchQueryBuilder.getSql();
     });
 
     const knexInstance = queryBuilder.client;
@@ -220,38 +116,29 @@ export abstract class SearchQueryAbstract {
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly field: IFieldInstance,
-    protected readonly searchValue: string
+    protected readonly searchValue: string,
+    protected readonly withFullTextIndex?: boolean
   ) {}
 
-  abstract multipleNumber(): Knex.QueryBuilder;
+  protected abstract json(): Knex.QueryBuilder;
 
-  abstract multipleDate(): Knex.QueryBuilder;
+  protected abstract text(): Knex.QueryBuilder;
 
-  abstract multipleText(): Knex.QueryBuilder;
+  protected abstract date(): Knex.QueryBuilder;
 
-  abstract multipleJson(): Knex.QueryBuilder;
+  protected abstract number(): Knex.QueryBuilder;
 
-  abstract json(): Knex.QueryBuilder;
+  protected abstract multipleNumber(): Knex.QueryBuilder;
 
-  abstract text(): Knex.QueryBuilder;
+  protected abstract multipleDate(): Knex.QueryBuilder;
 
-  abstract date(): Knex.QueryBuilder;
+  protected abstract multipleText(): Knex.QueryBuilder;
 
-  abstract number(): Knex.QueryBuilder;
+  protected abstract multipleJson(): Knex.QueryBuilder;
 
-  abstract getNumberSqlQuery(): string;
+  abstract getSql(): string;
 
-  abstract getDateSqlQuery(): string;
+  abstract getQuery(): Knex.QueryBuilder;
 
-  abstract getTextSqlQuery(): string;
-
-  abstract getJsonSqlQuery(): string;
-
-  abstract getMultipleNumberSqlQuery(): string;
-
-  abstract getMultipleDateSqlQuery(): string;
-
-  abstract getMultipleTextSqlQuery(): string;
-
-  abstract getMultipleJsonSqlQuery(): string;
+  abstract appendBuilder(): Knex.QueryBuilder;
 }

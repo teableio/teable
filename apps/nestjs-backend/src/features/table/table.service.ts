@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
+  CellValueType,
   generateTableId,
   getRandomString,
   getUniqName,
@@ -9,10 +10,11 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateTableRo, ITableVo } from '@teable/openapi';
+import type { ICreateTableRo, IEnableSearchIndexRo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
@@ -21,6 +23,8 @@ import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';
 import { BatchService } from '../calculation/batch.service';
+import type { IFieldInstance } from '../field/model/factory';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 
 @Injectable()
 export class TableService implements IReadonlyAdapterService {
@@ -31,7 +35,8 @@ export class TableService implements IReadonlyAdapterService {
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   generateValidName(name: string) {
@@ -377,5 +382,65 @@ export class TableService implements IReadonlyAdapterService {
       orderBy: { order: 'asc' },
     });
     return { ids: tables.map((table) => table.id) };
+  }
+
+  async enableSearchIndex(baseId: string, tableId: string, enableRo: IEnableSearchIndexRo) {
+    const { enable } = enableRo;
+    const fieldsRaw = await this.prismaService.field.findMany({
+      where: {
+        tableId,
+        deletedTime: null,
+      },
+    });
+
+    const fields = fieldsRaw
+      .map((field) => createFieldInstanceByRaw(field))
+      .filter(({ cellValueType }) => cellValueType !== CellValueType.Boolean)
+      .map((field) => ({
+        ...field,
+        isStructuredCellValue: field.isStructuredCellValue,
+      })) as IFieldInstance[];
+
+    const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
+      where: {
+        id: tableId,
+      },
+      select: {
+        dbTableName: true,
+      },
+    });
+
+    if (enable) {
+      const sqls = this.dbProvider.getSearchTsIndexSql(
+        this.knex.queryBuilder(),
+        dbTableName,
+        fields
+      );
+      await this.prismaService.$tx(
+        async (prisma) => {
+          for (let i = 0; i < sqls.length; i++) {
+            const sql = sqls[i];
+            await prisma.$executeRawUnsafe(sql);
+          }
+        },
+        { timeout: 100 * 60 * 1000 }
+      );
+    } else {
+      const sqls = await this.dbProvider.getClearSearchTsIndexSql(
+        this.knex.queryBuilder(),
+        dbTableName,
+        fields
+      );
+
+      await this.prismaService.$tx(
+        async (prisma) => {
+          for (let i = 0; i < sqls.length; i++) {
+            const sql = sqls[i];
+            await prisma.$executeRawUnsafe(sql);
+          }
+        },
+        { timeout: this.thresholdConfig.bigTransactionTimeout }
+      );
+    }
   }
 }

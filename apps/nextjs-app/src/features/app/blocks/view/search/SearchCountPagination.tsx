@@ -17,7 +17,7 @@ enum PageDirection {
 
 type ISearchMap = Record<number, NonNullable<ISearchIndexVo>[number]>;
 
-const PaginationBuffer = 300;
+const PaginationBuffer = 20;
 
 type ISearchCountPaginationProps = Pick<ISearchButtonProps, 'shareView'>;
 

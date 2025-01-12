@@ -35,7 +35,9 @@ import {
   type ITableVo,
   type IUpdateOrderRo,
 } from '@teable/openapi';
+import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
+import { InjectModel } from 'nest-knexjs';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -66,7 +68,8 @@ export class TableOpenApiService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly permissionService: PermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -652,5 +655,22 @@ export class TableOpenApiService {
       record: recordPermission,
       view: viewPermission,
     };
+  }
+
+  async getFullTextSearchStatus(tableId: string) {
+    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: {
+        id: tableId,
+      },
+      select: {
+        dbTableName: true,
+      },
+    });
+    const sql = this.dbProvider.getExistFtsIndexSql(
+      this.knex.queryBuilder(),
+      dbTableName
+    ) as string;
+    const result = await this.prismaService.$queryRawUnsafe<{ exists: boolean }[]>(sql);
+    return Boolean(result.pop()?.exists);
   }
 }

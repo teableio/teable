@@ -1,5 +1,7 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { useFields, useFieldStaticGetter, useView } from '@teable/sdk/hooks';
+import { enableTableSearchIndex, getFullTextSearchStatus } from '@teable/openapi';
+import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Command,
   CommandInput,
@@ -13,6 +15,7 @@ import {
   TooltipContent,
   Switch,
   Toggle,
+  Spin,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
@@ -29,11 +32,26 @@ export const SearchCommand = (props: ISearchCommand) => {
   const fields = useFields();
   const view = useView();
   const fieldStaticGetter = useFieldStaticGetter();
+  const baseId = useBaseId();
+  const tableId = useTableId();
 
   const selectedFields = useMemo(() => {
     return value.split(',');
   }, [value]);
 
+  const queryClient = useQueryClient();
+
+  const { data: fullTextSearch } = useQuery({
+    queryKey: ['full-text-search-index-status', tableId],
+    queryFn: () => getFullTextSearchStatus(baseId!, tableId!).then(({ data }) => data),
+  });
+
+  const { mutateAsync: enableIndexFn, isLoading } = useMutation({
+    mutationFn: (enable: boolean) => enableTableSearchIndex(baseId!, tableId!, { enable }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['full-text-search-index-status', tableId]);
+    },
+  });
   const switchChange = (id: string, checked: boolean) => {
     let newSelectedFields = [...selectedFields];
     if (checked) {
@@ -185,6 +203,24 @@ export const SearchCommand = (props: ISearchCommand) => {
             </Toggle>
           </div>
         )}
+      </div>
+
+      <div>
+        <Label
+          htmlFor={'search-index'}
+          className="flex flex-1 cursor-pointer items-center truncate p-2"
+        >
+          {t('actions.fullTextSearch')}
+          <Switch
+            id={'search-index'}
+            className="scale-75"
+            checked={fullTextSearch}
+            onCheckedChange={async (checked) => {
+              baseId && tableId && (await enableIndexFn(checked));
+            }}
+          />
+          {isLoading ? <Spin className="size-4" /> : null}
+        </Label>
       </div>
     </Command>
   );

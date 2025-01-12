@@ -384,28 +384,6 @@ export class RecordService {
     }
   }
 
-  private getFieldMapWithoutHiddenFields(
-    originFieldMap?: Record<string, IFieldInstance>,
-    columnMetaRaw?: string
-  ) {
-    if (!columnMetaRaw || !originFieldMap) {
-      return originFieldMap;
-    }
-
-    const newFieldMap = { ...originFieldMap };
-
-    const parseColumnMeta = JSON.parse(columnMetaRaw);
-
-    if (parseColumnMeta) {
-      Object.entries(parseColumnMeta).forEach(([key, value]) => {
-        const hidden = get(value, 'hidden');
-        hidden && delete newFieldMap[key];
-      });
-    }
-
-    return newFieldMap as Record<string, IFieldInstance>;
-  }
-
   private async getTinyView(tableId: string, viewId?: string) {
     if (!viewId) {
       return;
@@ -481,14 +459,8 @@ export class RecordService {
       groupBy,
       originSearch
     );
-    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
-      fieldMap,
-      view?.columnMeta
-    );
 
-    const search = originSearch
-      ? this.parseSearch(originSearch, fieldMapWithoutHiddenFields)
-      : undefined;
+    const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
 
     return {
       queryBuilder,
@@ -498,7 +470,6 @@ export class RecordService {
       orderBy,
       groupBy,
       fieldMap,
-      fieldMapWithoutHiddenFields,
     };
   }
 
@@ -544,19 +515,8 @@ export class RecordService {
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const {
-      dbTableName,
-      queryBuilder,
-      filter,
-      search,
-      orderBy,
-      groupBy,
-      fieldMap,
-      fieldMapWithoutHiddenFields,
-    } = await this.prepareQuery(tableId, {
-      ...query,
-      viewId: query.ignoreViewQuery ? undefined : query.viewId,
-    });
+    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
+      await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -601,9 +561,10 @@ export class RecordService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    if (search && search[2]) {
+    if (search && search[2] && fieldMap) {
+      const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
+        this.dbProvider.searchQuery(builder, searchFields, search);
       });
     }
 
@@ -1779,7 +1740,8 @@ export class RecordService {
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
     filter?: IFilter,
-    search?: [string, string?, boolean?]
+    search?: [string, string?, boolean?],
+    viewId?: string
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
@@ -1792,8 +1754,9 @@ export class RecordService {
 
     if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
+      const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
+        this.dbProvider.searchQuery(builder, searchFields, handledSearch);
       });
     }
 
@@ -1832,10 +1795,6 @@ export class RecordService {
       groupBy,
       search
     ))!;
-    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
-      fieldInstanceMap,
-      viewRaw?.columnMeta
-    );
     const dbTableName = await this.getDbTableName(tableId);
 
     const filterStr = viewRaw?.filter;
@@ -1853,8 +1812,9 @@ export class RecordService {
 
     if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
+      const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, handledSearch);
+        this.dbProvider.searchQuery(builder, searchFields, handledSearch);
       });
     }
 
@@ -1869,7 +1829,8 @@ export class RecordService {
       dbTableName,
       fieldInstanceMap,
       mergedFilter,
-      search
+      search,
+      viewId
     );
 
     try {

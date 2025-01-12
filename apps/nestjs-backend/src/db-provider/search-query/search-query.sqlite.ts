@@ -5,13 +5,119 @@ import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { SearchQueryAbstract } from './abstract';
 import { getOffset } from './get-offset';
+import type { ISearchCellValueType } from './types';
 
 export class SearchQuerySqlite extends SearchQueryAbstract {
-  constructor(originQueryBuilder: Knex.QueryBuilder, field: IFieldInstance, searchValue: string) {
-    super(originQueryBuilder, field, searchValue);
+  protected knex: Knex.Client;
+  constructor(
+    protected originQueryBuilder: Knex.QueryBuilder,
+    protected field: IFieldInstance,
+    protected searchValue: string,
+    protected withFullTextIndex?: boolean
+  ) {
+    super(originQueryBuilder, field, searchValue, withFullTextIndex);
+    this.knex = originQueryBuilder.client;
   }
 
-  multipleNumber() {
+  appendBuilder() {
+    const { originQueryBuilder } = this;
+    this.originQueryBuilder.orWhereRaw(this.getSql());
+    return originQueryBuilder;
+  }
+
+  getSql() {
+    return this.getQuery().toQuery() as string;
+  }
+
+  getQuery() {
+    const { field } = this;
+    const { isMultipleCellValue } = field;
+
+    if (this.withFullTextIndex) {
+      return this.getFullTextQuery();
+    } else {
+      return isMultipleCellValue ? this.getMultipleCellTypeSql() : this.getSingleCellTypeSql();
+    }
+  }
+
+  protected getFullTextQuery() {
+    return this.originQueryBuilder;
+  }
+
+  protected getSingleCellTypeSql() {
+    const { field } = this;
+    const { isStructuredCellValue, cellValueType } = field;
+    switch (cellValueType as ISearchCellValueType) {
+      case CellValueType.String: {
+        if (isStructuredCellValue) {
+          return this.json();
+        } else {
+          return this.text();
+        }
+      }
+      case CellValueType.DateTime: {
+        return this.date();
+      }
+      case CellValueType.Number: {
+        return this.number();
+      }
+      default:
+        return this.text();
+    }
+  }
+
+  protected json() {
+    return this.originQueryBuilder.orWhereRaw("json_extract(??, '$.title') LIKE ?", [
+      this.field.dbFieldName,
+      `%${this.searchValue}%`,
+    ]);
+  }
+
+  protected text() {
+    return this.originQueryBuilder.orWhere(this.field.dbFieldName, 'LIKE', `%${this.searchValue}%`);
+  }
+
+  protected date() {
+    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
+    return this.originQueryBuilder.orWhereRaw('DATETIME(??, ?) LIKE ?', [
+      this.field.dbFieldName,
+      `${getOffset(timeZone)} hour`,
+      `%${this.searchValue}%`,
+    ]);
+  }
+
+  protected number() {
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return this.originQueryBuilder.orWhereRaw('ROUND(??, ?) LIKE ?', [
+      this.field.dbFieldName,
+      precision,
+      `%${this.searchValue}%`,
+    ]);
+  }
+
+  protected getMultipleCellTypeSql() {
+    const { field } = this;
+    const { isStructuredCellValue, cellValueType } = field;
+    switch (cellValueType as ISearchCellValueType) {
+      case CellValueType.String: {
+        if (isStructuredCellValue) {
+          return this.multipleJson();
+        } else {
+          return this.multipleText();
+        }
+      }
+      case CellValueType.DateTime: {
+        return this.multipleDate();
+      }
+      case CellValueType.Number: {
+        return this.multipleNumber();
+      }
+      default:
+        return this.multipleText();
+    }
+  }
+
+  protected multipleNumber() {
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
     return this.originQueryBuilder.orWhereRaw(
       `
@@ -27,7 +133,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     );
   }
 
-  multipleDate() {
+  protected multipleDate() {
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
     return this.originQueryBuilder.orWhereRaw(
       `
@@ -43,7 +149,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     );
   }
 
-  multipleText() {
+  protected multipleText() {
     return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
@@ -59,7 +165,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     );
   }
 
-  multipleJson() {
+  protected multipleJson() {
     return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
@@ -73,147 +179,9 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
       [this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
-
-  json() {
-    return this.originQueryBuilder.orWhereRaw("json_extract(??, '$.title') LIKE ?", [
-      this.field.dbFieldName,
-      `%${this.searchValue}%`,
-    ]);
-  }
-
-  text() {
-    return this.originQueryBuilder.orWhere(this.field.dbFieldName, 'LIKE', `%${this.searchValue}%`);
-  }
-
-  date() {
-    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.orWhereRaw('DATETIME(??, ?) LIKE ?', [
-      this.field.dbFieldName,
-      `${getOffset(timeZone)} hour`,
-      `%${this.searchValue}%`,
-    ]);
-  }
-
-  number() {
-    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return this.originQueryBuilder.orWhereRaw('ROUND(??, ?) LIKE ?', [
-      this.field.dbFieldName,
-      precision,
-      `%${this.searchValue}%`,
-    ]);
-  }
-
-  getNumberSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knexInstance
-      .raw('ROUND(??, ?) LIKE ?', [this.field.dbFieldName, precision, `%${this.searchValue}%`])
-      .toQuery();
-  }
-
-  getDateSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return knexInstance
-      .raw('DATETIME(??, ?) LIKE ?', [
-        this.field.dbFieldName,
-        `${getOffset(timeZone)} hour`,
-        `%${this.searchValue}%`,
-      ])
-      .toQuery();
-  }
-
-  getTextSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw('?? LIKE ?', [this.field.dbFieldName, `%${this.searchValue}%`])
-      .toQuery();
-  }
-
-  getJsonSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw("json_extract(??, '$.title') LIKE ?", [this.field.dbFieldName, `%${this.searchValue}%`])
-      .toQuery();
-  }
-
-  getMultipleDateSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
-            FROM json_each(??) as je
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
-  }
-
-  getMultipleTextSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(je.value, ', ') as aggregated
-            FROM json_each(??) as je
-            WHERE je.key != 'title'
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
-  }
-
-  getMultipleNumberSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
-            FROM json_each(??) as je
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [precision, this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
-  }
-
-  getMultipleJsonSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
-            FROM json_each(??) as je
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
-  }
 }
 
-export class SearchQueryBuilder {
+export class SearchQuerySqliteBuilder {
   constructor(
     public queryBuilder: Knex.QueryBuilder,
     public dbTableName: string,
@@ -243,33 +211,7 @@ export class SearchQueryBuilder {
 
     return searchField.map((field) => {
       const searchQueryBuilder = new SearchQuerySqlite(queryBuilder, field, searchValue);
-      if (field.isMultipleCellValue) {
-        switch (field.cellValueType) {
-          case CellValueType.DateTime:
-            return searchQueryBuilder.getMultipleDateSqlQuery();
-          case CellValueType.Number:
-            return searchQueryBuilder.getMultipleNumberSqlQuery();
-          case CellValueType.String:
-            if (field.isStructuredCellValue) {
-              return searchQueryBuilder.getMultipleJsonSqlQuery();
-            } else {
-              return searchQueryBuilder.getMultipleTextSqlQuery();
-            }
-        }
-      }
-
-      switch (field.cellValueType) {
-        case CellValueType.DateTime:
-          return searchQueryBuilder.getDateSqlQuery();
-        case CellValueType.Number:
-          return searchQueryBuilder.getNumberSqlQuery();
-        case CellValueType.String:
-          if (field.isStructuredCellValue) {
-            return searchQueryBuilder.getJsonSqlQuery();
-          } else {
-            return searchQueryBuilder.getTextSqlQuery();
-          }
-      }
+      return searchQueryBuilder.getSql();
     });
   }
 

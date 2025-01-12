@@ -26,7 +26,8 @@ import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
-import { SearchQueryBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
+import { FullTextSearchQuerySqliteBuilder } from './search-query/search-fts-query.sqlite';
+import { SearchQuerySqliteBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
@@ -282,10 +283,15 @@ export class SqliteProvider implements IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
+    searchFields: IFieldInstance[],
     search?: [string, string?, boolean?]
   ) {
-    return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
+    return SearchQueryAbstract.appendQueryBuilder(
+      SearchQuerySqlite,
+      originQueryBuilder,
+      searchFields,
+      search
+    );
   }
 
   searchCountQuery(
@@ -310,7 +316,7 @@ export class SqliteProvider implements IDbProvider {
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
   ) {
-    return new SearchQueryBuilder(
+    return new SearchQuerySqliteBuilder(
       originQueryBuilder,
       dbTableName,
       searchField,
@@ -320,6 +326,35 @@ export class SqliteProvider implements IDbProvider {
       setSortQuery
     ).getSearchIndexQuery();
   }
+
+  getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
+    return FullTextSearchQuerySqliteBuilder.getExistFtsIndexSql(originQueryBuilder, dbTableName);
+  }
+
+  getSearchTsIndexSql(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    searchField: IFieldInstance[]
+  ) {
+    return new FullTextSearchQuerySqliteBuilder(
+      originQueryBuilder,
+      dbTableName,
+      searchField
+    ).getSearchFieldIndexSql();
+  }
+
+  getClearSearchTsIndexSql(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    searchField: IFieldInstance[]
+  ) {
+    return new FullTextSearchQuerySqliteBuilder(
+      originQueryBuilder,
+      dbTableName,
+      searchField
+    ).getClearSearchTsIndexSql();
+  }
+
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,
     dbFieldName: string,

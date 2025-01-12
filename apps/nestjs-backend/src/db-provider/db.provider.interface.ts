@@ -133,7 +133,7 @@ export interface IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
+    searchFields: IFieldInstance[],
     search?: [string, string?, boolean?]
   ): Knex.QueryBuilder;
 
@@ -144,14 +144,30 @@ export interface IDbProvider {
     searchIndexRo: Partial<ISearchIndexByQueryRo>,
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
-    setSortQuery?: (qb: Knex.QueryBuilder) => void
+    setSortQuery?: (qb: Knex.QueryBuilder) => void,
+    withFullTextIndex?: boolean
   ): Knex.QueryBuilder;
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string
+    searchValue: string,
+    withFullTextIndex?: boolean
   ): Knex.QueryBuilder;
+
+  getSearchTsIndexSql(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    searchField: IFieldInstance[]
+  ): string[];
+
+  getClearSearchTsIndexSql(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    searchField: IFieldInstance[]
+  ): string[];
+
+  getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string): string | null;
 
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,
