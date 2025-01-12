@@ -8,11 +8,13 @@ export class VectorTransform {
   constructor(
     public field: IFieldInstance,
     public knex: Knex.Client,
-    public dbTableName: string
+    public dbTableName: string,
+    public columnPrefix?: string
   ) {
     this.field = field;
     this.knex = knex;
     this.dbTableName = dbTableName;
+    this.columnPrefix = columnPrefix;
   }
 
   getRawSql() {
@@ -40,6 +42,11 @@ export class VectorTransform {
       default:
         return this.text();
     }
+  }
+
+  getPrefix() {
+    const { columnPrefix } = this;
+    return `${columnPrefix ? `${columnPrefix}.` : ''}`;
   }
 
   getMultipleRawSql() {
@@ -70,8 +77,9 @@ export class VectorTransform {
       field: { dbFieldName },
     } = this;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
+    const prefix = this.getPrefix();
     return knex
-      .raw(`?? = to_tsvector('simple', COALESCE(??, ''))`, [tsColumnName, dbFieldName])
+      .raw(`?? = to_tsvector('simple', COALESCE(${prefix}??, ''))`, [tsColumnName, dbFieldName])
       .toQuery();
   }
 
@@ -82,11 +90,12 @@ export class VectorTransform {
     } = this;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    const prefix = this.getPrefix();
     return knex
-      .raw(`?? = to_tsvector('simple', COALESCE(ROUND(??::numeric, ${precision})::text, ''))`, [
-        tsColumnName,
-        dbFieldName,
-      ])
+      .raw(
+        `?? = to_tsvector('simple', COALESCE(ROUND(${prefix}??::numeric, ${precision})::text, ''))`,
+        [tsColumnName, dbFieldName]
+      )
       .toQuery();
   }
 
@@ -98,11 +107,12 @@ export class VectorTransform {
     const timeZone = (options as IDateFieldOptions).formatting.timeZone;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
     // "TO_CHAR(TIMEZONE(?, ??), 'YYYY-MM-DD HH24:MI')
+    const prefix = this.getPrefix();
 
     return knex
       .raw(
         `?? = to_tsvector('simple', 
-          to_char((??)::timestamp AT TIME ZONE ?, 'YYYY-MM-DD HH24:MI:SS')
+          to_char((${prefix}??)::timestamp AT TIME ZONE ?, 'YYYY-MM-DD HH24:MI:SS')
         )`,
         [tsColumnName, dbFieldName, timeZone]
       )
@@ -114,9 +124,13 @@ export class VectorTransform {
       knex,
       field: { dbFieldName },
     } = this;
+    const prefix = this.getPrefix();
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
     return knex
-      .raw(`?? = to_tsvector('simple', COALESCE(??->>'title', ''))`, [tsColumnName, dbFieldName])
+      .raw(`?? = to_tsvector('simple', COALESCE(${prefix}??->>'title', ''))`, [
+        tsColumnName,
+        dbFieldName,
+      ])
       .toQuery();
   }
 
@@ -126,13 +140,14 @@ export class VectorTransform {
       field: { dbFieldName },
     } = this;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
+    const prefix = this.getPrefix();
     return knex
       .raw(
         `?? = to_tsvector('simple',
           COALESCE(
             (
               SELECT string_agg(elem::text, ' ')
-              FROM jsonb_array_elements_text(??::jsonb) as elem
+              FROM jsonb_array_elements_text(${prefix}??::jsonb) as elem
             ),
             ''
           )
@@ -149,13 +164,14 @@ export class VectorTransform {
     } = this;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    const prefix = this.getPrefix();
     return knex
       .raw(
         `?? = to_tsvector('simple',
           COALESCE(
             (
               SELECT string_agg(ROUND(elem::numeric, ?)::text, ' ')
-              FROM jsonb_array_elements_text(??::jsonb) as elem
+              FROM jsonb_array_elements_text(${prefix}::jsonb) as elem
             ),
             ''
           )
@@ -172,6 +188,7 @@ export class VectorTransform {
     } = this;
     const timeZone = (options as IDateFieldOptions).formatting.timeZone;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
+    const prefix = this.getPrefix();
 
     return knex
       .raw(
@@ -182,7 +199,7 @@ export class VectorTransform {
                 to_char((elem::timestamp AT TIME ZONE ?), 'YYYY-MM-DD HH24:MI:SS'),
                 ' '
               )
-              FROM jsonb_array_elements_text(??::jsonb) as elem
+              FROM jsonb_array_elements_text(${prefix}??::jsonb) as elem
             ),
             ''
           )
@@ -198,13 +215,14 @@ export class VectorTransform {
       field: { dbFieldName },
     } = this;
     const tsColumnName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
+    const prefix = this.getPrefix();
     return knex
       .raw(
         `?? = to_tsvector('simple',
           COALESCE(
             (
               SELECT string_agg(elem->>'title', ' ')
-              FROM jsonb_array_elements(??::jsonb) as elem
+              FROM jsonb_array_elements(${prefix}??::jsonb) as elem
             ),
             ''
           )
@@ -305,10 +323,13 @@ export class FullTextSearchQueryPostgresBuilder {
     return knex.raw(`UPDATE ?? Set ${sqls.join(',')}`, [dbTableName]).toQuery();
   }
 
-  getCreateTriggerFunctionSql(dbFieldName: string) {
-    const { queryBuilder } = this;
+  getColumnTriggerFunctionSql(field: IFieldInstance) {
+    const { dbFieldName } = field;
+    const { queryBuilder, dbTableName } = this;
     const knex = queryBuilder.client;
-    const tsName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
+    // const tsName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
+    const transformer = new VectorTransform(field, knex, dbTableName, 'NEW');
+    const sql = transformer.getRawSql();
     return knex
       .raw(
         `
@@ -316,11 +337,13 @@ CREATE OR REPLACE FUNCTION update_${dbFieldName}_tsvector()
     RETURNS trigger AS
 $$
 BEGIN
-    NEW.?? = to_tsvector('simple', NEW.??);
+    IF TG_OP = 'INSERT' OR NEW.?? IS DISTINCT FROM OLD.?? THEN
+        NEW.${sql};
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;`,
-        [tsName, dbFieldName]
+        [dbFieldName, dbFieldName]
       )
       .toQuery();
   }
@@ -331,11 +354,11 @@ $$ LANGUAGE plpgsql;`,
     return knex
       .raw(
         `
-CREATE TRIGGER update_${dbFieldName}_tsvector
-    BEFORE INSERT OR UPDATE
-    ON ??
-    FOR EACH ROW
-EXECUTE FUNCTION update_${dbFieldName}_tsvector();`,
+  CREATE TRIGGER update_${dbFieldName}_tsvector
+      BEFORE INSERT OR UPDATE
+      ON ??
+      FOR EACH ROW
+  EXECUTE FUNCTION update_${dbFieldName}_tsvector();`,
         [dbTableName]
       )
       .toQuery();
@@ -348,12 +371,13 @@ EXECUTE FUNCTION update_${dbFieldName}_tsvector();`,
     excSqls.push(extensionSql);
     excSqls.push(this.getCreateTsVectorsSql(searchFields));
     excSqls.push(this.getUpdateVectorsSql(searchFields));
-    // excSqls.push(this.getCreateTriggerSql(dbFieldName));
-    // excSqls.push(this.getCreateTriggerFunctionSql(dbFieldName));
     searchFields.forEach((field) => {
       const { dbFieldName } = field;
+      excSqls.push(this.getColumnTriggerFunctionSql(field));
+      excSqls.push(this.getCreateTriggerSql(dbFieldName));
       excSqls.push(this.getCreateGinIndexSql(dbFieldName));
     });
+    console.log('ppppppp', excSqls);
     return excSqls;
   }
 
@@ -392,10 +416,10 @@ EXECUTE FUNCTION update_${dbFieldName}_tsvector();`,
     const { searchFields } = this;
     const excSqls = [] as string[];
     searchFields.forEach(({ dbFieldName }) => {
+      excSqls.push(this.getDropTriggerSql(dbFieldName));
+      excSqls.push(this.getDropTriggerFnSql(dbFieldName));
       excSqls.push(this.getDropTsIndexSql(dbFieldName));
       excSqls.push(this.getDropGinIndexSql(dbFieldName));
-      // excSqls.push(this.getDropTriggerSql(dbFieldName));
-      // excSqls.push(this.getDropTriggerFnSql(dbFieldName));
     });
 
     return excSqls;
