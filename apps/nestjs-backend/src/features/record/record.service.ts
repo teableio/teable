@@ -1753,10 +1753,10 @@ export class RecordService {
   private async getRowCountByFilter(
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
+    tableId: string,
     filter?: IFilter,
     search?: [string, string?, boolean?],
-    viewId?: string,
-    tableId?: string
+    viewId?: string
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
@@ -1770,7 +1770,7 @@ export class RecordService {
     if (search && search[2]) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
-      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId!);
+      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, searchFields, handledSearch, withFullTextIndex);
       });
@@ -1845,10 +1845,10 @@ export class RecordService {
     const rowCount = await this.getRowCountByFilter(
       dbTableName,
       fieldInstanceMap,
+      tableId,
       mergedFilter,
       search,
-      viewId,
-      tableId
+      viewId
     );
 
     try {

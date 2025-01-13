@@ -257,7 +257,7 @@ export class SearchQueryPostgresBuilder {
       baseSortIndex,
     } = this;
 
-    const { search, groupBy, orderBy } = searchIndexRo;
+    const { search, groupBy, orderBy, take, skip } = searchIndexRo;
     const knexInstance = queryBuilder.client;
 
     if (!search || !searchField.length) {
@@ -298,6 +298,10 @@ export class SearchQueryPostgresBuilder {
       if (orderBy?.length || groupBy?.length) {
         setSortQuery?.(qb);
       }
+
+      take && qb.limit(take);
+
+      qb.offset(skip ?? 0);
 
       baseSortIndex && qb.orderBy(baseSortIndex, 'asc');
     });

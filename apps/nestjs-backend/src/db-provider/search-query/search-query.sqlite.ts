@@ -225,7 +225,7 @@ export class SearchQuerySqliteBuilder {
       setFilterQuery,
       setSortQuery,
     } = this;
-    const { search, filter, orderBy, groupBy } = searchIndexRo;
+    const { search, filter, orderBy, groupBy, skip, take } = searchIndexRo;
     const knexInstance = queryBuilder.client;
 
     if (!search || !searchField?.length) {
@@ -256,6 +256,9 @@ export class SearchQuerySqliteBuilder {
           });
         }
       }
+
+      take && qb.limit(take);
+      qb.offset(skip ?? 0);
     });
 
     queryBuilder

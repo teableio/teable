@@ -103,6 +103,7 @@ export class AggregationService {
     const rawAggregationData = await this.handleAggregation({
       dbTableName,
       fieldInstanceMap,
+      tableId,
       filter,
       search,
       statisticFields,
@@ -131,6 +132,7 @@ export class AggregationService {
     const aggregationsWithGroup = await this.performGroupedAggregation({
       aggregations,
       statisticFields,
+      tableId,
       filter,
       search,
       groupBy,
@@ -145,6 +147,7 @@ export class AggregationService {
   async performGroupedAggregation(params: {
     aggregations: IRawAggregations;
     statisticFields: IAggregationField[] | undefined;
+    tableId: string;
     filter?: IFilter;
     search?: [string, string?, boolean?];
     groupBy?: IGroup;
@@ -161,6 +164,7 @@ export class AggregationService {
       search,
       fieldInstanceMap,
       withView,
+      tableId,
     } = params;
 
     if (!groupBy || !statisticFields) return aggregations;
@@ -179,6 +183,7 @@ export class AggregationService {
       const rawGroupedAggregationData = (await this.handleAggregation({
         dbTableName,
         fieldInstanceMap,
+        tableId,
         filter,
         groupBy: groupBy.slice(0, i + 1),
         search,
@@ -439,6 +444,7 @@ export class AggregationService {
   private async handleAggregation(params: {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
+    tableId: string;
     filter?: IFilter;
     groupBy?: IGroup;
     search?: [string, string?, boolean?];
@@ -455,6 +461,7 @@ export class AggregationService {
       withUserId,
       groupBy,
       withView,
+      tableId,
     } = params;
 
     if (!statisticFields?.length) {
@@ -467,7 +474,7 @@ export class AggregationService {
 
     const tableAlias = 'main_table';
     const queryBuilder = this.knex
-      .with(tableAlias, (qb) => {
+      .with(tableAlias, async (qb) => {
         qb.select('*').from(dbTableName);
         if (filter) {
           this.dbProvider
@@ -475,8 +482,10 @@ export class AggregationService {
             .appendQueryBuilder();
         }
         if (search && search[2]) {
+          const withFullTextIndex =
+            await this.tableFullTextService.getFullTextSearchStatus(tableId);
           qb.where((builder) => {
-            this.dbProvider.searchQuery(builder, searchFields, search);
+            this.dbProvider.searchQuery(builder, searchFields, search, withFullTextIndex);
           });
         }
       })
@@ -540,8 +549,9 @@ export class AggregationService {
         search,
         viewId
       );
+      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, search);
+        this.dbProvider.searchQuery(builder, searchFields, search, withFullTextIndex);
       });
     }
 
@@ -738,9 +748,6 @@ export class AggregationService {
       withFullTextIndex
     );
 
-    queryBuilder.limit(take);
-    skip && queryBuilder.offset(skip);
-
     const sql = queryBuilder.toQuery();
 
     const result = await this.prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
@@ -751,6 +758,15 @@ export class AggregationService {
     }
 
     const recordIds = result;
+
+    if (search[2]) {
+      const finalSkip = skip ?? 0;
+      return recordIds.map((rec, index) => ({
+        index: finalSkip + index + 1,
+        fieldId: rec.fieldId,
+        recordId: rec.__id,
+      }));
+    }
 
     // step 2. find the index in current view
     const indexQueryBuilder = this.knex
@@ -783,6 +799,7 @@ export class AggregationService {
       return {
         index,
         fieldId: item.fieldId,
+        recordId: item.__id,
       };
     });
   }
