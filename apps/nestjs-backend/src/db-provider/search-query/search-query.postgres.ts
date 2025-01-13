@@ -47,8 +47,14 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const processedSearchValue = searchValue
       .split(/\s+/)
       .filter(Boolean)
+      .filter((term) => term.length > 0)
       .map((term) => `${term}:*`)
       .join(' & ');
+
+    if (!processedSearchValue) {
+      return knex.raw('false');
+    }
+
     return knex.raw(`"${tsName}" @@ to_tsquery('simple', ?)`, [processedSearchValue]);
   }
 
@@ -273,17 +279,8 @@ export class SearchQueryPostgresBuilder {
 
     const caseWhenQueryDbSql = this.getCaseWhenSqlBy() as string[];
 
-    queryBuilder.with('search_field_union_table', (qb) => {
-      qb.select('__id').select(
-        knexInstance.raw(
-          `array_remove(
-            ARRAY [
-              ${caseWhenQueryDbSql.join(',')}
-            ],
-            NULL
-          ) as matched_columns`
-        )
-      );
+    queryBuilder.with('filtered_table', (qb) => {
+      qb.select('*');
 
       qb.from(dbTableName);
 
@@ -309,6 +306,44 @@ export class SearchQueryPostgresBuilder {
       qb.offset(skip ?? 0);
 
       baseSortIndex && qb.orderBy(baseSortIndex, 'asc');
+    });
+
+    queryBuilder.with('search_field_union_table', (qb) => {
+      qb.select('__id').select(
+        knexInstance.raw(
+          `array_remove(
+            ARRAY [
+              ${caseWhenQueryDbSql.join(',')}
+            ],
+            NULL
+          ) as matched_columns`
+        )
+      );
+
+      qb.from('filtered_table');
+
+      // qb.where((subQb) => {
+      //   subQb.where((orWhere) => {
+      //     searchQuerySql.forEach((sql) => {
+      //       orWhere.orWhereRaw(sql);
+      //     });
+      //   });
+      //   if (this.searchIndexRo.filter && setFilterQuery) {
+      //     subQb.andWhere((andQb) => {
+      //       setFilterQuery?.(andQb);
+      //     });
+      //   }
+      // });
+
+      // if (orderBy?.length || groupBy?.length) {
+      //   setSortQuery?.(qb);
+      // }
+
+      // take && qb.limit(take);
+
+      // qb.offset(skip ?? 0);
+
+      // baseSortIndex && qb.orderBy(baseSortIndex, 'asc');
     });
 
     queryBuilder
