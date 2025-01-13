@@ -176,6 +176,7 @@
       "previewDependenciesGraph": "Aperçu du graphique des dépendances",
       "areYouSurePerformIt": "Êtes-vous sûr de vouloir effectuer cette action ?",
       "addDescription": "Ajouter une description",
+      "dbFieldName": "Nom du champ physique",
       "description": "Description",
       "descriptionPlaceholder": "Décrivez ce champ (optionnel)",
       "type": "Type",

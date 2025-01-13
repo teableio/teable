@@ -180,6 +180,7 @@
       "previewDependenciesGraph": "Preview Dependencies Graph",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add Description",
+      "dbFieldName": "DB field name",
       "description": "Description",
       "descriptionPlaceholder": "Describe this field (optional)",
       "type": "Type",

@@ -179,6 +179,7 @@
       "previewDependenciesGraph": "预览依赖关系图",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
+      "dbFieldName": "物理字段名",
       "description": "描述",
       "descriptionPlaceholder": "描述这个字段（可选）",
       "type": "字段类型",

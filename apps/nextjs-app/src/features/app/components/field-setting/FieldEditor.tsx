@@ -135,7 +135,7 @@ export const FieldEditor = (props: {
           onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}
         />
         {/* should place after the name input to make sure tab index correct */}
-        <SystemInfo field={field as IFieldVo} />
+        <SystemInfo field={field as IFieldVo} updateFieldProps={updateFieldProps} />
         {!showDescription && (
           <p className="text-left text-xs font-medium text-slate-500">
             <span

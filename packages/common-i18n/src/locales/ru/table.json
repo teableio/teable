@@ -176,6 +176,7 @@
       "previewDependenciesGraph": "Предпросмотр графика зависимостей",
       "areYouSurePerformIt": "Вы уверены, что хотите выполнить это?",
       "addDescription": "Добавить описание",
+      "dbFieldName": "Физическое имя поля",
       "description": "Описание",
       "descriptionPlaceholder": "Опишите это поле (необязательно)",
       "type": "Тип",

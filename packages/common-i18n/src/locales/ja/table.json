@@ -176,6 +176,7 @@
       "previewDependenciesGraph": "依存関係グラフのプレビュー",
       "areYouSurePerformIt": "本当に実行しますか？",
       "addDescription": "説明を追加",
+      "dbFieldName": "物理フィールド名",
       "description": "説明",
       "descriptionPlaceholder": "このフィールドについて説明してください（オプション）",
       "type": "タイプ",
