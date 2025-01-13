@@ -22,6 +22,8 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQueryPostgres } from './group-query/group-query.postgres';
+import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { SearchQueryBuilder, SearchQueryPostgres } from './search-query/search-query.postgres';
 import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
@@ -377,6 +379,10 @@ export class PostgresProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQueryPostgres(this.knex);
+  }
+
+  integrityQuery(): IntegrityQueryAbstract {
+    return new IntegrityQueryPostgres(this.knex);
   }
 
   calendarDailyCollectionQuery(

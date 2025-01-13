@@ -22,6 +22,8 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
+import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
 import { SearchQueryBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
@@ -330,6 +332,10 @@ export class SqliteProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQuerySqlite(this.knex);
+  }
+
+  integrityQuery(): IntegrityQueryAbstract {
+    return new IntegrityQuerySqlite(this.knex);
   }
 
   calendarDailyCollectionQuery(

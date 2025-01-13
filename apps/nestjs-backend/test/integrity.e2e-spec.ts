@@ -20,6 +20,8 @@ import {
   updateRecords,
 } from '@teable/openapi';
 import type { Knex } from 'knex';
+import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
+import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import {
   createField,
   createTable,
@@ -35,6 +37,7 @@ describe('OpenAPI integrity (e2e)', () => {
 
   let prisma: PrismaService;
   let db: Knex;
+  let dbProvider: IDbProvider;
 
   async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
     const query = builder.toQuery();
@@ -44,6 +47,7 @@ describe('OpenAPI integrity (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     db = appCtx.app.get('CUSTOM_KNEX');
+    dbProvider = appCtx.app.get<IDbProvider>(DB_PROVIDER_SYMBOL);
     prisma = appCtx.app.get<PrismaService>(PrismaService);
     app = appCtx.app;
   });
@@ -220,15 +224,13 @@ describe('OpenAPI integrity (e2e)', () => {
 
       // test multiple link
       await executeKnex(
-        db(base2table2.dbTableName)
-          .where('__id', base2table2.records[0].id)
-          .update({
-            [symLinkField.dbFieldName]: db.raw(`jsonb_set(
-              "${symLinkField.dbFieldName}",
-              '{0,id}',
-              '"xxx"'
-            )`),
-          })
+        dbProvider.integrityQuery().updateJsonField({
+          recordIds: [base2table2.records[0].id],
+          dbTableName: base2table2.dbTableName,
+          field: symLinkField.dbFieldName,
+          value: 'xxx',
+          arrayIndex: 0,
+        })
       );
 
       const record = await getRecord(base2table2.id, base2table2.records[0].id);
@@ -248,15 +250,12 @@ describe('OpenAPI integrity (e2e)', () => {
 
       // test single link
       await executeKnex(
-        db(base2table1.dbTableName)
-          .where('__id', base2table1.records[0].id)
-          .update({
-            [linkField.dbFieldName]: db.raw(`jsonb_set(
-              "${linkField.dbFieldName}",
-              '{id}',
-              '"xxx"'
-            )`),
-          })
+        dbProvider.integrityQuery().updateJsonField({
+          recordIds: [base2table1.records[0].id],
+          dbTableName: base2table1.dbTableName,
+          field: linkField.dbFieldName,
+          value: 'xxx',
+        })
       );
 
       const record2 = await getRecord(base2table1.id, base2table1.records[0].id);
@@ -331,15 +330,12 @@ describe('OpenAPI integrity (e2e)', () => {
 
       // test multiple link
       await executeKnex(
-        db(base2table2.dbTableName)
-          .whereIn('__id', [base2table2.records[0].id, base2table2.records[1].id])
-          .update({
-            [symLinkField.dbFieldName]: db.raw(`jsonb_set(
-              "${symLinkField.dbFieldName}",
-              '{id}',
-              '"xxx"'
-            )`),
-          })
+        dbProvider.integrityQuery().updateJsonField({
+          recordIds: [base2table2.records[0].id, base2table2.records[1].id],
+          dbTableName: base2table2.dbTableName,
+          field: symLinkField.dbFieldName,
+          value: 'xxx',
+        })
       );
 
       const records = await getRecords(base2table2.id);
@@ -357,15 +353,12 @@ describe('OpenAPI integrity (e2e)', () => {
 
       // test single link
       await executeKnex(
-        db(base2table1.dbTableName)
-          .whereIn('__id', [base2table1.records[0].id, base2table1.records[1].id])
-          .update({
-            [linkField.dbFieldName]: db.raw(`jsonb_set(
-              "${linkField.dbFieldName}",
-              '{id}',
-              '"xxx"'
-            )`),
-          })
+        dbProvider.integrityQuery().updateJsonField({
+          recordIds: [base2table1.records[0].id, base2table1.records[1].id],
+          dbTableName: base2table1.dbTableName,
+          field: linkField.dbFieldName,
+          value: 'xxx',
+        })
       );
 
       const records2 = await getRecords(base2table1.id);
@@ -434,15 +427,13 @@ describe('OpenAPI integrity (e2e)', () => {
 
       // test multiple link
       await executeKnex(
-        db(base2table2.dbTableName)
-          .where('__id', base2table2.records[0].id)
-          .update({
-            [symLinkField.dbFieldName]: db.raw(`jsonb_set(
-              "${symLinkField.dbFieldName}",
-              '{0,id}',
-              '"xxx"'
-            )`),
-          })
+        dbProvider.integrityQuery().updateJsonField({
+          recordIds: [base2table2.records[0].id],
+          dbTableName: base2table2.dbTableName,
+          field: symLinkField.dbFieldName,
+          value: 'xxx',
+          arrayIndex: 0,
+        })
       );
 
       const record = await getRecord(base2table2.id, base2table2.records[0].id);
@@ -462,15 +453,13 @@ describe('OpenAPI integrity (e2e)', () => {
 
       // test single link
       await executeKnex(
-        db(base2table1.dbTableName)
-          .where('__id', base2table1.records[0].id)
-          .update({
-            [linkField.dbFieldName]: db.raw(`jsonb_set(
-              "${linkField.dbFieldName}",
-              '{0,id}',
-              '"xxx"'
-            )`),
-          })
+        dbProvider.integrityQuery().updateJsonField({
+          recordIds: [base2table1.records[0].id],
+          dbTableName: base2table1.dbTableName,
+          field: linkField.dbFieldName,
+          value: 'xxx',
+          arrayIndex: 0,
+        })
       );
 
       const record2 = await getRecord(base2table1.id, base2table1.records[0].id);
