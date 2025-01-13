@@ -1,6 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ITableFullVo } from '@teable/openapi';
-import { getRecords as apiGetRecords, createField } from '@teable/openapi';
+import {
+  getRecords as apiGetRecords,
+  createField,
+  toggleTableSearchIndex,
+  getFullTextSearchStatus,
+} from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import { createTable, permanentDeleteTable, initApp, getFields } from './utils/init-app';
@@ -177,8 +182,8 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
         {
           tableName: 'subTable',
           fieldIndex: 9,
-          queryValue: 'rap, rock, hiphop',
-          expectResultLength: 6,
+          queryValue: 'hiphop',
+          expectResultLength: 7,
         },
         {
           tableName: 'subTable',
@@ -209,6 +214,30 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
           expect(records.length).toBe(expectResultLength);
         }
       );
+    });
+  });
+
+  describe('full text search', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'record_query_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should create trgm index', async () => {
+      await toggleTableSearchIndex(baseId, table.id, { type: 'trgmIndex' });
+      const result = await getFullTextSearchStatus(baseId, table.id);
+      expect(result.data.includes('trgmIndex')).toBe(true);
+      await toggleTableSearchIndex(baseId, table.id, { type: 'trgmIndex' });
+      const result2 = await getFullTextSearchStatus(baseId, table.id);
+      expect(result2.data.includes('trgmIndex')).toBe(false);
     });
   });
 });

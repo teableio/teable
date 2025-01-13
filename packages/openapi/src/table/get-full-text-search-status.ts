@@ -19,11 +19,16 @@ export const FullTextSearchStatusRoute: RouteConfig = registerRoute({
   responses: {
     201: {
       description: 'Returns table full text search index status',
+      content: {
+        'application/json': {
+          schema: z.array(z.string()),
+        },
+      },
     },
   },
   tags: ['table'],
 });
 
-export const getFullTextSearchStatus = async (baseId: string, tableId: string) => {
-  return axios.get<boolean>(urlBuilder(FULL_TEXT_SEARCH_STATUS, { baseId, tableId }));
+export const getFullTextSearchStatus = (baseId: string, tableId: string) => {
+  return axios.get<string[]>(urlBuilder(FULL_TEXT_SEARCH_STATUS, { baseId, tableId }));
 };

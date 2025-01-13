@@ -25,6 +25,7 @@ import { GroupQueryPostgres } from './group-query/group-query.postgres';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
+import { IndexBuilderPostgres } from './search-query/index-builder.postgres';
 import { FullTextSearchQueryPostgresBuilder } from './search-query/search-fts-query.postgres';
 import {
   SearchQueryPostgresBuilder,
@@ -402,6 +403,10 @@ export class PostgresProvider implements IDbProvider {
 
   getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
     return FullTextSearchQueryPostgresBuilder.getExistFtsIndexSql(originQueryBuilder, dbTableName);
+  }
+
+  trgmIndex() {
+    return new IndexBuilderPostgres();
   }
 
   shareFilterCollaboratorsQuery(

@@ -10,6 +10,7 @@ import type { BaseQueryAbstract } from './base-query/abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import type { IndexBuilderAbstract } from './search-query/index-builder.abstract';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
 export type IFilterQueryExtra = {
@@ -169,6 +170,8 @@ export interface IDbProvider {
   ): string[];
 
   getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string): string | null;
+
+  trgmIndex(): IndexBuilderAbstract;
 
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,

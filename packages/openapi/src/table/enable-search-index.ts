@@ -3,17 +3,17 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const ENABLE_TABLE_SEARCH_INDEX = '/base/{baseId}/table/{tableId}/search-index';
+export const TOGGLE_TABLE_SEARCH_INDEX = '/base/{baseId}/table/{tableId}/search-index';
 
-export const enableSearchIndexRoSchema = z.object({
-  enable: z.boolean(),
+export const toggleSearchIndexRoSchema = z.object({
+  type: z.enum(['tsVector', 'trgmIndex']),
 });
 
-export type IEnableSearchIndexRo = z.infer<typeof enableSearchIndexRoSchema>;
+export type IToggleSearchIndexRo = z.infer<typeof toggleSearchIndexRoSchema>;
 
-export const EnableTableSearchRoute: RouteConfig = registerRoute({
+export const ToggleTableSearchRoute: RouteConfig = registerRoute({
   method: 'post',
-  path: ENABLE_TABLE_SEARCH_INDEX,
+  path: TOGGLE_TABLE_SEARCH_INDEX,
   description: 'Create a table',
   request: {
     params: z.object({
@@ -23,7 +23,7 @@ export const EnableTableSearchRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: enableSearchIndexRoSchema,
+          schema: toggleSearchIndexRoSchema,
         },
       },
     },
@@ -36,13 +36,13 @@ export const EnableTableSearchRoute: RouteConfig = registerRoute({
   tags: ['table'],
 });
 
-export const enableTableSearchIndex = async (
+export const toggleTableSearchIndex = async (
   baseId: string,
   tableId: string,
-  searchIndexRo: IEnableSearchIndexRo
+  searchIndexRo: IToggleSearchIndexRo
 ) => {
   return axios.post<void>(
-    urlBuilder(ENABLE_TABLE_SEARCH_INDEX, { baseId, tableId }),
+    urlBuilder(TOGGLE_TABLE_SEARCH_INDEX, { baseId, tableId }),
     searchIndexRo
   );
 };

@@ -25,15 +25,16 @@ import {
   getBasePermission,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  ResourceType,
-  type ICreateRecordsRo,
-  type ICreateTableRo,
-  type ICreateTableWithDefault,
-  type ITableFullVo,
-  type ITablePermissionVo,
-  type ITableVo,
-  type IUpdateOrderRo,
+import { ResourceType } from '@teable/openapi';
+import type {
+  IToggleSearchIndexRo,
+  ICreateRecordsRo,
+  ICreateTableRo,
+  ICreateTableWithDefault,
+  ITableFullVo,
+  ITablePermissionVo,
+  ITableVo,
+  IUpdateOrderRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
@@ -657,7 +658,7 @@ export class TableOpenApiService {
     };
   }
 
-  async getFullTextSearchStatus(tableId: string) {
+  async getActivatedSearchIndexes(tableId: string): Promise<string[]> {
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
@@ -666,11 +667,38 @@ export class TableOpenApiService {
         dbTableName: true,
       },
     });
-    const sql = this.dbProvider.getExistFtsIndexSql(
+    const tsVectorSql = this.dbProvider.getExistFtsIndexSql(
       this.knex.queryBuilder(),
       dbTableName
     ) as string;
-    const result = await this.prismaService.$queryRawUnsafe<{ exists: boolean }[]>(sql);
-    return Boolean(result.pop()?.exists);
+    const [{ exists: tsVectorExist }] = await this.prismaService.$queryRawUnsafe<
+      {
+        exists: boolean;
+      }[]
+    >(tsVectorSql);
+
+    const trgmIndexSql = this.dbProvider.trgmIndex().getExistFtsIndexSql(dbTableName);
+    const [{ exists: trgmIndexExist }] = await this.prismaService.$queryRawUnsafe<
+      {
+        exists: boolean;
+      }[]
+    >(trgmIndexSql);
+
+    const result: string[] = [];
+
+    if (tsVectorExist) {
+      result.push('tsVector');
+    }
+    if (trgmIndexExist) {
+      result.push('trgmIndex');
+    }
+
+    return result;
+  }
+
+  async toggleSearchIndex(tableId: string, enableRo: IToggleSearchIndexRo) {
+    const status = await this.getActivatedSearchIndexes(tableId);
+
+    return this.tableService.toggleSearchIndex(tableId, enableRo, status);
   }
 }

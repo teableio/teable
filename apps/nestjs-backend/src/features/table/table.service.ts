@@ -10,7 +10,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateTableRo, IEnableSearchIndexRo, ITableVo } from '@teable/openapi';
+import type { ICreateTableRo, IToggleSearchIndexRo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -384,8 +384,8 @@ export class TableService implements IReadonlyAdapterService {
     return { ids: tables.map((table) => table.id) };
   }
 
-  async enableSearchIndex(baseId: string, tableId: string, enableRo: IEnableSearchIndexRo) {
-    const { enable } = enableRo;
+  async toggleSearchIndex(tableId: string, enableRo: IToggleSearchIndexRo, status: string[]) {
+    const { type } = enableRo;
     const fieldsRaw = await this.prismaService.field.findMany({
       where: {
         tableId,
@@ -395,11 +395,7 @@ export class TableService implements IReadonlyAdapterService {
 
     const fields = fieldsRaw
       .map((field) => createFieldInstanceByRaw(field))
-      .filter(({ cellValueType }) => cellValueType !== CellValueType.Boolean)
-      .map((field) => ({
-        ...field,
-        isStructuredCellValue: field.isStructuredCellValue,
-      })) as IFieldInstance[];
+      .filter(({ cellValueType }) => cellValueType !== CellValueType.Boolean) as IFieldInstance[];
 
     const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
       where: {
@@ -410,29 +406,49 @@ export class TableService implements IReadonlyAdapterService {
       },
     });
 
+    if (type === 'tsVector') {
+      await this.toggleTsVectorIndex(dbTableName, fields, !status.includes(type));
+    } else if (type === 'trgmIndex') {
+      await this.toggleTrgmIndex(dbTableName, fields, !status.includes(type));
+    }
+  }
+
+  async toggleTrgmIndex(dbTableName: string, fields: IFieldInstance[], toEnable: boolean) {
+    if (toEnable) {
+      const sqls = this.dbProvider.trgmIndex().getCreateIndexSql(dbTableName, fields);
+      return await this.prismaService.$tx(
+        async (prisma) => {
+          for (let i = 0; i < sqls.length; i++) {
+            const sql = sqls[i];
+            try {
+              await prisma.$executeRawUnsafe(sql);
+            } catch (error) {
+              console.error('toggleTrgmIndex:create:error', sql);
+              throw error;
+            }
+          }
+        },
+        { timeout: this.thresholdConfig.bigTransactionTimeout }
+      );
+    }
+
+    const sql = this.dbProvider.trgmIndex().getDropIndexSql(dbTableName);
+    try {
+      return await this.prismaService.$executeRawUnsafe(sql);
+    } catch (error) {
+      console.error('toggleTrgmIndex:drop:error', sql);
+      throw error;
+    }
+  }
+
+  async toggleTsVectorIndex(dbTableName: string, fields: IFieldInstance[], enable: boolean) {
     if (enable) {
       const sqls = this.dbProvider.getSearchTsIndexSql(
         this.knex.queryBuilder(),
         dbTableName,
         fields
       );
-      await this.prismaService.$tx(
-        async (prisma) => {
-          for (let i = 0; i < sqls.length; i++) {
-            const sql = sqls[i];
-            await prisma.$executeRawUnsafe(sql);
-          }
-        },
-        { timeout: 100 * 60 * 1000 }
-      );
-    } else {
-      const sqls = await this.dbProvider.getClearSearchTsIndexSql(
-        this.knex.queryBuilder(),
-        dbTableName,
-        fields
-      );
-
-      await this.prismaService.$tx(
+      return await this.prismaService.$tx(
         async (prisma) => {
           for (let i = 0; i < sqls.length; i++) {
             const sql = sqls[i];
@@ -442,5 +458,21 @@ export class TableService implements IReadonlyAdapterService {
         { timeout: this.thresholdConfig.bigTransactionTimeout }
       );
     }
+
+    const sqls = this.dbProvider.getClearSearchTsIndexSql(
+      this.knex.queryBuilder(),
+      dbTableName,
+      fields
+    );
+
+    await this.prismaService.$tx(
+      async (prisma) => {
+        for (let i = 0; i < sqls.length; i++) {
+          const sql = sqls[i];
+          await prisma.$executeRawUnsafe(sql);
+        }
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
   }
 }

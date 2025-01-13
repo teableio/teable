@@ -26,6 +26,7 @@ import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
+import { IndexBuilderSqlite } from './search-query/index-builder.sqlite';
 import { FullTextSearchQuerySqliteBuilder } from './search-query/search-fts-query.sqlite';
 import { SearchQuerySqliteBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
@@ -353,6 +354,10 @@ export class SqliteProvider implements IDbProvider {
       dbTableName,
       searchField
     ).getClearSearchTsIndexSql();
+  }
+
+  trgmIndex() {
+    return new IndexBuilderSqlite();
   }
 
   shareFilterCollaboratorsQuery(

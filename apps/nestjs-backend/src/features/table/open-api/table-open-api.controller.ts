@@ -14,8 +14,8 @@ import {
   tableIconRoSchema,
   tableNameRoSchema,
   updateOrderRoSchema,
-  IEnableSearchIndexRo,
-  enableSearchIndexRoSchema,
+  IToggleSearchIndexRo,
+  toggleSearchIndexRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -164,16 +164,16 @@ export class TableController {
   }
 
   @Post(':tableId/search-index')
-  async enableSearchIndex(
+  async toggleSearchIndex(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(enableSearchIndexRoSchema)) searchIndexRo: IEnableSearchIndexRo
+    @Body(new ZodValidationPipe(toggleSearchIndexRoSchema)) searchIndexRo: IToggleSearchIndexRo
   ) {
-    return this.tableService.enableSearchIndex(baseId, tableId, searchIndexRo);
+    return this.tableOpenApiService.toggleSearchIndex(tableId, searchIndexRo);
   }
 
   @Get(':tableId/full-text-search-index/status')
-  async getFullTextSearchStatus(@Param('tableId') tableId: string): Promise<boolean> {
-    return this.tableOpenApiService.getFullTextSearchStatus(tableId);
+  async getFullTextSearchStatus(@Param('tableId') tableId: string): Promise<string[]> {
+    return this.tableOpenApiService.getActivatedSearchIndexes(tableId);
   }
 }

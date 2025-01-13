@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { enableTableSearchIndex, getFullTextSearchStatus } from '@teable/openapi';
+import { toggleTableSearchIndex, getFullTextSearchStatus } from '@teable/openapi';
 import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Command,
@@ -46,8 +46,9 @@ export const SearchCommand = (props: ISearchCommand) => {
     queryFn: () => getFullTextSearchStatus(baseId!, tableId!).then(({ data }) => data),
   });
 
-  const { mutateAsync: enableIndexFn, isLoading } = useMutation({
-    mutationFn: (enable: boolean) => enableTableSearchIndex(baseId!, tableId!, { enable }),
+  const { mutateAsync: toggleIndexFn, isLoading } = useMutation({
+    mutationFn: (type: 'tsVector' | 'trgmIndex') =>
+      toggleTableSearchIndex(baseId!, tableId!, { type }),
     onSuccess: () => {
       queryClient.invalidateQueries(['full-text-search-index-status', tableId]);
     },
@@ -207,16 +208,31 @@ export const SearchCommand = (props: ISearchCommand) => {
 
       <div>
         <Label
-          htmlFor={'search-index'}
+          htmlFor={'search-index-ts-vector'}
           className="flex flex-1 cursor-pointer items-center truncate p-2"
         >
-          {t('actions.fullTextSearch')}
+          {t('actions.fullTextSearch')} tsVector
           <Switch
-            id={'search-index'}
+            id={'search-index-ts-vector'}
             className="scale-75"
-            checked={fullTextSearch}
-            onCheckedChange={async (checked) => {
-              baseId && tableId && (await enableIndexFn(checked));
+            checked={fullTextSearch?.includes('tsVector')}
+            onCheckedChange={async () => {
+              baseId && tableId && (await toggleIndexFn('tsVector'));
+            }}
+          />
+          {isLoading ? <Spin className="size-4" /> : null}
+        </Label>
+        <Label
+          htmlFor={'search-index-trgm'}
+          className="flex flex-1 cursor-pointer items-center truncate p-2"
+        >
+          {t('actions.fullTextSearch')} trgmIndex
+          <Switch
+            id={'search-index-trgm'}
+            className="scale-75"
+            checked={fullTextSearch?.includes('trgmIndex')}
+            onCheckedChange={async () => {
+              baseId && tableId && (await toggleIndexFn('trgmIndex'));
             }}
           />
           {isLoading ? <Spin className="size-4" /> : null}
