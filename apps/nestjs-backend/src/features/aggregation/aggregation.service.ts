@@ -760,12 +760,18 @@ export class AggregationService {
     const recordIds = result;
 
     if (search[2]) {
-      const finalSkip = skip ?? 0;
-      return recordIds.map((rec, index) => ({
-        index: finalSkip + index + 1,
-        fieldId: rec.fieldId,
-        recordId: rec.__id,
-      }));
+      const baseSkip = skip ?? 0;
+      const accRecord: string[] = [];
+      return recordIds.map((rec) => {
+        if (!accRecord?.includes(rec.__id)) {
+          accRecord.push(rec.__id);
+        }
+        return {
+          index: baseSkip + accRecord?.length,
+          fieldId: rec.fieldId,
+          recordId: rec.__id,
+        };
+      });
     }
 
     // step 2. find the index in current view
