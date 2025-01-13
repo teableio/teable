@@ -44,7 +44,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const dbFieldName = this.field.dbFieldName;
     const { searchValue, knex } = this;
     const tsName = FullTextSearchQueryPostgresBuilder.getTsVectorColumnName(dbFieldName);
-    return knex.raw(`"${tsName}" @@ to_tsquery('simple', '${searchValue}:*')`);
+    return knex.raw(`"${tsName}" @@ plainto_tsquery('simple', '${searchValue}:*')`);
   }
 
   protected getSingleCellTypeSql() {

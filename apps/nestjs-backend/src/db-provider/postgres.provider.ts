@@ -327,13 +327,15 @@ export class PostgresProvider implements IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchFields: IFieldInstance[],
-    search?: [string, string?, boolean?]
+    search?: [string, string?, boolean?],
+    withFullTextIndex?: boolean
   ) {
     return SearchQueryAbstract.appendQueryBuilder(
       SearchQueryPostgres,
       originQueryBuilder,
       searchFields,
-      search
+      search,
+      withFullTextIndex
     );
   }
 
