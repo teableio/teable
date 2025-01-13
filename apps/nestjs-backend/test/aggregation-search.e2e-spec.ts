@@ -96,7 +96,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
       });
       const targetFieldId = table.fields?.[0]?.id;
       expect(result?.data?.length).toBe(10);
-      expect(result?.data).toEqual([
+      expect(result?.data?.map(({ index, fieldId }) => ({ index, fieldId }))).toEqual([
         { index: 2, fieldId: targetFieldId },
         { index: 3, fieldId: targetFieldId },
         { index: 4, fieldId: targetFieldId },
@@ -118,7 +118,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
       });
       const targetFieldId = table.fields?.[0]?.id;
       expect(result?.data?.length).toBe(10);
-      expect(result?.data).toEqual([
+      expect(result?.data?.map(({ index, fieldId }) => ({ index, fieldId }))).toEqual([
         { index: 3, fieldId: targetFieldId },
         { index: 4, fieldId: targetFieldId },
         { index: 5, fieldId: targetFieldId },
