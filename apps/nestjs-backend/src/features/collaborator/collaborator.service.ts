@@ -97,7 +97,8 @@ export class CollaboratorService {
       )
       .into('collaborator')
       .toQuery();
-    await this.prismaService.$executeRawUnsafe(query);
+
+    await this.prismaService.txClient().$executeRawUnsafe(query);
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_CREATE,
       new CollaboratorCreateEvent(spaceId)
@@ -676,7 +677,7 @@ export class CollaboratorService {
       .into('collaborator')
       .toQuery();
 
-    const res = await this.prismaService.$executeRawUnsafe(query);
+    const res = await this.prismaService.txClient().$executeRawUnsafe(query);
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_CREATE,
       new CollaboratorCreateEvent(base.spaceId)

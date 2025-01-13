@@ -24,8 +24,8 @@
   ],
   "scripts": {
     "clean:global-cache": "rimraf ./.cache",
-    "deps:check": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName ncurc.yml --workspaces --root --mergeConfig",
-    "deps:update": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName ncurc.yml -u --workspaces --root --mergeConfig",
+    "deps:check": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName .ncurc.yml --workspaces --root --mergeConfig",
+    "deps:update": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName .ncurc.yml -u --workspaces --root --mergeConfig",
     "g:build": "pnpm -r run build",
     "g:build-changed": "pnpm -r -F '...[origin/main]' build",
     "g:check-dist": "pnpm -r --parallel check-dist",

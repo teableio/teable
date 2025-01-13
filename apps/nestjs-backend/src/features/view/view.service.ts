@@ -203,7 +203,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async restoreView(tableId: string, viewId: string) {
     await this.prismaService.$tx(async () => {
-      await this.prismaService.view.update({
+      await this.prismaService.txClient().view.update({
         where: { id: viewId },
         data: {
           deletedTime: null,

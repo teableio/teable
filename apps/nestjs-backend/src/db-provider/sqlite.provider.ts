@@ -150,15 +150,19 @@ export class SqliteProvider implements IDbProvider {
       .update({
         [columnName]: this.knex.raw(
           `
-          (
-            SELECT json_group_array(
-              CASE
-                WHEN json_extract(value, '$.id') = ?
-                THEN json_patch(value, json_object(?, ?))
-                ELSE value
-              END
+          json(
+            (
+              SELECT json_group_array(
+                json(
+                  CASE
+                    WHEN json_extract(value, '$.id') = ?
+                    THEN json_patch(value, json_object(?, ?))
+                    ELSE value
+                  END
+                )
+              )
+              FROM json_each(${columnName})
             )
-            FROM json_each(${columnName})
           )
         `,
           [id, key, value]
