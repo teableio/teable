@@ -12,7 +12,7 @@ import type {
 import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
 import { useBaseId, useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
-import { useToast } from '@teable/ui-lib';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
@@ -70,17 +70,12 @@ export const useSelectionOperation = (props?: {
       deleteSelection(tableId!, { ...deleteRo, viewId, groupBy, collapsedGroupIds, search }),
   });
 
-  const { toast } = useToast();
-
   const copyRequest = copyReq || defaultCopyReq;
 
   const checkCopyAndPasteEnvironment = useCallback(() => {
     // not support http
     if (!isLocalhost() && !isHTTPS()) {
-      toast({
-        variant: 'destructive',
-        description: t('table:table.actionTips.copyAndPasteEnvironment'),
-      });
+      toast.error(t('table:table.actionTips.copyAndPasteEnvironment'));
       return false;
     }
     // browser not support clipboard
@@ -89,23 +84,18 @@ export const useSelectionOperation = (props?: {
       !navigator.clipboard.write ||
       typeof ClipboardItem === 'undefined'
     ) {
-      toast({
-        variant: 'destructive',
-        description: t('table:table.actionTips.copyAndPasteBrowser'),
-      });
+      toast.error(t('table:table.actionTips.copyAndPasteBrowser'));
       return false;
     }
     return true;
-  }, [toast, t]);
+  }, [t]);
 
   const doCopy = useCallback(
     async (selection: CombinedSelection, getCopyData?: () => Promise<ICopyVo>) => {
       if (!checkCopyAndPasteEnvironment()) return;
       if (!viewId || !tableId) return;
 
-      const toaster = toast({
-        title: t('table:table.actionTips.copying'),
-      });
+      const id = toast.loading(t('table:table.actionTips.copying'));
 
       const getCopyDataDefault = async () => {
         const ranges = selection.serialize();
@@ -122,23 +112,22 @@ export const useSelectionOperation = (props?: {
 
       try {
         await copyHandler(getCopyDataInner);
-        toaster.update({
-          id: toaster.id,
-          title: t('table:table.actionTips.copySuccessful'),
-          duration: 1500,
-        });
+        toast.success(t('table:table.actionTips.copySuccessful'), { id });
       } catch (e) {
         const error = e as Error;
-        toaster.update({
-          id: toaster.id,
-          variant: 'destructive',
-          title: t('table:table.actionTips.copyFailed'),
-          description: error.message,
+        const hasFocus = document.hasFocus();
+        let errorMessage = error.message;
+        if (!hasFocus) {
+          errorMessage = t('table:table.actionTips.copyError.noFocus');
+        }
+        toast.error(t('table:table.actionTips.copyFailed'), {
+          description: errorMessage,
+          id,
         });
         console.error('Copy error: ', error);
       }
     },
-    [checkCopyAndPasteEnvironment, viewId, tableId, toast, copyRequest, t]
+    [checkCopyAndPasteEnvironment, viewId, tableId, copyRequest, t]
   );
 
   const doPaste = useCallback(
@@ -151,17 +140,13 @@ export const useSelectionOperation = (props?: {
       if (!viewId || !tableId) return;
 
       const { files, types } = e.clipboardData;
-      const toaster = toast({ title: t('table:table.actionTips.pasting') });
+      const toastId = toast.loading(t('table:table.actionTips.pasting'));
 
       try {
         if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
           const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
           if (!isSelectionCoverAttachments) {
-            return toaster.update({
-              id: toaster.id,
-              title: t('table:table.actionTips.pasteFileFailed'),
-              duration: 1500,
-            });
+            toast.error(t('table:table.actionTips.pasteFileFailed'), { id: toastId });
           }
           await filePasteHandler({
             files,
@@ -188,32 +173,24 @@ export const useSelectionOperation = (props?: {
             }
           });
         }
-        toaster.update({
-          id: toaster.id,
-          title: t('table:table.actionTips.pasteSuccessful'),
-          duration: 1500,
-        });
+        toast.success(t('table:table.actionTips.pasteSuccessful'), { id: toastId });
       } catch (e) {
         const error = e as Error;
-        toaster.update({
-          id: toaster.id,
-          variant: 'destructive',
-          title: t('table:table.actionTips.pasteFailed'),
+        toast.error(t('table:table.actionTips.pasteFailed'), {
           description: error.message,
+          id: toastId,
         });
         console.error('Paste error: ', error);
       }
     },
-    [baseId, viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, t]
+    [baseId, viewId, tableId, fields, temporaryPasteReq, pasteReq, t]
   );
 
   const doClear = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
 
-      const toaster = toast({
-        title: t('table:table.actionTips.clearing'),
-      });
+      const toastId = toast.loading(t('table:table.actionTips.clearing'));
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
 
@@ -222,22 +199,16 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({
-        id: toaster.id,
-        title: t('table:table.actionTips.clearSuccessful'),
-        duration: 1500,
-      });
+      toast.success(t('table:table.actionTips.clearSuccessful'), { id: toastId });
     },
-    [tableId, toast, viewId, clearReq, t]
+    [tableId, viewId, clearReq, t]
   );
 
   const doDelete = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
 
-      const toaster = toast({
-        title: t('table:table.actionTips.deleting'),
-      });
+      const toastId = toast.loading(t('table:table.actionTips.deleting'));
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
 
@@ -246,13 +217,9 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({
-        id: toaster.id,
-        title: t('table:table.actionTips.deleteSuccessful'),
-        duration: 1500,
-      });
+      toast.success(t('table:table.actionTips.deleteSuccessful'), { id: toastId });
     },
-    [deleteReq, tableId, toast, viewId, t]
+    [deleteReq, tableId, viewId, t]
   );
 
   const doSyncCopy = useCallback(
@@ -265,6 +232,7 @@ export const useSelectionOperation = (props?: {
           }
         | { getCopyData: () => ICopyVo }
     ) => {
+      const toastId = toast.loading(t('table:table.actionTips.copying'));
       try {
         let content: string;
         let header: IFieldVo[];
@@ -279,27 +247,26 @@ export const useSelectionOperation = (props?: {
           content = res.content;
           header = res.header;
         } else {
-          return toast({
-            variant: 'destructive',
-            title: t('table:table.actionTips.copyFailed'),
+          toast.error(t('table:table.actionTips.copyFailed'), {
             description: 'Unsupported selection type',
+            id: toastId,
           });
+          return;
         }
         e.clipboardData.setData(ClipboardTypes.text, content);
         e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
         e.preventDefault();
-        toast({ title: t('table:table.actionTips.copySuccessful') });
+        toast.success(t('table:table.actionTips.copySuccessful'), { id: toastId });
       } catch (e) {
         const error = e as Error;
-        toast({
-          variant: 'destructive',
-          title: t('table:table.actionTips.copyFailed'),
+        toast.error(t('table:table.actionTips.copyFailed'), {
           description: error.message,
+          id: toastId,
         });
         console.error('Sync copy error: ', error);
       }
     },
-    [fields, toast, t]
+    [fields, t]
   );
 
   return {

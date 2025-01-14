@@ -297,7 +297,10 @@
       "clearSuccessful": "清除成功",
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
-      "pasteFileFailed": "文件只能粘贴到附件字段中"
+      "pasteFileFailed": "文件只能粘贴到附件字段中",
+      "copyError": {
+        "noFocus": "请保持页面激活，不要切换窗口"
+      }
     },
     "graph": {
       "tableLabel": "表格名称",
