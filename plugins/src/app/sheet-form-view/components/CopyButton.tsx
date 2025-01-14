@@ -1,4 +1,5 @@
 import { Check, Copy } from '@teable/icons';
+import { syncCopy } from '@teable/sdk';
 import type { ButtonProps } from '@teable/ui-lib';
 import { Button, cn } from '@teable/ui-lib';
 import { useState } from 'react';
@@ -12,14 +13,7 @@ export const CopyButton = (props: ICopyButtonProps) => {
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   const onCopy = () => {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-999999px';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
+    syncCopy(text);
     setIsCopied(true);
     setTimeout(() => {
       setIsCopied(false);

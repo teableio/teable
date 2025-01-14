@@ -94,6 +94,7 @@
     "axios": "1.7.7",
     "class-transformer": "0.5.1",
     "class-variance-authority": "0.7.0",
+    "copy-to-clipboard": "3.3.3",
     "date-fns": "2.30.0",
     "date-fns-tz": "2.0.1",
     "dayjs": "1.11.10",
