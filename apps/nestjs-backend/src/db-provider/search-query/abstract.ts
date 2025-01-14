@@ -34,10 +34,12 @@ export abstract class SearchQueryAbstract {
     tableIndex: TableIndex[]
   ) {
     const knexInstance = queryBuilder.client;
-    const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex);
-      return searchQueryBuilder.getSql();
-    });
+    const searchQuery = searchField
+      .map((field) => {
+        const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex);
+        return searchQueryBuilder.getSql();
+      })
+      .filter((sql) => sql);
 
     queryBuilder.with('search_field_union_table', (qb) => {
       for (let index = 0; index < searchQuery.length; index++) {
@@ -125,7 +127,7 @@ export abstract class SearchQueryAbstract {
 
   protected abstract multipleJson(): Knex.QueryBuilder;
 
-  abstract getSql(): string;
+  abstract getSql(): string | null;
 
   abstract getQuery(): Knex.QueryBuilder;
 

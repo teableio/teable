@@ -84,7 +84,7 @@ export class IndexBuilderSqlite extends IndexBuilderAbstract {
     return searchFields.map((field) => this.createOneIndexSql(dbTableName, field)).flat();
   }
 
-  getExistFtsIndexSql(dbTableName: string): string {
+  getExistTableIndexSql(dbTableName: string): string {
     return `SELECT EXISTS (
       SELECT 1 
       FROM sqlite_master 

@@ -389,8 +389,11 @@ export class PostgresProvider implements IDbProvider {
     ).getClearSearchTsIndexSql();
   }
 
-  getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
-    return FullTextSearchQueryPostgresBuilder.getExistFtsIndexSql(originQueryBuilder, dbTableName);
+  getExistTableIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
+    return FullTextSearchQueryPostgresBuilder.getExistTableIndexSql(
+      originQueryBuilder,
+      dbTableName
+    );
   }
 
   trgmIndex() {

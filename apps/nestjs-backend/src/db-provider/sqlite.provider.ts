@@ -334,8 +334,8 @@ export class SqliteProvider implements IDbProvider {
     ).getSearchIndexQuery();
   }
 
-  getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
-    return FullTextSearchQuerySqliteBuilder.getExistFtsIndexSql(originQueryBuilder, dbTableName);
+  getExistTableIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
+    return FullTextSearchQuerySqliteBuilder.getExistTableIndexSql(originQueryBuilder, dbTableName);
   }
 
   getClearSearchTsIndexSql(

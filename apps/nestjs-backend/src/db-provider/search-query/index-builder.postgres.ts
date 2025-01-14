@@ -100,7 +100,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       .filter((sql): sql is string => sql !== null);
   }
 
-  getExistFtsIndexSql(dbTableName: string): string {
+  getExistTableIndexSql(dbTableName: string): string {
     const [schema, table] = dbTableName.split('.');
     return `
       SELECT EXISTS (

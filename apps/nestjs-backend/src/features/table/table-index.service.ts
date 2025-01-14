@@ -31,7 +31,7 @@ export class TableIndexService {
         dbTableName: true,
       },
     });
-    const sql = this.dbProvider.getExistFtsIndexSql(
+    const sql = this.dbProvider.getExistTableIndexSql(
       this.knex.queryBuilder(),
       dbTableName
     ) as string;
@@ -49,7 +49,7 @@ export class TableIndexService {
       },
     });
 
-    const trgmIndexSql = this.dbProvider.trgmIndex().getExistFtsIndexSql(dbTableName);
+    const trgmIndexSql = this.dbProvider.trgmIndex().getExistTableIndexSql(dbTableName);
     const [{ exists: trgmIndexExist }] = await this.prismaService.$queryRawUnsafe<
       {
         exists: boolean;

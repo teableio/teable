@@ -168,7 +168,7 @@ export interface IDbProvider {
     searchField: IFieldInstance[]
   ): string[];
 
-  getExistFtsIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string): string | null;
+  getExistTableIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string): string | null;
 
   trgmIndex(): IndexBuilderAbstract;
 

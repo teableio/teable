@@ -23,12 +23,13 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
 
   appendBuilder() {
     const { originQueryBuilder } = this;
-    this.originQueryBuilder.orWhereRaw(this.getSql());
+    const sql = this.getSql();
+    sql && this.originQueryBuilder.orWhereRaw(sql);
     return originQueryBuilder;
   }
 
-  getSql() {
-    return this.getQuery().toQuery() as string;
+  getSql(): string | null {
+    return this.getQuery() ? this.getQuery().toQuery() : null;
   }
 
   getQuery() {
@@ -45,11 +46,11 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected getSearchQueryWithIndex() {
     const { search, knex, field } = this;
     const { isMultipleCellValue } = field;
-    const isSearchAllFields = Boolean(search[1]);
+    const isSearchAllFields = !search[1];
     if (isSearchAllFields) {
       const searchValue = search[0];
       const expression = FieldFormatter.getSearchableExpression(field, isMultipleCellValue);
-      return knex.raw(`(${expression}) ILIKE ?`, [`%${searchValue}%`]);
+      return expression ? knex.raw(`(${expression}) ILIKE ?`, [`%${searchValue}%`]) : null;
     } else {
       return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();
     }
@@ -239,25 +240,37 @@ export class SearchQueryPostgresBuilder {
       return queryBuilder;
     }
 
-    return searchFields.map((field) => {
-      const searchQueryBuilder = new SearchQueryPostgres(queryBuilder, field, search, tableIndex);
-      return searchQueryBuilder.getSql();
-    });
+    return searchFields
+      .map((field) => {
+        const searchQueryBuilder = new SearchQueryPostgres(queryBuilder, field, search, tableIndex);
+        return searchQueryBuilder.getSql();
+      })
+      .filter((sql) => sql);
   }
 
   getCaseWhenSqlBy() {
-    const { searchFields: searchField, queryBuilder } = this;
+    const { searchFields, queryBuilder, searchIndexRo } = this;
+    const { search } = searchIndexRo;
+    const isSearchAllFields = !search?.[1];
     const searchQuerySql = this.getSearchQuery() as string[];
-    return searchField.map(({ dbFieldName }, index) => {
-      const knexInstance = queryBuilder.client;
-      const searchSql = searchQuerySql[index];
-      return knexInstance.raw(
-        `
+    return searchFields
+      .filter(({ cellValueType }) => {
+        // global search does not support date time
+        if (isSearchAllFields && cellValueType === CellValueType.DateTime) {
+          return false;
+        }
+        return true;
+      })
+      .map(({ dbFieldName }, index) => {
+        const knexInstance = queryBuilder.client;
+        const searchSql = searchQuerySql[index];
+        return knexInstance.raw(
+          `
           CASE WHEN ${searchSql} THEN ? END
         `,
-        [dbFieldName]
-      );
-    });
+          [dbFieldName]
+        );
+      });
   }
 
   getSearchIndexQuery() {

@@ -5,5 +5,5 @@ export abstract class IndexBuilderAbstract {
 
   abstract getCreateIndexSql(dbTableName: string, searchFields: IFieldInstance[]): string[];
 
-  abstract getExistFtsIndexSql(dbTableName: string): string;
+  abstract getExistTableIndexSql(dbTableName: string): string;
 }

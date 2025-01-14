@@ -22,12 +22,13 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
 
   appendBuilder() {
     const { originQueryBuilder } = this;
-    this.originQueryBuilder.orWhereRaw(this.getSql());
+    const sql = this.getSql();
+    sql && this.originQueryBuilder.orWhereRaw(sql);
     return originQueryBuilder;
   }
 
-  getSql() {
-    return this.getQuery().toQuery() as string;
+  getSql(): string {
+    return this.getQuery().toQuery();
   }
 
   getQuery() {
