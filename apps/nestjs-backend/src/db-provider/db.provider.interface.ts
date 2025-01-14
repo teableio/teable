@@ -1,6 +1,11 @@
 import type { DriverClient, FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
+import type {
+  IAggregationField,
+  ISearchIndexByQueryRo,
+  ITableIndexType,
+  TableIndex,
+} from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
@@ -135,8 +140,8 @@ export interface IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchFields: IFieldInstance[],
-    search?: [string, string?, boolean?],
-    withFullTextIndex?: boolean
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ): Knex.QueryBuilder;
 
   searchIndexQuery(
@@ -144,24 +149,18 @@ export interface IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     searchIndexRo: Partial<ISearchIndexByQueryRo>,
+    tableIndex: TableIndex[],
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
-    setSortQuery?: (qb: Knex.QueryBuilder) => void,
-    withFullTextIndex?: boolean
+    setSortQuery?: (qb: Knex.QueryBuilder) => void
   ): Knex.QueryBuilder;
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string,
-    withFullTextIndex?: boolean
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ): Knex.QueryBuilder;
-
-  getSearchTsIndexSql(
-    originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
-    searchField: IFieldInstance[]
-  ): string[];
 
   getClearSearchTsIndexSql(
     originQueryBuilder: Knex.QueryBuilder,

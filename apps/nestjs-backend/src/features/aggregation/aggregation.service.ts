@@ -45,7 +45,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
 import { RecordService } from '../record/record.service';
-import { TableFullTextService } from '../table/full-text-search.service';
+import { TableIndexService } from '../table/table-index.service';
 
 export type IWithView = {
   viewId?: string;
@@ -71,7 +71,7 @@ export class AggregationService {
 
   constructor(
     private readonly recordService: RecordService,
-    private readonly tableFullTextService: TableFullTextService,
+    private readonly tableIndexService: TableIndexService,
     private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -240,14 +240,13 @@ export class AggregationService {
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
-    const { statisticsData, fieldInstanceMap, fieldInstanceMapWithoutHiddenFields } =
-      await this.fetchStatisticsParams({
-        tableId,
-        withView: {
-          viewId: ignoreViewQuery ? undefined : viewId,
-          customFilter: queryRo.filter,
-        },
-      });
+    const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
+      tableId,
+      withView: {
+        viewId: queryRo.viewId,
+        customFilter: queryRo.filter,
+      },
+    });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
@@ -257,7 +256,6 @@ export class AggregationService {
       tableId,
       dbTableName,
       fieldInstanceMap,
-      fieldInstanceMapWithoutHiddenFields,
       filter,
       filterLinkCellCandidate,
       filterLinkCellSelected,
@@ -279,7 +277,6 @@ export class AggregationService {
   }): Promise<{
     statisticsData: IStatisticsData;
     fieldInstanceMap: Record<string, IFieldInstance>;
-    fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
   }> {
     const { tableId, withView, withFieldIds } = params;
 
@@ -294,17 +291,7 @@ export class AggregationService {
 
     const statisticsData = this.buildStatisticsData(filteredFieldInstances, viewRaw, withView);
 
-    const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
-
-    if (viewRaw?.columnMeta) {
-      const columnMeta = JSON.parse(viewRaw?.columnMeta);
-      Object.entries(columnMeta).forEach(([key, value]) => {
-        if (get(value, ['hidden'])) {
-          delete fieldInstanceMapWithoutHiddenFields[key];
-        }
-      });
-    }
-    return { statisticsData, fieldInstanceMap, fieldInstanceMapWithoutHiddenFields };
+    return { statisticsData, fieldInstanceMap };
   }
 
   private async findView(tableId: string, withView?: IWithView) {
@@ -482,10 +469,9 @@ export class AggregationService {
             .appendQueryBuilder();
         }
         if (search && search[2]) {
-          const withFullTextIndex =
-            await this.tableFullTextService.getFullTextSearchStatus(tableId);
+          const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
           qb.where((builder) => {
-            this.dbProvider.searchQuery(builder, searchFields, search, withFullTextIndex);
+            this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
           });
         }
       })
@@ -512,7 +498,6 @@ export class AggregationService {
     tableId: string;
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
-    fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
     filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
@@ -525,7 +510,6 @@ export class AggregationService {
       tableId,
       dbTableName,
       fieldInstanceMap,
-      fieldInstanceMapWithoutHiddenFields,
       filter,
       filterLinkCellCandidate,
       filterLinkCellSelected,
@@ -545,13 +529,13 @@ export class AggregationService {
 
     if (search && search[2]) {
       const searchFields = await this.recordService.getSearchFields(
-        fieldInstanceMapWithoutHiddenFields,
+        fieldInstanceMap,
         search,
         viewId
       );
-      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, search, withFullTextIndex);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 
@@ -668,9 +652,9 @@ export class AggregationService {
     if (searchFields?.length === 0) {
       return { count: 0 };
     }
-    const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
     const queryBuilder = this.knex(dbFieldName);
-    this.dbProvider.searchCountQuery(queryBuilder, searchFields, search[0], withFullTextIndex);
+    this.dbProvider.searchCountQuery(queryBuilder, searchFields, search, tableIndex);
     this.dbProvider
       .filterQuery(queryBuilder, fieldInstanceMap, queryRo?.filter, {
         withUserId: this.cls.get('user.id'),
@@ -735,17 +719,17 @@ export class AggregationService {
         .appendSortBuilder();
     };
 
-    const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
     const queryBuilder = this.dbProvider.searchIndexQuery(
       this.knex.queryBuilder(),
       dbTableName,
       searchFields,
       queryRo,
+      tableIndex,
       basicSortIndex,
       filterQuery,
-      sortQuery,
-      withFullTextIndex
+      sortQuery
     );
 
     const sql = queryBuilder.toQuery();
@@ -877,9 +861,9 @@ export class AggregationService {
         search,
         query?.viewId
       );
-      const handledSearch = search ? this.recordService.parseSearch(search, fieldMap) : undefined;
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, handledSearch);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 

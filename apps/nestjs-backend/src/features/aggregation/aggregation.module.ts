@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
 import { RecordModule } from '../record/record.module';
-import { TableFullTextService } from '../table/full-text-search.service';
+import { TableIndexService } from '../table/table-index.service';
 import { AggregationService } from './aggregation.service';
 
 @Module({
   imports: [RecordModule],
-  providers: [DbProvider, AggregationService, TableFullTextService],
+  providers: [DbProvider, AggregationService, TableIndexService],
   exports: [AggregationService],
 })
 export class AggregationModule {}

@@ -27,7 +27,6 @@ import {
 import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
 import type {
-  IToggleSearchIndexRo,
   ICreateRecordsRo,
   ICreateTableRo,
   ICreateTableWithDefault,
@@ -656,49 +655,5 @@ export class TableOpenApiService {
       record: recordPermission,
       view: viewPermission,
     };
-  }
-
-  async getActivatedSearchIndexes(tableId: string): Promise<string[]> {
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
-    const tsVectorSql = this.dbProvider.getExistFtsIndexSql(
-      this.knex.queryBuilder(),
-      dbTableName
-    ) as string;
-    const [{ exists: tsVectorExist }] = await this.prismaService.$queryRawUnsafe<
-      {
-        exists: boolean;
-      }[]
-    >(tsVectorSql);
-
-    const trgmIndexSql = this.dbProvider.trgmIndex().getExistFtsIndexSql(dbTableName);
-    const [{ exists: trgmIndexExist }] = await this.prismaService.$queryRawUnsafe<
-      {
-        exists: boolean;
-      }[]
-    >(trgmIndexSql);
-
-    const result: string[] = [];
-
-    if (tsVectorExist) {
-      result.push('tsVector');
-    }
-    if (trgmIndexExist) {
-      result.push('trgmIndex');
-    }
-
-    return result;
-  }
-
-  async toggleSearchIndex(tableId: string, enableRo: IToggleSearchIndexRo) {
-    const status = await this.getActivatedSearchIndexes(tableId);
-
-    return this.tableService.toggleSearchIndex(tableId, enableRo, status);
   }
 }

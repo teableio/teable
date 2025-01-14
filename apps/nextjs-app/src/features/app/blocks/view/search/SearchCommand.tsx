@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { toggleTableSearchIndex, getFullTextSearchStatus } from '@teable/openapi';
+import { AlertCircle } from '@teable/icons';
+import { toggleTableIndex, getTableActivatedIndex, TableIndex } from '@teable/openapi';
 import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Command,
@@ -16,6 +17,9 @@ import {
   Switch,
   Toggle,
   Spin,
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
@@ -41,16 +45,15 @@ export const SearchCommand = (props: ISearchCommand) => {
 
   const queryClient = useQueryClient();
 
-  const { data: fullTextSearch } = useQuery({
-    queryKey: ['full-text-search-index-status', tableId],
-    queryFn: () => getFullTextSearchStatus(baseId!, tableId!).then(({ data }) => data),
+  const { data: tableActivatedIndex } = useQuery({
+    queryKey: ['table-index', tableId],
+    queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
   });
 
   const { mutateAsync: toggleIndexFn, isLoading } = useMutation({
-    mutationFn: (type: 'tsVector' | 'trgmIndex') =>
-      toggleTableSearchIndex(baseId!, tableId!, { type }),
+    mutationFn: (type: TableIndex) => toggleTableIndex(baseId!, tableId!, { type }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['full-text-search-index-status', tableId]);
+      queryClient.invalidateQueries(['table-index', tableId]);
     },
   });
   const switchChange = (id: string, checked: boolean) => {
@@ -206,36 +209,34 @@ export const SearchCommand = (props: ISearchCommand) => {
         )}
       </div>
 
-      <div>
-        <Label
-          htmlFor={'search-index-ts-vector'}
-          className="flex flex-1 cursor-pointer items-center truncate p-2"
-        >
-          {t('actions.fullTextSearch')} tsVector
-          <Switch
-            id={'search-index-ts-vector'}
-            className="scale-75"
-            checked={fullTextSearch?.includes('tsVector')}
-            onCheckedChange={async () => {
-              baseId && tableId && (await toggleIndexFn('tsVector'));
-            }}
-          />
-          {isLoading ? <Spin className="size-4" /> : null}
-        </Label>
+      <div className="flex">
         <Label
           htmlFor={'search-index-trgm'}
-          className="flex flex-1 cursor-pointer items-center truncate p-2"
+          className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
         >
-          {t('actions.fullTextSearch')} trgmIndex
-          <Switch
-            id={'search-index-trgm'}
-            className="scale-75"
-            checked={fullTextSearch?.includes('trgmIndex')}
-            onCheckedChange={async () => {
-              baseId && tableId && (await toggleIndexFn('trgmIndex'));
-            }}
-          />
-          {isLoading ? <Spin className="size-4" /> : null}
+          <HoverCard>
+            <HoverCardTrigger>
+              <div className="flex gap-1">
+                {t('actions.tableIndex')}
+                <AlertCircle />
+              </div>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              The React Framework – created and maintained by @vercel.
+            </HoverCardContent>
+          </HoverCard>
+
+          <div className="flex items-center gap-1">
+            {isLoading ? <Spin className="size-3" /> : null}
+            <Switch
+              id={'search-index-trgm'}
+              className="scale-75"
+              checked={tableActivatedIndex?.includes(TableIndex.trgmIndex)}
+              onCheckedChange={async () => {
+                baseId && tableId && (await toggleIndexFn(TableIndex.trgmIndex));
+              }}
+            />
+          </div>
         </Label>
       </div>
     </Command>

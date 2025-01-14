@@ -10,5 +10,5 @@ export * from './update-description';
 export * from './update-db-table-name';
 export * from './default-view-id';
 export * from './get-permission';
-export * from './enable-search-index';
-export * from './get-full-text-search-status';
+export * from './toggle-search-index';
+export * from './get-activated-index';

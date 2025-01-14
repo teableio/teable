@@ -3,8 +3,9 @@ import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords as apiGetRecords,
   createField,
-  toggleTableSearchIndex,
-  getFullTextSearchStatus,
+  toggleTableIndex,
+  getTableActivatedIndex,
+  TableIndex,
 } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
@@ -232,12 +233,12 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
     });
 
     it('should create trgm index', async () => {
-      await toggleTableSearchIndex(baseId, table.id, { type: 'trgmIndex' });
-      const result = await getFullTextSearchStatus(baseId, table.id);
-      expect(result.data.includes('trgmIndex')).toBe(true);
-      await toggleTableSearchIndex(baseId, table.id, { type: 'trgmIndex' });
-      const result2 = await getFullTextSearchStatus(baseId, table.id);
-      expect(result2.data.includes('trgmIndex')).toBe(false);
+      await toggleTableIndex(baseId, table.id, { type: TableIndex.trgmIndex });
+      const result = await getTableActivatedIndex(baseId, table.id);
+      expect(result.data.includes(TableIndex.trgmIndex)).toBe(true);
+      await toggleTableIndex(baseId, table.id, { type: TableIndex.trgmIndex });
+      const result2 = await getTableActivatedIndex(baseId, table.id);
+      expect(result2.data.includes(TableIndex.trgmIndex)).toBe(false);
     });
   });
 });

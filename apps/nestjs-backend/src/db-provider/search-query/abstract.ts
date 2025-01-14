@@ -1,3 +1,4 @@
+import type { TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { ISearchQueryConstructor } from './types';
@@ -8,17 +9,15 @@ export abstract class SearchQueryAbstract {
     SearchQuery: ISearchQueryConstructor,
     originQueryBuilder: Knex.QueryBuilder,
     searchFields: IFieldInstance[],
-    search?: [string, string?, boolean?],
-    withFullTextIndex?: boolean
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ) {
     if (!search || !searchFields?.length) {
       return originQueryBuilder;
     }
 
-    const searchValue = search[0];
-
     searchFields.forEach((fIns) => {
-      const builder = new SearchQuery(originQueryBuilder, fIns, searchValue, withFullTextIndex);
+      const builder = new SearchQuery(originQueryBuilder, fIns, search, tableIndex);
       builder.appendBuilder();
     });
 
@@ -30,18 +29,13 @@ export abstract class SearchQueryAbstract {
     SearchQuery: ISearchQueryConstructor,
     queryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string,
+    search: [string, string?, boolean?],
     dbTableName: string,
-    withFullTextIndex?: boolean
+    tableIndex: TableIndex[]
   ) {
     const knexInstance = queryBuilder.client;
     const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(
-        queryBuilder,
-        field,
-        searchValue,
-        withFullTextIndex
-      );
+      const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex);
       return searchQueryBuilder.getSql();
     });
 
@@ -87,16 +81,11 @@ export abstract class SearchQueryAbstract {
     SearchQuery: ISearchQueryConstructor,
     queryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string,
-    withFullTextIndex?: boolean
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ) {
     const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(
-        queryBuilder,
-        field,
-        searchValue,
-        withFullTextIndex
-      );
+      const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex);
       return searchQueryBuilder.getSql();
     });
 
@@ -116,8 +105,8 @@ export abstract class SearchQueryAbstract {
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly field: IFieldInstance,
-    protected readonly searchValue: string,
-    protected readonly withFullTextIndex?: boolean
+    protected readonly search: [string, string?, boolean?],
+    protected readonly tableIndex: TableIndex[]
   ) {}
 
   protected abstract json(): Knex.QueryBuilder;

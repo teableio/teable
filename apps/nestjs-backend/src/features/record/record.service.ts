@@ -72,7 +72,7 @@ import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { TableFullTextService } from '../table/full-text-search.service';
+import { TableIndexService } from '../table/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { IFieldRaws } from './type';
 
@@ -103,7 +103,7 @@ export class RecordService {
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentStorageService: AttachmentsStorageService,
-    private readonly tableFullTextService: TableFullTextService,
+    private readonly tableIndexService: TableIndexService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -430,6 +430,8 @@ export class RecordService {
       }
     });
 
+    console.log('ooooooooo', [searchValue, fieldIdOrName, hideNotMatchRow]);
+
     return [searchValue, fieldIdOrName, hideNotMatchRow];
   }
 
@@ -565,9 +567,9 @@ export class RecordService {
 
     if (search && search[2] && fieldMap) {
       const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
-      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, search, withFullTextIndex);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 
@@ -1445,7 +1447,7 @@ export class RecordService {
     );
     const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
 
-    const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
     if (searchFields.length === 0) {
       return null;
@@ -1463,10 +1465,10 @@ export class RecordService {
           {
             search,
           },
+          tableIndex,
           undefined,
           undefined,
-          undefined,
-          withFullTextIndex
+          undefined
         );
       })
       .from('search_index');
@@ -1768,11 +1770,10 @@ export class RecordService {
     }
 
     if (search && search[2]) {
-      const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
-      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, handledSearch, withFullTextIndex);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 
@@ -1827,11 +1828,10 @@ export class RecordService {
     }
 
     if (search && search[2]) {
-      const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
-      const withFullTextIndex = await this.tableFullTextService.getFullTextSearchStatus(tableId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, handledSearch, withFullTextIndex);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 

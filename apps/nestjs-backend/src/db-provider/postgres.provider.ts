@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
-import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -328,30 +328,30 @@ export class PostgresProvider implements IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchFields: IFieldInstance[],
-    search?: [string, string?, boolean?],
-    withFullTextIndex?: boolean
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ) {
     return SearchQueryAbstract.appendQueryBuilder(
       SearchQueryPostgres,
       originQueryBuilder,
       searchFields,
-      search,
-      withFullTextIndex
+      tableIndex,
+      search
     );
   }
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string,
-    withFullTextIndex?: boolean
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ) {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQueryPostgres,
       originQueryBuilder,
       searchField,
-      searchValue,
-      withFullTextIndex
+      search,
+      tableIndex
     );
   }
 
@@ -360,33 +360,21 @@ export class PostgresProvider implements IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     searchIndexRo: ISearchIndexByQueryRo,
+    tableIndex: TableIndex[],
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
-    setSortQuery?: (qb: Knex.QueryBuilder) => void,
-    withFullTextIndex?: boolean
+    setSortQuery?: (qb: Knex.QueryBuilder) => void
   ) {
     return new SearchQueryPostgresBuilder(
       originQueryBuilder,
       dbTableName,
       searchField,
       searchIndexRo,
+      tableIndex,
       baseSortIndex,
       setFilterQuery,
-      setSortQuery,
-      withFullTextIndex
+      setSortQuery
     ).getSearchIndexQuery();
-  }
-
-  getSearchTsIndexSql(
-    originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
-    searchField: IFieldInstance[]
-  ) {
-    return new FullTextSearchQueryPostgresBuilder(
-      originQueryBuilder,
-      dbTableName,
-      searchField
-    ).getSearchFieldIndexSql();
   }
 
   getClearSearchTsIndexSql(

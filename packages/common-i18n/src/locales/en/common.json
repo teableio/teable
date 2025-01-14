@@ -39,7 +39,7 @@
     "permanentDelete": "Permanent Delete",
     "globalSearch": "Global Search",
     "fieldSearch": "Search Field",
-    "fullTextSearch": "Full text search index",
+    "tableIndex": "Index",
     "showAllRow": "Display all rows",
     "hideNotMatchRow": "Hide not match row",
     "more": "More"

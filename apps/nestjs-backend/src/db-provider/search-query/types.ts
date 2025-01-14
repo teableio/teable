@@ -1,4 +1,5 @@
 import type { CellValueType } from '@teable/core';
+import type { TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { SearchQueryAbstract } from './abstract';
@@ -9,7 +10,7 @@ export type ISearchQueryConstructor = {
   new (
     originQueryBuilder: Knex.QueryBuilder,
     field: IFieldInstance,
-    searchValue: string,
-    withFullTextIndex?: boolean
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ): SearchQueryAbstract;
 };
