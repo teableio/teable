@@ -36,7 +36,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
       href: `/enterprise/${organization?.id}`,
       text: t('noun.organizationPanel'),
       Icon: Admin,
-      hidden: !organization,
+      hidden: !organization?.isAdmin,
     },
     {
       href: '/admin/setting',
