@@ -35,6 +35,8 @@ export const textCommentContentSchema = baseCommentContentSchema.extend({
 export const mentionCommentContentSchema = baseCommentContentSchema.extend({
   type: z.literal(CommentNodeType.Mention),
   value: z.string(),
+  name: z.string().optional(),
+  avatar: z.string().optional(),
 });
 
 export const linkCommentContentSchema = baseCommentContentSchema.extend({
@@ -47,6 +49,7 @@ export const imageCommentContentSchema = baseCommentContentSchema.extend({
   type: z.literal(CommentNodeType.Img),
   path: z.string(),
   width: z.number().optional(),
+  url: z.string().optional(),
 });
 
 export const paragraphCommentContentSchema = baseCommentContentSchema.extend({

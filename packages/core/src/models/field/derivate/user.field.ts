@@ -54,17 +54,16 @@ export class UserFieldCore extends UserAbstractCore {
     if (this.isLookup || !value) {
       return null;
     }
-
+    const cellValue = value.split(',').map((s) => s.trim());
     if (this.isMultipleCellValue) {
-      const cellValue = value.split(',').map((s) => s.trim());
-
-      return cellValue
+      const cvArray = cellValue
         .map((v) => {
           return this.matchUser(v, ctx?.userSets);
         })
         .filter(Boolean) as IUserCellValue[];
+      return cvArray.length ? cvArray : null;
     }
-    return this.matchUser(value, ctx?.userSets);
+    return this.matchUser(cellValue[0], ctx?.userSets);
   }
 
   private matchUser(value: string, userSets: IUser[] = []) {

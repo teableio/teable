@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { FieldType, IdPrefix, ViewType } from '@teable/core';
 import { axios } from '../axios';
-import { itemSpaceCollaboratorSchema } from '../space/collaborator-get-list';
+import { userCollaboratorItem } from '../space';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 
@@ -18,7 +18,7 @@ export enum ResourceType {
 
 export const userMapVoSchema = z.record(
   z.string().startsWith(IdPrefix.User),
-  itemSpaceCollaboratorSchema
+  userCollaboratorItem
     .pick({
       email: true,
       avatar: true,

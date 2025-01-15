@@ -1,12 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
 import { Role } from '@teable/core';
-import type { CreateSpaceInvitationLinkVo, ListSpaceCollaboratorVo } from '@teable/openapi';
+import type { CreateSpaceInvitationLinkVo } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
   createSpace as apiCreateSpace,
   createSpaceInvitationLink as apiCreateSpaceInvitationLink,
   deleteSpace as apiDeleteSpace,
   getSpaceCollaboratorList as apiGetSpaceCollaboratorList,
+  PrincipalType,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -45,9 +46,10 @@ describe('OpenAPI InvitationController (e2e)', () => {
     const data = await user2Request.post(ACCEPT_INVITATION_LINK, { invitationId, invitationCode });
 
     expect(data.data.spaceId).toEqual(spaceId);
-    const collaborators: ListSpaceCollaboratorVo = (await apiGetSpaceCollaboratorList(spaceId))
-      .data;
-    const collaborator = collaborators.find(({ email }) => email === 'newuser@example.com');
+    const { collaborators } = (await apiGetSpaceCollaboratorList(spaceId)).data;
+    const collaborator = collaborators.find(
+      (item) => item.type === PrincipalType.User && item.email === 'newuser@example.com'
+    );
     expect(collaborator?.role).toEqual(Role.Owner);
   });
 });

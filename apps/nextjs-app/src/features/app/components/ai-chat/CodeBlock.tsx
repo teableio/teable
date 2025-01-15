@@ -1,9 +1,9 @@
+import { syncCopy } from '@teable/sdk';
 import CopyIcon from '@teable/ui-lib/icons/app/copy.svg';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import { syncCopy } from '../../utils/sync-copy';
 import type { IChat } from './type';
 
 interface Props {

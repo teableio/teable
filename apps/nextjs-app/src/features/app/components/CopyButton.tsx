@@ -1,8 +1,8 @@
 import { Check, Copy } from '@teable/icons';
+import { syncCopy } from '@teable/sdk/utils';
 import type { ButtonProps } from '@teable/ui-lib/shadcn';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
-import { syncCopy } from '../utils/sync-copy';
 
 interface ICopyButtonProps extends ButtonProps {
   text: string;

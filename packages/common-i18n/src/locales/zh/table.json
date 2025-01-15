@@ -189,6 +189,7 @@
       "previewDependenciesGraph": "预览依赖关系图",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
+      "dbFieldName": "物理字段名",
       "description": "描述",
       "descriptionPlaceholder": "描述这个字段（可选）",
       "type": "字段类型",
@@ -306,7 +307,10 @@
       "clearSuccessful": "清除成功",
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
-      "pasteFileFailed": "文件只能粘贴到附件字段中"
+      "pasteFileFailed": "文件只能粘贴到附件字段中",
+      "copyError": {
+        "noFocus": "请保持页面激活，不要切换窗口"
+      }
     },
     "graph": {
       "tableLabel": "表格名称",

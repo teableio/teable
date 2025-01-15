@@ -164,7 +164,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                   {t('view.action.rename')}
                 </Button>
               )}
-              {view.type === 'grid' && permission['view|read'] && (
+              {view.type === 'grid' && permission['table|export'] && (
                 <Button
                   size="xs"
                   variant="ghost"

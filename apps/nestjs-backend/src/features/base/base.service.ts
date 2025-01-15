@@ -1,5 +1,4 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { IRole } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
@@ -16,6 +15,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -39,7 +39,7 @@ export class BaseService {
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
-
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     const base = await this.prismaService.base
       .findFirstOrThrow({
         select: {
@@ -56,30 +56,29 @@ export class BaseService {
       .catch(() => {
         throw new NotFoundException('Base not found');
       });
-    const collaborator = await this.prismaService.collaborator
-      .findFirstOrThrow({
-        where: {
-          resourceId: { in: [baseId, base.spaceId] },
-          userId,
-        },
-      })
-      .catch(() => {
-        throw new ForbiddenException('cannot access base');
-      });
+    const collaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceId: { in: [baseId, base.spaceId] },
+        principalId: { in: [userId, ...(departmentIds || [])] },
+      },
+    });
 
-    const role = collaborator.roleName as IRole;
+    if (!collaborators.length) {
+      throw new ForbiddenException('cannot access base');
+    }
+    const role = getMaxLevelRole(collaborators);
+    const collaborator = collaborators.find((c) => c.roleName === role);
     return {
       ...base,
       role: role,
-      collaboratorType: collaborator.resourceType as CollaboratorType,
+      collaboratorType: collaborator?.resourceType as CollaboratorType,
       isUnrestricted: isUnrestrictedRole(role),
     };
   }
 
   async getAllBaseList() {
-    const userId = this.cls.get('user.id');
     const { spaceIds, baseIds, roleMap } =
-      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+      await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
     const baseList = await this.prismaService.base.findMany({
       select: {
         id: true,
@@ -112,7 +111,7 @@ export class BaseService {
     const userId = this.cls.get('user.id');
     const accessTokenId = this.cls.get('accessTokenId');
     const { spaceIds, baseIds } =
-      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+      await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
 
     if (accessTokenId) {
       const access = await this.prismaService.accessToken.findFirst({

@@ -1,5 +1,6 @@
 import { Copy, X } from '@teable/icons';
 import { useLanDayjs } from '@teable/sdk/hooks';
+import { syncCopy } from '@teable/sdk/utils';
 import {
   Button,
   Input,
@@ -10,7 +11,6 @@ import {
   useToast,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { syncCopy } from '@/features/app/utils/sync-copy';
 
 export const InviteLinkItem = (props: {
   url: string;

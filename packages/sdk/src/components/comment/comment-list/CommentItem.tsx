@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart, MessageSquare, Edit, Trash2 } from '@teable/icons';
-import type { ListBaseCollaboratorVo, ICommentVo, IUpdateCommentReactionRo } from '@teable/openapi';
+import type { ICommentVo, IUpdateCommentReactionRo } from '@teable/openapi';
 import { deleteComment, createCommentReaction } from '@teable/openapi';
 import {
   HoverCard,
@@ -23,8 +23,7 @@ import { CommentContent } from './CommentContent';
 import { CommentListContext } from './context';
 import { Reaction, ReactionPicker } from './reaction';
 
-interface ICommentItemProps extends Omit<ICommentVo, 'createdBy'>, IBaseQueryParams {
-  createdBy: ListBaseCollaboratorVo[number];
+interface ICommentItemProps extends ICommentVo, IBaseQueryParams {
   commentId?: string;
 }
 
@@ -47,7 +46,7 @@ export const CommentItem = (props: ICommentItemProps) => {
   const relativeTime = dayjs(createdTime).fromNow();
   const { setQuoteId, setEditingCommentId, editorRef } = useCommentStore();
   const { user } = useSession();
-  const isMe = !!(createdBy?.userId && user?.id === createdBy?.userId);
+  const isMe = user?.id === createdBy?.id;
   const queryClient = useQueryClient();
   const { mutateAsync: deleteCommentFn } = useMutation({
     mutationFn: ({ tableId, recordId, id }: { tableId: string; recordId: string; id: string }) =>
@@ -88,7 +87,6 @@ export const CommentItem = (props: ICommentItemProps) => {
       reactionRo: IUpdateCommentReactionRo;
     }) => createCommentReaction(tableId, recordId, commentId, reactionRo),
   });
-
   return (
     createdBy && (
       <HoverCard openDelay={200}>
@@ -100,7 +98,7 @@ export const CommentItem = (props: ICommentItemProps) => {
             ref={itemRef}
           >
             <div>
-              <UserAvatar name={createdBy.userName} avatar={createdBy.avatar} />
+              <UserAvatar name={createdBy.name} avatar={createdBy.avatar} />
             </div>
 
             <div className="flex-1 truncate px-1">
@@ -114,7 +112,7 @@ export const CommentItem = (props: ICommentItemProps) => {
                     'text-end': isMe,
                   })}
                 >
-                  {createdBy.userName}
+                  {createdBy.name}
                 </span>
                 <span className="shrink-0 text-xs text-secondary-foreground/60">
                   {relativeTime}

@@ -5,12 +5,11 @@ import {
   type UpdateAccessTokenRo,
   updateAccessTokenRoSchema,
 } from '@teable/openapi';
-import { useSession } from '@teable/sdk/hooks';
+import { useSession, useOrganization } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
-import { useOrganization } from '@/features/app/hooks/useOrganization';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 import { RequireCom } from '../../components/RequireCom';
 import { ScopesSelect } from '../../components/ScopesSelect';

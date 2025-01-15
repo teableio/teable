@@ -34,6 +34,7 @@ import {
   updateViewShareMeta,
   shareViewFormSubmit,
   deleteView,
+  PrincipalType,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -427,8 +428,12 @@ describe('OpenAPI ShareController (e2e)', () => {
         const mulResult = await apiGetShareViewCollaborators(gridViewShareId, {
           fieldId: multipleUserFieldId,
         });
-        expect(result.data).toEqual([{ userId, userName, email: userEmail, avatar: null }]);
-        expect(mulResult.data).toEqual([{ userId, userName, email: userEmail, avatar: null }]);
+        expect(result.data).toEqual([
+          { userId, userName, email: userEmail, avatar: expect.any(String) },
+        ]);
+        expect(mulResult.data).toEqual([
+          { userId, userName, email: userEmail, avatar: expect.any(String) },
+        ]);
 
         await apiDeleteRecords(
           userTableRes.id,
@@ -463,9 +468,11 @@ describe('OpenAPI ShareController (e2e)', () => {
           },
         ]);
         const result = await apiGetShareViewCollaborators(fromViewShareId, {});
-        const baseCollaborators = await apiGetBaseCollaboratorList(baseId);
+        const baseCollaborators = await apiGetBaseCollaboratorList(baseId, {
+          type: PrincipalType.User,
+        });
         expect(result.data.map((user) => user.userId)).toEqual(
-          baseCollaborators.data.map((user) => user.userId)
+          baseCollaborators.data.collaborators.map((item) => item.userId)
         );
         await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
           {

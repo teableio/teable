@@ -21,7 +21,8 @@
     "rowCount": "{{count}} records",
     "summary": "Summary",
     "summaryTip": "Hover to select summary",
-    "actions": "Actions"
+    "actions": "Actions",
+    "remove": "Remove"
   },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
@@ -743,5 +744,14 @@
       "linkText": "Link Text",
       "enterUrl": "Enter URL"
     }
+  },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
   }
 }

@@ -1,11 +1,8 @@
-import type { ListBaseCollaboratorVo } from '@teable/openapi';
 import React from 'react';
 
 export interface ICommentContext {
-  collaborators: ListBaseCollaboratorVo;
+  baseId: string;
   recordId?: string;
 }
 
-export const CommentContext = React.createContext<ICommentContext>({
-  collaborators: [],
-});
+export const CommentContext = React.createContext<ICommentContext>({ baseId: '' });

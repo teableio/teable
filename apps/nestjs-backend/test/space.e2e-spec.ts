@@ -7,6 +7,7 @@ import type {
   IUserMeVo,
   ListSpaceCollaboratorVo,
   ListSpaceInvitationLinkVo,
+  UserCollaboratorItem,
 } from '@teable/openapi';
 import {
   createSpace as apiCreateSpace,
@@ -39,6 +40,7 @@ import {
   deleteBase,
   UPDATE_SPACE_COLLABORATE,
   DELETE_SPACE_COLLABORATOR,
+  PrincipalType,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { Events } from '../src/event-emitter/events';
@@ -116,9 +118,9 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   it('/api/space/:spaceId/collaborators (GET)', async () => {
-    const collaborators: ListSpaceCollaboratorVo = (await apiGetSpaceCollaboratorList(spaceId))
-      .data;
+    const { collaborators, total } = (await apiGetSpaceCollaboratorList(spaceId)).data;
     expect(collaborators).toHaveLength(1);
+    expect(total).toBe(1);
   });
 
   it('/api/space/:spaceId/collaborators (GET) - includeSystem', async () => {
@@ -127,7 +129,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
       baseId: base.data.id,
       emailBaseInvitationRo: { emails: [getPluginEmail(chartConfig.id)], role: Role.Creator },
     });
-    const collaborators: ListSpaceCollaboratorVo = (
+    const { collaborators } = (
       await apiGetSpaceCollaboratorList(spaceId, { includeSystem: true, includeBase: true })
     ).data;
     await deleteBase(base.data.id);
@@ -144,7 +146,39 @@ describe('OpenAPI SpaceController (e2e)', () => {
       await apiGetSpaceCollaboratorList(spaceId, { includeBase: true })
     ).data;
     await deleteBase(base.data.id);
-    expect(collaborators).toHaveLength(2);
+    expect(collaborators.collaborators).toHaveLength(2);
+    expect(collaborators.total).toBe(2);
+  });
+
+  it('/api/space/:spaceId/collaborators (GET) - pagination', async () => {
+    const base = await createBase({ spaceId, name: 'new base' });
+    await emailBaseInvitation({
+      baseId: base.data.id,
+      emailBaseInvitationRo: { emails: ['space-coll-base@example.com'], role: Role.Creator },
+    });
+    const collaborators: ListSpaceCollaboratorVo = (
+      await apiGetSpaceCollaboratorList(spaceId, { includeBase: true, skip: 1, take: 1 })
+    ).data;
+    await deleteBase(base.data.id);
+    expect(collaborators.collaborators).toHaveLength(1);
+    expect(collaborators.total).toBe(2);
+  });
+
+  it('/api/space/:spaceId/collaborators (GET) - search', async () => {
+    const base = await createBase({ spaceId, name: 'new base' });
+    await emailBaseInvitation({
+      baseId: base.data.id,
+      emailBaseInvitationRo: { emails: ['space-coll-base@example.com'], role: Role.Creator },
+    });
+    const collaborators: ListSpaceCollaboratorVo = (
+      await apiGetSpaceCollaboratorList(spaceId, { includeBase: true, search: 'space-coll-base' })
+    ).data;
+    await deleteBase(base.data.id);
+    expect(collaborators.collaborators).toHaveLength(1);
+    expect((collaborators.collaborators[0] as UserCollaboratorItem).email).toBe(
+      'space-coll-base@example.com'
+    );
+    expect(collaborators.total).toBe(1);
   });
 
   describe('Space Invitation and operator collaborators', () => {
@@ -238,7 +272,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
 
     it('/api/space/:spaceId/invitation/link (GET)', async () => {
       const res = await apiGetSpaceCollaboratorList(space2Id);
-      expect(res.data).toHaveLength(2);
+      expect(res.data.collaborators).toHaveLength(2);
     });
 
     it('/api/space/:spaceId/invitation/link/:invitationId (DELETE)', async () => {
@@ -260,10 +294,11 @@ describe('OpenAPI SpaceController (e2e)', () => {
         emailSpaceInvitationRo: { role: Role.Creator, emails: [newUser3Email] },
       });
 
-      const collaborators: ListSpaceCollaboratorVo = (await apiGetSpaceCollaboratorList(space2Id))
-        .data;
+      const { collaborators } = (await apiGetSpaceCollaboratorList(space2Id)).data;
 
-      const newCollaboratorInfo = collaborators.find(({ email }) => email === newUser3Email);
+      const newCollaboratorInfo = (collaborators as UserCollaboratorItem[]).find(
+        ({ email }) => email === newUser3Email
+      );
 
       expect(newCollaboratorInfo).not.toBeUndefined();
       expect(newCollaboratorInfo?.role).toEqual(Role.Creator);
@@ -284,7 +319,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
         spaceId: space2Id,
         emailSpaceInvitationRo: { emails: ['not.exist@email.com'], role: Role.Creator },
       });
-      const collaborators = (await apiGetSpaceCollaboratorList(space2Id)).data;
+      const { collaborators } = (await apiGetSpaceCollaboratorList(space2Id)).data;
       expect(collaborators).toHaveLength(3);
     });
 
@@ -299,11 +334,13 @@ describe('OpenAPI SpaceController (e2e)', () => {
       });
       const baseColl = await getBaseCollaboratorList(base.data.id);
       const spaceColl = await getSpaceCollaboratorList(space2Id);
-      expect(spaceColl.data).toHaveLength(2);
-      expect(baseColl.data).toHaveLength(3);
-      expect(baseColl.data.find((v) => v.email === newUser3Email)?.resourceType).toEqual(
-        CollaboratorType.Base
-      );
+      expect(spaceColl.data.collaborators).toHaveLength(2);
+      expect(baseColl.data.collaborators).toHaveLength(3);
+      expect(
+        (baseColl.data.collaborators as UserCollaboratorItem[]).find(
+          (v) => v.email === newUser3Email
+        )?.resourceType
+      ).toEqual(CollaboratorType.Base);
 
       await emailSpaceInvitation({
         spaceId: space2Id,
@@ -314,11 +351,13 @@ describe('OpenAPI SpaceController (e2e)', () => {
       });
       const newBaseColl = await getBaseCollaboratorList(base.data.id);
       const newSpaceColl = await getSpaceCollaboratorList(space2Id);
-      expect(newSpaceColl.data).toHaveLength(3);
-      expect(newBaseColl.data).toHaveLength(3);
-      expect(newBaseColl.data.find((v) => v.email === newUser3Email)?.resourceType).toEqual(
-        CollaboratorType.Space
-      );
+      expect(newSpaceColl.data.collaborators).toHaveLength(3);
+      expect(newBaseColl.data.collaborators).toHaveLength(3);
+      expect(
+        (newBaseColl.data.collaborators as UserCollaboratorItem[]).find(
+          (v) => v.email === newUser3Email
+        )?.resourceType
+      ).toEqual(CollaboratorType.Space);
     });
 
     describe('operator collaborators', () => {
@@ -337,7 +376,8 @@ describe('OpenAPI SpaceController (e2e)', () => {
           spaceId: space2Id,
           updateSpaceCollaborateRo: {
             role: Role.Creator,
-            userId: newUser3Id,
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
           },
         });
         expect(res.status).toBe(200);
@@ -349,7 +389,8 @@ describe('OpenAPI SpaceController (e2e)', () => {
             spaceId: space2Id,
             updateSpaceCollaborateRo: {
               role: Role.Owner,
-              userId: newUser3Id,
+              principalId: newUser3Id,
+              principalType: PrincipalType.User,
             },
           })
         );
@@ -364,7 +405,8 @@ describe('OpenAPI SpaceController (e2e)', () => {
             }),
             {
               role: Role.Editor,
-              userId: userRequestId,
+              principalId: userRequestId,
+              principalType: PrincipalType.User,
             }
           )
         );
@@ -375,11 +417,14 @@ describe('OpenAPI SpaceController (e2e)', () => {
       it('/api/space/:spaceId/collaborators (DELETE)', async () => {
         const res = await deleteSpaceCollaborator({
           spaceId: space2Id,
-          userId: newUser3Id,
+          deleteSpaceCollaboratorRo: {
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
+          },
         });
         expect(res.status).toBe(200);
         const collList = await apiGetSpaceCollaboratorList(space2Id);
-        expect(collList.data).toHaveLength(2);
+        expect(collList.data.collaborators).toHaveLength(2);
       });
 
       it('/api/space/:spaceId/collaborators (DELETE) - exceeds limit role', async () => {
@@ -387,13 +432,17 @@ describe('OpenAPI SpaceController (e2e)', () => {
           spaceId: space2Id,
           updateSpaceCollaborateRo: {
             role: Role.Creator,
-            userId: newUser3Id,
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
           },
         });
         const error = await getError(() =>
           deleteSpaceCollaborator({
             spaceId: space2Id,
-            userId: newUser3Id,
+            deleteSpaceCollaboratorRo: {
+              principalId: newUser3Id,
+              principalType: PrincipalType.User,
+            },
           })
         );
         expect(error?.status).toBe(403);
@@ -402,7 +451,10 @@ describe('OpenAPI SpaceController (e2e)', () => {
       it('/api/space/:spaceId/collaborators (DELETE) - self', async () => {
         await deleteSpaceCollaborator({
           spaceId: space2Id,
-          userId: globalThis.testConfig.userId,
+          deleteSpaceCollaboratorRo: {
+            principalId: globalThis.testConfig.userId,
+            principalType: PrincipalType.User,
+          },
         });
         const error = await getError(() => apiGetSpaceCollaboratorList(space2Id));
         expect(error?.status).toBe(403);
@@ -411,7 +463,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
       it('/api/space/:spaceId/collaborators (DELETE) - last owner', async () => {
         const error = await getError(() =>
           userRequest.delete(urlBuilder(DELETE_SPACE_COLLABORATOR, { spaceId: space2Id }), {
-            params: { userId: userRequestId },
+            params: { principalId: userRequestId, principalType: PrincipalType.User },
           })
         );
         expect(error?.status).toBe(400);

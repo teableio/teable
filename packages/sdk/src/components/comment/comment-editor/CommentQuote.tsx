@@ -115,7 +115,7 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
         )}
       >
         <div className="flex h-full items-center truncate text-xs">
-          <MentionUser id={quoteData ? quoteData.createdBy : ''} />
+          {quoteData?.createdBy && <MentionUser {...quoteData.createdBy} />}
           <span className="self-center pr-1">:</span>
           {!quoteData ? (
             <del className="self-center text-secondary-foreground/50">

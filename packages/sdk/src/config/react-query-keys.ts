@@ -16,6 +16,9 @@ import type {
   IGetRecordsRo,
   ListBaseCollaboratorRo,
   ICalendarDailyCollectionRo,
+  IGetDepartmentListRo,
+  IGetDepartmentUserRo,
+  IShareViewCollaboratorsRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -99,8 +102,10 @@ export const ReactQueryKeys = {
 
   field: (tableId: string) => ['field-info', tableId],
 
-  shareViewCollaborators: (shareId: string, fieldId?: string) =>
-    ['share-view-collaborators', shareId, fieldId] as const,
+  shareViewCollaborators: (shareId: string, query?: IShareViewCollaboratorsRo) =>
+    query
+      ? (['share-view-collaborators', shareId, query] as const)
+      : (['share-view-collaborators', shareId] as const),
 
   getViewFilterLinkRecords: (tableId: string, viewId: string) =>
     ['get-view-filter-link-records', tableId, viewId] as const,
@@ -133,4 +138,10 @@ export const ReactQueryKeys = {
 
   calendarDailyCollection: (tableId: string, query: ICalendarDailyCollectionRo) =>
     ['calendar-daily-collection', tableId, query] as const,
+
+  getDepartmentList: (ro?: IGetDepartmentListRo) => ['department-list', ro] as const,
+
+  getDepartmentUsers: (ro?: IGetDepartmentUserRo) => ['department-users', ro] as const,
+
+  getOrganizationMe: () => ['organization-me'] as const,
 };

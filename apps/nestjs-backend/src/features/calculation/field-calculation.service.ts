@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { keyBy, uniq } from 'lodash';
+import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -39,31 +39,6 @@ export class FieldCalculationService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
-
-  async getUserMap(tableId: string) {
-    const {
-      baseId,
-      base: { spaceId },
-    } = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: {
-        baseId: true,
-        base: { select: { spaceId: true } },
-      },
-    });
-
-    const collaborators = await this.prismaService.collaborator.findMany({
-      where: { resourceId: { in: [spaceId, baseId] } },
-      select: { userId: true },
-    });
-
-    const users = await this.prismaService.user.findMany({
-      where: { id: { in: collaborators.map((c) => c.userId) } },
-      select: { id: true, name: true, avatar: true },
-    });
-
-    return keyBy(users, 'id');
-  }
 
   async getTopoOrdersContext(
     fieldIds: string[],

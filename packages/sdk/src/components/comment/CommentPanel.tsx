@@ -1,7 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { getBaseCollaboratorList } from '@teable/openapi';
 import { useEffect } from 'react';
-import { ReactQueryKeys } from '../../config';
 import { CommentEditor } from './comment-editor';
 import { CommentList } from './comment-list';
 import { CommentHeader } from './CommentHeader';
@@ -17,13 +14,8 @@ interface ICommentPanelProps extends IBaseQueryParams {
 }
 
 export const CommentPanel = (props: ICommentPanelProps) => {
-  const { recordId, tableId, baseId, commentId } = props;
+  const { baseId, recordId, tableId, commentId } = props;
   const { resetCommentStore } = useCommentStore();
-
-  const { data: collaborators = [] } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
-  });
 
   useEffect(() => {
     return () => {
@@ -32,7 +24,7 @@ export const CommentPanel = (props: ICommentPanelProps) => {
   }, [resetCommentStore]);
 
   return (
-    <CommentContext.Provider value={{ collaborators: collaborators, recordId }}>
+    <CommentContext.Provider value={{ baseId, recordId }}>
       <div className="flex size-full flex-col border-l bg-background">
         <CommentHeader tableId={tableId} recordId={recordId} />
         <CommentList tableId={tableId} recordId={recordId} commentId={commentId} />

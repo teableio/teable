@@ -25,6 +25,10 @@ import {
   CollaboratorType,
   listBaseCollaboratorRoSchema,
   ListBaseCollaboratorRo,
+  deleteBaseCollaboratorRoSchema,
+  DeleteBaseCollaboratorRo,
+  addBaseCollaboratorRoSchema,
+  AddBaseCollaboratorRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -163,7 +167,10 @@ export class BaseController {
     @Param('baseId') baseId: string,
     @Query(new ZodValidationPipe(listBaseCollaboratorRoSchema)) options: ListBaseCollaboratorRo
   ): Promise<ListBaseCollaboratorVo> {
-    return await this.collaboratorService.getListByBase(baseId, options);
+    return {
+      collaborators: await this.collaboratorService.getListByBase(baseId, options),
+      total: await this.collaboratorService.getTotalBase(baseId, options),
+    };
   }
 
   @Permissions('base|read')
@@ -259,25 +266,34 @@ export class BaseController {
     await this.collaboratorService.updateCollaborator({
       resourceId: baseId,
       resourceType: CollaboratorType.Base,
-      userId: updateBaseCollaborateRo.userId,
-      role: updateBaseCollaborateRo.role,
+      ...updateBaseCollaborateRo,
     });
   }
 
   @Delete(':baseId/collaborators')
   async deleteCollaborator(
     @Param('baseId') baseId: string,
-    @Query('userId') userId: string
+    @Query(new ZodValidationPipe(deleteBaseCollaboratorRoSchema))
+    deleteBaseCollaboratorRo: DeleteBaseCollaboratorRo
   ): Promise<void> {
     await this.collaboratorService.deleteCollaborator({
       resourceId: baseId,
       resourceType: CollaboratorType.Base,
-      userId,
+      ...deleteBaseCollaboratorRo,
     });
   }
 
   @Delete(':baseId/permanent')
   async permanentDeleteBase(@Param('baseId') baseId: string) {
     return await this.baseService.permanentDeleteBase(baseId);
+  }
+
+  @Post(':baseId/collaborator')
+  async addCollaborators(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(addBaseCollaboratorRoSchema))
+    addBaseCollaboratorRo: AddBaseCollaboratorRo
+  ) {
+    return await this.collaboratorService.addBaseCollaborators(baseId, addBaseCollaboratorRo);
   }
 }

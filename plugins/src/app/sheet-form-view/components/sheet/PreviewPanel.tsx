@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { FieldType } from '@teable/core';
-import type { IRecordsVo } from '@teable/openapi';
+import type { IRecordsVo, UserCollaboratorItem } from '@teable/openapi';
 import {
   shareViewFormSubmit,
   getShareViewCollaborators,
@@ -8,6 +8,7 @@ import {
   getShareViewLinkRecords,
   getRecords,
   ShareViewLinkRecordsType,
+  PrincipalType,
 } from '@teable/openapi';
 import type { IFieldInstance, LinkField } from '@teable/sdk';
 import { useIsHydrated, useView, useFields } from '@teable/sdk';
@@ -38,13 +39,27 @@ export const PreviewPanel = (props: IPreviewPanel) => {
   useInitializationZodI18n();
 
   const { data: shareCollaborators } = useQuery({
-    queryKey: ['sheet_form_collaborator', shareId, baseId],
+    queryKey: ['sheet_form_collaborator', shareId],
     queryFn: () =>
-      shareId
-        ? getShareViewCollaborators(shareId!, {}).then((res) => res.data)
-        : getBaseCollaboratorList(baseId!, {}).then((res) => res.data),
-    enabled: Boolean((shareId || baseId) && isHydrated),
+      getShareViewCollaborators(shareId!, {
+        take: 100,
+        skip: 0,
+      }).then((res) => res.data),
+    enabled: Boolean(shareId && isHydrated),
   });
+
+  const { data: baseCollaboratorsData } = useQuery({
+    queryKey: ['sheet_form_collaborator', baseId],
+    queryFn: () =>
+      getBaseCollaboratorList(baseId!, {
+        take: 100,
+        skip: 0,
+        type: PrincipalType.User,
+      }).then((res) => res.data),
+    enabled: Boolean(!shareId && baseId && isHydrated),
+  });
+
+  const baseCollaborators = baseCollaboratorsData?.collaborators as UserCollaboratorItem[];
 
   const { mutateAsync: getShareLinkRecordsFn } = useMutation({
     mutationFn: ({ shareId, fieldId }: { shareId: string; fieldId: string }) =>
@@ -151,7 +166,10 @@ export const PreviewPanel = (props: IPreviewPanel) => {
     ),
   });
 
-  const collaborator = useMemo(() => shareCollaborators, [shareCollaborators]);
+  const collaborator = useMemo(
+    () => (shareId ? shareCollaborators : baseCollaborators),
+    [shareCollaborators, baseCollaborators, shareId]
+  );
 
   const setCellRules = useCallback(
     async (field: IFieldInstance, range?: [number, number, number, number]) => {

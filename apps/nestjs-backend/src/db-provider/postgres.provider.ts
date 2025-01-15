@@ -22,6 +22,8 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQueryPostgres } from './group-query/group-query.postgres';
+import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { SearchQueryBuilder, SearchQueryPostgres } from './search-query/search-query.postgres';
 import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
@@ -379,6 +381,10 @@ export class PostgresProvider implements IDbProvider {
     return new BaseQueryPostgres(this.knex);
   }
 
+  integrityQuery(): IntegrityQueryAbstract {
+    return new IntegrityQueryPostgres(this.knex);
+  }
+
   calendarDailyCollectionQuery(
     qb: Knex.QueryBuilder,
     props: ICalendarDailyCollectionQueryProps
@@ -450,14 +456,35 @@ export class PostgresProvider implements IDbProvider {
       .select({
         tableId: 'table_id',
         id: 'id',
-        type: 'type',
         name: 'name',
+        description: 'description',
+        notNull: 'not_null',
+        unique: 'unique',
+        isPrimary: 'is_primary',
+        dbFieldName: 'db_field_name',
+        isComputed: 'is_computed',
+        isPending: 'is_pending',
+        hasError: 'has_error',
+        dbFieldType: 'db_field_type',
+        isMultipleCellValue: 'is_multiple_cell_value',
+        isLookup: 'is_lookup',
+        lookupOptions: 'lookup_options',
+        type: 'type',
         options: 'options',
+        cellValueType: 'cell_value_type',
       })
       .whereNull('deleted_time')
       .whereNull('is_lookup')
       .whereRaw(`options::json->>'${optionsKey}' = ?`, [value])
       .where('type', type)
       .toQuery();
+  }
+
+  searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder {
+    return qb.where((builder) => {
+      search.forEach(([field, value]) => {
+        builder.orWhere(field, 'ilike', `%${value}%`);
+      });
+    });
   }
 }

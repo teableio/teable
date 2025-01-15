@@ -6,7 +6,7 @@ import { ExportOpenApiService } from './export-open-api.service';
 
 @Controller('api/export')
 @UseGuards(PermissionGuard)
-export class ExportController {
+export class ExportOpenApiController {
   constructor(private readonly exportOpenService: ExportOpenApiService) {}
   @Get(':tableId')
   @Permissions('table|export', 'view|read')

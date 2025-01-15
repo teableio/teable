@@ -19,6 +19,7 @@ export const CommentContent = (props: ICommentContentProps) => {
         <BlockImageElement
           key={index}
           path={item.path}
+          url={item.url}
           width={item.width}
           className={cn({
             'justify-end': isMe && !isExpanded,
@@ -43,6 +44,8 @@ export const CommentContent = (props: ICommentContentProps) => {
                   <MentionUser
                     id={node.value}
                     key={node.value}
+                    name={node.name}
+                    avatar={node.avatar}
                     className="mx-0.5 cursor-pointer rounded-md bg-secondary px-1 focus:ring-2"
                   />
                 );

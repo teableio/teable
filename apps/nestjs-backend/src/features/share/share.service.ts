@@ -9,7 +9,12 @@ import {
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
+import {
+  UploadType,
+  ShareViewLinkRecordsType,
+  PluginPosition,
+  PrincipalType,
+} from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
   ShareViewFormSubmitRo,
@@ -26,6 +31,7 @@ import type {
   IShareViewCollaboratorsRo,
   ISearchCountRo,
   ISearchIndexByQueryRo,
+  UserCollaboratorItem,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -349,12 +355,12 @@ export class ShareService {
     const { fieldId } = query;
 
     if (!view) {
-      return this.getViewAllCollaborators(shareInfo);
+      return this.getViewAllCollaborators(shareInfo, query);
     }
 
     // only form, kanban and plugin view can get all collaborators
     if ([ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
-      return this.getViewAllCollaborators(shareInfo);
+      return this.getViewAllCollaborators(shareInfo, query);
     }
 
     if (!fieldId) {
@@ -370,15 +376,17 @@ export class ShareService {
       throw new ForbiddenException('field type is not user-related field');
     }
 
-    return this.getViewFilterCollaborators(shareInfo, field);
+    return this.getViewFilterCollaborators(shareInfo, field, query);
   }
 
   private async getViewFilterUserQuery(
     tableId: string,
     filter: IFilter | undefined,
     userField: IFieldVo,
-    fieldMap: Record<string, IFieldInstance>
+    fieldMap: Record<string, IFieldInstance>,
+    query?: { skip?: number; take?: number; search?: string }
   ) {
+    const { skip = 0, take = 50, search } = query ?? {};
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const queryBuilder = this.knex(dbTableName);
     const { isMultipleCellValue, dbFieldName } = userField;
@@ -387,14 +395,30 @@ export class ShareService {
     queryBuilder.whereNotNull(dbFieldName);
     this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
 
-    return this.knex('users')
+    const resQuery = this.knex('users')
       .select('id', 'email', 'name', 'avatar')
       .from(this.knex.raw(`(${queryBuilder.toQuery()}) AS coll`))
-      .leftJoin('users', 'users.id', '=', 'coll.user_id')
-      .toQuery();
+      .leftJoin('users', 'users.id', '=', 'coll.user_id');
+    if (search) {
+      this.dbProvider.searchBuilder(resQuery, [
+        ['users.name', search],
+        ['users.email', search],
+      ]);
+    }
+    if (skip) {
+      resQuery.offset(skip);
+    }
+    if (take) {
+      resQuery.limit(take);
+    }
+    return resQuery.toQuery();
   }
 
-  async getViewFilterCollaborators(shareInfo: IShareViewInfo, field: IFieldVo) {
+  async getViewFilterCollaborators(
+    shareInfo: IShareViewInfo,
+    field: IFieldVo,
+    query?: { skip?: number; take?: number; search?: string }
+  ) {
     const { tableId, view } = shareInfo;
     if (!view) {
       throw new ForbiddenException('view is required');
@@ -414,7 +438,8 @@ export class ShareService {
           return acc;
         },
         {} as Record<string, IFieldInstance>
-      )
+      ),
+      query
     );
 
     const users = await this.prismaService
@@ -432,7 +457,11 @@ export class ShareService {
     }));
   }
 
-  async getViewAllCollaborators(shareInfo: IShareViewInfo) {
+  async getViewAllCollaborators(
+    shareInfo: IShareViewInfo,
+    query?: { skip?: number; take?: number; search?: string }
+  ) {
+    const { skip = 0, take = 50, search } = query ?? {};
     const { tableId, view } = shareInfo;
 
     if (view && ![ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
@@ -455,7 +484,12 @@ export class ShareService {
       select: { baseId: true },
       where: { id: tableId },
     });
-    const list = await this.collaboratorService.getListByBase(baseId);
+    const list = (await this.collaboratorService.getListByBase(baseId, {
+      skip,
+      take,
+      search,
+      type: PrincipalType.User,
+    })) as UserCollaboratorItem[];
     return list.map((item) => pick(item, 'userId', 'email', 'userName', 'avatar'));
   }
 

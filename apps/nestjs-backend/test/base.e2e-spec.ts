@@ -5,6 +5,7 @@ import type {
   ICreateSpaceVo,
   IUserMeVo,
   ListBaseInvitationLinkVo,
+  UserCollaboratorItem,
 } from '@teable/openapi';
 import {
   CREATE_BASE,
@@ -21,6 +22,7 @@ import {
   emailBaseInvitation,
   getBaseCollaboratorList,
   listBaseInvitationLink,
+  PrincipalType,
   UPDATE_BASE_COLLABORATE,
   UPDATE_BASE_INVITATION_LINK,
   updateBaseCollaborator,
@@ -153,7 +155,20 @@ describe('OpenAPI BaseController (e2e)', () => {
 
     it('/api/base/:baseId/invitation/link (GET)', async () => {
       const res = await getBaseCollaboratorList(baseId);
-      expect(res.data).toHaveLength(2);
+      expect(res.data.collaborators).toHaveLength(2);
+    });
+
+    it('/api/base/:baseId/invitation/link (GET) - pagination', async () => {
+      const res = await getBaseCollaboratorList(baseId, { skip: 1, take: 1 });
+      expect(res.data.collaborators).toHaveLength(1);
+      expect(res.data.total).toBe(2);
+    });
+
+    it('/api/base/:baseId/invitation/link (GET) - search', async () => {
+      const res = await getBaseCollaboratorList(baseId, { search: 'newuser' });
+      expect(res.data.collaborators).toHaveLength(1);
+      expect((res.data.collaborators[0] as UserCollaboratorItem).email).toBe(newUserEmail);
+      expect(res.data.total).toBe(1);
     });
 
     it('/api/base/:baseId/invitation/link/:invitationId (DELETE)', async () => {
@@ -175,9 +190,11 @@ describe('OpenAPI BaseController (e2e)', () => {
         emailBaseInvitationRo: { role: Role.Creator, emails: [newUser3Email] },
       });
 
-      const collaborators = (await getBaseCollaboratorList(baseId)).data;
+      const { collaborators } = (await getBaseCollaboratorList(baseId)).data;
 
-      const newCollaboratorInfo = collaborators.find(({ email }) => email === newUser3Email);
+      const newCollaboratorInfo = (collaborators as UserCollaboratorItem[]).find(
+        ({ email }) => email === newUser3Email
+      );
 
       expect(newCollaboratorInfo).not.toBeUndefined();
       expect(newCollaboratorInfo?.role).toEqual(Role.Creator);
@@ -202,7 +219,7 @@ describe('OpenAPI BaseController (e2e)', () => {
         baseId,
         emailBaseInvitationRo: { emails: ['not.exist@email.com'], role: Role.Creator },
       });
-      const collaborators = (await getBaseCollaboratorList(baseId)).data;
+      const { collaborators } = (await getBaseCollaboratorList(baseId)).data;
       expect(collaborators).toHaveLength(3);
     });
 
@@ -232,7 +249,8 @@ describe('OpenAPI BaseController (e2e)', () => {
           baseId,
           updateBaseCollaborateRo: {
             role: Role.Creator,
-            userId: newUser3Id,
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
           },
         });
         expect(res.status).toBe(200);
@@ -246,19 +264,21 @@ describe('OpenAPI BaseController (e2e)', () => {
             }),
             {
               role: Role.Viewer,
-              userId: globalThis.testConfig.userId,
+              principalId: globalThis.testConfig.userId,
+              principalType: PrincipalType.User,
             }
           )
         );
         expect(error?.status).toBe(403);
       });
 
-      it('/api/base/:baseId/collaborators (PATCH) - exceeds limit role', async () => {
+      it('/api/base/:baseId/collaborators (PATCH) - exceeds limit role - system user', async () => {
         await updateBaseCollaborator({
           baseId: baseId,
           updateBaseCollaborateRo: {
             role: Role.Editor,
-            userId: globalThis.testConfig.userId,
+            principalId: globalThis.testConfig.userId,
+            principalType: PrincipalType.User,
           },
         });
         const error = await getError(() =>
@@ -266,7 +286,8 @@ describe('OpenAPI BaseController (e2e)', () => {
             baseId: baseId,
             updateBaseCollaborateRo: {
               role: Role.Creator,
-              userId: globalThis.testConfig.userId,
+              principalId: globalThis.testConfig.userId,
+              principalType: PrincipalType.User,
             },
           })
         );
@@ -278,7 +299,8 @@ describe('OpenAPI BaseController (e2e)', () => {
           baseId: baseId,
           updateBaseCollaborateRo: {
             role: Role.Editor,
-            userId: globalThis.testConfig.userId,
+            principalId: globalThis.testConfig.userId,
+            principalType: PrincipalType.User,
           },
         });
         expect(res?.status).toBe(200);
@@ -289,7 +311,8 @@ describe('OpenAPI BaseController (e2e)', () => {
           baseId: baseId,
           updateBaseCollaborateRo: {
             role: Role.Editor,
-            userId: globalThis.testConfig.userId,
+            principalId: globalThis.testConfig.userId,
+            principalType: PrincipalType.User,
           },
         });
         const res = await user3Request.patch<void>(
@@ -298,7 +321,8 @@ describe('OpenAPI BaseController (e2e)', () => {
           }),
           {
             role: Role.Viewer,
-            userId: newUser3Id,
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
           }
         );
         expect(res?.status).toBe(200);
@@ -307,11 +331,14 @@ describe('OpenAPI BaseController (e2e)', () => {
       it('/api/base/:baseId/collaborators (DELETE)', async () => {
         const res = await deleteBaseCollaborator({
           baseId,
-          userId: newUser3Id,
+          deleteBaseCollaboratorRo: {
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
+          },
         });
         expect(res.status).toBe(200);
         const collList = await getBaseCollaboratorList(baseId);
-        expect(collList.data).toHaveLength(2);
+        expect(collList.data.collaborators).toHaveLength(2);
       });
 
       it('/api/base/:baseId/collaborators (DELETE) - exceeds limit role', async () => {
@@ -319,13 +346,17 @@ describe('OpenAPI BaseController (e2e)', () => {
           baseId,
           updateBaseCollaborateRo: {
             role: Role.Creator,
-            userId: newUser3Id,
+            principalId: newUser3Id,
+            principalType: PrincipalType.User,
           },
         });
         const error = await getError(() =>
           deleteBaseCollaborator({
             baseId,
-            userId: newUser3Id,
+            deleteBaseCollaboratorRo: {
+              principalId: newUser3Id,
+              principalType: PrincipalType.User,
+            },
           })
         );
         expect(error?.status).toBe(403);
@@ -334,7 +365,10 @@ describe('OpenAPI BaseController (e2e)', () => {
       it('/api/base/:baseId/collaborators (DELETE) - self', async () => {
         await deleteBaseCollaborator({
           baseId: baseId,
-          userId: globalThis.testConfig.userId,
+          deleteBaseCollaboratorRo: {
+            principalId: globalThis.testConfig.userId,
+            principalType: PrincipalType.User,
+          },
         });
         const error = await getError(() => getBaseCollaboratorList(baseId));
         expect(error?.status).toBe(403);
@@ -342,14 +376,14 @@ describe('OpenAPI BaseController (e2e)', () => {
 
       it('/api/base/:baseId/collaborators (DELETE) - space user delete base user', async () => {
         const res = await userRequest.delete(urlBuilder(DELETE_BASE_COLLABORATOR, { baseId }), {
-          params: { userId: newUser3Id },
+          params: { principalId: newUser3Id, principalType: PrincipalType.User },
         });
         expect(res.status).toBe(200);
       });
 
       it('/api/space/:spaceId/collaborators (DELETE) - space user delete base user', async () => {
         const res = await userRequest.delete(urlBuilder(DELETE_BASE_COLLABORATOR, { baseId }), {
-          params: { userId: newUser3Id },
+          params: { principalId: newUser3Id, principalType: PrincipalType.User },
         });
         expect(res.status).toBe(200);
       });

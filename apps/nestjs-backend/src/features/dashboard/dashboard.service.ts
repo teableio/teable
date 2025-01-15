@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
 import { generateDashboardId, generatePluginInstallId, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { PluginPosition, PluginStatus } from '@teable/openapi';
+import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
 import type {
   ICreateDashboardRo,
   IDashboardInstallPluginRo,
@@ -209,17 +209,24 @@ export class DashboardService {
         // invite pluginUser to base
         const exist = await this.prismaService.txClient().collaborator.count({
           where: {
-            userId: newInstallPlugin.plugin.pluginUser,
+            principalId: newInstallPlugin.plugin.pluginUser,
+            principalType: PrincipalType.User,
             resourceId: baseId,
+            resourceType: CollaboratorType.Base,
           },
         });
 
         if (!exist) {
-          await this.collaboratorService.createBaseCollaborator(
-            newInstallPlugin.plugin.pluginUser,
+          await this.collaboratorService.createBaseCollaborator({
+            collaborators: [
+              {
+                principalId: newInstallPlugin.plugin.pluginUser,
+                principalType: PrincipalType.User,
+              },
+            ],
             baseId,
-            Role.Owner as IBaseRole
-          );
+            role: Role.Owner as IBaseRole,
+          });
         }
       }
 

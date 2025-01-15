@@ -22,7 +22,7 @@ import {
   PRIMARY_SUPPORTED_TYPES,
   RecordOpBuilder,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -885,10 +885,28 @@ export class FieldConvertingService {
   private async convert2User(tableId: string, newField: UserFieldDto, oldField: IFieldInstance) {
     const fieldId = newField.id;
     const records = await this.getExistRecords(tableId, oldField);
-    const baseCollabs = await this.collaboratorService.getBaseCollabsWithPrimary(tableId);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
 
-    records.forEach((record) => {
+    const oldCvStrArr = records.map((record) => {
+      const oldCellValue = record.fields[fieldId];
+      if (oldCellValue == null) {
+        return;
+      }
+
+      return oldField.cellValue2String(oldCellValue);
+    });
+
+    const tableCollaborators = await this.collaboratorService.getUserCollaboratorsByTableId(
+      tableId,
+      {
+        containsIn: {
+          keys: ['id', 'name', 'email', 'phone'],
+          values: oldCvStrArr.filter((cvStr) => cvStr != null) as string[],
+        },
+      }
+    );
+
+    records.forEach((record, index) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -898,8 +916,13 @@ export class FieldConvertingService {
         opsMap[record.id] = [];
       }
 
-      const cellStr = oldField.cellValue2String(oldCellValue);
-      const newCellValue = newField.convertStringToCellValue(cellStr, { userSets: baseCollabs });
+      const cellStr = oldCvStrArr[index];
+      if (!cellStr) {
+        return;
+      }
+      const newCellValue = newField.convertStringToCellValue(cellStr, {
+        userSets: tableCollaborators,
+      });
 
       opsMap[record.id].push(
         RecordOpBuilder.editor.setRecord.build({
@@ -1111,7 +1134,9 @@ export class FieldConvertingService {
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();
-    await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
+    await wrapWithValidationErrorHandler(() =>
+      this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery)
+    );
   }
 
   async closeConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {

@@ -15,7 +15,6 @@ export const DbProvider: Provider = {
   provide: DB_PROVIDER_SYMBOL,
   useFactory: (knex: Knex) => {
     const driverClient = getDriverName(knex);
-
     switch (driverClient) {
       case DriverClient.Sqlite:
         return new SqliteProvider(knex);

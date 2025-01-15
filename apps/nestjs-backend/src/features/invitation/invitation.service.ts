@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import {
   BadRequestException,
   ForbiddenException,
@@ -6,10 +7,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IBaseRole, IRole } from '@teable/core';
-import { canManageRole, generateInvitationId } from '@teable/core';
+import { generateInvitationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
+  PrincipalType,
   type AcceptInvitationLinkRo,
   type EmailInvitationVo,
   type EmailSpaceInvitationRo,
@@ -39,55 +41,6 @@ export class InvitationService {
   private generateInviteUrl(invitationId: string, invitationCode: string) {
     const mailConfig = this.configService.get<IMailConfig>('mail');
     return `${mailConfig?.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
-  }
-
-  private async validateUserInviteRole({
-    userId,
-    inviteRole,
-    resourceId,
-    resourceType,
-  }: {
-    userId: string;
-    inviteRole: IRole;
-    resourceId: string;
-    resourceType: CollaboratorType;
-  }) {
-    let spaceId = resourceType === CollaboratorType.Space ? resourceId : '';
-    if (resourceType === CollaboratorType.Base) {
-      const base = await this.prismaService
-        .txClient()
-        .base.findFirstOrThrow({
-          where: {
-            id: resourceId,
-            deletedTime: null,
-          },
-        })
-        .catch(() => {
-          throw new BadRequestException('Base not found');
-        });
-      spaceId = base.spaceId;
-    }
-    const coll = await this.prismaService
-      .txClient()
-      .collaborator.findFirstOrThrow({
-        where: {
-          userId,
-          resourceId: {
-            in: [spaceId, resourceId],
-          },
-        },
-      })
-      .catch(() => {
-        throw new BadRequestException('User not found in collaborator');
-      });
-    const userRole = coll.roleName as IRole;
-
-    if (userRole === inviteRole) {
-      return;
-    }
-    if (!canManageRole(userRole, inviteRole)) {
-      throw new ForbiddenException(`You do not have permission to invite this role: ${inviteRole}`);
-    }
   }
 
   private async createNotExistedUser(emails: string[]) {
@@ -131,9 +84,11 @@ export class InvitationService {
     resourceType: CollaboratorType;
   }) {
     const user = this.cls.get('user');
-    await this.validateUserInviteRole({
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.collaboratorService.validateUserAddRole({
+      departmentIds,
       userId: user.id,
-      inviteRole: role,
+      addRole: role,
       resourceId,
       resourceType,
     });
@@ -156,13 +111,27 @@ export class InvitationService {
       for (const sendUser of sendUsers) {
         // create collaborator link
         if (resourceType === CollaboratorType.Space) {
-          await this.collaboratorService.createSpaceCollaborator(sendUser.id, resourceId, role);
+          await this.collaboratorService.createSpaceCollaborator({
+            collaborators: [
+              {
+                principalId: sendUser.id,
+                principalType: PrincipalType.User,
+              },
+            ],
+            spaceId: resourceId,
+            role: role as IRole,
+          });
         } else {
-          await this.collaboratorService.createBaseCollaborator(
-            sendUser.id,
-            resourceId,
-            role as IBaseRole
-          );
+          await this.collaboratorService.createBaseCollaborator({
+            collaborators: [
+              {
+                principalId: sendUser.id,
+                principalType: PrincipalType.User,
+              },
+            ],
+            baseId: resourceId,
+            role: role as IBaseRole,
+          });
         }
         // generate invitation record
         const { id, invitationCode } = await this.generateInvitation({
@@ -250,9 +219,11 @@ export class InvitationService {
     resourceId: string;
     resourceType: CollaboratorType;
   }): Promise<ItemSpaceInvitationLinkVo> {
-    await this.validateUserInviteRole({
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.collaboratorService.validateUserAddRole({
+      departmentIds,
       userId: this.cls.get('user.id'),
-      inviteRole: role,
+      addRole: role,
       resourceId,
       resourceType,
     });
@@ -330,9 +301,11 @@ export class InvitationService {
     resourceId: string;
     resourceType: CollaboratorType;
   }) {
-    await this.validateUserInviteRole({
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    await this.collaboratorService.validateUserAddRole({
+      departmentIds,
       userId: this.cls.get('user.id'),
-      inviteRole: role,
+      addRole: role,
       resourceId,
       resourceType,
     });
@@ -417,26 +390,37 @@ export class InvitationService {
     }
     const exist = await this.prismaService.txClient().collaborator.count({
       where: {
-        userId: currentUserId,
+        principalId: currentUserId,
+        principalType: PrincipalType.User,
         resourceId: { in: baseSpaceId ? [baseSpaceId, baseId!] : [spaceId!] },
       },
     });
     if (!exist) {
       await this.prismaService.$tx(async () => {
         if (resourceType === CollaboratorType.Space) {
-          await this.collaboratorService.createSpaceCollaborator(
-            currentUserId,
-            spaceId!,
-            role as IRole,
-            createdBy
-          );
+          await this.collaboratorService.createSpaceCollaborator({
+            collaborators: [
+              {
+                principalId: currentUserId,
+                principalType: PrincipalType.User,
+              },
+            ],
+            spaceId: spaceId!,
+            role: role as IRole,
+            createdBy,
+          });
         } else {
-          await this.collaboratorService.createBaseCollaborator(
-            currentUserId,
-            baseId!,
-            role as IBaseRole,
-            createdBy
-          );
+          await this.collaboratorService.createBaseCollaborator({
+            collaborators: [
+              {
+                principalId: currentUserId,
+                principalType: PrincipalType.User,
+              },
+            ],
+            baseId: baseId!,
+            role: role as IBaseRole,
+            createdBy,
+          });
         }
         // save invitation record for audit
         await this.prismaService.txClient().invitationRecord.create({

@@ -10,7 +10,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, UploadType } from '@teable/openapi';
+import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
@@ -76,7 +76,8 @@ export class UserService {
         resourceId: space.id,
         resourceType: CollaboratorType.Space,
         roleName: Role.Owner,
-        userId,
+        principalType: PrincipalType.User,
+        principalId: userId,
         createdBy: userId,
       },
     });
@@ -122,7 +123,7 @@ export class UserService {
       where: { isSystem: null },
     });
 
-    const isAdmin = !this.baseConfig.isCloud && userTotalCount === 0;
+    const isAdmin = userTotalCount === 0;
 
     if (!user?.avatar) {
       const avatar = await this.generateDefaultAvatar(user.id!);

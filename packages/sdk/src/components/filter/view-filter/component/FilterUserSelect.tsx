@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { isMeTag, Me } from '@teable/core';
 import { User as UserIcon } from '@teable/icons';
+import type { UserCollaboratorItem } from '@teable/openapi';
 import { getBaseCollaboratorList } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../../../config/react-query-keys';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId } from '../../../../hooks/use-base-id';
@@ -17,6 +18,7 @@ interface IFilterUserProps {
   field: UserField | CreatedByField | LastModifiedByField;
   operator: string;
   value: string[] | string | null;
+  onSearch?: (value: string) => void;
   onSelect: (value: string[] | string | null) => void;
 }
 
@@ -32,7 +34,7 @@ interface IFilterUserBaseProps extends IFilterUserProps {
 const SINGLE_SELECT_OPERATORS = ['is', 'isNot'];
 
 const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
-  const { value, onSelect, operator, data, disableMe } = props;
+  const { value, onSelect, operator, data, disableMe, onSearch } = props;
   const { user: currentUser } = useSession();
   const { t } = useTranslation();
   const values = useMemo<string | string[] | null>(() => value, [value]);
@@ -123,6 +125,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           className="flex w-64 overflow-hidden"
           popoverClassName="w-64"
           placeholderClassName="text-xs"
+          onSearch={onSearch}
         />
       ) : (
         <BaseMultipleSelect
@@ -134,20 +137,38 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           className="w-64"
           popoverClassName="w-64"
           placeholderClassName="text-xs"
+          onSearch={onSearch}
         />
       )}
     </>
   );
 };
 
+const defaultData = {
+  collaborators: [],
+};
+
 const FilterUserSelect = (props: IFilterUserProps) => {
   const baseId = useBaseId();
-  const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, { includeSystem: true }),
+  const [search, setSearch] = useState('');
+  const { data: collaboratorsData = defaultData } = useQuery({
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, {
+      includeSystem: true,
+      skip: 0,
+      take: 100,
+      search,
+    }),
     queryFn: ({ queryKey }) =>
       getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
-  return collaboratorsData && <FilterUserSelectBase {...props} data={collaboratorsData} />;
+
+  return (
+    <FilterUserSelectBase
+      {...props}
+      data={collaboratorsData.collaborators as UserCollaboratorItem[]}
+      onSearch={setSearch}
+    />
+  );
 };
 
 export { FilterUserSelect, FilterUserSelectBase };

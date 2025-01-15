@@ -1,11 +1,11 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { IRole } from '@teable/core';
-import { Role, generateSpaceId, getUniqName } from '@teable/core';
+import { Role, canManageRole, generateSpaceId, getUniqName } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
-import { ResourceType, CollaboratorType } from '@teable/openapi';
-import { keyBy, map } from 'lodash';
+import { ResourceType, CollaboratorType, PrincipalType } from '@teable/openapi';
+import { map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import type { IClsStore } from '../../types/cls';
@@ -33,18 +33,21 @@ export class SpaceService {
         },
         data: spaceCreateInput,
       });
-      await this.collaboratorService.createSpaceCollaborator(
-        spaceCreateInput.createdBy,
-        result.id,
-        Role.Owner
-      );
+      await this.collaboratorService.createSpaceCollaborator({
+        collaborators: [
+          {
+            principalId: spaceCreateInput.createdBy,
+            principalType: PrincipalType.User,
+          },
+        ],
+        role: Role.Owner,
+        spaceId: result.id,
+      });
       return result;
     });
   }
 
   async getSpaceById(spaceId: string) {
-    const userId = this.cls.get('user.id');
-
     const space = await this.prismaService.space.findFirst({
       select: {
         id: true,
@@ -58,34 +61,26 @@ export class SpaceService {
     if (!space) {
       throw new NotFoundException('Space not found');
     }
-    const collaborator = await this.prismaService.collaborator.findFirst({
-      select: {
-        roleName: true,
-      },
-      where: {
-        resourceId: spaceId,
-        userId,
-      },
-    });
-    if (!collaborator) {
+    const role = await this.permissionService.getRoleBySpaceId(spaceId);
+    if (!role) {
       throw new ForbiddenException();
     }
     return {
       ...space,
-      role: collaborator.roleName as IRole,
+      role,
     };
   }
 
   async getSpaceList() {
     const userId = this.cls.get('user.id');
-
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     const collaboratorSpaceList = await this.prismaService.collaborator.findMany({
       select: {
         resourceId: true,
         roleName: true,
       },
       where: {
-        userId,
+        principalId: { in: [userId, ...(departmentIds || [])] },
         resourceType: CollaboratorType.Space,
       },
     });
@@ -95,7 +90,18 @@ export class SpaceService {
       select: { id: true, name: true },
       orderBy: { createdTime: 'asc' },
     });
-    const roleMap = keyBy(collaboratorSpaceList, 'resourceId');
+    const roleMap = collaboratorSpaceList.reduce(
+      (acc, curr) => {
+        if (
+          !acc[curr.resourceId] ||
+          canManageRole(curr.roleName as IRole, acc[curr.resourceId].roleName as IRole)
+        ) {
+          acc[curr.resourceId] = curr;
+        }
+        return acc;
+      },
+      {} as Record<string, { roleName: string; resourceId: string }>
+    );
     return spaceList.map((space) => ({
       ...space,
       role: roleMap[space.id].roleName as IRole,
@@ -176,9 +182,8 @@ export class SpaceService {
   }
 
   async getBaseListBySpaceId(spaceId: string) {
-    const userId = this.cls.get('user.id');
     const { spaceIds, roleMap } =
-      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+      await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
     if (!spaceIds.includes(spaceId)) {
       throw new ForbiddenException();
     }

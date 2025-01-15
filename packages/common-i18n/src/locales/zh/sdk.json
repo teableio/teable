@@ -21,7 +21,8 @@
     "rowCount": "{{count}}条记录",
     "summary": "统计",
     "summaryTip": "点击此行进行统计",
-    "actions": "操作"
+    "actions": "操作",
+    "remove": "移除"
   },
   "noun": {
     "table": "表格",
@@ -743,5 +744,14 @@
       "linkText": "链接标题",
       "enterUrl": "输入链接"
     }
+  },
+  "memberSelector": {
+    "title": "选择成员",
+    "memberSelectorSearchPlaceholder": "搜索成员...",
+    "departmentSelectorSearchPlaceholder": "搜索部门...",
+    "selected": "已选择",
+    "noSelected": "未选择",
+    "empty": "暂无成员",
+    "emptyDepartment": "暂无部门"
   }
 }

@@ -19,3 +19,4 @@ export * from './base-query';
 export * from './filter';
 export * from './table';
 export * from './view';
+export * from './member-selector';

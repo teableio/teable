@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { deleteCommentReaction, createCommentReaction } from '@teable/openapi';
-import type { ICommentVo, IUpdateCommentReactionRo, ListBaseCollaboratorVo } from '@teable/openapi';
+import type { ICommentVo, IUpdateCommentReactionRo } from '@teable/openapi';
 import {
   Button,
   cn,
@@ -9,10 +9,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib';
-import { useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useSession, useTableId } from '../../../../hooks';
-import { useCollaborators, useRecordId } from '../../hooks';
+import { useRecordId } from '../../hooks';
 
 interface ICommentReactionProps {
   commentId: string;
@@ -24,7 +23,6 @@ export const Reaction = (props: ICommentReactionProps) => {
   const tableId = useTableId();
   const recordId = useRecordId();
   const { user: sessionUser } = useSession();
-  const collaborators = useCollaborators();
   const { t } = useTranslation();
   const { mutateAsync: createCommentReactionFn } = useMutation({
     mutationFn: ({
@@ -58,7 +56,7 @@ export const Reaction = (props: ICommentReactionProps) => {
     if (!tableId || !recordId) {
       return;
     }
-    if (users.includes(sessionUser?.id)) {
+    if (users.some((item) => item.id === sessionUser.id)) {
       await deleteCommentEmojiFn({ tableId, recordId, commentId, reactionRo: { reaction: emoji } });
     } else {
       await createCommentReactionFn({
@@ -70,22 +68,12 @@ export const Reaction = (props: ICommentReactionProps) => {
     }
   };
 
-  const reactionWithUserName = useMemo(() => {
-    if (!value) {
-      return [];
-    }
-
-    return value.map((item) => ({
-      reaction: item.reaction,
-      user: item.user
-        .map((userId) => collaborators.find((item) => item.userId === userId))
-        .filter((user) => user) as ListBaseCollaboratorVo,
-    }));
-  }, [collaborators, value]);
-
-  const reactionUsersInfoRender = (users: ListBaseCollaboratorVo, reaction: string) => {
-    const getUserName = (user: ListBaseCollaboratorVo[number]) => {
-      return user.userId === sessionUser.id ? t('comment.tip.me') : user.userName;
+  const reactionUsersInfoRender = (
+    users: { id: string; name: string; avatar?: string | undefined }[],
+    reaction: string
+  ) => {
+    const getUserName = (user: { id: string; name: string; avatar?: string | undefined }) => {
+      return user.id === sessionUser.id ? t('comment.tip.me') : user.name;
     };
 
     const usersText =
@@ -101,7 +89,7 @@ export const Reaction = (props: ICommentReactionProps) => {
   return (
     <TooltipProvider>
       <div className="mt-1 flex max-h-24 w-full flex-wrap gap-1 overflow-auto">
-        {reactionWithUserName.map(({ reaction, user }, index) => (
+        {value?.map(({ reaction, user }, index) => (
           <Tooltip key={index}>
             <TooltipTrigger asChild>
               <Button
@@ -111,7 +99,7 @@ export const Reaction = (props: ICommentReactionProps) => {
                   'flex cursor-pointer items-center gap-2 rounded-full border px-1.5 py-0.5 text-xs min-w-12 max-w-16',
                   {
                     'bg-blue-100/20 border-blue-200':
-                      user.findIndex((item) => item?.userId === sessionUser?.id) > -1,
+                      user.findIndex((item) => item?.id === sessionUser?.id) > -1,
                   }
                 )}
                 onClick={(e) => {

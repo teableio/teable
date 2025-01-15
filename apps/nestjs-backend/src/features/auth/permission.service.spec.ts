@@ -43,17 +43,16 @@ describe('PermissionService', () => {
     it('should return a SpaceRole', async () => {
       const spaceId = 'space-id';
       const roleName = 'space-role';
-      prismaServiceMock.collaborator.findFirst.mockResolvedValue({ roleName } as any);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([{ roleName } as any]);
       const result = await service['getRoleBySpaceId'](spaceId);
       expect(result).toBe(roleName);
     });
 
     it('should throw a ForbiddenException if collaborator is not found', async () => {
       const spaceId = 'space-id';
-      prismaServiceMock.collaborator.findFirst.mockResolvedValue(null);
-      await expect(service['getRoleBySpaceId'](spaceId)).rejects.toThrowError(
-        new ForbiddenException(`you have no permission to access this space`)
-      );
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
+      const res = await service['getRoleBySpaceId'](spaceId);
+      expect(res).toBeNull();
     });
   });
 
@@ -61,14 +60,14 @@ describe('PermissionService', () => {
     it('should return a BaseRole', async () => {
       const baseId = 'base-id';
       const roleName = 'base-role';
-      prismaServiceMock.collaborator.findFirst.mockResolvedValue({ roleName } as any);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([{ roleName } as any]);
       const result = await service['getRoleByBaseId'](baseId);
       expect(result).toBe(roleName);
     });
 
     it('should return null if collaborator is not found', async () => {
       const baseId = 'base-id';
-      prismaServiceMock.collaborator.findFirst.mockResolvedValue(null);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
       const result = await service['getRoleByBaseId'](baseId);
       expect(result).toBeNull();
     });

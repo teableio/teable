@@ -17,6 +17,7 @@
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "back": "返回",
+    "remove": "移除",
     "saveSucceed": "保存成功！",
     "submitSucceed": "提交成功！",
     "editSucceed": "编辑成功！",
@@ -200,6 +201,10 @@
       "desc_other": "此数据库与 {{count}} 位协作者共享。",
       "baseTitle": "此数据库协作者",
       "collaboratorSearchPlaceholder": "通过姓名或电子邮件查找数据库协作者"
+    },
+    "addOrgCollaborator": {
+      "title": "添加组织协作者",
+      "placeholder": "选择组织成员或部门"
     }
   },
   "help": {

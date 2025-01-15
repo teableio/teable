@@ -11,7 +11,8 @@ export const MentionElement = withRef<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onClick?: (mentionNode: any) => void;
     prefix?: string;
-    render?: (mentionable: TMentionElement) => React.ReactNode;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    render?: (mentionable: any) => React.ReactNode;
   }
 >(({ prefix, className, onClick, render, children, ...props }, ref) => {
   const element = useElement<TMentionElement>();

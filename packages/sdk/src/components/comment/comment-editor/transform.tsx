@@ -44,7 +44,7 @@ export class EditorTransform {
               if (child.type === CommentNodeType.Mention) {
                 return {
                   type: CommentNodeType.Mention,
-                  value: child.value,
+                  value: (child.value as { id: string }).id,
                 };
               }
 
@@ -76,6 +76,7 @@ export class EditorTransform {
         return {
           type: CommentNodeType.Img,
           path: element.path,
+          url: element.url,
           width: element.width,
           children: [{ text: '' }],
         } as TElement;
@@ -91,7 +92,11 @@ export class EditorTransform {
               }
               case CommentNodeType.Mention: {
                 return {
-                  value: child.value,
+                  value: {
+                    id: child.value,
+                    name: child.name,
+                    avatar: child.avatar,
+                  },
                   children: [{ text: '' }],
                   type: CommentNodeType.Mention,
                 };

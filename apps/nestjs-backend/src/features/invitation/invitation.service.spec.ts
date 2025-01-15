@@ -4,7 +4,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { getPermissions, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType } from '@teable/openapi';
+import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
@@ -110,7 +110,7 @@ describe('InvitationService', () => {
         id: mockInvitationId,
         invitationCode: mockInvitationCode,
       } as any);
-      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
+      collaboratorService.validateUserAddRole.mockResolvedValue();
 
       const result = await clsService.runWith(
         {
@@ -125,11 +125,17 @@ describe('InvitationService', () => {
           })
       );
 
-      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith(
-        mockInvitedUser.id,
-        mockSpace.id,
-        Role.Owner
-      );
+      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith({
+        collaborators: [
+          {
+            principalId: mockInvitedUser.id,
+            principalType: PrincipalType.User,
+          },
+        ],
+        spaceId: mockSpace.id,
+        role: Role.Owner,
+      });
+
       expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
         data: {
           inviter: mockUser.id,
@@ -148,7 +154,7 @@ describe('InvitationService', () => {
       prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
       prismaService.$tx.mockRejectedValue(new Error('tx error'));
-      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
+      collaboratorService.validateUserAddRole.mockResolvedValue();
       vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
 
       await clsService.runWith(
@@ -189,7 +195,7 @@ describe('InvitationService', () => {
         id: mockInvitationId,
         invitationCode: mockInvitationCode,
       } as any);
-      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
+      collaboratorService.validateUserAddRole.mockResolvedValue();
 
       const result = await clsService.runWith(
         {
@@ -204,11 +210,16 @@ describe('InvitationService', () => {
           })
       );
 
-      expect(collaboratorService.createBaseCollaborator).toHaveBeenCalledWith(
-        mockInvitedUser.id,
-        'base1',
-        Role.Creator
-      );
+      expect(collaboratorService.createBaseCollaborator).toHaveBeenCalledWith({
+        collaborators: [
+          {
+            principalId: mockInvitedUser.id,
+            principalType: PrincipalType.User,
+          },
+        ],
+        baseId: 'base1',
+        role: Role.Creator,
+      });
       expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
         data: {
           inviter: mockUser.id,
@@ -227,7 +238,7 @@ describe('InvitationService', () => {
       prismaService.base.findFirst.mockResolvedValue({ id: 'base1' } as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
       prismaService.$tx.mockRejectedValue(new Error('tx error'));
-      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
+      collaboratorService.validateUserAddRole.mockResolvedValue();
       vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
       await clsService.runWith(
         {
@@ -389,12 +400,17 @@ describe('InvitationService', () => {
           baseId: mockInvitation.baseId,
         },
       });
-      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith(
-        mockUser.id,
-        mockSpace.id,
-        Role.Owner,
-        'createdBy'
-      );
+      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith({
+        collaborators: [
+          {
+            principalId: mockUser.id,
+            principalType: PrincipalType.User,
+          },
+        ],
+        spaceId: mockSpace.id,
+        role: Role.Owner,
+        createdBy: 'createdBy',
+      });
       expect(result.spaceId).toEqual(mockInvitation.spaceId);
     });
   });

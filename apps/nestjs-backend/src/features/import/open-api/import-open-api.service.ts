@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads';
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import {
   FieldType,
@@ -15,7 +15,7 @@ import type {
   IInplaceImportOptionRo,
   IImportColumn,
 } from '@teable/openapi';
-import { toString } from 'lodash';
+import { difference, toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp } from 'sharedb';
 import type { LocalPresence } from 'sharedb/lib/client';
@@ -128,7 +128,8 @@ export class ImportOpenApiService {
     baseId: string,
     tableId: string,
     inplaceImportRo: IInplaceImportOptionRo,
-    maxRowCount?: number
+    maxRowCount?: number,
+    projection?: string[]
   ) {
     const userId = this.cls.get('user.id');
     const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
@@ -151,6 +152,15 @@ export class ImportOpenApiService {
         type: true,
       },
     });
+
+    if (projection?.length) {
+      const inplaceFieldIds = Object.keys(sourceColumnMap);
+      const noUpdateFields = difference(projection, inplaceFieldIds);
+      if (noUpdateFields.length !== 0) {
+        const tips = noUpdateFields.join(',');
+        throw new ForbiddenException(`There is no permission to update there field ${tips}`);
+      }
+    }
 
     if (!tableRaw || !fieldRaws) {
       return;

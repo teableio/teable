@@ -2,7 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { commentReactionSchema } from './reaction';
+import { commentReactionDetailSchema } from './reaction';
 import { commentContentSchema } from './types';
 
 export const GET_COMMENT_DETAIL = '/comment/{tableId}/{recordId}/{commentId}';
@@ -10,12 +10,16 @@ export const GET_COMMENT_DETAIL = '/comment/{tableId}/{recordId}/{commentId}';
 export const commentSchema = z.object({
   id: z.string(),
   content: commentContentSchema,
-  createdBy: z.string(),
-  reaction: commentReactionSchema.optional().nullable(),
-  createdTime: z.date(),
-  lastModifiedTime: z.date(),
+  createdBy: z.object({
+    id: z.string(),
+    name: z.string(),
+    avatar: z.string().optional(),
+  }),
+  reaction: commentReactionDetailSchema.optional().nullable(),
+  createdTime: z.string(),
+  lastModifiedTime: z.string().optional(),
   quoteId: z.string().optional(),
-  deletedTime: z.date().optional(),
+  deletedTime: z.string().optional(),
 });
 
 export type ICommentVo = z.infer<typeof commentSchema>;

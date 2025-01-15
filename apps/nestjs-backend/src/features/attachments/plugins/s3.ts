@@ -156,7 +156,6 @@ export class S3Storage implements StorageAdapter {
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: path,
-      ResponseContentType: respHeaders?.['Content-Type'],
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
     });
 
@@ -170,10 +169,11 @@ export class S3Storage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, unknown>
   ) {
+    const readStream = fse.createReadStream(filePath);
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: path,
-      Body: filePath,
+      Body: readStream,
       ContentType: metadata['Content-Type'] as string,
       ContentLength: metadata['Content-Length'] as number,
       ContentDisposition: metadata['Content-Disposition'] as string,
@@ -181,11 +181,16 @@ export class S3Storage implements StorageAdapter {
       ContentLanguage: metadata['Content-Language'] as string,
       ContentMD5: metadata['Content-MD5'] as string,
     });
-
-    return this.s3Client.send(command).then((res) => ({
-      hash: res.ETag!,
-      path,
-    }));
+    return this.s3Client
+      .send(command)
+      .then((res) => ({
+        hash: res.ETag!,
+        path,
+      }))
+      .finally(() => {
+        readStream.removeAllListeners();
+        readStream.destroy();
+      });
   }
 
   uploadFile(

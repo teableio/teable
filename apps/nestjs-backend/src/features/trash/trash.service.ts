@@ -45,9 +45,11 @@ export class TrashService {
 
   async getAuthorizedSpacesAndBases() {
     const userId = this.cls.get('user.id');
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
-        userId,
+        principalId: { in: [userId, ...(departmentIds || [])] },
         roleName: { in: [Role.Owner, Role.Creator] },
       },
       select: {

@@ -1,6 +1,6 @@
 import type { IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
-import { useToast } from '@teable/ui-lib';
+import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
@@ -8,7 +8,7 @@ import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import { useBaseId, useTableId, useTablePermission } from '../../hooks';
 import { Record } from '../../model';
-import { syncCopy } from './copy';
+import { syncCopy } from '../../utils';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
@@ -51,7 +51,6 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     commentId,
     viewId,
   } = props;
-  const { toast } = useToast();
   const { t } = useTranslation();
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
@@ -81,7 +80,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
       anchorId: recordId,
       position: 'after',
     });
-    toast({ description: t('expandRecord.duplicateRecord') });
+    toast.success(t('expandRecord.duplicateRecord'));
   };
 
   const updateCurrentRecordId = (recordId: string) => {
@@ -91,7 +90,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const onCopyUrl = () => {
     const url = window.location.href;
     syncCopy(url);
-    toast({ description: t('expandRecord.copy') });
+    toast.success(t('expandRecord.copy'));
   };
 
   const onRecordHistoryToggle = () => {
