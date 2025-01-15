@@ -94,6 +94,7 @@ export const getAggregation = async (tableId: string, query?: IAggregationRo) =>
   return axios.get<IAggregationVo>(urlBuilder(GET_AGGREGATION_LIST, { tableId }), {
     params: {
       ...query,
+      filter: JSON.stringify(query?.filter),
       groupBy: JSON.stringify(query?.groupBy),
     },
   });

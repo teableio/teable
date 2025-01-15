@@ -34,6 +34,16 @@
         "label": "API 接口",
         "restfulApi": "Restful API",
         "databaseConnection": "数据库连接"
+      },
+      "personalView": {
+        "personal": "个人",
+        "collaborative": "协同",
+        "dialog": {
+          "title": "切换到视图协同模式",
+          "description": "切换到视图协同模式后，视图的个人配置将同步给所有人，请确认是否同步",
+          "cancelText": "不同步",
+          "confirmText": "同步"
+        }
       }
     }
   },

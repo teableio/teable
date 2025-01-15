@@ -34,6 +34,16 @@
         "label": "API",
         "restfulApi": "Restful API",
         "databaseConnection": "Database Connection"
+      },
+      "personalView": {
+        "personal": "Personal",
+        "collaborative": "Collaborative",
+        "dialog": {
+          "title": "Switch to view collaborative mode",
+          "description": "Switch to view collaborative mode, the personal configuration of the view will be synchronized with everyone, please confirm whether to synchronize",
+          "cancelText": "Not synchronize",
+          "confirmText": "Synchronize"
+        }
       }
     }
   },

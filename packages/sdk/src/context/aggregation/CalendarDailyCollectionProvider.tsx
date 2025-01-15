@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
+import type { ICalendarDailyCollectionRo } from '@teable/openapi';
 import { getCalendarDailyCollection, getShareViewCalendarDailyCollection } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
@@ -12,18 +13,12 @@ import { CalendarDailyCollectionContext } from './CalendarDailyCollectionContext
 
 interface ICalendarDailyCollectionProviderProps {
   children: ReactNode;
-  startDate?: string;
-  endDate?: string;
-  startDateFieldId?: string;
-  endDateFieldId?: string;
+  query?: ICalendarDailyCollectionRo;
 }
 
 export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProviderProps> = ({
   children,
-  startDate,
-  endDate,
-  startDateFieldId,
-  endDateFieldId,
+  query,
 }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
@@ -31,26 +26,40 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
   const { searchQuery } = useSearch();
   const { shareId } = useContext(ShareViewContext);
   const view = useView() as CalendarView | undefined;
-  const shareFilter = shareId ? view?.filter : undefined;
+  const viewFilter = view?.filter;
+  const { startDate, endDate, startDateFieldId, endDateFieldId } = query ?? {};
 
   const isEnabled = Boolean(startDate && endDate && startDateFieldId && endDateFieldId);
 
-  const query = useMemo(
-    () => ({
+  const calenderDailyCollectionQuery = useMemo(() => {
+    const {
+      startDate,
+      endDate,
+      startDateFieldId,
+      endDateFieldId,
+      viewId,
+      filter,
+      ignoreViewQuery,
+    } = query ?? {};
+    return {
       viewId,
       search: searchQuery,
       startDate: startDate || '',
       endDate: endDate || '',
       startDateFieldId: startDateFieldId || '',
       endDateFieldId: endDateFieldId || '',
-      filter: shareFilter,
-    }),
-    [searchQuery, viewId, startDate, endDate, startDateFieldId, endDateFieldId, shareFilter]
-  );
+      filter: shareId ? viewFilter : filter,
+      ignoreViewQuery,
+    };
+  }, [query, searchQuery, shareId, viewFilter]);
 
   const queryKey = useMemo(
-    () => ReactQueryKeys.calendarDailyCollection(shareId || (tableId as string), query),
-    [shareId, tableId, query]
+    () =>
+      ReactQueryKeys.calendarDailyCollection(
+        shareId || (tableId as string),
+        calenderDailyCollectionQuery
+      ),
+    [shareId, tableId, calenderDailyCollectionQuery]
   );
 
   const { data: commonCalendarDailyCollection } = useQuery({

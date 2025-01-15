@@ -1,6 +1,14 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
 import type { IGetBaseVo, IGroupPointsVo } from '@teable/openapi';
-import { AnchorContext, FieldProvider, useTable, useUndoRedo, ViewProvider } from '@teable/sdk';
+import {
+  AnchorContext,
+  FieldProvider,
+  useTable,
+  useUndoRedo,
+  ViewProvider,
+  PersonalViewProxy,
+  PersonalViewProvider,
+} from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -57,24 +65,28 @@ export const Table: React.FC<ITableProps> = ({
       </Head>
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>
-          <div className="flex h-full grow basis-[500px] flex-col">
-            <TableHeader />
-            <FieldProvider serverSideData={fieldServerData}>
-              <ErrorBoundary
-                fallback={
-                  <div className="flex size-full items-center justify-center">
-                    <FailAlert />
-                  </div>
-                }
-              >
-                <View
-                  recordServerData={recordServerData}
-                  recordsServerData={recordsServerData}
-                  groupPointsServerDataMap={groupPointsServerDataMap}
-                />
-              </ErrorBoundary>
-            </FieldProvider>
-          </div>
+          <PersonalViewProxy serverData={viewServerData}>
+            <div className="flex h-full grow basis-[500px] flex-col">
+              <TableHeader />
+              <FieldProvider serverSideData={fieldServerData}>
+                <ErrorBoundary
+                  fallback={
+                    <div className="flex size-full items-center justify-center">
+                      <FailAlert />
+                    </div>
+                  }
+                >
+                  <PersonalViewProvider>
+                    <View
+                      recordServerData={recordServerData}
+                      recordsServerData={recordsServerData}
+                      groupPointsServerDataMap={groupPointsServerDataMap}
+                    />
+                  </PersonalViewProvider>
+                </ErrorBoundary>
+              </FieldProvider>
+            </div>
+          </PersonalViewProxy>
         </ViewProvider>
       </TablePermissionProvider>
     </AnchorContext.Provider>

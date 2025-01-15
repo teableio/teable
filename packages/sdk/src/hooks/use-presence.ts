@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 import { useConnection } from './use-connection';
 
+export interface IActionData {
+  actionKey: string;
+  payload?: Record<string, unknown>;
+}
+
 export const usePresence = (channel: string | undefined) => {
   const { connection } = useConnection();
   const [presence, setPresence] = useState<Presence>();
@@ -31,10 +36,11 @@ export const usePresence = (channel: string | undefined) => {
   return presence;
 };
 
-export const useActionListener = <T>(
+export const useActionListener = <T extends IActionData>(
   tableIdOrViewId: string | undefined,
-  matches: T[],
-  callback: () => void
+  matches: T['actionKey'][],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  callback: (payload?: any) => void
 ) => {
   const presence = usePresence(tableIdOrViewId && getActionTriggerChannel(tableIdOrViewId));
   const relevantProps = useMemo(() => new Set(matches), [matches]);
@@ -43,7 +49,10 @@ export const useActionListener = <T>(
     if (!tableIdOrViewId || !presence) return;
 
     const cb = (_id: string, res: T[]) => {
-      res.some((action) => relevantProps.has(action)) && callback();
+      const result = res.find(({ actionKey }) => relevantProps.has(actionKey));
+      if (result) {
+        callback(result.payload);
+      }
     };
 
     presence.addListener('receive', cb);

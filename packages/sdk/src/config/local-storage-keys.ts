@@ -14,4 +14,5 @@ export enum LocalStorageKeys {
   EnableGlobalSearch = 'ls_enable_globalSearch',
   TableSearchFieldsCache = 'ls_table_search_fields_cache',
   SearchHideNotMatchRow = 'ls_search_hide_not_match_row',
+  PersonalViewMap = 'ls_personal_view_map',
 }

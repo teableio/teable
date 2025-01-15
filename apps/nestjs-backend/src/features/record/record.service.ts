@@ -532,6 +532,7 @@ export class RecordService {
     query: Pick<
       IGetRecordsRo,
       | 'viewId'
+      | 'ignoreViewQuery'
       | 'orderBy'
       | 'groupBy'
       | 'filter'
@@ -552,7 +553,10 @@ export class RecordService {
       groupBy,
       fieldMap,
       fieldMapWithoutHiddenFields,
-    } = await this.prepareQuery(tableId, query);
+    } = await this.prepareQuery(tableId, {
+      ...query,
+      viewId: query.ignoreViewQuery ? undefined : query.viewId,
+    });
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -701,6 +705,7 @@ export class RecordService {
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
     const queryResult = await this.getDocIdsByQuery(tableId, {
+      ignoreViewQuery: query.ignoreViewQuery ?? false,
       viewId: query.viewId,
       skip: query.skip,
       take: query.take,
@@ -1320,7 +1325,7 @@ export class RecordService {
     tableId: string,
     query: IGetRecordsRo
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const { skip, take = 100 } = query;
+    const { skip, take = 100, ignoreViewQuery } = query;
 
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
@@ -1330,7 +1335,11 @@ export class RecordService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, query);
+    const viewId = ignoreViewQuery ? undefined : query.viewId;
+    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, {
+      ...query,
+      viewId,
+    });
     const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
       ...query,
       filter: filterWithGroup,
@@ -1351,7 +1360,15 @@ export class RecordService {
 
     // this search step should not abort the query
     try {
-      const searchHitIndex = await this.getSearchHitIndex(tableId, query, dbTableName, ids);
+      const searchHitIndex = await this.getSearchHitIndex(
+        tableId,
+        {
+          ...query,
+          viewId,
+        },
+        dbTableName,
+        ids
+      );
       return { ids, extra: { groupPoints, searchHitIndex } };
     } catch (e) {
       this.logger.error(`Get search index error: ${(e as Error).message}`, (e as Error)?.stack);
@@ -1510,6 +1527,7 @@ export class RecordService {
       cellFormat,
       projection,
       viewId,
+      ignoreViewQuery,
       filterLinkCellCandidate,
       filterLinkCellSelected,
     } = query;
@@ -1525,6 +1543,7 @@ export class RecordService {
 
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       viewId,
+      ignoreViewQuery,
       filter: filterWithGroup,
       orderBy,
       search,
@@ -1784,7 +1803,13 @@ export class RecordService {
   }
 
   public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo) {
-    const { viewId, groupBy: extraGroupBy, filter, search, collapsedGroupIds } = query || {};
+    const {
+      groupBy: extraGroupBy,
+      filter,
+      search,
+      collapsedGroupIds,
+      ignoreViewQuery,
+    } = query || {};
     let groupPoints: IGroupPoint[] = [];
 
     const groupBy = parseGroup(extraGroupBy);
@@ -1796,6 +1821,7 @@ export class RecordService {
       };
     }
 
+    const viewId = ignoreViewQuery ? undefined : query?.viewId;
     const viewRaw = await this.getTinyView(tableId, viewId);
     const fieldInstanceMap = (await this.getNecessaryFieldMap(
       tableId,
@@ -1889,6 +1915,7 @@ export class RecordService {
     }
 
     const queryResult = await this.getDocIdsByQuery(tableId, {
+      ignoreViewQuery: query.ignoreViewQuery ?? false,
       viewId: query.viewId,
       skip: query.skip,
       take: query.take,

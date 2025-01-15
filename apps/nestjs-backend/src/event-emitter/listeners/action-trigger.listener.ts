@@ -19,6 +19,11 @@ type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
 type IListenerEvent = IViewEvent | IRecordEvent | FieldUpdateEvent | FieldCreateEvent;
 
+export interface IActionTriggerData {
+  actionKey: ITableActionKey | IViewActionKey;
+  payload?: Record<string, unknown>;
+}
+
 @Injectable()
 export class ActionTriggerListener {
   private readonly logger = new Logger(ActionTriggerListener.name);
@@ -81,7 +86,10 @@ export class ActionTriggerListener {
     }
 
     if (!isEmpty(buffer)) {
-      this.emitActionTrigger(viewId, buffer);
+      this.emitActionTrigger(
+        viewId,
+        buffer.map((actionKey) => ({ actionKey }))
+      );
     }
   }
 
@@ -91,12 +99,12 @@ export class ActionTriggerListener {
     }
 
     const { tableId } = event.payload;
-    return this.emitActionTrigger(tableId, ['setField']);
+    return this.emitActionTrigger(tableId, [{ actionKey: 'setField', payload: event.payload }]);
   }
 
   private async handleTableFieldCreate(event: FieldCreateEvent): Promise<void> {
     const { tableId } = event.payload;
-    return this.emitActionTrigger(tableId, ['addField']);
+    return this.emitActionTrigger(tableId, [{ actionKey: 'addField' }]);
   }
 
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
@@ -110,7 +118,10 @@ export class ActionTriggerListener {
       .otherwise(() => []);
 
     if (!isEmpty(buffer)) {
-      this.emitActionTrigger(tableId, buffer);
+      this.emitActionTrigger(
+        tableId,
+        buffer.map((actionKey) => ({ actionKey }))
+      );
     }
   }
 
@@ -133,7 +144,7 @@ export class ActionTriggerListener {
   }
 
   private isValidFieldUpdateOperation(event: FieldUpdateEvent): boolean | undefined {
-    const propertyKeys = ['options'];
+    const propertyKeys = ['options', 'dbFieldType'];
     const { propertyKey } = event.context.opMeta || {};
     return propertyKeys.includes(propertyKey as string);
   }
@@ -147,7 +158,7 @@ export class ActionTriggerListener {
     return recordEvents.includes(event.name);
   }
 
-  private emitActionTrigger(tableIdOrViewId: string, data: ITableActionKey[] | IViewActionKey[]) {
+  private emitActionTrigger(tableIdOrViewId: string, data: IActionTriggerData[]) {
     const channel = getActionTriggerChannel(tableIdOrViewId);
 
     const presence = this.shareDbService.connect().getPresence(channel);

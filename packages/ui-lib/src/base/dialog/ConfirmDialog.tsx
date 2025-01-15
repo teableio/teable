@@ -22,8 +22,8 @@ interface IConfirmDialogProps {
   cancelText?: string;
   confirmText?: string;
   confirmLoading?: boolean;
-  onConfirm?: () => void;
-  onCancel?: () => void;
+  onConfirm?: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
   onOpenChange?: (open: boolean) => void;
 }
 export const ConfirmDialog = (props: IConfirmDialogProps) => {

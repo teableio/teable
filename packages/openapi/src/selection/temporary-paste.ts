@@ -12,6 +12,7 @@ export const temporaryPasteRoSchema = rangesRoSchema
     viewId: true,
     ranges: true,
     excludeFieldIds: true,
+    ignoreViewQuery: true,
   })
   .extend({
     content: z.string().openapi({

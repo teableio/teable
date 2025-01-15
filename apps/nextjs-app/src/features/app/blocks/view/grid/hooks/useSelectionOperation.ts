@@ -11,7 +11,15 @@ import type {
 } from '@teable/openapi';
 import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
-import { useBaseId, useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
+import {
+  useBaseId,
+  useFields,
+  usePersonalView,
+  useSearch,
+  useTableId,
+  useView,
+  useViewId,
+} from '@teable/sdk';
 import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
@@ -40,6 +48,7 @@ export const useSelectionOperation = (props?: {
   const fields = useFields();
   const view = useView();
   const { searchQuery: search } = useSearch();
+  const { personalViewCommonQuery } = usePersonalView();
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -47,27 +56,55 @@ export const useSelectionOperation = (props?: {
 
   const { mutateAsync: defaultCopyReq } = useMutation({
     mutationFn: (copyRo: IRangesRo) =>
-      copy(tableId!, { ...copyRo, viewId, groupBy, collapsedGroupIds, search }),
+      copy(tableId!, {
+        ...copyRo,
+        ...personalViewCommonQuery,
+        viewId,
+        groupBy,
+        collapsedGroupIds,
+        search,
+      }),
   });
 
   const { mutateAsync: pasteReq } = useMutation({
     mutationFn: (pasteRo: IPasteRo) =>
-      paste(tableId!, { ...pasteRo, viewId, groupBy, collapsedGroupIds, search }),
+      paste(tableId!, {
+        ...pasteRo,
+        ...personalViewCommonQuery,
+        viewId,
+        groupBy,
+        collapsedGroupIds,
+        search,
+      }),
   });
 
   const { mutateAsync: temporaryPasteReq } = useMutation({
     mutationFn: (temporaryPasteRo: ITemporaryPasteRo) =>
-      temporaryPaste(tableId!, { ...temporaryPasteRo, viewId }),
+      temporaryPaste(tableId!, { ...temporaryPasteRo, ...personalViewCommonQuery, viewId }),
   });
 
   const { mutateAsync: clearReq } = useMutation({
     mutationFn: (clearRo: IRangesRo) =>
-      clear(tableId!, { ...clearRo, viewId, groupBy, collapsedGroupIds, search }),
+      clear(tableId!, {
+        ...clearRo,
+        ...personalViewCommonQuery,
+        viewId,
+        groupBy,
+        collapsedGroupIds,
+        search,
+      }),
   });
 
   const { mutateAsync: deleteReq } = useMutation({
     mutationFn: (deleteRo: IRangesRo) =>
-      deleteSelection(tableId!, { ...deleteRo, viewId, groupBy, collapsedGroupIds, search }),
+      deleteSelection(tableId!, {
+        ...deleteRo,
+        ...personalViewCommonQuery,
+        viewId,
+        groupBy,
+        collapsedGroupIds,
+        search,
+      }),
   });
 
   const { toast } = useToast();

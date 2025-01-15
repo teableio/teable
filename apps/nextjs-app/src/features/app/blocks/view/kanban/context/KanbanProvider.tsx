@@ -18,6 +18,7 @@ import {
   useTablePermission,
   useFieldPermission,
   useBaseId,
+  usePersonalView,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
 import type { ReactNode } from 'react';
@@ -34,6 +35,7 @@ const UNCATEGORIZED_STACK_DATA = {
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
+  const { personalViewCommonQuery } = usePersonalView();
   const baseId = useBaseId() as string;
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
@@ -47,13 +49,15 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const groupPoints = useGroupPoint();
 
   const recordQuery = useMemo(() => {
-    if (!shareId || (!sort && !filter)) return;
+    const { ignoreViewQuery } = personalViewCommonQuery ?? {};
+    if (!shareId || (!sort && !filter)) return { ignoreViewQuery };
 
     return {
       orderBy: sort?.sortObjs,
-      filter: filter,
+      filter,
+      ignoreViewQuery,
     };
-  }, [shareId, sort, filter]);
+  }, [shareId, sort, filter, personalViewCommonQuery]);
 
   const stackField = useMemo(() => {
     if (!stackFieldId) return;

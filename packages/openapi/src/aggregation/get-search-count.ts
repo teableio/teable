@@ -16,6 +16,7 @@ export const searchCountRoSchema = queryBaseSchema.pick({
   filter: true,
   viewId: true,
   search: true,
+  ignoreViewQuery: true,
 });
 
 export type ISearchCountRo = z.infer<typeof searchCountRoSchema>;

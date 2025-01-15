@@ -1,9 +1,10 @@
+import type { IGetRecordsRo } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
 import { useView, useViewId, useSearch } from '../../../hooks';
 import type { GridView } from '../../../model';
 import { useGridCollapsedGroupStore } from '../store';
 
-export const useGridCollapsedGroup = (cacheKey: string) => {
+export const useGridCollapsedGroup = (cacheKey: string, initQuery?: IGetRecordsRo) => {
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
   const groupBy = view?.group;
@@ -29,19 +30,21 @@ export const useGridCollapsedGroup = (cacheKey: string) => {
       ? {
           viewQuery: groupBy?.length
             ? {
+                ...initQuery,
                 groupBy,
               }
-            : undefined,
+            : initQuery,
         }
       : {
           viewQuery: groupBy?.length
             ? {
+                ...initQuery,
                 groupBy,
                 collapsedGroupIds: collapsedGroupIds ? Array.from(collapsedGroupIds) : undefined,
               }
-            : undefined,
+            : initQuery,
           collapsedGroupIds,
           onCollapsedGroupChanged,
         };
-  }, [value, onCollapsedGroupChanged, groupBy, collapsedGroupIds]);
+  }, [value, groupBy, collapsedGroupIds, initQuery, onCollapsedGroupChanged]);
 };

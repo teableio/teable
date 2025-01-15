@@ -12,6 +12,7 @@ export const groupPointsRoSchema = contentQueryBaseSchema.pick({
   search: true,
   groupBy: true,
   collapsedGroupIds: true,
+  ignoreViewQuery: true,
 });
 
 export type IGroupPointsRo = z.infer<typeof groupPointsRoSchema>;

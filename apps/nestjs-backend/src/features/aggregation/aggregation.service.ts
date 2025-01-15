@@ -223,7 +223,14 @@ export class AggregationService {
   }
 
   async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
-    const { filterLinkCellCandidate, filterLinkCellSelected, selectedRecordIds } = queryRo;
+    const {
+      viewId,
+      ignoreViewQuery,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      selectedRecordIds,
+      search,
+    } = queryRo;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -231,7 +238,7 @@ export class AggregationService {
       await this.fetchStatisticsParams({
         tableId,
         withView: {
-          viewId: queryRo.viewId,
+          viewId: ignoreViewQuery ? undefined : viewId,
           customFilter: queryRo.filter,
         },
       });
@@ -249,7 +256,7 @@ export class AggregationService {
       filterLinkCellCandidate,
       filterLinkCellSelected,
       selectedRecordIds,
-      search: queryRo.search,
+      search,
       withUserId: currentUserId,
     });
 
@@ -612,7 +619,7 @@ export class AggregationService {
   }
 
   public async getSearchCount(tableId: string, queryRo: ISearchCountRo, projection?: string[]) {
-    const { search, viewId } = queryRo;
+    const { search, viewId, ignoreViewQuery } = queryRo;
     const dbFieldName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
@@ -623,7 +630,7 @@ export class AggregationService {
     const searchFields = await this.recordService.getSearchFields(
       fieldInstanceMap,
       search,
-      viewId,
+      ignoreViewQuery ? undefined : viewId,
       projection
     );
 
@@ -653,7 +660,7 @@ export class AggregationService {
     queryRo: ISearchIndexByQueryRo,
     projection?: string[]
   ) {
-    const { search, take, skip, orderBy, filter, viewId, groupBy } = queryRo;
+    const { search, take, skip, orderBy, filter, groupBy, viewId, ignoreViewQuery } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
@@ -668,7 +675,7 @@ export class AggregationService {
     const searchFields = await this.recordService.getSearchFields(
       fieldInstanceMap,
       search,
-      viewId,
+      ignoreViewQuery ? undefined : viewId,
       projection
     );
 
@@ -763,7 +770,15 @@ export class AggregationService {
     tableId: string,
     query: ICalendarDailyCollectionRo
   ): Promise<ICalendarDailyCollectionVo> {
-    const { startDate, endDate, startDateFieldId, endDateFieldId, viewId, filter, search } = query;
+    const {
+      startDate,
+      endDate,
+      startDateFieldId,
+      endDateFieldId,
+      filter,
+      search,
+      ignoreViewQuery,
+    } = query;
 
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
@@ -799,6 +814,7 @@ export class AggregationService {
       throw new BadRequestException('Invalid end date field id');
     }
 
+    const viewId = ignoreViewQuery ? undefined : query.viewId;
     const queryBuilder = this.knex(dbTableName);
     const viewRaw = await this.findView(tableId, { viewId });
     const filterStr = viewRaw?.filter;

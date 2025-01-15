@@ -4,7 +4,8 @@ import { useActionListener } from './use-presence';
 export const useTableListener = (
   tableId: string | undefined,
   matches: ITableActionKey[],
-  cb: () => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cb: (payload?: any) => void
 ) => {
   return useActionListener(tableId, matches, cb);
 };

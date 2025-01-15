@@ -10,6 +10,7 @@ export const calendarDailyCollectionRoSchema = contentQueryBaseSchema
     viewId: true,
     filter: true,
     search: true,
+    ignoreViewQuery: true,
   })
   .merge(
     z.object({

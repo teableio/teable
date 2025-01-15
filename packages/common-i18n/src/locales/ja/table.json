@@ -32,6 +32,16 @@
         "label": "API",
         "restfulApi": "Restful API",
         "databaseConnection": "データベース接続"
+      },
+      "personalView": {
+        "personal": "個人",
+        "collaborative": "協同",
+        "dialog": {
+          "title": "ビュー協同モードに切り替える",
+          "description": "ビュー協同モードに切り替えると、ビューの個人設定がすべての人と同期されます。同期するかどうかを確認してください。",
+          "cancelText": "同期しない",
+          "confirmText": "同期"
+        }
       }
     }
   },

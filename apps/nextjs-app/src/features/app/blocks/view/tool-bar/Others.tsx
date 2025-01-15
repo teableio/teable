@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { SearchButton } from '../search/SearchButton';
+import { PersonalViewSwitch } from './components';
 import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
 
@@ -20,6 +21,8 @@ const OthersList = ({
   const baseId = useBaseId() as string;
   const tableId = useTableId();
 
+  const { textClassName, buttonClassName } = classNames ?? {};
+
   return (
     <div className={cn('gap-1', className)}>
       <SharePopover>
@@ -27,8 +30,8 @@ const OthersList = ({
           <ToolBarButton
             isActive={isActive}
             text={text}
-            textClassName={classNames?.textClassName}
-            className={classNames?.buttonClassName}
+            textClassName={textClassName}
+            className={buttonClassName}
             disabled={!permission['view|update']}
           >
             <ArrowUpRight className="size-4" />
@@ -39,8 +42,8 @@ const OthersList = ({
         <PopoverTrigger asChild>
           <ToolBarButton
             text="API"
-            className={cn(GUIDE_API_BUTTON, classNames?.buttonClassName)}
-            textClassName={classNames?.textClassName}
+            className={cn(GUIDE_API_BUTTON, buttonClassName)}
+            textClassName={textClassName}
           >
             <Code2 className="size-4" />
           </ToolBarButton>
@@ -81,6 +84,7 @@ const OthersList = ({
           </Button>
         </PopoverContent>
       </Popover>
+      <PersonalViewSwitch textClassName={textClassName} buttonClassName={buttonClassName} />
     </div>
   );
 };

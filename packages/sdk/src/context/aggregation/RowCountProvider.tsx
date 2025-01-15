@@ -43,6 +43,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
     }),
     [viewId, searchQuery, selectedRecordIds, filterLinkCellCandidate, shareId, view?.filter, query]
   );
+  const ignoreViewQuery = rowCountQuery?.ignoreViewQuery ?? false;
 
   const prevQueryRef = useRef(rowCountQuery);
 
@@ -91,7 +92,10 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   );
   useTableListener(tableId, tableMatches, updateRowCountForTable);
 
-  const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
+  const viewMatches = useMemo<IViewActionKey[]>(
+    () => (ignoreViewQuery ? [] : ['applyViewFilter']),
+    [ignoreViewQuery]
+  );
   useViewListener(viewId, viewMatches, updateRowCount);
 
   const rowCount = useMemo(() => {

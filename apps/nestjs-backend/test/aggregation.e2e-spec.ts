@@ -1,13 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { IGroup } from '@teable/core';
-import { is, SortFunc, StatisticsFunc } from '@teable/core';
+import { is, isGreaterEqual, SortFunc, StatisticsFunc, ViewType } from '@teable/core';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import {
   getAggregation,
   getCalendarDailyCollection,
   getGroupPoints,
   getRowCount,
+  getSearchCount,
+  getSearchIndex,
   GroupPointType,
 } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
@@ -20,7 +22,13 @@ import {
   TEXT_FIELD_CASES,
   USER_FIELD_CASES,
 } from './data-helpers/caces/aggregation-query';
-import { createTable, permanentDeleteTable, initApp, createRecords } from './utils/init-app';
+import {
+  createTable,
+  permanentDeleteTable,
+  initApp,
+  createRecords,
+  createView,
+} from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
@@ -591,6 +599,109 @@ describe('OpenAPI AggregationController (e2e)', () => {
         endDateFieldId: table.fields[3].id,
         startDate: '2022-01-27T16:00:00.000Z',
         endDate: '2022-03-12T16:00:00.000Z',
+      });
+
+      expect(result).toBeDefined();
+      expect(result.data.countMap).toEqual({
+        '2022-01-28': 1,
+        '2022-03-01': 1,
+        '2022-03-02': 1,
+        '2022-03-12': 1,
+      });
+      expect(result.data.records.length).toEqual(4);
+    });
+  });
+
+  describe('aggregation with ignoreViewQuery', () => {
+    let table: ITableFullVo;
+    let viewId: string;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'agg_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+
+      const numberFieldId = table.fields[1].id;
+      const view = await createView(table.id, {
+        type: ViewType.Grid,
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: numberFieldId, operator: isGreaterEqual.value, value: 16 }],
+        },
+        sort: {
+          sortObjs: [{ fieldId: numberFieldId, order: SortFunc.Asc }],
+        },
+        group: [{ fieldId: numberFieldId, order: SortFunc.Asc }],
+      });
+      viewId = view.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should get row count with ignoreViewQuery', async () => {
+      const { rowCount } = (await getRowCount(table.id, { viewId, ignoreViewQuery: true })).data;
+      expect(rowCount).toEqual(23);
+    });
+
+    it('should get aggregation with ignoreViewQuery', async () => {
+      const result = (
+        await getAggregation(table.id, {
+          viewId,
+          field: { [StatisticsFunc.Count]: [table.fields[0].id] },
+          ignoreViewQuery: true,
+        })
+      ).data;
+      expect(result.aggregations?.length).toEqual(1);
+      expect(result.aggregations?.[0].total?.value).toEqual(23);
+    });
+
+    it('should get group points with ignoreViewQuery', async () => {
+      const result = (
+        await getGroupPoints(table.id, {
+          viewId,
+          groupBy: [{ fieldId: table.fields[0].id, order: SortFunc.Asc }],
+          ignoreViewQuery: true,
+        })
+      ).data;
+      const groupCount = result?.filter(({ type }) => type === GroupPointType.Header).length;
+      expect(groupCount).toEqual(22);
+    });
+
+    it('should get search count with ignoreViewQuery', async () => {
+      const result = (
+        await getSearchCount(table.id, {
+          viewId,
+          search: ['Text Field 10', '', false],
+          ignoreViewQuery: true,
+        })
+      ).data;
+      expect(result.count).toEqual(2);
+    });
+
+    it('should get search index with ignoreViewQuery', async () => {
+      const result = (
+        await getSearchIndex(table.id, {
+          viewId,
+          take: 50,
+          search: ['Text Field 10', '', false],
+          ignoreViewQuery: true,
+        })
+      ).data;
+      expect(result?.length).toEqual(2);
+    });
+
+    it('should get calendar daily collection with ignoreViewQuery', async () => {
+      const result = await getCalendarDailyCollection(table.id, {
+        viewId,
+        startDateFieldId: table.fields[3].id,
+        endDateFieldId: table.fields[3].id,
+        startDate: '2022-01-27T16:00:00.000Z',
+        endDate: '2022-03-12T16:00:00.000Z',
+        ignoreViewQuery: true,
       });
 
       expect(result).toBeDefined();

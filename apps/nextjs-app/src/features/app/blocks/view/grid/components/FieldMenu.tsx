@@ -138,7 +138,7 @@ export const FieldMenu = () => {
 
     if (index === -1) return;
 
-    view?.updateFrozenColumnCount(index + 1);
+    view?.updateOption({ frozenColumnCount: index + 1 });
   };
 
   const menuGroups: IMenuItemProps<MenuItemType>[][] = [
