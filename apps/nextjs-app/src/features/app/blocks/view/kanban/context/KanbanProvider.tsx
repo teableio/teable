@@ -51,13 +51,19 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
   const recordQuery = useMemo(() => {
     const { ignoreViewQuery } = personalViewCommonQuery ?? {};
-    if (!shareId || (!sort && !filter)) return { ignoreViewQuery };
-
-    return {
+    const baseQuery = {
       orderBy: sort?.sortObjs,
-      filter,
-      ignoreViewQuery,
+      filter: filter,
     };
+
+    if (shareId) return baseQuery;
+
+    if (ignoreViewQuery) {
+      return {
+        ...baseQuery,
+        ignoreViewQuery,
+      };
+    }
   }, [shareId, sort, filter, personalViewCommonQuery]);
 
   const stackField = useMemo(() => {

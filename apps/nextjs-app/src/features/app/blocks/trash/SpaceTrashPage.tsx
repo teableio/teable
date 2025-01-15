@@ -287,9 +287,10 @@ export const SpaceTrashPage = () => {
           const { resourceId, resourceType } = deletingResource;
           setConfirmVisible(false);
           if (resourceType === ResourceType.Space) {
-            return mutatePermanentDeleteSpace({
+            mutatePermanentDeleteSpace({
               spaceId: resourceId,
             });
+            return;
           }
           mutatePermanentDeleteBase({
             baseId: resourceId,

@@ -107,7 +107,7 @@ export const validateViewFilter = (filter: IFilter, fieldMap: Record<string, IFi
 
       return {
         conjunction: item.conjunction,
-        filterSet: validFilters,
+        filterSet: validFilters as (IFilterItem | IFilterSet)[],
       };
     }
 
