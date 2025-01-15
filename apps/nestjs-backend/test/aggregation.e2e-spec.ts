@@ -427,7 +427,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
           [StatisticsFunc.PercentUnChecked]: [checkboxFieldId],
           [StatisticsFunc.PercentEmpty]: [fieldId],
         },
-        filter: JSON.stringify({
+        filter: {
           conjunction: 'and',
           filterSet: [
             {
@@ -437,7 +437,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
             },
           ],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        }) as any,
+        } as any,
       }).then((res) => res.data);
       expect(result).toBeDefined();
       expect(result.aggregations).toEqual(

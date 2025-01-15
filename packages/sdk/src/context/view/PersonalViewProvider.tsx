@@ -20,7 +20,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
 
   const viewId = view?.id ?? '';
   const cachedView = personalViewMap?.[viewId];
-  const isPersonalView = Boolean(cachedView) ?? false;
+  const isPersonalView = Boolean(cachedView);
 
   const { personalViewCommonQuery, personalViewAggregationQuery } = useMemo(() => {
     if (!cachedView || shareId) {
