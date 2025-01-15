@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { AlertCircle } from '@teable/icons';
-import { toggleTableIndex, getTableActivatedIndex, TableIndex } from '@teable/openapi';
+import { HelpCircle } from '@teable/icons';
+import {
+  toggleTableIndex,
+  getTableActivatedIndex,
+  TableIndex,
+  getTableAbnormalIndex,
+  repairTableIndex,
+} from '@teable/openapi';
 import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Command,
@@ -20,6 +26,7 @@ import {
   HoverCard,
   HoverCardTrigger,
   HoverCardContent,
+  Button,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
@@ -32,7 +39,7 @@ interface ISearchCommand {
 }
 export const SearchCommand = (props: ISearchCommand) => {
   const { onChange, value, hideNotMatchRow, onHideSwitchChange } = props;
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'table']);
   const fields = useFields();
   const view = useView();
   const fieldStaticGetter = useFieldStaticGetter();
@@ -50,12 +57,32 @@ export const SearchCommand = (props: ISearchCommand) => {
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
   });
 
+  const { data: searchAbnormalIndex, isLoading: getAbnormalLoading } = useQuery({
+    queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.trgmIndex],
+    queryFn: () =>
+      getTableAbnormalIndex(baseId!, tableId!, TableIndex.trgmIndex).then(({ data }) => data),
+    enabled: !!tableActivatedIndex?.includes(TableIndex.trgmIndex),
+  });
+
   const { mutateAsync: toggleIndexFn, isLoading } = useMutation({
     mutationFn: (type: TableIndex) => toggleTableIndex(baseId!, tableId!, { type }),
     onSuccess: () => {
       queryClient.invalidateQueries(['table-index', tableId]);
     },
   });
+
+  const { mutateAsync: repairIndexFn, isLoading: repairIndexLoading } = useMutation({
+    mutationFn: (type: TableIndex) => repairTableIndex(baseId!, tableId!, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries([
+        'table-abnormal-index',
+        baseId,
+        tableId,
+        TableIndex.trgmIndex,
+      ]);
+    },
+  });
+
   const switchChange = (id: string, checked: boolean) => {
     let newSelectedFields = [...selectedFields];
     if (checked) {
@@ -209,35 +236,63 @@ export const SearchCommand = (props: ISearchCommand) => {
         )}
       </div>
 
-      <div className="flex">
-        <Label
-          htmlFor={'search-index-trgm'}
-          className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
-        >
+      <div className="flex items-center justify-between pl-1">
+        <div className="flex flex-1 items-center gap-1">
           <HoverCard>
             <HoverCardTrigger>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-0.5 text-sm">
                 {t('actions.tableIndex')}
-                <AlertCircle />
+                <HelpCircle />
               </div>
             </HoverCardTrigger>
-            <HoverCardContent className="w-80">
-              The React Framework – created and maintained by @vercel.
+            <HoverCardContent className="h-auto w-80 whitespace-normal break-words">
+              <span className="text-sm leading-3">{t('table:table.index.description')}</span>
             </HoverCardContent>
           </HoverCard>
+          {!!searchAbnormalIndex?.length && (
+            <div className="flex items-center gap-0.5">
+              <HoverCard>
+                <HoverCardTrigger>
+                  <Button
+                    size={'xs'}
+                    variant={'destructive'}
+                    className="flex h-6 items-center gap-0.5"
+                    onClick={async () => {
+                      await repairIndexFn(TableIndex.trgmIndex);
+                    }}
+                  >
+                    {t('table:table.index.repair')}
+                    {repairIndexLoading || getAbnormalLoading ? <Spin className="size-3" /> : null}
+                  </Button>
+                </HoverCardTrigger>
+                <HoverCardContent className="h-auto w-80 whitespace-normal break-words">
+                  <span className="text-sm leading-3">{t('table:table.index.repairTip')}</span>
+                </HoverCardContent>
+              </HoverCard>
+            </div>
+          )}
+        </div>
 
-          <div className="flex items-center gap-1">
-            {isLoading ? <Spin className="size-3" /> : null}
-            <Switch
-              id={'search-index-trgm'}
-              className="scale-75"
-              checked={tableActivatedIndex?.includes(TableIndex.trgmIndex)}
-              onCheckedChange={async () => {
-                baseId && tableId && (await toggleIndexFn(TableIndex.trgmIndex));
-              }}
-            />
-          </div>
-        </Label>
+        <div>
+          <Label
+            htmlFor={'search-index-trgm'}
+            className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
+          >
+            <div className="flex h-7 items-center gap-1">
+              <div className="flex items-center gap-1">
+                {isLoading ? <Spin className="size-3" /> : null}
+                <Switch
+                  id={'search-index-trgm'}
+                  className="scale-75"
+                  checked={tableActivatedIndex?.includes(TableIndex.trgmIndex)}
+                  onCheckedChange={async () => {
+                    baseId && tableId && (await toggleIndexFn(TableIndex.trgmIndex));
+                  }}
+                />
+              </div>
+            </div>
+          </Label>
+        </div>
       </div>
     </Command>
   );

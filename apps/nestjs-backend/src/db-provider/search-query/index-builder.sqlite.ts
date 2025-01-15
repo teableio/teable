@@ -1,7 +1,10 @@
 import { CellValueType } from '@teable/core';
+import type { IGetAbnormalVo } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { IndexBuilderAbstract } from './index-builder.abstract';
 import type { ISearchCellValueType } from './types';
+
+type ISqliteIndex = Record<string, unknown>;
 
 export class FieldFormatter {
   static getSearchableExpression(field: IFieldInstance, isArray = false): string {
@@ -57,20 +60,16 @@ export class FieldFormatter {
   }
 }
 
-export class IndexBuilderSqlite extends IndexBuilderAbstract {
-  private createOneIndexSql(dbTableName: string, field: IFieldInstance): string[] {
-    const indexName = `idx_fts_${dbTableName}_${field.dbFieldName}`;
-    const expression = FieldFormatter.getIndexExpression(field);
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const NO_OPERATION_SQL = '/* no operation */';
 
-    return [
-      `CREATE VIRTUAL TABLE IF NOT EXISTS "${indexName}" USING fts5(
-        content,
-        content=${dbTableName},
-        content_rowid=__id,
-        tokenize='porter unicode61'
-      )`,
-      `INSERT INTO "${indexName}"(content) SELECT ${expression} FROM "${dbTableName}"`,
-    ];
+export class IndexBuilderSqlite extends IndexBuilderAbstract {
+  private getIndexName(table: string, dbFieldName: string): string {
+    return `idx_trgm_${table}_${dbFieldName}`;
+  }
+
+  createSingleIndexSql(dbTableName: string, field: IFieldInstance): string {
+    return NO_OPERATION_SQL;
   }
 
   getDropIndexSql(dbTableName: string): string {
@@ -81,7 +80,7 @@ export class IndexBuilderSqlite extends IndexBuilderAbstract {
   }
 
   getCreateIndexSql(dbTableName: string, searchFields: IFieldInstance[]): string[] {
-    return searchFields.map((field) => this.createOneIndexSql(dbTableName, field)).flat();
+    return searchFields.map((field) => this.createSingleIndexSql(dbTableName, field));
   }
 
   getExistTableIndexSql(dbTableName: string): string {
@@ -91,5 +90,25 @@ export class IndexBuilderSqlite extends IndexBuilderAbstract {
       WHERE type='table' 
       AND name LIKE 'idx_fts_${dbTableName}_%'
     )`;
+  }
+
+  getDeleteSingleIndexSql(dbTableName: string, dbFieldName: string): string {
+    return NO_OPERATION_SQL;
+  }
+
+  getUpdateSingleIndexNameSql(
+    dbTableName: string,
+    oldDbFieldName: string,
+    newDbFieldName: string
+  ): string {
+    return NO_OPERATION_SQL;
+  }
+
+  getIndexInfoSql(dbTableName: string): string {
+    return NO_OPERATION_SQL;
+  }
+
+  getAbnormalIndex(dbTableName: string, fields: IFieldInstance[], existingIndex: ISqliteIndex[]) {
+    return [] as IGetAbnormalVo;
   }
 }

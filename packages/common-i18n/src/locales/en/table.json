@@ -324,6 +324,11 @@
       "loading": "Checking integrity...",
       "allGood": "All good!",
       "fixIssues": "Fix Issues"
+    },
+    "index": {
+      "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data. The downside is that they take up additional storage space and may slightly slow down write operations. If you frequently perform search operations or have a large amount of data, it is recommended to enable indexes.",
+      "repair": "repair",
+      "repairTip": "Index anomalies detected, which may cause search performance degradation. It is recommended to click the repair button to fix the index"
     }
   },
   "import": {

@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
-import type { ITableFullVo, ITableListVo, ITableVo } from '@teable/openapi';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import type { IGetAbnormalVo, ITableFullVo, ITableListVo, ITableVo } from '@teable/openapi';
 import {
   tableRoSchema,
   ICreateTableWithDefault,
@@ -16,6 +16,7 @@ import {
   updateOrderRoSchema,
   IToggleIndexRo,
   toggleIndexRoSchema,
+  TableIndex,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -177,5 +178,21 @@ export class TableController {
   @Get(':tableId/activated-index')
   async getTableIndex(@Param('tableId') tableId: string): Promise<string[]> {
     return this.tableIndexService.getActivatedTableIndexes(tableId);
+  }
+
+  @Get(':tableId/abnormal-index')
+  async getAbnormalTableIndex(
+    @Param('tableId') tableId: string,
+    @Query('type') tableIndexType: TableIndex
+  ): Promise<IGetAbnormalVo> {
+    return this.tableIndexService.getAbnormalTableIndex(tableId, tableIndexType);
+  }
+
+  @Patch(':tableId/index/repair')
+  async repairIndex(
+    @Param('tableId') tableId: string,
+    @Query('type') tableIndexType: TableIndex
+  ): Promise<void> {
+    return this.tableIndexService.repairIndex(tableId, tableIndexType);
   }
 }

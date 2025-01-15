@@ -26,7 +26,6 @@ import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { IndexBuilderPostgres } from './search-query/index-builder.postgres';
-import { FullTextSearchQueryPostgresBuilder } from './search-query/search-fts-query.postgres';
 import {
   SearchQueryPostgresBuilder,
   SearchQueryPostgres,
@@ -375,25 +374,6 @@ export class PostgresProvider implements IDbProvider {
       setFilterQuery,
       setSortQuery
     ).getSearchIndexQuery();
-  }
-
-  getClearSearchTsIndexSql(
-    originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
-    searchField: IFieldInstance[]
-  ) {
-    return new FullTextSearchQueryPostgresBuilder(
-      originQueryBuilder,
-      dbTableName,
-      searchField
-    ).getClearSearchTsIndexSql();
-  }
-
-  getExistTableIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
-    return FullTextSearchQueryPostgresBuilder.getExistTableIndexSql(
-      originQueryBuilder,
-      dbTableName
-    );
   }
 
   trgmIndex() {

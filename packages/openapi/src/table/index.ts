@@ -12,3 +12,5 @@ export * from './default-view-id';
 export * from './get-permission';
 export * from './toggle-search-index';
 export * from './get-activated-index';
+export * from './get-abnormal-index';
+export * from './repair-table-index';

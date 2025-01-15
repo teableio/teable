@@ -27,7 +27,6 @@ import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
 import { IndexBuilderSqlite } from './search-query/index-builder.sqlite';
-import { FullTextSearchQuerySqliteBuilder } from './search-query/search-fts-query.sqlite';
 import { SearchQuerySqliteBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
@@ -332,22 +331,6 @@ export class SqliteProvider implements IDbProvider {
       setFilterQuery,
       setSortQuery
     ).getSearchIndexQuery();
-  }
-
-  getExistTableIndexSql(originQueryBuilder: Knex.QueryBuilder, dbTableName: string) {
-    return FullTextSearchQuerySqliteBuilder.getExistTableIndexSql(originQueryBuilder, dbTableName);
-  }
-
-  getClearSearchTsIndexSql(
-    originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
-    searchField: IFieldInstance[]
-  ) {
-    return new FullTextSearchQuerySqliteBuilder(
-      originQueryBuilder,
-      dbTableName,
-      searchField
-    ).getClearSearchTsIndexSql();
   }
 
   trgmIndex() {
