@@ -18,10 +18,11 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
   const { isPersonalView, openPersonalView, closePersonalView, syncViewProperties } =
     usePersonalView();
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
+  const hasSyncPermission = permission['view|update'];
 
   const toggleViewStatus = () => {
     if (isPersonalView) {
-      setIsConfirmOpen(true);
+      !hasSyncPermission ? closePersonalView?.() : setIsConfirmOpen(true);
     } else {
       openPersonalView?.();
     }
@@ -38,7 +39,6 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
         }
         className={buttonClassName}
         textClassName={textClassName}
-        disabled={!permission['view|update']}
         onClick={toggleViewStatus}
       >
         {isPersonalView ? <User className="size-4" /> : <Users className="size-4" />}

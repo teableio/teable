@@ -12,6 +12,7 @@ import type {
   IOperator,
 } from '@teable/core';
 import {
+  assertNever,
   ColorConfigType,
   FieldType,
   filterSchema,
@@ -165,7 +166,7 @@ export const validateViewOptions = (view: IViewVo, fieldMap: Record<string, IFie
       };
     }
     default: {
-      throw new Error('Invalid view type');
+      assertNever(type as never);
     }
   }
 };
