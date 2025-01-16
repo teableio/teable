@@ -63,6 +63,7 @@ export enum Events {
   WORKFLOW_DEACTIVATE = 'workflow.deactivate',
 
   CROP_IMAGE = 'crop.image',
+  CROP_IMAGE_COMPLETE = 'crop.image.complete',
 
   RECORD_HISTORY_CREATE = 'record.history.create',
 }

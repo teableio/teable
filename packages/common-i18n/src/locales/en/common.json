@@ -92,7 +92,7 @@
         "title": "🎉 Add password successfully."
       },
       "changeEmail": {
-        "title": "Change email",
+        "title": "Update email",
         "desc": "Please enter your current password and your new email.",
         "current": "Enter your current password",
         "new": "Enter your new email",

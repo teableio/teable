@@ -26,7 +26,6 @@ import {
   CREATE_SPACE,
   EMAIL_SPACE_INVITATION,
   urlBuilder,
-  DELETE_SPACE,
   listSpaceInvitationLink,
   updateSpaceCollaborator,
   USER_ME,
@@ -41,6 +40,7 @@ import {
   UPDATE_SPACE_COLLABORATE,
   DELETE_SPACE_COLLABORATOR,
   PrincipalType,
+  PERMANENT_DELETE_SPACE,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { Events } from '../src/event-emitter/events';
@@ -211,7 +211,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
 
     afterEach(async () => {
       await userRequest.delete<null>(
-        urlBuilder(DELETE_SPACE, {
+        urlBuilder(PERMANENT_DELETE_SPACE, {
           spaceId: space2Id,
         })
       );

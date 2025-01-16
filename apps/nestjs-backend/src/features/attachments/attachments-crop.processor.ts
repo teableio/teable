@@ -3,6 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Queue } from 'bullmq';
 import type { Job } from 'bullmq';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 
 interface IRecordImageJob {
@@ -23,12 +25,20 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly eventEmitterService: EventEmitterService,
     @InjectQueue(ATTACHMENTS_CROP_QUEUE) public readonly queue: Queue<IRecordImageJob>
   ) {
     super();
   }
 
   public async process(job: Job<IRecordImageJob>) {
+    await this.handleCropImage(job);
+    await this.eventEmitterService.emitAsync(Events.CROP_IMAGE_COMPLETE, {
+      token: job.data.token,
+    });
+  }
+
+  private async handleCropImage(job: Job<IRecordImageJob>) {
     const { bucket, token, path, mimetype, height } = job.data;
     if (mimetype.startsWith('image/') && height) {
       const existingThumbnailPath = await this.prismaService.attachments.findUnique({

@@ -91,7 +91,7 @@ describe('OpenAPI AttachmentController (e2e)', () => {
 
   it('should get thumbnail url', async () => {
     const eventEmitterService = app.get(EventEmitterService);
-    const awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.CROP_IMAGE);
+    const awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.CROP_IMAGE_COMPLETE);
     const imagePath = path.join(StorageAdapter.TEMPORARY_DIR, `./${getRandomString(12)}.svg`);
     fs.writeFileSync(
       imagePath,
@@ -107,7 +107,7 @@ describe('OpenAPI AttachmentController (e2e)', () => {
       await uploadAttachment(table.id, table.records[0].id, field.id, imageStream);
       fs.unlinkSync(imagePath);
     });
-    eventEmitterService.eventEmitter.removeAllListeners(Events.CROP_IMAGE);
+    eventEmitterService.eventEmitter.removeAllListeners(Events.CROP_IMAGE_COMPLETE);
     const record = await getRecord(table.id, table.records[0].id);
     const attachment = (record.data.fields[field.name] as IAttachmentCellValue)[0];
     expect(attachment?.lgThumbnailUrl).toBe(attachment.presignedUrl);

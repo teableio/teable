@@ -1,16 +1,18 @@
 import { axios, SIGN_UP, createAxios, USER_ME, SIGN_IN } from '@teable/openapi';
 
-export async function createNewUserAxios(user: { email: string; password: string }) {
+export async function createNewUserAxios({ email, password }: { email: string; password: string }) {
+  password = `${password}a`;
   const signAxios = createAxios();
   signAxios.defaults.baseURL = axios.defaults.baseURL;
-  const signupRes = await signAxios
-    .post(SIGN_UP, { email: user.email, password: user.password })
-    .catch(async (err) => {
-      if (err.status === 400 && err.message.includes('is already registered')) {
-        return await signAxios.post(SIGN_IN, user);
-      }
-      throw err;
-    });
+  const signupRes = await signAxios.post(SIGN_UP, { email, password }).catch(async (err) => {
+    if (err.status === 409 && err.message.includes('is already registered')) {
+      return await signAxios.post(SIGN_IN, {
+        email,
+        password,
+      });
+    }
+    throw err;
+  });
 
   const cookie = signupRes.headers['set-cookie'];
 
