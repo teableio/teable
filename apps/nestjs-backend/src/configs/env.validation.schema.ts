@@ -58,4 +58,19 @@ export const envValidationSchema = Joi.object({
   }),
 
   PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
+
+  SIGNIN_MAX_LOGIN_ATTEMPTS: Joi.when('SIGNIN_ACCOUNT_LOCKOUT_MINUTES', {
+    is: Joi.number().required(),
+    then: Joi.number().required().messages({
+      'any.required':
+        'The `SIGNIN_MAX_LOGIN_ATTEMPTS` is required when `SIGNIN_ACCOUNT_LOCKOUT_MINUTES` is set',
+    }),
+  }),
+  SIGNIN_ACCOUNT_LOCKOUT_MINUTES: Joi.when('SIGNIN_MAX_LOGIN_ATTEMPTS', {
+    is: Joi.number().required(),
+    then: Joi.number().required().messages({
+      'any.required':
+        'The `SIGNIN_ACCOUNT_LOCKOUT_MINUTES` is required when `SIGNIN_MAX_LOGIN_ATTEMPTS` is set',
+    }),
+  }),
 });

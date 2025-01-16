@@ -9,6 +9,7 @@ export const settingVoSchema = z.object({
   disallowSignUp: z.boolean().nullable(),
   disallowSpaceCreation: z.boolean().nullable(),
   disallowSpaceInvitation: z.boolean().nullable(),
+  enableEmailVerification: z.boolean().nullable(),
   aiConfig: aiConfigSchema.nullable(),
 });
 

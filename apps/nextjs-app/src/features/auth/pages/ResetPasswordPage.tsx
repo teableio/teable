@@ -7,7 +7,6 @@ import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { fromZodError } from 'zod-validation-error';
 import { authConfig } from '@/features/i18n/auth.config';
 import { LayoutMain } from '../components/LayoutMain';
 
@@ -52,7 +51,7 @@ export const ResetPasswordPage = () => {
     }
     const res = passwordSchema.safeParse(value);
     if (!res.success) {
-      return setError(fromZodError(res.error).message);
+      return setError(t('common:password.setInvalid'));
     }
   };
 

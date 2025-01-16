@@ -27,6 +27,16 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
     );
   }
 
+  // no add random ttl
+  async setDetail<TKey extends keyof T>(
+    key: TKey,
+    value: T[TKey],
+    ttl?: number | string
+  ): Promise<void> {
+    const numberTTL = typeof ttl === 'string' ? second(ttl) : ttl;
+    await this.cacheManager.set(key as string, value, numberTTL ? numberTTL * 1000 : undefined);
+  }
+
   async del<TKey extends keyof T>(key: TKey): Promise<void> {
     await this.cacheManager.delete(key as string);
   }

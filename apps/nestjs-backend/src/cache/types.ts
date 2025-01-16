@@ -23,6 +23,8 @@ export interface ICacheStore {
   [key: `operations:undo:${string}:${string}:${string}`]: IUndoRedoOperation[];
   [key: `operations:redo:${string}:${string}:${string}`]: IUndoRedoOperation[];
   [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
+  [key: `signin:attempts:${string}`]: number;
+  [key: `signin:lockout:${string}`]: boolean;
 }
 
 export interface IAttachmentSignatureCache {

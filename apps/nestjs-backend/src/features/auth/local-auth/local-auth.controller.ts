@@ -10,7 +10,9 @@ import {
   changePasswordRoSchema,
   resetPasswordRoSchema,
   sendResetPasswordEmailRoSchema,
+  sendSignupVerificationCodeRoSchema,
   signupSchema,
+  ISendSignupVerificationCodeRo,
 } from '@teable/openapi';
 import { Response, Request } from 'express';
 import { AUTH_SESSION_COOKIE_NAME } from '../../../const';
@@ -43,14 +45,22 @@ export class LocalAuthController {
     @Res({ passthrough: true }) res: Response,
     @Req() req: Express.Request
   ): Promise<IUserMeVo> {
-    const user = pickUserMe(
-      await this.authService.signup(body.email, body.password, body.defaultSpaceName, body.refMeta)
-    );
+    const user = pickUserMe(await this.authService.signup(body));
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {
       req.login(user, (err) => (err ? reject(err) : resolve()));
     });
     return user;
+  }
+
+  @Public()
+  @Post('send-signup-verification-code')
+  @HttpCode(200)
+  async sendSignupVerificationCode(
+    @Body(new ZodValidationPipe(sendSignupVerificationCodeRoSchema))
+    body: ISendSignupVerificationCodeRo
+  ) {
+    return this.authService.sendSignupVerificationCode(body.email);
   }
 
   @Patch('/change-password')

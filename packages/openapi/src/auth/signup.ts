@@ -3,6 +3,7 @@ import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { signinSchema } from './signin';
+import { signupPasswordSchema } from './types';
 import type { IUserMeVo } from './user-me';
 import { userMeVoSchema } from './user-me';
 
@@ -15,10 +16,19 @@ export const refMetaSchema = z.object({
 
 export type IRefMeta = z.infer<typeof refMetaSchema>;
 
-export const signupSchema = signinSchema.extend({
-  defaultSpaceName: z.string().optional(),
-  refMeta: refMetaSchema.optional(),
-});
+export const signupSchema = signinSchema.merge(
+  z.object({
+    defaultSpaceName: z.string().optional(),
+    refMeta: refMetaSchema.optional(),
+    password: signupPasswordSchema,
+    verification: z
+      .object({
+        code: z.string(),
+        token: z.string(),
+      })
+      .optional(),
+  })
+);
 
 export type ISignup = z.infer<typeof signupSchema>;
 

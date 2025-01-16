@@ -6,12 +6,15 @@ import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import { useCallback } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { authConfig } from '@/features/i18n/auth.config';
+import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
 
 export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[] }) => {
   const { children } = props;
+  useInitializationZodI18n();
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const router = useRouter();
   const redirect = decodeURIComponent((router.query.redirect as string) || '');
@@ -30,14 +33,15 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   }, [redirect, router]);
 
   return (
-    <>
-      <NextSeo title={t('auth:page.title')} />
-      <div className="fixed h-screen w-full overflow-y-auto">
-        <div className="absolute left-0 flex h-[4em] w-full items-center justify-between bg-background px-5 lg:h-20">
-          <div className="flex h-full items-center gap-2">
-            <TeableNew className="size-8 text-black" />
-            {t('common:brand')}
-          </div>
+    <div className="relative flex h-screen w-full overflow-y-auto">
+      <NextSeo title={signType === 'signin' ? t('auth:page.signin') : t('auth:page.signup')} />
+      <div className="absolute left-5 top-5 flex items-center gap-2">
+        <TeableNew className="size-8 text-black" />
+        {t('common:brand')}
+      </div>
+      <DescContent />
+      <div className="flex-1 shrink-0 lg:p-8">
+        <div className="flex h-[4em] w-full items-center justify-end bg-background px-5 lg:h-20">
           <Tabs value={signType}>
             <TabsList className="grid w-full grid-cols-2">
               <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
@@ -55,6 +59,6 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
           {children}
         </div>
       </div>
-    </>
+    </div>
   );
 };

@@ -14,7 +14,6 @@ import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
-import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
@@ -29,8 +28,7 @@ export class UserService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
-    @BaseConfig() private readonly baseConfig: IBaseConfig
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
   ) {}
 
   async getUserById(id: string) {

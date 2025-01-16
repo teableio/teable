@@ -33,7 +33,13 @@ export const SettingPage = (props: ISettingPageProps) => {
 
   if (!setting) return null;
 
-  const { instanceId, disallowSignUp, disallowSpaceCreation, disallowSpaceInvitation } = setting;
+  const {
+    instanceId,
+    disallowSignUp,
+    disallowSpaceCreation,
+    disallowSpaceInvitation,
+    enableEmailVerification,
+  } = setting;
 
   return (
     <div className="flex h-screen w-full flex-col overflow-y-auto overflow-x-hidden px-8 py-6">
@@ -83,6 +89,21 @@ export const SettingPage = (props: ISettingPageProps) => {
               id="allow-space-creation"
               checked={!disallowSpaceCreation}
               onCheckedChange={(checked) => onValueChange('disallowSpaceCreation', !checked)}
+            />
+          </div>
+          <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
+            <div className="space-y-1">
+              <Label htmlFor="enable-email-verification">
+                {t('admin.setting.enableEmailVerification')}
+              </Label>
+              <div className="text-[13px] text-gray-500">
+                {t('admin.setting.enableEmailVerificationDescription')}
+              </div>
+            </div>
+            <Switch
+              id="enable-email-verification"
+              checked={!enableEmailVerification}
+              onCheckedChange={(checked) => onValueChange('enableEmailVerification', !checked)}
             />
           </div>
         </div>

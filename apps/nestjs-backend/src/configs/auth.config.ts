@@ -25,6 +25,7 @@ export const authConfig = registerAs('auth', () => ({
     },
   },
   resetPasswordEmailExpiresIn: process.env.BACKEND_RESET_PASSWORD_EMAIL_EXPIRES_IN ?? '30m',
+  signupVerificationExpiresIn: process.env.BACKEND_SIGNUP_VERIFICATION_EXPIRES_IN ?? '30m',
   socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [],
   github: {
     clientID: process.env.BACKEND_GITHUB_CLIENT_ID,
@@ -44,6 +45,14 @@ export const authConfig = registerAs('auth', () => ({
     clientSecret: process.env.BACKEND_OIDC_CLIENT_SECRET,
     callbackURL: process.env.BACKEND_OIDC_CALLBACK_URL,
     other: process.env.BACKEND_OIDC_OTHER ? JSON.parse(process.env.BACKEND_OIDC_OTHER) : {},
+  },
+  signin: {
+    maxLoginAttempts: process.env.SIGNIN_MAX_LOGIN_ATTEMPTS
+      ? Number(process.env.SIGNIN_MAX_LOGIN_ATTEMPTS)
+      : undefined,
+    accountLockoutMinutes: process.env.SIGNIN_ACCOUNT_LOCKOUT_MINUTES
+      ? Number(process.env.SIGNIN_ACCOUNT_LOCKOUT_MINUTES)
+      : undefined,
   },
 }));
 

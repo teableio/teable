@@ -47,6 +47,9 @@
     "title": "快捷搜索...",
     "placeHolder": "输入命令或进行搜索..."
   },
+  "password": {
+    "setInvalid": "设置的密码无效，至少需要8个字符，且必须包含至少一个字母和一个数字。"
+  },
   "settings": {
     "title": "设置",
     "back": "返回主页",
@@ -69,8 +72,7 @@
       "changePasswordError": {
         "disMatch": "您的新密码不匹配。",
         "equal": "您的新密码必须与当前密码不同。",
-        "invalid": "您当前的密码无效。",
-        "invalidNew": "您的新密码无效，至少需要8个字符。"
+        "invalid": "您当前的密码无效。"
       },
       "changePasswordSuccess": {
         "title": "🎉 密码更改成功。",
@@ -84,8 +86,7 @@
         "confirm": "确认您的密码"
       },
       "addPasswordError": {
-        "disMatch": "您的密码不匹配。",
-        "invalid": "您的密码无效，至少需要8个字符。"
+        "disMatch": "您的密码不匹配。"
       },
       "addPasswordSuccess": {
         "title": "🎉 密码添加成功。"
@@ -138,7 +139,8 @@
     "beta": "测试版",
     "trash": "回收站",
     "global": "全局",
-    "organizationPanel": "组织管理面板"
+    "organizationPanel": "组织管理面板",
+    "unknownError": "未知错误"
   },
   "level": {
     "free": "免费版",
@@ -245,6 +247,8 @@
       "allowSpaceInvitationDescription": "关闭此选项将禁止除管理员以外的用户邀请他人加入空间。开启此选项后，即使新账户注册已被禁用，仍允许被直接邀请的用户创建账户。",
       "allowSpaceCreation": "允许所有人创建新的空间",
       "allowSpaceCreationDescription": "关闭此选项将禁止除管理员以外的用户创建新的空间。",
+      "enableEmailVerification": "启用邮箱验证",
+      "enableEmailVerificationDescription": "关闭此选项将禁止用户创建新账户时无需验证邮箱地址。",
       "generalSettings": "通用配置",
       "aiSettings": "AI 配置",
       "ai": {

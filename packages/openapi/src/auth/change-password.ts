@@ -2,13 +2,13 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
-import { passwordSchema } from './types';
+import { passwordSchema, signupPasswordSchema } from './types';
 
 export const CHANGE_PASSWORD = '/auth/change-password';
 
 export const changePasswordRoSchema = z.object({
   password: passwordSchema,
-  newPassword: passwordSchema,
+  newPassword: signupPasswordSchema,
 });
 
 export type IChangePasswordRo = z.infer<typeof changePasswordRoSchema>;

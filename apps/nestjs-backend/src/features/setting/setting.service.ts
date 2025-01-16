@@ -14,6 +14,7 @@ export class SettingService {
           disallowSignUp: true,
           disallowSpaceCreation: true,
           disallowSpaceInvitation: true,
+          enableEmailVerification: true,
           aiConfig: true,
         },
       })

@@ -44,6 +44,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: customHttpException.message,
       status: status,
       code: customHttpException.code,
+      data: customHttpException.data,
     });
   }
 

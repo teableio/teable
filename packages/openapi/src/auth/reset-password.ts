@@ -1,12 +1,12 @@
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
-import { passwordSchema } from './types';
+import { signupPasswordSchema } from './types';
 
 export const RESET_PASSWORD = '/auth/reset-password';
 
 export const resetPasswordRoSchema = z.object({
-  password: passwordSchema,
+  password: signupPasswordSchema,
   code: z.string(),
 });
 

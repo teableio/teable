@@ -20,7 +20,6 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { fromZodError } from 'zod-validation-error';
 
 interface IChangePasswordDialogProps {
   children?: React.ReactNode;
@@ -81,8 +80,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const handleSubmit = async () => {
     const valid = changePasswordRoSchema.safeParse({ password: currentPassword, newPassword });
     if (!valid.success) {
-      console.error(fromZodError(valid.error).message);
-      setError(t('settings.account.changePasswordError.invalidNew'));
+      setError(t('password.setInvalid'));
       return;
     }
     changePasswordMutate({ password: currentPassword, newPassword });

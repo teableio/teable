@@ -1,13 +1,17 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { generateUserId, getRandomString } from '@teable/core';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { generateUserId, getRandomString, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IChangePasswordRo, IRefMeta } from '@teable/openapi';
+import type { IChangePasswordRo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
+import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
+import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { MailConfig, type IMailConfig } from '../../../configs/mail.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import { UserSignUpEvent } from '../../../event-emitter/events/user/user.event';
@@ -19,6 +23,8 @@ import { SessionStoreService } from '../session/session-store.service';
 
 @Injectable()
 export class LocalAuthService {
+  private readonly logger = new Logger(LocalAuthService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly userService: UserService,
@@ -28,7 +34,9 @@ export class LocalAuthService {
     private readonly cacheService: CacheService,
     private readonly eventEmitterService: EventEmitterService,
     @AuthConfig() private readonly authConfig: IAuthConfig,
-    @MailConfig() private readonly mailConfig: IMailConfig
+    @MailConfig() private readonly mailConfig: IMailConfig,
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
+    private readonly jwtService: JwtService
   ) {}
 
   private async encodePassword(password: string) {
@@ -72,10 +80,49 @@ export class LocalAuthService {
     return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
 
-  async signup(email: string, password: string, defaultSpaceName?: string, refMeta?: IRefMeta) {
+  private jwtSignupCode(email: string, code: string) {
+    return this.jwtService.signAsync(
+      { email, code },
+      { expiresIn: this.authConfig.signupVerificationExpiresIn }
+    );
+  }
+
+  private jwtVerifySignupCode(token: string) {
+    return this.jwtService.verifyAsync<{ email: string; code: string }>(token).catch(() => {
+      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+    });
+  }
+
+  private async verifySignup(body: ISignup) {
+    const setting = await this.prismaService.setting.findFirst();
+    if (!setting?.enableEmailVerification) {
+      return;
+    }
+    const { email, verification } = body;
+    if (!verification) {
+      const { token, expiresTime } = await this.sendSignupVerificationCode(email);
+      throw new CustomHttpException(
+        'Verification is required',
+        HttpErrorCode.UNPROCESSABLE_ENTITY,
+        {
+          token,
+          expiresTime,
+        }
+      );
+    }
+    const { code, email: _email } = await this.jwtVerifySignupCode(verification.token);
+    if (_email !== email || code !== verification.code) {
+      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+    }
+  }
+
+  async signup(body: ISignup) {
+    const { email, password, defaultSpaceName, refMeta } = body;
+    await this.verifySignup(body);
+
     const user = await this.userService.getUserByEmail(email);
     if (user && (user.password !== null || user.accounts.length > 0)) {
-      throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(`User ${email} is already registered`, HttpStatus.CONFLICT);
     }
     if (user && user.isSystem) {
       throw new HttpException(`User ${email} is system user`, HttpStatus.BAD_REQUEST);
@@ -109,6 +156,24 @@ export class LocalAuthService {
     });
     this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
     return res;
+  }
+
+  async sendSignupVerificationCode(email: string) {
+    const code = getRandomString(6);
+    const token = await this.jwtSignupCode(email, code);
+    if (this.baseConfig.enableEmailCodeConsole) {
+      console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
+    }
+    await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+      title: 'Signup verification',
+      message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
+    });
+    return {
+      token,
+      expiresTime: new Date(
+        ms(this.authConfig.signupVerificationExpiresIn) + Date.now()
+      ).toISOString(),
+    };
   }
 
   async changePassword({ password, newPassword }: IChangePasswordRo) {
@@ -145,7 +210,6 @@ export class LocalAuthService {
       email: user.email,
       resetPasswordUrl: url,
     });
-    console.log(url);
     await this.mailSenderService.sendMail({
       to: user.email,
       ...resetPasswordEmailOptions,

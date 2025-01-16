@@ -43,10 +43,20 @@ export const createQueryClient = () => {
       },
     },
     queryCache: new QueryCache({
-      onError: errorRequestHandler,
+      onError: (error, query) => {
+        if (query.meta?.['preventGlobalError']) {
+          return;
+        }
+        errorRequestHandler(error);
+      },
     }),
     mutationCache: new MutationCache({
-      onError: errorRequestHandler,
+      onError: (error, _variables, _context, mutation) => {
+        if (mutation.options.meta?.['preventGlobalError']) {
+          return;
+        }
+        errorRequestHandler(error);
+      },
     }),
   });
 };

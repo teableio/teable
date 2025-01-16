@@ -35,6 +35,7 @@ export const updateSettingRoSchema = z.object({
   disallowSignUp: z.boolean().optional(),
   disallowSpaceCreation: z.boolean().optional(),
   disallowSpaceInvitation: z.boolean().optional(),
+  enableEmailVerification: z.boolean().optional(),
   aiConfig: aiConfigSchema.optional(),
 });
 

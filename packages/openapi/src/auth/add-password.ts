@@ -1,12 +1,12 @@
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
-import { passwordSchema } from './types';
+import { signupPasswordSchema } from './types';
 
 export const ADD_PASSWORD = '/auth/add-password';
 
 export const addPasswordRoSchema = z.object({
-  password: passwordSchema,
+  password: signupPasswordSchema,
 });
 
 export type IAddPasswordRo = z.infer<typeof addPasswordRoSchema>;

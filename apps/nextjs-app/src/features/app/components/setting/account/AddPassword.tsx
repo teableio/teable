@@ -43,7 +43,7 @@ export const AddPassword = () => {
       return;
     }
     if (newPassword && confirmPassword && !passwordSchema.safeParse(newPassword).success) {
-      setError(t('settings.account.addPasswordError.invalid'));
+      setError(t('password.setInvalid'));
       return;
     }
     setError('');

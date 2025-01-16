@@ -329,6 +329,7 @@ model Setting {
   disallowSignUp            Boolean?  @map("disallow_sign_up")
   disallowSpaceCreation     Boolean?  @map("disallow_space_creation")
   disallowSpaceInvitation   Boolean?  @map("disallow_space_invitation")
+  enableEmailVerification   Boolean?  @map("enable_email_verification")
   aiConfig                  String?   @map("ai_config")
 
   @@map("setting")
