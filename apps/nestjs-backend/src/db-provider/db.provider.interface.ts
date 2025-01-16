@@ -9,8 +9,8 @@ import type { IAggregationQueryInterface } from './aggregation-query/aggregation
 import type { BaseQueryAbstract } from './base-query/abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
+import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
-import type { IndexBuilderAbstract } from './search-query/index-builder.abstract';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
 export type IFilterQueryExtra = {
@@ -157,7 +157,7 @@ export interface IDbProvider {
     tableIndex: TableIndex[]
   ): Knex.QueryBuilder;
 
-  trgmIndex(): IndexBuilderAbstract;
+  searchIndex(): IndexBuilderAbstract;
 
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,

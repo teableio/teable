@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -65,6 +66,7 @@ import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
 import { NextService } from '../../src/features/next/next.service';
+import { TableIndexService } from '../../src/features/table/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
@@ -143,6 +145,10 @@ export async function initApp() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
   };
+}
+
+export async function getTableIndexService(app: INestApplication) {
+  return app.get<TableIndexService>(TableIndexService);
 }
 
 export async function createTable(baseId: string, tableVo: ICreateTableRo, expectStatus = 201) {

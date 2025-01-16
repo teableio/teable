@@ -25,7 +25,7 @@ import { GroupQueryPostgres } from './group-query/group-query.postgres';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
-import { IndexBuilderPostgres } from './search-query/index-builder.postgres';
+import { IndexBuilderPostgres } from './search-query/search-index-builder.postgres';
 import {
   SearchQueryPostgresBuilder,
   SearchQueryPostgres,
@@ -376,7 +376,7 @@ export class PostgresProvider implements IDbProvider {
     ).getSearchIndexQuery();
   }
 
-  trgmIndex() {
+  searchIndex() {
     return new IndexBuilderPostgres();
   }
 

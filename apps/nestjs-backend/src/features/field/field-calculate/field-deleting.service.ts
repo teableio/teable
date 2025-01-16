@@ -83,7 +83,7 @@ export class FieldDeletingService {
     }
 
     // delete index first
-    await this.tableIndexService.deleteFieldIndex(tableId, field.dbFieldName);
+    await this.tableIndexService.deleteSearchFieldIndex(tableId, field.dbFieldName);
 
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions = field.options;

@@ -1,10 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { CellValueType } from '@teable/core';
-import type { IGetAbnormalVo } from '@teable/openapi';
-import { difference } from 'lodash';
+import { assertNever, CellValueType } from '@teable/core';
 import type { IFieldInstance } from '../../features/field/model/factory';
-import { IndexBuilderAbstract } from './index-builder.abstract';
-import type { ISearchCellValueType } from './types';
+
+import { IndexBuilderAbstract } from '../index-query/index-abstract-builder';
 
 interface IPgIndex {
   schemaname: string;
@@ -14,13 +12,15 @@ interface IPgIndex {
   indexdef: string;
 }
 
+const unSupportCellValueType = [CellValueType.DateTime, CellValueType.Boolean];
+
 export class FieldFormatter {
   static getSearchableExpression(field: IFieldInstance, isArray = false): string | null {
     const { cellValueType, dbFieldName, options, isStructuredCellValue } = field;
 
     // base expression
     const baseExpression = (() => {
-      switch (cellValueType as ISearchCellValueType) {
+      switch (cellValueType) {
         case CellValueType.Number: {
           const precision =
             (options as { formatting?: { precision?: number } })?.formatting?.precision ?? 0;
@@ -30,14 +30,18 @@ export class FieldFormatter {
           // date type not support full text search
           return null;
         }
+        case CellValueType.Boolean: {
+          // date type not support full text search
+          return null;
+        }
         case CellValueType.String: {
           if (isStructuredCellValue) {
-            return `value->>'title'`;
+            return `value->>'title'::text`;
           }
           return 'value';
         }
         default:
-          return 'value::text';
+          assertNever(cellValueType);
       }
     })();
 
@@ -103,12 +107,16 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
   }
 
   getCreateIndexSql(dbTableName: string, searchFields: IFieldInstance[]): string[] {
-    return searchFields
+    const fieldSql = searchFields
+      .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map((field) => {
         const expression = FieldFormatter.getIndexExpression(field);
         return expression ? this.createSingleIndexSql(dbTableName, field) : null;
       })
       .filter((sql): sql is string => sql !== null);
+
+    fieldSql.unshift(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+    return fieldSql;
   }
 
   getExistTableIndexSql(dbTableName: string): string {
@@ -157,7 +165,7 @@ AND indexname like '%${prefix}_${table}_%'`;
   getAbnormalIndex(dbTableName: string, fields: IFieldInstance[], existingIndex: IPgIndex[]) {
     const [, table] = dbTableName.split('.');
     const expectExistIndex = fields
-      .filter((f) => f.cellValueType !== CellValueType.DateTime)
+      .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map(({ dbFieldName }) => {
         return this.getIndexName(table, dbFieldName);
       });
@@ -178,7 +186,7 @@ AND indexname like '%${prefix}_${table}_%'`;
 
     // 2: find the abnormal index definition
     const expectIndexDef = fields
-      .filter((f) => f.cellValueType !== CellValueType.DateTime)
+      .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map((f) => {
         return {
           indexName: this.getIndexName(dbTableName, f.dbFieldName),
@@ -187,17 +195,17 @@ AND indexname like '%${prefix}_${table}_%'`;
       });
 
     return expectIndexDef
-      .filter(
-        ({ indexDef }) =>
-          !existingIndex
-            .map((idx) => idx.indexdef.toLowerCase().replace(/[()\s]/g, ''))
-            .includes(
-              indexDef
-                .toLowerCase()
-                .replace(/if not exists/g, '')
-                .replace(/[()\s]/g, '')
-            )
-      )
+      .filter(({ indexDef }) => {
+        const existIndex = existingIndex.map((idx) =>
+          idx.indexdef.toLowerCase().replace(/[()\s"']/g, '')
+        );
+        return !existIndex.includes(
+          indexDef
+            .toLowerCase()
+            .replace(/[()\s"']/g, '')
+            .replace(/ifnotexists/g, '')
+        );
+      })
       .map(({ indexName }) => ({
         indexName,
       }));

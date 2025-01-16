@@ -58,10 +58,10 @@ export const SearchCommand = (props: ISearchCommand) => {
   });
 
   const { data: searchAbnormalIndex, isLoading: getAbnormalLoading } = useQuery({
-    queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.trgmIndex],
+    queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
     queryFn: () =>
-      getTableAbnormalIndex(baseId!, tableId!, TableIndex.trgmIndex).then(({ data }) => data),
-    enabled: !!tableActivatedIndex?.includes(TableIndex.trgmIndex),
+      getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
+    enabled: !!tableActivatedIndex?.includes(TableIndex.search),
   });
 
   const { mutateAsync: toggleIndexFn, isLoading } = useMutation({
@@ -74,12 +74,7 @@ export const SearchCommand = (props: ISearchCommand) => {
   const { mutateAsync: repairIndexFn, isLoading: repairIndexLoading } = useMutation({
     mutationFn: (type: TableIndex) => repairTableIndex(baseId!, tableId!, type),
     onSuccess: () => {
-      queryClient.invalidateQueries([
-        'table-abnormal-index',
-        baseId,
-        tableId,
-        TableIndex.trgmIndex,
-      ]);
+      queryClient.invalidateQueries(['table-abnormal-index', baseId, tableId, TableIndex.search]);
     },
   });
 
@@ -258,7 +253,7 @@ export const SearchCommand = (props: ISearchCommand) => {
                     variant={'destructive'}
                     className="flex h-6 items-center gap-0.5"
                     onClick={async () => {
-                      await repairIndexFn(TableIndex.trgmIndex);
+                      await repairIndexFn(TableIndex.search);
                     }}
                   >
                     {t('table:table.index.repair')}
@@ -275,18 +270,18 @@ export const SearchCommand = (props: ISearchCommand) => {
 
         <div>
           <Label
-            htmlFor={'search-index-trgm'}
+            htmlFor={'search-index'}
             className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
           >
             <div className="flex h-7 items-center gap-1">
               <div className="flex items-center gap-1">
                 {isLoading ? <Spin className="size-3" /> : null}
                 <Switch
-                  id={'search-index-trgm'}
+                  id={'search-index'}
                   className="scale-75"
-                  checked={tableActivatedIndex?.includes(TableIndex.trgmIndex)}
+                  checked={tableActivatedIndex?.includes(TableIndex.search)}
                   onCheckedChange={async () => {
-                    baseId && tableId && (await toggleIndexFn(TableIndex.trgmIndex));
+                    baseId && tableId && (await toggleIndexFn(TableIndex.search));
                   }}
                 />
               </div>

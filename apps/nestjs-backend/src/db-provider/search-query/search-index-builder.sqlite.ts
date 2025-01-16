@@ -1,7 +1,7 @@
 import { CellValueType } from '@teable/core';
 import type { IGetAbnormalVo } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
-import { IndexBuilderAbstract } from './index-builder.abstract';
+import { IndexBuilderAbstract } from '../index-query/index-abstract-builder';
 import type { ISearchCellValueType } from './types';
 
 type ISqliteIndex = Record<string, unknown>;

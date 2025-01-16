@@ -2,8 +2,8 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import type { TableIndex } from './toggle-search-index';
-import { tableIndexTypeSchema } from './toggle-search-index';
+import type { TableIndex } from './toggle-table-index';
+import { tableIndexTypeSchema } from './toggle-table-index';
 
 export const TABLE_ABNORMAL_INDEX = '/base/{baseId}/table/{tableId}/abnormal-index';
 

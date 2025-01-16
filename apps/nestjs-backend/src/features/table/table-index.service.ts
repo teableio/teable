@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CellValueType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
@@ -13,6 +13,8 @@ import type { IClsStore } from '../../types/cls';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 
+const unSupportTableIndex = 'Unsupport table index type';
+
 @Injectable()
 export class TableIndexService {
   constructor(
@@ -23,7 +25,10 @@ export class TableIndexService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  async getActivatedTableIndexes(tableId: string): Promise<TableIndex[]> {
+  async getActivatedTableIndexes(
+    tableId: string,
+    type: TableIndex = TableIndex.search
+  ): Promise<TableIndex[]> {
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
@@ -33,26 +38,34 @@ export class TableIndexService {
       },
     });
 
-    const trgmIndexSql = this.dbProvider.trgmIndex().getExistTableIndexSql(dbTableName);
-    const [{ exists: trgmIndexExist }] = await this.prismaService.$queryRawUnsafe<
-      {
-        exists: boolean;
-      }[]
-    >(trgmIndexSql);
+    if (type === TableIndex.search) {
+      const searchIndexSql = this.dbProvider.searchIndex().getExistTableIndexSql(dbTableName);
+      const [{ exists: searchIndexExist }] = await this.prismaService.$queryRawUnsafe<
+        {
+          exists: boolean;
+        }[]
+      >(searchIndexSql);
 
-    const result: ITableIndexType[] = [];
+      const result: ITableIndexType[] = [];
 
-    if (trgmIndexExist) {
-      result.push(TableIndex.trgmIndex);
+      if (searchIndexExist) {
+        result.push(TableIndex.search);
+      }
+
+      return result;
+    } else {
+      throw new BadRequestException(unSupportTableIndex);
     }
-
-    return result;
   }
 
-  async toggleSearchIndex(tableId: string, enableRo: IToggleIndexRo) {
-    const status = await this.getActivatedTableIndexes(tableId);
-
+  async toggleIndex(tableId: string, enableRo: IToggleIndexRo) {
     const { type } = enableRo;
+    if (type !== TableIndex.search) {
+      throw new BadRequestException(unSupportTableIndex);
+    }
+
+    const index = await this.getActivatedTableIndexes(tableId);
+
     const fieldsRaw = await this.prismaService.field.findMany({
       where: {
         tableId,
@@ -62,6 +75,7 @@ export class TableIndexService {
 
     const fields = fieldsRaw
       .map((field) => createFieldInstanceByRaw(field))
+      .map((field) => ({ ...field, isStructuredCellValue: field.isStructuredCellValue }))
       .filter(({ cellValueType }) => cellValueType !== CellValueType.Boolean) as IFieldInstance[];
 
     const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
@@ -73,14 +87,12 @@ export class TableIndexService {
       },
     });
 
-    if (type === TableIndex.trgmIndex) {
-      await this.toggleTrgmIndex(dbTableName, fields, !status.includes(type));
-    }
+    await this.toggleSearchIndex(dbTableName, fields, !index.includes(type));
   }
 
-  async toggleTrgmIndex(dbTableName: string, fields: IFieldInstance[], toEnable: boolean) {
+  async toggleSearchIndex(dbTableName: string, fields: IFieldInstance[], toEnable: boolean) {
     if (toEnable) {
-      const sqls = this.dbProvider.trgmIndex().getCreateIndexSql(dbTableName, fields);
+      const sqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fields);
       return await this.prismaService.$tx(
         async (prisma) => {
           for (let i = 0; i < sqls.length; i++) {
@@ -88,7 +100,7 @@ export class TableIndexService {
             try {
               await prisma.$executeRawUnsafe(sql);
             } catch (error) {
-              console.error('toggleTrgmIndex:create:error', sql);
+              console.error('toggleSearchIndex:create:error', sql);
               throw error;
             }
           }
@@ -97,64 +109,68 @@ export class TableIndexService {
       );
     }
 
-    const sql = this.dbProvider.trgmIndex().getDropIndexSql(dbTableName);
+    const sql = this.dbProvider.searchIndex().getDropIndexSql(dbTableName);
     try {
       return await this.prismaService.$executeRawUnsafe(sql);
     } catch (error) {
-      console.error('toggleTrgmIndex:drop:error', sql);
+      console.error('toggleSearchIndex:drop:error', sql);
       throw error;
     }
   }
 
-  async deleteFieldIndex(tableId: string, dbFieldName: string) {
+  async deleteSearchFieldIndex(tableId: string, dbFieldName: string) {
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
-    if (index.includes(TableIndex.trgmIndex)) {
-      const sql = this.dbProvider.trgmIndex().getDeleteSingleIndexSql(dbTableName, dbFieldName);
+    if (index.includes(TableIndex.search)) {
+      const sql = this.dbProvider.searchIndex().getDeleteSingleIndexSql(dbTableName, dbFieldName);
       await this.prismaService.$executeRawUnsafe(sql);
     }
   }
 
-  async createFieldSingleIndex(tableId: string, fieldInstance: IFieldInstance) {
+  async createSearchFieldSingleIndex(tableId: string, fieldInstance: IFieldInstance) {
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
-    const sql = this.dbProvider.trgmIndex().createSingleIndexSql(dbTableName, fieldInstance);
-    if (index.includes(TableIndex.trgmIndex) && sql) {
+    const sql = this.dbProvider.searchIndex().createSingleIndexSql(dbTableName, fieldInstance);
+    if (index.includes(TableIndex.search) && sql) {
       await this.prismaService.$executeRawUnsafe(sql);
     }
   }
 
-  async updateFieldIndexName(tableId: string, oldDbFieldName: string, newDbFieldName: string) {
+  async updateSearchFieldIndexName(
+    tableId: string,
+    oldDbFieldName: string,
+    newDbFieldName: string
+  ) {
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
-    if (index.includes(TableIndex.trgmIndex)) {
+    if (index.includes(TableIndex.search)) {
       const sql = this.dbProvider
-        .trgmIndex()
+        .searchIndex()
         .getUpdateSingleIndexNameSql(dbTableName, oldDbFieldName, newDbFieldName);
       await this.prismaService.$executeRawUnsafe(sql);
     }
   }
 
-  async getIndexInfoByIndexType(tableId: string) {
+  async getIndexInfo(tableId: string) {
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
     const { dbTableName } = tableRaw;
 
-    const sql = this.dbProvider.trgmIndex().getIndexInfoSql(dbTableName);
+    const sql = this.dbProvider.searchIndex().getIndexInfoSql(dbTableName);
     return this.prismaService.$queryRawUnsafe<unknown[]>(sql);
   }
 
@@ -163,7 +179,6 @@ export class TableIndexService {
     if (!index.includes(type)) {
       return [] as IGetAbnormalVo;
     }
-
     const fieldsRaw = await this.prismaService.field.findMany({
       where: {
         tableId,
@@ -179,16 +194,25 @@ export class TableIndexService {
 
     const { dbTableName } = tableRaw;
 
-    const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
+    const fieldInstances = fieldsRaw
+      .map((field) => createFieldInstanceByRaw(field))
+      .map((field) => ({
+        ...field,
+        isStructuredCellValue: field.isStructuredCellValue,
+      })) as IFieldInstance[];
 
-    const indexInfo = await this.getIndexInfoByIndexType(tableId);
+    const indexInfo = await this.getIndexInfo(tableId);
 
     return await this.dbProvider
-      .trgmIndex()
+      .searchIndex()
       .getAbnormalIndex(dbTableName, fieldInstances, indexInfo);
   }
 
   async repairIndex(tableId: string, type: TableIndex) {
+    if (type !== TableIndex.search) {
+      throw new BadRequestException(unSupportTableIndex);
+    }
+
     const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
       where: {
         id: tableId,
@@ -206,13 +230,21 @@ export class TableIndexService {
       },
     });
     const { dbTableName } = tableRaw;
-    const dropSql = this.dbProvider.trgmIndex().getDropIndexSql(dbTableName);
-    const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
-    const createSqls = this.dbProvider.trgmIndex().getCreateIndexSql(dbTableName, fieldInstances);
+    const dropSql = this.dbProvider.searchIndex().getDropIndexSql(dbTableName);
+    const fieldInstances = fieldsRaw
+      .map((field) => createFieldInstanceByRaw(field))
+      .map((field) => ({
+        ...field,
+        isStructuredCellValue: field.isStructuredCellValue,
+      })) as IFieldInstance[];
+    const createSqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fieldInstances);
     this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(dropSql);
       for (let i = 0; i < createSqls.length; i++) {
         await prisma.$executeRawUnsafe(createSqls[i]);
+      }
+      {
+        this.thresholdConfig.bigTransactionTimeout;
       }
     });
   }

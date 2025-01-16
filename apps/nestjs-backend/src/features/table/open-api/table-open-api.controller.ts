@@ -18,6 +18,7 @@ import {
   toggleIndexRoSchema,
   TableIndex,
 } from '@teable/openapi';
+import { Timing } from '../../../utils/timing';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TableIndexService } from '../table-index.service';
@@ -167,12 +168,12 @@ export class TableController {
   }
 
   @Post(':tableId/index')
-  async toggleSearchIndex(
+  async toggleIndex(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(toggleIndexRoSchema)) searchIndexRo: IToggleIndexRo
   ) {
-    return this.tableIndexService.toggleSearchIndex(tableId, searchIndexRo);
+    return this.tableIndexService.toggleIndex(tableId, searchIndexRo);
   }
 
   @Get(':tableId/activated-index')

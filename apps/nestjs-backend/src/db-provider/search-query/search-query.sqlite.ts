@@ -35,7 +35,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     const { field, tableIndex } = this;
     const { isMultipleCellValue } = field;
 
-    if (tableIndex.includes(TableIndex.trgmIndex)) {
+    if (tableIndex.includes(TableIndex.search)) {
       return this.getFullTextQuery();
     } else {
       return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();

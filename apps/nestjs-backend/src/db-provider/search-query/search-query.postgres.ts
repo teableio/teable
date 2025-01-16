@@ -6,7 +6,7 @@ import { type Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { SearchQueryAbstract } from './abstract';
-import { FieldFormatter } from './index-builder.postgres';
+import { FieldFormatter } from './search-index-builder.postgres';
 import type { ISearchCellValueType } from './types';
 
 export class SearchQueryPostgres extends SearchQueryAbstract {
@@ -36,7 +36,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const { field, tableIndex } = this;
     const { isMultipleCellValue } = field;
 
-    if (tableIndex.includes(TableIndex.trgmIndex)) {
+    if (tableIndex.includes(TableIndex.search)) {
       return this.getSearchQueryWithIndex();
     } else {
       return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();

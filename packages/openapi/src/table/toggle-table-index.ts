@@ -6,8 +6,9 @@ import { z } from '../zod';
 export const TOGGLE_TABLE_INDEX = '/base/{baseId}/table/{tableId}/index';
 
 export enum TableIndex {
-  trgmIndex = 'trgmIndex',
+  search = 'search',
 }
+
 export const tableIndexTypeSchema = z.nativeEnum(TableIndex);
 
 export type ITableIndexType = z.infer<typeof tableIndexTypeSchema>;
@@ -21,7 +22,7 @@ export type IToggleIndexRo = z.infer<typeof toggleIndexRoSchema>;
 export const ToggleTableIndexRoute: RouteConfig = registerRoute({
   method: 'post',
   path: TOGGLE_TABLE_INDEX,
-  description: 'toggle table index',
+  description: 'Toggle table index',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -37,7 +38,7 @@ export const ToggleTableIndexRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Returns data about a table.',
+      description: 'No return',
     },
   },
   tags: ['table'],
@@ -46,7 +47,7 @@ export const ToggleTableIndexRoute: RouteConfig = registerRoute({
 export const toggleTableIndex = async (
   baseId: string,
   tableId: string,
-  searchIndexRo: IToggleIndexRo
+  toggleIndexRo: IToggleIndexRo
 ) => {
-  return axios.post<void>(urlBuilder(TOGGLE_TABLE_INDEX, { baseId, tableId }), searchIndexRo);
+  return axios.post<void>(urlBuilder(TOGGLE_TABLE_INDEX, { baseId, tableId }), toggleIndexRo);
 };

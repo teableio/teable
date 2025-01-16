@@ -1,4 +1,4 @@
-import type { IGetAbnormalVo } from '@teable/openapi';
+import type { IGetAbnormalVo, TableIndex } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 export abstract class IndexBuilderAbstract {
