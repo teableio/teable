@@ -15,6 +15,7 @@ export const baseConfig = registerAs('base', () => ({
   recordHistoryDisabled: process.env.RECORD_HISTORY_DISABLED === 'true',
   pluginServerPort: process.env.PLUGIN_SERVER_PORT || '3002',
   enableEmailCodeConsole: process.env.ENABLE_EMAIL_CODE_CONSOLE === 'true',
+  emailCodeExpiresIn: process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ?? '30m',
 }));
 
 export const BaseConfig = () => Inject(baseConfig.KEY);

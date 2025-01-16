@@ -8,3 +8,5 @@ export * from './reset-password';
 export * from './add-password';
 export * from './user';
 export * from './send-signup-verification-code';
+export * from './change-email';
+export * from './send-change-email-code';

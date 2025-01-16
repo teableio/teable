@@ -24,8 +24,14 @@ export const authConfig = registerAs('auth', () => ({
       iv: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf4',
     },
   },
-  resetPasswordEmailExpiresIn: process.env.BACKEND_RESET_PASSWORD_EMAIL_EXPIRES_IN ?? '30m',
-  signupVerificationExpiresIn: process.env.BACKEND_SIGNUP_VERIFICATION_EXPIRES_IN ?? '30m',
+  resetPasswordEmailExpiresIn:
+    process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ??
+    process.env.BACKEND_RESET_PASSWORD_EMAIL_EXPIRES_IN ??
+    '30m',
+  signupVerificationExpiresIn:
+    process.env.BACKEND_EMAIL_CODE_EXPIRES_IN ??
+    process.env.BACKEND_SIGNUP_VERIFICATION_EXPIRES_IN ??
+    '30m',
   socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [],
   github: {
     clientID: process.env.BACKEND_GITHUB_CLIENT_ID,

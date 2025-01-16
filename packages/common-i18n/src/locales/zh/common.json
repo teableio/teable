@@ -90,6 +90,25 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 密码添加成功。"
+      },
+      "changeEmail": {
+        "title": "更改电子邮件",
+        "desc": "请输入您的当前密码和您的电子邮件。",
+        "current": "输入您的当前密码",
+        "new": "输入您的新电子邮件",
+        "code": "输入验证码",
+        "getCode": "获取验证码",
+        "error": {
+          "invalidCode": "验证码无效",
+          "invalidPassword": "密码无效",
+          "invalidConflict": "新电子邮件已注册",
+          "invalidSameEmail": "新电子邮件与当前电子邮件相同"
+        },
+        "success": {
+          "title": "🎉 电子邮件更改成功。",
+          "desc": "您将在2秒内重定向到登录页面。",
+          "sendSuccess": "验证码发送成功。"
+        }
       }
     },
     "notify": {

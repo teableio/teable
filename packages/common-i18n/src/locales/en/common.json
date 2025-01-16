@@ -90,6 +90,25 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 Add password successfully."
+      },
+      "changeEmail": {
+        "title": "Change email",
+        "desc": "Please enter your current password and your new email.",
+        "current": "Enter your current password",
+        "new": "Enter your new email",
+        "code": "Enter the verification code",
+        "getCode": "Get verification code",
+        "error": {
+          "invalidCode": "The verification code is invalid.",
+          "invalidPassword": "The password is invalid.",
+          "invalidConflict": "The new email is already registered.",
+          "invalidSameEmail": "The new email is the same as the current email."
+        },
+        "success": {
+          "title": "🎉 Change email successfully.",
+          "desc": "You will be redirected to the login page in 2 seconds.",
+          "sendSuccess": "Verification code sent successfully."
+        }
       }
     },
     "notify": {

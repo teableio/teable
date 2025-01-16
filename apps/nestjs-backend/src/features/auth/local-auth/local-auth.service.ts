@@ -1,4 +1,12 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -164,9 +172,13 @@ export class LocalAuthService {
     if (this.baseConfig.enableEmailCodeConsole) {
       console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
     }
-    await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+    const emailOptions = this.mailSenderService.sendEmailVerifyCodeEmailOptions({
       title: 'Signup verification',
       message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
+    });
+    await this.mailSenderService.sendMail({
+      to: email,
+      ...emailOptions,
     });
     return {
       token,
@@ -257,5 +269,69 @@ export class LocalAuthService {
     });
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
+  }
+
+  async changeEmail(email: string, token: string, code: string) {
+    const currentEmail = this.cls.get('user.email');
+    const {
+      code: _code,
+      email: _currentEmail,
+      newEmail,
+    } = await this.jwtService
+      .verifyAsync<{ email: string; code: string; newEmail: string }>(token)
+      .catch(() => {
+        throw new CustomHttpException(
+          'Verification code is invalid',
+          HttpErrorCode.INVALID_CAPTCHA
+        );
+      });
+    if (newEmail !== email || _currentEmail !== currentEmail || _code !== code) {
+      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+    }
+    const user = this.cls.get('user');
+    await this.prismaService.txClient().user.update({
+      where: { id: user.id, deletedTime: null, deactivatedTime: null },
+      data: { email: newEmail },
+    });
+    // clear session
+    await this.sessionStoreService.clearByUserId(user.id);
+  }
+
+  async sendChangeEmailCode(newEmail: string, password: string) {
+    const email = this.cls.get('user.email');
+    if (newEmail === email) {
+      throw new BadRequestException('New email is the same as the current email');
+    }
+    const invalidPasswordError = new CustomHttpException(
+      'Password is incorrect',
+      HttpErrorCode.INVALID_CREDENTIALS
+    );
+    const user = await this.validateUserByEmail(email, password).catch(() => {
+      throw invalidPasswordError;
+    });
+    if (!user) {
+      throw invalidPasswordError;
+    }
+    const userByNewEmail = await this.userService.getUserByEmail(newEmail);
+    if (userByNewEmail) {
+      throw new ConflictException('New email is already registered');
+    }
+    const code = getRandomString(6);
+    const token = await this.jwtService.signAsync(
+      { email, newEmail, code },
+      { expiresIn: this.baseConfig.emailCodeExpiresIn }
+    );
+    if (this.baseConfig.enableEmailCodeConsole) {
+      console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
+    }
+    const emailOptions = this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+      title: 'Change Email verification',
+      message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
+    });
+    await this.mailSenderService.sendMail({
+      to: newEmail,
+      ...emailOptions,
+    });
+    return { token };
   }
 }

@@ -15,6 +15,7 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { AddPassword } from './account/AddPassword';
+import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {
@@ -99,6 +100,11 @@ export const Account: React.FC = () => {
               <Label>{t('settings.account.email')}</Label>
               <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
             </div>
+            <ChangeEmailDialog>
+              <Button className="float-right" size={'sm'} variant={'outline'}>
+                {t('settings.account.changeEmail.title')}
+              </Button>
+            </ChangeEmailDialog>
           </div>
           {sessionUser.hasPassword && (
             <div className="flex items-center justify-between">
