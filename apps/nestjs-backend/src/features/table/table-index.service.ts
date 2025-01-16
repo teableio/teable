@@ -238,7 +238,7 @@ export class TableIndexService {
         isStructuredCellValue: field.isStructuredCellValue,
       })) as IFieldInstance[];
     const createSqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fieldInstances);
-    this.prismaService.$tx(async (prisma) => {
+    await this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(dropSql);
       for (let i = 0; i < createSqls.length; i++) {
         await prisma.$executeRawUnsafe(createSqls[i]);

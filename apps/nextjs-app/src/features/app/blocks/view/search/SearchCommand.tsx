@@ -8,6 +8,7 @@ import {
   getTableAbnormalIndex,
   repairTableIndex,
 } from '@teable/openapi';
+import { LocalStorageKeys } from '@teable/sdk/config';
 import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Command,
@@ -27,9 +28,19 @@ import {
   HoverCardTrigger,
   HoverCardContent,
   Button,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  Checkbox,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { useLocalStorage } from 'react-use';
 
 interface ISearchCommand {
   value: string;
@@ -37,6 +48,12 @@ interface ISearchCommand {
   onHideSwitchChange: (hideNotMatchRow?: boolean) => void;
   onChange: (fieldIds: string[] | null) => void;
 }
+
+enum ActionType {
+  repair = 'repair',
+  create = 'create',
+}
+
 export const SearchCommand = (props: ISearchCommand) => {
   const { onChange, value, hideNotMatchRow, onHideSwitchChange } = props;
   const { t } = useTranslation(['common', 'table']);
@@ -52,16 +69,23 @@ export const SearchCommand = (props: ISearchCommand) => {
 
   const queryClient = useQueryClient();
 
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.SearchIndexAlert, true);
+  const [shouldTips, setShouldTips] = useState(false);
+  const [actionType, setActionType] = useState(ActionType.create);
+
   const { data: tableActivatedIndex } = useQuery({
     queryKey: ['table-index', tableId],
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
   });
 
+  const enabledSearchIndex = tableActivatedIndex?.includes(TableIndex.search);
+
   const { data: searchAbnormalIndex, isLoading: getAbnormalLoading } = useQuery({
     queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
     queryFn: () =>
       getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
-    enabled: !!tableActivatedIndex?.includes(TableIndex.search),
+    enabled: enabledSearchIndex,
   });
 
   const { mutateAsync: toggleIndexFn, isLoading } = useMutation({
@@ -244,7 +268,7 @@ export const SearchCommand = (props: ISearchCommand) => {
               <span className="text-sm leading-3">{t('table:table.index.description')}</span>
             </HoverCardContent>
           </HoverCard>
-          {!!searchAbnormalIndex?.length && (
+          {enabledSearchIndex && !!searchAbnormalIndex?.length && (
             <div className="flex items-center gap-0.5">
               <HoverCard>
                 <HoverCardTrigger>
@@ -253,6 +277,11 @@ export const SearchCommand = (props: ISearchCommand) => {
                     variant={'destructive'}
                     className="flex h-6 items-center gap-0.5"
                     onClick={async () => {
+                      if (shouldAlert) {
+                        setAlertVisible(true);
+                        setActionType(ActionType.repair);
+                        return;
+                      }
                       await repairIndexFn(TableIndex.search);
                     }}
                   >
@@ -279,8 +308,13 @@ export const SearchCommand = (props: ISearchCommand) => {
                 <Switch
                   id={'search-index'}
                   className="scale-75"
-                  checked={tableActivatedIndex?.includes(TableIndex.search)}
-                  onCheckedChange={async () => {
+                  checked={enabledSearchIndex}
+                  onCheckedChange={async (val) => {
+                    if (val && shouldAlert) {
+                      setAlertVisible(true);
+                      setActionType(ActionType.create);
+                      return;
+                    }
                     baseId && tableId && (await toggleIndexFn(TableIndex.search));
                   }}
                 />
@@ -289,6 +323,45 @@ export const SearchCommand = (props: ISearchCommand) => {
           </Label>
         </div>
       </div>
+
+      <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('table:table.index.enableIndexTip')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center">
+            <Checkbox
+              id="noTips"
+              checked={shouldTips}
+              onCheckedChange={(should: boolean) => {
+                setShouldTips(should);
+              }}
+            />
+            <label
+              htmlFor="noTips"
+              className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              {t('table:import.tips.noTips')}
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (actionType === ActionType.create) {
+                  toggleIndexFn(TableIndex.search);
+                } else {
+                  repairIndexFn(TableIndex.search);
+                }
+                setShouldAlert(!shouldTips);
+              }}
+            >
+              {t('table:import.title.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Command>
   );
 };

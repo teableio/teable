@@ -243,7 +243,7 @@ export class AggregationService {
     const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
       tableId,
       withView: {
-        viewId: queryRo.viewId,
+        viewId: ignoreViewQuery ? undefined : viewId,
         customFilter: queryRo.filter,
       },
     });

@@ -331,7 +331,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         expect(result2.data.length).toBe(0);
       });
 
-      it.only('should convert field index automatically when field be convert with table index', async () => {
+      it('should convert field index automatically when field be convert with table index', async () => {
         const textfield = table.fields.find(
           (f) => f.cellValueType === CellValueType.String && !f.isPrimary
         )!;
