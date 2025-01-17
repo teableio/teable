@@ -1,14 +1,15 @@
 import { Plus } from '@teable/icons';
 import { CreateRecordModal } from '@teable/sdk/components';
-import { usePersonalView, useTablePermission } from '@teable/sdk/hooks';
+import { useTablePermission } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { GridViewOperators } from './components';
 import { UndoRedoButtons } from './components/UndoRedoButtons';
+import { useViewConfigurable } from './hook';
 import { Others } from './Others';
 
 export const GridToolBar: React.FC = () => {
   const permission = useTablePermission();
-  const { isPersonalView } = usePersonalView();
+  const { isViewConfigurable } = useViewConfigurable();
 
   return (
     <div className="flex items-center border-t px-1 py-2 sm:gap-1 sm:px-2 md:gap-2 md:px-4">
@@ -26,7 +27,7 @@ export const GridToolBar: React.FC = () => {
       </CreateRecordModal>
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
       <div className="flex flex-1 justify-between @container/toolbar">
-        <GridViewOperators disabled={!permission['view|update'] && !isPersonalView} />
+        <GridViewOperators disabled={!isViewConfigurable} />
         <Others />
       </div>
     </div>

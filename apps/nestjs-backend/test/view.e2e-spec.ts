@@ -12,6 +12,7 @@ import {
   updateViewColumnMeta,
   updateRecord,
   getRecords,
+  updateViewLocked,
 } from '@teable/openapi';
 import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
 import {
@@ -119,10 +120,12 @@ describe('OpenAPI ViewController (e2e)', () => {
 
     await updateViewName(table.id, view.id, { name: 'New view 2' });
     await updateViewDescription(table.id, view.id, { description: 'description2' });
+    await updateViewLocked(table.id, view.id, { isLocked: true });
     const viewNew = await getView(table.id, view.id);
 
     expect(viewNew.name).toEqual('New view 2');
     expect(viewNew.description).toEqual('description2');
+    expect(viewNew.isLocked).toBeTruthy();
   });
 
   it('should create view with field order', async () => {

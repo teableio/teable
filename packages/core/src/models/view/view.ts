@@ -25,6 +25,8 @@ export abstract class ViewCore implements IViewVo {
 
   enableShare?: boolean;
 
+  isLocked?: boolean;
+
   shareMeta?: IShareViewMeta;
 
   abstract options: IViewOptions;

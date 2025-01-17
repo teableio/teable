@@ -42,6 +42,7 @@ export const viewVoSchema = z.object({
   sort: sortSchema.optional(),
   filter: filterSchema.optional(),
   group: groupSchema.optional(),
+  isLocked: z.boolean().optional(),
   shareId: z.string().optional(),
   enableShare: z.boolean().optional(),
   shareMeta: shareViewMetaSchema.optional(),
