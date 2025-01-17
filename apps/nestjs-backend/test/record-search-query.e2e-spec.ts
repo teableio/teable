@@ -14,6 +14,7 @@ import {
   convertField,
 } from '@teable/openapi';
 import { difference, differenceWith, isEqual } from 'lodash';
+import type { IFieldInstance } from '../src/features/field/model/factory';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import {
@@ -235,12 +236,16 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
     'search index relative',
     () => {
       let table: ITableFullVo;
+      let tableName: string;
+      let dbFieldNameIndexLen: number;
       beforeEach(async () => {
         table = await createTable(baseId, {
           name: 'record_query_x_20',
           fields: x_20.fields,
           records: x_20.records,
         });
+        tableName = table?.dbTableName?.split('.').pop() as string;
+        dbFieldNameIndexLen = 63 - 'idx_trgm'.length - tableName.length - 22;
       });
 
       afterEach(async () => {
@@ -257,36 +262,40 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       });
 
       it('should get abnormal index list', async () => {
-        const textfield = table.fields.find((f) => f.cellValueType === CellValueType.String)!;
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String
+        )! as IFieldInstance;
         // enable search index
         await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
 
         // delete or update abnormal index
         const tableIndexService = await getTableIndexService(app);
-        await tableIndexService.deleteSearchFieldIndex(table.id, textfield.dbFieldName);
+        await tableIndexService.deleteSearchFieldIndex(table.id, textfield);
 
         // expect get the abnormal list
         const result = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
         expect(result.data.length).toBe(1);
         expect(result.data[0]).toEqual({
-          indexName: `idx_trgm_${table.dbTableName.split('.').pop()}_${textfield.dbFieldName}`,
+          indexName: `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`,
         });
       });
 
       it('should repair abnormal index', async () => {
-        const textfield = table.fields.find((f) => f.cellValueType === CellValueType.String)!;
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String
+        )! as IFieldInstance;
         // enable search index
         await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
 
         // delete or update abnormal index
         const tableIndexService = await getTableIndexService(app);
-        await tableIndexService.deleteSearchFieldIndex(table.id, textfield.dbFieldName);
+        await tableIndexService.deleteSearchFieldIndex(table.id, textfield);
 
         // expect get the abnormal list
         const result = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
         expect(result.data.length).toBe(1);
         expect(result.data[0]).toEqual({
-          indexName: `idx_trgm_${table.dbTableName.split('.').pop()}_${textfield.dbFieldName}`,
+          indexName: `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`,
         });
 
         await repairTableIndex(baseId, table.id, TableIndex.search);
@@ -308,7 +317,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
         const diffIndex = differenceWith(index, index2, (a, b) => a?.indexname === b?.indexname);
         expect(diffIndex[0]?.indexname).toEqual(
-          `idx_trgm_${table.dbTableName.split('.').pop()}_${textfield.dbFieldName}`
+          `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`
         );
         const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
         expect(result2.data.length).toBe(0);
@@ -325,7 +334,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
         const diffIndex = differenceWith(index2, index, (a, b) => a?.indexname === b?.indexname);
         expect(diffIndex[0]?.indexname).toEqual(
-          `idx_trgm_${table.dbTableName.split('.').pop()}_${newField?.data?.dbFieldName}`
+          `idx_trgm_${tableName}_${newField?.data?.dbFieldName.slice(0, dbFieldNameIndexLen)}_${newField?.data?.id}`
         );
         const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
         expect(result2.data.length).toBe(0);
@@ -344,7 +353,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
         const diffIndex = differenceWith(index, index2, (a, b) => a?.indexname === b?.indexname);
         expect(diffIndex[0]?.indexname).toEqual(
-          `idx_trgm_${table.dbTableName.split('.').pop()}_${textfield?.dbFieldName}`
+          `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`
         );
 
         const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
@@ -364,7 +373,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
         const diffIndex = differenceWith(index2, index, (a, b) => a?.indexname === b?.indexname);
         expect(diffIndex[0]?.indexname).toEqual(
-          `idx_trgm_${table.dbTableName.split('.').pop()}_Test_Field`
+          `idx_trgm_${tableName}_${'Test_Field'.slice(0, dbFieldNameIndexLen)}_${textfield.id}`
         );
         const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
         expect(result2.data.length).toBe(0);

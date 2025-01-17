@@ -66,18 +66,28 @@ export class FieldFormatter {
 }
 
 export class IndexBuilderPostgres extends IndexBuilderAbstract {
+  static PG_MAX_INDEX_LEN = 63;
   private getIndexPrefix() {
     return `idx_trgm`;
   }
 
-  private getIndexName(table: string, dbFieldName: string): string {
+  private getIndexName(table: string, field: Pick<IFieldInstance, 'id' | 'dbFieldName'>): string {
+    const { dbFieldName, id } = field;
     const prefix = this.getIndexPrefix();
-    return `${prefix}_${table}_${dbFieldName}`;
+    // 3 is space character
+    const len =
+      IndexBuilderPostgres.PG_MAX_INDEX_LEN -
+      id.length -
+      this.getIndexPrefix().length -
+      table.length -
+      3;
+    const abbDbFieldName = dbFieldName.slice(0, len);
+    return `${prefix}_${table}_${abbDbFieldName}_${id}`;
   }
 
   createSingleIndexSql(dbTableName: string, field: IFieldInstance): string | null {
     const [schema, table] = dbTableName.split('.');
-    const indexName = this.getIndexName(table, field.dbFieldName);
+    const indexName = this.getIndexName(table, field);
     const expression = FieldFormatter.getIndexExpression(field);
     if (expression === null) {
       return null;
@@ -131,21 +141,21 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       )`;
   }
 
-  getDeleteSingleIndexSql(dbTableName: string, dbFieldName: string): string {
+  getDeleteSingleIndexSql(dbTableName: string, field: IFieldInstance): string {
     const [schema, table] = dbTableName.split('.');
-    const indexName = this.getIndexName(table, dbFieldName);
+    const indexName = this.getIndexName(table, field);
 
     return `DROP INDEX IF EXISTS "${schema}"."${indexName}"`;
   }
 
   getUpdateSingleIndexNameSql(
     dbTableName: string,
-    oldDbFieldName: string,
-    newDbFieldName: string
+    oldField: Pick<IFieldInstance, 'id' | 'dbFieldName'>,
+    newField: Pick<IFieldInstance, 'id' | 'dbFieldName'>
   ): string {
     const [schema, table] = dbTableName.split('.');
-    const oldIndexName = this.getIndexName(table, oldDbFieldName);
-    const newIndexName = this.getIndexName(table, newDbFieldName);
+    const oldIndexName = this.getIndexName(table, oldField);
+    const newIndexName = this.getIndexName(table, newField);
 
     return `
       ALTER INDEX IF EXISTS "${schema}"."${oldIndexName}"
@@ -166,8 +176,8 @@ AND indexname like '%${prefix}_${table}_%'`;
     const [, table] = dbTableName.split('.');
     const expectExistIndex = fields
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
-      .map(({ dbFieldName }) => {
-        return this.getIndexName(table, dbFieldName);
+      .map((field) => {
+        return this.getIndexName(table, field);
       });
 
     // 1: find the lack or redundant index
@@ -189,7 +199,7 @@ AND indexname like '%${prefix}_${table}_%'`;
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map((f) => {
         return {
-          indexName: this.getIndexName(dbTableName, f.dbFieldName),
+          indexName: this.getIndexName(dbTableName, f),
           indexDef: this.createSingleIndexSql(dbTableName, f) as string,
         };
       });

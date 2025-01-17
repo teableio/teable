@@ -18,7 +18,6 @@ import {
   toggleIndexRoSchema,
   TableIndex,
 } from '@teable/openapi';
-import { Timing } from '../../../utils/timing';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TableIndexService } from '../table-index.service';

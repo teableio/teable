@@ -430,8 +430,6 @@ export class RecordService {
       }
     });
 
-    console.log('ooooooooo', [searchValue, fieldIdOrName, hideNotMatchRow]);
-
     return [searchValue, fieldIdOrName, hideNotMatchRow];
   }
 

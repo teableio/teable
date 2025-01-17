@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { CellValueType } from '@teable/core';
 import type { IGetAbnormalVo } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
@@ -92,14 +93,14 @@ export class IndexBuilderSqlite extends IndexBuilderAbstract {
     )`;
   }
 
-  getDeleteSingleIndexSql(dbTableName: string, dbFieldName: string): string {
+  getDeleteSingleIndexSql(dbTableName: string, field: IFieldInstance): string {
     return NO_OPERATION_SQL;
   }
 
   getUpdateSingleIndexNameSql(
     dbTableName: string,
-    oldDbFieldName: string,
-    newDbFieldName: string
+    oldField: IFieldInstance,
+    newField: IFieldInstance
   ): string {
     return NO_OPERATION_SQL;
   }

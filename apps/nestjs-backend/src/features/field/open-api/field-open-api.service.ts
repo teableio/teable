@@ -373,14 +373,14 @@ export class FieldOpenApiService {
         },
         select: {
           dbFieldName: true,
+          id: true,
         },
       });
       // do not need in transaction, causing just index name
-      await this.tableIndexService.updateSearchFieldIndexName(
-        tableId,
-        oldField.dbFieldName,
-        updateFieldRo.dbFieldName
-      );
+      await this.tableIndexService.updateSearchFieldIndexName(tableId, oldField, {
+        id: oldField.id,
+        dbFieldName: updateFieldRo?.dbFieldName ?? oldField.dbFieldName,
+      });
       ops.push(op);
     }
 
@@ -443,7 +443,7 @@ export class FieldOpenApiService {
     // 3. stage apply record changes and calculate field
     await this.prismaService.$tx(
       async () => {
-        await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField.dbFieldName);
+        await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField);
         await this.fieldConvertingService.stageCalculate(tableId, newField, oldField, modifiedOps);
 
         if (supplementChange) {

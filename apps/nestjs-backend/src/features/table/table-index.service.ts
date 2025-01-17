@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { CellValueType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
@@ -17,6 +17,8 @@ const unSupportTableIndex = 'Unsupport table index type';
 
 @Injectable()
 export class TableIndexService {
+  private logger = new Logger(TableIndexService.name);
+
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
@@ -118,7 +120,7 @@ export class TableIndexService {
     }
   }
 
-  async deleteSearchFieldIndex(tableId: string, dbFieldName: string) {
+  async deleteSearchFieldIndex(tableId: string, field: IFieldInstance) {
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
@@ -126,7 +128,7 @@ export class TableIndexService {
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
     if (index.includes(TableIndex.search)) {
-      const sql = this.dbProvider.searchIndex().getDeleteSingleIndexSql(dbTableName, dbFieldName);
+      const sql = this.dbProvider.searchIndex().getDeleteSingleIndexSql(dbTableName, field);
       await this.prismaService.$executeRawUnsafe(sql);
     }
   }
@@ -146,8 +148,8 @@ export class TableIndexService {
 
   async updateSearchFieldIndexName(
     tableId: string,
-    oldDbFieldName: string,
-    newDbFieldName: string
+    oldField: Pick<IFieldInstance, 'id' | 'dbFieldName'>,
+    newField: Pick<IFieldInstance, 'id' | 'dbFieldName'>
   ) {
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
@@ -158,7 +160,7 @@ export class TableIndexService {
     if (index.includes(TableIndex.search)) {
       const sql = this.dbProvider
         .searchIndex()
-        .getUpdateSingleIndexNameSql(dbTableName, oldDbFieldName, newDbFieldName);
+        .getUpdateSingleIndexNameSql(dbTableName, oldField, newField);
       await this.prismaService.$executeRawUnsafe(sql);
     }
   }
@@ -238,14 +240,14 @@ export class TableIndexService {
         isStructuredCellValue: field.isStructuredCellValue,
       })) as IFieldInstance[];
     const createSqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fieldInstances);
-    await this.prismaService.$tx(async (prisma) => {
-      await prisma.$executeRawUnsafe(dropSql);
-      for (let i = 0; i < createSqls.length; i++) {
-        await prisma.$executeRawUnsafe(createSqls[i]);
-      }
-      {
-        this.thresholdConfig.bigTransactionTimeout;
-      }
-    });
+    await this.prismaService.$tx(
+      async (prisma) => {
+        await prisma.$executeRawUnsafe(dropSql);
+        for (let i = 0; i < createSqls.length; i++) {
+          await prisma.$executeRawUnsafe(createSqls[i]);
+        }
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
   }
 }

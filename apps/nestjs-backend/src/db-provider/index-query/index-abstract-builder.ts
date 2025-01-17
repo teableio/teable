@@ -1,4 +1,4 @@
-import type { IGetAbnormalVo, TableIndex } from '@teable/openapi';
+import type { IGetAbnormalVo } from '@teable/openapi';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 export abstract class IndexBuilderAbstract {
@@ -8,12 +8,12 @@ export abstract class IndexBuilderAbstract {
 
   abstract getExistTableIndexSql(dbTableName: string): string;
 
-  abstract getDeleteSingleIndexSql(dbTableName: string, dbFieldName: string): string;
+  abstract getDeleteSingleIndexSql(dbTableName: string, field: IFieldInstance): string;
 
   abstract getUpdateSingleIndexNameSql(
     dbTableName: string,
-    oldDbFieldName: string,
-    newDbFieldName: string
+    oldField: Pick<IFieldInstance, 'id' | 'dbFieldName'>,
+    newField: Pick<IFieldInstance, 'id' | 'dbFieldName'>
   ): string;
 
   abstract createSingleIndexSql(dbTableName: string, field: IFieldInstance): string | null;
