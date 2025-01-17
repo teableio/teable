@@ -556,14 +556,16 @@ export class RecordService {
     }
 
     // Add filtering conditions to the query builder
-    this.dbProvider
-      .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
-      .appendQueryBuilder();
+    !query.ignoreViewQuery &&
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
+        .appendQueryBuilder();
 
     // Add sorting rules to the query builder
-    this.dbProvider
-      .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
-      .appendSortBuilder();
+    !query.ignoreViewQuery &&
+      this.dbProvider
+        .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
+        .appendSortBuilder();
 
     if (search && search[2] && fieldMap) {
       const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
