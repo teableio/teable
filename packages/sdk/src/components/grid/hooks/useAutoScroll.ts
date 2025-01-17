@@ -1,6 +1,6 @@
 import { inRange } from 'lodash';
 import { useState, useRef, useEffect } from 'react';
-import type { IMouseState, IScrollDirection } from '../interface';
+import type { IPosition, IScrollDirection } from '../interface';
 import { DragRegionType } from '../interface';
 import type { CoordinateManager } from '../managers';
 
@@ -9,15 +9,12 @@ const maxPxPerMs = 2;
 const msToFullSpeed = 1200;
 
 interface IUseAutoScroll {
-  isSelecting: boolean;
-  dragType: DragRegionType;
-  isDragging: boolean;
   coordInstance: CoordinateManager;
   scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
 export const useAutoScroll = (props: IUseAutoScroll) => {
-  const { coordInstance, isSelecting, dragType, isDragging, scrollBy } = props;
+  const { coordInstance, scrollBy } = props;
   const speedScalar = useRef(0);
   const { containerWidth, containerHeight, freezeRegionWidth, rowInitSize } = coordInstance;
   const [scrollDirection, setScrollDirection] = useState<
@@ -25,13 +22,12 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
   >([0, 0]);
   const [xDirection, yDirection] = scrollDirection || [0, 0];
 
-  const onAutoScroll = (mouseState: IMouseState) => {
-    if (!isSelecting && !isDragging) return;
-    const { x, y } = mouseState;
+  const onAutoScroll = <T extends IPosition>(position: T, dragType?: DragRegionType) => {
+    const { x, y } = position;
     let xDir: IScrollDirection = 0;
     let yDir: IScrollDirection = 0;
 
-    if (isSelecting || (isDragging && dragType === DragRegionType.Columns)) {
+    if (!dragType || dragType === DragRegionType.Columns) {
       if (containerWidth - x < threshold) {
         xDir = 1;
       } else if (inRange(x, freezeRegionWidth, freezeRegionWidth + threshold)) {
@@ -39,7 +35,7 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
       }
     }
 
-    if (isSelecting || (isDragging && dragType === DragRegionType.Rows)) {
+    if (!dragType || dragType === DragRegionType.Rows) {
       if (containerHeight - y < threshold) {
         yDir = 1;
       } else if (inRange(y, rowInitSize, rowInitSize + threshold)) {

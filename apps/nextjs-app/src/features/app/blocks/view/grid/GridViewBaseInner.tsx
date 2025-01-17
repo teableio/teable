@@ -1,14 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IFieldVo } from '@teable/core';
+import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
 import {
   FieldKeyType,
+  FieldType,
   RowHeightLevel,
   contractColorForTheme,
   fieldVoSchema,
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords } from '@teable/openapi';
+import { createRecords, UploadType } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -51,10 +52,12 @@ import {
   useGridSelection,
   Record,
   DragRegionType,
+  useGridFileEvent,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {
+  useBaseId,
   useFieldCellEditable,
   useFields,
   useIsTouchDevice,
@@ -76,6 +79,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { usePrevious, useClickAway } from 'react-use';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
+import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
@@ -101,6 +105,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const router = useRouter();
+  const baseId = useBaseId();
   const tableId = useTableId() as string;
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
@@ -162,12 +167,36 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const {
     presortRecord,
-    onSelectionChanged,
     presortRecordData,
+    onSelectionChanged,
     onPresortCellEdited,
     getPresortCellContent,
     setPresortRecordData,
   } = useGridSelection({ recordMap, columns, viewQuery, gridRef });
+
+  const { onDragOver, onDragLeave, onDrop } = useGridFileEvent({
+    gridRef,
+    onValidation: (cell) => {
+      if (!permission['view|update']) return false;
+
+      const [columnIndex] = cell;
+      const field = fields[columnIndex];
+
+      if (!field) return false;
+
+      const { type, isComputed } = field;
+      return type === FieldType.Attachment && !isComputed;
+    },
+    onCellDrop: async (cell, files) => {
+      const attachments = await uploadFiles(files, UploadType.Table, baseId);
+
+      const [fieldIndex, recordIndex] = cell;
+      const record = recordMap[recordIndex];
+      const field = fields[fieldIndex];
+      const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
+      await record.updateCell(field.id, [...oldCellValue, ...attachments]);
+    },
+  });
 
   const {
     localRecord,
@@ -784,7 +813,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [setGridRef]);
 
   return (
-    <div ref={containerRef} className="relative size-full">
+    <div
+      ref={containerRef}
+      className="relative size-full"
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <Grid
         ref={gridRef}
         theme={theme}
