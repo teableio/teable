@@ -295,7 +295,7 @@ export class SearchQueryPostgresBuilder {
 
     const caseWhenQueryDbSql = this.getCaseWhenSqlBy() as string[];
 
-    queryBuilder.with('filtered_table', (qb) => {
+    queryBuilder.with('search_hit_row', (qb) => {
       qb.select('*');
 
       qb.from(dbTableName);
@@ -336,7 +336,7 @@ export class SearchQueryPostgresBuilder {
         )
       );
 
-      qb.from('filtered_table');
+      qb.from('search_hit_row');
     });
 
     queryBuilder

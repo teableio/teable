@@ -520,7 +520,10 @@ export class RecordService {
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
     const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
-      await this.prepareQuery(tableId, query);
+      await this.prepareQuery(tableId, {
+        ...query,
+        viewId: query.ignoreViewQuery ? undefined : query.viewId,
+      });
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -556,16 +559,14 @@ export class RecordService {
     }
 
     // Add filtering conditions to the query builder
-    !query.ignoreViewQuery &&
-      this.dbProvider
-        .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
-        .appendQueryBuilder();
+    this.dbProvider
+      .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
+      .appendQueryBuilder();
 
     // Add sorting rules to the query builder
-    !query.ignoreViewQuery &&
-      this.dbProvider
-        .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
-        .appendSortBuilder();
+    this.dbProvider
+      .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
+      .appendSortBuilder();
 
     if (search && search[2] && fieldMap) {
       const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
