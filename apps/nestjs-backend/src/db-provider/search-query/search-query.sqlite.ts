@@ -1,6 +1,5 @@
 import { CellValueType, type IDateFieldOptions } from '@teable/core';
-import type { ISearchIndexByQueryRo } from '@teable/openapi';
-import { TableIndex } from '@teable/openapi';
+import type { ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
@@ -32,17 +31,13 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   getQuery() {
-    const { field, tableIndex } = this;
+    const { field } = this;
     const { isMultipleCellValue } = field;
 
-    if (tableIndex.includes(TableIndex.search)) {
-      return this.getFullTextQuery();
-    } else {
-      return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();
-    }
+    return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();
   }
 
-  protected getFullTextQuery() {
+  protected getSearchQueryWithIndex() {
     return this.originQueryBuilder;
   }
 
