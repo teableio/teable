@@ -61,6 +61,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       const count = await this.cacheService.get(`signin:attempts:${email}`);
       if (count && count >= maxLoginAttempts) {
         await this.cacheService.set(`signin:lockout:${email}`, true, accountLockoutMinutes);
+        await this.cacheService.del(`signin:attempts:${email}`);
         throw lockError;
       }
       const attempts = (count || 0) + 1;

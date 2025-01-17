@@ -172,6 +172,10 @@ export class LocalAuthService {
     if (this.baseConfig.enableEmailCodeConsole) {
       console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
     }
+    const exist = await this.userService.getUserByEmail(email);
+    if (exist) {
+      throw new ConflictException('Email is already registered');
+    }
     const emailOptions = this.mailSenderService.sendEmailVerifyCodeEmailOptions({
       title: 'Signup verification',
       message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
@@ -300,7 +304,10 @@ export class LocalAuthService {
   async sendChangeEmailCode(newEmail: string, password: string) {
     const email = this.cls.get('user.email');
     if (newEmail === email) {
-      throw new BadRequestException('New email is the same as the current email');
+      throw new CustomHttpException(
+        'New email is the same as the current email',
+        HttpErrorCode.CONFLICT
+      );
     }
     const invalidPasswordError = new CustomHttpException(
       'Password is incorrect',

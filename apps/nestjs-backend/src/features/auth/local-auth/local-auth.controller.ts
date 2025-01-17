@@ -90,27 +90,33 @@ export class LocalAuthController {
   @Public()
   async resetPassword(
     @Res({ passthrough: true }) res: Response,
+    @Req() req: Request,
     @Body(new ZodValidationPipe(resetPasswordRoSchema)) body: IResetPasswordRo
   ) {
     await this.authService.resetPassword(body.code, body.password);
+    await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
   @Post('/add-password')
   async addPassword(
     @Res({ passthrough: true }) res: Response,
+    @Req() req: Request,
     @Body(new ZodValidationPipe(addPasswordRoSchema)) body: IAddPasswordRo
   ) {
     await this.authService.addPassword(body.password);
+    await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
   @Patch('/change-email')
   async changeEmail(
     @Body(new ZodValidationPipe(changeEmailRoSchema)) body: IChangeEmailRo,
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
+    @Req() req: Request
   ) {
     await this.authService.changeEmail(body.email, body.token, body.code);
+    await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 

@@ -13,7 +13,7 @@ export type ISendSignupVerificationCodeRo = z.infer<typeof sendSignupVerificatio
 
 export const sendSignupVerificationCodeVoSchema = z.object({
   token: z.string(),
-  expiresIn: z.number(),
+  expiresTime: z.string(),
 });
 
 export type ISendSignupVerificationCodeVo = z.infer<typeof sendSignupVerificationCodeVoSchema>;

@@ -1,7 +1,10 @@
 import { axios, SIGN_UP, createAxios, USER_ME, SIGN_IN } from '@teable/openapi';
+import { signupPasswordSchema } from '@teable/openapi/src/auth/types';
 
 export async function createNewUserAxios({ email, password }: { email: string; password: string }) {
-  password = `${password}a`;
+  if (!signupPasswordSchema.safeParse(password).success) {
+    password = `${password}a`;
+  }
   const signAxios = createAxios();
   signAxios.defaults.baseURL = axios.defaults.baseURL;
   const signupRes = await signAxios.post(SIGN_UP, { email, password }).catch(async (err) => {
