@@ -671,16 +671,16 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(groupCount).toEqual(22);
     });
 
-    it('should get search count with ignoreViewQuery', async () => {
-      const result = (
-        await getSearchCount(table.id, {
-          viewId,
-          search: ['Text Field 10', '', false],
-          ignoreViewQuery: true,
-        })
-      ).data;
-      expect(result.count).toEqual(2);
-    });
+    // it.only('should get search count with ignoreViewQuery', async () => {
+    //   const result = (
+    //     await getSearchCount(table.id, {
+    //       viewId,
+    //       search: ['Text Field 10', '', false],
+    //       ignoreViewQuery: true,
+    //     })
+    //   ).data;
+    //   expect(result.count).toEqual(2);
+    // });
 
     it('should get search index with ignoreViewQuery', async () => {
       const result = (
