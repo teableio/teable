@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "title": "Bu sayfayı görüntülemek için şifrenizi girin",
+    "submit": "Gönder",
+    "password": "Şifre"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "Seç..."
+  },
+  "openOnNewPage": "Yeni sayfada aç",
+  "errorTips": "Paylaşım kaynağında Yetki Matrisi etkinleştirildi, görüntülemeye izin verilmiyor"
+}

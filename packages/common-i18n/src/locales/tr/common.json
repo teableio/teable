@@ -1,0 +1,289 @@
+{
+  "brand": "Teable",
+  "actions": {
+    "title": "işlemler",
+    "save": "Kaydet",
+    "doNotSave": "Kaydetme",
+    "submit": "Gönder",
+    "confirm": "Onayla",
+    "close": "Kapat",
+    "edit": "Düzenle",
+    "fill": "Doldur",
+    "update": "Güncelle",
+    "create": "Oluştur",
+    "delete": "Sil",
+    "cancel": "İptal",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "back": "Geri",
+    "saveSucceed": "Başarıyla Kaydedildi!",
+    "submitSucceed": "Başarıyla Gönderildi!",
+    "editSucceed": "Başarıyla Düzenlendi!",
+    "updateSucceed": "Başarıyla Güncellendi!",
+    "deleteSucceed": "Başarıyla Silindi!",
+    "resetSucceed": "Çöp Kutusu Başarıyla Boşaltıldı!",
+    "restoreSucceed": "Başarıyla Geri Yüklendi!",
+    "loading": "Yükleniyor...",
+    "refreshPage": "Sayfayı Yenile",
+    "yesDelete": "Evet, sil",
+    "rename": "Yeniden Adlandır",
+    "duplicate": "Çoğalt",
+    "change": "Değiştir",
+    "upgrade": "Yükselt",
+    "search": "Ara",
+    "loadMore": "Daha Fazla Yükle",
+    "collapseSidebar": "Kenar Çubuğunu Daralt",
+    "restore": "Geri Yükle",
+    "permanentDelete": "Kalıcı Olarak Sil",
+    "globalSearch": "Genel Arama",
+    "fieldSearch": "Alan Ara",
+    "showAllRow": "Tüm satırları göster",
+    "hideNotMatchRow": "Eşleşmeyen satırları gizle"
+  },
+  "quickAction": {
+    "title": "Hızlı İşlemler...",
+    "placeHolder": "Bir komut yazın veya arayın..."
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "back": "Ana sayfaya dön",
+    "account": {
+      "title": "Profilim",
+      "tab": "Hesabım",
+      "updatePhoto": "Fotoğrafı güncelle",
+      "updateNameDesc": "Adınız katkılarınızda ve bahsetmelerde görüntülenecektir. İstediğiniz zaman değiştirebilirsiniz.",
+      "securityTitle": "Hesap güvenliği",
+      "email": "E-posta",
+      "password": "Şifre",
+      "passwordDesc": "Hesabınıza giriş yapmak için kalıcı bir şifre belirleyin.",
+      "changePassword": {
+        "title": "Şifre değiştir",
+        "desc": "Lütfen mevcut şifrenizi ve yeni şifrenizi girin.",
+        "current": "Mevcut şifrenizi girin",
+        "new": "Yeni şifrenizi girin",
+        "confirm": "Yeni şifrenizi onaylayın"
+      },
+      "changePasswordError": {
+        "disMatch": "Yeni şifreleriniz eşleşmiyor.",
+        "equal": "Yeni şifreniz mevcut şifrenizden farklı olmalıdır.",
+        "invalid": "Mevcut şifreniz geçersiz.",
+        "invalidNew": "Yeni şifreniz geçersiz, minimum 8 karakter olmalıdır."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Şifre başarıyla değiştirildi.",
+        "desc": "2 saniye içinde giriş sayfasına yönlendirileceksiniz."
+      },
+      "manageToken": "Erişim Tokeni",
+      "addPassword": {
+        "title": "Şifre ekle",
+        "desc": "Hesabınıza giriş yapmak için kalıcı bir şifre belirleyin.",
+        "password": "Şifrenizi girin",
+        "confirm": "Şifrenizi onaylayın"
+      },
+      "addPasswordError": {
+        "disMatch": "Şifreleriniz eşleşmiyor.",
+        "invalid": "Şifreniz geçersiz, minimum 8 karakter olmalıdır."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Şifre başarıyla eklendi."
+      }
+    },
+    "notify": {
+      "title": "Bildirimlerim",
+      "label": "Alan etkinliği",
+      "desc": "Yorum aldığınızda, bahsedildiğinizde, sayfa davetleri, hatırlatmalar, erişim istekleri ve özellik değişiklikleri için e-posta alın."
+    },
+    "setting": {
+      "title": "Ayarlarım",
+      "theme": "Tema",
+      "themeDesc": "Uygulama temasını seçin.",
+      "dark": "Koyu",
+      "light": "Açık",
+      "system": "Sistem",
+      "version": "Uygulama sürümü",
+      "language": "Dil"
+    },
+    "nav": {
+      "settings": "Ayarlar",
+      "logout": "Çıkış yap"
+    },
+    "integration": {
+      "title": "Entegrasyonlar",
+      "description": "{{count}} uygulamaya hesabınıza erişim izni verdiniz.",
+      "lastUsed": "Son kullanım: {{date}}",
+      "revoke": "İptal et",
+      "owner": "Sahibi: {{user}}",
+      "revokeTitle": "Yetkilendirmeyi iptal etmek istediğinizden emin misiniz?",
+      "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlem geri alınamaz.",
+      "scopeTitle": "İzinler",
+      "scopeDesc": "Bu uygulama aşağıdaki kapsamlara erişebilecek:"
+    }
+  },
+  "noun": {
+    "table": "Tablo",
+    "view": "Görünüm",
+    "space": "Alan",
+    "base": "Veritabanı",
+    "field": "Alan",
+    "record": "Kayıt",
+    "dashboard": "Gösterge Paneli",
+    "automation": "Otomasyon",
+    "authorityMatrix": "Yetki Matrisi",
+    "adminPanel": "Yönetici Paneli",
+    "license": "Lisans",
+    "instanceId": "Örnek Kimliği",
+    "beta": "Beta",
+    "trash": "Çöp Kutusu",
+    "global": "Genel"
+  },
+  "level": {
+    "free": "Ücretsiz",
+    "plus": "Plus",
+    "pro": "Pro",
+    "enterprise": "Kurumsal"
+  },
+  "noResult": "Sonuç Bulunamadı.",
+  "untitled": "Başlıksız",
+  "name": "İsim",
+  "description": "Açıklama",
+  "required": "Zorunlu",
+  "atLeastOne": "En az bir {{noun}} bulunmalıdır",
+  "guide": {
+    "prev": "Önceki",
+    "next": "Sonraki",
+    "done": "Tamam",
+    "skip": "Atla",
+    "createSpaceTooltipTitle": "Alan oluştur",
+    "createSpaceTooltipContent": "Teable alanlar halinde düzenlenmiştir, her alan kullanıcıları işbirliği yapmaya davet eder. <br></br>Teable'daki alanlar, menü çubuğunda birincil gezinme öğesi olarak hizmet verir ve kullanıcılara gerektiğinde veritabanı ekleme ve yönetme için temel bir platform sunar.",
+    "createBaseTooltipTitle": "Veritabanı oluştur",
+    "createBaseTooltipContent": "Veritabanı, önemli verileri ve bunlara bağlı iş akışlarını depolamak için bir yerdir.",
+    "createTableTooltipTitle": "Tablo oluştur",
+    "createTableTooltipContent": "Tablolar, çeşitli veri türleri aracılığıyla bilgilerin çok yönlü görüntülenmesini sağlayarak farklı veri kümelerini verimli bir şekilde işlemek için tasarlanmıştır.",
+    "createViewTooltipTitle": "Görünüm oluştur",
+    "createViewTooltipContent": "Şu anda kullanıcılar Izgara, Galeri, Kanban ve Form görünümleri oluşturabilir, Takvim görünümleri gelecek sürümlerde planlanmaktadır. <br></br>Bu çeşitlilik, kullanıcılara çeşitli veri yönetimi görevleri için kapsamlı bir araç seti sunar.",
+    "viewFilteringTooltipTitle": "Kayıtları filtreleme",
+    "viewFilteringTooltipContent": "Görünümlerin temel özelliklerinden biri, belirlediğiniz koşullara göre kayıtları görünümden filtreleyebilmektir. <br></br>Bir kayıt bir koşula göre filtrelendiğinde silinmez—sadece tablonuza bakmak için kullandığınız belirli görünümden gizlenir.",
+    "viewSortingTooltipTitle": "Kayıtları sıralama",
+    "viewSortingTooltipContent": "Bir görünümdeyken, kayıtlarınızı belirli alanlardaki değerlere göre belirli bir sırada görünecek şekilde sıralayabilirsiniz. <br></br>Kayıtlarınızı bir görünümde sıralamak diğer görünümlerdeki kayıtların sırasını etkilemez—sadece tablonuza bakmak için kullandığınız mevcut görünüme uygulanır.",
+    "viewGroupingTooltipTitle": "Kayıtları gruplama",
+    "viewGroupingTooltipContent": "Kayıtları gruplamak, oluşturuculara belirli bir görünümde sunulan veri kümesini kategorize etmeye yardımcı olacak bir veya daha fazla koşul kümesi oluşturma imkanı sağlar.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable, neredeyse tüm ürün özelliklerini destekleyen güçlü bir API sunar ve geliştiricilerin <a>Token</a> kullanarak çağrı yapmasına olanak tanır."
+  },
+  "token": "Token",
+  "poweredBy": "<0></0> tarafından desteklenmektedir",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} alanı paylaşımı",
+      "desc_one": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
+      "desc_other": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
+      "tabEmail": "E-posta ile davet et",
+      "emailPlaceholder": "E-posta yoluyla daha fazla işbirlikçi davet et",
+      "tabLink": "Bağlantı ile davet et",
+      "linkPlaceholder": "Açan herkese <0/> erişimi veren bir davet bağlantısı oluştur.",
+      "emailSend": "Davet gönder",
+      "linkSend": "Bağlantı oluştur",
+      "spaceTitle": "Alan işbirlikçileri",
+      "collaboratorSearchPlaceholder": "İsim veya e-posta ile alan işbirlikçisi bul",
+      "collaboratorJoin": "{{joinTime}} tarihinde katıldı",
+      "collaboratorRemove": "İşbirlikçiyi kaldır",
+      "linkTitle": "Davet bağlantıları",
+      "linkCreatedTime": "{{createdTime}} tarihinde oluşturuldu",
+      "linkCopySuccess": "Bağlantı kopyalandı",
+      "linkRemove": "Bağlantıyı kaldır"
+    },
+    "base": {
+      "title": "{{baseName}} paylaş",
+      "desc_one": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
+      "desc_other": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
+      "baseTitle": "Veritabanı işbirlikçileri",
+      "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul"
+    }
+  },
+  "help": {
+    "title": "Yardım",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/developer/api"
+  },
+  "pagePermissionChangeTip": "Sayfa izinleri güncellendi. En son içeriği görmek için lütfen sayfayı yenileyin.",
+  "listEmptyTips": "Liste boş",
+  "billing": {
+    "overLimits": "Limit aşımı",
+    "overLimitsDescription": "Mevcut aboneliğiniz kullanım sınırını aştı. Bu özelliği kesintisiz kullanmaya devam etmek için lütfen planınızı yükseltin.",
+    "userLimitExceededDescription": "Mevcut örnek, lisansınızın izin verdiği maksimum kullanıcı sayısına ulaştı. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin.",
+    "unavailableInPlanTips": "Mevcut abonelik planı bu özelliği desteklemiyor",
+    "levelTips": "Bu alan şu anda {{level}} planında",
+    "spaceSubscriptionModal": {
+      "title": "Alan abonelik planını yükselt",
+      "description": "Yalnızca sahibi olduğunuz çalışma alanlarını yükseltebilirsiniz"
+    },
+    "status": {
+      "active": "Aktif",
+      "canceled": "İptal Edildi",
+      "incomplete": "Tamamlanmadı",
+      "incompleteExpired": "Tamamlanmamış Süresi Doldu",
+      "trialing": "Deneme",
+      "pastDue": "Vadesi Geçmiş",
+      "unpaid": "Ödenmemiş",
+      "paused": "Duraklatıldı",
+      "seatLimitExceeded": "Koltuk limiti aşıldı"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "Mevcut örneğinizin ayarlarını değiştirin",
+      "allowSignUp": "Yeni hesap oluşturmaya izin ver",
+      "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
+      "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
+      "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Bu seçeneği etkinleştirmek, yeni hesap kaydı devre dışı bırakılmış olsa bile doğrudan davet edilen kullanıcıların hesap oluşturmasına izin verir.",
+      "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
+      "allowSpaceCreationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların yeni alan oluşturmasını engeller."
+    }
+  },
+  "notification": {
+    "title": "Bildirimler",
+    "unread": "Okunmamış",
+    "read": "Okunmuş",
+    "markAs": "Bu bildirimi {{status}} olarak işaretle",
+    "markAllAsRead": "Tümünü okundu olarak işaretle",
+    "noUnread": "{{status}} bildirim yok",
+    "changeSetting": "Sayfa bildirim ayarlarını değiştir",
+    "new": "yeni {{count}}",
+    "showMore": "Daha fazla göster"
+  },
+  "role": {
+    "title": {
+      "owner": "Sahip",
+      "creator": "Oluşturucu",
+      "editor": "Düzenleyici",
+      "commenter": "Yorumcu",
+      "viewer": "İzleyici"
+    },
+    "description": {
+      "owner": "Veritabanlarını, otomasyonları, yetki matrislerini tam olarak yapılandırıp düzenleyebilir ve alan ayarlarını ve faturalandırmayı yönetebilir",
+      "creator": "Veritabanlarını, otomasyonları tam olarak yapılandırıp düzenleyebilir ve yetki matrisini etkinleştirebilir",
+      "editor": "Kayıtları ve görünümleri düzenleyebilir, ancak tabloları veya alanları yapılandıramaz",
+      "commenter": "Kayıtlara yorum yapabilir",
+      "viewer": "Düzenleyemez veya yorum yapamaz"
+    }
+  },
+  "trash": {
+    "type": "Tür",
+    "resetTrash": "Çöp kutusunu boşalt",
+    "deletedBy": "Silen",
+    "deletedTime": "Silinme zamanı",
+    "fromSpace": "\"{{name}}\" alanından",
+    "permanentDeleteTips": "\"{{name}}\" {{resource}} öğesini kalıcı olarak silmek istediğinizden emin misiniz?",
+    "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
+    "install": "Yükle",
+    "publisher": "Yayıncı",
+    "lastUpdated": "Son Güncelleme",
+    "pluginNotFound": "Eklenti Bulunamadı",
+    "pluginEmpty": {
+      "title": "Henüz Eklenti Yok"
+    }
+  }
+}

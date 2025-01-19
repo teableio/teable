@@ -1,0 +1,498 @@
+{
+  "toolbar": {
+    "comingSoon": "Çok yakında",
+    "viewFilterInShare": "Bu görünüm bir görünüm paylaşım bağlantısında kullanılıyor. Görünüm yapılandırmasındaki değişiklikler görünüm paylaşım bağlantısını da değiştirecektir.",
+    "createFieldButtonText": "Yeni bir <0/> alanı oluştur",
+    "others": {
+      "share": {
+        "label": "Paylaş",
+        "statusLabel": "Paylaşım",
+        "noPermission": "Görünümü paylaşma izni yok",
+        "shareLink": "Paylaşım Bağlantısı",
+        "copied": "Kopyalandı",
+        "genLink": "Yeni bağlantı oluştur",
+        "allowCopy": "İzleyicilerin bu görünümden veri kopyalamasına izin ver",
+        "showAllFields": "Genişletilmiş kayıtlarda tüm alanları göster",
+        "restrict": "Şifre ile kısıtla",
+        "tips": "Bağlantıya sahip kişiler görünümü görebilir.",
+        "passwordTitle": "Bir şifre girin",
+        "passwordTips": "Paylaşılan görünümlere erişim için şifre kısıtlamaları",
+        "embed": "Yerleştir",
+        "embedPreview": "Yerleştirme önizlemesi",
+        "hideToolbar": "Araç çubuğunu gizle",
+        "URLSetting": "URL parametreleri yapılandırması",
+        "URLSettingDescription": "Aşağıdaki ayarları değiştirmek paylaşılan bağlantıları etkilemez. Yeni parametrelerin etkili olması için bağlantıyı yeni parametrelerle kopyalamanız gerekir",
+        "cancel": "İptal",
+        "save": "Kaydet",
+        "requireLogin": "Giriş yapılmasını gerektir"
+      },
+      "extensions": {
+        "label": "Uzantılar",
+        "graph": "Grafik"
+      },
+      "api": {
+        "label": "API",
+        "restfulApi": "Restful API",
+        "databaseConnection": "Veritabanı Bağlantısı"
+      }
+    }
+  },
+  "welcome": {
+    "title": "Hoş Geldiniz",
+    "description": "Tablo oluşturmak için sol kenar çubuğundaki + işaretine tıklayın.",
+    "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin.",
+    "helpCenter": "Yardım Merkezi"
+  },
+  "field": {
+    "fieldManagement": "Alan Yönetimi",
+    "fieldManagementDesc": "Mevcut tablonun tüm alanları için detaylı özellikler",
+    "advancedProps": "Gelişmiş özellikler",
+    "hide": "gizle",
+    "default": {
+      "singleLineText": {
+        "title": "Etiket"
+      },
+      "longText": {
+        "title": "Notlar"
+      },
+      "number": {
+        "title": "Sayı",
+        "formatType": "Format Türü",
+        "currencySymbol": "Para Birimi Sembolü",
+        "defaultSymbol": "₺",
+        "precision": "Hassasiyet",
+        "decimalExample": "Ondalık (1.0)",
+        "currencyExample": "Para Birimi (₺100)",
+        "percentExample": "Yüzde (%20)"
+      },
+      "singleSelect": {
+        "title": "Durum",
+        "options": {
+          "todo": "Yapılacak",
+          "inProgress": "Devam Ediyor",
+          "done": "Tamamlandı"
+        }
+      },
+      "multipleSelect": {
+        "title": "Etiketler"
+      },
+      "attachment": {
+        "title": "Ekler"
+      },
+      "user": {
+        "title": "İşbirlikçi"
+      },
+      "date": {
+        "title": "Tarih",
+        "dateFormatting": "Tarih Biçimlendirme",
+        "timeFormatting": "Saat Biçimlendirme",
+        "timeZone": "Saat Dilimi",
+        "yearMonth": "Yıl/Ay",
+        "monthDay": "Ay/Gün",
+        "year": "Yıl",
+        "month": "Ay",
+        "day": "Gün",
+        "local": "Yerel",
+        "friendly": "Kullanıcı Dostu",
+        "us": "ABD",
+        "european": "Avrupa",
+        "asia": "Asya",
+        "custom": "Özel",
+        "12Hour": "12 saat",
+        "24Hour": "24 saat",
+        "noDisplay": "Gösterme"
+      },
+      "autoNumber": {
+        "title": "Kimlik"
+      },
+      "createdTime": {
+        "title": "Oluşturulma zamanı"
+      },
+      "lastModifiedTime": {
+        "title": "Son değiştirilme zamanı"
+      },
+      "createdBy": {
+        "title": "Oluşturan"
+      },
+      "lastModifiedBy": {
+        "title": "Son değiştiren"
+      },
+      "rating": {
+        "title": "Değerlendirme"
+      },
+      "checkbox": {
+        "title": "Tamamlandı"
+      },
+      "formula": {
+        "title": "Hesaplama",
+        "formula": "Formül"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} ({{linkFieldName}} üzerinden)"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Toplama ({{linkFieldName}} üzerinden)",
+        "rollup": "Toplama",
+        "selectAnRollupFunction": "Bir toplama fonksiyonu seçin",
+        "func": {
+          "and": "VE",
+          "arrayCompact": "DİZİ_SIKIŞTIR",
+          "arrayJoin": "DİZİ_BİRLEŞTİR",
+          "arrayUnique": "DİZİ_BENZERSİZ",
+          "average": "ORTALAMA",
+          "concatenate": "BİRLEŞTİR",
+          "count": "SAY",
+          "countA": "SAY_A",
+          "countAll": "TÜMÜNÜ_SAY",
+          "max": "MAKSİMUM",
+          "min": "MİNİMUM",
+          "or": "VEYA",
+          "sum": "TOPLAM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Tüm değerler doğruysa true döndürür",
+          "arrayCompact": "Diziden boş dizeleri ve null değerleri kaldırır. 'false' ve bir veya daha fazla boşluk karakteri içeren dizeleri korur.",
+          "arrayJoin": "Tüm değerleri tek bir virgülle ayrılmış dizede birleştirir.",
+          "arrayUnique": "Yalnızca benzersiz öğeleri döndürür.",
+          "average": "Değerlerin aritmetik ortalaması.",
+          "concatenate": "Metin değerlerini tek bir metin değerinde birleştirir.",
+          "count": "Yalnızca boş olmayan sayısal değerleri sayar. Tüm kayıtları saymak için COUNTALL kullanın.",
+          "countA": "Boş olmayan değerlerin sayısını sayar. Bu fonksiyon hem sayısal hem de metin değerlerini sayar.",
+          "countAll": "Boş kayıtlar dahil tüm değerleri sayar.",
+          "max": "Verilen sayıların en büyüğünü döndürür.",
+          "min": "Verilen sayıların en küçüğünü döndürür.",
+          "or": "Değerlerden herhangi biri doğruysa true döndürür.",
+          "sum": "Değerleri toplar.",
+          "xor": "Yalnızca tek sayıda değer doğruysa true döndürür."
+        }
+      }
+    },
+    "editor": {
+      "addField": "Alan Ekle",
+      "editField": "Alan Düzenle",
+      "insertField": "Alan Ekle",
+      "graph": "Grafik",
+      "defaultValue": "Varsayılan değer",
+      "reset": "Sıfırla",
+      "fieldUpdated": "Alan güncellendi",
+      "fieldCreated": "Alan oluşturuldu",
+      "previewDependenciesGraph": "Bağımlılık Grafiğini Önizle",
+      "areYouSurePerformIt": "Bunu gerçekleştirmek istediğinizden emin misiniz?",
+      "addDescription": "Açıklama Ekle",
+      "description": "Açıklama",
+      "descriptionPlaceholder": "Bu alanı açıklayın (isteğe bağlı)",
+      "type": "Tür",
+      "showAs": "Gösterim Şekli",
+      "color": "Renk",
+      "number": "Sayı",
+      "chartBar": "Çubuk Grafik",
+      "chartLine": "Çizgi Grafik",
+      "ring": "Halka",
+      "bar": "Çubuk",
+      "text": "Metin",
+      "url": "URL",
+      "email": "E-posta",
+      "phone": "Telefon",
+      "maxNumber": "Maksimum Sayı",
+      "showNumber": "Sayıyı Göster",
+      "autoFillDate": "Mevcut tarihle otomatik doldur",
+      "createSymmetricLink": "Bağlantı tablosunda geri bağlantı alanı oluştur",
+      "allowLinkMultipleRecords": "Çoklu seçime izin ver",
+      "allowLinkToDuplicateRecords": "Kayıtların birden fazla kez seçilmesine izin ver",
+      "allowSymmetricFieldLinkMultipleRecords": "Kayıtların birden fazla kez seçilmesine izin ver",
+      "oneToOne": "bire-bir",
+      "oneToMany": "bire-çok",
+      "manyToOne": "çoka-bir",
+      "manyToMany": "çoka-çok",
+      "self": "Kendisi",
+      "selectTable": "Tablo seç...",
+      "selectBase": "Veritabanı seç...",
+      "linkFromExternalBase": "Harici veritabanından bağlantı",
+      "inSelfLink": "kendi içinde bağlantı",
+      "betweenTwoTables": "iki tablo arasında",
+      "linkTipMessage": "İpucu: bu yapılandırma<br></br> <b>{{relationship}}</b> ilişkisini temsil eder <span>{{linkType}}</span>",
+      "style": "Stil",
+      "maximum": "Maksimum",
+      "addOption": "Seçenek ekle",
+      "allowMultiUsers": "Birden fazla kullanıcı eklemeye izin ver",
+      "notifyUsers": "Seçildiklerinde kullanıcıları bilgilendir",
+      "searchTable": "Tablo ara...",
+      "calculating": "Hesaplanıyor...",
+      "doSaveChanges": "Yaptığınız değişiklikleri kaydetmek istiyor musunuz?",
+      "linkFieldToLookup": "Arama için kullanılacak bağlantılı kayıt alanı",
+      "lookupToTable": "Aramak istediğiniz {{tableName}} alanı",
+      "selectField": "Bir alan seç...",
+      "linkTable": "Bağlantı tablosu",
+      "linkBase": "Bağlantı veritabanı",
+      "tableNoPermission": "İzin olmayan tablo",
+      "baseNoPermission": "İzin olmayan veritabanı",
+      "noLinkTip": "Aranacak bağlantılı kayıt yok. Başka bir kayda bağlantı alanı ekleyin, ardından aramanızı tekrar yapılandırmayı deneyin.",
+      "fieldValidationRules": "Alan değeri doğrulama kuralları",
+      "enableValidateFieldUnique": "Yinelenen değerleri yasakla",
+      "enableValidateFieldNotNull": "Boş değerleri yasakla",
+      "knowMore": "daha fazla bilgi",
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "filterByView": "Görünüme göre kayıtları filtrele",
+      "filter": "Kayıtları filtrele",
+      "hideFields": "Alanları gizle",
+      "moreOptions": "Daha fazla seçenek",
+      "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver"
+    },
+    "subTitle": {
+      "link": "Seçtiğiniz tablodaki kayıtlara bağlantı oluşturun",
+      "singleLineText": "Metin girin veya her yeni hücreyi varsayılan bir değerle doldurun.",
+      "longText": "Birden fazla satır metin girin.",
+      "attachment": "Görüntülenecek veya indirilecek resimler, belgeler veya diğer dosyalar ekleyin.",
+      "checkbox": "Durumu belirtmek için işaretleyin veya işareti kaldırın.",
+      "multipleSelect": "Listeden bir veya daha fazla önceden tanımlanmış seçenek seçin.",
+      "singleSelect": "Listeden bir önceden tanımlanmış seçenek seçin veya her yeni hücreyi varsayılan bir seçenekle doldurun.",
+      "user": "Bir kayda kullanıcı ekleyin.",
+      "date": "Bir tarih girin (örn. 11/12/2023) veya takvimden seçin.",
+      "number": "Bir sayı girin veya her yeni hücreyi varsayılan bir değerle doldurun.",
+      "duration": "Saat, dakika veya saniye cinsinden bir süre girin (örn. 1:23).",
+      "rating": "Önceden tanımlanmış bir ölçekte değerlendirme ekleyin.",
+      "formula": "Alanlara dayalı değerler hesaplayın.",
+      "rollup": "Bağlantılı kayıtlardan veri özetleyin.",
+      "count": "Bağlantılı kayıtların sayısını sayın.",
+      "createdTime": "Her kaydın oluşturulduğu tarih ve saati görün.",
+      "lastModifiedTime": "Bir kayıttaki bazı veya tüm alanlarda yapılan en son düzenlemenin tarih ve saatini görün.",
+      "createdBy": "Kaydı hangi kullanıcının oluşturduğunu görün.",
+      "lastModifiedBy": "Bir kayıttaki bazı veya tüm alanlarda en son düzenlemeyi hangi kullanıcının yaptığını görün.",
+      "autoNumber": "Her kayıt için otomatik olarak benzersiz artan sayılar oluşturun.",
+      "button": "Özelleştirilmiş bir eylem tetikleyin.",
+      "lookup": "Bağlantılı bir kayıttaki bir alanın değerlerini görün."
+    },
+    "fieldName": "Alan Adı",
+    "fieldNameOptional": "Alan Adı (İsteğe bağlı)",
+    "fieldType": "Alan Türü"
+  },
+  "table": {
+    "newTableLabel": "Yeni tablo",
+    "rename": "Yeniden adlandır",
+    "design": "Tasarım",
+    "tableRecordHistory": "Tablo kayıt geçmişi",
+    "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
+    "dbTableName": "Fiziksel veritabanındaki tablo adı",
+    "schemaName": "Fiziksel veritabanındaki şema adı",
+    "tableInfo": "Tablo Bilgisi",
+    "tableInfoDetail": "Tablo için temel bilgiler",
+    "typeOfDatabase": "Veritabanı türü",
+    "descriptionForTable": "Bu tablo için açıklama",
+    "nameForTable": "Bu tablo için ad",
+    "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
+    "deleteTip2": "Bu tablo silindikten sonra çöp kutusundan geri yüklenebilir.",
+    "operator": {
+      "createBlank": "Boş bir tablo oluştur"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Kopyala ve yapıştır yalnızca HTTPS veya localhost'ta çalışır",
+      "copyAndPasteBrowser": "Bu tarayıcıda kopyala ve yapıştır desteklenmiyor",
+      "copying": "Kopyalanıyor...",
+      "copySuccessful": "Kopyalama başarılı",
+      "copyFailed": "Kopyalama başarısız",
+      "pasting": "Yapıştırılıyor...",
+      "pasteSuccessful": "Yapıştırma başarılı",
+      "pasteFailed": "Yapıştırma başarısız",
+      "clearing": "Temizleniyor...",
+      "clearSuccessful": "Temizleme başarılı",
+      "deleting": "Siliniyor...",
+      "deleteSuccessful": "Silme başarılı",
+      "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir"
+    },
+    "graph": {
+      "tableLabel": "Tablo etiketi",
+      "effectCells": "Etkilenebilecek hücreler",
+      "estimatedTime": "Tahmini süre"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Yükle",
+      "import": "İçe Aktar",
+      "localFile": "Yerel Dosyalar",
+      "linkUrl": "Bağlantı(URL)",
+      "linkUrlInputTitle": "URL'den dosya ekle",
+      "importTitle": "Yeni bir tablo oluştur",
+      "incrementImportTitle": "İçe Aktar — ",
+      "optionsTitle": "İçe aktarma seçeneği",
+      "primitiveFields": "Temel Alanlar",
+      "importFields": "İçe Aktarma Alanı",
+      "primaryField": "Birincil Alan",
+      "tipsTitle": "İpuçları",
+      "confirm": "Onayla ve devam et"
+    },
+    "menu": {
+      "addFromOtherSource": "Diğer kaynaklardan ekle",
+      "excelFile": "Microsoft Excel",
+      "csvFile": "Csv dosyası",
+      "cancel": "İptal",
+      "leave": "Ayrıl",
+      "downAsCsv": "CSV İndir",
+      "importData": "Veri İçe Aktar"
+    },
+    "tips": {
+      "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyin",
+      "leaveTip": "Verileriniz yine de içe aktarılacak.",
+      "fileExceedSizeTip": "Bu tür dosya boyutu şu sınırı aşıyor:",
+      "analyzing": "analiz ediliyor",
+      "importing": "İçe aktarılıyor",
+      "notSupportFieldType": "Alan türü desteklenmiyor",
+      "resultEmpty": "Sonuç bulunamadı.",
+      "searchPlaceholder": "Ara...",
+      "importAlert": "İçe aktarma başladıktan sonra, başarıyla tamamlanana veya başarısızlık nedeniyle sonlandırılana kadar durdurulamaz. İçe aktarma durumu tablonun sağ üst köşesinde görüntülenir. İçe aktarma işleminin sonuçları tamamlandığında size bildirilecektir. Hatalara neden olabileceğinden içe aktarma sırasında alanı güncellememeli.",
+      "noTips": "Anladım, bir daha gösterme"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Alan türlerini otomatik seç",
+      "useFirstRowAsHeaderOptionName": "İlk satırı başlık olarak kullan",
+      "importDataOptionName": "Veri İçe Aktar",
+      "sheetKey": "SayfaAdı: ",
+      "excludeFirstRow": "İçe aktarmada ilk satırı hariç tut"
+    },
+    "form": {
+      "defaultFieldName": "Alan",
+      "error": {
+        "urlEmptyTip": "URL boş olmamalı!",
+        "errorFileFormat": "Dosya formatı yanlış!",
+        "uniqueFieldName": "Alan adı benzersiz olmalı!",
+        "fieldNameEmpty": "Alan adı boş olmamalı!",
+        "atLeastAImportField": "Lütfen en az bir içe aktarma alanı ayarlayın",
+        "urlValidateTip": "URL ayrıştırılamadı. Farklı bir URL deneyin!"
+      },
+      "option": {
+        "doNotImport": "İçe aktarma"
+      }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "Csv İndir"
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Yeni kayıt ekle",
+    "prefillingRowTooltip": "Lütfen yeni kayıt verilerini aşağıya girin. Bu satırın dışına tıkladığınızda kayıt otomatik olarak kaydedilecektir.",
+    "presortRowTitle": "Bu kayıt sıralama kuralları nedeniyle filtrelendi veya taşındı"
+  },
+  "form": {
+    "fieldsManagement": "Alanlar",
+    "addAll": "Tümünü Ekle",
+    "removeAll": "Tümünü Kaldır",
+    "hideFieldTip": "Alanı buraya gizle",
+    "unableAddFieldTip": "Bu tür alan eklenemiyor",
+    "removeFromFormTip": "Formdan kaldır",
+    "descriptionPlaceholder": "Form açıklaması girin",
+    "dragToFormTip": "Alanı forma eklemek için buraya sürükleyin"
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Alan adını gizle",
+      "customizeCards": "Kartları özelleştir",
+      "stackedBy": "<0/> ile yığınlandı",
+      "chooseStackingField": "Bir yığınlama alanı seçin",
+      "chooseStackingFieldDescription": "Bu kanban görünümü için hangi alanı kullanmak istersiniz? Kayıtlarınız bu alana göre yığınlanacak.",
+      "hideEmptyStack": "Boş yığını gizle",
+      "imageSetting": "Görsel Ayarı",
+      "fit": "Sığdır",
+      "noImage": "Görsel yok",
+      "chooseAttachmentField": "Ek alanı seç"
+    },
+    "stack": {
+      "addStack": "Yığın Ekle",
+      "noCards": "Kart yok",
+      "uncategorized": "Kategorisiz"
+    },
+    "stackMenu": {
+      "collapseStack": "Yığını daralt",
+      "renameStack": "Yığını yeniden adlandır",
+      "deleteStack": "Yığını sil"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Üste kart ekle",
+      "insertCardBelow": "Alta kart ekle",
+      "expandCard": "Kartı genişlet",
+      "deleteCard": "Kartı sil",
+      "duplicateCard": "Kartı çoğalt"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Takvim Yapılandırması",
+      "startDateField": "Başlangıç tarihi alanı",
+      "endDateField": "Bitiş tarihi alanı",
+      "titleField": "Başlık alanı",
+      "colorField": "Renk alanı",
+      "colorType": "Renk görüntüleme",
+      "customColor": "Rengi özelleştir",
+      "alignWithRecords": "Kayıtlarla hizala"
+    },
+    "placeholder": {
+      "selectColorField": "Bir renk alanı seçin"
+    },
+    "dialog": {
+      "startDate": "Başlangıç tarihi",
+      "endDate": "Bitiş tarihi",
+      "notAdd": "Ekleme",
+      "addDateField": "Tarih alanları ekle",
+      "content": "Takvim görünümü programı oluşturmak için tablonun iki tarih alanına ihtiyacı var: başlangıç tarihi ve bitiş tarihi"
+    },
+    "moreLinkText": "Tüm {{count}} kaydı göster"
+  },
+  "menu": {
+    "insertRecordAbove": "Üste <input /> kayıt ekle",
+    "insertRecordBelow": "Alta <input /> kayıt ekle",
+    "copyCells": "Hücreleri kopyala",
+    "deleteRecord": "Kaydı sil",
+    "deleteAllSelectedRecords": "Seçili tüm kayıtları sil",
+    "editField": "Alanı düzenle",
+    "insertFieldLeft": "Sola ekle",
+    "insertFieldRight": "Sağa ekle",
+    "freezeUpField": "Bu alana kadar dondur",
+    "hideField": "Alanı gizle",
+    "deleteField": "Alanı sil",
+    "deleteAllSelectedFields": "Seçili tüm alanları sil",
+    "filterField": "Bu alana göre filtrele",
+    "sortField": "Bu alana göre sırala",
+    "groupField": "Bu alana göre grupla"
+  },
+  "connection": {
+    "title": "Veritabanı Bağlantısı",
+    "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
+    "noPermission": "Veritabanına erişim izniniz yok",
+    "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
+    "helpLink": "https://help.teable.io/developer/database-connection"
+  },
+  "view": {
+    "addRecord": "Kayıt ekle",
+    "searchView": "Görünüm ara...",
+    "dragToolTip": "Otomatik sıralama açık, manuel sürükleme kullanılamaz",
+    "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
+    "action": {
+      "rename": "Görünümü yeniden adlandır",
+      "delete": "Görünümü sil"
+    },
+    "category": {
+      "table": "Izgara Görünümü",
+      "form": "Form Görünümü",
+      "kanban": "Kanban Görünümü",
+      "gallery": "Galeri Görünümü",
+      "calendar": "Takvim Görünümü"
+    },
+    "crash": {
+      "title": "Çöktü!",
+      "description": "Bu görünüm bozuk. Yenileme hala başarısız olursa, lütfen bizimle iletişime geçin. support@teable.io"
+    },
+    "addPluginView": "Eklenti Görünümü Ekle",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "alan({{length}})"
+    }
+  },
+  "lastModifiedTime": "Son değiştirilme zamanı",
+  "lastModify": "Son değişiklik: ",
+  "pasteNewRecords": {
+    "title": "Birden fazla kayıt eklemek istiyor musunuz?",
+    "description": "{{count}} kayıt tabloya eklenecek."
+  }
+}
