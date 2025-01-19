@@ -701,6 +701,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     >
       <div
         ref={stageRef}
+        data-t-grid-stage
         className="size-full"
         onClick={onSmartClick}
         onMouseDown={onMouseDown}

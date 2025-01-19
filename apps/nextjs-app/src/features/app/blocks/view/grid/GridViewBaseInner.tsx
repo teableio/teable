@@ -177,30 +177,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     setPresortRecordData,
   } = useGridSelection({ recordMap, columns, viewQuery, gridRef });
 
-  const { onDragOver, onDragLeave, onDrop } = useGridFileEvent({
-    gridRef,
-    onValidation: (cell) => {
-      if (!permission['view|update']) return false;
-
-      const [columnIndex] = cell;
-      const field = fields[columnIndex];
-
-      if (!field) return false;
-
-      const { type, isComputed } = field;
-      return type === FieldType.Attachment && !isComputed;
-    },
-    onCellDrop: async (cell, files) => {
-      const attachments = await uploadFiles(files, UploadType.Table, baseId);
-
-      const [fieldIndex, recordIndex] = cell;
-      const record = recordMap[recordIndex];
-      const field = fields[fieldIndex];
-      const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
-      await record.updateCell(field.id, [...oldCellValue, ...attachments]);
-    },
-  });
-
   const {
     localRecord,
     prefillingRowIndex,
@@ -212,6 +188,58 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     getPrefillingCellContent,
     setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
+
+  const inPrefilling = prefillingRowIndex != null;
+
+  const onValidation = useCallback(
+    (cell: ICellItem) => {
+      if (!permission['view|update']) return false;
+
+      const [columnIndex] = cell;
+      const field = fields[columnIndex];
+
+      if (!field) return false;
+
+      const { type, isComputed } = field;
+      return type === FieldType.Attachment && !isComputed;
+    },
+    [fields, permission]
+  );
+
+  const onCellDrop = useCallback(
+    async (cell: ICellItem, files: FileList) => {
+      const attachments = await uploadFiles(files, UploadType.Table, baseId);
+
+      const [columnIndex, rowIndex] = cell;
+      const record = recordMap[rowIndex];
+      const field = fields[columnIndex];
+      const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
+      await record.updateCell(field.id, [...oldCellValue, ...attachments]);
+    },
+    [baseId, fields, recordMap]
+  );
+
+  const onPrefillingCellDrop = useCallback(
+    async (cell: ICellItem, files: FileList) => {
+      if (!localRecord) return;
+
+      const attachments = await uploadFiles(files, UploadType.Table, baseId);
+      const [columnIndex] = cell;
+      const field = fields[columnIndex];
+      const oldCellValue = (localRecord.getCellValue(field.id) as IAttachmentCellValue) || [];
+      setPrefillingFieldValueMap((prev) => ({
+        ...prev,
+        [field.id]: [...oldCellValue, ...attachments],
+      }));
+    },
+    [baseId, fields, localRecord, setPrefillingFieldValueMap]
+  );
+
+  useGridFileEvent({
+    gridRef: inPrefilling ? prefillingGridRef : gridRef,
+    onValidation,
+    onCellDrop: inPrefilling ? onPrefillingCellDrop : onCellDrop,
+  });
 
   const { mutate: mutateCreateRecord, isLoading: isCreatingRecord } = useMutation({
     mutationFn: (records: ICreateRecordsRo['records']) =>
@@ -233,8 +261,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     setPrefillingFieldValueMap(undefined);
     setNewRecords(undefined);
   };
-
-  const inPrefilling = prefillingRowIndex != null;
 
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
@@ -816,13 +842,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [setGridRef]);
 
   return (
-    <div
-      ref={containerRef}
-      className="relative size-full"
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
+    <div ref={containerRef} className="relative size-full">
       <Grid
         ref={gridRef}
         theme={theme}

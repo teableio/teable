@@ -1,7 +1,7 @@
-import type { DragEvent } from 'react';
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { IGridRef } from '../../grid/Grid';
-import { SelectionRegionType, type ICellItem } from '../../grid/interface';
+import type { ICellItem } from '../../grid/interface';
+import { SelectionRegionType } from '../../grid/interface';
 import { CombinedSelection, emptySelection } from '../../grid/managers';
 
 interface IUseGridFileEventProps {
@@ -12,51 +12,86 @@ interface IUseGridFileEventProps {
 
 export const useGridFileEvent = (props: IUseGridFileEventProps) => {
   const { gridRef, onValidation, onCellDrop } = props;
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const dropTargetRef = useRef<ICellItem | null>(null);
 
-  const getDropCell = (event: DragEvent): ICellItem | null => {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    return gridRef.current?.getCellIndicesAtPosition(x, y) ?? null;
-  };
+  useEffect(() => {
+    if (gridRef.current) {
+      stageRef.current =
+        gridRef.current.getContainer()?.querySelector('[data-t-grid-stage]') || null;
+    }
+  }, [gridRef]);
 
-  const onDragLeave = (event: DragEvent) => {
-    event.preventDefault();
-    gridRef.current?.setSelection(emptySelection);
-  };
+  const getDropCell = useCallback(
+    (event: DragEvent): ICellItem | null => {
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      return gridRef.current?.getCellIndicesAtPosition(x, y) ?? null;
+    },
+    [gridRef]
+  );
 
-  const onDragOver = (event: DragEvent) => {
-    event.preventDefault();
-    if (!onCellDrop) return;
+  const onDragLeave = useCallback(
+    (e: DragEvent) => {
+      if (e.target !== stageRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      gridRef.current?.setSelection(emptySelection);
+    },
+    [gridRef]
+  );
 
-    const cell = getDropCell(event);
+  const onDragOver = useCallback(
+    (e: DragEvent) => {
+      if (e.target !== stageRef.current) return;
 
-    if (!cell || !onValidation(cell)) return;
+      e.preventDefault();
+      e.stopPropagation();
 
-    dropTargetRef.current = cell;
+      const cell = getDropCell(e);
+      if (!cell || !onValidation(cell)) return;
 
-    const newSelection = new CombinedSelection(SelectionRegionType.Cells, [cell, cell]);
-    gridRef.current?.setSelection(newSelection);
-  };
+      dropTargetRef.current = cell;
 
-  const onDrop = (event: DragEvent) => {
-    event.preventDefault();
-    gridRef.current?.setSelection(emptySelection);
+      const newSelection = new CombinedSelection(SelectionRegionType.Cells, [cell, cell]);
+      gridRef.current?.setSelection(newSelection);
+    },
+    [gridRef, getDropCell, onValidation]
+  );
 
-    if (!onCellDrop || !dropTargetRef.current) return;
+  const onDrop = useCallback(
+    (e: DragEvent) => {
+      if (e.target !== stageRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
 
-    const files = event.dataTransfer?.files;
+      if (!dropTargetRef.current) return;
 
-    if (!files?.length) return;
+      const files = e.dataTransfer?.files;
 
-    onCellDrop(dropTargetRef.current, files);
-    dropTargetRef.current = null;
-  };
+      if (!files?.length) return;
 
-  return {
-    onDragOver,
-    onDragLeave,
-    onDrop,
-  };
+      onCellDrop(dropTargetRef.current, files);
+      dropTargetRef.current = null;
+    },
+    [onCellDrop]
+  );
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    stage.addEventListener('dragover', onDragOver);
+    stage.addEventListener('dragleave', onDragLeave);
+    stage.addEventListener('drop', onDrop);
+
+    return () => {
+      stage.removeEventListener('dragover', onDragOver);
+      stage.removeEventListener('dragleave', onDragLeave);
+      stage.removeEventListener('drop', onDrop);
+    };
+  }, [onDragOver, onDragLeave, onDrop]);
+
+  return { onDragOver, onDragLeave, onDrop };
 };
