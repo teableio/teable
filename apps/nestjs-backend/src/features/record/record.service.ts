@@ -49,7 +49,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, difference, keyBy, orderBy } from 'lodash';
+import { get, difference, keyBy, orderBy, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -413,15 +413,10 @@ export class RecordService {
     }
 
     if (!fieldIdOrName) {
-      return [
-        searchValue,
-        Object.values(fieldMap)
-          .map((f) => f.id)
-          .join(','),
-        hideNotMatchRow,
-      ];
+      return [searchValue, fieldIdOrName, hideNotMatchRow];
     }
-    const fieldIds = fieldIdOrName.split(',');
+
+    const fieldIds = fieldIdOrName?.split(',');
 
     fieldIds.forEach((id) => {
       const field = fieldMap[id];
@@ -1381,45 +1376,48 @@ export class RecordService {
       });
     }
 
-    return orderBy(
-      Object.values(fieldInstanceMap)
-        .map((field) => ({
-          ...field,
-          isStructuredCellValue: field.isStructuredCellValue,
-        }))
-        .filter((field) => {
-          if (!viewColumnMeta) {
-            return true;
-          }
-          return !viewColumnMeta?.[field.id]?.hidden;
-        })
-        .filter((field) => {
-          if (!projection) {
-            return true;
-          }
-          return projection.includes(field.id);
-        })
-        .filter((field) => {
-          if (!search?.[1]) {
-            return true;
-          }
-
-          const searchArr = search[1].split(',');
-          return searchArr.includes(field.id);
-        })
-        .filter((field) => {
-          if (field.dbFieldType === DbFieldType.Boolean) {
-            return false;
-          }
-          return true;
-        })
-        .map((field) => {
-          return {
+    return uniqBy(
+      orderBy(
+        Object.values(fieldInstanceMap)
+          .map((field) => ({
             ...field,
-            order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
-          };
-        }),
-      ['order', 'createTime']
+            isStructuredCellValue: field.isStructuredCellValue,
+          }))
+          .filter((field) => {
+            if (!viewColumnMeta) {
+              return true;
+            }
+            return !viewColumnMeta?.[field.id]?.hidden;
+          })
+          .filter((field) => {
+            if (!projection) {
+              return true;
+            }
+            return projection.includes(field.id);
+          })
+          .filter((field) => {
+            if (!search?.[1]) {
+              return true;
+            }
+
+            const searchArr = search[1].split(',');
+            return searchArr.includes(field.id);
+          })
+          .filter((field) => {
+            if (field.dbFieldType === DbFieldType.Boolean) {
+              return false;
+            }
+            return true;
+          })
+          .map((field) => {
+            return {
+              ...field,
+              order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
+            };
+          }),
+        ['order', 'createTime']
+      ),
+      'id'
     ) as unknown as IFieldInstance[];
   }
 
