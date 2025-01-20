@@ -24,9 +24,6 @@ import {
   Switch,
   Toggle,
   Spin,
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
   Button,
   AlertDialog,
   AlertDialogContent,
@@ -196,19 +193,30 @@ export const SearchCommand = (props: ISearchCommand) => {
 
       <div className="flex flex-col gap-y-1">
         <div className="flex items-center justify-around gap-1">
-          <Toggle
-            pressed={enableGlobalSearch}
-            onPressedChange={() => {
-              onChange(['all_fields']);
-              setFilterText('');
-            }}
-            size={'sm'}
-            className="flex flex-1 items-center truncate p-0"
-          >
-            <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
-              {t('actions.globalSearch')}
-            </span>
-          </Toggle>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  pressed={enableGlobalSearch}
+                  onPressedChange={() => {
+                    onChange(['all_fields']);
+                    setFilterText('');
+                  }}
+                  size={'sm'}
+                  className="flex flex-1 items-center truncate p-0"
+                >
+                  <span
+                    className="flex items-center gap-0.5 truncate text-sm"
+                    title={t('actions.hideNotMatchRow')}
+                  >
+                    {t('actions.globalSearch')}
+                    <HelpCircle />
+                  </span>
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>{t('table:table.index.globalSearchTip')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <Toggle
             pressed={!enableGlobalSearch}
@@ -257,43 +265,49 @@ export const SearchCommand = (props: ISearchCommand) => {
 
       <div className="flex items-center justify-between pl-1">
         <div className="flex flex-1 items-center gap-1">
-          <HoverCard>
-            <HoverCardTrigger>
-              <div className="flex items-center gap-0.5 text-sm">
-                {t('actions.tableIndex')}
-                <HelpCircle />
-              </div>
-            </HoverCardTrigger>
-            <HoverCardContent className="h-auto w-80 whitespace-normal break-words">
-              <span className="text-sm leading-3">{t('table:table.index.description')}</span>
-            </HoverCardContent>
-          </HoverCard>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-0.5 text-sm">
+                  {t('actions.tableIndex')}
+                  <HelpCircle />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="text-wrap break-words" sideOffset={5}>
+                {t('table:table.index.description')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {enabledSearchIndex && !!searchAbnormalIndex?.length && (
-            <div className="flex items-center gap-0.5">
-              <HoverCard>
-                <HoverCardTrigger>
-                  <Button
-                    size={'xs'}
-                    variant={'destructive'}
-                    className="flex h-6 items-center gap-0.5"
-                    onClick={async () => {
-                      if (shouldAlert) {
-                        setAlertVisible(true);
-                        setActionType(ActionType.repair);
-                        return;
-                      }
-                      await repairIndexFn(TableIndex.search);
-                    }}
-                  >
-                    {t('table:table.index.repair')}
-                    {repairIndexLoading || getAbnormalLoading ? <Spin className="size-3" /> : null}
-                  </Button>
-                </HoverCardTrigger>
-                <HoverCardContent className="h-auto w-80 whitespace-normal break-words">
-                  <span className="text-sm leading-3">{t('table:table.index.repairTip')}</span>
-                </HoverCardContent>
-              </HoverCard>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      size={'xs'}
+                      variant={'destructive'}
+                      className="flex h-6 items-center gap-0.5"
+                      onClick={async () => {
+                        if (shouldAlert) {
+                          setAlertVisible(true);
+                          setActionType(ActionType.repair);
+                          return;
+                        }
+                        await repairIndexFn(TableIndex.search);
+                      }}
+                    >
+                      {t('table:table.index.repair')}
+                      {repairIndexLoading || getAbnormalLoading ? (
+                        <Spin className="size-3" />
+                      ) : null}
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="text-wrap break-words" sideOffset={5}>
+                  {t('table:table.index.repairTip')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
 
