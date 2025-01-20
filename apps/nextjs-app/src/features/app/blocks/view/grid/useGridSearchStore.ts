@@ -1,4 +1,4 @@
-import type { IGridRef } from '@teable/sdk';
+import type { IGridRef, IRecordIndexMap } from '@teable/sdk';
 import { noop } from 'lodash';
 import { create } from 'zustand';
 
@@ -9,11 +9,14 @@ interface IGridRefState {
   setSearchCursor: (cell: [number, number] | null) => void;
   resetSearchHandler: () => void;
   setResetSearchHandler: (fn: () => void) => void;
+  recordMap: IRecordIndexMap | null;
+  setRecordMap: (recordMap: IRecordIndexMap | null) => void;
 }
 
 export const useGridSearchStore = create<IGridRefState>((set) => ({
   gridRef: null,
   searchCursor: null,
+  recordMap: null,
   resetSearchHandler: noop,
   setResetSearchHandler: (fn: () => void) => {
     set((state) => {
@@ -36,6 +39,14 @@ export const useGridSearchStore = create<IGridRefState>((set) => ({
       return {
         ...state,
         searchCursor: cell,
+      };
+    });
+  },
+  setRecordMap: (recordMap: IRecordIndexMap | null) => {
+    set((state) => {
+      return {
+        ...state,
+        recordMap: recordMap,
       };
     });
   },
