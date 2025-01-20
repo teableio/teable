@@ -36,7 +36,7 @@ import {
   AlertDialogAction,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import { useLocalStorage } from 'react-use';
 
 interface ISearchCommand {
@@ -46,12 +46,16 @@ interface ISearchCommand {
   onChange: (fieldIds: string[] | null) => void;
 }
 
+export interface ISearchCommandRef {
+  toggleSearchIndex: () => Promise<void>;
+}
+
 enum ActionType {
   repair = 'repair',
   create = 'create',
 }
 
-export const SearchCommand = (props: ISearchCommand) => {
+export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((props, ref) => {
   const { onChange, value, hideNotMatchRow, onHideSwitchChange } = props;
   const { t } = useTranslation(['common', 'table']);
   const fields = useFields();
@@ -65,6 +69,12 @@ export const SearchCommand = (props: ISearchCommand) => {
   }, [value]);
 
   const queryClient = useQueryClient();
+
+  useImperativeHandle(ref, () => ({
+    toggleSearchIndex: async () => {
+      toggleIndexFn(TableIndex.search);
+    },
+  }));
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.SearchIndexAlert, true);
@@ -195,25 +205,28 @@ export const SearchCommand = (props: ISearchCommand) => {
         <div className="flex items-center justify-around gap-1">
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Toggle
-                  pressed={enableGlobalSearch}
-                  onPressedChange={() => {
-                    onChange(['all_fields']);
-                    setFilterText('');
-                  }}
-                  size={'sm'}
-                  className="flex flex-1 items-center truncate p-0"
-                >
-                  <span
-                    className="flex items-center gap-0.5 truncate text-sm"
-                    title={t('actions.hideNotMatchRow')}
-                  >
-                    {t('actions.globalSearch')}
-                    <HelpCircle />
-                  </span>
-                </Toggle>
-              </TooltipTrigger>
+              <Toggle
+                pressed={enableGlobalSearch}
+                onPressedChange={() => {
+                  onChange(['all_fields']);
+                  setFilterText('');
+                }}
+                size={'sm'}
+                className="flex flex-1 items-center truncate p-0"
+              >
+                <TooltipTrigger asChild>
+                  <div className="flex size-full flex-1 items-center justify-center truncate p-0">
+                    <span
+                      className="flex items-center gap-0.5 truncate text-sm"
+                      title={t('actions.hideNotMatchRow')}
+                    >
+                      {t('actions.globalSearch')}
+                      <HelpCircle />
+                    </span>
+                  </div>
+                </TooltipTrigger>
+              </Toggle>
+
               <TooltipContent>{t('table:table.index.globalSearchTip')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -378,4 +391,6 @@ export const SearchCommand = (props: ISearchCommand) => {
       </AlertDialog>
     </Command>
   );
-};
+});
+
+SearchCommand.displayName = 'SearchCommand';
