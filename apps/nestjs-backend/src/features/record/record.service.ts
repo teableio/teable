@@ -1350,6 +1350,12 @@ export class RecordService {
     let viewColumnMeta: IGridColumnMeta | null = null;
     const fieldInstanceMap = { ...originFieldInstanceMap };
 
+    if (!search) {
+      return [] as IFieldInstance[];
+    }
+
+    const isSearchAllFields = !search?.[1];
+
     if (viewId) {
       const { columnMeta: viewColumnRawMeta } =
         (await this.prismaService.view.findUnique({
@@ -1396,7 +1402,7 @@ export class RecordService {
             return projection.includes(field.id);
           })
           .filter((field) => {
-            if (!search?.[1]) {
+            if (isSearchAllFields) {
               return true;
             }
 
@@ -1404,7 +1410,6 @@ export class RecordService {
             return searchArr.includes(field.id);
           })
           .filter((field) => {
-            const isSearchAllFields = !search?.[0];
             if (
               [CellValueType.Boolean, CellValueType.DateTime].includes(field.cellValueType) &&
               isSearchAllFields
@@ -1434,7 +1439,7 @@ export class RecordService {
     dbTableName: string,
     Ids: string[]
   ) {
-    const { search, viewId, projection } = query;
+    const { search, viewId, projection, ignoreViewQuery } = query;
 
     if (!search) {
       return null;
@@ -1451,7 +1456,12 @@ export class RecordService {
       },
       {} as Record<string, IFieldInstance>
     );
-    const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
+    const searchFields = await this.getSearchFields(
+      fieldInstanceMap,
+      search,
+      ignoreViewQuery ? undefined : viewId,
+      projection
+    );
 
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
