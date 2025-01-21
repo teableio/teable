@@ -1406,7 +1406,7 @@ export class RecordService {
               return true;
             }
 
-            const searchArr = search[1].split(',');
+            const searchArr = search?.[1]?.split(',') || [];
             return searchArr.includes(field.id);
           })
           .filter((field) => {
