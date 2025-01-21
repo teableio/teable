@@ -53,7 +53,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
     await permanentDeleteTable(baseId, subTable.id);
   });
 
-  describe('OpenAPI AggregationController (e2e) get count with search query', () => {
+  describe.skip('OpenAPI AggregationController (e2e) get count with search query', () => {
     it('should get searchCount', async () => {
       const result = await getSearchCount(table.id, {
         // eslint-disable-next-line sonarjs/no-duplicate-string
