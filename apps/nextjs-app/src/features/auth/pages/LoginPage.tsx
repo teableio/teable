@@ -54,7 +54,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
               </TabsList>
             </Tabs>
           </div>
-          <div className="relative w-80 py-[5em] pt-24 lg:py-24">
+          <div className="relative w-80 py-[5em] lg:py-24">
             {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
             <SocialAuth />
             {children}
