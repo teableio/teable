@@ -25,17 +25,19 @@ import {
   getBasePermission,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  ResourceType,
-  type ICreateRecordsRo,
-  type ICreateTableRo,
-  type ICreateTableWithDefault,
-  type ITableFullVo,
-  type ITablePermissionVo,
-  type ITableVo,
-  type IUpdateOrderRo,
+import { ResourceType } from '@teable/openapi';
+import type {
+  ICreateRecordsRo,
+  ICreateTableRo,
+  ICreateTableWithDefault,
+  ITableFullVo,
+  ITablePermissionVo,
+  ITableVo,
+  IUpdateOrderRo,
 } from '@teable/openapi';
+import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
+import { InjectModel } from 'nest-knexjs';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -66,7 +68,8 @@ export class TableOpenApiService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly permissionService: PermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {

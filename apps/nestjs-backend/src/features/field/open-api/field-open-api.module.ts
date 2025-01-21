@@ -5,6 +5,7 @@ import { CalculationModule } from '../../calculation/calculation.module';
 import { GraphModule } from '../../graph/graph.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
+import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { FieldCalculateModule } from '../field-calculate/field-calculate.module';
@@ -25,7 +26,7 @@ import { FieldOpenApiService } from './field-open-api.service';
     GraphModule,
   ],
   controllers: [FieldOpenApiController],
-  providers: [DbProvider, FieldOpenApiService],
+  providers: [DbProvider, FieldOpenApiService, TableIndexService],
   exports: [FieldOpenApiService],
 })
 export class FieldOpenApiModule {}

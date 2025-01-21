@@ -1,8 +1,25 @@
+import { useQuery } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { Search, X } from '@teable/icons';
+import { getTableActivatedIndex, TableIndex, RecommendedIndexRow } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
-import { useFields, useSearch, useTableId } from '@teable/sdk/hooks';
-import { cn, Popover, PopoverContent, PopoverTrigger, Button } from '@teable/ui-lib/shadcn';
+import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
+import {
+  cn,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Button,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+  Checkbox,
+} from '@teable/ui-lib/shadcn';
 import { isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -10,6 +27,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
+import type { ISearchCommandRef } from './SearchCommand';
 import { SearchCommand } from './SearchCommand';
 import type { ISearchCountPaginationRef } from './SearchCountPagination';
 import { SearchCountPagination } from './SearchCountPagination';
@@ -27,7 +45,13 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const tableId = useTableId();
   const view = useView();
   const viewId = view?.id;
+  const rowCount = useRowCount();
   const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.SearchIndexAlert, true);
+  const [shouldTips, setShouldTips] = useState(true);
+  const [noPrompt, setNoPrompt] = useState(false);
+  const baseId = useBaseId();
 
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
@@ -47,7 +71,17 @@ export const SearchButton = (props: ISearchButtonProps) => {
     LocalStorageKeys.TableSearchFieldsCache,
     {}
   );
+
+  const searchCommandRef = useRef<ISearchCommandRef>(null);
+
+  const commandTrigger = useRef<HTMLButtonElement>(null);
+
   const searchPaginationRef = useRef<ISearchCountPaginationRef>(null);
+
+  const { data: tableActivatedIndex } = useQuery({
+    queryKey: ['table-index', tableId],
+    queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
+  });
 
   useHotkeys(
     `mod+f`,
@@ -232,6 +266,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
             variant="ghost"
             size={'xs'}
             className="flex w-[64px] shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-r px-px"
+            ref={commandTrigger}
           >
             <span className="truncate" title={searchHeader}>
               {searchHeader}
@@ -244,6 +279,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
               value={fieldId}
               hideNotMatchRow={hideNotMatchRow}
               onChange={onFieldChangeHandler}
+              ref={searchCommandRef}
               onHideSwitchChange={(checked) => {
                 setLsHideNotMatchRow(checked);
                 setHideNotMatchRow(checked);
@@ -269,6 +305,17 @@ export const SearchButton = (props: ISearchButtonProps) => {
             searchComposition.current = false;
           }}
           onChange={(e) => {
+            if (
+              shouldTips &&
+              rowCount &&
+              rowCount > RecommendedIndexRow &&
+              shouldAlert &&
+              !tableActivatedIndex?.includes(TableIndex.search) &&
+              e.target.value
+            ) {
+              setAlertVisible(true);
+              return;
+            }
             setInputValue(e.target.value);
             if (e.target.value === '') {
               setSearchCursor(null);
@@ -304,6 +351,53 @@ export const SearchButton = (props: ISearchButtonProps) => {
           <Search className="size-4 shrink-0" />
         </div>
       </div>
+
+      <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('table:table.index.autoIndexTip', { rowCount: RecommendedIndexRow })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center">
+            <Checkbox
+              id="noTips"
+              checked={noPrompt}
+              onCheckedChange={(should: boolean) => {
+                setNoPrompt(should);
+              }}
+            />
+            <label
+              htmlFor="noTips"
+              className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              {t('table:import.tips.noTips')}
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShouldAlert(!noPrompt);
+                setShouldTips(false);
+              }}
+            >
+              {t('table:table.index.keepAsIs')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                commandTrigger?.current?.click();
+                setTimeout(() => {
+                  searchCommandRef?.current?.toggleSearchIndex();
+                  setShouldAlert(!noPrompt);
+                }, 0);
+              }}
+            >
+              {t('table:table.index.enableIndex')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   ) : (
     <ToolBarButton

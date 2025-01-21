@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
-import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -26,7 +26,8 @@ import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
-import { SearchQueryBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
+import { IndexBuilderSqlite } from './search-query/search-index-builder.sqlite';
+import { SearchQuerySqliteBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
@@ -192,7 +193,7 @@ export class SqliteProvider implements IDbProvider {
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
-    // TODO: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
+    // to-do: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
     //  This is a temporary solution, and I'm actively keeping an eye on this issue for further developments.
     const builder = this.knex.client.queryBuilder();
     builder.insert(insertData).into(tableName).toSQL();
@@ -282,22 +283,31 @@ export class SqliteProvider implements IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?]
+    searchFields: IFieldInstance[],
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ) {
-    return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
+    return SearchQueryAbstract.appendQueryBuilder(
+      SearchQuerySqlite,
+      originQueryBuilder,
+      searchFields,
+      tableIndex,
+      search
+    );
   }
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ) {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQuerySqlite,
       originQueryBuilder,
       searchField,
-      searchValue
+      search,
+      tableIndex
     );
   }
 
@@ -306,20 +316,27 @@ export class SqliteProvider implements IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     searchIndexRo: ISearchIndexByQueryRo,
+    tableIndex: TableIndex[],
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
   ) {
-    return new SearchQueryBuilder(
+    return new SearchQuerySqliteBuilder(
       originQueryBuilder,
       dbTableName,
       searchField,
       searchIndexRo,
+      tableIndex,
       baseSortIndex,
       setFilterQuery,
       setSortQuery
     ).getSearchIndexQuery();
   }
+
+  searchIndex() {
+    return new IndexBuilderSqlite();
+  }
+
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,
     dbFieldName: string,

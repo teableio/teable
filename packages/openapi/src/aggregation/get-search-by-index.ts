@@ -8,6 +8,7 @@ export const searchIndexVoSchema = z
   .object({
     index: z.number(),
     fieldId: z.string(),
+    recordId: z.string(),
   })
   .array()
   .nullable();

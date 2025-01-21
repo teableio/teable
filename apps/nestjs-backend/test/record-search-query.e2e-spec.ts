@@ -1,11 +1,31 @@
 import type { INestApplication } from '@nestjs/common';
+import { CellValueType, DriverClient, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { getRecords as apiGetRecords, createField } from '@teable/openapi';
+import {
+  getRecords as apiGetRecords,
+  createField,
+  toggleTableIndex,
+  getTableActivatedIndex,
+  TableIndex,
+  getTableAbnormalIndex,
+  repairTableIndex,
+  deleteField,
+  updateField,
+  convertField,
+} from '@teable/openapi';
+import { differenceWith } from 'lodash';
+import type { IFieldInstance } from '../src/features/field/model/factory';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
-import { createTable, permanentDeleteTable, initApp, getFields } from './utils/init-app';
+import {
+  createTable,
+  permanentDeleteTable,
+  initApp,
+  getFields,
+  getTableIndexService,
+} from './utils/init-app';
 
-describe('OpenAPI Record-Search-Query (e2e)', () => {
+describe('OpenAPI Record-Search-Query (e2e)', async () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
 
@@ -177,8 +197,8 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
         {
           tableName: 'subTable',
           fieldIndex: 9,
-          queryValue: 'rap, rock, hiphop',
-          expectResultLength: 6,
+          queryValue: 'hiphop',
+          expectResultLength: 7,
         },
         {
           tableName: 'subTable',
@@ -211,4 +231,153 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
       );
     });
   });
+
+  describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+    'search index relative',
+    () => {
+      let table: ITableFullVo;
+      let tableName: string;
+      let dbFieldNameIndexLen: number;
+      beforeEach(async () => {
+        table = await createTable(baseId, {
+          name: 'record_query_x_20',
+          fields: x_20.fields,
+          records: x_20.records,
+        });
+        tableName = table?.dbTableName?.split('.').pop() as string;
+        dbFieldNameIndexLen = 63 - 'idx_trgm'.length - tableName.length - 22;
+      });
+
+      afterEach(async () => {
+        await permanentDeleteTable(baseId, table.id);
+      });
+
+      it('should create trgm index', async () => {
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const result = await getTableActivatedIndex(baseId, table.id);
+        expect(result.data.includes(TableIndex.search)).toBe(true);
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const result2 = await getTableActivatedIndex(baseId, table.id);
+        expect(result2.data.includes(TableIndex.search)).toBe(false);
+      });
+
+      it('should get abnormal index list', async () => {
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String
+        )! as IFieldInstance;
+        // enable search index
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+
+        // delete or update abnormal index
+        const tableIndexService = await getTableIndexService(app);
+        await tableIndexService.deleteSearchFieldIndex(table.id, textfield);
+
+        // expect get the abnormal list
+        const result = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result.data.length).toBe(1);
+        expect(result.data[0]).toEqual({
+          indexName: `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`,
+        });
+      });
+
+      it('should repair abnormal index', async () => {
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String
+        )! as IFieldInstance;
+        // enable search index
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+
+        // delete or update abnormal index
+        const tableIndexService = await getTableIndexService(app);
+        await tableIndexService.deleteSearchFieldIndex(table.id, textfield);
+
+        // expect get the abnormal list
+        const result = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result.data.length).toBe(1);
+        expect(result.data[0]).toEqual({
+          indexName: `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`,
+        });
+
+        await repairTableIndex(baseId, table.id, TableIndex.search);
+
+        const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result2.data.length).toBe(0);
+      });
+
+      // field relative operator with table index
+      it('should delete recoding field index when delete field', async () => {
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String && !f.isPrimary
+        )!;
+
+        const tableIndexService = await getTableIndexService(app);
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const index = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        await deleteField(table.id, textfield.id);
+        const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        const diffIndex = differenceWith(index, index2, (a, b) => a?.indexname === b?.indexname);
+        expect(diffIndex[0]?.indexname).toEqual(
+          `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`
+        );
+        const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result2.data.length).toBe(0);
+      });
+
+      it('should create new field index automatically when field be created with table index', async () => {
+        const tableIndexService = await getTableIndexService(app);
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const index = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        const newField = await createField(table.id, {
+          name: 'newField',
+          type: FieldType.SingleLineText,
+        });
+        const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        const diffIndex = differenceWith(index2, index, (a, b) => a?.indexname === b?.indexname);
+        expect(diffIndex[0]?.indexname).toEqual(
+          `idx_trgm_${tableName}_${newField?.data?.dbFieldName.slice(0, dbFieldNameIndexLen)}_${newField?.data?.id}`
+        );
+        const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result2.data.length).toBe(0);
+      });
+
+      it('should convert field index automatically when field be convert with table index', async () => {
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String && !f.isPrimary
+        )!;
+        const tableIndexService = await getTableIndexService(app);
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const index = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        await convertField(table.id, textfield.id, {
+          type: FieldType.Checkbox,
+        });
+        const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        const diffIndex = differenceWith(index, index2, (a, b) => a?.indexname === b?.indexname);
+        expect(diffIndex[0]?.indexname).toEqual(
+          `idx_trgm_${tableName}_${textfield.dbFieldName.slice(0, dbFieldNameIndexLen)}_${textfield.id}`
+        );
+
+        const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result2.data.length).toBe(0);
+      });
+
+      it('should update index name when dbFieldName to be changed', async () => {
+        const textfield = table.fields.find(
+          (f) => f.cellValueType === CellValueType.String && !f.isPrimary
+        )!;
+        const tableIndexService = await getTableIndexService(app);
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const index = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        await updateField(table.id, textfield.id, {
+          dbFieldName: 'Test_Field',
+        });
+        const index2 = (await tableIndexService.getIndexInfo(table.id)) as { indexname: string }[];
+        const diffIndex = differenceWith(index2, index, (a, b) => a?.indexname === b?.indexname);
+        expect(diffIndex[0]?.indexname).toEqual(
+          `idx_trgm_${tableName}_${'Test_Field'.slice(0, dbFieldNameIndexLen)}_${textfield.id}`
+        );
+        const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result2.data.length).toBe(0);
+      });
+    }
+  );
 });

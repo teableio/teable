@@ -2,6 +2,7 @@ import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { FieldOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Timing } from '../../../utils/timing';
+import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';
@@ -13,6 +14,7 @@ export class FieldDeletingService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
+    private readonly tableIndexService: TableIndexService,
     private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
@@ -79,6 +81,9 @@ export class FieldDeletingService {
     if (isPrimary) {
       throw new ForbiddenException(`forbid delete primary field`);
     }
+
+    // delete index first
+    await this.tableIndexService.deleteSearchFieldIndex(tableId, field);
 
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions = field.options;

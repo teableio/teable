@@ -3,9 +3,17 @@ import { ChevronRight, ChevronLeft } from '@teable/icons';
 import type { ISearchIndexByQueryRo, ISearchIndexVo } from '@teable/openapi';
 import { getSearchIndex, getShareViewSearchIndex } from '@teable/openapi';
 import { type GridView } from '@teable/sdk';
-import { useTableId, useView, useFields, useSearch, usePersonalView } from '@teable/sdk/hooks';
+import {
+  useTableId,
+  useView,
+  useFields,
+  useSearch,
+  usePersonalView,
+  useTableListener,
+} from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
+import { isEmpty } from 'lodash';
 import { useEffect, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import type { ISearchButtonProps } from './SearchButton';
@@ -17,7 +25,7 @@ enum PageDirection {
 
 type ISearchMap = Record<number, NonNullable<ISearchIndexVo>[number]>;
 
-const PaginationBuffer = 300;
+const PaginationBuffer = 100;
 
 type ISearchCountPaginationProps = Pick<ISearchButtonProps, 'shareView'>;
 
@@ -41,7 +49,7 @@ export const SearchCountPagination = forwardRef<
   const view = useView() as GridView;
   const fields = useFields();
   const [currentIndex, setCurrentIndex] = useState(1);
-  const { gridRef, setSearchCursor } = useGridSearchStore();
+  const { gridRef, setSearchCursor, recordMap } = useGridSearchStore();
   const { personalViewCommonQuery } = usePersonalView();
   const [isEnd, setIsEnd] = useState(false);
 
@@ -70,6 +78,10 @@ export const SearchCountPagination = forwardRef<
   );
 
   const queryFn = async ({ pageParam = 0 }) => {
+    const skipLength = new Set(
+      Object.values(allSearchResults).map((rec) => rec.recordId) as string[]
+    ).size as number;
+
     const baseQueryRo: ISearchIndexByQueryRo = {
       skip: pageParam,
       take: PaginationBuffer,
@@ -96,7 +108,7 @@ export const SearchCountPagination = forwardRef<
     }
 
     const nextCursor =
-      result.data?.length ?? 0 >= PaginationBuffer ? pageParam + PaginationBuffer : null;
+      result.data?.length ?? 0 >= PaginationBuffer ? skipLength + PaginationBuffer : null;
 
     const dataLength = Object.values(allSearchResults).length;
 
@@ -110,7 +122,7 @@ export const SearchCountPagination = forwardRef<
     } as PageData;
   };
 
-  const { data, isFetching, isLoading, fetchNextPage } = useInfiniteQuery({
+  const { data, isFetching, isLoading, fetchNextPage, refetch } = useInfiniteQuery({
     queryKey: [
       'search_index',
       tableId,
@@ -122,6 +134,8 @@ export const SearchCountPagination = forwardRef<
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     enabled: !!value,
+    initialData: undefined,
+    keepPreviousData: false,
     getNextPageParam: (lastPage) => {
       return lastPage.nextCursor;
     },
@@ -135,7 +149,7 @@ export const SearchCountPagination = forwardRef<
       finalResult[indexNumber] = result;
     });
     return finalResult;
-  }, [data]);
+  }, [data?.pages]);
 
   const switchIndex = (direction: PageDirection) => {
     const newIndex = currentIndex + direction;
@@ -175,6 +189,23 @@ export const SearchCountPagination = forwardRef<
       setCurrentIndex(1);
     }
   }, [setSearchCursor, value]);
+
+  useTableListener(tableId, ['setRecord', 'addRecord', 'deleteRecord'], () => {
+    if (!value || isEmpty(allSearchResults) || !recordMap || isLoading || isFetching) {
+      return;
+    }
+
+    if (allSearchResults?.[currentIndex]) {
+      const index = allSearchResults?.[currentIndex];
+      const { fieldId, index: recordIndex } = index;
+      const displayValue = recordMap?.[recordIndex + 1]?.getCellValueAsString(fieldId);
+      const reg = new RegExp(value, 'gi');
+      if (!reg.test(displayValue)) {
+        setCurrentIndex(1);
+        refetch();
+      }
+    }
+  });
 
   return (
     value &&

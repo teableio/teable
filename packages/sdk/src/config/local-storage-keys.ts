@@ -10,6 +10,7 @@ export enum LocalStorageKeys {
   ViewKanbanCollapsedStack = 'ls_view_kanban_collapsed_stack',
   CompletedGuideMap = 'ls_completed_guide_map',
   ImportAlert = 'ls_import_alert',
+  SearchIndexAlert = 'ls_search_index_alert',
   ExpandRecordHiddenFieldsVisible = 'ls_expand_record_hidden_fields_visible',
   EnableGlobalSearch = 'ls_enable_globalSearch',
   TableSearchFieldsCache = 'ls_table_search_fields_cache',

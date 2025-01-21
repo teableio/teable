@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type { StatisticsFunc } from '@teable/core';
 import { getValidStatisticFunc } from '@teable/core';
 import type {
+  ISearchIndexByQueryRo,
   IAggregationRo,
   IAggregationVo,
   ICalendarDailyCollectionRo,
@@ -10,7 +11,6 @@ import type {
   IGroupPointsVo,
   IQueryBaseRo,
   IRowCountVo,
-  ISearchIndexByQueryRo,
   ISearchCountRo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';

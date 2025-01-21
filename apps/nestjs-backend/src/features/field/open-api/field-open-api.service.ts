@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  CellValueType,
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
@@ -28,6 +29,7 @@ import { FieldCalculationService } from '../../calculation/field-calculation.ser
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
 import { RecordService } from '../../record/record.service';
+import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
@@ -61,6 +63,7 @@ export class FieldOpenApiService {
     private readonly recordService: RecordService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly tableIndexService: TableIndexService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -72,7 +75,7 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldCreate(tableId, fieldRo);
   }
 
-  // TODO add delete relative check
+  // need add delete relative check
   async planFieldConvert(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
@@ -238,6 +241,8 @@ export class FieldOpenApiService {
             await this.fieldCalculationService.calculateFields(tableId, [field.id]);
             await this.fieldService.resolvePending(tableId, [field.id]);
           }
+          // create index after write data
+          await this.tableIndexService.createSearchFieldSingleIndex(tableId, fieldInstance);
         }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
@@ -361,6 +366,21 @@ export class FieldOpenApiService {
         'dbFieldName',
         updateFieldRo.dbFieldName
       );
+      const oldField = await this.prismaService.field.findFirstOrThrow({
+        where: {
+          id: fieldId,
+          deletedTime: null,
+        },
+        select: {
+          dbFieldName: true,
+          id: true,
+        },
+      });
+      // do not need in transaction, causing just index name
+      await this.tableIndexService.updateSearchFieldIndexName(tableId, oldField, {
+        id: oldField.id,
+        dbFieldName: updateFieldRo?.dbFieldName ?? oldField.dbFieldName,
+      });
       ops.push(op);
     }
 
@@ -423,11 +443,17 @@ export class FieldOpenApiService {
     // 3. stage apply record changes and calculate field
     await this.prismaService.$tx(
       async () => {
+        await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField);
         await this.fieldConvertingService.stageCalculate(tableId, newField, oldField, modifiedOps);
 
         if (supplementChange) {
           const { tableId, newField, oldField } = supplementChange;
           await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
+        }
+
+        // index do not support date cell value type
+        if (newField.cellValueType !== CellValueType.DateTime) {
+          await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
         }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }

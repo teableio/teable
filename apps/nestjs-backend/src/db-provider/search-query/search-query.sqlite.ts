@@ -1,50 +1,127 @@
 import { CellValueType, type IDateFieldOptions } from '@teable/core';
-import type { ISearchIndexByQueryRo } from '@teable/openapi';
+import type { ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { SearchQueryAbstract } from './abstract';
 import { getOffset } from './get-offset';
+import type { ISearchCellValueType } from './types';
 
 export class SearchQuerySqlite extends SearchQueryAbstract {
-  constructor(originQueryBuilder: Knex.QueryBuilder, field: IFieldInstance, searchValue: string) {
-    super(originQueryBuilder, field, searchValue);
+  protected knex: Knex.Client;
+  constructor(
+    protected originQueryBuilder: Knex.QueryBuilder,
+    protected field: IFieldInstance,
+    protected search: [string, string?, boolean?],
+    protected tableIndex: TableIndex[]
+  ) {
+    super(originQueryBuilder, field, search, tableIndex);
+    this.knex = originQueryBuilder.client;
   }
 
-  multipleNumber() {
-    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return this.originQueryBuilder.orWhereRaw(
-      `
-      EXISTS (
-        SELECT 1 FROM (
-          SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
-          FROM json_each(??) as je
-        )
-        WHERE aggregated LIKE ?
-      )
-      `,
-      [precision, this.field.dbFieldName, `%${this.searchValue}%`]
-    );
+  appendBuilder() {
+    const { originQueryBuilder } = this;
+    const sql = this.getSql();
+    sql && this.originQueryBuilder.orWhereRaw(sql);
+    return originQueryBuilder;
   }
 
-  multipleDate() {
+  getSql(): string {
+    return this.getQuery().toQuery();
+  }
+
+  getQuery() {
+    const { field } = this;
+    const { isMultipleCellValue } = field;
+
+    return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();
+  }
+
+  protected getSearchQueryWithIndex() {
+    return this.originQueryBuilder;
+  }
+
+  protected getMultipleCellTypeQuery() {
+    const { field } = this;
+    const { isStructuredCellValue, cellValueType } = field;
+    switch (cellValueType as ISearchCellValueType) {
+      case CellValueType.String: {
+        if (isStructuredCellValue) {
+          return this.multipleJson();
+        } else {
+          return this.multipleText();
+        }
+      }
+      case CellValueType.DateTime: {
+        return this.multipleDate();
+      }
+      case CellValueType.Number: {
+        return this.multipleNumber();
+      }
+      default:
+        return this.multipleText();
+    }
+  }
+
+  protected getSingleCellTypeQuery() {
+    const { field } = this;
+    const { isStructuredCellValue, cellValueType } = field;
+    switch (cellValueType as ISearchCellValueType) {
+      case CellValueType.String: {
+        if (isStructuredCellValue) {
+          return this.json();
+        } else {
+          return this.text();
+        }
+      }
+      case CellValueType.DateTime: {
+        return this.date();
+      }
+      case CellValueType.Number: {
+        return this.number();
+      }
+      default:
+        return this.text();
+    }
+  }
+
+  protected text() {
+    const { search, knex } = this;
+    const [searchValue] = search;
+    return knex.raw(`?? LIKE ?`, [this.field.dbFieldName, `%${searchValue}%`]);
+  }
+
+  protected json() {
+    const { search, knex } = this;
+    const [searchValue] = search;
+    return knex.raw("json_extract(??, '$.title') LIKE ?", [
+      this.field.dbFieldName,
+      `%${searchValue}%`,
+    ]);
+  }
+
+  protected date() {
+    const { search, knex } = this;
+    const [searchValue] = search;
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.orWhereRaw(
-      `
-      EXISTS (
-        SELECT 1 FROM (
-          SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
-          FROM json_each(??) as je
-        )
-        WHERE aggregated LIKE ?
-      )
-      `,
-      [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${this.searchValue}%`]
-    );
+    return knex.raw('DATETIME(??, ?) LIKE ?', [
+      this.field.dbFieldName,
+      `${getOffset(timeZone)} hour`,
+      `%${searchValue}%`,
+    ]);
   }
 
-  multipleText() {
-    return this.originQueryBuilder.orWhereRaw(
+  protected number() {
+    const { search, knex } = this;
+    const [searchValue] = search;
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return knex.raw('ROUND(??, ?) LIKE ?', [this.field.dbFieldName, precision, `%${searchValue}%`]);
+  }
+
+  protected multipleText() {
+    const { search, knex } = this;
+    const [searchValue] = search;
+    return knex.raw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -55,12 +132,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
         WHERE aggregated LIKE ?
       )
       `,
-      [this.field.dbFieldName, `%${this.searchValue}%`]
+      [this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
-  multipleJson() {
-    return this.originQueryBuilder.orWhereRaw(
+  protected multipleJson() {
+    const { search, knex } = this;
+    const [searchValue] = search;
+    return knex.raw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -70,155 +149,54 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
         WHERE aggregated LIKE ?
       )
       `,
-      [this.field.dbFieldName, `%${this.searchValue}%`]
+      [this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
-  json() {
-    return this.originQueryBuilder.orWhereRaw("json_extract(??, '$.title') LIKE ?", [
-      this.field.dbFieldName,
-      `%${this.searchValue}%`,
-    ]);
-  }
-
-  text() {
-    return this.originQueryBuilder.orWhere(this.field.dbFieldName, 'LIKE', `%${this.searchValue}%`);
-  }
-
-  date() {
-    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.orWhereRaw('DATETIME(??, ?) LIKE ?', [
-      this.field.dbFieldName,
-      `${getOffset(timeZone)} hour`,
-      `%${this.searchValue}%`,
-    ]);
-  }
-
-  number() {
+  protected multipleNumber() {
+    const { search, knex } = this;
+    const [searchValue] = search;
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return this.originQueryBuilder.orWhereRaw('ROUND(??, ?) LIKE ?', [
-      this.field.dbFieldName,
-      precision,
-      `%${this.searchValue}%`,
-    ]);
+    return knex.raw(
+      `
+      EXISTS (
+        SELECT 1 FROM (
+          SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
+          FROM json_each(??) as je
+        )
+        WHERE aggregated LIKE ?
+      )
+      `,
+      [precision, this.field.dbFieldName, `%${searchValue}%`]
+    );
   }
 
-  getNumberSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knexInstance
-      .raw('ROUND(??, ?) LIKE ?', [this.field.dbFieldName, precision, `%${this.searchValue}%`])
-      .toQuery();
-  }
-
-  getDateSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
+  protected multipleDate() {
+    const { search, knex } = this;
+    const [searchValue] = search;
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return knexInstance
-      .raw('DATETIME(??, ?) LIKE ?', [
-        this.field.dbFieldName,
-        `${getOffset(timeZone)} hour`,
-        `%${this.searchValue}%`,
-      ])
-      .toQuery();
-  }
-
-  getTextSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw('?? LIKE ?', [this.field.dbFieldName, `%${this.searchValue}%`])
-      .toQuery();
-  }
-
-  getJsonSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw("json_extract(??, '$.title') LIKE ?", [this.field.dbFieldName, `%${this.searchValue}%`])
-      .toQuery();
-  }
-
-  getMultipleDateSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
-            FROM json_each(??) as je
-          )
-          WHERE aggregated LIKE ?
+    return knex.raw(
+      `
+      EXISTS (
+        SELECT 1 FROM (
+          SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
+          FROM json_each(??) as je
         )
-        `,
-        [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${this.searchValue}%`]
+        WHERE aggregated LIKE ?
       )
-      .toQuery();
-  }
-
-  getMultipleTextSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(je.value, ', ') as aggregated
-            FROM json_each(??) as je
-            WHERE je.key != 'title'
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
-  }
-
-  getMultipleNumberSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
-            FROM json_each(??) as je
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [precision, this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
-  }
-
-  getMultipleJsonSqlQuery() {
-    const knexInstance = this.originQueryBuilder.client;
-    return knexInstance
-      .raw(
-        `
-        EXISTS (
-          SELECT 1 FROM (
-            SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
-            FROM json_each(??) as je
-          )
-          WHERE aggregated LIKE ?
-        )
-        `,
-        [this.field.dbFieldName, `%${this.searchValue}%`]
-      )
-      .toQuery();
+      `,
+      [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${searchValue}%`]
+    );
   }
 }
 
-export class SearchQueryBuilder {
+export class SearchQuerySqliteBuilder {
   constructor(
     public queryBuilder: Knex.QueryBuilder,
     public dbTableName: string,
     public searchField: IFieldInstance[],
     public searchIndexRo: ISearchIndexByQueryRo,
+    public tableIndex: TableIndex[],
     public baseSortIndex?: string,
     public setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     public setSortQuery?: (qb: Knex.QueryBuilder) => void
@@ -233,43 +211,16 @@ export class SearchQueryBuilder {
   }
 
   getSearchQuery() {
-    const { queryBuilder, searchIndexRo, searchField } = this;
+    const { queryBuilder, searchIndexRo, searchField, tableIndex } = this;
     const { search } = searchIndexRo;
-    const searchValue = search?.[0];
 
-    if (!search || !searchField?.length || !searchValue) {
+    if (!search || !searchField?.length) {
       return queryBuilder;
     }
 
     return searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuerySqlite(queryBuilder, field, searchValue);
-      if (field.isMultipleCellValue) {
-        switch (field.cellValueType) {
-          case CellValueType.DateTime:
-            return searchQueryBuilder.getMultipleDateSqlQuery();
-          case CellValueType.Number:
-            return searchQueryBuilder.getMultipleNumberSqlQuery();
-          case CellValueType.String:
-            if (field.isStructuredCellValue) {
-              return searchQueryBuilder.getMultipleJsonSqlQuery();
-            } else {
-              return searchQueryBuilder.getMultipleTextSqlQuery();
-            }
-        }
-      }
-
-      switch (field.cellValueType) {
-        case CellValueType.DateTime:
-          return searchQueryBuilder.getDateSqlQuery();
-        case CellValueType.Number:
-          return searchQueryBuilder.getNumberSqlQuery();
-        case CellValueType.String:
-          if (field.isStructuredCellValue) {
-            return searchQueryBuilder.getJsonSqlQuery();
-          } else {
-            return searchQueryBuilder.getTextSqlQuery();
-          }
-      }
+      const searchQueryBuilder = new SearchQuerySqlite(queryBuilder, field, search, tableIndex);
+      return searchQueryBuilder.getSql();
     });
   }
 
@@ -283,7 +234,7 @@ export class SearchQueryBuilder {
       setFilterQuery,
       setSortQuery,
     } = this;
-    const { search, filter, orderBy, groupBy } = searchIndexRo;
+    const { search, filter, orderBy, groupBy, skip, take } = searchIndexRo;
     const knexInstance = queryBuilder.client;
 
     if (!search || !searchField?.length) {
@@ -291,6 +242,35 @@ export class SearchQueryBuilder {
     }
 
     const searchQuerySql = this.getSearchQuery() as string[];
+
+    queryBuilder.with('search_hit_row', (qb) => {
+      qb.select('*');
+
+      qb.from(dbTableName);
+
+      qb.where((subQb) => {
+        subQb.where((orWhere) => {
+          searchQuerySql.forEach((sql) => {
+            orWhere.orWhereRaw(sql);
+          });
+        });
+        if (this.searchIndexRo.filter && setFilterQuery) {
+          subQb.andWhere((andQb) => {
+            setFilterQuery?.(andQb);
+          });
+        }
+      });
+
+      if (orderBy?.length || groupBy?.length) {
+        setSortQuery?.(qb);
+      }
+
+      take && qb.limit(take);
+
+      qb.offset(skip ?? 0);
+
+      baseSortIndex && qb.orderBy(baseSortIndex, 'asc');
+    });
 
     queryBuilder.with('search_field_union_table', (qb) => {
       for (let index = 0; index < searchField.length; index++) {
@@ -305,12 +285,12 @@ export class SearchQueryBuilder {
         if (index === 0) {
           qb.select('*', knexInstance.raw(`? as matched_column`, [dbFieldName]))
             .whereRaw(`${currentWhereRaw}`)
-            .from(dbTableName);
+            .from('search_hit_row');
         } else {
           qb.unionAll(function () {
             this.select('*', knexInstance.raw(`? as matched_column`, [dbFieldName]))
               .whereRaw(`${currentWhereRaw}`)
-              .from(dbTableName);
+              .from('search_hit_row');
           });
         }
       }
