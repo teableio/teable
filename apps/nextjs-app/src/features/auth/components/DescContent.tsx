@@ -13,8 +13,8 @@ export const DescContent = () => {
         <Rectangles className="hidden size-10 rounded-md xl:block" amount={36 * 2} />
       </div>
       <div className="flex h-full flex-col items-center justify-center p-10">
-        <div className="relative">
-          <h2 className="absolute -translate-y-full text-nowrap text-6xl font-bold">
+        <div className="overflow-hidden">
+          <h2 className="absolute -translate-y-full text-wrap text-6xl font-bold">
             {t('auth:content.title')}
           </h2>
           <p className="py-10">{t('auth:content.description')}</p>
