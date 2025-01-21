@@ -9,6 +9,8 @@ export enum TableIndex {
   search = 'search',
 }
 
+export const RecommendedIndexRow = 10000;
+
 export const tableIndexTypeSchema = z.nativeEnum(TableIndex);
 
 export type ITableIndexType = z.infer<typeof tableIndexTypeSchema>;

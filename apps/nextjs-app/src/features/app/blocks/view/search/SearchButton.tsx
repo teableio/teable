@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { Search, X } from '@teable/icons';
-import { getTableActivatedIndex, TableIndex } from '@teable/openapi';
+import { getTableActivatedIndex, TableIndex, RecommendedIndexRow } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
 import {
@@ -49,7 +49,8 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const { fieldId, value, setFieldId, setValue, hideNotMatchRow, setHideNotMatchRow } = useSearch();
   const [alertVisible, setAlertVisible] = useState(false);
   const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.SearchIndexAlert, true);
-  const [shouldTips, setShouldTips] = useState(false);
+  const [shouldTips, setShouldTips] = useState(true);
+  const [noPrompt, setNoPrompt] = useState(false);
   const baseId = useBaseId();
 
   const [inputValue, setInputValue] = useState(value);
@@ -305,8 +306,9 @@ export const SearchButton = (props: ISearchButtonProps) => {
           }}
           onChange={(e) => {
             if (
+              shouldTips &&
               rowCount &&
-              rowCount > 10 &&
+              rowCount > RecommendedIndexRow &&
               shouldAlert &&
               !tableActivatedIndex?.includes(TableIndex.search) &&
               e.target.value
@@ -355,15 +357,15 @@ export const SearchButton = (props: ISearchButtonProps) => {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('table:table.index.autoIndexTip', { rowCount: 10000 })}
+              {t('table:table.index.autoIndexTip', { rowCount: RecommendedIndexRow })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-center">
             <Checkbox
               id="noTips"
-              checked={shouldTips}
+              checked={noPrompt}
               onCheckedChange={(should: boolean) => {
-                setShouldTips(should);
+                setNoPrompt(should);
               }}
             />
             <label
@@ -374,17 +376,24 @@ export const SearchButton = (props: ISearchButtonProps) => {
             </label>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setShouldAlert(!noPrompt);
+                setShouldTips(false);
+              }}
+            >
+              {t('table:table.index.keepAsIs')}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 commandTrigger?.current?.click();
                 setTimeout(() => {
                   searchCommandRef?.current?.toggleSearchIndex();
-                  setShouldAlert(!shouldTips);
+                  setShouldAlert(!noPrompt);
                 }, 0);
               }}
             >
-              {t('table:import.title.confirm')}
+              {t('table:table.index.enableIndex')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

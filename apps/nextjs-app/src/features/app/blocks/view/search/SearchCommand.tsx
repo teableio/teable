@@ -78,7 +78,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.SearchIndexAlert, true);
-  const [shouldTips, setShouldTips] = useState(false);
+  const [noPrompt, setNoPrompt] = useState(false);
   const [actionType, setActionType] = useState(ActionType.create);
 
   const { data: tableActivatedIndex } = useQuery({
@@ -360,9 +360,9 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
           <div className="flex items-center">
             <Checkbox
               id="noTips"
-              checked={shouldTips}
+              checked={noPrompt}
               onCheckedChange={(should: boolean) => {
-                setShouldTips(should);
+                setNoPrompt(should);
               }}
             />
             <label
@@ -381,7 +381,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
                 } else {
                   repairIndexFn(TableIndex.search);
                 }
-                setShouldAlert(!shouldTips);
+                setShouldAlert(!noPrompt);
               }}
             >
               {t('table:import.title.confirm')}
