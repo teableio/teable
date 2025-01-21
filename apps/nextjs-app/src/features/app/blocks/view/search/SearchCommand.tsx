@@ -286,7 +286,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
                   <HelpCircle />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="text-wrap break-words" sideOffset={5}>
+              <TooltipContent className="max-w-80 text-wrap break-words" sideOffset={5}>
                 {t('table:table.index.description')}
               </TooltipContent>
             </Tooltip>
