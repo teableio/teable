@@ -193,7 +193,7 @@ export class SqliteProvider implements IDbProvider {
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
-    // TODO: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
+    // to-do: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
     //  This is a temporary solution, and I'm actively keeping an eye on this issue for further developments.
     const builder = this.knex.client.queryBuilder();
     builder.insert(insertData).into(tableName).toSQL();
