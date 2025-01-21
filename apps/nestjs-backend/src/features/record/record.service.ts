@@ -22,7 +22,7 @@ import type {
 import {
   and,
   CellFormat,
-  DbFieldType,
+  CellValueType,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -1404,7 +1404,14 @@ export class RecordService {
             return searchArr.includes(field.id);
           })
           .filter((field) => {
-            if (field.dbFieldType === DbFieldType.Boolean) {
+            const isSearchAllFields = !search?.[0];
+            if (
+              [CellValueType.Boolean, CellValueType.DateTime].includes(field.cellValueType) &&
+              isSearchAllFields
+            ) {
+              return false;
+            }
+            if (field.cellValueType === CellValueType.Boolean) {
               return false;
             }
             return true;

@@ -255,8 +255,11 @@ export class SearchQueryPostgresBuilder {
     const searchQuerySql = this.getSearchQuery() as string[];
     return searchFields
       .filter(({ cellValueType }) => {
-        // global search does not support date time
-        if (isSearchAllFields && cellValueType === CellValueType.DateTime) {
+        // global search does not support date time and checkbox
+        if (
+          isSearchAllFields &&
+          [CellValueType.DateTime, CellValueType.Boolean].includes(cellValueType)
+        ) {
           return false;
         }
         return true;
