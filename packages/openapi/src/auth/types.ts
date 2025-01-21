@@ -5,6 +5,6 @@ export const passwordSchema = z.string().min(8).openapi({
 });
 
 export const signupPasswordSchema = passwordSchema.regex(
-  /^(?=.*[A-Z])(?=.*\d)[A-Z\d]{8,}$/i,
+  /^(?=.*[A-Z])(?=.*\d).{8,}$/i,
   'Must contain at least one letter and one number'
 );
