@@ -326,10 +326,10 @@
       "fixIssues": "Fix Issues"
     },
     "index": {
-      "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data. The downside is that they take up additional storage space and may slightly slow down write operations. If you frequently perform search operations or have a large amount of data, it is recommended to enable indexes.",
+      "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data (over {{rowCount}} rows). The downside is slightly slower write operations. If you frequently perform searches or have large datasets, it's recommended to enable indexing.",
       "repair": "repair",
       "repairTip": "Index anomalies detected, which may cause search performance degradation. It is recommended to click the repair button to fix the index",
-      "enableIndexTip": "The time required to create an index depends on the table size. During creation, the table's read and write performance may be affected. Please wait patiently.",
+      "enableIndexTip": "You are creating an index. The time required depends on the table size. During this process, the table's read and write performance may be affected. Please be patient.",
       "globalSearchTip": "Search all fields except date and checkbox field",
       "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexing to improve search performance. Please note that indexing may slightly reduce write speed. During index creation, table read/write performance might be temporarily affected. Please be patient.",
       "enableIndex": "enable",

@@ -7,6 +7,7 @@ import {
   TableIndex,
   getTableAbnormalIndex,
   repairTableIndex,
+  RecommendedIndexRow,
 } from '@teable/openapi';
 import { LocalStorageKeys } from '@teable/sdk/config';
 import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
@@ -287,7 +288,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-80 text-wrap break-words" sideOffset={5}>
-                {t('table:table.index.description')}
+                {t('table:table.index.description', { rowCount: RecommendedIndexRow })}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

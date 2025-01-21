@@ -314,12 +314,12 @@
       "fixIssues": "Corriger les problèmes"
     },
     "index": {
-      "description": "Les index peuvent améliorer considérablement les performances de recherche, en particulier lors du traitement de grandes quantités de données. L'inconvénient est qu'ils occupent de l'espace de stockage supplémentaire et peuvent légèrement ralentir les opérations d'écriture. Si vous effectuez fréquemment des opérations de recherche ou si vous avez une grande quantité de données, il est recommandé d'activer les index.",
+      "description": "Les index peuvent améliorer considérablement les performances de recherche, en particulier lors du traitement de grandes quantités de données (plus de {{rowCount}} lignes). L'inconvénient est que les opérations d'écriture sont légèrement plus lentes. Si vous effectuez fréquemment des recherches ou avez de grands ensembles de données, il est recommandé d'activer l'indexation.",
       "repair": "réparer",
       "repairTip": "Des anomalies d'index ont été détectées, ce qui peut entraîner une dégradation des performances de recherche. Il est recommandé de cliquer sur le bouton réparer pour corriger l'index",
-      "enableIndexTip": "Le temps nécessaire pour créer un index dépend de la taille de la table. Pendant la création, les performances de lecture et d'écriture de la table peuvent être affectées. Veuillez patienter.",
+      "enableIndexTip": "Vous créez un index. Le temps nécessaire dépend de la taille de la table. Pendant ce processus, les performances de lecture et d'écriture de la table peuvent être affectées. Veuillez patienter.",
       "globalSearchTip": "Rechercher dans tous les champs sauf les champs de date et de case à cocher",
-      "autoIndexTip": "Votre tableau a dépassé {{rowCount}} lignes. Nous recommandons d'activer l'indexation pour améliorer les performances de recherche. Veuillez noter que l'indexation peut légèrement réduire la vitesse d'écriture. Pendant la création de l'index, les performances de lecture/écriture du tableau peuvent être temporairement affectées. Merci de votre patience.",
+      "autoIndexTip": "Votre table a dépassé {{rowCount}} lignes. Nous vous recommandons d'activer l'indexation pour améliorer les performances de recherche. Veuillez noter que l'indexation peut légèrement réduire la vitesse d'écriture. Pendant la création de l'index, les performances de lecture/écriture de la table peuvent être temporairement affectées. Veuillez patienter.",
       "enableIndex": "activer",
       "keepAsIs": "laisser tel quel"
     }
