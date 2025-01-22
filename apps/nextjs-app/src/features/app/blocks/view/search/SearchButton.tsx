@@ -81,6 +81,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const { data: tableActivatedIndex } = useQuery({
     queryKey: ['table-index', tableId],
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
+    enabled: !shareView,
   });
 
   useHotkeys(
@@ -279,6 +280,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
               value={fieldId}
               hideNotMatchRow={hideNotMatchRow}
               onChange={onFieldChangeHandler}
+              shareView={shareView}
               ref={searchCommandRef}
               onHideSwitchChange={(checked) => {
                 setLsHideNotMatchRow(checked);
@@ -310,6 +312,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
               rowCount &&
               rowCount > RecommendedIndexRow &&
               shouldAlert &&
+              !shareView &&
               !tableActivatedIndex?.includes(TableIndex.search) &&
               e.target.value
             ) {
