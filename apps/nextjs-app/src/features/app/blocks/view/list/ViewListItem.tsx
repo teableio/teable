@@ -202,7 +202,6 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                   <Separator className="my-0.5" />
                   <Button
                     size="xs"
-                    disabled={!removable}
                     variant="ghost"
                     className="flex justify-start"
                     onClick={(e) => {
