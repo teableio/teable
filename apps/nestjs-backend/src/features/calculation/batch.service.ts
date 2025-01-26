@@ -225,8 +225,6 @@ export class BatchService {
     data: { id: string; values: { [key: string]: unknown } }[]
   ) {
     const tempTableName = `temp_` + customAlphabet('abcdefghijklmnopqrstuvwxyz', 10)();
-    const prisma = this.prismaService.txClient();
-
     // 1.create temporary table structure
     const createTempTableSchema = this.knex.schema.createTable(tempTableName, (table) => {
       table.string(idFieldName).primary();
@@ -238,7 +236,6 @@ export class BatchService {
     const createTempTableSql = createTempTableSchema
       .toQuery()
       .replace('create table', 'create temporary table');
-    await prisma.$executeRawUnsafe(createTempTableSql);
 
     const { insertTempTableSql, updateRecordSql } = this.dbProvider.executeUpdateRecordsSqlList({
       dbTableName,
@@ -247,16 +244,28 @@ export class BatchService {
       dbFieldNames: schemas.map((s) => s.dbFieldName),
       data,
     });
-
-    // 2.initialize temporary table data
-    await prisma.$executeRawUnsafe(insertTempTableSql);
-
-    // 3.update data
-    await wrapWithValidationErrorHandler(() => prisma.$executeRawUnsafe(updateRecordSql));
-
-    // 4.delete temporary table
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
-    await prisma.$executeRawUnsafe(dropTempTableSql);
+
+    const prisma = this.prismaService.txClient();
+
+    const batchOperators = async () => {
+      // temp table should in one transaction
+      await prisma.$executeRawUnsafe(createTempTableSql);
+      // 2.initialize temporary table data
+      await prisma.$executeRawUnsafe(insertTempTableSql);
+      // 3.update data
+      await wrapWithValidationErrorHandler(() => prisma.$executeRawUnsafe(updateRecordSql));
+      // 4.delete temporary table
+      await prisma.$executeRawUnsafe(dropTempTableSql);
+    };
+
+    if (this.cls.get('tx.id')) {
+      await batchOperators();
+    } else {
+      await this.prismaService.$transaction(async () => {
+        await batchOperators();
+      });
+    }
   }
 
   private async executeUpdateRecordsInner(
