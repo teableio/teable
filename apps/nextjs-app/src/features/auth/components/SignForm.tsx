@@ -184,7 +184,7 @@ export const SignForm: FC<ISignForm> = (props) => {
   return (
     <div
       className={cn(
-        'grid gap-3',
+        'flex flex-col gap-3',
         {
           'pointer-events-none': isLoading,
         },

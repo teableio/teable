@@ -124,6 +124,7 @@ model View {
   order            Float
   version          Int
   columnMeta       String    @map("column_meta")
+  isLocked         Boolean?  @map("is_locked")
   enableShare      Boolean?  @map("enable_share")
   shareId          String?   @map("share_id")
   shareMeta        String?   @map("share_meta")

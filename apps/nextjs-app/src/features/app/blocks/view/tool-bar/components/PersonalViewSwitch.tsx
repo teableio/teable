@@ -1,5 +1,5 @@
 import { User, Users } from '@teable/icons';
-import { useTablePermission, usePersonalView } from '@teable/sdk/hooks';
+import { useTablePermission, usePersonalView, useView } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
@@ -13,6 +13,7 @@ interface IPersonalViewSwitchProps {
 
 export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
   const { textClassName, buttonClassName } = props;
+  const view = useView();
   const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { isPersonalView, openPersonalView, closePersonalView, syncViewProperties } =
@@ -22,7 +23,7 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
 
   const toggleViewStatus = () => {
     if (isPersonalView) {
-      !hasSyncPermission ? closePersonalView?.() : setIsConfirmOpen(true);
+      !hasSyncPermission || view?.isLocked ? closePersonalView?.() : setIsConfirmOpen(true);
     } else {
       openPersonalView?.();
     }

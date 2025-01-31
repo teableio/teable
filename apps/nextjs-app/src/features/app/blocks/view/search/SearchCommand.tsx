@@ -45,6 +45,7 @@ interface ISearchCommand {
   hideNotMatchRow?: boolean;
   onHideSwitchChange: (hideNotMatchRow?: boolean) => void;
   onChange: (fieldIds: string[] | null) => void;
+  shareView?: boolean;
 }
 
 export interface ISearchCommandRef {
@@ -57,7 +58,7 @@ enum ActionType {
 }
 
 export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((props, ref) => {
-  const { onChange, value, hideNotMatchRow, onHideSwitchChange } = props;
+  const { onChange, value, hideNotMatchRow, onHideSwitchChange, shareView } = props;
   const { t } = useTranslation(['common', 'table']);
   const fields = useFields();
   const view = useView();
@@ -85,6 +86,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
   const { data: tableActivatedIndex } = useQuery({
     queryKey: ['table-index', tableId],
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
+    enabled: !shareView,
   });
 
   const enabledSearchIndex = tableActivatedIndex?.includes(TableIndex.search);
@@ -93,7 +95,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
     queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
     queryFn: () =>
       getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
-    enabled: enabledSearchIndex,
+    enabled: Boolean(enabledSearchIndex && !shareView),
   });
 
   const { mutateAsync: toggleIndexFn, isLoading } = useMutation({
@@ -277,80 +279,82 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         )}
       </div>
 
-      <div className="flex items-center justify-between pl-1">
-        <div className="flex flex-1 items-center gap-1">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-0.5 text-sm">
-                  {t('actions.tableIndex')}
-                  <HelpCircle />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-80 text-wrap break-words" sideOffset={5}>
-                {t('table:table.index.description', { rowCount: RecommendedIndexRow })}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {enabledSearchIndex && !!searchAbnormalIndex?.length && (
+      {!shareView && (
+        <div className="flex items-center justify-between pl-1">
+          <div className="flex flex-1 items-center gap-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-0.5">
-                    <Button
-                      size={'xs'}
-                      variant={'destructive'}
-                      className="flex h-6 items-center gap-0.5"
-                      onClick={async () => {
-                        if (shouldAlert) {
-                          setAlertVisible(true);
-                          setActionType(ActionType.repair);
-                          return;
-                        }
-                        await repairIndexFn(TableIndex.search);
-                      }}
-                    >
-                      {t('table:table.index.repair')}
-                      {repairIndexLoading || getAbnormalLoading ? (
-                        <Spin className="size-3" />
-                      ) : null}
-                    </Button>
+                  <div className="flex items-center gap-0.5 text-sm">
+                    {t('actions.tableIndex')}
+                    <HelpCircle />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent className="text-wrap break-words" sideOffset={5}>
-                  {t('table:table.index.repairTip')}
+                <TooltipContent className="max-w-80 text-wrap break-words" sideOffset={5}>
+                  {t('table:table.index.description', { rowCount: RecommendedIndexRow })}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )}
-        </div>
+            {enabledSearchIndex && !!searchAbnormalIndex?.length && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-0.5">
+                      <Button
+                        size={'xs'}
+                        variant={'destructive'}
+                        className="flex h-6 items-center gap-0.5"
+                        onClick={async () => {
+                          if (shouldAlert) {
+                            setAlertVisible(true);
+                            setActionType(ActionType.repair);
+                            return;
+                          }
+                          await repairIndexFn(TableIndex.search);
+                        }}
+                      >
+                        {t('table:table.index.repair')}
+                        {repairIndexLoading || getAbnormalLoading ? (
+                          <Spin className="size-3" />
+                        ) : null}
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-wrap break-words" sideOffset={5}>
+                    {t('table:table.index.repairTip')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
 
-        <div>
-          <Label
-            htmlFor={'search-index'}
-            className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
-          >
-            <div className="flex h-7 items-center gap-1">
-              <div className="flex items-center gap-1">
-                {isLoading ? <Spin className="size-3" /> : null}
-                <Switch
-                  id={'search-index'}
-                  className="scale-75"
-                  checked={enabledSearchIndex}
-                  onCheckedChange={async (val) => {
-                    if (val && shouldAlert) {
-                      setAlertVisible(true);
-                      setActionType(ActionType.create);
-                      return;
-                    }
-                    baseId && tableId && (await toggleIndexFn(TableIndex.search));
-                  }}
-                />
+          <div>
+            <Label
+              htmlFor={'search-index'}
+              className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
+            >
+              <div className="flex h-7 items-center gap-1">
+                <div className="flex items-center gap-1">
+                  {isLoading ? <Spin className="size-3" /> : null}
+                  <Switch
+                    id={'search-index'}
+                    className="scale-75"
+                    checked={enabledSearchIndex}
+                    onCheckedChange={async (val) => {
+                      if (val && shouldAlert) {
+                        setAlertVisible(true);
+                        setActionType(ActionType.create);
+                        return;
+                      }
+                      baseId && tableId && (await toggleIndexFn(TableIndex.search));
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </Label>
+            </Label>
+          </div>
         </div>
-      </div>
+      )}
 
       <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
         <AlertDialogContent>

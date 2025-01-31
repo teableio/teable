@@ -1,5 +1,5 @@
 import { TeableNew } from '@teable/icons';
-import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
+import { ScrollArea, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -33,32 +33,34 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   }, [redirect, router]);
 
   return (
-    <div className="relative flex h-screen w-full overflow-y-auto">
-      <NextSeo title={signType === 'signin' ? t('auth:page.signin') : t('auth:page.signup')} />
-      <div className="absolute left-5 top-5 flex items-center gap-2">
-        <TeableNew className="size-8 text-black" />
-        {t('common:brand')}
-      </div>
-      <DescContent />
-      <div className="flex-1 shrink-0 lg:p-8">
-        <div className="flex h-[4em] w-full items-center justify-end bg-background px-5 lg:h-20">
-          <Tabs value={signType}>
-            <TabsList className="grid w-full grid-cols-2">
-              <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
-                <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
-              </Link>
-              <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
-                <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
-              </Link>
-            </TabsList>
-          </Tabs>
+    <ScrollArea className="h-screen">
+      <div className="flex min-h-screen">
+        <NextSeo title={signType === 'signin' ? t('auth:page.signin') : t('auth:page.signup')} />
+        <div className="fixed left-5 top-5 flex flex-none items-center gap-2">
+          <TeableNew className="size-8 text-black" />
+          {t('common:brand')}
         </div>
-        <div className="relative top-1/2 mx-auto w-80 -translate-y-1/2 py-[5em] lg:py-24">
-          {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
-          <SocialAuth />
-          {children}
+        <DescContent />
+        <div className="relative flex flex-1 shrink-0 flex-col items-center justify-center">
+          <div className="absolute right-0 top-0 flex h-[4em] items-center justify-end bg-background px-5 lg:h-20">
+            <Tabs value={signType}>
+              <TabsList className="grid w-full grid-cols-2">
+                <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
+                  <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
+                </Link>
+                <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
+                  <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
+                </Link>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="relative w-80 py-[5em] lg:py-24">
+            {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
+            <SocialAuth />
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 };

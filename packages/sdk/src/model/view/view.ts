@@ -26,6 +26,7 @@ import {
   updateViewDescription,
   updateViewShareMeta,
   refreshViewShareId,
+  updateViewLocked,
 } from '@teable/openapi';
 import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
@@ -92,5 +93,9 @@ export abstract class View extends ViewCore {
 
   async setShareMeta(shareMeta: IShareViewMeta) {
     return await requestWrap(updateViewShareMeta)(this.tableId, this.id, shareMeta);
+  }
+
+  async updateLocked(isLocked: boolean) {
+    return await requestWrap(updateViewLocked)(this.tableId, this.id, { isLocked });
   }
 }

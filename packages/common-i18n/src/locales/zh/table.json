@@ -501,7 +501,9 @@
     "action": {
       "rename": "重命名",
       "duplicate": "复制视图",
-      "delete": "删除视图"
+      "delete": "删除视图",
+      "lock": "锁定视图",
+      "unlock": "解锁视图"
     },
     "category": {
       "table": "表格视图",

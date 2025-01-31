@@ -326,7 +326,7 @@ export class ImportOpenApiService {
     const channel = getActionTriggerChannel(tableId);
     const presence = this.shareDbService.connect().getPresence(channel);
     const localPresence = presence.create(tableId);
-    localPresence.submit(['addRecord'], (error) => {
+    localPresence.submit([{ actionKey: 'addRecord' }], (error) => {
       error && this.logger.error(error);
     });
 

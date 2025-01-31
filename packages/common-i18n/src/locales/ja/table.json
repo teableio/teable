@@ -486,7 +486,9 @@
     "action": {
       "rename": "ビューの名前を変更",
       "duplicate": "ビューを複製",
-      "delete": "ビューの削除"
+      "delete": "ビューの削除",
+      "lock": "ビューをロック",
+      "unlock": "ビューをロック解除"
     },
     "category": {
       "table": "グリッドビュー",

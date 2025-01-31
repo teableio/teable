@@ -43,6 +43,8 @@ import {
   IViewInstallPluginRo,
   viewPluginUpdateStorageRoSchema,
   IViewPluginUpdateStorageRo,
+  viewLockedRoSchema,
+  IViewLockedRo,
 } from '@teable/openapi';
 import type {
   IEnableShareViewVo,
@@ -129,6 +131,23 @@ export class ViewOpenApiController {
       viewId,
       'description',
       viewDescriptionRo.description,
+      windowId
+    );
+  }
+
+  @Permissions('view|update')
+  @Put('/:viewId/locked')
+  async updateLocked(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(viewLockedRoSchema)) viewLockedRo: IViewLockedRo,
+    @Headers('x-window-id') windowId?: string
+  ): Promise<void> {
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'isLocked',
+      viewLockedRo.isLocked,
       windowId
     );
   }

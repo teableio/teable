@@ -487,7 +487,9 @@
     "action": {
       "rename": "Renommer la vue",
       "duplicate": "Dupliquer la vue",
-      "delete": "Supprimer la vue"
+      "delete": "Supprimer la vue",
+      "lock": "Verrouiller la vue",
+      "unlock": "Déverrouiller la vue"
     },
     "category": {
       "table": "Vue en grille",

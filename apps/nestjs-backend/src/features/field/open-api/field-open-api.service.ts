@@ -241,12 +241,14 @@ export class FieldOpenApiService {
             await this.fieldCalculationService.calculateFields(tableId, [field.id]);
             await this.fieldService.resolvePending(tableId, [field.id]);
           }
-          // create index after write data
-          await this.tableIndexService.createSearchFieldSingleIndex(tableId, fieldInstance);
         }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+
+    for (const { tableId, field } of newFields) {
+      await this.tableIndexService.createSearchFieldSingleIndex(tableId, field);
+    }
 
     const referenceMap = await this.getFieldReferenceMap([fieldVo.id]);
 

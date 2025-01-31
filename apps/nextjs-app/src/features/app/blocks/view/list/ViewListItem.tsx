@@ -1,5 +1,5 @@
 import { ViewType } from '@teable/core';
-import { Pencil, Trash2, Export, Copy } from '@teable/icons';
+import { Pencil, Trash2, Export, Copy, Lock } from '@teable/icons';
 import { useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import {
@@ -12,10 +12,11 @@ import {
   PopoverAnchor,
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
+import { Unlock } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
@@ -71,7 +72,10 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           alt={view.name}
         />
       ) : (
-        <ViewIcon className="mr-1 size-4 shrink-0" />
+        <Fragment>
+          {view.isLocked && <Lock className="mr-[2px] size-4 shrink-0" />}
+          <ViewIcon className="mr-1 size-4 shrink-0" />
+        </Fragment>
       )}
       <div className="flex flex-1 items-center justify-center overflow-hidden">
         <div className="truncate text-xs font-medium leading-5">{view.name}</div>
@@ -190,6 +194,27 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                   >
                     <Copy className="size-3" />
                     {t('view.action.duplicate')}
+                  </Button>
+                </>
+              )}
+              {permission['view|update'] && (
+                <>
+                  <Separator className="my-0.5" />
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="flex justify-start"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      view.updateLocked(!view.isLocked);
+                    }}
+                  >
+                    {view.isLocked ? (
+                      <Unlock className="size-3 shrink-0" />
+                    ) : (
+                      <Lock className="size-3 shrink-0" />
+                    )}
+                    {view.isLocked ? t('view.action.unlock') : t('view.action.lock')}
                   </Button>
                 </>
               )}

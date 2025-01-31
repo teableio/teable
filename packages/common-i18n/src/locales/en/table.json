@@ -502,7 +502,9 @@
     "action": {
       "rename": "Rename view",
       "duplicate": "Duplicate view",
-      "delete": "Delete view"
+      "delete": "Delete view",
+      "lock": "Lock view",
+      "unlock": "Unlock view"
     },
     "category": {
       "table": "Grid View",

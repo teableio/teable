@@ -50,6 +50,7 @@ export function createViewVoByRaw(viewRaw: View): IViewVo {
     createdTime: viewRaw.createdTime.toISOString(),
     lastModifiedTime: viewRaw.lastModifiedTime ? viewRaw.lastModifiedTime.toISOString() : undefined,
     columnMeta: JSON.parse(viewRaw.columnMeta as string) || undefined,
+    isLocked: viewRaw.isLocked || undefined,
   };
 }
 
