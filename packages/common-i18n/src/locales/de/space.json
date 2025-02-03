@@ -1,0 +1,52 @@
+{
+  "initialSpaceName": "{{name}}' Space",
+  "page": {
+    "title": "Teable App"
+  },
+  "action": {
+    "createBase": "Base erstellen",
+    "createSpace": "Eine Base erstellen",
+    "invite": "Einladen"
+  },
+  "allSpaces": "Alle Spaces",
+  "spaceIsEmpty": "Dieser Space ist leer",
+  "baseModal": {
+    "copy": "Kopieren",
+    "duplicate": "Dupliziere \"{{baseName}}\"",
+    "createBaseFromTemplate": "Eine Basis aus einer Vorlage erstellen",
+    "duplicateRecords": "Dupliziere Einträge",
+    "duplicateRecordsTip": "Ihre Änderungshistorie wird nicht dupliziert.",
+    "toSpace": "Zu Space",
+    "copyToSpace": "Kopiere zu Space",
+    "duplicateBase": "Dupliziere Base",
+    "missTargetTip": "Bitte wählen Sie ein Feld, um die Base zu duplizieren.",
+    "copying": "Duplizieren der Base, das kann eine Weile dauern...",
+    "copyingTemplate": "Base aus Vorlage erstellen, das kann eine Weile dauern...",
+    "howToCreate": "Wie wollen Sie beginnen?",
+    "fromScratch": "Von Grund auf neu",
+    "fromTemplate": "Aus Vorlage"
+  },
+  "spaceSetting": {
+    "title": "Space Einstellungen",
+    "general": "Allgemein",
+    "collaborators": "Kollaborateure",
+    "generalDescription": "Ändern Sie hier die Einstellungen für Ihren aktuellen Space",
+    "collaboratorDescription": "Verwalten Sie die Mitarbeiter Ihres Space und legen Sie deren Zugriffsrechte fest.",
+    "spaceName": "Space Name",
+    "spaceId": "Space ID"
+  },
+  "pin": {
+    "add": "Anpinnen",
+    "remove": "Pin entfernen",
+    "pin": "Pin",
+    "empty": "Ihre gepinnten Bases und Spaces werden hier erscheinen"
+  },
+  "tip": {
+    "delete": "Sind Sie sicher, dass Sie <0/> löschen wollen?"
+  },
+  "sharedBase": {
+    "title": "Geteilte Bases",
+    "description": "Die mit Ihnen geteilten Bases werden hier erscheinen",
+    "empty": "Noch keine geteilten Bases"
+  }
+}
