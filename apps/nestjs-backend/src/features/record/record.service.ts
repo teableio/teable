@@ -1013,7 +1013,18 @@ export class RecordService {
         });
       });
 
-    const sql = this.dbProvider.batchInsertSql(dbTableName, snapshots);
+    const sql = this.dbProvider.batchInsertSql(
+      dbTableName,
+      snapshots.map((s) => {
+        return Object.entries(s).reduce(
+          (acc, [key, value]) => {
+            acc[key] = Array.isArray(value) ? JSON.stringify(value) : value;
+            return acc;
+          },
+          {} as Record<string, unknown>
+        );
+      })
+    );
 
     await wrapWithValidationErrorHandler(() =>
       this.prismaService.txClient().$executeRawUnsafe(sql)
