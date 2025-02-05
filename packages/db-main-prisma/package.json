@@ -1,6 +1,6 @@
 {
   "name": "@teable/db-main-prisma",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "license": "MIT",
   "homepage": "https://github.com/teableio/teable",
   "private": true,
