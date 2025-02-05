@@ -1,149 +1,149 @@
 {
   "toolbar": {
-    "comingSoon": "Coming soon",
-    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
-    "createFieldButtonText": "Create a new <0/> field",
+    "comingSoon": "Demnächst verfügbar",
+    "viewFilterInShare": "Diese Ansicht wird in einem Ansichtsfreigabelink verwendet. Änderungen an der Konfiguration der Ansicht ändern auch den Link zur Ansichtsfreigabe.",
+    "createFieldButtonText": "Ein neues <0/>-Feld erstellen",
     "others": {
       "share": {
-        "label": "Share",
-        "statusLabel": "Sharing",
-        "noPermission": "No permission to share view",
-        "shareLink": "Share Link",
-        "copied": "Copied",
-        "genLink": "Generate new link",
-        "allowCopy": "Allow viewers to copy data out of this view",
-        "showAllFields": "Show all fields in expanded records",
-        "restrict": "Restrict by password",
-        "tips": "People who have the link can see the view.",
-        "passwordTitle": "Enter a password",
-        "passwordTips": "Password restrictions for accessing shared views",
-        "embed": "Embed",
-        "embedPreview": "Embed preview",
-        "hideToolbar": "Hide toolbar",
-        "URLSetting": "URL parameters config",
-        "URLSettingDescription": "Adjusting the following settings will not affect the shared links. You need to copy the link with new parameters to make it take effect",
-        "cancel": "Cancel",
-        "save": "Save",
-        "requireLogin": "Require login submit"
+        "label": "Teilen",
+        "statusLabel": "Freigegeben",
+        "noPermission": "Keine Erlaubnis zum Teilen der Ansicht",
+        "shareLink": "Freigabelink",
+        "copied": "Kopiert",
+        "genLink": "Erzeuge neuen Link",
+        "allowCopy": "Betrachtern das Kopieren von Daten aus dieser Ansicht ermöglichen",
+        "showAllFields": "Alle Felder in erweiterten Datensätzen anzeigen",
+        "restrict": "Durch Passwort beschränken",
+        "tips": "Diejenigen, die den Link haben, können die Ansicht sehen.",
+        "passwordTitle": "Geben Sie ein Passwort ein",
+        "passwordTips": "Passwortbeschränkungen für den Zugriff auf gemeinsame Ansichten",
+        "embed": "Einbetten",
+        "embedPreview": "Einbetten Vorschau",
+        "hideToolbar": "Werkzeugleiste verstecken",
+        "URLSetting": "URL Parameter Konfiguration",
+        "URLSettingDescription": "Die Anpassung der folgenden Einstellungen hat keine Auswirkungen auf die geteilten Links. Sie müssen den Link mit den neuen Parametern kopieren, damit die Änderungen wirksam werden",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "requireLogin": "Anmeldung erforderlich machen"
       },
       "extensions": {
-        "label": "Extensions",
+        "label": "Erweiterungen",
         "graph": "Graph"
       },
       "api": {
         "label": "API",
         "restfulApi": "Restful API",
-        "databaseConnection": "Database Connection"
+        "databaseConnection": "Datebankverbindung"
       },
       "personalView": {
-        "personal": "Personal",
-        "collaborative": "Collaborative",
+        "personal": "Persönlich",
+        "collaborative": "Kollaboration",
         "dialog": {
-          "title": "Switch to view collaborative mode",
-          "description": "Switch to view collaborative mode, the personal configuration of the view will be synchronized with everyone, please confirm whether to synchronize",
-          "cancelText": "Not synchronize",
-          "confirmText": "Synchronize"
+          "title": "In den Kollaborationsmodus wechseln",
+          "description": "Wenn Sie inin den Kollaborationsmodus wechslen, wird die persönliche Konfiguration der Ansicht mit allen synchronisiert. Bitte bestätigen Sie, ob Sie synchronisieren möchten",
+          "cancelText": "Nicht synchronisieren",
+          "confirmText": "Synchronisieren"
         }
       }
     }
   },
   "welcome": {
-    "title": "Welcome",
-    "description": "Click the + sign on the left sidebar to create a table.",
-    "help": "Visit the <HelpCenter /> for more information.",
-    "helpCenter": "Help Center"
+    "title": "Willkommen",
+    "description": "Klicken Sie auf das + Zeichen in der linken Seitenleiste, um eine Tabelle zu erstellen.",
+    "help": "Weitere Informationen finden Sie im <HelpCenter />.",
+    "helpCenter": "Hilfe-Center"
   },
   "field": {
-    "fieldManagement": "Field Management",
-    "fieldManagementDesc": "Detailed properties for all fields of the current table",
-    "advancedProps": "Advanced properties",
-    "hide": "hide",
+    "fieldManagement": "Feld-Management",
+    "fieldManagementDesc": "Detaillierte Eigenschaften für alle Felder der aktuellen Tabelle",
+    "advancedProps": "Erweiterte Eigenschaften",
+    "hide": "verstecken",
     "default": {
       "singleLineText": {
         "title": "Label"
       },
       "longText": {
-        "title": "Notes"
+        "title": "Notizen"
       },
       "number": {
-        "title": "Number",
-        "formatType": "Format Type",
-        "currencySymbol": "Currency Symbol",
-        "defaultSymbol": "$",
-        "precision": "Precision",
-        "decimalExample": "Decimal (1.0)",
-        "currencyExample": "Currency ($100)",
-        "percentExample": "Percent (20%)"
+        "title": "Nummer",
+        "formatType": "Format Typ",
+        "currencySymbol": "Währungssymbol",
+        "defaultSymbol": "€",
+        "precision": "Genaugikeit",
+        "decimalExample": "Dezimal (1.0)",
+        "currencyExample": "Währung (€100)",
+        "percentExample": "Prozent (20%)"
       },
       "singleSelect": {
         "title": "Status",
         "options": {
-          "todo": "To Do",
-          "inProgress": "In Progress",
-          "done": "Done"
+          "todo": "Zu erledigen",
+          "inProgress": "In Arbeit",
+          "done": "Erledigt"
         }
       },
       "multipleSelect": {
         "title": "Tags"
       },
       "attachment": {
-        "title": "Attachments"
+        "title": "Anhänge"
       },
       "user": {
-        "title": "Collaborator"
+        "title": "Kollaborateure"
       },
       "date": {
-        "title": "Date",
-        "dateFormatting": "Date Formatting",
-        "timeFormatting": "Time Formatting",
-        "timeZone": "Time Zone",
-        "yearMonth": "Year/Month",
-        "monthDay": "Month/Day",
-        "year": "Year",
-        "month": "Month",
-        "day": "Day",
-        "local": "Local",
-        "friendly": "Friendly",
+        "title": "Datum",
+        "dateFormatting": "Datum Formatierung",
+        "timeFormatting": "Zeit Formatierung",
+        "timeZone": "Zeitzone",
+        "yearMonth": "Jahr/Monat",
+        "monthDay": "Monat/Tag",
+        "year": "Jahr",
+        "month": "Monat",
+        "day": "Tag",
+        "local": "Lokal",
+        "friendly": "Freundlich",
         "us": "US",
-        "european": "European",
-        "asia": "Asia",
-        "custom": "Custom",
-        "12Hour": "12 hour",
-        "24Hour": "24 hour",
-        "noDisplay": "No display"
+        "european": "Europa",
+        "asia": "Asien",
+        "custom": "Angepasst",
+        "12Hour": "12 Stunden",
+        "24Hour": "24 Stunden",
+        "noDisplay": "Nicht anzeogen"
       },
       "autoNumber": {
         "title": "ID"
       },
       "createdTime": {
-        "title": "Created time"
+        "title": "Erstellzeitstempel"
       },
       "lastModifiedTime": {
-        "title": "Last modified time"
+        "title": "Zeitstempel der letzten Änderung"
       },
       "createdBy": {
-        "title": "Created by"
+        "title": "Erstellt von"
       },
       "lastModifiedBy": {
-        "title": "Last modified by"
+        "title": "Letzte Änderung von"
       },
       "rating": {
-        "title": "Rating"
+        "title": "Bewertung"
       },
       "checkbox": {
-        "title": "Done"
+        "title": "Erledigt"
       },
       "formula": {
-        "title": "Calculation",
-        "formula": "Formula"
+        "title": "Berechnung",
+        "formula": "Formel"
       },
       "lookup": {
-        "title": "{{lookupFieldName}} (from {{linkFieldName}})"
+        "title": "{{lookupFieldName}} (von {{linkFieldName}})"
       },
       "rollup": {
-        "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
+        "title": "{{lookupFieldName}} Rollup (von {{linkFieldName}})",
         "rollup": "Rollup",
-        "selectAnRollupFunction": "Select an rollup function",
+        "selectAnRollupFunction": "Wählen Sie eine Rollup-Funktion aus",
         "func": {
           "and": "AND",
           "arrayCompact": "ARRAYCOMPACT",
@@ -161,377 +161,377 @@
           "xor": "XOR"
         },
         "funcDesc": {
-          "and": "Returns true if all the values are true",
-          "arrayCompact": "Removes empty strings and null values from the array. Keeps 'false' and strings that contain one or more blank characters.",
-          "arrayJoin": "Join all the values into a single comma-separated string.",
-          "arrayUnique": "Return only unique items.",
-          "average": "Mean average of the values.",
-          "concatenate": "Joins together the text values into a single text value.",
-          "count": "Count only non-empty numeric values. If you want to count all records, use COUNTALL.",
-          "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
-          "countAll": "counts all values including blank records.",
-          "max": "Returns the largest of the given numbers.",
-          "min": "Returns the smallest of the given numbers.",
-          "or": "Returns true if any one of the values is true.",
-          "sum": "Sum together the values.",
-          "xor": "Returns true if and only if odd number of values are true."
+          "and": "Gibt wahr zurück, wenn alle Werte wahr sind",
+          "arrayCompact": "Entfernt leere Zeichenketten und Nullwerte aus dem Array. Behält 'false' und Zeichenketten, die ein oder mehrere Leerzeichen enthalten.",
+          "arrayJoin": "Fügen Sie alle Werte zu einer einzigen, durch Komma getrennten Zeichenkette zusammen.",
+          "arrayUnique": "Nur einzigartige Werte zurückgeben.",
+          "average": "Durchschnitt der Werte.",
+          "concatenate": "Fügt die Textwerte zu einem einzigen Textwert zusammen.",
+          "count": "Zählt nur nicht leere numerische Werte. Wenn Sie alle Datensätze zählen wollen, verwenden Sie COUNTALL.",
+          "countA": "Zählt die Anzahl der nicht leeren Werte. Diese Funktion zählt sowohl numerische als auch Textwerte.",
+          "countAll": "zählt alle Werte einschließlich leerer Datensätze.",
+          "max": "Gibt die größte der angegebenen Zahlen zurück.",
+          "min": "Gibt die kleinste der angegebenen Zahlen zurück.",
+          "or": "Gibt wahr zurück, wenn einer der Werte wahr ist.",
+          "sum": "Addieren der Werte.",
+          "xor": "Gibt wahr zurück, wenn und nur wenn eine ungerade Anzahl von Werten wahr ist."
         }
       }
     },
     "editor": {
-      "addField": "Add Field",
-      "editField": "Edit Field",
-      "insertField": "Insert Field",
+      "addField": "Feld hinzufügen",
+      "editField": "Feld bearbeiten",
+      "insertField": "Feld einfügen",
       "graph": "Graph",
-      "defaultValue": "Default value",
-      "reset": "Reset",
-      "fieldUpdated": "Field has been updated",
-      "fieldCreated": "Field has been created",
-      "previewDependenciesGraph": "Preview Dependencies Graph",
-      "areYouSurePerformIt": "Are you sure you want to perform it?",
-      "addDescription": "Add Description",
-      "dbFieldName": "DB field name",
-      "description": "Description",
-      "descriptionPlaceholder": "Describe this field (optional)",
-      "type": "Type",
-      "showAs": "Show As",
-      "color": "Color",
-      "number": "Number",
-      "chartBar": "Chart Bar",
-      "chartLine": "Chart Line",
+      "defaultValue": "Standardwert",
+      "reset": "Zurücksetzen",
+      "fieldUpdated": "Feld wurde aktualisiert",
+      "fieldCreated": "Feld wurde erstellt",
+      "previewDependenciesGraph": "Vorschaugraph der Abhängigkeiten",
+      "areYouSurePerformIt": "Sind Sie sicher, dass Sie das durchführen wollen?",
+      "addDescription": "Beschreibung hinzufügen",
+      "dbFieldName": "DB Feld Name",
+      "description": "Beschreibung",
+      "descriptionPlaceholder": "Beschreiben Sie das Feld (optional)",
+      "type": "Typ",
+      "showAs": "Anzeigen als",
+      "color": "Farbe",
+      "number": "Nummer",
+      "chartBar": "Balkendiagramm",
+      "chartLine": "Liniendiagramm",
       "ring": "Ring",
-      "bar": "Bar",
+      "bar": "Balken",
       "text": "Text",
       "url": "Url",
-      "email": "Email",
-      "phone": "Phone",
-      "maxNumber": "Max Number",
-      "showNumber": "Show Number",
-      "autoFillDate": "Auto Fill with current date",
-      "createSymmetricLink": "Create a back link field in the link table",
-      "allowLinkMultipleRecords": "Allow multiple select",
-      "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
-      "allowSymmetricFieldLinkMultipleRecords": "Allows records to be selected more than once",
+      "email": "E-Mail",
+      "phone": "Telfonnummer",
+      "maxNumber": "Maximale Nummer",
+      "showNumber": "Zeige Nummer",
+      "autoFillDate": "Automatisches Ausfüllen mit aktuellem Datum",
+      "createSymmetricLink": "Erstellen Sie ein Rückverweisfeld in der verlinkten Tabelle",
+      "allowLinkMultipleRecords": "Mehrfachauswahl zulassen",
+      "allowLinkToDuplicateRecords": "Erlaubt die mehrfache Auswahl von Datensätzen",
+      "allowSymmetricFieldLinkMultipleRecords": "Erlaubt die mehrfache Auswahl von Datensätzen",
       "oneToOne": "one-to-one",
       "oneToMany": "one-to-many",
       "manyToOne": "many-to-one",
       "manyToMany": "many-to-many",
-      "self": "Self",
-      "selectTable": "Select table...",
-      "selectBase": "Select a base...",
-      "linkFromExternalBase": "Link from external base",
-      "inSelfLink": "in self-link",
-      "betweenTwoTables": "between two tables",
-      "linkTipMessage": "Tips: this configuration represents a<br></br> <b>{{relationship}}</b> relationship <span>{{linkType}}</span>",
+      "self": "Selbst",
+      "selectTable": "Tabelle auswählen...",
+      "selectBase": "Base auswählen...",
+      "linkFromExternalBase": "Link von externer Base",
+      "inSelfLink": "in Selbstverknüpfung",
+      "betweenTwoTables": "zwischen zwei Tabellen",
+      "linkTipMessage": "Tipps: diese Konfiguration stellt eine<br></br> <b>{{relationship}}</b> Beziehung her <span>{{linkType}}</span>",
       "style": "Style",
       "maximum": "Maximum",
-      "addOption": "Add option",
-      "allowMultiUsers": "Allow adding multiple users",
-      "notifyUsers": "Notify users once they're selected",
-      "searchTable": "Search table...",
-      "calculating": "Calculating...",
-      "doSaveChanges": "Do you want to save the changes you made?",
-      "linkFieldToLookup": "Linked record field to use for lookup",
-      "lookupToTable": "{{tableName}} field you want to look up",
-      "selectField": "Select a field...",
-      "linkTable": "Link table",
-      "linkBase": "Link base",
-      "tableNoPermission": "No permission table",
-      "baseNoPermission": "No permission base",
-      "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
-      "fieldValidationRules": "Field value validation rules",
-      "enableValidateFieldUnique": "Forbid duplicate values",
-      "enableValidateFieldNotNull": "Forbid non-empty values",
-      "knowMore": "know more",
+      "addOption": "Option hinzufügen",
+      "allowMultiUsers": "Hinzufügen mehrerer Benutzer zulassen",
+      "notifyUsers": "Benutzer benachrichtigen, sobald sie ausgewählt wurden",
+      "searchTable": "Tabelle durchsuchen...",
+      "calculating": "Berechne...",
+      "doSaveChanges": "Möchten Sie die vorgenommenen Änderungen speichern?",
+      "linkFieldToLookup": "Verknüpftes Datensatzfeld, das für die Suche verwendet werden soll",
+      "lookupToTable": "{{tableName}} Feld, das Sie nachschlagen möchten",
+      "selectField": "Feld auswählen...",
+      "linkTable": "Tabelle verlinken",
+      "linkBase": "Base verlinken",
+      "tableNoPermission": "Keine Berechtigung für Tabelle",
+      "baseNoPermission": "Keine Berechtigung für Base",
+      "noLinkTip": "Keine verknüpften Datensätze zum Nachschlagen. Fügen Sie einen Link zu einem anderen Datensatzfeld hinzu und versuchen Sie dann erneut, die Suche zu konfigurieren.",
+      "fieldValidationRules": "Regeln für die Validierung von Feldwerten",
+      "enableValidateFieldUnique": "Doppelte Werte verbieten",
+      "enableValidateFieldNotNull": "Nicht-leere Werte verbieten",
+      "knowMore": "mehr erfahren",
       "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
-      "filterByView": "Filter records by view",
-      "filter": "Filter records",
-      "hideFields": "Hide fields",
-      "moreOptions": "More options",
-      "allowNewOptionsWhenEditing": "Allow new options when editing"
+      "filterByView": "Datensätze nach Ansicht filtern",
+      "filter": "Datensätze filtern",
+      "hideFields": "Felder verstecken",
+      "moreOptions": "Mehr Optionen",
+      "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen"
     },
     "subTitle": {
-      "link": "Link to records in the table you choose",
-      "singleLineText": "Enter text, or prefill each new cell with a default value.",
-      "longText": "Enter multiple lines of text.",
-      "attachment": "Add images, documents, or other files to be viewed or downloaded.",
-      "checkbox": "Check or uncheck to indicate status.",
-      "multipleSelect": "Select one or more predefined options in a list.",
-      "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",
-      "user": "Add an user to a record.",
-      "date": "Enter a date (e.g. 11/12/2023) or choose one from a calendar.",
-      "number": "Enter a number, or prefill each new cell with a default value.",
-      "duration": "Enter a duration of time in hours, minutes or seconds (e.g. 1:23).",
-      "rating": "Add a rating on a predefined scale.",
-      "formula": "Compute values based on fields.",
-      "rollup": "Summarize data from linked records.",
-      "count": "Count the number of linked records.",
-      "createdTime": "See the date and time each record was created.",
-      "lastModifiedTime": "See the date and time of the most recent edit to some or all fields in a record.",
-      "createdBy": "See which user created the record.",
-      "lastModifiedBy": "See which user made the most recent edit to some or all fields in a record.",
-      "autoNumber": "Automatically generate unique incremental numbers for each record.",
-      "button": "Trigger a customized action.",
-      "lookup": "See values from a field in a linked record."
+      "link": "Verknüpfung mit Datensätzen in der von Ihnen gewählten Tabelle",
+      "singleLineText": "Text eingeben oder jede neue Zelle mit einem Standardwert ausfüllen.",
+      "longText": "Mehrere Textzeilen eingeben.",
+      "attachment": "Bilder, Dokumente oder andere Dateien hinzufügen, die angezeigt oder heruntergeladen werden können.",
+      "checkbox": "Aktivieren oder deaktivieren Sie die Checkbox, um den Status anzugeben.",
+      "multipleSelect": "Eine oder mehrere vordefinierte Optionen in einer Liste auswählen.",
+      "singleSelect": "Eine vordefinierte Option aus einer Liste auswählen oder jede neue Zelle mit einer Standardoption ausfüllen.",
+      "user": "Einen Benutzer zu einem Datensatz hinzufügen.",
+      "date": "Geben Sie ein Datum ein (z.B. 12/11/2023) oder wählen Sie eines aus einem Kalender aus.",
+      "number": "Zahl eingeben oder jede neue Zelle mit einem Standardwert ausfüllen.",
+      "duration": "Zeitdauer in Stunden, Minuten oder Sekunden ein (z. B. 1:23) eingeben.",
+      "rating": "Bewertung auf einer vordefinierten Skala hinzufügen.",
+      "formula": "Werte auf der Basis von Feldern berechnen.",
+      "rollup": "Daten aus verknüpften Datensätzen zusammenfassen.",
+      "count": "Anzahl der verknüpften Datensätze zählen.",
+      "createdTime": "Sehen Sie das Datum und die Uhrzeit, zu der jeder Datensatz erstellt wurde.",
+      "lastModifiedTime": "Zeigt das Datum und die Uhrzeit der letzten Bearbeitung einiger oder aller Felder eines Datensatzes an.",
+      "createdBy": "Sehen, welcher Benutzer den Datensatz erstellt hat.",
+      "lastModifiedBy": "Sehen, welcher Benutzer die letzte Bearbeitung an einigen oder allen Feldern eines Datensatzes vorgenommen hat.",
+      "autoNumber": "Automatisch eindeutige inkrementelle Nummern für jeden Datensatz erzeugen.",
+      "button": "Auslösen einer benutzerdefinierten Aktion.",
+      "lookup": "Werte aus einem Feld in einem verknüpften Datensatz sehen."
     },
-    "fieldName": "Field Name",
-    "fieldNameOptional": "Field Name (Optional)",
-    "fieldType": "Field Type"
+    "fieldName": "Feld Name",
+    "fieldNameOptional": "Feld Name (Optional)",
+    "fieldType": "Feld Typ"
   },
   "table": {
-    "newTableLabel": "New table",
-    "rename": "Rename",
+    "newTableLabel": "Neue Tabelle",
+    "rename": "Umbenennen",
     "design": "Design",
-    "tableRecordHistory": "Table record history",
-    "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
-    "dbTableName": "Table name in physical database",
-    "schemaName": "Schema name in physical database",
+    "tableRecordHistory": "Tabelle Datensatzhistorie",
+    "deleteConfirm": "Sind Sie sicher, dass Sie \"{{tableName}}\" löschen möchten?",
+    "dbTableName": "Tabelle Name in der physischen Datenbank",
+    "schemaName": "Schema Name in der physischen Datenbank",
     "baseInfo": "Base Info",
-    "typeOfDatabase": "Type of database",
-    "descriptionForTable": "Description for this table",
-    "nameForTable": "Name for this table",
-    "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
-    "deleteTip2": "This table can be restored from the trash after deletion.",
+    "typeOfDatabase": "Typ der Databank",
+    "descriptionForTable": "Beschreibung für diese Tabelle",
+    "nameForTable": "Name für diese Tabelle",
+    "deleteTip1": "Verknüpfungsfelder, die mit dieser Tabelle in anderen Tabellen verknüpft sind, werden gelöscht.",
+    "deleteTip2": "Diese Tabelle kann nach dem Löschen aus dem Papierkorb wiederhergestellt werden.",
     "operator": {
-      "createBlank": "Create a blank table"
+      "createBlank": "Eine leere Tabelle erstellen"
     },
     "actionTips": {
-      "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
-      "copyAndPasteBrowser": "Copy and paste not supported in this browser",
-      "copying": "Copying...",
-      "copySuccessful": "Copy successful",
-      "copyFailed": "Copy failed",
-      "pasting": "Pasting...",
-      "pasteSuccessful": "Paste successful",
-      "pasteFailed": "Paste failed",
-      "clearing": "Clearing...",
-      "clearSuccessful": "Clear successful",
-      "deleting": "Deleting...",
-      "deleteSuccessful": "Delete successful",
-      "pasteFileFailed": "Files can only be pasted into an attachment field",
+      "copyAndPasteEnvironment": "Kopieren und Einfügen funktioniert nur bei HTTPS oder localhost",
+      "copyAndPasteBrowser": "Kopieren und Einfügen wird in diesem Browser nicht unterstützt",
+      "copying": "Kopiere...",
+      "copySuccessful": "Kopieren erfolgreich",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "pasting": "Einfügen...",
+      "pasteSuccessful": "Einfügen erfolgreich",
+      "pasteFailed": "Einfügen fehlgeschlagen",
+      "clearing": "Leeren...",
+      "clearSuccessful": "Leeren erfolgreich",
+      "deleting": "Lösche...",
+      "deleteSuccessful": "Löschen erfolgreich",
+      "pasteFileFailed": "Dateien können nur in ein Anhangsfeld eingefügt werden",
       "copyError": {
-        "noFocus": "Please keep the page active and do not switch windows"
+        "noFocus": "Bitte lassen Sie die Seite aktiv und wechseln Sie nicht das Fenster"
       }
     },
     "graph": {
-      "tableLabel": "Table label",
-      "effectCells": "May effect cells",
-      "estimatedTime": "Estimated time"
+      "tableLabel": "Tabelle Label",
+      "effectCells": "Kann sich auf Zellen auswirken",
+      "estimatedTime": "Geschätzte Zeit"
     },
     "integrity": {
-      "check": "Check",
-      "title": "Integrity check",
-      "loading": "Checking integrity...",
-      "allGood": "All good!",
-      "fixIssues": "Fix Issues"
+      "check": "Prüfen",
+      "title": "Integritätsprüfung",
+      "loading": "Prüfe Integrität...",
+      "allGood": "Alles super!",
+      "fixIssues": "Probleme beheben"
     },
     "index": {
-      "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data (over {{rowCount}} rows). The downside is slightly slower write operations. If you frequently perform searches or have large datasets, it's recommended to enable indexing.",
-      "repair": "repair",
-      "repairTip": "Index anomalies detected, which may cause search performance degradation. It is recommended to click the repair button to fix the index",
-      "enableIndexTip": "You are creating an index. The time required depends on the table size. During this process, the table's read and write performance may be affected. Please be patient.",
-      "globalSearchTip": "Search all fields except date and checkbox field",
-      "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexing to improve search performance. Please note that indexing may slightly reduce write speed. During index creation, table read/write performance might be temporarily affected. Please be patient.",
-      "enableIndex": "enable",
-      "keepAsIs": "keep as it"
+      "description": "Indizes können die Suchleistung erheblich verbessern, insbesondere bei großen Datenmengen (über {{rowCount}} Zeilen). Der Nachteil sind etwas langsamere Schreibvorgänge. Wenn Sie häufig Suchen durchführen oder große Datenmengen haben, sollten Sie die Indizierung aktivieren.",
+      "repair": "Reparieren",
+      "repairTip": "Es wurden Indexanomalien entdeckt, die zu einer Verschlechterung der Suchleistung führen können. Es wird empfohlen, auf die Reparieren-Schaltfläche zu klicken, um den Index zu reparieren.",
+      "enableIndexTip": "Sie erstellen einen Index. Die benötigte Zeit hängt von der Größe der Tabelle ab. Während dieses Vorgangs kann die Lese- und Schreibleistung der Tabelle beeinträchtigt werden. Bitte haben Sie Geduld.",
+      "globalSearchTip": "Alle Felder durchsuchen außer Datum Feld und Checkbox Feld",
+      "autoIndexTip": "Ihre Tabelle hat {{rowCount}} Zeilen überschritten. Wir empfehlen, die Indizierung zu aktivieren, um die Suchleistung zu verbessern. Bitte beachten Sie, dass die Indizierung die Schreibgeschwindigkeit leicht verringern kann. Während der Indexerstellung kann die Lese-/Schreibleistung der Tabelle vorübergehend beeinträchtigt sein. Bitte haben Sie etwas Geduld.",
+      "enableIndex": "aktivieren",
+      "keepAsIs": "beibehalten"
     }
   },
   "import": {
     "title": {
-      "upload": "Upload",
-      "import": "Import",
-      "localFile": "Local Files",
-      "linkUrl": "Link(URL)",
-      "linkUrlInputTitle": "Add file from URL",
-      "importTitle": "Create a new table",
-      "incrementImportTitle": "Import Into — ",
-      "optionsTitle": "Import option",
-      "primitiveFields": "Primitive Fields",
-      "importFields": "Import Field",
-      "primaryField": "Primary Field",
-      "tipsTitle": "Tips",
-      "confirm": "Confirm and continue"
+      "upload": "Hochladen",
+      "import": "Importieren",
+      "localFile": "Lokale Dateien",
+      "linkUrl": "Link (URL)",
+      "linkUrlInputTitle": "Datei von URL hinzufügen",
+      "importTitle": "Eine neue Tabelle erstellen",
+      "incrementImportTitle": "Importieren in — ",
+      "optionsTitle": "Import Optionen",
+      "primitiveFields": "Primitive Felder",
+      "importFields": "Import Felder",
+      "primaryField": "Primäres Feld",
+      "tipsTitle": "Tipps",
+      "confirm": "Bestätigen und fortfahren"
     },
     "menu": {
-      "addFromOtherSource": "Add from other sources",
+      "addFromOtherSource": "Aus anderen Quellen hinzufügen",
       "excelFile": "Microsoft Excel",
-      "csvFile": "Csv file",
-      "cancel": "Cancel",
-      "leave": "Leave",
-      "downAsCsv": "Download CSV",
-      "importData": "Import Data"
+      "csvFile": "CSV Datei",
+      "cancel": "Abbrechen",
+      "leave": "Verlassen",
+      "downAsCsv": "CSV herunterladen",
+      "importData": "Daten importieren"
     },
     "tips": {
-      "importWayTip": "Click or drag file to this area to upload",
-      "leaveTip": "Your data will still be imported.",
-      "fileExceedSizeTip": "This type file size exceeds the limit of",
-      "analyzing": "analyzing",
-      "importing": "Importing",
-      "notSupportFieldType": "Field type is not supported",
-      "resultEmpty": "No results found.",
-      "searchPlaceholder": "Search...",
-      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import status is displayed in the upper right corner of the table. The results of import process will be notified to you once completed. You should not update the field during the import as it may cause errors.",
-      "noTips": "I know that, don't show again"
+      "importWayTip": "Klicken oder ziehen Sie die Datei zum Hochladen in diesen Bereich",
+      "leaveTip": "Ihre Daten werden trotzdem importiert.",
+      "fileExceedSizeTip": "Die Dateigröße dieses Typs überschreitet die Grenze von",
+      "analyzing": "Analysiere",
+      "importing": "Importiere",
+      "notSupportFieldType": "Feldtyp wird nicht unterstützt",
+      "resultEmpty": "Keine Resultate gefunden.",
+      "searchPlaceholder": "Suchen...",
+      "importAlert": "Sobald der Import beginnt, kann er nicht mehr gestoppt werden, bis er entweder erfolgreich abgeschlossen oder aufgrund eines Fehlers abgebrochen wurde. Der Importstatus wird in der oberen rechten Ecke der Tabelle angezeigt. Die Ergebnisse des Importvorgangs werden Ihnen nach Abschluss mitgeteilt. Sie sollten das Feld während des Imports nicht aktualisieren, da dies zu Fehlern führen kann.",
+      "noTips": "Das weiß ich, zeige es nicht noch einmal"
     },
     "options": {
-      "autoSelectFieldOptionName": "Auto-select field types",
-      "useFirstRowAsHeaderOptionName": "Use first row as header",
-      "importDataOptionName": "Import Data",
-      "sheetKey": "SheetName: ",
-      "excludeFirstRow": "Exclude first row in import"
+      "autoSelectFieldOptionName": "Feldtypen automatisch auswählen",
+      "useFirstRowAsHeaderOptionName": "Erste Zeile als Kopfzeile verwenden",
+      "importDataOptionName": "Daten importieren",
+      "sheetKey": "Blattname: ",
+      "excludeFirstRow": "Erste Zeile beim Import ausschließen"
     },
     "form": {
-      "defaultFieldName": "Field",
+      "defaultFieldName": "Feld",
       "error": {
-        "urlEmptyTip": "URL should not be empty!",
-        "errorFileFormat": "File format is incorrect!",
-        "uniqueFieldName": "Field name should be unique!",
-        "fieldNameEmpty": "Field name should not be empty!",
-        "atLeastAImportField": "Please set a import field at least",
-        "urlValidateTip": "Couldn't parse URL. Try a different URL!"
+        "urlEmptyTip": "Die URL sollte nicht leer sein!",
+        "errorFileFormat": "Das Dateiformat ist falsch!",
+        "uniqueFieldName": "Der Feldname sollte eindeutig sein!",
+        "fieldNameEmpty": "Der Feldname darf nicht leer sein!",
+        "atLeastAImportField": "Bitte definieren Sie mindestens ein Importfeld",
+        "urlValidateTip": "Die URL konnte nicht analysiert werden. Versuchen Sie eine andere!"
       },
       "option": {
-        "doNotImport": "Do not import"
+        "doNotImport": "Nicht importieren"
       }
     }
   },
   "export": {
     "menu": {
-      "exportCsv": "Download Csv"
+      "exportCsv": "CSV herunterladen"
     }
   },
   "grid": {
-    "prefillingRowTitle": "Add new record",
-    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row.",
-    "presortRowTitle": "This record has been filtered or moved due to sorting rules"
+    "prefillingRowTitle": "Neuen Datensatz hinzufügen",
+    "prefillingRowTooltip": "Bitte geben Sie die Daten des neuen Datensatzes unten ein. Der Datensatz wird automatisch gespeichert, sobald Sie außerhalb dieser Zeile klicken.",
+    "presortRowTitle": "Dieser Datensatz wurde aufgrund von Sortierregeln gefiltert oder verschoben"
   },
   "form": {
-    "fieldsManagement": "Fields",
-    "addAll": "Add All",
-    "removeAll": "Remove All",
-    "hideFieldTip": "Hide the field to here",
-    "unableAddFieldTip": "Unable to add this type field",
-    "removeFromFormTip": "Remove from the form",
-    "descriptionPlaceholder": "Enter from description",
-    "dragToFormTip": "Drag the field here to add it to the form"
+    "fieldsManagement": "Felder",
+    "addAll": "Alle hinzufügen",
+    "removeAll": "Alle entfernen",
+    "hideFieldTip": "Das Feld bis hierhin ausblenden",
+    "unableAddFieldTip": "Feld dieses Typs kann nicht hinzugefügt werden",
+    "removeFromFormTip": "Aus dem Formular entfernen",
+    "descriptionPlaceholder": "Aus Beschreibung eingeben",
+    "dragToFormTip": "Ziehen Sie das Feld hierher, um es dem Formular hinzuzufügen"
   },
   "kanban": {
     "toolbar": {
-      "hideFieldName": "Hide field name",
-      "customizeCards": "Customize cards",
-      "stackedBy": "Stacked by <0/>",
-      "chooseStackingField": "Choose a stacking field",
-      "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
-      "hideEmptyStack": "Hide empty stack",
-      "imageSetting": "Image Setting",
-      "fit": "Fit",
-      "noImage": "No image",
-      "chooseAttachmentField": "Choose attachment field"
+      "hideFieldName": "Feldname ausblenden",
+      "customizeCards": "Karten anpassen",
+      "stackedBy": "Gestapelt durch <0/>",
+      "chooseStackingField": "Wählen Sie ein Stapelfeld",
+      "chooseStackingFieldDescription": "Welches Feld möchten Sie für diese Kanban-Ansicht verwenden? Ihre Datensätze werden auf der Grundlage dieses Feldes gestapelt.",
+      "hideEmptyStack": "Leeren Stapel ausblenden",
+      "imageSetting": "Bildeinstellung",
+      "fit": "Einpassen",
+      "noImage": "Kein Bild",
+      "chooseAttachmentField": "Feld für Anhänge wählen"
     },
     "stack": {
-      "addStack": "Add Stack",
-      "noCards": "No cards",
-      "uncategorized": "Uncategorized"
+      "addStack": "Stapel hinzufügen",
+      "noCards": "Keine Karten",
+      "uncategorized": "Unkategorisiert"
     },
     "stackMenu": {
-      "collapseStack": "Collapse stack",
-      "renameStack": "Rename stack",
-      "deleteStack": "Delete stack"
+      "collapseStack": "Stapel einklappen",
+      "renameStack": "Stapel umbenennen",
+      "deleteStack": "Stapel löschen"
     },
     "cardMenu": {
-      "insertCardAbove": "Insert card above",
-      "insertCardBelow": "Insert card below",
-      "expandCard": "Expand card",
-      "deleteCard": "Delete card",
-      "duplicateCard": "Duplicate card"
+      "insertCardAbove": "Karte oberhalb einfügen",
+      "insertCardBelow": "Karte unterhalb einfügen",
+      "expandCard": "Karte aufklappen",
+      "deleteCard": "Karte löschen",
+      "duplicateCard": "Karte duplizieren"
     }
   },
   "calendar": {
     "toolbar": {
-      "config": "Calendar Config",
-      "startDateField": "Start date field",
-      "endDateField": "End date field",
-      "titleField": "Title field",
-      "colorField": "Color field",
-      "colorType": "Color display",
-      "customColor": "Customize color",
-      "alignWithRecords": "Align with records"
+      "config": "Kalendar Konfiguration",
+      "startDateField": "Anfangsdatum Feld",
+      "endDateField": "Enddatum Feld",
+      "titleField": "Titel Feld",
+      "colorField": "Farbe Feld",
+      "colorType": "Farbanzeige",
+      "customColor": "Farbe anpassen",
+      "alignWithRecords": "An Datensätzen ausrichten"
     },
     "placeholder": {
-      "selectColorField": "Select a color field"
+      "selectColorField": "Ein Farbfeld auswählen"
     },
     "dialog": {
-      "startDate": "Start date",
-      "endDate": "End date",
-      "notAdd": "Not add",
-      "addDateField": "Add date fields",
-      "content": "Create a calendar view schedule, and the table needs to have two date fields: start date and end date"
+      "startDate": "Startdatum",
+      "endDate": "Enddatum",
+      "notAdd": "Nicht hinzufügen",
+      "addDateField": "Datumsfelder hinzufügen",
+      "content": "Erstellen Sie einen Zeitplan in der Kalenderansicht. Die Tabelle muss zwei Datumsfelder enthalten: Startdatum und Enddatum"
     },
-    "moreLinkText": "Show all {{count}} records"
+    "moreLinkText": "Zeige alle {{count}} Datensätze"
   },
   "menu": {
-    "insertRecordAbove": "Insert <input /> record above",
-    "insertRecordBelow": "Insert <input /> record below",
-    "copyCells": "Copy cells",
-    "deleteRecord": "Delete record",
-    "deleteAllSelectedRecords": "Delete all selected records",
-    "editField": "Edit field",
-    "insertFieldLeft": "Insert left",
-    "insertFieldRight": "Insert right",
-    "freezeUpField": "Freeze up to this field",
-    "hideField": "Hide field",
-    "deleteField": "Delete field",
-    "deleteAllSelectedFields": "Delete all selected fields",
-    "filterField": "Filter by this field",
-    "sortField": "Sort by this field",
-    "groupField": "Group by this field"
+    "insertRecordAbove": "Datensatz <input /> oberhalb einfügen",
+    "insertRecordBelow": "Datensatz <input /> unterhalb einfügen",
+    "copyCells": "Zellen kopieren",
+    "deleteRecord": "Datensätze löschen",
+    "deleteAllSelectedRecords": "Alle ausgewählten Datensätze löschen",
+    "editField": "Feld bearbeiten",
+    "insertFieldLeft": "Links einfügen",
+    "insertFieldRight": "Rechts einfügen",
+    "freezeUpField": "Bis zu diesem Feld einfrieren",
+    "hideField": "Feld verstecken",
+    "deleteField": "Feld löschen",
+    "deleteAllSelectedFields": "Alle ausgewählten Felder löschen",
+    "filterField": "Filtern Sie nach diesem Feld",
+    "sortField": "Sortieren nach diesem Feld",
+    "groupField": "Gruppieren nach diesem Feld"
   },
   "connection": {
-    "title": "Database Connection",
-    "description": "You can access the database directly through the database connection, including all the tables under the current base",
-    "noPermission": "You don't have permission to access the database",
-    "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
-    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "title": "Datenbankverbindung",
+    "description": "Sie können über die Datenbankverbindung direkt auf die Datenbank zugreifen, einschließlich aller Tabellen unter der aktuellen Base",
+    "noPermission": "Sie haben keine Berechtigung zum Zugriff auf die Datenbank",
+    "connectionCountTip": "Die maximale Anzahl von Datenbankverbindungen beträgt <b>{{max}}</b> und die aktuellen Verbindungen sind <b>{{current}}</b>",
+    "createFailed": "Bitte stellen Sie sicher, dass die Umgebungsvariable PUBLIC_DATABASE_PROXY korrekt gesetzt ist",
     "helpLink": "https://help.teable.io/developer/database-connection"
   },
   "view": {
-    "addRecord": "Add record",
-    "searchView": "Search view...",
-    "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
-    "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
+    "addRecord": "Datensatz hinzufügen",
+    "searchView": "Ansicht durchsuchen...",
+    "dragToolTip": "Die automatische Sortierung ist eingeschaltet, manuelles Ziehen ist nicht möglich.",
+    "insertToolTip": "Automatische Sortierung ist eingeschaltet, Einfügen mit Auftrag ist nicht verfügbar",
     "action": {
-      "rename": "Rename view",
-      "duplicate": "Duplicate view",
-      "delete": "Delete view",
-      "lock": "Lock view",
-      "unlock": "Unlock view"
+      "rename": "Ansicht umbenennen",
+      "duplicate": "Ansicht duplizieren",
+      "delete": "Ansicht löschen",
+      "lock": "Ansicht sperren",
+      "unlock": "Ansicht entsprren"
     },
     "category": {
-      "table": "Grid View",
-      "form": "Form View",
-      "kanban": "Kanban View",
-      "gallery": "Gallery View",
-      "calendar": "Calendar View"
+      "table": "Raster Ansicht",
+      "form": "Formular Ansicht",
+      "kanban": "Kanban Ansicht",
+      "gallery": "Galerie Ansicht",
+      "calendar": "Kalendar Ansicht"
     },
     "crash": {
       "title": "Crash!",
-      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
+      "description": "Diese Ansicht ist defekt. Wenn die Aktualisierung weiterhin fehlschlägt, kontaktieren Sie uns bitte. support@teable.io"
     },
-    "addPluginView": "Add Plugin View",
+    "addPluginView": "Ansicht Plugin hinzufügen",
     "search": {
       "field_one": "{{name}}",
-      "field_other": "fields({{length}})"
+      "field_other": "Felder ({{length}})"
     }
   },
-  "lastModifiedTime": "Last modified time",
-  "lastModify": "Last modify: ",
+  "lastModifiedTime": "Letzter Änderungszeitpunkt",
+  "lastModify": "Letzte Änderung: ",
   "pasteNewRecords": {
-    "title": "Do you want to add multiple records?",
-    "description": "The {{count}} records will be added to the table."
+    "title": "Möchten Sie mehrere Datensätze hinzufügen?",
+    "description": "Die {{count}} Datensätze werden der Tabelle hinzugefügt."
   },
   "tableTrash": {
-    "title": "Table trash",
-    "resourceType": "Resource type",
-    "deletedResource": "Deleted resource"
+    "title": "Tabelle Papierkorb",
+    "resourceType": "Typ der Ressource",
+    "deletedResource": "Gelöschte Ressource"
   }
 }
