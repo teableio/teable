@@ -259,7 +259,7 @@ export class FieldViewSyncService {
         });
       const deleteOptions = differenceBy(oldOptions, newOptions, 'id');
       if (!deleteOptions?.length && !updateNameOptions?.length) {
-        return;
+        return filter;
       }
 
       return this.getFilterBySelectTypeChanges(filter, fieldId, updateNameOptions, deleteOptions);
