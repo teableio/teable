@@ -1,6 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, ISelectFieldOptions } from '@teable/core';
-import { FieldType, ViewType, SortFunc } from '@teable/core';
+import { Optional } from '@prisma/client/runtime/library';
+import type {
+  IConvertFieldRo,
+  IFieldVo,
+  ISelectFieldChoice,
+  ISelectFieldOptions,
+  IUpdateFieldRo,
+} from '@teable/core';
+import { FieldType, ViewType, SortFunc, Colors } from '@teable/core';
 import {
   createTable,
   createView,
@@ -230,6 +237,60 @@ describe('OpenAPI FieldController (e2e)', () => {
           },
         ],
       },
+    });
+  });
+
+  it('should still intact for filter condition when add select option', async () => {
+    const numberField = fields.find(({ type }) => type === FieldType.Number) as IFieldVo;
+    const selectField = fields.find(({ type }) => type === FieldType.SingleSelect) as IFieldVo;
+
+    // create all views with some view conditions
+    const gridView = await createView(tableId, {
+      type: ViewType.Grid,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+          {
+            fieldId: selectField.id,
+            operator: 'is',
+            value: (selectField.options as ISelectFieldOptions)?.choices[0].name,
+          },
+        ],
+      },
+    });
+
+    const newChoices = [
+      ...(selectField.options as ISelectFieldOptions).choices,
+    ] as Partial<ISelectFieldChoice>[];
+
+    newChoices.push({ name: 'test-add-choice', color: Colors.YellowLight2 });
+
+    // number field convert to text field
+    await convertField(tableId, selectField.id, {
+      name: selectField.name,
+      dbFieldName: selectField.dbFieldName,
+      type: FieldType.SingleSelect,
+      options: {
+        ...selectField.options,
+        choices: newChoices,
+      },
+    });
+
+    const views = await getViews(tableId);
+
+    const gridViewAfterChange = views.find(({ id }) => id === gridView.id);
+
+    expect(gridViewAfterChange?.filter).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+        {
+          fieldId: selectField.id,
+          operator: 'is',
+          value: (selectField.options as ISelectFieldOptions)?.choices[0].name,
+        },
+      ],
     });
   });
 });
