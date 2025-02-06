@@ -16,6 +16,8 @@ const languages = [
   { key: 'de', title: 'Deutsch' },
   { key: 'ja', title: '日本語' },
   { key: 'ru', title: 'Русский' },
+  { key: 'uk', title: 'Українська' },
+  { key: 'tr', title: 'Türkçe' },
   { key: 'default', title: 'Default' },
 ];
 
