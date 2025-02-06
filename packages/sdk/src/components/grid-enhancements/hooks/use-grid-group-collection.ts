@@ -10,7 +10,7 @@ import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
 import { CellType } from '../../grid/renderers';
-import { convertNextImageUrl } from '../utils';
+import { cellDate2String, convertNextImageUrl } from '../utils';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 });
 
@@ -103,7 +103,11 @@ const useGenerateGroupCellFn = () => {
             if (cellValueStringCache.has(cacheKey)) {
               displayData = cellValueStringCache.get(cacheKey) || '';
             } else {
-              displayData = field.cellValue2String(cellValue);
+              displayData = cellDate2String(
+                cellValue,
+                field.options.formatting,
+                field.isMultipleCellValue
+              );
               cellValueStringCache.set(cacheKey, displayData);
             }
             return {
