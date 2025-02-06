@@ -246,26 +246,16 @@ export class BatchService {
     });
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
 
-    const prisma = this.prismaService.txClient();
-
-    const batchOperators = async () => {
+    await this.prismaService.$tx(async (tx) => {
       // temp table should in one transaction
-      await prisma.$executeRawUnsafe(createTempTableSql);
+      await tx.$executeRawUnsafe(createTempTableSql);
       // 2.initialize temporary table data
-      await prisma.$executeRawUnsafe(insertTempTableSql);
+      await tx.$executeRawUnsafe(insertTempTableSql);
       // 3.update data
-      await wrapWithValidationErrorHandler(() => prisma.$executeRawUnsafe(updateRecordSql));
+      await wrapWithValidationErrorHandler(() => tx.$executeRawUnsafe(updateRecordSql));
       // 4.delete temporary table
-      await prisma.$executeRawUnsafe(dropTempTableSql);
-    };
-
-    if (this.cls.get('tx.id')) {
-      await batchOperators();
-    } else {
-      await this.prismaService.$transaction(async () => {
-        await batchOperators();
-      });
-    }
+      await tx.$executeRawUnsafe(dropTempTableSql);
+    });
   }
 
   private async executeUpdateRecordsInner(
