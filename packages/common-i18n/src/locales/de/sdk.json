@@ -584,7 +584,7 @@
       "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
-      "summary": "Interpretiert eine Textzeichenkette als strukturiertes Datum, mit optionalen Eingabeformat- und Gebietsschema-Parametern. Das Ausgabeformat ist immer "M/D/YYYY h:mm a\".",
+      "summary": "Interpretiert eine Textzeichenkette als strukturiertes Datum, mit optionalen Eingabeformat- und Gebietsschema-Parametern. Das Ausgabeformat ist immer \"M/D/YYYY h:mm a\".",
       "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
     },
     "CREATED_TIME": {
