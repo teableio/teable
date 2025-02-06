@@ -1,0 +1,15 @@
+{
+  "empty": {
+    "title": "Henüz Gösterge Paneli Yok",
+    "description": "Henüz hiç gösterge paneli oluşturmamışsınız. Gösterge panelleri verilerinizi daha etkili bir şekilde görselleştirmenize ve yönetmenize yardımcı olur.",
+    "create": "İlk Gösterge Panelinizi Oluşturun"
+  },
+  "addPlugin": "Eklenti Ekle",
+  "createDashboard": {
+    "button": "Gösterge Paneli Oluştur",
+    "title": "Yeni Gösterge Paneli Oluştur",
+    "placeholder": "Gösterge paneli adını girin"
+  },
+  "findDashboard": "Gösterge paneli ara...",
+  "expand": "Genişlet"
+}

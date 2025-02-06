@@ -1,0 +1,63 @@
+{
+  "add": "Yeni OAuth Uygulamaları",
+  "title": {
+    "add": "Yeni OAuth Uygulamaları",
+    "edit": "OAuth Uygulamalarını Düzenle"
+  },
+  "form": {
+    "name": {
+      "label": "OAuth Uygulama adı",
+      "description": "OAuth Uygulamanızın adı."
+    },
+    "description": {
+      "label": "Açıklama",
+      "description": "OAuth Uygulamanızın kısa bir açıklaması."
+    },
+    "homePageUrl": {
+      "label": "Ana Sayfa URL'si",
+      "description": "OAuth Uygulamanızın web sitesinin tam URL'si."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Kare bir görsel önerilir.",
+      "placeholder": "Logonuzu buraya sürükleyip bırakın veya yüklemek için tıklayın",
+      "button": "Logo yükle",
+      "clear": "Temizle",
+      "lengthError": "Sadece bir dosyaya izin verilir.",
+      "typeError": "Sadece görsel dosyasına izin verilir."
+    },
+    "callbackUrl": {
+      "label": "Geri Dönüş URL'si",
+      "description": "Bir kullanıcı entegrasyonunuzu yetkilendirdikten sonra yönlendirilecek tam URL.",
+      "add": "Geri Dönüş URL'si Ekle"
+    },
+    "scopes": {
+      "label": "İzinler",
+      "description": "OAuth Uygulamanızın ihtiyaç duyduğu izinler."
+    },
+    "secret": {
+      "label": "İstemci gizli anahtarları",
+      "add": "Yeni bir istemci gizli anahtarı oluştur",
+      "newDescription": "Yeni istemci gizli anahtarınızı şimdi kopyaladığınızdan emin olun. Bir daha göremeyeceksiniz.",
+      "empty": "API'ye uygulama olarak kimlik doğrulaması yapmak için bir istemci gizli anahtarına ihtiyacınız var.",
+      "lastUsed": "Son kullanım: {{date}}",
+      "tag": "İstemci gizli anahtarı",
+      "neverUsed": "Hiç kullanılmadı"
+    },
+    "clientId": {
+      "label": "İstemci Kimliği: "
+    }
+  },
+  "formType": {
+    "basic": "Temel bilgiler",
+    "scopes": "İzinler",
+    "identify": "Kullanıcıları tanımlama ve yetkilendirme",
+    "clientInfo": "İstemci bilgileri"
+  },
+  "decision": {
+    "title": "{{name}} hesabınıza erişim talep ediyor",
+    "scopes": "Bu uygulama aşağıdaki izinlere erişebilecek:",
+    "redirectDescription": "Yetkilendirme şuraya yönlendirecek",
+    "authorize": "Yetkilendir"
+  }
+}

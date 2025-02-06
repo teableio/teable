@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
     req: request,
     i18n: {
       defaultLocale: 'en',
-      locales: ['en', 'de', 'zh', 'fr', 'ja', 'ru'],
+      locales: ['en', 'de', 'zh', 'fr', 'ja', 'ru', 'uk', 'tr'],
     },
   });
 

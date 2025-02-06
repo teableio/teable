@@ -1,0 +1,56 @@
+{
+  "add": "Neue Plugins",
+  "title": {
+    "add": "Neue Plugins",
+    "edit": "Plugins bearbeiten"
+  },
+  "pluginUser": {
+    "name": "Plugin Benutzer",
+    "description": "Plugin Benutzer als ein vom System automatisch generiertes Plugin"
+  },
+  "secret": "Geheimnis",
+  "regenerateSecret": "Geheimnis regenerieren",
+  "form": {
+    "name": {
+      "label": "Name",
+      "description": "Name des Plugins"
+    },
+    "description": {
+      "label": "Beschreibung",
+      "description": "Beschreibung des Plugins"
+    },
+    "detailDesc": {
+      "label": "Detailbeschreibung",
+      "description": "ausführliche Beschreibung des Plugins"
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Logo des Plugins, können Sie ein Bild hochladen oder eine URL verwenden",
+      "upload": "Hochladen",
+      "clear": "Leeren",
+      "placeholder": "Ziehen Sie Ihr Logo hierher oder klicken Sie zum Hochladen",
+      "lengthError": "Es ist nur eine Datei zulässig.",
+      "typeError": "Nur Bilddateien sind erlaubt."
+    },
+    "helpUrl": {
+      "label": "Hilfe Url",
+      "description": "URL des Hilfedokuments für das Plugin"
+    },
+    "positions": {
+      "label": "Positionen",
+      "description": "Positionen des Plugins"
+    },
+    "i18n": {
+      "label": "I18n",
+      "description": "i18n des Plugins, enthält(Name, Beschreibung, Detailbeschreibung)"
+    },
+    "url": {
+      "label": "Url",
+      "description": "URL des Plugins"
+    }
+  },
+  "markdown": {
+    "write": "Schreiben",
+    "preview": "Vorschau"
+  }
+}
