@@ -1,0 +1,63 @@
+{
+  "add": "Neue OAuth Apps",
+  "title": {
+    "add": "Neue OAuth Apps",
+    "edit": "Bearbeite OAuth Apps"
+  },
+  "form": {
+    "name": {
+      "label": "OAuth App Name",
+      "description": "Der Name Ihrer OAuth App."
+    },
+    "description": {
+      "label": "Beschreibung",
+      "description": "Eine kurze Beschreibung Ihrer OAuth App."
+    },
+    "homePageUrl": {
+      "label": "Homepage URL",
+      "description": "Die vollständige URL zur Webseite Ihrer OAuth App."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Ein quadratisches Bild wird empfohlen.",
+      "placeholder": "Ziehen Sie Ihr Logo hierher oder klicken Sie zum Hochladen",
+      "button": "Ein Logo hochladen",
+      "clear": "Leeren",
+      "lengthError": "Es ist nur eine Datei zulässig.",
+      "typeError": "Nur Bilddateien sind erlaubt."
+    },
+    "callbackUrl": {
+      "label": "Callback URL",
+      "description": "Die vollständige URL, zu der umgeleitet werden soll, nachdem ein Benutzer Ihre Integration autorisiert hat.",
+      "add": "Callback URL hinzufügen"
+    },
+    "scopes": {
+      "label": "Geltungsbereiche",
+      "description": "Die Berechtigungen, die Ihre OAuth-App benötigt."
+    },
+    "secret": {
+      "label": "Client Secrets",
+      "add": "Neues Client Secret erzeugen",
+      "newDescription": "Stellen Sie sicher, dass Sie Ihr neues Client Secret jetzt kopieren. Sie werden es nicht mehr sehen können.",
+      "empty": "Sie benötigen ein Client Secret, um sich als Anwendung bei der API zu authentifizieren.",
+      "lastUsed": "Zuletzt verdendet am {{date}}",
+      "tag": "Client Secret",
+      "neverUsed": "Noch nie verwendet"
+    },
+    "clientId": {
+      "label": "Client ID: "
+    }
+  },
+  "formType": {
+    "basic": "Grundlegende Informationen",
+    "scopes": "Geltungsbereiche",
+    "identify": "Identifizierung und Autorisierung von Benutzern",
+    "clientInfo": "Client Informationen"
+  },
+  "decision": {
+    "title": "{{name}} fordert den Zugang zu Ihrem Konto an",
+    "scopes": "Diese Anwendung wird die folgenden Bereiche abrufen können:",
+    "redirectDescription": "Die Autorisierung wird weitergeleitet zu",
+    "authorize": "Autorisiere"
+  }
+}

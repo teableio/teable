@@ -1,0 +1,52 @@
+{
+  "initialSpaceName": "{{name}}'in alanı",
+  "page": {
+    "title": "Teable Uygulaması"
+  },
+  "action": {
+    "createBase": "Veritabanı oluştur",
+    "createSpace": "Alan oluştur",
+    "invite": "Davet et"
+  },
+  "allSpaces": "Tüm alanlar",
+  "spaceIsEmpty": "Bu alan boş",
+  "baseModal": {
+    "copy": "Kopyala",
+    "duplicate": "\"{{baseName}}\" çoğalt",
+    "createBaseFromTemplate": "Şablondan veritabanı oluştur",
+    "duplicateRecords": "Kayıtları çoğalt",
+    "duplicateRecordsTip": "Revizyon geçmişiniz çoğaltılmayacak.",
+    "toSpace": "Alana",
+    "copyToSpace": "Alana kopyala",
+    "duplicateBase": "Veritabanını çoğalt",
+    "missTargetTip": "Lütfen veritabanını çoğaltmak için bir alan seçin.",
+    "copying": "Veritabanı çoğaltılıyor, bu biraz zaman alabilir...",
+    "copyingTemplate": "Şablondan veritabanı oluşturuluyor, bu biraz zaman alabilir...",
+    "howToCreate": "Nasıl başlamak istersiniz?",
+    "fromScratch": "Sıfırdan",
+    "fromTemplate": "Şablondan"
+  },
+  "spaceSetting": {
+    "title": "Alan ayarları",
+    "general": "Genel",
+    "collaborators": "İşbirlikçiler",
+    "generalDescription": "Mevcut alanınızın ayarlarını buradan değiştirin",
+    "collaboratorDescription": "Alanınızın işbirlikçilerini yönetin ve erişim izinlerini ayarlayın",
+    "spaceName": "Alan Adı",
+    "spaceId": "Alan Kimliği"
+  },
+  "pin": {
+    "add": "Sabitlemelere ekle",
+    "remove": "Sabitlemeleri kaldır",
+    "pin": "Sabitle",
+    "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
+  },
+  "tip": {
+    "delete": "<0/> silmek istediğinizden emin misiniz?"
+  },
+  "sharedBase": {
+    "title": "Paylaşılan veritabanları",
+    "description": "Sizinle paylaşılan veritabanları burada görünecek",
+    "empty": "Henüz paylaşılan veritabanı yok"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "notFound": {
+    "title": "404 - Sayfa Bulunamadı"
+  },
+  "links": {
+    "backToHome": "Ana sayfaya dön"
+  },
+  "forbidden": {
+    "title": "403 - Erişim Yasak",
+    "description": "Bu sayfaya erişim izniniz yok."
+  },
+  "paymentRequired": {
+    "title": "402 - Abonelik Yükseltmesi Gerekli",
+    "description": "Mevcut aboneliğiniz bu özelliğe erişimi desteklemiyor. <br></br>Devam etmek için lütfen aboneliğinizi yükseltin."
+  }
+}

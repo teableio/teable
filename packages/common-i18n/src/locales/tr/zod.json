@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "{{expected}} bekleniyordu, {{received}} alındı",
+    "invalid_type_received_undefined": "Zorunlu",
+    "invalid_type_received_null": "Zorunlu",
+    "invalid_literal": "Geçersiz değer, {{expected}} bekleniyordu",
+    "unrecognized_keys": "Nesnede tanınmayan anahtar(lar): {{- keys}}",
+    "invalid_union": "Geçersiz girdi",
+    "invalid_union_discriminator": "Geçersiz ayırıcı değer. {{- options}} bekleniyordu",
+    "invalid_enum_value": "Geçersiz enum değeri. {{- options}} bekleniyordu, '{{received}}' alındı",
+    "invalid_arguments": "Geçersiz fonksiyon argümanları",
+    "invalid_return_type": "Geçersiz fonksiyon dönüş tipi",
+    "invalid_date": "Geçersiz tarih",
+    "custom": "Geçersiz girdi",
+    "invalid_intersection_types": "Kesişim sonuçları birleştirilemedi",
+    "not_multiple_of": "Sayı {{multipleOf}} katı olmalıdır",
+    "not_finite": "Sayı sonlu olmalıdır",
+    "invalid_string": {
+      "email": "Geçersiz {{validation}}",
+      "url": "Geçersiz {{validation}}",
+      "uuid": "Geçersiz {{validation}}",
+      "cuid": "Geçersiz {{validation}}",
+      "regex": "Geçersiz",
+      "datetime": "Geçersiz {{validation}}",
+      "startsWith": "Geçersiz girdi: \"{{startsWith}}\" ile başlamalı",
+      "endsWith": "Geçersiz girdi: \"{{endsWith}}\" ile bitmeli"
+    },
+    "too_small": {
+      "array": {
+        "exact": "Dizi tam olarak {{minimum}} eleman içermeli",
+        "inclusive": "Dizi en az {{minimum}} eleman içermeli",
+        "not_inclusive": "Dizi {{minimum}} elemandan fazla içermeli"
+      },
+      "string": {
+        "exact": "Metin tam olarak {{minimum}} karakter içermeli",
+        "inclusive": "Metin en az {{minimum}} karakter içermeli",
+        "not_inclusive": "Metin {{minimum}} karakterden fazla içermeli"
+      },
+      "number": {
+        "exact": "Sayı tam olarak {{minimum}} olmalı",
+        "inclusive": "Sayı {{minimum}} değerine eşit veya büyük olmalı",
+        "not_inclusive": "Sayı {{minimum}} değerinden büyük olmalı"
+      },
+      "set": {
+        "exact": "Geçersiz girdi",
+        "inclusive": "Geçersiz girdi",
+        "not_inclusive": "Geçersiz girdi"
+      },
+      "date": {
+        "exact": "Tarih tam olarak {{- minimum, datetime}} olmalı",
+        "inclusive": "Tarih {{- minimum, datetime}} değerine eşit veya sonra olmalı",
+        "not_inclusive": "Tarih {{- minimum, datetime}} değerinden sonra olmalı"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "Dizi tam olarak {{maximum}} eleman içermeli",
+        "inclusive": "Dizi en fazla {{maximum}} eleman içermeli",
+        "not_inclusive": "Dizi {{maximum}} elemandan az içermeli"
+      },
+      "string": {
+        "exact": "Metin tam olarak {{maximum}} karakter içermeli",
+        "inclusive": "Metin en fazla {{maximum}} karakter içermeli",
+        "not_inclusive": "Metin {{maximum}} karakterden az içermeli"
+      },
+      "number": {
+        "exact": "Sayı tam olarak {{maximum}} olmalı",
+        "inclusive": "Sayı {{maximum}} değerine eşit veya küçük olmalı",
+        "not_inclusive": "Sayı {{maximum}} değerinden küçük olmalı"
+      },
+      "set": {
+        "exact": "Geçersiz girdi",
+        "inclusive": "Geçersiz girdi",
+        "not_inclusive": "Geçersiz girdi"
+      },
+      "date": {
+        "exact": "Tarih tam olarak {{- maximum, datetime}} olmalı",
+        "inclusive": "Tarih {{- maximum, datetime}} değerine eşit veya önce olmalı",
+        "not_inclusive": "Tarih {{- maximum, datetime}} değerinden önce olmalı"
+      }
+    }
+  },
+  "validations": {
+    "email": "email",
+    "url": "url",
+    "uuid": "uuid",
+    "cuid": "cuid",
+    "regex": "regex",
+    "datetime": "datetime"
+  },
+  "types": {
+    "function": "function",
+    "number": "number",
+    "string": "string",
+    "nan": "nan",
+    "integer": "integer",
+    "float": "float",
+    "boolean": "boolean",
+    "date": "date",
+    "bigint": "bigint",
+    "undefined": "undefined",
+    "symbol": "symbol",
+    "null": "null",
+    "array": "array",
+    "object": "object",
+    "unknown": "unknown",
+    "promise": "promise",
+    "void": "void",
+    "never": "never",
+    "map": "map",
+    "set": "set"
+  }
+}

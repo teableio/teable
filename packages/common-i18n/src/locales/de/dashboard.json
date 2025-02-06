@@ -1,0 +1,15 @@
+{
+  "empty": {
+    "title": "Noch keine Dashboards",
+    "description": "Es sieht so aus, als hätten Sie noch keine Dashboards erstellt. Dashboards helfen Ihnen, Ihre Daten besser zu visualisieren und zu verwalten.",
+    "create": "Erstellen Sie Ihr erstes Dashboard"
+  },
+  "addPlugin": "Ein Plugin hinzufügen",
+  "createDashboard": {
+    "button": "Dashboard erstellen",
+    "title": "Neues Dashboard erstellen",
+    "placeholder": "Name des Dashboards eingeben"
+  },
+  "findDashboard": "Ein Dashboards finden...",
+  "expand": "Erweitern"
+}

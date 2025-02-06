@@ -6,6 +6,7 @@
   --btn-text-case: none;
   --focus-border: hsl(var(--primary)) !important;
   --separator-border: hsl(var(--border)) !important;
+  --fc-border-color: hsl(var(--border));
 }
 
 svg.icon {

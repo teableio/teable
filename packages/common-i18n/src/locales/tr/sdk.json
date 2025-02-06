@@ -1,0 +1,728 @@
+{
+  "common": {
+    "comingSoon": "Çok Yakında",
+    "empty": "Boş",
+    "noRecords": "Kayıt bulunamadı",
+    "unnamedRecord": "İsimsiz kayıt",
+    "untitled": "Başlıksız",
+    "cancel": "İptal",
+    "confirm": "Onayla",
+    "back": "Geri",
+    "done": "Tamam",
+    "create": "Oluştur",
+    "search": {
+      "placeholder": "Ara...",
+      "empty": "Sonuç bulunamadı"
+    },
+    "selectPlaceHolder": "Seç...",
+    "loading": "Yükleniyor...",
+    "loadMore": "Daha Fazla Yükle",
+    "uploadFailed": "Yükleme başarısız",
+    "rowCount": "{{count}} kayıt",
+    "summary": "Özet",
+    "summaryTip": "Özet seçmek için fareyle üzerine gelin",
+    "actions": "İşlemler"
+  },
+  "preview": {
+    "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
+    "loadFileError": "Dosya yüklenemedi"
+  },
+  "undoRedo": {
+    "undo": "Geri Al",
+    "redo": "Yinele",
+    "undoFailed": "Geri alma başarısız",
+    "redoFailed": "Yineleme başarısız",
+    "nothingToUndo": "Geri alınacak bir şey yok",
+    "nothingToRedo": "Yinelenecek bir şey yok",
+    "undoSucceed": "Geri alma başarılı",
+    "redoSucceed": "Yineleme başarılı",
+    "undoing": "geri alınıyor...",
+    "redoing": "yineleniyor..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "Yüklemek için bırakın",
+      "uploadDragDefault": "Yapıştırın veya buraya sürükleyip bırakın",
+      "upload": "yükle"
+    },
+    "date": {
+      "placeholder": "Bir tarih seçin",
+      "today": "Bugün"
+    },
+    "formula": {
+      "title": "Formül Düzenleyici",
+      "guideSyntax": "Sözdizimi",
+      "guideExample": "Örnek",
+      "helperExample": "Örnek: ",
+      "fieldValue": "{{fieldName}} alanındaki hücrelerin değerini döndürür."
+    },
+    "link": {
+      "placeholder": "Bağlanacak kayıtları seçin",
+      "searchPlaceholder": "Kayıtlarda ara",
+      "create": "Kayıt Ekle",
+      "selectRecord": "Kayıt Seç",
+      "unselected": "Seçilmemiş",
+      "selected": "Seçilmiş",
+      "expandRecordError": "Bu kaydı görüntüleme izniniz yok.",
+      "alreadyOpen": "Bu kayıt zaten açık.",
+      "goToForeignTable": "Yabancı tabloya git"
+    },
+    "user": {
+      "searchPlaceholder": "İsme göre kullanıcı ara",
+      "notify": "Seçildiklerinde kullanıcıları bilgilendir"
+    },
+    "select": {
+      "addOption": "'{{option}}' seçeneğini ekle"
+    }
+  },
+  "filter": {
+    "label": "Filtre",
+    "displayLabel": "Filtrele: ",
+    "displayLabel_other": "{{fieldName}} ve {{count}} diğer alan ile filtrele",
+    "addCondition": "Koşul ekle",
+    "addConditionGroup": "Koşul grubu ekle",
+    "nestedLimitTip": "Filtre koşulları yalnızca {{depth}} seviye derinliğinde iç içe geçebilir",
+    "linkInputPlaceholder": "Bir değer girin",
+    "groupDescription": "Aşağıdakilerden herhangi biri doğru...",
+    "currentUser": "Ben (mevcut kullanıcı)",
+    "tips": {
+      "scope": "Bu görünümde, kayıtları göster"
+    },
+    "invalidateSelected": "Geçersiz değer",
+    "invalidateSelectedTips": "Seçilen değer silindi, lütfen tekrar seçin",
+    "default": {
+      "empty": "Filtre koşulu uygulanmadı",
+      "placeholder": "Bir değer girin"
+    },
+    "conjunction": {
+      "and": "ve",
+      "or": "veya",
+      "where": "şu durumda"
+    },
+    "operator": {
+      "is": "şudur",
+      "isNot": "şu değildir",
+      "contains": "içerir",
+      "doesNotContain": "içermez",
+      "isEmpty": "boştur",
+      "isNotEmpty": "boş değildir",
+      "isGreater": "büyüktür",
+      "isGreaterEqual": "büyük eşittir",
+      "isLess": "küçüktür",
+      "isLessEqual": "küçük eşittir",
+      "isAnyOf": "şunlardan biridir",
+      "isNoneOf": "şunlardan hiçbiri değildir",
+      "hasAnyOf": "şunlardan herhangi birine sahiptir",
+      "hasAllOf": "şunların tümüne sahiptir",
+      "hasNoneOf": "şunların hiçbirine sahip değildir",
+      "isExactly": "tam olarak şudur",
+      "isWithIn": "şunun içindedir",
+      "isBefore": "şundan öncedir",
+      "isAfter": "şundan sonradır",
+      "isOnOrBefore": "şu tarihte veya öncesindedir",
+      "isOnOrAfter": "şu tarihte veya sonrasındadır",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "component": {
+      "date": {
+        "today": "bugün",
+        "tomorrow": "yarın",
+        "yesterday": "dün",
+        "oneWeekAgo": "bir hafta önce",
+        "oneWeekFromNow": "bir hafta sonra",
+        "oneMonthAgo": "bir ay önce",
+        "oneMonthFromNow": "bir ay sonra",
+        "daysAgo": "gün önce",
+        "daysFromNow": "gün sonra",
+        "exactDate": "tam tarih",
+        "pastWeek": "geçen hafta",
+        "pastMonth": "geçen ay",
+        "pastYear": "geçen yıl",
+        "nextWeek": "gelecek hafta",
+        "nextMonth": "gelecek ay",
+        "nextYear": "gelecek yıl",
+        "pastNumberOfDays": "geçmiş gün sayısı",
+        "nextNumberOfDays": "gelecek gün sayısı"
+      }
+    }
+  },
+  "color": {
+    "label": "renk"
+  },
+  "rowHeight": {
+    "short": "kısa",
+    "medium": "orta",
+    "tall": "uzun",
+    "extraTall": "çok uzun"
+  },
+  "share": {
+    "title": "paylaş"
+  },
+  "extensions": {
+    "title": "uzantılar"
+  },
+  "hidden": {
+    "label": "Gizli Alanlar",
+    "configLabel_one": "{{count}} gizli alan",
+    "configLabel_other": "{{count}} gizli alan",
+    "configLabel_other_visible": "{{count}} görünür alan",
+    "showAll": "Tümünü Göster",
+    "hideAll": "Tümünü Gizle",
+    "primaryKey": "Birincil alan: Kayıtları tanımlar\ngizlenemez veya silinemez, bağlantılı kayıtlarda görünür."
+  },
+  "expandRecord": {
+    "copy": "Panoya kopyala",
+    "duplicateRecord": "Kaydı çoğalt",
+    "copyRecordUrl": "Kayıt URL'sini kopyala",
+    "deleteRecord": "Kaydı sil",
+    "recordHistory": {
+      "hiddenRecordHistory": "Kayıt geçmişini gizle",
+      "showRecordHistory": "Kayıt geçmişini göster",
+      "createdTime": "Oluşturulma zamanı",
+      "createdBy": "Oluşturan",
+      "before": "Önce",
+      "after": "Sonra",
+      "viewRecord": "Kaydı görüntüle"
+    },
+    "showHiddenFields": "{{count}} gizli alanı göster",
+    "hideHiddenFields": "{{count}} gizli alanı gizle"
+  },
+  "sort": {
+    "label": "Sırala",
+    "displayLabel_one": "{{count}} alana göre sırala",
+    "displayLabel_other": "{{count}} alana göre sırala",
+    "setTips": "Sıralama kriteri",
+    "addButton": "Başka bir sıralama ekle",
+    "autoSort": "Kayıtları otomatik sırala",
+    "selectASCLabel": "ilk → son",
+    "selectDESCLabel": "son → ilk"
+  },
+  "group": {
+    "label": "Grupla",
+    "displayLabel_one": "{{count}} alana göre grupla",
+    "displayLabel_other": "{{count}} alana göre grupla",
+    "setTips": "Gruplama kriteri",
+    "addButton": "Alt Grup Ekle"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "Tek satır metin",
+      "longText": "Uzun metin",
+      "singleSelect": "Tek seçim",
+      "number": "Sayı",
+      "multipleSelect": "Çoklu seçim",
+      "link": "Başka bir kayda bağlantı",
+      "formula": "Formül",
+      "date": "Tarih",
+      "createdTime": "Oluşturulma zamanı",
+      "lastModifiedTime": "Son değiştirilme zamanı",
+      "attachment": "Ek",
+      "checkbox": "Onay kutusu",
+      "rollup": "Toplama",
+      "user": "Kullanıcı",
+      "rating": "Değerlendirme",
+      "autoNumber": "Otomatik sayı",
+      "lookup": "Arama",
+      "button": "Düğme",
+      "createdBy": "Oluşturan",
+      "lastModifiedBy": "Son değiştiren"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Alan oluştur",
+      "spaceDelete": "Alan sil",
+      "spaceRead": "Alan oku",
+      "spaceUpdate": "Alan güncelle",
+      "spaceInviteEmail": "Alanda e-posta ile davet et",
+      "spaceInviteLink": "Alanda bağlantı ile davet et",
+      "spaceGrantRole": "Alanda rol ata",
+      "baseCreate": "Veritabanı oluştur",
+      "baseDelete": "Veritabanı sil",
+      "baseRead": "Veritabanı oku",
+      "baseUpdate": "Veritabanı güncelle",
+      "baseInviteEmail": "Veritabanında e-posta ile davet et",
+      "baseInviteLink": "Veritabanında bağlantı ile davet et",
+      "baseTableImport": "Veritabanına veri aktar",
+      "baseTableExport": "Veritabanından veri dışa aktar",
+      "baseAuthorityMatrixConfig": "Yetki matrisini yapılandır",
+      "baseDbConnect": "Veritabanına bağlan",
+      "tableCreate": "Tablo oluştur",
+      "tableRead": "Tablo oku",
+      "tableDelete": "Tablo sil",
+      "tableUpdate": "Tablo güncelle",
+      "tableImport": "Tabloya veri aktar",
+      "tableExport": "Tablodan veri dışa aktar",
+      "viewCreate": "Görünüm oluştur",
+      "viewDelete": "Görünüm sil",
+      "viewRead": "Görünüm oku",
+      "viewUpdate": "Görünüm güncelle",
+      "viewShare": "Görünüm paylaş",
+      "fieldCreate": "Alan oluştur",
+      "fieldDelete": "Alan sil",
+      "fieldRead": "Alan oku",
+      "fieldUpdate": "Alan güncelle",
+      "recordCreate": "Kayıt oluştur",
+      "recordComment": "Kayıt yorumla",
+      "recordDelete": "Kayıt sil",
+      "recordRead": "Kayıt oku",
+      "recordUpdate": "Kayıt güncelle",
+      "automationCreate": "Otomasyon oluştur",
+      "automationDelete": "Otomasyon sil",
+      "automationRead": "Otomasyon oku",
+      "automationUpdate": "Otomasyon güncelle",
+      "userEmailRead": "Kullanıcı e-postası oku",
+      "recordHistoryRead": "Kayıt geçmişi oku",
+      "baseQuery": "Veritabanı sorgula",
+      "instanceRead": "Örnek oku",
+      "instanceUpdate": "Örnek güncelle"
+    }
+  },
+  "noun": {
+    "table": "Tablo",
+    "view": "Görünüm",
+    "space": "Alan",
+    "base": "Veritabanı",
+    "field": "Alan",
+    "record": "Kayıt",
+    "automation": "Otomasyon",
+    "user": "Kullanıcı",
+    "recordHistory": "Kayıt Geçmişi",
+    "you": "Sen",
+    "instance": "Örnek"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "Sayıları toplar. number1 + number2 + ... ile eşdeğerdir.",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "Sayıların ortalamasını döndürür.",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "Verilen sayıların en büyüğünü döndürür.",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "Verilen sayıların en küçüğünü döndürür.",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "Değeri, \"precision\" ile belirtilen ondalık basamak sayısına yuvarlar (Özellikle, ROUND belirtilen hassasiyette en yakın tam sayıya yuvarlar, bağlar pozitif sonsuzluğa doğru yukarı yuvarlanarak çözülür.)",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "Değeri, \"precision\" ile belirtilen ondalık basamak sayısına her zaman yukarı yuvarlayarak, yani sıfırdan uzaklaşarak yuvarlar. (Fonksiyonun çalışması için hassasiyet değeri vermelisiniz.)",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "Değeri, \"precision\" ile belirtilen ondalık basamak sayısına her zaman aşağı yuvarlayarak, yani sıfıra doğru yuvarlar. (Fonksiyonun çalışması için hassasiyet değeri vermelisiniz.)",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "Değerden büyük veya eşit olan en yakın significance katını döndürür. Eğer significance belirtilmezse, 1 varsayılır.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "Değerden küçük veya eşit olan en yakın significance katını döndürür. Eğer significance belirtilmezse, 1 varsayılır.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "Belirtilen değerden büyük veya eşit olan en küçük çift tam sayıyı döndürür.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "Pozitif değeri yukarı, negatif değeri aşağı en yakın tek sayıya yuvarlar.",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "Mantıksal argüman doğruysa number1'i, değilse number2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "Mutlak değeri döndürür.",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "Negatif olmayan bir sayının karekökünü döndürür.",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "Belirtilen tabanı belirtilen üsse yükseltir.",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "Euler sayısını (e) belirtilen üsse yükseltir.",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "Değerin belirtilen tabandaki logaritmasını hesaplar. Taban belirtilmezse 10 varsayılır.",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "İlk argümanın ikinciye bölümünden kalanı döndürür.",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "Metin dizesini sayıya dönüştürür.",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "Çeşitli değer türlerindeki argümanları tek bir metin değerinde birleştirir.",
+      "example": "CONCATENATE(\"Merhaba \", \"Teable\") => Merhaba Teable"
+    },
+    "FIND": {
+      "summary": "whereToSearch dizesinde stringToFind'ın bir oluşumunu isteğe bağlı startFromPosition'dan başlayarak arar.(startFromPosition varsayılan olarak 0'dır.) Eğer stringToFind bulunamazsa, sonuç 0 olacaktır.",
+      "example": "FIND(\"Teable\", \"Merhaba Teable\") => 7\nFIND(\"Teable\", \"Merhaba Teable\", 5) => 7\nFIND(\"Teable\", \"Merhaba Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "whereToSearch dizesinde stringToFind'ın bir oluşumunu isteğe bağlı startFromPosition'dan başlayarak arar. (startFromPosition varsayılan olarak 0'dır.) Eğer stringToFind bulunamazsa, sonuç boş olacaktır.\nFIND()'a benzer, ancak FIND() stringToFind bulunamazsa 0 döndürür.",
+      "example": "SEARCH(\"Teable\", \"Merhaba Teable\") => 7\nSEARCH(\"Teable\", \"Merhaba Teable\", 5) => 7\nSEARCH(\"Teable\", \"Merhaba Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "whereToStart'tan başlayarak count karakter uzunluğunda bir alt dize çıkarır.",
+      "example": "MID(\"Merhaba Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "Dizenin başından howMany karakter çıkarır.",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "Dizenin sonundan howMany karakter çıkarır.",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "Başlangıç karakterinden itibaren belirtilen sayıda karakteri replacement metni ile değiştirir.\n(Eğer old_text'in tüm oluşumlarını new_text ile değiştirmek için bir yol arıyorsanız, SUBSTITUTE()'e bakın.)",
+      "example": "REPLACE(\"Merhaba Table\", 7, 5, \"Teable\") => \"Merhaba Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "Düzenli ifadeyle eşleşen tüm alt dizeleri replacement ile değiştirir.",
+      "example": "REGEXP_REPLACE(\"Merhaba Table\", \"M.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "old_text'in oluşumlarını new_text ile değiştirir.\nİsteğe bağlı olarak old_text'in belirli bir oluşumunu (1'den başlayarak) değiştirmek için bir dizin numarası belirtebilirsiniz. Dizin numarası belirtilmezse, old_text'in tüm oluşumları değiştirilir.",
+      "example": "SUBSTITUTE(\"Merhaba Table\", \"Table\", \"Teable\") => \"Merhaba Teable\""
+    },
+    "LOWER": {
+      "summary": "Bir dizeyi küçük harfe dönüştürür.",
+      "example": "LOWER(\"Merhaba Teable\") => \"merhaba teable\""
+    },
+    "UPPER": {
+      "summary": "Bir dizeyi büyük harfe dönüştürür.",
+      "example": "UPPER(\"Merhaba Teable\") => \"MERHABA TEABLE\""
+    },
+    "REPT": {
+      "summary": "Dizeyi belirtilen sayıda tekrarlar.",
+      "example": "REPT(\"Merhaba!\") => \"Merhaba!Merhaba!Merhaba!\""
+    },
+    "TRIM": {
+      "summary": "Dizenin başındaki ve sonundaki boşlukları kaldırır.",
+      "example": "TRIM(\" Merhaba \") => \"Merhaba\""
+    },
+    "LEN": {
+      "summary": "Dizenin başından howMany karakter çıkarır.",
+      "example": "LEN(\"Merhaba\") => 5"
+    },
+    "T": {
+      "summary": "Argüman metin ise onu döndürür, değilse boş döndürür.",
+      "example": "T(\"Merhaba\") => \"Merhaba\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "URL veya URI oluşturmak için kullanılmak üzere belirli karakterleri kodlanmış eşdeğerleriyle değiştirir. Şu karakterleri kodlamaz: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Merhaba Teable\") => \"Merhaba%20Teable\""
+    },
+    "IF": {
+      "summary": "Mantıksal argüman doğruysa value1'i, değilse value2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "Bir ifade, o ifade için olası değerler listesi ve her biri için ifadenin o durumda alması gereken bir değer alır. Ayrıca, ifade girişi tanımlanan kalıplardan hiçbiriyle eşleşmezse bir varsayılan değer de alabilir. Birçok durumda, SWITCH() iç içe IF() formülü yerine kullanılabilir.",
+      "example": "SWITCH(\"B\", \"A\", \"Değer A\", \"B\", \"Değer B\", \"Varsayılan Değer\") => \"Değer B\""
+    },
+    "AND": {
+      "summary": "Tüm argümanlar doğruysa true, değilse false döndürür.",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "Argümanlardan herhangi biri doğruysa true döndürür.",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "Tek sayıda argüman doğruysa true döndürür.",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "Argümanının mantıksal değerini tersine çevirir.",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "Boş bir değer döndürür.",
+      "example": "BLANK() => null\nIF(2 > 3, \"Evet\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "Hata değerini döndürür.",
+      "example": "IF(2 > 3, \"Evet\", ERROR(\"Hesaplama\")) => \"#ERROR: Hesaplama\""
+    },
+    "IS_ERROR": {
+      "summary": "İfade bir hataya neden oluyorsa true döndürür.",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "Geçerli tarihi döndürür.",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "Geçerli tarih ve saati döndürür.",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "Bir tarih/saatin dört haneli yılını döndürür.",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "Bir tarih/saatin ayını 1 (Ocak) ile 12 (Aralık) arasında bir sayı olarak döndürür.",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "Yıldaki hafta numarasını döndürür.",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "Haftanın gününü 0 ile 6 arasında bir tam sayı olarak döndürür. İsteğe bağlı olarak ikinci bir argüman (\"Sunday\" veya \"Monday\") sağlayarak haftaların o günden başlamasını sağlayabilirsiniz. Belirtilmezse, haftalar varsayılan olarak Pazar gününden başlar.",
+      "example": "WEEKNUM(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "Bir tarih/saatin gününü 1-31 arasında bir sayı olarak döndürür.",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "Bir tarih/saatin saatini 0 (12:00am) ile 23 (11:00pm) arasında bir sayı olarak döndürür.",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "Bir tarih/saatin dakikasını 0 ile 59 arasında bir tam sayı olarak döndürür.",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "Bir tarih/saatin saniyesini 0 ile 59 arasında bir tam sayı olarak döndürür.",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "Geçerli tarih ile başka bir tarih arasındaki gün sayısını hesaplar.",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "Geçerli tarih ile başka bir tarih arasındaki gün sayısını hesaplar.",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "Tarih/saatler arasındaki farkı belirtilen birimde döndürür. Varsayılan birim saniyedir. (Birim belirteçlerinin listesi için buraya bakın.)\nTarih/saatler arasındaki fark [date2]'nin [date1]'den çıkarılmasıyla belirlenir. Bu, eğer [date2] [date1]'den sonraysa, sonuç değerinin negatif olacağı anlamına gelir.",
+      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+    },
+    "WORKDAY": {
+      "summary": "Başlangıç tarihinden itibaren belirtilen tatiller hariç iş gününü döndürür",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "date1 ve date2 arasındaki iş günü sayısını döndürür. İş günleri hafta sonlarını ve isteğe bağlı olarak ISO formatında virgülle ayrılmış tarihler listesi olarak biçimlendirilmiş tatil listesini hariç tutar.",
+      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+    },
+    "IS_SAME": {
+      "summary": "İki tarihi bir birime kadar karşılaştırır ve aynı olup olmadıklarını belirler. Evetse true, hayırsa false döndürür.",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "date1'in date2'den sonra olup olmadığını belirler. Evetse true, hayırsa false döndürür.",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "date1'in date2'den önce olup olmadığını belirler. Evetse true, hayırsa false döndürür.",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "Bir tarih/saate belirtilen \"count\" birimlerini ekler.",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "Bir tarih/saati dizeye biçimlendirir (YYYY-MM-DD).",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "Bir tarih/saati yalnızca saat dizesine biçimlendirir (HH:mm:ss).",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "Bir tarih/saati belirtilen dizeye biçimlendirir. Bu fonksiyonu tarih alanlarıyla nasıl kullanacağınıza dair bir açıklama için buraya tıklayın. Desteklenen biçim belirteçlerinin listesi için lütfen buraya tıklayın.",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "Bir metin dizesini isteğe bağlı giriş biçimi ve yerel ayar parametreleriyle yapılandırılmış bir tarih olarak yorumlar. Çıktı biçimi her zaman \"M/D/YYYY h:mm a\" olarak biçimlendirilecektir.",
+      "example": "DATETIME_PARSE(\"8 Eyl 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "Mevcut kaydın oluşturulma zamanını döndürür.",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "Tablodaki hesaplanmayan bir alanda bir kullanıcı tarafından yapılan en son değişikliğin tarih ve saatini döndürür.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "Metin ve boşluklar dahil tüm öğelerin sayısını döndürür.",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "Boş olmayan değerlerin sayısını döndürür. Bu fonksiyon hem sayısal hem de metin değerlerini sayar.",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "Sayısal öğelerin sayısını döndürür.",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "Toplama öğelerinin dizisini bir ayırıcı ile dizeye birleştirir.",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "Dizideki yalnızca benzersiz öğeleri döndürür.",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "Dizi iç içe geçmesini kaldırarak diziyi düzleştirir. Tüm öğeler tek bir dizinin elemanları haline gelir.",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "Diziden boş dizeleri ve null değerleri kaldırır. \"false\" ve bir veya daha fazla boşluk karakteri içeren dizeleri korur.",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "Tüm metin değerlerini döndürür",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "Mevcut kaydın kimliğini döndürür.",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "Her kayıt için benzersiz ve artan sayılar döndürür.",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "Hesaplamalar için formüller oluşturmak üzere değişkenler, işlem karakterleri ve fonksiyonlar doldurun.",
+      "example": "Sütun Alıntılama: {Alan adı}\n\nOperatör kullanma: 100 * 2 + 300\n\nFonksiyon kullanma: SUM({Sayı Alanı 1}, 100)\n\nIF ifadesi kullanma: \nIF(mantıksal koşul, \"değer 1\", \"değer 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "Alanlar",
+    "numeric": "Sayısal",
+    "text": "Metin",
+    "logical": "Mantıksal",
+    "date": "Tarih",
+    "array": "Dizi",
+    "system": "Sistem"
+  },
+  "statisticFunc": {
+    "none": "Yok",
+    "count": "Sayı",
+    "empty": "Boş",
+    "filled": "Dolu",
+    "unique": "Benzersiz",
+    "max": "Maksimum",
+    "min": "Minimum",
+    "sum": "Toplam",
+    "average": "Ortalama",
+    "checked": "İşaretli",
+    "unChecked": "İşaretsiz",
+    "percentEmpty": "Boş Yüzdesi",
+    "percentFilled": "Dolu Yüzdesi",
+    "percentUnique": "Benzersiz Yüzdesi",
+    "percentChecked": "İşaretli Yüzdesi",
+    "percentUnChecked": "İşaretsiz Yüzdesi",
+    "earliestDate": "En Erken Tarih",
+    "latestDate": "En Son Tarih",
+    "dateRangeOfDays": "Tarih Aralığı (gün)",
+    "dateRangeOfMonths": "Tarih Aralığı (ay)",
+    "totalAttachmentSize": "Toplam Ek Boyutu"
+  },
+  "baseQuery": {
+    "add": "Ekle",
+    "error": {
+      "invalidCol": "Geçersiz sütun, lütfen tekrar seçin",
+      "invalidCols": "Geçersiz sütunlar: {{colNames}}",
+      "invalidTable": "Geçersiz tablo, lütfen tekrar seçin",
+      "requiredSelect": "Bir tane seçmelisiniz"
+    },
+    "from": {
+      "title": "Kaynak",
+      "fromTable": "Tablo Seç",
+      "fromQuery": "Sorgudan"
+    },
+    "select": {
+      "title": "Seç"
+    },
+    "where": {
+      "title": "Koşul"
+    },
+    "groupBy": {
+      "title": "Grupla"
+    },
+    "orderBy": {
+      "title": "Sırala",
+      "asc": "Artan",
+      "desc": "Azalan"
+    },
+    "limit": {
+      "title": "Limit"
+    },
+    "offset": {
+      "title": "Ofset"
+    },
+    "join": {
+      "title": "Birleştir",
+      "joinType": "Birleştirme Türü",
+      "leftJoin": "Sol Birleştirme",
+      "rightJoin": "Sağ Birleştirme",
+      "innerJoin": "İç Birleştirme",
+      "fullJoin": "Tam Birleştirme",
+      "data": "Kaynak"
+    },
+    "aggregation": {
+      "title": "Toplama"
+    }
+  },
+  "comment": {
+    "title": "Yorum",
+    "placeholder": "Bir yorum bırakın...",
+    "emptyComment": "Bir konuşma başlatın",
+    "deletedComment": "Silinmiş Yorum",
+    "imageSizeLimit": "Görsel boyutu {{size}}'den büyük olamaz",
+    "tip": {
+      "editing": "Düzenleniyor...",
+      "edited": "(Düzenlendi)",
+      "onNotify": "Kapatırsanız yalnızca sizinle ilgili yorumlardan bildirim alırsınız",
+      "offNotify": "Açarsanız tüm etkinliklerden bildirim alırsınız",
+      "reactionUserSuffix": "{{emoji}} emojisi ile tepki verdi",
+      "me": "Sen",
+      "connection": "ve"
+    },
+    "toolbar": {
+      "link": "Bağlantı",
+      "image": "Görsel"
+    },
+    "floatToolbar": {
+      "editLink": "Bağlantıyı Düzenle",
+      "caption": "Başlık",
+      "delete": "Sil",
+      "linkText": "Bağlantı Metni",
+      "enterUrl": "URL Girin"
+    }
+  }
+}
