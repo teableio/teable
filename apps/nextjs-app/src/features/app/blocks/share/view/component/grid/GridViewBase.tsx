@@ -32,6 +32,7 @@ import {
   useGridViewStore,
 } from '@teable/sdk/components';
 import {
+  useFields,
   useIsHydrated,
   useIsTouchDevice,
   useRowCount,
@@ -50,7 +51,6 @@ import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
-import { useHiddenFields } from '@/features/app/hooks/useHiddenFields';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
 import { useSelectionOperation } from '../../../../view/grid/hooks';
 
@@ -79,7 +79,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
   const { searchQuery: search } = useSearch();
-  const hiddenFields = useHiddenFields();
+  const visibleFields = useFields();
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { setGridRef, searchCursor } = useGridSearchStore();
@@ -108,7 +108,7 @@ export const GridViewBase = (props: IGridViewProps) => {
         groupBy: view?.group,
         filter: view?.filter,
         search,
-        excludeFieldIds: hiddenFields.map((field) => field.id),
+        projection: visibleFields.map((field) => field.id),
         collapsedGroupIds: viewQueryWithGroup?.collapsedGroupIds,
       }),
   });

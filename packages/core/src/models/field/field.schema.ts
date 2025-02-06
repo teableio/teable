@@ -396,7 +396,10 @@ export const getFieldsQuerySchema = z.object({
     description: 'The id of the view.',
   }),
   filterHidden: z.coerce.boolean().optional(),
-  excludeFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+    description:
+      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
+  }),
 });
 
 export type IGetFieldsQuery = z.infer<typeof getFieldsQuerySchema>;

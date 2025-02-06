@@ -11,7 +11,7 @@ export const temporaryPasteRoSchema = rangesRoSchema
   .pick({
     viewId: true,
     ranges: true,
-    excludeFieldIds: true,
+    projection: true,
     ignoreViewQuery: true,
   })
   .extend({

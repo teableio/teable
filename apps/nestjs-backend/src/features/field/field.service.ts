@@ -302,6 +302,13 @@ export class FieldService implements IReadonlyAdapterService {
 
     let result = fieldsPlain.map(rawField2FieldObj);
 
+    // filter by projection
+    if (query?.projection) {
+      const fieldIds = query.projection;
+      const fieldMap = keyBy(result, 'id');
+      return fieldIds.map((fieldId) => fieldMap[fieldId]).filter(Boolean);
+    }
+
     /**
      * filter by query
      * filterHidden depends on viewId so only judge viewId
@@ -324,14 +331,9 @@ export class FieldService implements IReadonlyAdapterService {
       if (query?.filterHidden) {
         result = result.filter((field) => isNotHiddenField(field.id, view));
       }
-      result = sortBy(result, (field) => {
+      return sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;
       });
-    }
-
-    if (query?.excludeFieldIds) {
-      const ids = query?.excludeFieldIds;
-      result = result.filter((field) => !ids.includes(field.id));
     }
 
     return result;

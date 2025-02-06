@@ -29,7 +29,10 @@ export const rangesRoSchema = contentQueryBaseSchema.extend({
   filter: filterSchema.optional(),
   orderBy: orderBySchema.optional(),
   groupBy: groupSchema.optional(),
-  excludeFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+    description:
+      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
+  }),
   ranges: rangesSchema.openapi({
     description:
       'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
@@ -44,7 +47,10 @@ export const rangesRoSchema = contentQueryBaseSchema.extend({
 export type IRangesRo = z.infer<typeof rangesRoSchema>;
 
 export const rangesQuerySchema = contentQueryBaseSchema.extend({
-  excludeFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+    description:
+      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
+  }),
   ranges: z
     .string()
     .transform((value, ctx) => {

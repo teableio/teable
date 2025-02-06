@@ -74,17 +74,23 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
         }));
       };
       newViewProxy.updateColumnMeta = (columnMetaRo: IColumnMetaRo) => {
-        const [{ columnMeta, fieldId }] = columnMetaRo;
-        setPersonalViewMap(viewId, (prev) => ({
-          ...prev,
-          columnMeta: {
-            ...(prev.columnMeta ?? {}),
-            [fieldId]: {
+        setPersonalViewMap(viewId, (prev) => {
+          const columnMetaMap = columnMetaRo.reduce((acc, { fieldId, columnMeta }) => {
+            acc[fieldId] = {
               ...(prev.columnMeta as IColumnMeta)?.[fieldId],
               ...columnMeta,
+            };
+            return acc;
+          }, {} as IColumnMeta);
+
+          return {
+            ...prev,
+            columnMeta: {
+              ...(prev.columnMeta ?? {}),
+              ...columnMetaMap,
             },
-          },
-        }));
+          };
+        });
       };
       newViewProxy.syncViewProperties = async () => {
         const cachedView = personalViewMap?.[viewId];

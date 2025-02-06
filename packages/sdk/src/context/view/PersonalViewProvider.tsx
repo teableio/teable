@@ -14,6 +14,7 @@ interface IPersonalViewProviderProps {
 export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) => {
   const view = useView();
   const tableId = useTableId();
+  const visibleFields = useFields();
   const fields = useFields({ withHidden: true, withDenied: true });
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { personalViewMap, setPersonalViewMap } = usePersonalViewStore();
@@ -21,6 +22,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
   const viewId = view?.id ?? '';
   const cachedView = personalViewMap?.[viewId];
   const isPersonalView = Boolean(cachedView);
+  const visibleFieldIds = visibleFields.map(({ id }) => id);
 
   const { personalViewCommonQuery, personalViewAggregationQuery } = useMemo(() => {
     if (!cachedView || shareId) {
@@ -33,6 +35,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
       filter,
       orderBy: (sort as ISort)?.sortObjs,
       groupBy: group,
+      projection: visibleFieldIds,
     } as IGetRecordsRo;
     const aggregationQuery = {
       ...commonQuery,
@@ -61,7 +64,7 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
       personalViewCommonQuery: commonQuery,
       personalViewAggregationQuery: aggregationQuery,
     };
-  }, [cachedView, shareId]);
+  }, [cachedView, shareId, visibleFieldIds]);
 
   const updatePersonalView = useCallback(
     (payload?: { field: IFieldVo }) => {

@@ -415,9 +415,10 @@ export async function convertField(
 export async function getFields(
   tableId: string,
   viewId?: string,
-  filterHidden?: boolean
+  filterHidden?: boolean,
+  projection?: string[]
 ): Promise<IFieldVo[]> {
-  const result = await apiGetFields(tableId, { viewId, filterHidden });
+  const result = await apiGetFields(tableId, { viewId, filterHidden, projection });
 
   return result.data;
 }
