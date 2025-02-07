@@ -503,7 +503,8 @@
       "duplicate": "复制视图",
       "delete": "删除视图",
       "lock": "锁定视图",
-      "unlock": "解锁视图"
+      "unlock": "解锁视图",
+      "enable": "启用"
     },
     "category": {
       "table": "表格视图",
@@ -520,6 +521,9 @@
     "search": {
       "field_one": "{{name}}",
       "field_other": "字段({{length}})"
+    },
+    "locked": {
+      "tip": "当前视图已被锁定，你可以启用个人模式来编辑视图选项，修改将仅对你自己生效"
     }
   },
   "lastModifiedTime": "修改时间",

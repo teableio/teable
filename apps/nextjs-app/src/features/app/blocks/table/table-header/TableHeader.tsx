@@ -1,6 +1,6 @@
 import { HelpCircle, History, MoreHorizontal, Settings, Trash2, UserPlus } from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
-import { useBase, useBasePermission, useTableId } from '@teable/sdk/hooks';
+import { useBase, useBasePermission, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -23,7 +23,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableTrash } from '../../trash/components/TableTrash';
@@ -31,8 +31,10 @@ import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
 
+import { useLockedViewTipStore } from '../store';
 import { AddView } from './AddView';
 import { Collaborators } from './Collaborators';
+import { LockedViewTip } from './LockedViewTip';
 import { TableInfo } from './TableInfo';
 
 const RightList = ({
@@ -255,17 +257,29 @@ const RightMenu = ({ className }: { className?: string }) => {
 };
 
 export const TableHeader: React.FC = () => {
+  const view = useView();
+  const { visible } = useLockedViewTipStore();
+  const tipVisible = view?.isLocked && visible;
+
   return (
-    <div className="flex h-[42px] shrink-0 flex-row items-center gap-2 px-4 @container/view-header">
-      <TableInfo className="shrink-0 grow-0" />
-      <ExpandViewList />
-      <div className="flex h-full items-center gap-2 overflow-x-auto">
-        <ViewList />
+    <Fragment>
+      <div
+        className={cn(
+          'flex h-[42px] shrink-0 flex-row items-center gap-2 px-4 @container/view-header',
+          tipVisible && 'border-b'
+        )}
+      >
+        <TableInfo className="shrink-0 grow-0" />
+        <ExpandViewList />
+        <div className="flex h-full items-center gap-2 overflow-x-auto">
+          <ViewList />
+        </div>
+        <AddView />
+        <div className="grow basis-0"></div>
+        <RightList className="hidden gap-2 @md/view-header:flex" />
+        <RightMenu className="flex @md/view-header:hidden" />
       </div>
-      <AddView />
-      <div className="grow basis-0"></div>
-      <RightList className="hidden gap-2 @md/view-header:flex" />
-      <RightMenu className="flex @md/view-header:hidden" />
-    </div>
+      {tipVisible && <LockedViewTip />}
+    </Fragment>
   );
 };

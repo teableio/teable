@@ -489,7 +489,8 @@
       "duplicate": "Dupliquer la vue",
       "delete": "Supprimer la vue",
       "lock": "Verrouiller la vue",
-      "unlock": "Déverrouiller la vue"
+      "unlock": "Déverrouiller la vue",
+      "enable": "Activer"
     },
     "category": {
       "table": "Vue en grille",
@@ -501,6 +502,9 @@
     "crash": {
       "title": "Plantage !",
       "description": "Cette vue est endommagée. Si le rafraîchissement échoue toujours, veuillez nous contacter à support@teable.io"
+    },
+    "locked": {
+      "tip": "Cette vue est verrouillée. Vous pouvez activer le mode personnel pour modifier les options de la vue, et les modifications ne prendront effet que pour vous."
     }
   },
   "lastModifiedTime": "Dernière modification",

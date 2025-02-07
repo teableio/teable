@@ -427,23 +427,23 @@
       "fit": "За розміром",
       "noImage": "Без зображення",
       "chooseAttachmentField": "Виберіть поле вкладень"
-      },
-      "стек": {
+    },
+    "стек": {
       "addStack": "Додати групу",
       "noCards": "Немає карток",
       "uncategorized": "Без категорії"
-      },
-      "stackMenu": {
-        "collapseStack": "Згорнути групу",
-        "renameStack": "Перейменувати групу",
-        "deleteStack": "Видалити групу"
-      },
-      "cardMenu": {
-        "insertCardAbove": "Вставити картку вище",
-        "insertCardBelow": "Вставити картку нижче",
-        "expandCard": "Розвернути картку",
-        "deleteCard": "Видалити картку",
-        "duplicateCard": "Дублірувати картку"
+    },
+    "stackMenu": {
+      "collapseStack": "Згорнути групу",
+      "renameStack": "Перейменувати групу",
+      "deleteStack": "Видалити групу"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Вставити картку вище",
+      "insertCardBelow": "Вставити картку нижче",
+      "expandCard": "Розвернути картку",
+      "deleteCard": "Видалити картку",
+      "duplicateCard": "Дублірувати картку"
     }
   },
   "calendar": {
@@ -502,7 +502,8 @@
     "action": {
       "rename": "Переіменувати вид",
       "duplicate": "Дублювати представлення",
-      "delete": "Видалити вид"
+      "delete": "Видалити вид",
+      "enable": "Включити"
     },
     "category": {
       "table": "Табличний вид",
@@ -519,6 +520,9 @@
     "search": {
       "field_one": "{{name}}",
       "field_other": "fields({{length}})"
+    },
+    "locked": {
+      "tip": "Цей вид заблокований. Ви можете включити персональний режим для редагування параметрів виду, і зміни відбудуться тільки для вас."
     }
   },
   "lastModifiedTime": "Час останньої зміни",

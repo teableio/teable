@@ -470,7 +470,8 @@
     "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
     "action": {
       "rename": "Görünümü yeniden adlandır",
-      "delete": "Görünümü sil"
+      "delete": "Görünümü sil",
+      "enable": "Etkinleştir"
     },
     "category": {
       "table": "Izgara Görünümü",
@@ -487,6 +488,9 @@
     "search": {
       "field_one": "{{name}}",
       "field_other": "alan({{length}})"
+    },
+    "locked": {
+      "tip": "Bu görünüm kilitlenmiştir. Kişisel modu etkinleştirerek görünüm seçeneklerini düzenleyebilirsiniz ve değişiklikler sadece kendinize etkili olacaktır."
     }
   },
   "lastModifiedTime": "Son değiştirilme zamanı",

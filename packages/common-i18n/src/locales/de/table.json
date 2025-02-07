@@ -504,7 +504,8 @@
       "duplicate": "Ansicht duplizieren",
       "delete": "Ansicht löschen",
       "lock": "Ansicht sperren",
-      "unlock": "Ansicht entsprren"
+      "unlock": "Ansicht entsprren",
+      "enable": "Aktivieren"
     },
     "category": {
       "table": "Raster Ansicht",
@@ -521,6 +522,9 @@
     "search": {
       "field_one": "{{name}}",
       "field_other": "Felder ({{length}})"
+    },
+    "locked": {
+      "tip": "Diese Ansicht ist gesperrt. Sie können den persönlichen Modus aktivieren, um die Ansichtsoptionen zu bearbeiten, und die Änderungen wirken sich nur auf Sie aus."
     }
   },
   "lastModifiedTime": "Letzter Änderungszeitpunkt",
