@@ -25,7 +25,7 @@
     "remove": "Entfernen"
   },
   "preview": {
-    "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{Größe}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
+    "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
     "loadFileError": "Datei konnte nicht geladen werden"
   },
   "undoRedo": {

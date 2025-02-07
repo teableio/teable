@@ -21,31 +21,31 @@ export const SettingDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="h-5/6 max-h-[800px] max-w-6xl">
         <Tabs defaultValue="profile" className="flex min-h-[40rem] gap-4 pt-4">
-          <TabsList className="grid w-36 gap-2 bg-inherit text-left">
+          <TabsList className="grid gap-2 bg-inherit text-left">
             <TabsTrigger
               value="profile"
-              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+              className="justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
               <UserEdit className="shrink-0" />
               {t('settings.account.tab')}
             </TabsTrigger>
             <TabsTrigger
               value="system"
-              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+              className="justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
               <Settings className="shrink-0" />
               {t('settings.setting.title')}
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
-              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+              className="justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
               <Bell className="shrink-0" />
               {t('settings.notify.title')}
             </TabsTrigger>
             <TabsTrigger
               value="integration"
-              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+              className="justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
               <Link className="shrink-0" />
               {t('settings.integration.title')}

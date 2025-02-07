@@ -255,7 +255,6 @@ export const SpaceTrashPage = () => {
               key={value}
               variant={resourceType === value ? 'default' : 'ghost'}
               size="sm"
-              className="w-16"
               onClick={() =>
                 handleResourceTypeChange(value as ResourceType.Space | ResourceType.Base)
               }

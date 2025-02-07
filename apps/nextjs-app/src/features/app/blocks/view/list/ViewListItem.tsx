@@ -152,7 +152,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           )}
         </Button>
         {open && (
-          <PopoverContent className="w-32 p-1">
+          <PopoverContent className="w-auto p-1">
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
             <div className="flex flex-col" onClick={(ev) => ev.stopPropagation()}>
               {permission['view|update'] && (
