@@ -41,7 +41,11 @@ export const BaseLayout: React.FC<{
               <BaseProvider serverData={baseServerData}>
                 <BasePermissionListener />
                 <TableProvider serverData={tableServerData}>
-                  <div id="portal" className="relative flex h-screen w-full items-start">
+                  <div
+                    id="portal"
+                    className="relative flex h-screen w-full items-start"
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
                     <div className="flex h-screen w-full">
                       <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
                         <Fragment>

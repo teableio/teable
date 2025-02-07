@@ -37,6 +37,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
             'overflow-hidden': !leftVisible,
             'w-72': leftVisible,
           })}
+          onContextMenu={(e) => e.preventDefault()}
         >
           <div className="group/sidebar flex size-full flex-col overflow-hidden bg-popover">
             <SidebarHeader headerLeft={headerLeft} onExpand={() => setLeftVisible(!leftVisible)} />
@@ -60,7 +61,10 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
             </Button>
           </HoverWrapper.Trigger>
           <HoverWrapper.content>
-            <div className="group/sidebar flex size-full flex-col overflow-hidden bg-popover">
+            <div
+              className="group/sidebar flex size-full flex-col overflow-hidden bg-popover"
+              onContextMenu={(e) => e.preventDefault()}
+            >
               <SidebarHeader headerLeft={headerLeft} />
               {children}
             </div>
