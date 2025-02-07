@@ -341,6 +341,16 @@ describe('TextFunc', () => {
       expect(result).toBe('Teable');
     });
 
+    it('should replace all substring that matches pattern in string', () => {
+      const result = regExpReplaceFunc.eval([
+        new TypedValue('ABC CBA', CellValueType.String, false),
+        new TypedValue('C', CellValueType.String, false),
+        new TypedValue('D', CellValueType.String, false),
+      ]);
+
+      expect(result).toBe('ABD DBA');
+    });
+
     it('should replace substring when input is an array', () => {
       const result = regExpReplaceFunc.eval([
         new TypedValue(targetMultipleValue, CellValueType.String, true),

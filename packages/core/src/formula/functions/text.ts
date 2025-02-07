@@ -258,7 +258,7 @@ export class RegExpReplace extends TextFunc {
     if (text == null) return null;
     const pattern = params[1].value ? String(params[1].value) : '';
     const replacement = params[2].value ? String(params[2].value) : '';
-    const regex = new RegExp(pattern);
+    const regex = new RegExp(pattern, 'g');
     return text.replace(regex, replacement);
   }
 }
