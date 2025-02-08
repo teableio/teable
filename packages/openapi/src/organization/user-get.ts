@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 
-export const GET_DEPARTMENT_USER = 'organization/department-user';
+export const GET_DEPARTMENT_USER = '/organization/department-user';
 
 export const getDepartmentUserRoSchema = z.object({
   departmentId: z.string().optional(),

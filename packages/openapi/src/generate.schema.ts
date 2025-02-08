@@ -14,6 +14,11 @@ function registerAllRoute() {
       type: 'http',
       scheme: 'bearer',
     });
+
+    if (routeObj.path && !routeObj.path.startsWith('/')) {
+      throw new Error('Path should start with /: ' + routeObj.path);
+    }
+
     registry.registerPath({ ...routeObj, security: [{ [bearerAuth.name]: [] }] });
   }
   return registry;

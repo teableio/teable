@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 
-export const GET_DEPARTMENT_LIST = 'organization/department';
+export const GET_DEPARTMENT_LIST = '/organization/department';
 
 export const getDepartmentListRoSchema = z.object({
   parentId: z.string().optional(),
