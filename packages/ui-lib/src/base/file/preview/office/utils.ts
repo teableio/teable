@@ -35,5 +35,5 @@ export const letterCoordinate2Number = (letters: string) => {
 
 export const getEndColumn = (range: string): string | null => {
   const match = range.match(/:(\D+)\d+$/);
-  return match ? match[1] : null;
+  return match ? match[1] : `${range}:${range}`;
 };

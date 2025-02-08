@@ -22,6 +22,8 @@ interface ISheetItem {
 
 interface IExcelPreviewProps extends IFileItemInner {}
 
+const DEFAULT_EMPTY_SHEET = [{ title: 'A', id: 'A' }];
+
 export const ExcelPreview = (props: IExcelPreviewProps) => {
   const { src, mimetype } = props;
   const [error, setError] = useState<string | null>(null);
@@ -37,17 +39,16 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
 
   const cols = useMemo(() => {
     if (!currentSheetData) {
-      return [];
+      return DEFAULT_EMPTY_SHEET;
     }
     const ref = currentSheetData['!ref'];
 
     if (!ref) {
-      return [];
+      return DEFAULT_EMPTY_SHEET;
     }
 
     const letter = getEndColumn(ref);
     const colNum = letterCoordinate2Number(letter!);
-
     return (
       Array.from({ length: colNum }).map((_, index) => ({
         title: numberCoordinate2Letter(index + 1),
@@ -156,7 +157,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
           verticalBorder={true}
           getCellContent={(cell) => getData(cell)}
           columns={cols}
-          rows={currentSheetData.length}
+          rows={currentSheetData.length || 1}
         />
       )}
 
