@@ -223,7 +223,6 @@ export class CsvImporter extends Importer {
         let isAbort = false;
         let totalRowCount = 0;
 
-        // TODO optimize toLineDelimitedStream slow down the import speed.
         Papa.parse(toLineDelimitedStream(stream), {
           download: false,
           dynamicTyping: true,
@@ -342,7 +341,7 @@ export class ExcelImporter extends Importer {
           const result: IParseResult = {};
           Object.keys(workbook.Sheets).forEach((name) => {
             result[name] = workbook.Sheets[name]['!data']?.map((item) =>
-              item.map((v) => v.w)
+              item.map((v) => v.w ?? v.v)
             ) as unknown[][];
           });
           res(result);
