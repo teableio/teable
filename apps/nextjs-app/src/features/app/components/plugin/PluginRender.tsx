@@ -23,8 +23,18 @@ export const PluginRender = (props: IPluginRenderProps) => {
       return;
     }
     const methods: IParentBridgeMethods = {
-      ...uiEvent,
-      ...utilsEvent,
+      expandRecord: (recordIds: string[]) => {
+        return uiEvent.expandRecord(recordIds);
+      },
+      expandPlugin: () => {
+        return uiEvent.expandPlugin();
+      },
+      getAuthCode: () => {
+        return utilsEvent.getAuthCode();
+      },
+      updateStorage: (storage) => {
+        return utilsEvent.updateStorage(storage);
+      },
     };
     const connection = connectToChild<IChildBridgeMethods>({
       iframe: iframeRef.current,
