@@ -18,6 +18,7 @@ export const storageConfig = registerAs('storage', () => ({
     useSSL: process.env.BACKEND_STORAGE_MINIO_USE_SSL === 'true',
     accessKey: process.env.BACKEND_STORAGE_MINIO_ACCESS_KEY,
     secretKey: process.env.BACKEND_STORAGE_MINIO_SECRET_KEY,
+    region: process.env.BACKEND_STORAGE_MINIO_REGION,
   },
   s3: {
     region: process.env.BACKEND_STORAGE_S3_REGION!,
