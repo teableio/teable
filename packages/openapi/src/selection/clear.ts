@@ -10,7 +10,8 @@ export const CLEAR_URL = '/table/{tableId}/selection/clear';
 export const ClearRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: CLEAR_URL,
-  description: 'Clarify the constituency section',
+  summary: 'Clear selected range content',
+  description: 'Remove all content from the selected table range',
   request: {
     params: z.object({
       tableId: z.string(),

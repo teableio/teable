@@ -14,7 +14,8 @@ export type IDeleteFieldsQuery = z.infer<typeof deleteFieldsQuerySchema>;
 export const DeleteFieldListRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_FIELD_LIST,
-  description: 'Delete field list',
+  summary: 'Delete multiple fields',
+  description: 'Permanently remove multiple fields from the specified table',
   request: {
     params: z.object({
       tableId: z.string(),

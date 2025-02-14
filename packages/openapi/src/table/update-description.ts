@@ -14,7 +14,9 @@ export type ITableDescriptionRo = z.infer<typeof tableDescriptionRoSchema>;
 export const updateTableDescriptionRoute: RouteConfig = registerRoute({
   method: 'put',
   path: TABLE_DESCRIPTION,
-  description: 'Update table description',
+  summary: 'Update table description',
+  description:
+    'Update or remove the description of a table. Set to null to remove the description.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -30,7 +32,7 @@ export const updateTableDescriptionRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Successfully update.',
+      description: 'Table description successfully updated.',
     },
   },
   tags: ['table'],

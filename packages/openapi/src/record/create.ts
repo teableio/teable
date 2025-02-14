@@ -19,7 +19,7 @@ export const recordInsertOrderRoSchema = z
     position: z.enum(['before', 'after']),
   })
   .openapi({
-    description: 'Where this record to insert to',
+    description: 'Where this record to insert to (Optional)',
   });
 
 export type IRecordInsertOrderRo = z.infer<typeof recordInsertOrderRoSchema>;
@@ -62,7 +62,9 @@ export const CREATE_RECORD = '/table/{tableId}/record';
 export const CreateRecordRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_RECORD,
-  description: 'Create multiple records',
+  summary: 'Create records',
+  description:
+    'Create one or multiple records with support for field value typecast and custom record ordering.',
   request: {
     params: z.object({
       tableId: z.string(),

@@ -48,7 +48,9 @@ export const GET_RECORD_HISTORY_URL = '/table/{tableId}/record/{recordId}/histor
 export const GetRecordHistoryRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_RECORD_HISTORY_URL,
-  description: 'Get the history list for a record',
+  summary: 'Get record history',
+  description:
+    'Retrieve the change history of a specific record, including field modifications and user information.',
   request: {
     params: z.object({
       tableId: z.string(),

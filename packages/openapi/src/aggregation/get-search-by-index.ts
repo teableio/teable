@@ -27,7 +27,8 @@ export const GET_Search_INDEX = '/table/{tableId}/aggregation/search-index';
 export const GetSearchIndexRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_Search_INDEX,
-  description: 'Get record index with search query',
+  summary: 'Get record indices for search',
+  description: 'Returns the indices and record IDs of records matching the search criteria',
   request: {
     params: z.object({
       tableId: z.string(),

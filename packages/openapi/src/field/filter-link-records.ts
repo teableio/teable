@@ -13,7 +13,9 @@ export type IGetFieldFilterLinkRecordsVo = z.infer<typeof getFieldFilterLinkReco
 export const GetFieldFilterLinkRecordsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_FIELD_FILTER_LINK_RECORDS,
-  description: 'Getting associated records for a view filter configuration.',
+  summary: 'Get linked records for filter',
+  description:
+    'Retrieve associated records that match the view filter configuration for a linked field',
   request: {
     params: z.object({
       tableId: z.string(),

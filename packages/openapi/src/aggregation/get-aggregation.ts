@@ -70,7 +70,9 @@ export const GET_AGGREGATION_LIST = '/table/{tableId}/aggregation';
 export const GetAggregationRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_AGGREGATION_LIST,
-  description: 'Get aggregations by query',
+  summary: 'Get aggregated statistics',
+  description:
+    'Returns statistical aggregations of table data based on specified functions and grouping criteria',
   request: {
     params: z.object({
       tableId: z.string(),

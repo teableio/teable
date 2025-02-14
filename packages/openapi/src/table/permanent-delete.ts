@@ -8,7 +8,8 @@ export const PERMANENT_DELETE_TABLE = '/base/{baseId}/table/{tableId}/permanent'
 export const PermanentDeleteTableRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: PERMANENT_DELETE_TABLE,
-  description: 'Permanently delete a table',
+  summary: 'Permanently delete table',
+  description: 'Permanently delete a table and all its data. This action cannot be undone.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -17,7 +18,7 @@ export const PermanentDeleteTableRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Deleted successfully',
+      description: 'Table and all associated data permanently deleted.',
     },
   },
   tags: ['table'],

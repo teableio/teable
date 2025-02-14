@@ -15,7 +15,8 @@ export type IDeleteRecordsQuery = z.infer<typeof deleteRecordsQuerySchema>;
 export const DeleteRecordsRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_RECORDS_URL,
-  description: 'Delete multiple records',
+  summary: 'Delete records',
+  description: 'Permanently delete multiple records by their IDs in a single request.',
   request: {
     params: z.object({
       tableId: z.string(),

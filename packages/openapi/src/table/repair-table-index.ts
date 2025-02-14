@@ -10,6 +10,7 @@ export const TABLE_INDEX_REPAIR = '/base/{baseId}/table/{tableId}/index/repair';
 export const TableIndexRepairRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: TABLE_INDEX_REPAIR,
+  summary: 'Repair table index',
   description: 'Repair table index',
   request: {
     params: z.object({
@@ -20,7 +21,7 @@ export const TableIndexRepairRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Returns repair effect',
+      description: 'Succeed',
     },
   },
   tags: ['table'],

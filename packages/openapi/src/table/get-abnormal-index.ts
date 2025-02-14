@@ -18,7 +18,9 @@ export type IGetAbnormalVo = z.infer<typeof getAbnormalVoSchema>;
 export const TableAbnormalIndexRoute: RouteConfig = registerRoute({
   method: 'get',
   path: TABLE_ABNORMAL_INDEX,
-  description: 'Get abnormal index by type',
+  summary: 'Get abnormal indexes',
+  description:
+    'Retrieve a list of abnormal database indexes for a specific table by index type. This helps identify potential performance or maintenance issues.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -28,7 +30,7 @@ export const TableAbnormalIndexRoute: RouteConfig = registerRoute({
   },
   responses: {
     201: {
-      description: 'Returns table abnormal index',
+      description: 'Successfully retrieved list of abnormal indexes.',
       content: {
         'application/json': {
           schema: getAbnormalVoSchema,

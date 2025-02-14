@@ -10,7 +10,9 @@ export const TABLE_ORDER = '/base/{baseId}/table/{tableId}/order';
 export const updateTableOrderRoute: RouteConfig = registerRoute({
   method: 'put',
   path: TABLE_ORDER,
-  description: 'Update table order',
+  summary: 'Update table order',
+  description:
+    'Update the display order of a table in the base. This affects the order in which tables are shown in the UI.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -26,7 +28,7 @@ export const updateTableOrderRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Successfully update.',
+      description: 'Table order successfully updated.',
     },
   },
   tags: ['table'],

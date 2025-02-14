@@ -49,6 +49,7 @@ export const GetPublicSettingRoute: RouteConfig = registerRoute({
       },
     },
   },
+  tags: ['admin'],
 });
 
 export const getPublicSetting = async () => {

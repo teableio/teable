@@ -21,7 +21,8 @@ export const GET_ROW_COUNT = '/table/{tableId}/aggregation/row-count';
 export const GetRowCountRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_ROW_COUNT,
-  description: 'Get row count for the view',
+  summary: 'Get total row count',
+  description: 'Returns the total number of rows in a view based on applied filters and criteria',
   request: {
     params: z.object({
       tableId: z.string(),

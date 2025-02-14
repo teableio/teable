@@ -18,7 +18,8 @@ export type IRecordStatusVo = z.infer<typeof recordStatusVoSchema>;
 export const GetRecordStatusRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_RECORD_STATUS_URL,
-  description: 'Get record status',
+  summary: 'Get record status',
+  description: 'Retrieve the visibility and deletion status of a specific record.',
   request: {
     params: z.object({
       tableId: z.string(),

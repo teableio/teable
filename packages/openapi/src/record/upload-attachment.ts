@@ -14,12 +14,13 @@ export const UPLOAD_ATTACHMENT_URL =
 export const UploadAttachmentRoute: RouteConfig = registerRoute({
   method: 'post',
   path: UPLOAD_ATTACHMENT_URL,
-  description: 'Upload attachment',
+  summary: 'Upload attachment',
+  description: 'Upload an attachment from a file or URL and append it to the cell',
   request: {
     params: z.object({
       tableId: z.string(),
       recordId: z.string(),
-      fieldId: z.string().openapi({ description: 'attachment field id' }),
+      fieldId: z.string().openapi({ description: 'ID of an attachment field' }),
     }),
     body: {
       content: {

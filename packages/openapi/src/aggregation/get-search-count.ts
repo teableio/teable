@@ -24,7 +24,9 @@ export type ISearchCountRo = z.infer<typeof searchCountRoSchema>;
 export const GetSearchCountRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_Search_COUNT,
-  description: 'Get search result count with query',
+  summary: 'Get total count of search',
+  description:
+    'Returns the total count of records matching the specified search criteria and filters',
   request: {
     params: z.object({
       tableId: z.string(),

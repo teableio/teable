@@ -13,7 +13,9 @@ export const UPDATE_RECORDS = '/table/{tableId}/record';
 export const UpdateRecordsRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_RECORDS,
-  description: 'Update records',
+  summary: 'Update multiple records',
+  description:
+    'Update multiple records in a single request with support for field value typecast and record reordering.',
   request: {
     params: z.object({
       tableId: z.string(),

@@ -41,6 +41,7 @@ export const sendSignupVerificationCodeRoute: RouteConfig = registerRoute({
       },
     },
   },
+  tags: ['auth'],
 });
 
 export const sendSignupVerificationCode = (email: string) =>

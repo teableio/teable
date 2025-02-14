@@ -24,6 +24,7 @@ export type IToggleIndexRo = z.infer<typeof toggleIndexRoSchema>;
 export const ToggleTableIndexRoute: RouteConfig = registerRoute({
   method: 'post',
   path: TOGGLE_TABLE_INDEX,
+  summary: 'Toggle table index',
   description: 'Toggle table index',
   request: {
     params: z.object({

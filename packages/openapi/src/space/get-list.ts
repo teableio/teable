@@ -10,6 +10,7 @@ export const GET_SPACE_LIST = '/space';
 export const GetSpaceListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_SPACE_LIST,
+  summary: 'Get space list',
   description: 'Get space list by query',
   request: {},
   responses: {

@@ -10,6 +10,7 @@ export const GET_VIEW_LIST = '/table/{tableId}/view';
 export const GetViewListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_VIEW_LIST,
+  summary: 'Get view list',
   description: 'Get view list',
   request: {
     params: z.object({

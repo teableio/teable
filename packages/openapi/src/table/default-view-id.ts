@@ -13,6 +13,7 @@ export type IGetDefaultViewIdVo = z.infer<typeof getDefaultViewIdVoSchema>;
 export const GetDefaultViewIdRoute = registerRoute({
   method: 'get',
   path: GET_DEFAULT_VIEW_ID,
+  summary: 'Get default view id',
   description: 'Get default view id',
   request: {
     params: z.object({

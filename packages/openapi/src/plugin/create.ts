@@ -60,6 +60,7 @@ export const createPluginRoute: RouteConfig = registerRoute({
       },
     },
   },
+  tags: ['plugin'],
 });
 
 export const createPlugin = (data: ICreatePluginRo) => {

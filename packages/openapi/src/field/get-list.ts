@@ -11,7 +11,8 @@ export const GET_FIELD_LIST = '/table/{tableId}/field';
 export const GetFieldListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_FIELD_LIST,
-  description: 'Get field list by query',
+  summary: 'List fields',
+  description: 'Retrieve a list of fields in a table with optional filtering',
   request: {
     params: z.object({
       tableId: z.string(),

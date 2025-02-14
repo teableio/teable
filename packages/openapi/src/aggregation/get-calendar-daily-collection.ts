@@ -36,7 +36,9 @@ export const GET_CALENDAR_DAILY_COLLECTION =
 export const GetCalendarDailyCollectionRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_CALENDAR_DAILY_COLLECTION,
-  description: 'Get calendar daily collection for the view',
+  summary: 'Get daily calendar data',
+  description:
+    'Returns records and count distribution across dates based on specified date range and fields',
   request: {
     params: z.object({
       tableId: z.string(),

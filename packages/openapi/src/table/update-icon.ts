@@ -14,7 +14,8 @@ export type ITableIconRo = z.infer<typeof tableIconRoSchema>;
 export const updateTableIconRoute: RouteConfig = registerRoute({
   method: 'put',
   path: TABLE_ICON,
-  description: 'Update table icon',
+  summary: 'Update table tcon',
+  description: 'Update the emoji icon of a table. The icon must be a valid emoji character.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -30,7 +31,7 @@ export const updateTableIconRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Successfully update.',
+      description: 'Table icon successfully updated.',
     },
   },
   tags: ['table'],

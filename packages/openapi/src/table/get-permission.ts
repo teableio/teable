@@ -33,7 +33,9 @@ export type ITablePermissionVo = z.infer<typeof tablePermissionVoSchema>;
 export const GetTablePermissionRoute = registerRoute({
   method: 'get',
   path: GET_TABLE_PERMISSION,
-  description: 'Get a table permission',
+  summary: 'Get table permissions',
+  description:
+    "Retrieve the current user's permissions for a table, including access rights for table operations, views, records, and fields.",
   request: {
     params: z.object({
       baseId: z.string(),
@@ -42,7 +44,7 @@ export const GetTablePermissionRoute = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns data about a table permission.',
+      description: 'Successfully retrieved table permissions for the current user.',
       content: {
         'application/json': {
           schema: tablePermissionVoSchema,

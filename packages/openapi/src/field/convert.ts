@@ -10,9 +10,9 @@ export const CONVERT_FIELD = '/table/{tableId}/field/{fieldId}/convert';
 export const ConvertFieldRoute: RouteConfig = registerRoute({
   method: 'put',
   path: CONVERT_FIELD,
-  summary: 'Convert a field',
+  summary: 'Convert field type',
   description:
-    'All records of this field will automatically be type casted, and symmetric field will auto generate or delete if needed',
+    'Convert field to a different type with automatic type casting and symmetric field handling',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -23,7 +23,7 @@ export const ConvertFieldRoute: RouteConfig = registerRoute({
         'application/json': {
           schema: convertFieldRoSchema.openapi({
             description:
-              'You should always pass in all the properties of the entire field, whether you have modified it or not。You can simply retrieve it, modify it, and pass it in',
+              'Provide the complete field configuration including all properties, modified or not',
           }),
         },
       },

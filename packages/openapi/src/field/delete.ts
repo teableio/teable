@@ -8,7 +8,8 @@ export const DELETE_FIELD = '/table/{tableId}/field/{fieldId}';
 export const DeleteFieldRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_FIELD,
-  description: 'Delete a field',
+  summary: 'Delete field',
+  description: 'Permanently remove a field from the specified table',
   request: {
     params: z.object({
       tableId: z.string(),

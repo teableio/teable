@@ -10,7 +10,8 @@ export const TABLE_ACTIVATED_INDEX = '/base/{baseId}/table/{tableId}/activated-i
 export const TableActivatedIndexRoute: RouteConfig = registerRoute({
   method: 'post',
   path: TABLE_ACTIVATED_INDEX,
-  description: '',
+  summary: 'Get activated index',
+  description: 'Get the activated index of a table',
   request: {
     params: z.object({
       baseId: z.string(),

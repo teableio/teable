@@ -29,7 +29,8 @@ export type IPasteVo = z.infer<typeof pasteVoSchema>;
 export const PasteRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: PASTE_URL,
-  description: 'Copy operations in tables',
+  summary: 'Paste content into selected range',
+  description: 'Apply paste operation to insert content into the selected table range',
   request: {
     params: z.object({
       tableId: z.string(),

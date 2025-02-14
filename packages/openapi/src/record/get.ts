@@ -50,7 +50,9 @@ export const GET_RECORD_URL = '/table/{tableId}/record/{recordId}';
 export const GetRecordRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_RECORD_URL,
-  description: 'Get a record',
+  summary: 'Get record',
+  description:
+    'Retrieve a single record by its ID with options to specify field projections and output format.',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -60,7 +62,7 @@ export const GetRecordRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Get a record',
+      description: 'Success',
       content: {
         'application/json': {
           schema: recordSchema,

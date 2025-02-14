@@ -135,7 +135,9 @@ export const CREATE_TABLE = '/base/{baseId}/table/';
 export const CreateTableRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_TABLE,
-  description: 'Create a table',
+  summary: 'Create table',
+  description:
+    'Create a new table in the specified base with customizable fields, views, and initial records. Default configurations will be applied if not specified.',
   request: {
     params: z.object({
       baseId: z.string(),

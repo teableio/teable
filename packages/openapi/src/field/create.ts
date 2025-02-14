@@ -10,7 +10,8 @@ export const CREATE_FIELD = '/table/{tableId}/field';
 export const CreateFieldRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_FIELD,
-  description: 'Create a field',
+  summary: 'Create field',
+  description: 'Create a new field in the specified table with the given configuration',
   request: {
     params: z.object({
       tableId: z.string(),

@@ -8,7 +8,8 @@ export const DELETE_TABLE = '/base/{baseId}/table/{tableId}';
 export const DeleteTableRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_TABLE,
-  description: 'Delete a table',
+  summary: 'Delete table',
+  description: 'Move a table to trash. The table can be restored within the retention period.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -17,7 +18,7 @@ export const DeleteTableRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Deleted successfully',
+      description: 'Table successfully moved to trash.',
     },
   },
   tags: ['table'],

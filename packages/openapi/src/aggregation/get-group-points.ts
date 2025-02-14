@@ -22,7 +22,9 @@ export const GET_GROUP_POINTS = '/table/{tableId}/aggregation/group-points';
 export const GetGroupPointsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_GROUP_POINTS,
-  description: 'Get group points for the view',
+  summary: 'Get group points',
+  description:
+    'Returns the distribution and count of records across different group points in the view',
   request: {
     params: z.object({
       tableId: z.string(),

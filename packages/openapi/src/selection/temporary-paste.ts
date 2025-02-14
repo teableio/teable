@@ -38,7 +38,8 @@ export type ITemporaryPasteVo = z.infer<typeof temporaryPasteVoSchema>;
 export const temporaryPasteRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: TEMPORARY_PASTE_URL,
-  description: 'Paste operation for pre-filled table rows',
+  summary: 'Preview paste operation results',
+  description: 'Preview the results of a paste operation without applying changes to the table',
   request: {
     params: z.object({
       tableId: z.string(),

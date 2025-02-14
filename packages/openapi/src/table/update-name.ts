@@ -14,7 +14,9 @@ export type ITableNameRo = z.infer<typeof tableNameRoSchema>;
 export const updateTableNameRoute: RouteConfig = registerRoute({
   method: 'put',
   path: TABLE_NAME,
-  description: 'Update table name',
+  summary: 'Update table name',
+  description:
+    'Update the display name of a table. This will not affect the underlying database table name.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -30,7 +32,7 @@ export const updateTableNameRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Successfully update.',
+      description: 'Table name successfully updated.',
     },
   },
   tags: ['table'],

@@ -94,7 +94,9 @@ export type IRangesToIdVo = z.infer<typeof rangesToIdVoSchema>;
 export const GetIdsFromRangesRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_IDS_FROM_RANGES_URL,
-  description: 'Get the id of records and fields from the selected range',
+  summary: 'Get ids from range',
+  description:
+    'Retrieve record and field identifiers based on the selected range coordinates in a table',
   request: {
     params: z.object({
       tableId: z.string(),

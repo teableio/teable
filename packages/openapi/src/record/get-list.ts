@@ -13,7 +13,6 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { getRecordQuerySchema } from './get';
-import { TQL_README } from './README';
 
 const defaultPageSize = 100;
 const maxPageSize = 2000;
@@ -30,7 +29,7 @@ export const queryBaseSchema = z.object({
   }),
   filterByTql: z.string().optional().openapi({
     example: "{field} = 'Completed' AND {field} > 5",
-    description: TQL_README,
+    deprecated: true,
   }),
   filter: z
     .string()
@@ -237,7 +236,9 @@ export const GET_RECORDS_URL = '/table/{tableId}/record';
 export const GetRecordsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_RECORDS_URL,
-  description: 'Get multiple records',
+  summary: 'List records',
+  description:
+    'Retrieve a list of records with support for filtering, sorting, grouping, and pagination. The response includes record data and optional group information.',
   request: {
     params: z.object({
       tableId: z.string(),

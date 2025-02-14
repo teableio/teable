@@ -67,6 +67,7 @@ export const baseQueryRoute = registerRoute({
       },
     },
   },
+  tags: ['base'],
 });
 
 export const baseQuery = (baseId: string, query: IBaseQuery, cellFormat?: CellFormat) => {

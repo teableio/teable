@@ -9,7 +9,8 @@ export const DUPLICATE_URL = '/table/{tableId}/record/{recordId}';
 export const duplicateRoute = registerRoute({
   method: 'post',
   path: DUPLICATE_URL,
-  description: 'Duplicate the selected record',
+  summary: 'Duplicate record',
+  description: 'Create a copy of an existing record with optional custom positioning in the view.',
   request: {
     params: z.object({
       tableId: z.string(),
