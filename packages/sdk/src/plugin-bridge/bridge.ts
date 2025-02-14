@@ -2,22 +2,38 @@ import type { AsyncMethodReturns, Connection, Methods } from 'penpal';
 import { connectToParent } from 'penpal';
 import type { IBridgeListener, IChildBridgeMethods, IParentBridgeMethods } from './types';
 
+type IListenerKeys = keyof IChildBridgeMethods;
+
+type IListenerRecord = {
+  [K in IListenerKeys]: IChildBridgeMethods[K][];
+};
+
 export class PluginBridge implements IBridgeListener {
   private connection: Connection<IParentBridgeMethods>;
   private bridge?: AsyncMethodReturns<IParentBridgeMethods>;
 
-  private listeners: Partial<
-    Record<keyof IChildBridgeMethods, IChildBridgeMethods[keyof IChildBridgeMethods][]>
-  > = {};
+  private listeners: Partial<IListenerRecord> = {};
 
   constructor() {
     const methods: IChildBridgeMethods = {
       syncUIConfig: (uiConfig) => {
-        this.listeners.syncUIConfig?.forEach((cb) => cb(uiConfig));
+        this.listeners.syncUIConfig?.forEach((cb: IChildBridgeMethods['syncUIConfig']) =>
+          cb(uiConfig)
+        );
       },
       syncBasePermissions: (basePermissions) => {
-        this.listeners.syncBasePermissions?.forEach((cb) =>
-          (cb as IChildBridgeMethods['syncBasePermissions'])(basePermissions)
+        this.listeners.syncBasePermissions?.forEach(
+          (cb: IChildBridgeMethods['syncBasePermissions']) => cb(basePermissions)
+        );
+      },
+      syncSelection: (selection) => {
+        this.listeners.syncSelection?.forEach((cb: IChildBridgeMethods['syncSelection']) =>
+          cb(selection)
+        );
+      },
+      syncUrlParams: (urlParams) => {
+        this.listeners.syncUrlParams?.forEach((cb: IChildBridgeMethods['syncUrlParams']) =>
+          cb(urlParams)
         );
       },
     };
@@ -38,23 +54,25 @@ export class PluginBridge implements IBridgeListener {
     };
   }
 
-  on<T extends keyof IChildBridgeMethods>(event: T, callback: IChildBridgeMethods[T]) {
+  on<T extends IListenerKeys>(event: T, callback: IChildBridgeMethods[T]) {
     const callbacks = this.listeners[event];
     if (callbacks?.some((cb) => cb === callback)) {
       return;
     }
-    this.listeners[event] = callbacks ? [...callbacks, callback] : [callback];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.listeners[event] = callbacks ? [...callbacks, callback] : ([callback] as any);
   }
 
-  removeListener<T extends keyof IChildBridgeMethods>(event: T, listener: IChildBridgeMethods[T]) {
+  removeListener<T extends IListenerKeys>(event: T, listener: IChildBridgeMethods[T]) {
     const callbacks = this.listeners[event];
     if (!callbacks) {
       return;
     }
-    this.listeners[event] = callbacks.filter((cb) => cb !== listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.listeners[event] = callbacks.filter((cb) => cb !== listener) as any;
   }
 
-  removeAllListeners<T extends keyof IChildBridgeMethods>(event?: T) {
+  removeAllListeners<T extends IListenerKeys>(event?: T) {
     if (!event) {
       this.listeners = {};
     } else {

@@ -1,5 +1,6 @@
 import type { IGetBasePermissionVo } from '@teable/openapi';
 import type { AsyncMethodReturns } from 'penpal';
+import type { IRange, SelectionRegionType } from '../components/grid/interface';
 
 export interface IUIConfig {
   isExpand?: boolean;
@@ -7,18 +8,34 @@ export interface IUIConfig {
   theme?: string;
 }
 
+export type IUrlParams = Partial<
+  Record<'baseId' | 'tableId' | 'viewId' | 'dashboardId' | 'recordId' | 'shareId', string>
+>;
+
+export interface ISelection {
+  range: IRange[];
+  type: SelectionRegionType;
+}
+
 export type IBasePermissions = IGetBasePermissionVo;
 
-export interface IParentBridgeMethods {
+export interface IParentBridgeUIMethods {
   expandRecord: (recordIds: string[]) => void;
-  updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
-  getAuthCode: () => Promise<string>;
   expandPlugin: () => void;
 }
 
+export interface IParentBridgeUtilsMethods {
+  updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  getAuthCode: () => Promise<string>;
+}
+
+export type IParentBridgeMethods = IParentBridgeUIMethods & IParentBridgeUtilsMethods;
+
 export interface IChildBridgeMethods {
   syncUIConfig: (uiConfig: IUIConfig) => void;
+  syncSelection: (selection?: ISelection) => void;
   syncBasePermissions: (permissions: IBasePermissions) => void;
+  syncUrlParams: (urlParams: IUrlParams) => void;
 }
 
 export type IBridgeListener = {

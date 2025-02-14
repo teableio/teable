@@ -25,7 +25,7 @@ export const ChartLayout: React.FC<{
   if (!storage && !uiConfig?.isShowingSettings) {
     return (
       <div className="flex flex-col items-center gap-2 px-4">
-        <div className="text-center text-muted-foreground">{t('noStorage')}</div>
+        <div className="text-muted-foreground text-center">{t('noStorage')}</div>
         <Button className="m-auto h-7" size="sm" onClick={() => pluginBridge?.expandPlugin()}>
           {t('goConfig')}
         </Button>

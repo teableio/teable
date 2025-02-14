@@ -74,7 +74,7 @@ export class PluginController {
   getPluginCenterList(
     @Query(new ZodValidationPipe(getPluginCenterListRoSchema)) ro: IGetPluginCenterListRo
   ): Promise<IGetPluginCenterListVo> {
-    return this.pluginService.getPluginCenterList(ro.positions);
+    return this.pluginService.getPluginCenterList(ro.positions, ro.ids);
   }
 
   @Patch(':pluginId/submit')

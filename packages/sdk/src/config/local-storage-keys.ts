@@ -17,4 +17,6 @@ export enum LocalStorageKeys {
   SearchHideNotMatchRow = 'ls_search_hide_not_match_row',
   PersonalViewMap = 'ls_personal_view_map',
   LockedViewTipVisible = 'ls_locked_view_tip_visible',
+  RecentPlugins = 'ls_recent_plugins',
+  FloatPluginPosition = 'ls_float_plugins_position',
 }

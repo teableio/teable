@@ -88,7 +88,7 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.io',
             'https://*.teable.cn',
           ],
-          frameSrc: ["'self'", 'blob:'],
+          frameSrc: ["'self'", '*'],
           connectSrc: [
             "'self'",
             'https://*.sentry.io',

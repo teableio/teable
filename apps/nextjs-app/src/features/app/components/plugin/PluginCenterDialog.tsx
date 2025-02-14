@@ -11,7 +11,7 @@ import { PluginDetail } from './PluginDetail';
 interface IPluginCenterProps {
   children?: React.ReactNode;
   positionType: PluginPosition;
-  onInstall?: (pluginId: string, name: string) => void;
+  onInstall?: (pluginId: string, name: string, detail: IGetPluginCenterListVo[number]) => void;
 }
 
 export interface IPluginCenterDialogRef {
@@ -96,7 +96,7 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
                     size={'xs'}
                     variant={'outline'}
                     onClick={(e) => {
-                      onInstall?.(plugin.id, name);
+                      onInstall?.(plugin.id, name, plugin);
                       e.stopPropagation();
                     }}
                   >
@@ -116,7 +116,7 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
               plugin={detailPlugin}
               onBack={() => setDetailPlugin(undefined)}
               onInstall={() => {
-                onInstall?.(detailPlugin.id, detailPlugin.name);
+                onInstall?.(detailPlugin.id, detailPlugin.name, detailPlugin);
               }}
             />
           )}

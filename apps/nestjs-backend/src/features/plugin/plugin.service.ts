@@ -314,7 +314,10 @@ export class PluginService {
     return { secret, id };
   }
 
-  async getPluginCenterList(positions?: PluginPosition[]): Promise<IGetPluginCenterListVo> {
+  async getPluginCenterList(
+    positions?: PluginPosition[],
+    ids?: string[]
+  ): Promise<IGetPluginCenterListVo> {
     const res = await this.prismaService.plugin.findMany({
       select: {
         id: true,
@@ -330,6 +333,11 @@ export class PluginService {
         createdBy: true,
       },
       where: {
+        ...(ids?.length
+          ? {
+              id: { in: ids },
+            }
+          : {}),
         status: PluginStatus.Published,
         ...(positions?.length
           ? {

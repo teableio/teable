@@ -1,5 +1,9 @@
-import { pluginGetAuthCode, updateDashboardPluginStorage } from '@teable/openapi';
-import type { IChildBridgeMethods, IParentBridgeMethods } from '@teable/sdk/plugin-bridge';
+import type {
+  IChildBridgeMethods,
+  IParentBridgeMethods,
+  IParentBridgeUIMethods,
+  IParentBridgeUtilsMethods,
+} from '@teable/sdk/plugin-bridge';
 import { cn } from '@teable/ui-lib';
 import type { Methods } from 'penpal';
 import { connectToChild } from 'penpal';
@@ -7,37 +11,20 @@ import { useEffect, useRef } from 'react';
 
 interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElement> {
   src: string;
-  pluginInstallId: string;
-  positionId: string;
-  pluginId: string;
-  baseId: string;
+  utilsEvent: IParentBridgeUtilsMethods;
+  uiEvent: IParentBridgeUIMethods;
   onBridge: (bridge?: IChildBridgeMethods) => void;
-  onExpand?: () => void;
 }
 export const PluginRender = (props: IPluginRenderProps) => {
-  const { onBridge, onExpand, pluginInstallId, baseId, positionId, pluginId, className, ...rest } =
-    props;
+  const { onBridge, utilsEvent, uiEvent, className, ...rest } = props;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-
   useEffect(() => {
     if (!iframeRef.current) {
       return;
     }
     const methods: IParentBridgeMethods = {
-      expandRecord: (recordIds) => {
-        console.log('expandRecord', recordIds);
-      },
-      updateStorage: (storage) => {
-        return updateDashboardPluginStorage(baseId, positionId, pluginInstallId, storage).then(
-          (res) => res.data.storage ?? {}
-        );
-      },
-      getAuthCode: () => {
-        return pluginGetAuthCode(pluginId, baseId).then((res) => res.data);
-      },
-      expandPlugin: () => {
-        onExpand?.();
-      },
+      ...uiEvent,
+      ...utilsEvent,
     };
     const connection = connectToChild<IChildBridgeMethods>({
       iframe: iframeRef.current,
@@ -60,16 +47,11 @@ export const PluginRender = (props: IPluginRenderProps) => {
       onBridge(undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onBridge]);
 
   // eslint-disable-next-line jsx-a11y/iframe-has-title
   return (
-    <iframe
-      loading={'lazy'}
-      {...rest}
-      ref={iframeRef}
-      className={cn('rounded-b', className)}
-      title={pluginInstallId}
-    />
+    // eslint-disable-next-line jsx-a11y/iframe-has-title
+    <iframe loading={'lazy'} {...rest} ref={iframeRef} className={cn('rounded-b', className)} />
   );
 };

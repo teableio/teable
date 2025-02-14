@@ -537,5 +537,9 @@
     "title": "Table trash",
     "resourceType": "Resource type",
     "deletedResource": "Deleted resource"
+  },
+  "plugin": {
+    "recent": "Recents",
+    "more": "Explore more..."
   }
 }

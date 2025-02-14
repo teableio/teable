@@ -536,5 +536,9 @@
     "title": "表格回收站",
     "resourceType": "资源类型",
     "deletedResource": "已删除资源"
+  },
+  "plugin": {
+    "recent": "最近使用",
+    "more": "探索更多..."
   }
 }

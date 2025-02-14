@@ -1,4 +1,12 @@
-import { HelpCircle, History, MoreHorizontal, Settings, Trash2, UserPlus } from '@teable/icons';
+import {
+  HelpCircle,
+  History,
+  MoreHorizontal,
+  Puzzle,
+  Settings,
+  Trash2,
+  UserPlus,
+} from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { useBase, useBasePermission, useTableId, useView } from '@teable/sdk/hooks';
 import {
@@ -35,6 +43,7 @@ import { useLockedViewTipStore } from '../store';
 import { AddView } from './AddView';
 import { Collaborators } from './Collaborators';
 import { LockedViewTip } from './LockedViewTip';
+import { PluginMenu } from './plugin/PluginMenu';
 import { TableInfo } from './TableInfo';
 
 const RightList = ({
@@ -113,6 +122,11 @@ const RightList = ({
             <HelpCircle className="size-4" />
           </a>
         </Button>
+        <PluginMenu>
+          <Button variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
+            <Puzzle className="size-4" />
+          </Button>
+        </PluginMenu>
       </div>
       <BaseCollaboratorModalTrigger
         base={{

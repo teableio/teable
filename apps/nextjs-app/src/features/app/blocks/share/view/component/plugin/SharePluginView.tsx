@@ -1,4 +1,4 @@
-import type { IShareViewPlugin } from '@teable/openapi';
+import { PluginPosition, type IShareViewPlugin } from '@teable/openapi';
 import { useView } from '@teable/sdk/hooks';
 import type { PluginView as PluginViewInstance } from '@teable/sdk/model/view/plugin.view';
 import { PluginContent } from '@/features/app/components/plugin/PluginContent';
@@ -21,6 +21,7 @@ export const PluginView = (props: { shareId: string; plugin?: IShareViewPlugin }
       positionId={id}
       pluginUrl={plugin.url}
       shareId={shareId}
+      positionType={PluginPosition.View}
     />
   );
 };

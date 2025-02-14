@@ -7,6 +7,7 @@ import { PluginPosition, pluginCreatedBySchema, pluginI18nSchema } from './types
 export const PLUGIN_CENTER_GET_LIST = '/plugin/center/list';
 
 export const getPluginCenterListRoSchema = z.object({
+  ids: z.array(z.string()).optional(),
   positions: z
     .string()
     .optional()
@@ -68,10 +69,11 @@ export const GetPluginCenterListRoute: RouteConfig = registerRoute({
   tags: ['plugin'],
 });
 
-export const getPluginCenterList = async (positions?: PluginPosition[]) => {
+export const getPluginCenterList = async (positions?: PluginPosition[], ids?: string[]) => {
   return axios.get<IGetPluginCenterListVo>(PLUGIN_CENTER_GET_LIST, {
     params: {
       positions: JSON.stringify(positions),
+      ids,
     },
   });
 };

@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { removePlugin, renamePlugin } from '@teable/openapi';
+import { PluginPosition, removePlugin, renamePlugin } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -93,6 +93,7 @@ export const PluginItem = (props: {
           isExpanded={isExpanded}
         />
         <PluginContent
+          baseId={baseId}
           dragging={dragging}
           pluginId={pluginId}
           pluginInstallId={pluginInstallId}
@@ -100,6 +101,7 @@ export const PluginItem = (props: {
           positionId={dashboardId}
           onExpand={onExpand}
           renderClassName="p-1"
+          positionType={PluginPosition.Dashboard}
         />
       </div>
     </div>

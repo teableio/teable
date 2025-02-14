@@ -1,92 +1,42 @@
-import { useTheme } from '@teable/next-themes';
-import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
+import { PluginPosition } from '@teable/openapi';
 import type { IChildBridgeMethods } from '@teable/sdk/plugin-bridge';
 import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useIframeUrl } from './hooks/iframe-url/useIframeUrl';
 import { useIframeSize } from './hooks/useIframeSize';
+import { useSyncBasePermissions } from './hooks/useSyncBasePermissions';
+import { useSyncSelection } from './hooks/useSyncSelection';
+import { useSyncUIConfig } from './hooks/useSyncUIConfig';
+import { useSyncUrlParams } from './hooks/useSyncUrlParams';
+import { useUIEvent } from './hooks/useUIEvent';
+import { useUtilsEvent } from './hooks/useUtilsEvent';
 import { PluginRender } from './PluginRender';
+import type { IPluginParams } from './types';
 
-export const PluginContent = (props: {
+type IPluginContentProps = {
   className?: string;
   renderClassName?: string;
-  pluginId: string;
-  pluginInstallId: string;
-  pluginUrl?: string;
-  positionId: string;
-  tableId?: string;
-  shareId?: string;
   dragging?: boolean;
   onExpand?: () => void;
-}) => {
-  const {
-    className,
-    renderClassName,
-    pluginInstallId,
-    pluginUrl,
-    positionId,
-    tableId,
-    pluginId,
-    shareId,
-    dragging,
-    onExpand,
-  } = props;
-  const baseId = useBaseId()!;
-  const router = useRouter();
-  const expandPluginId = router.query.expandPluginId as string;
-  const {
-    t,
-    i18n: { resolvedLanguage },
-  } = useTranslation(['common']);
-  const { resolvedTheme } = useTheme();
+} & IPluginParams;
+
+export const PluginContent = (props: IPluginContentProps) => {
+  const { className, renderClassName, pluginId, positionType, dragging, onExpand } = props;
+  const { t } = useTranslation(['common']);
   const [bridge, setBridge] = useState<IChildBridgeMethods>();
-  const basePermissions = useBasePermission();
-  const defaultTheme = useRef(resolvedTheme);
-  const iframeUrl = useMemo(() => {
-    if (!pluginUrl) {
-      return;
-    }
-    const url = new URL(pluginUrl);
-    url.searchParams.set('pluginInstallId', pluginInstallId);
-    url.searchParams.set('baseId', baseId);
-    url.searchParams.set('positionId', positionId);
-    url.searchParams.set('pluginId', pluginId);
-
-    tableId && url.searchParams.set('tableId', tableId);
-    shareId && url.searchParams.set('shareId', shareId);
-    defaultTheme.current && url.searchParams.set('theme', defaultTheme.current);
-    resolvedLanguage && url.searchParams.set('lang', resolvedLanguage);
-    return url.toString();
-  }, [
-    pluginUrl,
-    pluginInstallId,
-    baseId,
-    positionId,
-    pluginId,
-    resolvedLanguage,
-    shareId,
-    tableId,
-  ]);
-
-  const canSetting = basePermissions?.['base|update'];
-  useEffect(() => {
-    bridge?.syncUIConfig({
-      isShowingSettings: expandPluginId === pluginInstallId && canSetting,
-      isExpand: expandPluginId === pluginInstallId,
-      theme: resolvedTheme,
-    });
-  }, [bridge, expandPluginId, pluginInstallId, resolvedTheme, canSetting]);
-
-  useEffect(() => {
-    if (!basePermissions) {
-      return;
-    }
-    bridge?.syncBasePermissions(basePermissions);
-  }, [basePermissions, bridge]);
-
+  const iframeUrl = useIframeUrl(props);
   const [ref, { width, height }] = useIframeSize(dragging);
+  const utilsEvent = useUtilsEvent(props);
+  const uiEvent = useUIEvent({
+    onExpandPlugin: onExpand,
+  });
+
+  useSyncUIConfig(bridge, props);
+  useSyncBasePermissions(bridge);
+  useSyncSelection(bridge);
+  useSyncUrlParams(bridge);
 
   if (!iframeUrl) {
     return (
@@ -107,18 +57,14 @@ export const PluginContent = (props: {
         </div>
       )}
       <PluginRender
+        title={positionType === PluginPosition.Float ? pluginId : props.pluginInstallId}
         width={width}
         height={height}
         onBridge={setBridge}
-        onExpand={onExpand}
         src={iframeUrl}
         className={renderClassName}
-        {...{
-          pluginInstallId,
-          positionId,
-          baseId,
-          pluginId,
-        }}
+        utilsEvent={utilsEvent}
+        uiEvent={uiEvent}
       />
     </div>
   );
