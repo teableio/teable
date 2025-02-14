@@ -458,10 +458,11 @@ export class AggregationService {
     const { viewId } = withView || {};
 
     const searchFields = await this.recordService.getSearchFields(fieldInstanceMap, search, viewId);
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
     const tableAlias = 'main_table';
     const queryBuilder = this.knex
-      .with(tableAlias, async (qb) => {
+      .with(tableAlias, (qb) => {
         qb.select('*').from(dbTableName);
         if (filter) {
           this.dbProvider
@@ -469,7 +470,6 @@ export class AggregationService {
             .appendQueryBuilder();
         }
         if (search && search[2]) {
-          const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
           qb.where((builder) => {
             this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
           });
