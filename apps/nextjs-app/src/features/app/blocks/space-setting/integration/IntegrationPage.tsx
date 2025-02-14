@@ -3,6 +3,7 @@ import { Plus } from '@teable/icons';
 import type { IAIIntegrationConfig, ICreateIntegrationRo, LLMProvider } from '@teable/openapi';
 import {
   createIntegration,
+  deleteIntegration,
   getIntegrationList,
   IntegrationType,
   updateIntegration,
@@ -47,6 +48,13 @@ export const IntegrationPage = () => {
       enable?: boolean;
       config?: IAIIntegrationConfig;
     }) => updateIntegration(spaceId, id, { enable, config }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getIntegrationList(spaceId) });
+    },
+  });
+
+  const { mutateAsync: deleteIntegrationMutator } = useMutation({
+    mutationFn: (integrationId: string) => deleteIntegration(spaceId, integrationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getIntegrationList(spaceId) });
     },
@@ -111,7 +119,7 @@ export const IntegrationPage = () => {
                           variant="ghost"
                           className="flex cursor-pointer items-center gap-2 p-2 hover:bg-gray-100"
                         >
-                          <Icon className="size-4" />
+                          <Icon className="size-4" active />
                           {name}
                         </Button>
                       </NewLLMProviderForm>
@@ -142,6 +150,7 @@ export const IntegrationPage = () => {
                 enable={enable}
                 config={config}
                 onCheckedChange={(checked) => onEnableUpdate(id, checked)}
+                onDelete={() => deleteIntegrationMutator(id)}
               >
                 <AIConfig config={config} onChange={(value) => onConfigUpdate(id, value)} />
               </IntegrationCard>
