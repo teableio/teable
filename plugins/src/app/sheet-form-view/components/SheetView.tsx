@@ -221,12 +221,10 @@ export const SheetView = () => {
                               insertedFields.includes(field.id)) && (
                               <TooltipContent>
                                 <>
-                                  {field.isComputed ||
-                                    (UnSupportFieldType.includes(field.type) && (
-                                      <p>{t('tooltips.unSupportFieldType')}</p>
-                                    ))}
-                                  {insertedFields.includes(field.id) && (
+                                  {insertedFields.includes(field.id) ? (
                                     <p>{t('tooltips.selected')}</p>
+                                  ) : (
+                                    <p>{t('tooltips.unSupportFieldType')}</p>
                                   )}
                                 </>
                               </TooltipContent>
