@@ -14,6 +14,7 @@ export const PositionSelector = (props: {
     return {
       [PluginPosition.Dashboard]: t('common:noun.dashboard'),
       [PluginPosition.View]: t('common:noun.view'),
+      [PluginPosition.Float]: t('common:noun.float'),
     };
   }, [t]);
   return (

@@ -160,7 +160,8 @@
     "trash": "Trash",
     "global": "Global",
     "organizationPanel": "Organization Panel",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "float": "Float"
   },
   "level": {
     "free": "Free",

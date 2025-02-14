@@ -160,7 +160,8 @@
     "trash": "回收站",
     "global": "全局",
     "organizationPanel": "组织管理面板",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "float": "浮动"
   },
   "level": {
     "free": "免费版",
