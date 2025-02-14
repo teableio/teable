@@ -5,3 +5,7 @@ export interface IPayloadUser {
 }
 
 export type IFromExtractor = (req: Request) => string | null;
+
+export interface IJwtAuthInfo {
+  userId: string;
+}

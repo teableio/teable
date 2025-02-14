@@ -1,15 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import type { IUserInfoVo, IUserMeVo } from '@teable/openapi';
 import { omit, pick } from 'lodash';
+import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from './permission.service';
+import type { IJwtAuthInfo } from './strategies/types';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
-    private readonly permissionService: PermissionService
+    private readonly permissionService: PermissionService,
+    private readonly jwtService: JwtService
   ) {}
 
   async getUserInfo(user: IUserMeVo): Promise<IUserInfoVo> {
@@ -23,5 +27,24 @@ export class AuthService {
       return omit(res, 'email');
     }
     return res;
+  }
+
+  async validateJwtToken(token: string) {
+    try {
+      return await this.jwtService.verifyAsync<IJwtAuthInfo>(token);
+    } catch {
+      throw new UnauthorizedException();
+    }
+  }
+
+  async getTempToken() {
+    const payload: IJwtAuthInfo = {
+      userId: this.cls.get('user.id'),
+    };
+    const expiresIn = '10m';
+    return {
+      accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
+      expiresTime: new Date(Date.now() + ms(expiresIn)).toISOString(),
+    };
   }
 }

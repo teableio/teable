@@ -1,4 +1,4 @@
-import type { IGetBasePermissionVo } from '@teable/openapi';
+import type { IGetBasePermissionVo, IGetTempTokenVo } from '@teable/openapi';
 import type { AsyncMethodReturns } from 'penpal';
 import type { IRange, SelectionRegionType } from '../components/grid/interface';
 
@@ -27,6 +27,7 @@ export interface IParentBridgeUIMethods {
 export interface IParentBridgeUtilsMethods {
   updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   getAuthCode: () => Promise<string>;
+  getSelfTempToken: () => Promise<IGetTempTokenVo>;
 }
 
 export type IParentBridgeMethods = IParentBridgeUIMethods & IParentBridgeUtilsMethods;

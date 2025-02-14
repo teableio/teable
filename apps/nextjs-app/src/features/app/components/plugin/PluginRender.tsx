@@ -32,6 +32,9 @@ export const PluginRender = (props: IPluginRenderProps) => {
       getAuthCode: () => {
         return utilsEvent.getAuthCode();
       },
+      getSelfTempToken: () => {
+        return utilsEvent.getSelfTempToken();
+      },
       updateStorage: (storage) => {
         return utilsEvent.updateStorage(storage);
       },

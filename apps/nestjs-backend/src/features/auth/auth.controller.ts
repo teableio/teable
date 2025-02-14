@@ -1,5 +1,5 @@
 import { Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
-import type { IUserMeVo } from '@teable/openapi';
+import type { IGetTempTokenVo, IUserMeVo } from '@teable/openapi';
 import { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
@@ -35,5 +35,10 @@ export class AuthController {
   @TokenAccess()
   async user(@Req() request: Express.Request) {
     return this.authService.getUserInfo(request.user as IUserMeVo);
+  }
+
+  @Get('temp-token')
+  async tempToken(): Promise<IGetTempTokenVo> {
+    return this.authService.getTempToken();
   }
 }

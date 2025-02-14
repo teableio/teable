@@ -3,12 +3,16 @@ import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IGetTempTokenVo, IUserMeVo } from '@teable/openapi';
 import {
   CHANGE_EMAIL,
+  createAxios,
+  GET_TEMP_TOKEN,
   SEND_CHANGE_EMAIL_CODE,
   sendSignupVerificationCode,
   SIGN_IN,
   signup,
+  USER_ME,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
@@ -247,5 +251,23 @@ describe('Auth Controller (e2e)', () => {
       );
       expect(error?.code).toBe(HttpErrorCode.INVALID_CAPTCHA);
     });
+  });
+
+  it('api/auth/temp-token', async () => {
+    const userAxios = await createNewUserAxios({
+      email: 'temp-token@test-temp-token.com',
+      password: '12345678',
+    });
+    const res = await userAxios.get<IGetTempTokenVo>(GET_TEMP_TOKEN);
+    expect(res.data.accessToken).not.toBeUndefined();
+    expect(res.data.expiresTime).not.toBeUndefined();
+    const newAxios = createAxios();
+    newAxios.interceptors.request.use((config) => {
+      config.headers.Authorization = `Bearer ${res.data.accessToken}`;
+      config.baseURL = res.config.baseURL;
+      return config;
+    });
+    const userRes = await newAxios.get<IUserMeVo>(USER_ME);
+    expect(userRes.data.email).toBe('temp-token@test-temp-token.com');
   });
 });

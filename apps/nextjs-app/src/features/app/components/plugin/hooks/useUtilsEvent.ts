@@ -1,9 +1,16 @@
-import { pluginGetAuthCode, PluginPosition, updateDashboardPluginStorage } from '@teable/openapi';
+import type { IGetTempTokenVo } from '@teable/openapi';
+import {
+  getTempToken,
+  pluginGetAuthCode,
+  PluginPosition,
+  updateDashboardPluginStorage,
+} from '@teable/openapi';
 import type { IParentBridgeUtilsMethods } from '@teable/sdk/plugin-bridge';
 import { useEffect, useRef } from 'react';
 import type { IPluginParams } from '../types';
 
 export const useUtilsEvent = (params: IPluginParams) => {
+  const tempTokenCacheRef = useRef<IGetTempTokenVo | null>(null);
   const ref = useRef<IParentBridgeUtilsMethods>({
     updateStorage: () => {
       console.log('Initializing updateStorage method');
@@ -12,6 +19,16 @@ export const useUtilsEvent = (params: IPluginParams) => {
     getAuthCode: () => {
       console.log('Initializing getAuthCode method');
       return Promise.resolve('');
+    },
+    getSelfTempToken: () => {
+      const tempTokenCache = tempTokenCacheRef.current;
+      if (tempTokenCache && new Date(tempTokenCache.expiresTime).getTime() > Date.now() + 60000) {
+        return Promise.resolve(tempTokenCache);
+      }
+      return getTempToken().then((res) => {
+        tempTokenCacheRef.current = res.data;
+        return res.data;
+      });
     },
   });
   const { positionId, positionType, pluginId } = params;
