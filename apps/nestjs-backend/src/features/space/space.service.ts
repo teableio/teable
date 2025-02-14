@@ -256,6 +256,11 @@ export class SpaceService {
       where: { spaceId },
     });
 
+    // delete integrations for space
+    await this.prismaService.txClient().integration.deleteMany({
+      where: { resourceId: spaceId },
+    });
+
     // delete space
     await this.prismaService.txClient().space.delete({
       where: { id: spaceId },
