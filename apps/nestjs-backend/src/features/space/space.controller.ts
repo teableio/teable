@@ -42,6 +42,10 @@ import {
   ListSpaceCollaboratorRo,
   addSpaceCollaboratorRoSchema,
   AddSpaceCollaboratorRo,
+  createIntegrationRoSchema,
+  ICreateIntegrationRo,
+  updateIntegrationRoSchema,
+  IUpdateIntegrationRo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -50,7 +54,6 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';
-
 @Controller('api/space/')
 export class SpaceController {
   constructor(
@@ -234,5 +237,41 @@ export class SpaceController {
     addSpaceCollaboratorRo: AddSpaceCollaboratorRo
   ) {
     return this.collaboratorService.addSpaceCollaborators(spaceId, addSpaceCollaboratorRo);
+  }
+
+  @Permissions('space|create')
+  @Get(':spaceId/integration')
+  async getIntegrationList(@Param('spaceId') spaceId: string) {
+    return this.spaceService.getIntegrationList(spaceId);
+  }
+
+  @Permissions('space|create')
+  @Post(':spaceId/integration')
+  async createIntegration(
+    @Param('spaceId') spaceId: string,
+    @Body(new ZodValidationPipe(createIntegrationRoSchema))
+    addIntegrationRo: ICreateIntegrationRo
+  ) {
+    return this.spaceService.createIntegration(spaceId, addIntegrationRo);
+  }
+
+  @Permissions('space|create')
+  @Patch(':spaceId/integration/:integrationId')
+  async updateIntegration(
+    @Param('spaceId') spaceId: string,
+    @Param('integrationId') integrationId: string,
+    @Body(new ZodValidationPipe(updateIntegrationRoSchema))
+    updateIntegrationRo: IUpdateIntegrationRo
+  ) {
+    return this.spaceService.updateIntegration(integrationId, updateIntegrationRo);
+  }
+
+  @Permissions('space|create')
+  @Delete(':spaceId/integration/:integrationId')
+  async deleteIntegration(
+    @Param('spaceId') spaceId: string,
+    @Param('integrationId') integrationId: string
+  ) {
+    return this.spaceService.deleteIntegration(integrationId);
   }
 }

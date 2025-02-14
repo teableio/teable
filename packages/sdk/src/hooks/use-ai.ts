@@ -24,10 +24,7 @@ export const useAIStream = (options?: IUseAIStreamOptions) => {
       const timeoutId = setTimeout(() => controllerRef.current?.abort(), timeout);
 
       try {
-        const result = await aiGenerateStream(
-          { prompt, baseId: baseId! },
-          controllerRef.current.signal
-        );
+        const result = await aiGenerateStream(baseId!, { prompt }, controllerRef.current.signal);
 
         if (!result.ok) {
           throw new Error(`HTTP error! status: ${result.status}`);

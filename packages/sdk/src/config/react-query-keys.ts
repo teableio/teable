@@ -144,4 +144,6 @@ export const ReactQueryKeys = {
   getDepartmentUsers: (ro?: IGetDepartmentUserRo) => ['department-users', ro] as const,
 
   getOrganizationMe: () => ['organization-me'] as const,
+
+  getIntegrationList: (spaceId: string) => ['integration-list', spaceId] as const,
 };

@@ -4,7 +4,7 @@ import { getSetting, updateSetting } from '@teable/openapi';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { CopyInstance } from './components';
-import { AIConfigForm } from './components/ai-config/ai-form';
+import { AIConfigForm } from './components/ai-config/AiForm';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;

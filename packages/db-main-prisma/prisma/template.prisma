@@ -515,3 +515,15 @@ model CommentSubscription {
   @@index([tableId, recordId])
   @@map("comment_subscription")
 }
+
+model Integration {
+  id                String    @id @default(cuid())
+  resourceId        String    @unique @map("resource_id")
+  config            String    @map("config")
+  type              String    @map("type")
+  enable            Boolean?  @map("enable")
+  createdTime       DateTime  @default(now()) @map("created_time")
+  lastModifiedTime  DateTime? @updatedAt @map("last_modified_time")
+
+  @@map("integration")
+}

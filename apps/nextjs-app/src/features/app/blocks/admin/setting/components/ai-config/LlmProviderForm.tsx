@@ -25,12 +25,14 @@ import {
   SelectValue,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import type { FC } from 'react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LLM_PROVIDERS } from './constant';
 
 interface ILLMProviderManageProps {
   onAdd: (data: LLMProvider) => void;
+  children?: React.ReactNode;
 }
 
 export const UpdateLLMProviderForm = ({
@@ -59,7 +61,7 @@ export const UpdateLLMProviderForm = ({
   );
 };
 
-export const NewLLMProviderForm = ({ onAdd }: ILLMProviderManageProps) => {
+export const NewLLMProviderForm = ({ onAdd, children }: ILLMProviderManageProps) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const handleAdd = (data: LLMProvider) => {
@@ -69,11 +71,13 @@ export const NewLLMProviderForm = ({ onAdd }: ILLMProviderManageProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
-          {t('admin.setting.ai.addProvider')}
-        </Button>
+        {children ?? (
+          <Button size="sm" variant="secondary">
+            {t('admin.setting.ai.addProvider')}
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>{t('admin.setting.ai.addProvider')}</DialogTitle>
           <DialogDescription>{t('admin.setting.ai.addProviderDescription')}</DialogDescription>
@@ -112,43 +116,13 @@ export const LLMProviderForm = ({ onAdd, value, onChange }: LLMProviderFormProps
     onSubmit(data);
   }
 
-  // async function getModelList(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
-  //   e.preventDefault();
-  //   const baseUrl = form.getValues('baseUrl');
-  //   if (!baseUrl) {
-  //     toast.toast({
-  //       title: t('common.error'),
-  //       description: t('admin.setting.ai.baseUrlRequired'),
-  //     });
-  //     return;
-  //   }
-  //   const openai = new OpenAI({
-  //     apiKey: form.getValues('apiKey'),
-  //     baseURL: baseUrl,
-  //     dangerouslyAllowBrowser: true,
-  //   });
-  //   try {
-  //     const resp = await openai.models.list();
-  //     const modelIds = resp.data.map((model) => model.id).join(', ');
-  //     form.setValue('models', modelIds);
-  //     // focus on models input
-  //     form.setFocus('models');
-  //   } catch (error) {
-  //     console.error(error);
-  //     toast.toast({
-  //       title: t('common.error'),
-  //       description: t('admin.setting.ai.fetchModelListError'),
-  //     });
-  //   }
-  // }
-
   const mode = onChange ? t('actions.update') : t('actions.add');
   const type = form.watch('type');
   const currentProvider = LLM_PROVIDERS.find((provider) => provider.value === type);
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form className="space-y-4">
         <FormField
           name="name"
           render={({ field }) => (

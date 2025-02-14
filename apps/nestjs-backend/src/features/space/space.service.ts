@@ -3,8 +3,14 @@ import type { IRole } from '@teable/core';
 import { Role, canManageRole, generateSpaceId, getUniqName } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
-import { ResourceType, CollaboratorType, PrincipalType } from '@teable/openapi';
+import type {
+  ICreateIntegrationRo,
+  ICreateSpaceRo,
+  IIntegrationItemVo,
+  IUpdateIntegrationRo,
+  IUpdateSpaceRo,
+} from '@teable/openapi';
+import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '@teable/openapi';
 import { map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -261,6 +267,92 @@ export class SpaceService {
         resourceId: spaceId,
         resourceType: ResourceType.Space,
       },
+    });
+  }
+
+  async getIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
+    const integrationList = await this.prismaService.integration.findMany({
+      where: { resourceId: spaceId },
+    });
+    return integrationList.map(({ id, config, type, enable, createdTime, lastModifiedTime }) => {
+      return {
+        id,
+        spaceId,
+        type: type as IntegrationType,
+        enable: enable ?? false,
+        config: JSON.parse(config),
+        createdTime: createdTime.toISOString(),
+        lastModifiedTime: lastModifiedTime?.toISOString(),
+      };
+    });
+  }
+
+  async createIntegration(spaceId: string, addIntegrationRo: ICreateIntegrationRo) {
+    const { type, enable, config } = addIntegrationRo;
+
+    if (type === IntegrationType.AI) {
+      const aiIntegration = await this.prismaService.integration.findFirst({
+        where: {
+          resourceId: spaceId,
+          type: IntegrationType.AI,
+        },
+      });
+
+      if (!aiIntegration) {
+        return await this.prismaService.integration.create({
+          data: {
+            resourceId: spaceId,
+            type,
+            enable,
+            config: JSON.stringify(config),
+          },
+        });
+      }
+
+      const { id, enable: originalEnable } = aiIntegration;
+      const originalConfig = JSON.parse(aiIntegration.config);
+
+      return await this.prismaService.integration.update({
+        where: { id },
+        data: {
+          config: JSON.stringify({
+            ...originalConfig,
+            ...config,
+            llmProviders: [...originalConfig.llmProviders, ...config.llmProviders],
+          }),
+          enable: enable ?? originalEnable,
+        },
+      });
+    }
+
+    return await this.prismaService.integration.create({
+      data: {
+        resourceId: spaceId,
+        type,
+        enable,
+        config: JSON.stringify(config),
+      },
+    });
+  }
+
+  async updateIntegration(integrationId: string, updateIntegrationRo: IUpdateIntegrationRo) {
+    const { enable, config } = updateIntegrationRo;
+    const updateData: Record<string, unknown> = {};
+    if (enable != null) {
+      updateData.enable = enable;
+    }
+    if (config) {
+      updateData.config = JSON.stringify(config);
+    }
+    return await this.prismaService.integration.update({
+      where: { id: integrationId },
+      data: updateData,
+    });
+  }
+
+  async deleteIntegration(integrationId: string) {
+    await this.prismaService.integration.delete({
+      where: { id: integrationId },
     });
   }
 }

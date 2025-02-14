@@ -10,6 +10,7 @@ export enum LLMProviderType {
   AZURE = 'azure',
   COHERE = 'cohere',
   MISTRAL = 'mistral',
+  DEEPSEEK = 'deepseek',
 }
 
 export const llmProviderSchema = z.object({
@@ -23,20 +24,26 @@ export const llmProviderSchema = z.object({
 export type LLMProvider = z.infer<typeof llmProviderSchema>;
 
 export const aiConfigSchema = z.object({
-  enable: z.boolean().default(false),
   llmProviders: z.array(llmProviderSchema).default([]),
-  // task preferred model
   embeddingModel: z.string().optional(),
   translationModel: z.string().optional(),
   codingModel: z.string().optional(),
 });
+
+export type IAIConfig = z.infer<typeof aiConfigSchema>;
+
+export const aiConfigVoSchema = aiConfigSchema.merge(
+  z.object({
+    enable: z.boolean().optional(),
+  })
+);
 
 export const updateSettingRoSchema = z.object({
   disallowSignUp: z.boolean().optional(),
   disallowSpaceCreation: z.boolean().optional(),
   disallowSpaceInvitation: z.boolean().optional(),
   enableEmailVerification: z.boolean().optional(),
-  aiConfig: aiConfigSchema.optional(),
+  aiConfig: aiConfigVoSchema.optional(),
 });
 
 export type IUpdateSettingRo = z.infer<typeof updateSettingRoSchema>;

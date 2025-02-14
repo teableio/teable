@@ -48,5 +48,11 @@
     "title": "Shared bases",
     "description": "Bases shared with you will appear here",
     "empty": "No shared bases yet"
+  },
+  "integration": {
+    "title": "Integrations",
+    "description": "Manage integrations of your space",
+    "addIntegration": "Add integration",
+    "ai": "AI"
   }
 }

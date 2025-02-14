@@ -1,4 +1,4 @@
-import { Anthropic, Azure, Cohere, GoogleLogo, Mistral, Openai } from '@teable/icons';
+import { Anthropic, Azure, Cohere, Deepseek, GoogleLogo, Mistral, Openai } from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
 export const LLM_PROVIDER_ICONS = {
@@ -8,6 +8,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.AZURE]: Azure,
   [LLMProviderType.COHERE]: Cohere,
   [LLMProviderType.MISTRAL]: Mistral,
+  [LLMProviderType.DEEPSEEK]: Deepseek,
 };
 
 export const LLM_PROVIDERS = [
@@ -52,5 +53,12 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://api.mistral.ai/v1',
     modelsPlaceholder: 'mistral-large-latest,open-mistral-nemo',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.MISTRAL],
+  },
+  {
+    value: LLMProviderType.DEEPSEEK,
+    label: 'DeepSeek',
+    baseUrlPlaceholder: 'https://api.deepseek.ai/v1',
+    modelsPlaceholder: 'deepseek-chat,deepseek-reasoner,deepseek-coder',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
   },
 ] as const;

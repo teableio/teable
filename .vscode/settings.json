@@ -35,5 +35,13 @@
       "pattern": "./packages/*/"
     }
   ],
-  "vitest.maximumConfigs": 10
+  "vitest.maximumConfigs": 10,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

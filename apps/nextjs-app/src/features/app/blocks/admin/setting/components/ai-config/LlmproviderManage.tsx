@@ -2,7 +2,7 @@ import type { LLMProvider } from '@teable/openapi/src/admin/setting';
 import { Button } from '@teable/ui-lib/shadcn';
 import { SlidersHorizontalIcon, XIcon } from 'lucide-react';
 
-import { NewLLMProviderForm, UpdateLLMProviderForm } from './new-llm-provider-form';
+import { NewLLMProviderForm, UpdateLLMProviderForm } from './LlmProviderForm';
 
 interface ILLMProviderManageProps {
   value: LLMProvider[];

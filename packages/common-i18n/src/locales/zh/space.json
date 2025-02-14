@@ -48,5 +48,11 @@
     "title": "共享数据库",
     "description": "与您共享的数据库将显示在这里",
     "empty": "暂无共享数据库"
+  },
+  "integration": {
+    "title": "集成",
+    "description": "管理空间集成",
+    "addIntegration": "添加集成",
+    "ai": "AI"
   }
 }

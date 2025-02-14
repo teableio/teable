@@ -48,5 +48,11 @@
     "title": "共有ベース",
     "description": "共有されたベースはここに表示されます",
     "empty": "共有ベースはまだありません"
+  },
+  "integration": {
+    "title": "インテグレーション",
+    "description": "空間のインテグレーションを管理",
+    "addIntegration": "インテグレーションを追加",
+    "ai": "AI"
   }
 }

@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { getPublicSetting } from '@teable/openapi';
+import { getAIConfig } from '@teable/openapi';
+import { useBaseId } from '@teable/sdk/hooks';
 
 export function useAI() {
+  const baseId = useBaseId() as string;
   const { data } = useQuery({
-    queryKey: ['public-setting'],
-    queryFn: () => getPublicSetting().then(({ data }) => data),
+    queryKey: ['ai-config', baseId],
+    queryFn: () => getAIConfig(baseId).then(({ data }) => data),
   });
 
   return {
-    enable: data?.aiConfig?.enable ?? false,
+    enable: Boolean(data),
   };
 }

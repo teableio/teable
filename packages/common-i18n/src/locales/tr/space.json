@@ -48,5 +48,11 @@
     "title": "Paylaşılan veritabanları",
     "description": "Sizinle paylaşılan veritabanları burada görünecek",
     "empty": "Henüz paylaşılan veritabanı yok"
+  },
+  "integration": {
+    "title": "Integrasyonlar",
+    "description": "Yerleştirilen integreasyonları burada görünecek",
+    "addIntegration": "Integrasyon ekle",
+    "ai": "AI"
   }
 }

@@ -48,5 +48,11 @@
     "title": "Geteilte Bases",
     "description": "Die mit Ihnen geteilten Bases werden hier erscheinen",
     "empty": "Noch keine geteilten Bases"
+  },
+  "integration": {
+    "title": "Integrationen",
+    "description": "Verwalten Sie die Integrationen Ihres Spaces",
+    "addIntegration": "Integration hinzufügen",
+    "ai": "AI"
   }
 }

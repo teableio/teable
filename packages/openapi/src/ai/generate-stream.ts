@@ -1,4 +1,4 @@
-import { registerRoute } from '../utils';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export enum Task {
@@ -7,12 +7,11 @@ export enum Task {
   Translation = 'translation',
 }
 
-export const AI_GENERATE_STREAM = '/api/ai/generate-stream';
+export const AI_GENERATE_STREAM = '/api/{baseId}/ai/generate-stream';
 
 export const aiGenerateRoSchema = z.object({
   prompt: z.string(),
   task: z.nativeEnum(Task).optional(),
-  baseId: z.string(),
 });
 
 export type IAiGenerateRo = z.infer<typeof aiGenerateRoSchema>;
@@ -28,6 +27,9 @@ export const aiGenerateRoute = registerRoute({
   path: AI_GENERATE_STREAM,
   description: 'Generate ai stream',
   request: {
+    params: z.object({
+      baseId: z.string(),
+    }),
     body: {
       content: {
         'application/json': {
@@ -49,13 +51,22 @@ export const aiGenerateRoute = registerRoute({
   tags: ['ai'],
 });
 
-export const aiGenerateStream = (aiGenerateRo: IAiGenerateRo, signal?: AbortSignal) => {
-  return fetch(AI_GENERATE_STREAM, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(aiGenerateRo),
-    signal,
-  });
+export const aiGenerateStream = (
+  baseId: string,
+  aiGenerateRo: IAiGenerateRo,
+  signal?: AbortSignal
+) => {
+  return fetch(
+    urlBuilder(AI_GENERATE_STREAM, {
+      baseId,
+    }),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(aiGenerateRo),
+      signal,
+    }
+  );
 };

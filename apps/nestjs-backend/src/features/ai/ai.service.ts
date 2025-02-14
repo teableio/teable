@@ -1,19 +1,24 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createCohere } from '@ai-sdk/cohere';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
-import type { IAiGenerateRo, LLMProvider } from '@teable/openapi';
-import { LLMProviderType, Task } from '@teable/openapi';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
+import { IntegrationType, LLMProviderType, Task } from '@teable/openapi';
 import { streamText } from 'ai';
 import { SettingService } from '../setting/setting.service';
 import { TASK_MODEL_MAP } from './constant';
 
 @Injectable()
 export class AiService {
-  constructor(private readonly settingService: SettingService) {}
+  constructor(
+    private readonly settingService: SettingService,
+    private readonly prismaService: PrismaService
+  ) {}
 
   readonly modelProviders = {
     [LLMProviderType.OPENAI]: createOpenAI,
@@ -22,6 +27,7 @@ export class AiService {
     [LLMProviderType.AZURE]: createAzure,
     [LLMProviderType.COHERE]: createCohere,
     [LLMProviderType.MISTRAL]: createMistral,
+    [LLMProviderType.DEEPSEEK]: createDeepSeek,
   } as const;
 
   public parseModelKey(modelKey: string) {
@@ -79,23 +85,57 @@ export class AiService {
     })(model);
   }
 
-  async getAIConfig() {
+  async getAIConfig(baseId: string) {
+    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
+      where: { id: baseId },
+    });
+    const aiIntegration = await this.prismaService.integration.findFirst({
+      where: { resourceId: spaceId, type: IntegrationType.AI, enable: true },
+    });
+
+    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
     const { aiConfig } = await this.settingService.getSetting();
 
-    if (!aiConfig) {
+    if (!aiIntegrationConfig && (!aiConfig || !aiConfig.enable)) {
       throw new Error('AI configuration is not set');
     }
 
-    if (!aiConfig.enable) {
-      throw new Error('AI is not enabled');
+    if (!aiIntegrationConfig) {
+      return aiConfig as IAIConfig;
     }
 
-    return aiConfig;
+    if (!aiConfig?.enable) {
+      return aiIntegrationConfig as IAIConfig;
+    }
+
+    return {
+      llmProviders: [...aiIntegrationConfig.llmProviders, ...aiConfig.llmProviders],
+      codingModel: aiIntegrationConfig.codingModel ?? aiConfig.codingModel,
+      embeddingModel: aiIntegrationConfig.embeddingModel ?? aiConfig.embeddingModel,
+      translationModel: aiIntegrationConfig.translationModel ?? aiConfig.translationModel,
+    };
   }
 
-  async generateStream(aiGenerateRo: IAiGenerateRo) {
+  async getSimplifiedAIConfig(baseId: string) {
+    try {
+      const config = await this.getAIConfig(baseId);
+      return {
+        ...config,
+        llmProviders: config.llmProviders.map((provider) => ({
+          type: provider.type,
+          name: provider.name,
+          models: provider.models,
+        })),
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async generateStream(baseId: string, aiGenerateRo: IAiGenerateRo) {
     const { prompt, task = Task.Coding } = aiGenerateRo;
-    const config = await this.getAIConfig();
+
+    const config = await this.getAIConfig(baseId);
     const currentTaskModel = TASK_MODEL_MAP[task];
     const modelKey = config[currentTaskModel as keyof typeof config] as string;
     const modelInstance = await this.getModelInstance(modelKey, config.llmProviders);

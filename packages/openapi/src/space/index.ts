@@ -15,3 +15,7 @@ export * from './get-base-list';
 export * from './permanent-delete';
 export * from './types';
 export * from './collaborator-add';
+export * from './integration-get-list';
+export * from './integration-create';
+export * from './integration-update';
+export * from './integration-delete';
