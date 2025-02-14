@@ -234,7 +234,7 @@
       "enableValidateFieldUnique": "Activer la validation des valeurs uniques",
       "enableValidateFieldNotNull": "Activer la validation des valeurs non nulles",
       "knowMore": "en savoir plus",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "Filtrer les enregistrements par vue",
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",
@@ -477,7 +477,7 @@
     "noPermission": "Vous n'avez pas la permission d'accéder à la base de données",
     "connectionCountTip": "Le nombre maximum de connexions à la base de données est <b>{{max}}</b> et les connexions actuelles sont <b>{{current}}</b>",
     "createFailed": "Veuillez vérifier que la variable d'environnement PUBLIC_DATABASE_PROXY est correctement configurée",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Ajouter un enregistrement",

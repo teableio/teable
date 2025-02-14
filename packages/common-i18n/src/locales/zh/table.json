@@ -242,7 +242,7 @@
       "enableValidateFieldUnique": "禁止重复值",
       "enableValidateFieldNotNull": "禁止空值",
       "knowMore": "了解更多",
-      "linkFieldKnowMoreLink": "https://help.teable.cn/ji-ben-gong-neng/zi-duan/gao-ji-zi-duan/guan-lian",
+      "linkFieldKnowMoreLink": "https://help.teable.cn/zh/basic/field/advanced/link",
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
@@ -491,7 +491,7 @@
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
-    "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/shu-ju-ku-lian-jie"
+    "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
   },
   "view": {
     "addRecord": "添加记录",

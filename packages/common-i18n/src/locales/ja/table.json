@@ -234,7 +234,7 @@
       "enableValidateFieldUnique": "固有の値の検証を有効にする",
       "enableValidateFieldNotNull": "NULLでない値の検証を有効にする",
       "knowMore": "さらに詳しく",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
@@ -476,7 +476,7 @@
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
     "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "レコードを追加",

@@ -233,7 +233,7 @@
   "help": {
     "title": "帮助",
     "mainLink": "https://help.teable.cn",
-    "apiLink": "https://help.teable.cn/gao-dai-ma-kai-fa/api"
+    "apiLink": "https://help.teable.cn/zh/api-doc"
   },
   "pagePermissionChangeTip": "页面权限已更新，请刷新页面以查看最新内容。",
   "listEmptyTips": "列表为空",

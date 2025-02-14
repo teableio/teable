@@ -234,7 +234,7 @@
       "enableValidateFieldUnique": "Включить проверку на уникальность значения",
       "enableValidateFieldNotNull": "Включить проверку на ненулевое значение",
       "knowMore": "узнать больше",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
@@ -477,7 +477,7 @@
     "noPermission": "У вас нет разрешения на доступ к базе данных",
     "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Добавить запись",

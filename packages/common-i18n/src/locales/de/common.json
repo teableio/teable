@@ -233,7 +233,7 @@
   "help": {
     "title": "Hilfe",
     "mainLink": "https://help.teable.io",
-    "apiLink": "https://help.teable.io/developer/api"
+    "apiLink": "https://help.teable.io/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Die Berechtigungen für die Seite wurden aktualisiert. Bitte aktualisieren Sie die Seite, um den neuesten Inhalt zu sehen.",
   "listEmptyTips": "Die Liste ist leer",

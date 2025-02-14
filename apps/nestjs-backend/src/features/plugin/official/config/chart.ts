@@ -16,12 +16,12 @@ export const chartConfig: IOfficialPluginConfig = {
   Learn more](https://teable.io)
 
   `,
-  helpUrl: 'https://teable.io',
+  helpUrl: 'https://help.teable.io/en/basic/plugin/chart',
   positions: [PluginPosition.Dashboard],
   i18n: {
     zh: {
       name: '图表',
-      helpUrl: 'https://teable.cn',
+      helpUrl: 'https://help.teable.cn/zh/basic/plugin/chart',
       description: '通过柱状图、折线图、饼图可视化您的记录',
       detailDesc:
         '如果您想通过色彩丰富的方式从大局上了解表格，试试图表应用。\n\n图表应用汇总表格记录，并将其转换为交互式的柱状图、折线图、饼图。\n\n[了解更多](https://teable.cn)',

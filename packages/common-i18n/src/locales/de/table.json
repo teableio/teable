@@ -243,7 +243,7 @@
       "enableValidateFieldUnique": "Doppelte Werte verbieten",
       "enableValidateFieldNotNull": "Nicht-leere Werte verbieten",
       "knowMore": "mehr erfahren",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "Datensätze nach Ansicht filtern",
       "filter": "Datensätze filtern",
       "hideFields": "Felder verstecken",
@@ -492,7 +492,7 @@
     "noPermission": "Sie haben keine Berechtigung zum Zugriff auf die Datenbank",
     "connectionCountTip": "Die maximale Anzahl von Datenbankverbindungen beträgt <b>{{max}}</b> und die aktuellen Verbindungen sind <b>{{current}}</b>",
     "createFailed": "Bitte stellen Sie sicher, dass die Umgebungsvariable PUBLIC_DATABASE_PROXY korrekt gesetzt ist",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Datensatz hinzufügen",

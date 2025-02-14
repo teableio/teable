@@ -243,7 +243,7 @@
       "enableValidateFieldUnique": "Заборонити повторювані значення",
       "enableValidateFieldNotNull": "Заборонити непорожні значення",
       "knowMore": "дізнатися більше",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "Фільтрувати записи за переглядом",
       "filter": "Фільтрувати записи",
       "hideFields": "Приховати поля",
@@ -492,7 +492,7 @@
     "noPermission": "У вас немає дозволів на доступ до бази даних",
     "connectionCountTip": "Максимальна кількість підключень до бази даних - <b>{{max}}</b>, поточна кількість підключень - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, переконайтеся, що змінне середовище PUBLIC_DATABASE_PROXY встановлено правильно",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Додати запис",
