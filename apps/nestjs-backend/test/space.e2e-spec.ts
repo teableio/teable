@@ -41,6 +41,12 @@ import {
   DELETE_SPACE_COLLABORATOR,
   PrincipalType,
   PERMANENT_DELETE_SPACE,
+  getIntegrationList,
+  createIntegration,
+  LLMProviderType,
+  IntegrationType,
+  updateIntegration,
+  deleteIntegration,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { Events } from '../src/event-emitter/events';
@@ -48,7 +54,7 @@ import type { SpaceDeleteEvent, SpaceUpdateEvent } from '../src/event-emitter/ev
 import { chartConfig } from '../src/features/plugin/official/config/chart';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp } from './utils/init-app';
+import { createSpace, initApp, permanentDeleteSpace } from './utils/init-app';
 
 describe('OpenAPI SpaceController (e2e)', () => {
   let app: INestApplication;
@@ -469,6 +475,91 @@ describe('OpenAPI SpaceController (e2e)', () => {
         expect(error?.status).toBe(400);
         expect(error?.message).toBe('Cannot delete the only owner of the space');
       });
+    });
+  });
+
+  describe('Space integrations', () => {
+    let spaceId: string;
+
+    const aiIntegrationConfig = {
+      llmProviders: [
+        {
+          type: LLMProviderType.OPENAI,
+          name: 'GPT',
+          apiKey: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+          baseUrl: 'https://api.openai.com/v1',
+          models: 'gpt-4o,gpt-4o-mini,text-embedding-3-small',
+        },
+      ],
+      embeddingModel: 'openai@text-embedding-3-small@GPT',
+      codingModel: 'openai@gpt-4o@GPT',
+    };
+
+    beforeEach(async () => {
+      spaceId = (await createSpace({ name: 'Test Space' })).id;
+    });
+
+    afterEach(async () => {
+      await permanentDeleteSpace(spaceId);
+    });
+
+    it('/api/space/:spaceId/integration (GET)', async () => {
+      const integrations = (await getIntegrationList(spaceId)).data;
+
+      expect(integrations).toBeDefined();
+      expect(integrations.length).toBe(0);
+    });
+
+    it('/api/space/:spaceId/integration (POST)', async () => {
+      await createIntegration(spaceId, {
+        type: IntegrationType.AI,
+        config: aiIntegrationConfig,
+        enable: true,
+      });
+
+      const integrations = (await getIntegrationList(spaceId)).data;
+
+      expect(integrations).toBeDefined();
+      expect(integrations.length).toBe(1);
+    });
+
+    it('/api/space/:spaceId/integration/:integrationId (PATCH)', async () => {
+      await createIntegration(spaceId, {
+        type: IntegrationType.AI,
+        config: aiIntegrationConfig,
+        enable: false,
+      });
+
+      const originIntegrations = (await getIntegrationList(spaceId)).data;
+
+      await updateIntegration(spaceId, originIntegrations[0].id, {
+        enable: true,
+      });
+
+      const integrations = (await getIntegrationList(spaceId)).data;
+      expect(integrations).toBeDefined();
+      expect(integrations.length).toBe(1);
+      expect(integrations[0].enable).toBe(true);
+    });
+
+    it('/api/space/:spaceId/integration/:integrationId (DELETE)', async () => {
+      await createIntegration(spaceId, {
+        type: IntegrationType.AI,
+        config: aiIntegrationConfig,
+        enable: false,
+      });
+
+      const originIntegrations = (await getIntegrationList(spaceId)).data;
+
+      expect(originIntegrations).toBeDefined();
+      expect(originIntegrations.length).toBe(1);
+
+      await deleteIntegration(spaceId, originIntegrations[0].id);
+
+      const integrations = (await getIntegrationList(spaceId)).data;
+
+      expect(integrations).toBeDefined();
+      expect(integrations.length).toBe(0);
     });
   });
 });
