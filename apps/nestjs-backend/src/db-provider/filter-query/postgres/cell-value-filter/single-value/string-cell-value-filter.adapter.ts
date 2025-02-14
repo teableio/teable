@@ -1,4 +1,4 @@
-import type { IFilterOperator, ILiteralValue } from '@teable/core';
+import { CellValueType, type IFilterOperator, type ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -8,7 +8,9 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.isOperatorHandler(builderClient, operator, value);
+    const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
+    builderClient.whereRaw('LOWER(??) = LOWER(?)', [this.tableColumnRef, parseValue]);
+    return builderClient;
   }
 
   isNotOperatorHandler(
@@ -16,7 +18,13 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.isNotOperatorHandler(builderClient, operator, value);
+    const { cellValueType } = this.field;
+    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
+    builderClient.whereRaw(`LOWER(??) IS DISTINCT FROM LOWER(?)`, [
+      this.tableColumnRef,
+      parseValue,
+    ]);
+    return builderClient;
   }
 
   containsOperatorHandler(
@@ -33,6 +41,10 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.doesNotContainOperatorHandler(builderClient, operator, value);
+    builderClient.whereRaw(`LOWER(COALESCE(??, '')) NOT LIKE LOWER(?)`, [
+      this.tableColumnRef,
+      `%${value}%`,
+    ]);
+    return builderClient;
   }
 }
