@@ -1,6 +1,12 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { IRole } from '@teable/core';
-import { Role, canManageRole, generateSpaceId, getUniqName } from '@teable/core';
+import {
+  Role,
+  canManageRole,
+  generateIntegrationId,
+  generateSpaceId,
+  getUniqName,
+} from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -306,6 +312,7 @@ export class SpaceService {
       if (!aiIntegration) {
         return await this.prismaService.integration.create({
           data: {
+            id: generateIntegrationId(),
             resourceId: spaceId,
             type,
             enable,
@@ -332,6 +339,7 @@ export class SpaceService {
 
     return await this.prismaService.integration.create({
       data: {
+        id: generateIntegrationId(),
         resourceId: spaceId,
         type,
         enable,
