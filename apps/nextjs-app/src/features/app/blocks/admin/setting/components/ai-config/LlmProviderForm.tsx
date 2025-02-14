@@ -122,104 +122,102 @@ export const LLMProviderForm = ({ onAdd, value, onChange }: LLMProviderFormProps
 
   return (
     <Form {...form}>
-      <form className="space-y-4">
-        <FormField
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <div>
-                <FormLabel>{t('admin.setting.ai.name')}</FormLabel>
-                <FormDescription>{t('admin.setting.ai.nameDescription')}</FormDescription>
-              </div>
-              <FormControl>
-                <Input {...field} autoComplete="off" placeholder="openai/claude/gemini..." />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('admin.setting.ai.providerType')}</FormLabel>
-              <FormControl>
-                <Select
-                  {...field}
-                  onValueChange={(value) => {
-                    form.setValue('type', value as unknown as LLMProvider['type']);
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder={t('admin.setting.ai.providerType')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LLM_PROVIDERS.map(({ value, label, Icon }) => (
-                      <SelectItem key={value} value={value}>
-                        <div className="flex flex-row items-center text-[13px]">
-                          <Icon className="size-5 shrink-0 pr-1" />
-                          {label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {!!currentProvider && (
-          <>
-            <FormField
-              name="baseUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <div>
-                    <FormLabel>{t('admin.setting.ai.baseUrl')}</FormLabel>
-                    <FormDescription>{t('admin.setting.ai.baseUrlDescription')}</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input {...field} placeholder={currentProvider.baseUrlPlaceholder} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              name="apiKey"
-              render={({ field }) => (
-                <FormItem>
-                  <div>
-                    <FormLabel>{t('admin.setting.ai.apiKey')}</FormLabel>
-                    <FormDescription>{t('admin.setting.ai.apiKeyDescription')}</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input {...field} type="password" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              name="models"
-              render={({ field }) => (
-                <FormItem>
-                  <div>
-                    <FormLabel>{t('admin.setting.ai.models')}</FormLabel>
-                    <FormDescription>{t('admin.setting.ai.modelsDescription')}</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Input {...field} placeholder={currentProvider.modelsPlaceholder} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button onClick={handleSubmit}>{mode}</Button>
-          </>
+      <FormField
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <div>
+              <FormLabel>{t('admin.setting.ai.name')}</FormLabel>
+              <FormDescription>{t('admin.setting.ai.nameDescription')}</FormDescription>
+            </div>
+            <FormControl>
+              <Input {...field} autoComplete="off" placeholder="openai/claude/gemini..." />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
         )}
-      </form>
+      />
+      <FormField
+        name="type"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('admin.setting.ai.providerType')}</FormLabel>
+            <FormControl>
+              <Select
+                {...field}
+                onValueChange={(value) => {
+                  form.setValue('type', value as unknown as LLMProvider['type']);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={t('admin.setting.ai.providerType')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {LLM_PROVIDERS.map(({ value, label, Icon }) => (
+                    <SelectItem key={value} value={value}>
+                      <div className="flex flex-row items-center text-[13px]">
+                        <Icon className="size-5 shrink-0 pr-1" />
+                        {label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      {!!currentProvider && (
+        <>
+          <FormField
+            name="baseUrl"
+            render={({ field }) => (
+              <FormItem>
+                <div>
+                  <FormLabel>{t('admin.setting.ai.baseUrl')}</FormLabel>
+                  <FormDescription>{t('admin.setting.ai.baseUrlDescription')}</FormDescription>
+                </div>
+                <FormControl>
+                  <Input {...field} placeholder={currentProvider.baseUrlPlaceholder} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="apiKey"
+            render={({ field }) => (
+              <FormItem>
+                <div>
+                  <FormLabel>{t('admin.setting.ai.apiKey')}</FormLabel>
+                  <FormDescription>{t('admin.setting.ai.apiKeyDescription')}</FormDescription>
+                </div>
+                <FormControl>
+                  <Input {...field} type="password" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            name="models"
+            render={({ field }) => (
+              <FormItem>
+                <div>
+                  <FormLabel>{t('admin.setting.ai.models')}</FormLabel>
+                  <FormDescription>{t('admin.setting.ai.modelsDescription')}</FormDescription>
+                </div>
+                <FormControl>
+                  <Input {...field} placeholder={currentProvider.modelsPlaceholder} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button onClick={handleSubmit}>{mode}</Button>
+        </>
+      )}
     </Form>
   );
 };
