@@ -45,9 +45,9 @@
     "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?"
   },
   "integration": {
-    "title": "Інтеграції",
-    "description": "Керування інтеграціями вашого простору",
-    "addIntegration": "Додати інтеграцію",
-    "ai": "ШІ"
+    "title": "Intégrations",
+    "description": "Gérer les intégrations de votre espace",
+    "addIntegration": "Ajouter une intégration",
+    "ai": "IA"
   }
 }
