@@ -1,0 +1,15 @@
+{
+  "empty": {
+    "title": "Nessuna Dashboard Ancora",
+    "description": "Sembra che tu non abbia ancora creato nessuna dashboard. Le dashboard ti aiutano a visualizzare e gestire i tuoi dati in modo più efficace.",
+    "create": "Crea la Tua Prima Dashboard"
+  },
+  "addPlugin": "Aggiungi un Plugin",
+  "createDashboard": {
+    "button": "Crea Dashboard",
+    "title": "Crea Nuova Dashboard",
+    "placeholder": "Inserisci il nome della dashboard"
+  },
+  "findDashboard": "Trova una dashboard...",
+  "expand": "Espandi"
+}

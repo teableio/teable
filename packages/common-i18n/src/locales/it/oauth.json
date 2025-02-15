@@ -1,0 +1,63 @@
+{
+  "add": "Nuove App OAuth",
+  "title": {
+    "add": "Nuove App OAuth",
+    "edit": "Modifica App OAuth"
+  },
+  "form": {
+    "name": {
+      "label": "Nome App OAuth",
+      "description": "Il nome della tua App OAuth."
+    },
+    "description": {
+      "label": "Descrizione",
+      "description": "Una breve descrizione della tua App OAuth."
+    },
+    "homePageUrl": {
+      "label": "URL della Homepage",
+      "description": "L'URL completo del sito web della tua App OAuth."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Si consiglia un'immagine quadrata.",
+      "placeholder": "Trascina e rilascia il tuo logo qui o clicca per caricare",
+      "button": "Carica un logo",
+      "clear": "Cancella",
+      "lengthError": "È consentito solo un file.",
+      "typeError": "È consentito solo il file immagine."
+    },
+    "callbackUrl": {
+      "label": "URL di Callback",
+      "description": "L'URL completo a cui reindirizzare dopo che un utente ha autorizzato la tua integrazione.",
+      "add": "Aggiungi URL di Callback"
+    },
+    "scopes": {
+      "label": "Ambiti",
+      "description": "Le autorizzazioni di cui ha bisogno la tua App OAuth."
+    },
+    "secret": {
+      "label": "Client secrets",
+      "add": "Genera un nuovo client secret",
+      "newDescription": "Assicurati di copiare il tuo nuovo client secret ora. Non potrai più vederlo.",
+      "empty": "Hai bisogno di un client secret per autenticarti come applicazione all'API.",
+      "lastUsed": "Ultimo utilizzo il {{date}}",
+      "tag": "Client secret",
+      "neverUsed": "Mai usato"
+    },
+    "clientId": {
+      "label": "Client ID: "
+    }
+  },
+  "formType": {
+    "basic": "Informazioni di base",
+    "scopes": "Ambiti",
+    "identify": "Identificazione e autorizzazione degli utenti",
+    "clientInfo": "Informazioni sul client"
+  },
+  "decision": {
+    "title": "{{name}} sta richiedendo l'accesso al tuo account",
+    "scopes": "Questa applicazione sarà in grado di ottenere i seguenti ambiti:",
+    "redirectDescription": "L'autorizzazione reindirizzerà a",
+    "authorize": "Autorizza"
+  }
+}
