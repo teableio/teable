@@ -407,7 +407,8 @@ export class RecordOpenApiService {
   async getRecordHistory(
     tableId: string,
     recordId: string | undefined,
-    query: IGetRecordHistoryQuery
+    query: IGetRecordHistoryQuery,
+    excludeFieldIds?: string[]
   ): Promise<IRecordHistoryVo> {
     const { cursor, startDate, endDate } = query;
     const limit = 20;
@@ -425,6 +426,7 @@ export class RecordOpenApiService {
         tableId,
         ...(recordId ? { recordId } : {}),
         ...(Object.keys(dateFilter).length > 0 ? { createdTime: dateFilter } : {}),
+        ...(excludeFieldIds?.length ? { fieldId: { notIn: excludeFieldIds } } : {}),
       },
       select: {
         id: true,
