@@ -34,3 +34,4 @@ export * from './comment';
 export * from './organization';
 export * from './ai';
 export * from './integrity';
+export * from './webhook';

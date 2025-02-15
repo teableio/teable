@@ -25,6 +25,8 @@ export const thresholdConfig = registerAs('threshold', () => ({
   maxOpenapiAttachmentUploadSize: Number(
     process.env.MAX_OPENAPI_ATTACHMENT_UPLOAD_SIZE ?? Infinity
   ),
+  // Maximum limit for creating webhooks, If the environment variable is not set, it defaults to 10.
+  maxCreateWebhookLimit: Number(process.env.MAX_CREATE_WEBHOOK_LIMIT ?? 10),
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);

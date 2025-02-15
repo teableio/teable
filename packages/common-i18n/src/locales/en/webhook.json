@@ -1,0 +1,87 @@
+{
+  "availableWebhooks": "Available webhooks",
+  "form": {
+    "addWebhook": "Add webhook",
+    "notificationUrl": "Notification Url",
+    "contentType": "Content Type",
+    "secret": "Secret",
+    "active": "Active",
+    "activeDesc": "We will deliver event details when this hook is triggered.",
+    "webhookDesc": "We'll send a POST request to the URL below with details of any subscribed events. You can also specify which data format you'd like to receive (JSON, x-www-form-urlencoded, etc). More information can be found in our developer documentation."
+  },
+  "moreDesc": "and {{len}} more",
+  "deleteConfirm": {
+    "title": "Delete webhook?",
+    "description": "This action cannot be undone. Future events will no longer be delivered to this webhook ({{notificationUrl}})."
+  },
+  "base": {
+    "create": {
+      "title": "Create Database",
+      "description": "Initialize a new database instance for storing tables and data."
+    },
+    "delete": {
+      "title": "Delete Database",
+      "description": "Permanently removes an existing database and all the data and tables it contains."
+    },
+    "update": {
+      "title": "Update Database",
+      "description": "Update database configurations or properties, such as changing names or security settings."
+    }
+  },
+  "table": {
+    "create": {
+      "title": "Create Table",
+      "description": "A new table is added to the database to store structured data records."
+    },
+    "delete": {
+      "title": "Delete Table",
+      "description": "Permanently removes a table and all its data from the database."
+    },
+    "update": {
+      "title": "Update Table",
+      "description": "Modify the structure or attributes of a table, such as adding, deleting, or modifying columns."
+    },
+    "field": {
+      "create": {
+        "title": "Create Field",
+        "description": "Add new fields to the table to store data items."
+      },
+      "delete": {
+        "title": "Delete Field",
+        "description": "Removes the specified field from the table and deletes the associated data."
+      },
+      "update": {
+        "title": "Update Field",
+        "description": "Change the definition of an existing field, such as field name, type, etc."
+      }
+    },
+    "record": {
+      "create": {
+        "title": "Create Record",
+        "description": "Adds a new data record to the table, populating each field value."
+      },
+      "delete": {
+        "title": "Delete Record",
+        "description": "Removes the specified data record from the table."
+      },
+      "update": {
+        "title": "Update Record",
+        "description": "Updates one or more field values of an existing record in a table."
+      }
+    },
+    "view": {
+      "create": {
+        "title": "Create View",
+        "description": "Define a new view that provides a specific representation of the data for data query or presentation."
+      },
+      "delete": {
+        "title": "Delete View",
+        "description": "Remove an existing view definition without affecting the underlying data table."
+      },
+      "update": {
+        "title": "Update View",
+        "description": "Update the definition of the view, including the data or presentation formats involved."
+      }
+    }
+  }
+}

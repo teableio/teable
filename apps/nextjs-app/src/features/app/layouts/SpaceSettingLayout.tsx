@@ -1,5 +1,5 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { Component, Home, Users } from '@teable/icons';
+import { Component, Home, Users, Webhook } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, ReactQueryKeys, SessionProvider } from '@teable/sdk';
@@ -53,6 +53,12 @@ export const SpaceSettingLayout: React.FC<{
         label: t('space:spaceSetting.collaborators'),
         route: `/space/[spaceId]/setting/collaborator`,
         pathTo: `/space/${spaceId}/setting/collaborator`,
+      },
+      {
+        Icon: Webhook,
+        label: t('space:spaceSetting.webhooks'),
+        route: `/space/[spaceId]/setting/webhook`,
+        pathTo: `/space/${spaceId}/setting/webhook`,
       },
     ];
   }, [spaceId, t]);

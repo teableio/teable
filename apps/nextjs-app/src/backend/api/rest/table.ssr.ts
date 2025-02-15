@@ -20,8 +20,10 @@ import type {
   IGroupPointsVo,
   ListSpaceCollaboratorRo,
   IPublicSettingVo,
+  IWebhookListVo,
 } from '@teable/openapi';
 import {
+  GET_WEBHOOK_LIST,
   ACCEPT_INVITATION_LINK,
   GET_BASE,
   GET_BASE_ALL,
@@ -191,6 +193,12 @@ export class SsrApi {
           groupBy: JSON.stringify(query?.groupBy),
         },
       })
+      .then(({ data }) => data);
+  }
+
+  async getWebhookList(spaceId: string) {
+    return this.axios
+      .get<IWebhookListVo>(urlBuilder(GET_WEBHOOK_LIST, { spaceId }))
       .then(({ data }) => data);
   }
 }

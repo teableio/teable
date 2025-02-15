@@ -51,6 +51,9 @@ export enum IdPrefix {
 
   Organization = 'org',
   OrganizationDepartment = 'odp',
+
+  WebHook = 'whk',
+  WebHookRunHistory = 'wrh',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -201,4 +204,12 @@ export function generateOrganizationId() {
 
 export function generateOrganizationDepartmentId() {
   return IdPrefix.OrganizationDepartment + getRandomString(16);
+}
+
+export function generateWebHookId() {
+  return IdPrefix.WebHook + getRandomString(16);
+}
+
+export function generateWebHookRunHistoryId() {
+  return IdPrefix.WebHookRunHistory + getRandomString(16);
 }

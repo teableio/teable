@@ -11,6 +11,7 @@ import type space from './locales/en/space.json';
 import type system from './locales/en/system.json';
 import type table from './locales/en/table.json';
 import type token from './locales/en/token.json';
+import type webhook from './locales/en/webhook.json';
 import type zod from './locales/en/zod.json';
 
 export interface I18nNamespaces {
@@ -28,4 +29,5 @@ export interface I18nNamespaces {
   developer: typeof developer;
   plugin: typeof plugin;
   dashboard: typeof dashboard;
+  webhook: typeof webhook;
 }

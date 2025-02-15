@@ -34,6 +34,7 @@ import { SpaceModule } from './features/space/space.module';
 import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
+import { WebhookModule } from './features/webhook/webhook.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
@@ -70,6 +71,7 @@ export const appModules = {
     PluginModule,
     DashboardModule,
     CommentOpenApiModule,
+    WebhookModule,
     OrganizationModule,
     AiModule,
   ],

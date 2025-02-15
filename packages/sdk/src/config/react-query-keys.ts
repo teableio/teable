@@ -144,4 +144,6 @@ export const ReactQueryKeys = {
   getDepartmentUsers: (ro?: IGetDepartmentUserRo) => ['department-users', ro] as const,
 
   getOrganizationMe: () => ['organization-me'] as const,
+
+  webhookList: (spaceId: string) => ['webhook-list', spaceId] as const,
 };

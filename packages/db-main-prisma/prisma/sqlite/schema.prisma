@@ -515,3 +515,37 @@ model CommentSubscription {
   @@index([tableId, recordId])
   @@map("comment_subscription")
 }
+
+model Webhook {
+  id               String    @id @default(cuid())
+  url              String    @map("url")
+  spaceId          String    @map("space_id")
+  baseIds          String?   @map("base_ids")
+  method           String    @map("method")
+  contentType      String    @map("content_type")
+  secret           String?   @map("secret")
+  events           String?   @map("events")
+  isEnabled        Boolean   @default(false) @map("is_enabled")
+  createdBy        String    @map("create_by")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@map("webhooks")
+}
+
+model WebhookRunHistory {
+  id           String    @id @default(cuid())
+  webhookId    String    @map("webhook_id")
+  event        String    @map("event")
+  status       String    @map("status")
+  request      String    @map("request")
+  response     String    @map("response")
+  isError      Boolean   @default(false) @map("is_error")
+  errorMsg     String?   @map("error_msg")
+  createdBy    String    @map("create_by")
+  createdTime  DateTime  @default(now()) @map("created_time")
+  finishedTime DateTime? @map("finished_time")
+
+  @@map("webhook_run_histories")
+}
