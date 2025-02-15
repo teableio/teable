@@ -288,7 +288,7 @@ export const x_20 = {
     },
     {
       fields: {
-        [textField.name]: 'Text Field 20',
+        [textField.name]: '',
         [numberField.name]: 20,
         [checkboxField.name]: true,
         [dateField.name]: new DateUtil('Asia/Singapore', true).date().toISOString(),

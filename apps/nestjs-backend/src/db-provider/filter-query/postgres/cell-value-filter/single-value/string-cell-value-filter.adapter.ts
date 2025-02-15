@@ -1,4 +1,4 @@
-import type { IFilterOperator, ILiteralValue } from '@teable/core';
+import type { IFilterOperator, IFilterValue, ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -34,5 +34,27 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     value: ILiteralValue
   ): Knex.QueryBuilder {
     return super.doesNotContainOperatorHandler(builderClient, operator, value);
+  }
+
+  isEmptyOperatorHandler(
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
+  ): Knex.QueryBuilder {
+    builderClient.where((builder) => {
+      builder.whereNull(this.tableColumnRef).orWhere(this.tableColumnRef, '');
+    });
+    return builderClient;
+  }
+
+  isNotEmptyOperatorHandler(
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
+  ): Knex.QueryBuilder {
+    builderClient.where((builder) => {
+      builder.whereNotNull(this.tableColumnRef).andWhereNot(this.tableColumnRef, '');
+    });
+    return builderClient;
   }
 }
