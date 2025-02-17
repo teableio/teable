@@ -173,7 +173,7 @@ export class PluginService {
   async updatePlugin(id: string, updatePluginRo: IUpdatePluginRo): Promise<IUpdatePluginVo> {
     const userId = this.cls.get('user.id');
     const isAdmin = this.cls.get('user.isAdmin');
-    const { name, description, detailDesc, helpUrl, logo, i18n, positions, url } = updatePluginRo;
+    const { name, description, detailDesc, helpUrl, i18n, positions, url } = updatePluginRo;
     const res = await this.prismaService.$tx(async (prisma) => {
       const res = await prisma.plugin
         .update({
@@ -201,7 +201,6 @@ export class PluginService {
             positions: JSON.stringify(positions),
             helpUrl,
             url,
-            logo,
             i18n: JSON.stringify(i18n),
             lastModifiedBy: userId,
           },

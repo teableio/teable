@@ -52,5 +52,10 @@
   "markdown": {
     "write": "Write",
     "preview": "Preview"
+  },
+  "status": {
+    "reviewing": "Reviewing",
+    "published": "Published",
+    "developing": "Developing"
   }
 }

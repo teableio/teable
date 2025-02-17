@@ -1,16 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Settings, Trash2 } from '@teable/icons';
+import type { PluginStatus } from '@teable/openapi';
 import { deletePlugin, getPlugins } from '@teable/openapi';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
+import { StatusBadge } from './component/StatusBadge';
+import { StatusDot } from './component/StatusDot';
+import { useStatusStatic } from './hooks/useStatusStatic';
 
 export const PluginList = () => {
   const router = useRouter();
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
   const queryClient = useQueryClient();
+  const statusStatic = useStatusStatic();
 
   const { data: pluginList } = useQuery({
     queryKey: ['plugin-list'],
@@ -26,7 +31,12 @@ export const PluginList = () => {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <div className="flex gap-1">
+          {Object.keys(statusStatic).map((status) => (
+            <StatusBadge key={status} status={status as PluginStatus} />
+          ))}
+        </div>
         <Button
           size={'xs'}
           onClick={() => {
@@ -53,7 +63,10 @@ export const PluginList = () => {
                 />
               </div>
               <div className="h-full flex-1 overflow-hidden">
-                <div className="line-clamp-2 break-words text-sm">{plugin.name}</div>
+                <div className="flex h-6 items-center gap-1 pr-11">
+                  <StatusDot className="shrink-0" status={plugin.status} />
+                  <div className="line-clamp-1 break-words text-sm">{plugin.name}</div>
+                </div>
                 <div
                   className="line-clamp-3 break-words text-xs text-muted-foreground"
                   title={plugin.description}
@@ -61,7 +74,7 @@ export const PluginList = () => {
                   {plugin.description}
                 </div>
               </div>
-              <div className="absolute right-2 top-2 space-x-1.5">
+              <div className="absolute right-2 top-3 space-x-1.5">
                 <Button
                   className="h-5 p-0.5"
                   variant={'ghost'}
