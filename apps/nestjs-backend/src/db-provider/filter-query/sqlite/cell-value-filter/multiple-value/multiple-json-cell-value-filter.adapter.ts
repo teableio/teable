@@ -10,7 +10,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterSqlite {
     value: ILiteralValueList
   ): Knex.QueryBuilder {
     const jsonColumn = this.getJsonQueryColumn(this.field, operator);
-    const isOfSql = `exists (select 1 from json_each(??) where ?? = ?)`;
+    const isOfSql = `exists (select 1 from json_each(??) where lower(??) = lower(?))`;
     builderClient.whereRaw(isOfSql, [this.tableColumnRef, jsonColumn, value]);
     return builderClient;
   }
@@ -21,7 +21,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterSqlite {
     value: ILiteralValueList
   ): Knex.QueryBuilder {
     const jsonColumn = this.getJsonQueryColumn(this.field, operator);
-    const isNotOfSql = `not exists (select 1 from json_each(??) where ?? = ?)`;
+    const isNotOfSql = `not exists (select 1 from json_each(??) where lower(??) = lower(?))`;
     builderClient.whereRaw(isNotOfSql, [this.tableColumnRef, jsonColumn, value]);
     return builderClient;
   }

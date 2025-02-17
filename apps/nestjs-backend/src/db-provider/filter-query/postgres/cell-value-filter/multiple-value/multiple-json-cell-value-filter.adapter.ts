@@ -17,7 +17,13 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
 
       builderClient.whereRaw(`??::jsonb @> ?::jsonb`, [this.tableColumnRef, parseValue]);
     } else {
-      builderClient.whereRaw(`??::jsonb \\? ?`, [this.tableColumnRef, value]);
+      builderClient.whereRaw(
+        `EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(??::jsonb) as elem 
+        WHERE elem ~* ?
+      )`,
+        [this.tableColumnRef, `^${value}$`]
+      );
     }
     return builderClient;
   }
@@ -37,7 +43,13 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
         parseValue,
       ]);
     } else {
-      builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb \\? ?`, [this.tableColumnRef, value]);
+      builderClient.whereRaw(
+        `NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(COALESCE(??, '[]')::jsonb) as elem 
+          WHERE elem ~* ?
+        )`,
+        [this.tableColumnRef, `^${value}$`]
+      );
     }
     return builderClient;
   }

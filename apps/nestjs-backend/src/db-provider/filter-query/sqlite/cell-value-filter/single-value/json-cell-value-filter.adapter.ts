@@ -9,7 +9,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterSqlite {
     value: ILiteralValue
   ): Knex.QueryBuilder {
     const jsonColumn = this.getJsonQueryColumn(this.field, operator);
-    const sql = `${jsonColumn} = ?`;
+    const sql = `lower(${jsonColumn}) = lower(?)`;
     builderClient.whereRaw(sql, [value]);
     return builderClient;
   }
@@ -20,7 +20,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterSqlite {
     value: ILiteralValue
   ): Knex.QueryBuilder {
     const jsonColumn = this.getJsonQueryColumn(this.field, operator);
-    const sql = `ifnull(${jsonColumn}, '') != ?`;
+    const sql = `lower(ifnull(${jsonColumn}, '')) != lower(?)`;
     builderClient.whereRaw(sql, [value]);
     return builderClient;
   }

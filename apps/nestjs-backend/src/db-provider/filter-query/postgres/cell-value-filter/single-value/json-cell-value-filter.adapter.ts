@@ -15,7 +15,9 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     if (isUserOrLink(type)) {
       builderClient.whereRaw(`??::jsonb @\\? '$.id \\? (@ == "${value}")'`, [this.tableColumnRef]);
     } else {
-      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.tableColumnRef]);
+      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ =~ "${value}" flag "i")'`, [
+        this.tableColumnRef,
+      ]);
     }
     return builderClient;
   }
@@ -32,9 +34,10 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
         this.tableColumnRef,
       ]);
     } else {
-      builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
-        this.tableColumnRef,
-      ]);
+      builderClient.whereRaw(
+        `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ =~ "${value}" flag "i")'`,
+        [this.tableColumnRef]
+      );
     }
     return builderClient;
   }

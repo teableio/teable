@@ -131,7 +131,7 @@
       "isNoneOf": "不属于",
       "hasAnyOf": "包含任意一个",
       "hasAllOf": "包含所有",
-      "hasNoneOf": "不包含",
+      "hasNoneOf": "不包含任何",
       "isExactly": "等于",
       "isWithIn": "在...之内",
       "isBefore": "早于",
