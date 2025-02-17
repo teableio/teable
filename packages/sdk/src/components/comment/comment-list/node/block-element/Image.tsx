@@ -1,5 +1,4 @@
-import { cn } from '@teable/ui-lib';
-import { FilePreviewItem, FilePreviewProvider } from '@teable/ui-lib/src/base/file/preview/';
+import { cn, FilePreviewItem, FilePreviewProvider } from '@teable/ui-lib';
 import type { IBaseNodeProps } from '../type';
 
 interface IBlockImageElementProps extends IBaseNodeProps {

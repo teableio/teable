@@ -16,8 +16,7 @@ import {
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { UploadType, type INotifyVo } from '@teable/openapi';
-import { FilePreviewProvider, Progress, cn } from '@teable/ui-lib';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { FilePreviewProvider, Progress, cn, sonner } from '@teable/ui-lib';
 import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
@@ -30,6 +29,8 @@ import AttachmentItem from './AttachmentItem';
 import { FileInput } from './FileInput';
 import type { IFile } from './uploadManage';
 import { AttachmentManager } from './uploadManage';
+
+const { toast } = sonner;
 
 export interface IUploadAttachment {
   className?: string;

@@ -1,6 +1,6 @@
 import type { IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { sonner } from '@teable/ui-lib';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
@@ -12,6 +12,7 @@ import { syncCopy } from '../../utils';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
+const { toast } = sonner;
 const Wrap: FC<PropsWithChildren<{ tableId: string }>> = (props) => {
   const { tableId, children } = props;
   const currentTableId = useTableId();
