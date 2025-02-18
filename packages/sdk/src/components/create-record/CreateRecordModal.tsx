@@ -6,7 +6,7 @@ import { isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useBaseId, useFields, useTableId, useView, useViewId } from '../../hooks';
+import { useBaseId, useFields, useSession, useTableId, useView, useViewId } from '../../hooks';
 import type { IFieldInstance, Record } from '../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../model';
 import { extractDefaultFieldsFromFilters } from '../../utils/filterWithDefaultValue';
@@ -28,8 +28,10 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const [version, updateVersion] = useCounter(0);
   const { t } = useTranslation();
   const allFields = useFields({ withHidden: true, withDenied: true });
+  const { user } = useSession();
   const [record, setRecord] = useState<Record | undefined>(undefined);
   const filter = view?.filter;
+  const userId = user.id;
 
   const { mutate: createRecord, isLoading } = useMutation({
     mutationFn: (fields: { [fieldId: string]: unknown }) =>
@@ -106,6 +108,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
       const fieldValue = await extractDefaultFieldsFromFilters({
         filter,
         fieldMap: keyBy(allFields, 'id'),
+        currentUserId: userId,
         baseId,
         tableId,
         isAsync: true,

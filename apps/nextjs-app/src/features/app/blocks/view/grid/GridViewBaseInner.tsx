@@ -64,6 +64,7 @@ import {
   useIsTouchDevice,
   usePersonalView,
   useRowCount,
+  useSession,
   useSSRRecord,
   useSSRRecords,
   useTableId,
@@ -110,6 +111,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const baseId = useBaseId();
   const tableId = useTableId() as string;
   const activeViewId = useViewId();
+  const { user } = useSession();
   const view = useView(activeViewId) as GridView | undefined;
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
@@ -507,7 +509,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     } else {
       // insert empty records
       const emptyRecords = Array.from({ length: num }).fill({
-        fields: extractDefaultFieldsFromFilters({ filter, fieldMap }),
+        fields: extractDefaultFieldsFromFilters({ filter, fieldMap, currentUserId: user.id }),
       }) as ICreateRecordsRo['records'];
       mutateCreateRecord(emptyRecords);
     }

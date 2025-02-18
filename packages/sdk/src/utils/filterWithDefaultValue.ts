@@ -7,7 +7,7 @@ import type {
   IRecord,
   IUserCellValue,
 } from '@teable/core';
-import { assertNever, FieldType, is, isExactly, or } from '@teable/core';
+import { assertNever, FieldType, is, isExactly, isMeTag, or } from '@teable/core';
 import { getBaseCollaboratorList, getRecords, PrincipalType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 
@@ -26,11 +26,13 @@ export const validateFilterOperators = (filter: IFilter | IFilterItem | undefine
 export const generateValueByFilteredField = ({
   value,
   field,
+  currentUserId,
   userMap,
   linkMap,
 }: {
   value: unknown;
   field: IFieldVo;
+  currentUserId: string;
   userMap: Record<string, IUserCellValue>;
   linkMap: Record<string, ILinkCellValue>;
 }): unknown => {
@@ -51,9 +53,14 @@ export const generateValueByFilteredField = ({
       return value;
     }
     case FieldType.User: {
-      return isMultipleCellValue
-        ? (value as string[])?.map((v) => userMap[v] ?? { title: '', id: v })
-        : userMap[value as string] ?? { title: '', id: value };
+      if (isMultipleCellValue) {
+        return (value as string[])?.map((v) => {
+          const id = isMeTag(v) ? currentUserId : v;
+          return userMap[id] ?? { title: '', id };
+        });
+      }
+      const id = isMeTag(value as string) ? currentUserId : (value as string);
+      return userMap[id] ?? { title: '', id };
     }
     case FieldType.Link: {
       return isMultipleCellValue
@@ -68,12 +75,14 @@ export const generateValueByFilteredField = ({
 export const extractDefaultFieldsFromFilters = async ({
   filter,
   fieldMap,
+  currentUserId,
   baseId,
   tableId,
   isAsync = false,
 }: {
   filter: IFilter | undefined;
   fieldMap: Record<string, IFieldVo>;
+  currentUserId: string;
   baseId?: string;
   tableId?: string;
   isAsync?: boolean;
@@ -121,6 +130,7 @@ export const extractDefaultFieldsFromFilters = async ({
         result[field.id] = generateValueByFilteredField({
           value,
           field,
+          currentUserId,
           userMap: collectedUserMap,
           linkMap: collectedLinkMap,
         });
