@@ -68,6 +68,7 @@ export class FieldFormatter {
 export class IndexBuilderPostgres extends IndexBuilderAbstract {
   static PG_MAX_INDEX_LEN = 63;
   static DELIMITER_LEN = 3;
+
   private getIndexPrefix() {
     return `idx_trgm`;
   }
@@ -80,17 +81,18 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       id.length -
       this.getIndexPrefix().length -
       IndexBuilderPostgres.DELIMITER_LEN;
+    const tableDbNameLen = maxTableDbNameLen < table.length ? maxTableDbNameLen : table.length;
     // 3 is space character
     const dbFieldNameLen =
-      maxTableDbNameLen > table.length
+      maxTableDbNameLen < table.length
         ? 0
         : IndexBuilderPostgres.PG_MAX_INDEX_LEN -
           id.length -
           this.getIndexPrefix().length -
-          maxTableDbNameLen -
+          tableDbNameLen -
           IndexBuilderPostgres.DELIMITER_LEN;
     const abbDbFieldName = dbFieldName.slice(0, dbFieldNameLen);
-    return `${prefix}_${table.slice(0, maxTableDbNameLen)}_${abbDbFieldName}_${id}`;
+    return `${prefix}_${table.slice(0, tableDbNameLen)}_${abbDbFieldName}_${id}`;
   }
 
   private getSearchFactor(tableName: string) {
@@ -214,7 +216,7 @@ AND indexname like '${searchFactor}%'`;
       .filter(({ cellValueType }) => !unSupportCellValueType.includes(cellValueType))
       .map((f) => {
         return {
-          indexName: this.getIndexName(dbTableName, f),
+          indexName: this.getIndexName(table, f),
           indexDef: this.createSingleIndexSql(dbTableName, f) as string,
         };
       });
