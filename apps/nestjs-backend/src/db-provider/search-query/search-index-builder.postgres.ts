@@ -95,9 +95,8 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     return `${prefix}_${table.slice(0, tableDbNameLen)}_${abbDbFieldName}_${id}`;
   }
 
-  private getSearchFactor(tableName: string) {
-    const prefix = this.getIndexPrefix();
-    return `${prefix}_${tableName}`.slice(0, IndexBuilderPostgres.PG_MAX_INDEX_LEN);
+  private getSearchFactor() {
+    return this.getIndexPrefix();
   }
 
   createSingleIndexSql(dbTableName: string, field: IFieldInstance): string | null {
@@ -113,7 +112,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
 
   getDropIndexSql(dbTableName: string): string {
     const [schema, table] = dbTableName.split('.');
-    const searchFactor = this.getSearchFactor(table);
+    const searchFactor = this.getSearchFactor();
     return `
       DO $$ 
       DECLARE 
@@ -147,7 +146,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
 
   getExistTableIndexSql(dbTableName: string): string {
     const [schema, table] = dbTableName.split('.');
-    const searchFactor = this.getSearchFactor(table);
+    const searchFactor = this.getSearchFactor();
     return `
       SELECT EXISTS (
         SELECT 1
@@ -182,7 +181,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
 
   getIndexInfoSql(dbTableName: string): string {
     const [, table] = dbTableName.split('.');
-    const searchFactor = this.getSearchFactor(table);
+    const searchFactor = this.getSearchFactor();
     return `
     SELECT * FROM pg_indexes 
 WHERE tablename = '${table}'
