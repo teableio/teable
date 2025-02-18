@@ -2,13 +2,14 @@ import { useMutation } from '@tanstack/react-query';
 import { FieldKeyType } from '@teable/core';
 import { createRecords } from '@teable/openapi';
 import { Dialog, DialogTrigger, DialogContent, Spin, Button } from '@teable/ui-lib';
-import { isEqual } from 'lodash';
+import { isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useFields, useTableId, useViewId } from '../../hooks';
+import { useBaseId, useFields, useTableId, useView, useViewId } from '../../hooks';
 import type { IFieldInstance, Record } from '../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../model';
+import { extractDefaultFieldsFromFilters } from '../../utils/filterWithDefaultValue';
 import { RecordEditor } from '../expand-record/RecordEditor';
 
 interface ICreateRecordModalProps {
@@ -19,13 +20,16 @@ interface ICreateRecordModalProps {
 export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const { children, callback } = props;
   const tableId = useTableId();
+  const baseId = useBaseId();
   const viewId = useViewId();
+  const view = useView();
   const showFields = useFields();
   const [open, setOpen] = useState(false);
   const [version, updateVersion] = useCounter(0);
   const { t } = useTranslation();
   const allFields = useFields({ withHidden: true, withDenied: true });
   const [record, setRecord] = useState<Record | undefined>(undefined);
+  const filter = view?.filter;
 
   const { mutate: createRecord, isLoading } = useMutation({
     mutationFn: (fields: { [fieldId: string]: unknown }) =>
@@ -40,11 +44,11 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   });
 
   const newRecord = useCallback(
-    (version: number = 0) => {
+    (version: number = 0, initData: { [fieldId: string]: unknown } = {}) => {
       setRecord((preRecord) => {
         const record = createRecordInstance({
           id: '',
-          fields: version > 0 && preRecord?.fields ? preRecord.fields : {},
+          fields: version > 0 && preRecord?.fields ? preRecord.fields : initData,
         });
         record.updateCell = (fieldId: string, newValue: unknown) => {
           record.fields[fieldId] = newValue;
@@ -94,6 +98,23 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
         : record
     );
   }, [allFields, record]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updateDefaultValue = async () => {
+      const fieldValue = await extractDefaultFieldsFromFilters({
+        filter,
+        fieldMap: keyBy(allFields, 'id'),
+        baseId,
+        tableId,
+        isAsync: true,
+      });
+      newRecord(0, fieldValue);
+    };
+    updateDefaultValue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
 

@@ -1,15 +1,21 @@
 import type { IUpdateOrderRo } from '@teable/openapi';
-import { isEqual } from 'lodash';
-import { useCallback, useMemo, useState } from 'react';
-import { useFieldCellEditable, useFields } from '../../../hooks';
+import { isEqual, keyBy } from 'lodash';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useBaseId, useFieldCellEditable, useFields, useTableId, useView } from '../../../hooks';
 import { createRecordInstance } from '../../../model';
+import { extractDefaultFieldsFromFilters } from '../../../utils';
 import { CellType } from '../../grid/interface';
 import type { ICell, ICellItem, IGridColumn, IInnerCell } from '../../grid/interface';
 import { useCreateCellValue2GridDisplay } from './use-grid-columns';
 
 export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) => {
+  const view = useView();
+  const baseId = useBaseId();
+  const tableId = useTableId();
   const fields = useFields();
+  const allFields = useFields({ withHidden: true });
   const fieldEditable = useFieldCellEditable();
+  const filter = view?.filter;
 
   const [prefillingRowOrder, setPrefillingRowOrder] = useState<IUpdateOrderRo>();
   const [prefillingRowIndex, setPrefillingRowIndex] = useState<number>();
@@ -54,6 +60,29 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
     },
     [columns, createCellValue2GridDisplay, fieldEditable, fields, localRecord]
   );
+
+  useEffect(() => {
+    if (prefillingRowIndex == null) return;
+
+    const updateDefaultValue = async () => {
+      const fieldValue = await extractDefaultFieldsFromFilters({
+        filter,
+        fieldMap: keyBy(allFields, 'id'),
+        baseId,
+        tableId,
+        isAsync: true,
+      });
+      setPrefillingFieldValueMap((prev) => {
+        if (prev == null) return;
+        return {
+          ...prev,
+          ...fieldValue,
+        };
+      });
+    };
+    updateDefaultValue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillingRowIndex]);
 
   const onPrefillingCellEdited = useCallback(
     (cell: ICellItem, newVal: IInnerCell) => {
