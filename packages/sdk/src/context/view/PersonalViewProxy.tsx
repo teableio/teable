@@ -1,4 +1,5 @@
 import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup, IColumnMeta } from '@teable/core';
+import { defaults } from 'lodash';
 import { useCallback, useMemo } from 'react';
 import { generateLocalId, useGridCollapsedGroupStore } from '../../components';
 import { useTableId, useViews } from '../../hooks';
@@ -47,7 +48,8 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
       newViewProxy.sort = cachedView?.sort as ISort;
       newViewProxy.group = cachedView?.group as IGroup;
       newViewProxy.options = cachedView?.options as Record<string, unknown>;
-      newViewProxy.columnMeta = cachedView?.columnMeta as IColumnMeta;
+      const columnMeta = cachedView?.columnMeta ? { ...cachedView.columnMeta } : {};
+      newViewProxy.columnMeta = defaults(columnMeta, viewData.columnMeta) as IColumnMeta;
       newViewProxy.updateFilter = (filter: IFilter) => {
         setPersonalViewMap(viewId, (prev) => ({
           ...prev,
