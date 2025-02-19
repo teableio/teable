@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, SHARE_JWT_STRATEGY) 
   }
 
   public static fromAuthCookieAsToken(req: Request): string | null {
-    const shareId = req.params.shareId;
+    const shareId = req.params.shareId || (req.headers['tea-share-id'] as string);
     const cookieObj = cookie.parse(req.headers.cookie ?? '');
     return cookieObj?.[shareId] ?? null;
   }
