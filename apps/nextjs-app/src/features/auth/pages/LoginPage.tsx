@@ -44,7 +44,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
         <div className="relative flex flex-1 shrink-0 flex-col items-center justify-center">
           <div className="absolute right-0 top-0 flex h-[4em] items-center justify-end bg-background px-5 lg:h-20">
             <Tabs value={signType}>
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList>
                 <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
                   <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
                 </Link>

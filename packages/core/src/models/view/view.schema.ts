@@ -61,6 +61,7 @@ export type IViewVo = z.infer<typeof viewVoSchema>;
 export const viewRoSchema = viewVoSchema
   .omit({
     id: true,
+    pluginId: true,
     createdBy: true,
     lastModifiedBy: true,
     createdTime: true,
