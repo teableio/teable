@@ -59,9 +59,11 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   return (
     <div className="relative w-full px-8 py-5">
       <div className="mb-2 flex w-full items-center justify-between">
-        <div className="flex items-center overflow-hidden">
-          <Icon className="shrink-0" />
-          <h3 className="mx-1 truncate">{name}</h3>
+        <div className="flex overflow-hidden">
+          <div className="flex h-6 shrink-0 items-center">
+            <Icon className="shrink-0" />
+          </div>
+          <h3 className="mx-1">{name}</h3>
         </div>
         <div className="flex items-center">
           {!isComputed && (

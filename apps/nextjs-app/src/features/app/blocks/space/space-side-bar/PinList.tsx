@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DraggableHandle, Star } from '@teable/icons';
 import type { GetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { getPinList, getSpaceList, updatePinOrder } from '@teable/openapi';
-import { ReactQueryKeys } from '@teable/sdk/config';
+import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
 import type { DragEndEvent } from '@teable/ui-lib/base';
 import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from '../useBaseList';
 import { PinItem } from './PinItem';
@@ -20,6 +21,9 @@ import { StarButton } from './StarButton';
 
 export const PinList = () => {
   const [pinList, setPinList] = useState<GetPinListVo>([]);
+  const [pinListExpanded, setPinListExpanded] = useLocalStorage<boolean>(
+    LocalStorageKeys.PinListExpanded
+  );
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
@@ -101,17 +105,21 @@ export const PinList = () => {
     <Accordion
       type="single"
       collapsible
-      className="max-h-[50%] w-full shrink-0 overflow-y-auto px-3"
+      className="w-full shrink-0"
+      value={pinListExpanded ? 'pin-list' : ''}
+      onValueChange={(value) => {
+        setPinListExpanded(value === 'pin-list');
+      }}
     >
-      <AccordionItem className="border-0" value="item-1">
-        <AccordionTrigger className="hover:no-underline">
-          <div className=" flex items-center gap-1">
+      <AccordionItem className="border-0" value="pin-list">
+        <AccordionTrigger className="px-3 hover:no-underline">
+          <div className="flex items-center gap-1">
             <Star className="size-3 fill-yellow-400 text-yellow-400" />
             {t('space:pin.pin')}
           </div>
         </AccordionTrigger>
         <AccordionContent>
-          <div className="flex flex-col">
+          <div className="flex max-h-[30vh] flex-col overflow-y-auto px-3">
             {pinList.length === 0 && (
               <div className="text-center text-xs text-muted-foreground">
                 {t('space:pin.empty')}

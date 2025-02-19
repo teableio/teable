@@ -29,9 +29,11 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
 
   return (
     <div className="relative w-full py-5" id={`form-field-${fieldId}`}>
-      <div className="mb-2 flex w-full items-center overflow-hidden">
-        <Icon className="shrink-0" />
-        <h3 className="ml-1 truncate">{name}</h3>
+      <div className="mb-2 flex w-full overflow-hidden">
+        <div className="flex h-6 shrink-0 items-center">
+          <Icon className="shrink-0" />
+        </div>
+        <h3 className="ml-1">{name}</h3>
       </div>
 
       {description && <div className="mb-2 text-xs text-slate-400">{description}</div>}

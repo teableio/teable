@@ -23,6 +23,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  ScrollArea,
+  ScrollBar,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -285,9 +287,12 @@ export const TableHeader: React.FC = () => {
       >
         <TableInfo className="shrink-0 grow-0" />
         <ExpandViewList />
-        <div className="flex h-full items-center gap-2 overflow-x-auto">
-          <ViewList />
-        </div>
+        <ScrollArea className="h-full">
+          <div className="flex h-[42px] items-center gap-2">
+            <ViewList />
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
         <AddView />
         <div className="grow basis-0"></div>
         <RightList className="hidden gap-2 @md/view-header:flex" />

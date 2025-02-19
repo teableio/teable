@@ -19,4 +19,5 @@ export enum LocalStorageKeys {
   LockedViewTipVisible = 'ls_locked_view_tip_visible',
   RecentPlugins = 'ls_recent_plugins',
   FloatPluginPosition = 'ls_float_plugins_position',
+  PinListExpanded = 'ls_pin_list_expanded',
 }
