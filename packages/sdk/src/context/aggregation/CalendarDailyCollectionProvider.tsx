@@ -85,17 +85,18 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
     : commonCalendarDailyCollection;
 
   const updateCalendarDailyCollection = useCallback(
-    (cleanAll?: boolean) =>
+    () =>
       queryClient.invalidateQueries({
-        queryKey: queryKey.slice(0, cleanAll ? 2 : 3),
+        queryKey: queryKey.slice(0, 3),
       }),
     [queryClient, queryKey]
   );
 
-  const updateCalendarDailyCollectionForTable = useCallback(
-    () => updateCalendarDailyCollection(true),
-    [updateCalendarDailyCollection]
-  );
+  const updateCalendarDailyCollectionForTable = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: queryKey.slice(0, 2),
+    });
+  }, [queryClient, queryKey]);
 
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord'],

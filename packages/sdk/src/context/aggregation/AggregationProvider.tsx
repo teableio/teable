@@ -42,16 +42,19 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
   });
 
   const updateAggregations = useCallback(
-    (cleanAll?: boolean) =>
+    () =>
       queryClient.invalidateQueries(
-        ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, cleanAll ? 2 : 3)
+        ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, 3)
       ),
     [aggQuery, queryClient, tableId]
   );
 
   const updateAggregationsForTable = useCallback(
-    () => updateAggregations(true),
-    [updateAggregations]
+    () =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, 2)
+      ),
+    [aggQuery, queryClient, tableId]
   );
 
   const tableMatches = useMemo<ITableActionKey[]>(

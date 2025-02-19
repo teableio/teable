@@ -1,6 +1,6 @@
 import type { IFieldVo, ISort, ITableActionKey, IViewVo, StatisticsFunc } from '@teable/core';
 import type { IGetRecordsRo, IAggregationRo } from '@teable/openapi';
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { useFields, useTableId, useTableListener, useView } from '../../hooks';
 import { validatePersonalViewProps } from '../../utils/personalView';
 import { ShareViewContext } from '../table';
@@ -67,27 +67,36 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
   }, [cachedView, shareId, visibleFieldIds]);
 
   const updatePersonalView = useCallback(
-    (payload?: { field: IFieldVo }) => {
+    (actionKey: string, payload?: Record<string, unknown>) => {
       if (!payload) return;
-      const { id } = payload.field as IFieldVo;
-      const newFields = fields.map((field) =>
-        field.id === id ? { ...field, ...payload.field } : field
-      );
+      let newFields: IFieldVo[] = fields;
+
+      if (actionKey === 'setField') {
+        const payloadField = payload.field as IFieldVo;
+        newFields = fields.map((field) =>
+          field.id === payloadField.id ? { ...field, ...payloadField } : field
+        );
+      }
+
+      if (actionKey === 'addField') {
+        const payloadField = payload.field as IFieldVo;
+        newFields = [...fields, payloadField];
+      }
+
+      if (actionKey === 'deleteField') {
+        const payloadFieldId = payload.fieldId as string;
+        newFields = fields.filter((field) => field.id !== payloadFieldId);
+      }
       setPersonalViewMap(viewId, (prev) => validatePersonalViewProps(prev as IViewVo, newFields));
     },
-    [fields, setPersonalViewMap, viewId]
+    [fields, viewId, setPersonalViewMap]
   );
 
   const tableMatches = useMemo<ITableActionKey[]>(
-    () => (isPersonalView ? ['setField'] : []),
+    () => (isPersonalView ? ['setField', 'addField', 'deleteField'] : []),
     [isPersonalView]
   );
   useTableListener(tableId, tableMatches, updatePersonalView);
-
-  useEffect(() => {
-    if (!isPersonalView) return;
-    setPersonalViewMap(viewId, (prev) => validatePersonalViewProps(prev as IViewVo, fields));
-  }, [fields, isPersonalView, setPersonalViewMap, viewId]);
 
   return (
     <PersonalViewContext.Provider

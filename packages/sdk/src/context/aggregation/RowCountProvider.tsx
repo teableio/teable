@@ -74,17 +74,19 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   const resRowCount = shareId ? shareRowCount : commonRowCount;
 
   const updateRowCount = useCallback(
-    (cleanAll?: boolean) =>
+    () =>
       queryClient.invalidateQueries({
-        queryKey: rowCountQueryKey.slice(0, cleanAll ? 2 : 3),
+        queryKey: rowCountQueryKey.slice(0, 3),
       }),
     [queryClient, rowCountQueryKey]
   );
 
   const updateRowCountForTable = useCallback(() => {
     console.log('updateRowCountForTable');
-    updateRowCount(true);
-  }, [updateRowCount]);
+    queryClient.invalidateQueries({
+      queryKey: rowCountQueryKey.slice(0, 2),
+    });
+  }, [queryClient, rowCountQueryKey]);
 
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord'],

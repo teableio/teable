@@ -53,14 +53,20 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
   });
 
   const updateGroupPoints = useCallback(
-    (cleanAll?: boolean) =>
+    () =>
       queryClient.invalidateQueries(
-        ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, cleanAll ? 2 : 3)
+        ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 3)
       ),
     [groupPointQuery, queryClient, tableId]
   );
 
-  const updateGroupPointsForTable = useCallback(() => updateGroupPoints(true), [updateGroupPoints]);
+  const updateGroupPointsForTable = useCallback(
+    () =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 2)
+      ),
+    [groupPointQuery, queryClient, tableId]
+  );
 
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],

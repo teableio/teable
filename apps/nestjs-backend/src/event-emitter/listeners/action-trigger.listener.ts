@@ -12,12 +12,18 @@ import type {
   ViewUpdateEvent,
   FieldUpdateEvent,
   FieldCreateEvent,
+  FieldDeleteEvent,
 } from '../events';
 import { Events } from '../events';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
-type IListenerEvent = IViewEvent | IRecordEvent | FieldUpdateEvent | FieldCreateEvent;
+type IListenerEvent =
+  | IViewEvent
+  | IRecordEvent
+  | FieldUpdateEvent
+  | FieldCreateEvent
+  | FieldDeleteEvent;
 
 export interface IActionTriggerData {
   actionKey: ITableActionKey | IViewActionKey;
@@ -33,6 +39,7 @@ export class ActionTriggerListener {
   @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
   @OnEvent(Events.TABLE_FIELD_UPDATE, { async: true })
   @OnEvent(Events.TABLE_FIELD_CREATE, { async: true })
+  @OnEvent(Events.TABLE_FIELD_DELETE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
     // Handling table view update events
@@ -48,6 +55,11 @@ export class ActionTriggerListener {
     // Handling table field create events
     if (this.isTableFieldCreateEvent(listenerEvent)) {
       await this.handleTableFieldCreate(listenerEvent as FieldCreateEvent);
+    }
+
+    // Handling table field delete events
+    if (this.isTableFieldDeleteEvent(listenerEvent)) {
+      await this.handleTableFieldDelete(listenerEvent as FieldDeleteEvent);
     }
 
     // Handling table record events (create, delete, update)
@@ -104,7 +116,12 @@ export class ActionTriggerListener {
 
   private async handleTableFieldCreate(event: FieldCreateEvent): Promise<void> {
     const { tableId } = event.payload;
-    return this.emitActionTrigger(tableId, [{ actionKey: 'addField' }]);
+    return this.emitActionTrigger(tableId, [{ actionKey: 'addField', payload: event.payload }]);
+  }
+
+  private async handleTableFieldDelete(event: FieldDeleteEvent): Promise<void> {
+    const { tableId } = event.payload;
+    return this.emitActionTrigger(tableId, [{ actionKey: 'deleteField', payload: event.payload }]);
   }
 
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
@@ -135,6 +152,10 @@ export class ActionTriggerListener {
 
   private isTableFieldCreateEvent(event: IListenerEvent): boolean {
     return Events.TABLE_FIELD_CREATE === event.name;
+  }
+
+  private isTableFieldDeleteEvent(event: IListenerEvent): boolean {
+    return Events.TABLE_FIELD_DELETE === event.name;
   }
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {

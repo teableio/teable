@@ -5,7 +5,7 @@ export const useViewListener = (
   viewId: string | undefined,
   matches: IViewActionKey[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  cb: (payload?: any) => void
+  cb: (actionKey: string, payload?: any) => void
 ) => {
   return useActionListener(viewId, matches, cb);
 };

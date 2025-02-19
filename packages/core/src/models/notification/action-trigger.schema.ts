@@ -6,6 +6,7 @@ export const tableActionKeys = z.enum([
   'deleteRecord',
   'addField',
   'setField',
+  'deleteField',
 ]);
 
 export const viewActionKeys = z.enum([

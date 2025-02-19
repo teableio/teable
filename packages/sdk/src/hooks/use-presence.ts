@@ -40,7 +40,7 @@ export const useActionListener = <T extends IActionData>(
   tableIdOrViewId: string | undefined,
   matches: T['actionKey'][],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  callback: (payload?: any) => void
+  callback: (actionKey: T['actionKey'], payload?: any) => void
 ) => {
   const presence = usePresence(tableIdOrViewId && getActionTriggerChannel(tableIdOrViewId));
   const relevantProps = useMemo(() => new Set(matches), [matches]);
@@ -51,7 +51,7 @@ export const useActionListener = <T extends IActionData>(
     const cb = (_id: string, res: T[]) => {
       const result = res.find(({ actionKey }) => relevantProps.has(actionKey));
       if (result) {
-        callback(result.payload);
+        callback(result.actionKey, result.payload);
       }
     };
 

@@ -1,6 +1,6 @@
 import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup, IColumnMeta } from '@teable/core';
 import { defaults } from 'lodash';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { generateLocalId, useGridCollapsedGroupStore } from '../../components';
 import { useTableId, useViews } from '../../hooks';
 import type { IViewInstance } from '../../model/view/factory';
@@ -30,12 +30,22 @@ const getViewData = (view?: IViewInstance, initData?: IViewVo[]) => {
   return (view?.['doc']?.data || initData?.find((v) => v.id === view?.id))!;
 };
 
+const mergeColumnMeta = (localColumnMeta: IColumnMeta, remoteColumnMeta: IColumnMeta) => {
+  const filteredLocalMeta = Object.keys(localColumnMeta).reduce((acc, key) => {
+    if (key in remoteColumnMeta) {
+      acc[key] = localColumnMeta[key];
+    }
+    return acc;
+  }, {} as IColumnMeta);
+  return defaults({}, filteredLocalMeta, remoteColumnMeta);
+};
+
 export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
   const { serverData, children } = props;
   const views = useViews();
   const tableId = useTableId();
   const { setCollapsedGroupMap } = useGridCollapsedGroupStore();
-  const { personalViewMap, setPersonalViewMap } = usePersonalViewStore();
+  const { personalViewMap, isPersonalView, setPersonalViewMap } = usePersonalViewStore();
 
   const generateProxyView = useCallback(
     (view: IViewInstance, serverData?: IViewVo[]) => {
@@ -48,8 +58,11 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
       newViewProxy.sort = cachedView?.sort as ISort;
       newViewProxy.group = cachedView?.group as IGroup;
       newViewProxy.options = cachedView?.options as Record<string, unknown>;
-      const columnMeta = cachedView?.columnMeta ? { ...cachedView.columnMeta } : {};
-      newViewProxy.columnMeta = defaults(columnMeta, viewData.columnMeta) as IColumnMeta;
+      const columnMeta = mergeColumnMeta(
+        (cachedView?.columnMeta ?? {}) as IColumnMeta,
+        viewData.columnMeta
+      );
+      newViewProxy.columnMeta = columnMeta as IColumnMeta;
       newViewProxy.updateFilter = (filter: IFilter) => {
         setPersonalViewMap(viewId, (prev) => ({
           ...prev,
@@ -125,6 +138,7 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
           await view?.updateColumnMeta(columnMetaRo);
         }
       };
+
       return newViewProxy;
     },
     [tableId, personalViewMap, setPersonalViewMap, setCollapsedGroupMap]
@@ -134,10 +148,27 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
     if (!tableId || !views?.length) return views ?? [];
 
     return views.map((view) => {
-      if (!personalViewMap[view.id]) return view;
+      if (!isPersonalView(view.id)) return view;
       return generateProxyView(view, serverData);
     });
-  }, [views, tableId, personalViewMap, serverData, generateProxyView]);
+  }, [views, tableId, serverData, isPersonalView, generateProxyView]);
+
+  useEffect(() => {
+    views.forEach((view) => {
+      if (!isPersonalView(view.id)) return view;
+      // When adding or deleting fields, update columnMeta
+      setPersonalViewMap(view.id, (prev) => {
+        const columnMeta = mergeColumnMeta(
+          (prev?.columnMeta ?? {}) as IColumnMeta,
+          view.columnMeta as IColumnMeta
+        );
+        return {
+          ...prev,
+          columnMeta,
+        };
+      });
+    });
+  }, [isPersonalView, setPersonalViewMap, views]);
 
   return (
     <ViewContext.Provider value={{ views: proxyViews as IViewInstance[] }}>
