@@ -173,6 +173,13 @@ export class LinkIntegrityService {
         }
       }
 
+      if (!options.isOneWay && !options.symmetricFieldId) {
+        issues.push({
+          type: IntegrityIssueType.SymmetricFieldNotFound,
+          message: `Symmetric is missing for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
+        });
+      }
+
       if (foreignTable) {
         const linkField = createFieldInstanceByRaw(field) as LinkFieldDto;
         const invalidReferences = await this.foreignKeyIntegrityService.getIssues(
@@ -214,6 +221,11 @@ export class LinkIntegrityService {
             result && fixResults.push(result);
             break;
           }
+          case IntegrityIssueType.SymmetricFieldNotFound: {
+            const result = await this.fixOneWayLinkField(issues.tableId, issues.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
           default:
             break;
         }
@@ -221,5 +233,45 @@ export class LinkIntegrityService {
     }
 
     return fixResults;
+  }
+
+  async fixOneWayLinkField(
+    _tableId: string,
+    fieldId: string
+  ): Promise<IIntegrityIssue | undefined> {
+    const field = await this.prismaService.field.findFirstOrThrow({
+      where: { id: fieldId, deletedTime: null },
+    });
+
+    const options = JSON.parse(field.options as string) as ILinkFieldOptions;
+
+    if (!options.isOneWay && !options.symmetricFieldId) {
+      await this.prismaService.field.update({
+        where: { id: fieldId },
+        data: {
+          options: JSON.stringify({
+            ...options,
+            isOneWay: true,
+          }),
+        },
+      });
+    }
+
+    if (options.isOneWay && options.symmetricFieldId) {
+      await this.prismaService.field.update({
+        where: { id: fieldId },
+        data: {
+          options: JSON.stringify({
+            ...options,
+            isOneWay: undefined,
+          }),
+        },
+      });
+    }
+
+    return {
+      type: IntegrityIssueType.SymmetricFieldNotFound,
+      message: `fixed one way link field (Field Name: ${field.name}, Field ID: ${field.id})`,
+    };
   }
 }

@@ -19,7 +19,7 @@ export class LinkFieldIntegrityService {
   async getIssues(tableId: string, field: LinkFieldDto): Promise<IIntegrityIssue[]> {
     const table = await this.prismaService.tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
-      select: { dbTableName: true },
+      select: { name: true, dbTableName: true },
     });
     const { fkHostTableName, foreignKeyName, selfKeyName } = field.options;
     const inconsistentRecords = await this.checkLinks({
@@ -35,7 +35,7 @@ export class LinkFieldIntegrityService {
       return [
         {
           type: IntegrityIssueType.InvalidLinkReference,
-          message: `Found ${inconsistentRecords.length} inconsistent links in table ${fkHostTableName} (Field Name: ${field.name}, Field ID: ${field.id})`,
+          message: `Found ${inconsistentRecords.length} inconsistent links in fkHostTableName ${fkHostTableName} (TableName: ${table.name}, Field Name: ${field.name}, Field ID: ${field.id})`,
         },
       ];
     }

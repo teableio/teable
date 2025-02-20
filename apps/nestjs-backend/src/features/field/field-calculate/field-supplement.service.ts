@@ -235,11 +235,21 @@ export class FieldSupplementService {
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
 
-    const symmetricFieldId = isOneWay
-      ? undefined
-      : oldOptions.foreignTableId === newOptionsRo.foreignTableId
-        ? oldOptions.symmetricFieldId
-        : generateFieldId();
+    const symmetricFieldId = (() => {
+      if (isOneWay) {
+        return undefined;
+      }
+
+      if (oldOptions.isOneWay) {
+        return generateFieldId();
+      }
+
+      if (oldOptions.foreignTableId === newOptionsRo.foreignTableId) {
+        return oldOptions.symmetricFieldId;
+      }
+
+      return generateFieldId();
+    })();
 
     const lookupFieldId =
       oldOptions.foreignTableId === foreignTableId

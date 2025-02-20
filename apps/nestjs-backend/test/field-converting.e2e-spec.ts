@@ -1903,6 +1903,58 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
     });
 
+    it('should convert one-way one-many to two-way many-one link with link', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        [{ id: table2.records[0].id }, { id: table2.records[1].id }],
+        [{ id: table2.records[2].id }],
+      ]);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          symmetricFieldId: expect.any(String),
+        },
+      });
+
+      const symmetricFieldId = (newField.options as ILinkFieldOptions).symmetricFieldId!;
+
+      const { records: t1records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const { records: t2records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+      expect(t1records[0].fields[newField.id]).toEqual({ title: 'x', id: t2records[0].id });
+      expect(t1records[1].fields[newField.id]).toEqual({ title: 'zzz', id: t2records[2].id });
+
+      expect(t2records[0].fields[symmetricFieldId]).toEqual([{ id: t1records[0].id }]);
+      expect(t2records[2].fields[symmetricFieldId]).toEqual([{ id: t1records[1].id }]);
+    });
+
     it('should convert one-way link to two-way link', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
