@@ -785,7 +785,7 @@ export class ViewOpenApiService {
   async pluginInstall(tableId: string, ro: IViewInstallPluginRo) {
     const userId = this.cls.get('user.id');
     const { name, pluginId } = ro;
-    const plugin = await this.prismaService.plugin.findUnique({
+    const plugin = await this.prismaService.txClient().plugin.findUnique({
       where: { id: pluginId, status: PluginStatus.Published },
       select: { id: true, name: true, logo: true, positions: true },
     });

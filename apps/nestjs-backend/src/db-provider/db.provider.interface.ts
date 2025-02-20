@@ -7,6 +7,7 @@ import type { DateFieldDto } from '../features/field/model/field-dto/date-field.
 import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
+import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
@@ -158,6 +159,8 @@ export interface IDbProvider {
   ): Knex.QueryBuilder;
 
   searchIndex(): IndexBuilderAbstract;
+
+  duplicateTableQuery(queryBuilder: Knex.QueryBuilder): DuplicateTableQueryAbstract;
 
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,

@@ -359,7 +359,9 @@
       "cancel": "Cancel",
       "leave": "Leave",
       "downAsCsv": "Download CSV",
-      "importData": "Import Data"
+      "importData": "Import Data",
+      "duplicate": "Duplicate table",
+      "includeRecords": "Include records"
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",

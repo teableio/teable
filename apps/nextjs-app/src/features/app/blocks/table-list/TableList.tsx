@@ -80,7 +80,7 @@ export const TableList: React.FC = () => {
           fileType={fileType}
           open={dialogVisible}
           onOpenChange={(open) => setDialogVisible(open)}
-        ></TableImport>
+        />
       )}
 
       <div className="overflow-y-auto px-3">

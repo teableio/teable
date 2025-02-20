@@ -139,7 +139,9 @@ export class FieldCalculationService {
   @Timing()
   async getRowCount(dbTableName: string) {
     const query = this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
-    const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+    const [{ count }] = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ count: bigint }[]>(query);
     return Number(count);
   }
 

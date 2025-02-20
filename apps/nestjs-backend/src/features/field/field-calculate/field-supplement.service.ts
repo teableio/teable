@@ -102,7 +102,7 @@ export class FieldSupplementService {
   }
 
   private async getDefaultLinkName(foreignTableId: string) {
-    const tableRaw = await this.prismaService.tableMeta.findUnique({
+    const tableRaw = await this.prismaService.txClient().tableMeta.findUnique({
       where: { id: foreignTableId },
       select: { name: true },
     });
@@ -195,7 +195,7 @@ export class FieldSupplementService {
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
 
-    const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
+    const { id: lookupFieldId } = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
       select: { id: true },
     });
@@ -374,7 +374,7 @@ export class FieldSupplementService {
     }
 
     const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
-    const linkFieldRaw = await this.prismaService.field.findFirst({
+    const linkFieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
       select: { name: true, options: true, isMultipleCellValue: true },
     });
@@ -392,7 +392,7 @@ export class FieldSupplementService {
       throw new BadRequestException(`foreignTableId ${foreignTableId} is invalid`);
     }
 
-    const lookupFieldRaw = await this.prismaService.field.findFirst({
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { id: lookupFieldId, deletedTime: null },
     });
 
@@ -555,7 +555,7 @@ export class FieldSupplementService {
       throw new BadRequestException('expression parse error');
     }
 
-    const fieldRaws = await this.prismaService.field.findMany({
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds }, deletedTime: null },
     });
 

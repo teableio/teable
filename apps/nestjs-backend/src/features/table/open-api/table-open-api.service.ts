@@ -30,6 +30,7 @@ import type {
   ICreateRecordsRo,
   ICreateTableRo,
   ICreateTableWithDefault,
+  IDuplicateTableRo,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
@@ -51,6 +52,7 @@ import { FieldOpenApiService } from '../../field/open-api/field-open-api.service
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { TableDuplicateService } from '../table-dupicate.service';
 import { TableService } from '../table.service';
 
 @Injectable()
@@ -67,6 +69,7 @@ export class TableOpenApiService {
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly permissionService: PermissionService,
+    private readonly tableDuplicateService: TableDuplicateService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -176,6 +179,10 @@ export class TableOpenApiService {
       ...schema,
       records,
     };
+  }
+
+  async duplicateTable(baseId: string, tableId: string, tableRo: IDuplicateTableRo) {
+    return await this.tableDuplicateService.duplicateTable(baseId, tableId, tableRo);
   }
 
   async createTableMeta(baseId: string, tableRo: ICreateTableRo) {

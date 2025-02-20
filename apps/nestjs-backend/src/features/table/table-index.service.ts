@@ -31,7 +31,7 @@ export class TableIndexService {
     tableId: string,
     type: TableIndex = TableIndex.search
   ): Promise<TableIndex[]> {
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
       },
@@ -142,7 +142,7 @@ export class TableIndexService {
     const index = await this.getActivatedTableIndexes(tableId);
     const sql = this.dbProvider.searchIndex().createSingleIndexSql(dbTableName, fieldInstance);
     if (index.includes(TableIndex.search) && sql) {
-      await this.prismaService.$executeRawUnsafe(sql);
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
   }
 
