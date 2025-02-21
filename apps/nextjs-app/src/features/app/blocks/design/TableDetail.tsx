@@ -145,7 +145,7 @@ export const TableDetail = () => {
           onSave={handleUpdateTableName}
         />
         <EditableField
-          label={t('table:table.schemaName')}
+          label={t('table:table.dbTableName')}
           value={dbTableName}
           editable={canUpdate}
           onSave={handleUpdateDbTableName}

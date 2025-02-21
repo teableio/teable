@@ -36,7 +36,7 @@ export class FieldCreatingService {
   async alterCreateField(tableId: string, field: IFieldInstance, columnMeta?: IColumnMeta) {
     const newFields: { tableId: string; field: IFieldInstance }[] = [];
     if (field.type === FieldType.Link && !field.isLookup) {
-      await this.fieldSupplementService.createForeignKey(field.options);
+      await this.fieldSupplementService.createForeignKey(tableId, field);
       await this.createFieldItem(tableId, field, columnMeta);
       newFields.push({ tableId, field });
 

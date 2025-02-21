@@ -55,7 +55,7 @@ export class SqliteProvider implements IDbProvider {
   }
 
   dropTable(tableName: string): string {
-    return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
+    return this.knex.raw('DROP TABLE IF EXISTS ?? CASCADE', [tableName]).toQuery();
   }
 
   async checkColumnExist(

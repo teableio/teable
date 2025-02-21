@@ -118,59 +118,6 @@ describe('OpenAPI integrity (e2e)', () => {
       expect(integrity.data.hasIssues).toEqual(false);
     });
 
-    it('should check integrity when a record is deleted in link table', async () => {
-      const linkFieldRo: IFieldRo = {
-        name: 'link field',
-        type: FieldType.Link,
-        options: {
-          baseId: baseId2,
-          relationship: Relationship.ManyOne,
-          foreignTableId: base2table2.id,
-        },
-      };
-
-      const linkField = await createField(base2table1.id, linkFieldRo);
-      expect((linkField.options as ILinkFieldOptions).baseId).toBeUndefined();
-
-      const symLinkField = await getField(
-        base2table2.id,
-        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
-      );
-
-      expect((symLinkField.options as ILinkFieldOptions).baseId).toBeUndefined();
-
-      const manyManyField = (
-        await convertField(base2table1.id, linkField.id, {
-          type: FieldType.Link,
-          options: {
-            relationship: Relationship.ManyMany,
-            foreignTableId: base2table1.id,
-          },
-        })
-      ).data;
-
-      const integrity = await checkBaseIntegrity(baseId2);
-      expect(integrity.data.hasIssues).toEqual(false);
-
-      const { fkHostTableName, selfKeyName, foreignKeyName } =
-        manyManyField.options as ILinkFieldOptions;
-
-      await executeKnex(
-        db(fkHostTableName).insert({
-          [selfKeyName]: 'test',
-          [foreignKeyName]: 'test',
-        })
-      );
-
-      const integrity2 = await checkBaseIntegrity(baseId2);
-      expect(integrity2.data.hasIssues).toEqual(true);
-
-      await fixBaseIntegrity(baseId2);
-
-      const integrity3 = await checkBaseIntegrity(baseId2);
-      expect(integrity3.data.hasIssues).toEqual(false);
-    });
-
     it('should check integrity when a many-one link field cell value is more than foreignKey', async () => {
       const linkFieldRo: IFieldRo = {
         name: 'link field',
