@@ -166,7 +166,8 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     const cellRegion = imageCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
     if (cellRegion.type === CellRegionType.Preview) {
-      return cell?.onPreview?.(cellRegion.data as string);
+      cell?.onPreview?.(cellRegion.data as string);
+      return callback(cellRegion);
     }
     callback(cellRegion);
   },
