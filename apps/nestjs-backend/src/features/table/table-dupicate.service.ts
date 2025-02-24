@@ -68,7 +68,8 @@ export class TableDuplicateService {
           (await this.duplicateTableData(
             sourceTable.dbTableName,
             newTableVo.dbTableName,
-            sourceToTargetViewMap
+            sourceToTargetViewMap,
+            sourceToTargetFieldMap
           ));
 
         const viewPlain = await this.prismaService.txClient().view.findMany({
@@ -102,7 +103,8 @@ export class TableDuplicateService {
   async duplicateTableData(
     sourceDbTableName: string,
     targetDbTableName: string,
-    sourceToTargetViewMap: Record<string, string>
+    sourceToTargetViewMap: Record<string, string>,
+    sourceToTargetFieldMap: Record<string, string>
   ) {
     const prisma = this.prismaService.txClient();
     const qb = this.knex.queryBuilder();
@@ -114,25 +116,34 @@ export class TableDuplicateService {
     ).map(({ name }) => name);
 
     const oldFieldColumns = oldOriginColumns.filter(
-      (name) => !name.startsWith(ROW_ORDER_FIELD_PREFIX)
+      (name) => !name.startsWith(ROW_ORDER_FIELD_PREFIX) && !name.startsWith('__fk_fld')
     );
 
-    const oldRowColumn = oldOriginColumns.filter((name) => name.startsWith(ROW_ORDER_FIELD_PREFIX));
+    const oldRowColumns = oldOriginColumns.filter((name) =>
+      name.startsWith(ROW_ORDER_FIELD_PREFIX)
+    );
 
-    const newRowColumns = oldRowColumn.map((name) =>
+    const oldFkColumns = oldOriginColumns.filter((name) => name.startsWith('__fk_fld'));
+
+    const newRowColumns = oldRowColumns.map((name) =>
       sourceToTargetViewMap[name.slice(6)] ? `__row_${sourceToTargetViewMap[name.slice(6)]}` : name
     );
 
-    const oldColumns = oldFieldColumns.concat(oldRowColumn);
-
-    const newColumns = oldFieldColumns.concat(newRowColumns);
-
-    // add row field for duplicated table
-    await Promise.all(
-      newRowColumns.map(
-        async (name) => await this.createRowOrderField(targetDbTableName, name.slice(6))
-      )
+    const newFkColumns = oldFkColumns.map((name) =>
+      sourceToTargetFieldMap[name.slice(5)] ? `__fk_${sourceToTargetFieldMap[name.slice(5)]}` : name
     );
+
+    for (const name of newRowColumns) {
+      await this.createRowOrderField(targetDbTableName, name.slice(6));
+    }
+
+    for (const name of newFkColumns) {
+      await this.createFkField(targetDbTableName, name.slice(5));
+    }
+
+    const oldColumns = oldFieldColumns.concat(oldRowColumns).concat(oldFkColumns);
+
+    const newColumns = oldFieldColumns.concat(newRowColumns).concat(newFkColumns);
 
     const sql = this.dbProvider
       .duplicateTableQuery(qb)
@@ -147,21 +158,51 @@ export class TableDuplicateService {
 
     const rowIndexFieldName = `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
 
-    // add a field for maintain row order number
-    const addRowIndexColumnSql = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.double(rowIndexFieldName);
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(addRowIndexColumnSql);
+    const columnExists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      rowIndexFieldName,
+      prisma
+    );
+
+    if (!columnExists) {
+      // add a field for maintain row order number
+      const addRowIndexColumnSql = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          table.double(rowIndexFieldName);
+        })
+        .toQuery();
+      await prisma.$executeRawUnsafe(addRowIndexColumnSql);
+    }
 
     // create index
-    const createRowIndexSQL = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.index(rowIndexFieldName, `idx_${ROW_ORDER_FIELD_PREFIX}_${viewId}`);
-      })
+    const indexName = `idx_${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
+    const createRowIndexSQL = this.knex
+      .raw(
+        `
+  CREATE INDEX IF NOT EXISTS ?? ON ?? (??)
+`,
+        [indexName, dbTableName, rowIndexFieldName]
+      )
       .toQuery();
+
     await prisma.$executeRawUnsafe(createRowIndexSQL);
+  }
+
+  private async createFkField(dbTableName: string, fieldId: string) {
+    const prisma = this.prismaService.txClient();
+
+    const fkFieldName = `__fk_${fieldId}`;
+
+    const columnExists = await this.dbProvider.checkColumnExist(dbTableName, fkFieldName, prisma);
+
+    if (!columnExists) {
+      const addFkColumnSql = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          table.string(fkFieldName);
+        })
+        .toQuery();
+      await prisma.$executeRawUnsafe(addFkColumnSql);
+    }
   }
 
   private async duplicateFields(sourceTableId: string, targetTableId: string) {
@@ -209,7 +250,7 @@ export class TableDuplicateService {
     }
 
     // these field require other field, we need to merge them and ensure a specific order
-    const linkFields = fieldsInstances.filter((f) => f.type === FieldType.Link);
+    const linkFields = fieldsInstances.filter((f) => f.type === FieldType.Link && !f.isLookup);
 
     await this.duplicateLinkFields(
       sourceTableId,
@@ -425,6 +466,7 @@ export class TableDuplicateService {
       const curField = dependFields.shift();
       if (!curField) continue;
 
+      const isChecked = checkedField.some((f) => f.id === curField.id);
       // InDegree all ready
       const isInDegreeReady = this.isInDegreeReady(curField, sourceTableId, sourceToTargetFieldMap);
 
@@ -438,7 +480,6 @@ export class TableDuplicateService {
         continue;
       }
 
-      const isChecked = checkedField.some((f) => f.id === curField.id);
       if (isChecked) {
         if (curField.hasError) {
           await this.duplicateSingleDependField(

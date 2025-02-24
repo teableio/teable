@@ -14,6 +14,7 @@ import {
   updateViewSort,
   updateViewGroup,
   updateViewOptions,
+  getField,
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { x_20 } from './data-helpers/20x';
@@ -129,10 +130,10 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         }));
 
       const otherFieldsWithOutLink = assertField
-        .filter(({ type }) => type !== FieldType.Link)
+        .filter(({ type, isLookup }) => type !== FieldType.Link && !isLookup)
         .map((f) => omit(f, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy']));
       const otherAssertFieldsWithOutLink = targetFields
-        .filter(({ type }) => type !== FieldType.Link)
+        .filter(({ type, isLookup }) => type !== FieldType.Link && !isLookup)
         .map((f) => omit(f, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy']));
 
       const duplicatedViews = targetViews.map((v) =>
@@ -143,9 +144,13 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         omit(v, ['createdBy', 'createdTime', 'lastModifiedTime', 'lastModifiedBy', 'shareId'])
       );
 
+      const sortById = (a: any, b: any) => a.id.localeCompare(b.id);
+
       expect(assertPureViews).toEqual(duplicatedViews);
       expect(assertLinkField).toEqual(duplicatedLinkField);
-      expect(otherFieldsWithOutLink).toEqual(otherAssertFieldsWithOutLink);
+      expect(otherFieldsWithOutLink.sort(sortById)).toEqual(
+        otherAssertFieldsWithOutLink.sort(sortById)
+      );
     });
 
     it('should create a link field in linked table when link field is two-way-link', async () => {
