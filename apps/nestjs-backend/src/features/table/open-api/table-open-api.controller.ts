@@ -132,6 +132,7 @@ export class TableController {
   }
 
   @Permissions('table|create')
+  @Permissions('table|read')
   @Post(':tableId/duplicate')
   async duplicateTable(
     @Param('baseId') baseId: string,
