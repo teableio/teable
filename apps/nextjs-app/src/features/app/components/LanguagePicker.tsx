@@ -1,4 +1,3 @@
-import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   DropdownMenu,
@@ -46,7 +45,7 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className={cn('', className)} size={'xs'} variant="outline">
+        <Button className={className} variant="outline">
           {languages.find((item) => item.key == currentLanguage)?.title || 'default'}
         </Button>
       </DropdownMenuTrigger>

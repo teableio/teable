@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { updateUserAvatar, updateUserName } from '@teable/openapi';
-import { useSession } from '@teable/sdk';
+import { useIsTouchDevice, useSession } from '@teable/sdk';
 import {
   Button,
   Input,
@@ -21,6 +21,7 @@ import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
   const { t } = useTranslation('common');
+  const isTouchDevice = useIsTouchDevice();
 
   const updateUserAvatarMutation = useMutation(updateUserAvatar, {
     onSuccess: () => {
@@ -52,34 +53,41 @@ export const Account: React.FC = () => {
     updateUserAvatarMutation.mutate(formData as any);
   };
 
+  const avatarComponent = (
+    <div className="group relative flex h-fit items-center justify-center">
+      <UserAvatar className="size-14" width={80} height={80} user={sessionUser} />
+      <div className="absolute left-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
+        <input
+          type="file"
+          className="absolute inset-0 size-full opacity-0"
+          accept="image/*"
+          onChange={uploadAvatar}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-medium">{t('settings.account.title')}</h3>
       <Separator />
       <div className="flex">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="group relative flex h-fit items-center justify-center">
-                <UserAvatar className="size-14" width={80} height={80} user={sessionUser} />
-                <div className="absolute left-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
-                  <input
-                    type="file"
-                    className="absolute inset-0 size-full opacity-0"
-                    accept="image/*"
-                    onChange={uploadAvatar}
-                  />
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('settings.account.updatePhoto')}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <div className="ml-4 pt-3">
+        {isTouchDevice ? (
+          avatarComponent
+        ) : (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>{avatarComponent}</TooltipTrigger>
+              <TooltipContent>
+                <p>{t('settings.account.updatePhoto')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        <div className="ml-4 flex-1 pt-3">
           <Input
-            className="w-64"
+            className="w-full"
             defaultValue={sessionUser.name}
             onBlur={(e) => toggleRenameUser(e)}
           />
