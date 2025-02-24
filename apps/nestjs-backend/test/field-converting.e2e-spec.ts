@@ -27,7 +27,10 @@ import {
   DriverClient,
   CellFormat,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { type ITableFullVo } from '@teable/openapi';
+import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
+import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import {
   getRecords,
   createField,
@@ -49,10 +52,14 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let table2: ITableFullVo;
   let table3: ITableFullVo;
   const baseId = globalThis.testConfig.baseId;
+  let dbProvider: IDbProvider;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    dbProvider = appCtx.app.get<IDbProvider>(DB_PROVIDER_SYMBOL);
+    prisma = appCtx.app.get<PrismaService>(PrismaService);
   });
 
   afterAll(async () => {
@@ -1953,6 +1960,65 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       expect(t2records[0].fields[symmetricFieldId]).toEqual([{ id: t1records[0].id }]);
       expect(t2records[2].fields[symmetricFieldId]).toEqual([{ id: t1records[1].id }]);
+    });
+
+    it('should convert two-way one-one to one-way one-many link with link', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
+
+      const createdResult = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        { id: table2.records[2].id },
+      ]);
+
+      // convert back to two-way one-one
+      await convertField(table1.id, createdResult.newField.id, sourceFieldRo);
+
+      // junction should not exist when converting one-way one-many to tow-way one-one
+      const query = dbProvider.checkTableExist(
+        `${baseId}${globalThis.testConfig.driver === DriverClient.Sqlite ? '_' : '.'}junction_${createdResult.newField.id}`
+      );
+
+      const queryResult = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(query);
+      expect(queryResult[0].exists).toBeFalsy();
+
+      const newField = await convertField(table1.id, createdResult.newField.id, newFieldRo);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+        },
+      });
+
+      expect((newField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+      const { records: t1records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const { records: t2records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+      expect(t1records[0].fields[newField.id]).toEqual([{ title: 'zzz', id: t2records[2].id }]);
     });
 
     it('should convert one-way link to two-way link', async () => {

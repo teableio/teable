@@ -36,7 +36,6 @@ describe('OpenAPI integrity (e2e)', () => {
   const spaceId = globalThis.testConfig.spaceId;
 
   let prisma: PrismaService;
-  let db: Knex;
   let dbProvider: IDbProvider;
 
   async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
@@ -46,7 +45,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
   beforeAll(async () => {
     const appCtx = await initApp();
-    db = appCtx.app.get('CUSTOM_KNEX');
     dbProvider = appCtx.app.get<IDbProvider>(DB_PROVIDER_SYMBOL);
     prisma = appCtx.app.get<PrismaService>(PrismaService);
     app = appCtx.app;

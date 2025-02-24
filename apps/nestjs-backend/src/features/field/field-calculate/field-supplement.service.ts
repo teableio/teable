@@ -1230,31 +1230,35 @@ export class FieldSupplementService {
     }
 
     for (const sql of alterTableSchema.toSQL()) {
+      // skip sqlite pragma
+      if (sql.sql.startsWith('PRAGMA')) {
+        continue;
+      }
       await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
     }
   }
 
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
+    console.log('cleanForeignKey', options);
     const dropTable = async (tableName: string) => {
       const alterTableSchema = this.knex.schema.dropTable(tableName);
 
       for (const sql of alterTableSchema.toSQL()) {
+        console.log('dropTable:sql:', sql.sql);
         await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
       }
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
-      const alterTableQuery = this.knex.schema
-        .alterTable(tableName, (table) => {
-          table.dropColumn(columnName);
-        })
-        .toQuery();
+      const sqls = this.dbProvider.dropColumnAndIndex(tableName, columnName, `index_${columnName}`);
 
-      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      for (const sql of sqls) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
     };
 
-    if (relationship === Relationship.ManyMany && fkHostTableName.startsWith('junction_')) {
+    if (relationship === Relationship.ManyMany && fkHostTableName.includes('junction_')) {
       await dropTable(fkHostTableName);
     }
 
@@ -1264,7 +1268,7 @@ export class FieldSupplementService {
 
     if (relationship === Relationship.OneMany) {
       if (isOneWay) {
-        fkHostTableName.startsWith('junction_') && (await dropTable(fkHostTableName));
+        fkHostTableName.includes('junction_') && (await dropTable(fkHostTableName));
       } else {
         await dropColumn(fkHostTableName, selfKeyName);
       }
