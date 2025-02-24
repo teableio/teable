@@ -23,7 +23,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDER_ICONS } from './constant';
 import { decimalToRatio, parseModelKey } from './util';
@@ -41,6 +41,7 @@ interface IAIModelSelectProps {
   options?: IModelOption[];
   disabled?: boolean;
   modelRateMap?: IModelRateMap;
+  needGroup?: boolean;
 }
 
 export function AIModelSelect({
@@ -51,6 +52,7 @@ export function AIModelSelect({
   options = [],
   disabled,
   modelRateMap,
+  needGroup,
 }: IAIModelSelectProps) {
   const [open, setOpen] = useState(false);
   const isCloud = useIsCloud();
@@ -65,7 +67,10 @@ export function AIModelSelect({
   const { spaceOptions, instanceOptions } = useMemo(() => {
     return {
       spaceOptions: options.filter(({ isInstance }) => !isInstance),
-      instanceOptions: options.filter(({ isInstance }) => isInstance),
+      instanceOptions: options.filter(({ isInstance, modelKey }) => {
+        const { model = '' } = parseModelKey(modelKey);
+        return isInstance && !model.toLowerCase().includes('embedding');
+      }),
     };
   }, [options]);
 
@@ -102,77 +107,137 @@ export function AIModelSelect({
           <ScrollArea className="w-full">
             <div className="max-h-[500px]">
               <CommandList>
-                <CommandGroup heading={t('noun.space')}>
-                  {spaceOptions.map(({ modelKey }) => {
-                    const { type, model, name } = parseModelKey(modelKey);
-                    const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
-                    const checked = value.toLowerCase() === modelKey.toLowerCase();
-                    return (
-                      <CommandItem
-                        key={modelKey}
-                        value={modelKey}
-                        onSelect={(modelKey) => {
-                          setValue(checked ? '' : modelKey);
-                          setOpen(false);
-                        }}
-                      >
-                        <div className="flex items-center">
-                          <Check
-                            className={cn('mr-2 size-4', checked ? 'opacity-100' : 'opacity-0')}
-                          />
-                          <p className="mr-1 max-w-[300px] truncate">{name}</p>
-                          <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
-                            <Icon className="size-4 shrink-0 pr-1" />
-                            {model}
-                          </div>
-                        </div>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-                <CommandSeparator />
-                <CommandGroup
-                  heading={
-                    <div className="flex items-center">
-                      {t('settings.setting.system')}
-                      {isCloud && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="ml-1 cursor-pointer">
-                                <HelpCircle className="size-4" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="max-w-[320px]">
-                                <Trans
-                                  ns="common"
-                                  i18nKey="admin.setting.ai.systemModelTips"
-                                  components={{ br: <br /> }}
+                {needGroup ? (
+                  <Fragment>
+                    {!!spaceOptions.length && (
+                      <CommandGroup heading={t('noun.space')}>
+                        {spaceOptions.map(({ modelKey }) => {
+                          const { type, model, name } = parseModelKey(modelKey);
+                          const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
+                          const checked = value.toLowerCase() === modelKey.toLowerCase();
+                          return (
+                            <CommandItem
+                              key={modelKey}
+                              value={modelKey}
+                              onSelect={(modelKey) => {
+                                setValue(checked ? '' : modelKey);
+                                setOpen(false);
+                              }}
+                            >
+                              <div className="flex items-center">
+                                <Check
+                                  className={cn(
+                                    'mr-2 size-4',
+                                    checked ? 'opacity-100' : 'opacity-0'
+                                  )}
                                 />
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                  }
-                >
-                  {instanceOptions.map(({ modelKey }) => {
-                    const { type, model, name } = parseModelKey(modelKey);
-                    const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
-                    const checked = value.toLowerCase() === modelKey.toLowerCase();
-                    const modelRate = modelRateMap?.[model as string];
-                    return (
-                      <CommandItem
-                        key={modelKey}
-                        value={modelKey}
-                        onSelect={(modelKey) => {
-                          setValue(modelKey.toLowerCase() === value.toLowerCase() ? '' : modelKey);
-                          setOpen(false);
-                        }}
-                      >
-                        <div className="w-full flex-col space-y-1">
+                                <p className="mr-1 max-w-[300px] truncate">{name}</p>
+                                <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
+                                  <Icon className="size-4 shrink-0 pr-1" />
+                                  {model}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    )}
+                    {!!instanceOptions.length && (
+                      <Fragment>
+                        <CommandSeparator />
+                        <CommandGroup
+                          heading={
+                            <div className="flex items-center">
+                              {t('settings.setting.system')}
+                              {isCloud && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="ml-1 cursor-pointer">
+                                        <HelpCircle className="size-4" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="max-w-[320px]">
+                                        <Trans
+                                          ns="common"
+                                          i18nKey="admin.setting.ai.systemModelTips"
+                                          components={{ br: <br /> }}
+                                        />
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          }
+                        >
+                          {instanceOptions.map(({ modelKey }) => {
+                            const { type, model, name } = parseModelKey(modelKey);
+                            const Icon =
+                              LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
+                            const checked = value.toLowerCase() === modelKey.toLowerCase();
+                            const modelRate = modelRateMap?.[model as string];
+                            return (
+                              <CommandItem
+                                key={modelKey}
+                                value={modelKey}
+                                onSelect={(modelKey) => {
+                                  setValue(
+                                    modelKey.toLowerCase() === value.toLowerCase() ? '' : modelKey
+                                  );
+                                  setOpen(false);
+                                }}
+                              >
+                                <div className="w-full flex-col space-y-1">
+                                  <div className="flex items-center">
+                                    <Check
+                                      className={cn(
+                                        'mr-2 size-4',
+                                        checked ? 'opacity-100' : 'opacity-0'
+                                      )}
+                                    />
+                                    <p className="mr-1 max-w-[300px] truncate">{name}</p>
+                                    <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
+                                      <Icon className="size-4 shrink-0 pr-1" />
+                                      {model}
+                                    </div>
+                                  </div>
+                                  {isCloud && modelRate && (
+                                    <div className="ml-6 flex items-center space-x-1 text-xs text-white">
+                                      <span className="rounded-full bg-teal-500 px-2 py-[2px]">
+                                        {t('admin.setting.ai.input')}{' '}
+                                        {decimalToRatio(modelRate.inputRate)}
+                                      </span>
+                                      <span className="rounded-full bg-teal-500 px-2 py-[2px]">
+                                        {t('admin.setting.ai.output')}{' '}
+                                        {decimalToRatio(modelRate.outputRate)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </Fragment>
+                    )}
+                  </Fragment>
+                ) : (
+                  <Fragment>
+                    {spaceOptions.map(({ modelKey }) => {
+                      const { type, model, name } = parseModelKey(modelKey);
+                      const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
+                      const checked = value.toLowerCase() === modelKey.toLowerCase();
+                      return (
+                        <CommandItem
+                          key={modelKey}
+                          value={modelKey}
+                          onSelect={(modelKey) => {
+                            setValue(checked ? '' : modelKey);
+                            setOpen(false);
+                          }}
+                        >
                           <div className="flex items-center">
                             <Check
                               className={cn('mr-2 size-4', checked ? 'opacity-100' : 'opacity-0')}
@@ -183,22 +248,11 @@ export function AIModelSelect({
                               {model}
                             </div>
                           </div>
-                          {isCloud && modelRate && (
-                            <div className="ml-6 flex items-center space-x-1 text-xs text-white">
-                              <span className="rounded-full bg-teal-500 px-2 py-[2px]">
-                                {t('admin.setting.ai.input')} {decimalToRatio(modelRate.inputRate)}
-                              </span>
-                              <span className="rounded-full bg-teal-500 px-2 py-[2px]">
-                                {t('admin.setting.ai.output')}{' '}
-                                {decimalToRatio(modelRate.outputRate)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
+                        </CommandItem>
+                      );
+                    })}
+                  </Fragment>
+                )}
               </CommandList>
             </div>
           </ScrollArea>
