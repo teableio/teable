@@ -19,6 +19,7 @@ export const llmProviderSchema = z.object({
   apiKey: z.string().optional(),
   baseUrl: z.string().url().optional(),
   models: z.string().default(''),
+  isInstance: z.boolean().optional(),
 });
 
 export type LLMProvider = z.infer<typeof llmProviderSchema>;

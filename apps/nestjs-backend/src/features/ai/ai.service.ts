@@ -109,7 +109,13 @@ export class AiService {
     }
 
     return {
-      llmProviders: [...aiIntegrationConfig.llmProviders, ...aiConfig.llmProviders],
+      llmProviders: [
+        ...aiIntegrationConfig.llmProviders,
+        ...aiConfig.llmProviders.map((provider) => ({
+          ...provider,
+          isInstance: true,
+        })),
+      ],
       codingModel: aiIntegrationConfig.codingModel ?? aiConfig.codingModel,
       embeddingModel: aiIntegrationConfig.embeddingModel ?? aiConfig.embeddingModel,
       translationModel: aiIntegrationConfig.translationModel ?? aiConfig.translationModel,
@@ -121,10 +127,11 @@ export class AiService {
       const config = await this.getAIConfig(baseId);
       return {
         ...config,
-        llmProviders: config.llmProviders.map((provider) => ({
-          type: provider.type,
-          name: provider.name,
-          models: provider.models,
+        llmProviders: config.llmProviders.map(({ type, name, models, isInstance }) => ({
+          type,
+          name,
+          models,
+          isInstance,
         })),
       };
     } catch (error) {
