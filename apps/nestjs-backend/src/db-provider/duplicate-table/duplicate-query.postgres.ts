@@ -8,9 +8,15 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
     this.knex = queryBuilder.client;
   }
 
-  duplicateTableData(sourceTable: string, targetTable: string, columns: string[]) {
-    const columnList = columns.map((col) => `"${col}"`).join(', ');
-    return this.knex.raw(`INSERT INTO ?? (${columnList}) SELECT ${columnList} FROM ??`, [
+  duplicateTableData(
+    sourceTable: string,
+    targetTable: string,
+    newColumns: string[],
+    oldColumns: string[]
+  ) {
+    const newColumnList = newColumns.map((col) => `"${col}"`).join(', ');
+    const oldColumnList = oldColumns.map((col) => `"${col}"`).join(', ');
+    return this.knex.raw(`INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ??`, [
       targetTable,
       sourceTable,
     ]);

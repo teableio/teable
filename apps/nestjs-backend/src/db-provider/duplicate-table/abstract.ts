@@ -6,6 +6,7 @@ export abstract class DuplicateTableQueryAbstract {
   abstract duplicateTableData(
     sourceTable: string,
     targetTable: string,
-    columns: string[]
+    newColumns: string[],
+    oldColumns: string[]
   ): Knex.QueryBuilder;
 }
