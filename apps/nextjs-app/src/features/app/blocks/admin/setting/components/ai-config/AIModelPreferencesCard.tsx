@@ -13,11 +13,12 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import type { Control } from 'react-hook-form';
+import type { IModelOption } from './AiModelSelect';
 import { AIModelSelect } from './AiModelSelect';
 
 interface IAIModelPreferencesCardProps {
   control: Control<IAIIntegrationConfig>;
-  models: string[];
+  models: IModelOption[];
   onChange?: (value: string) => void;
 }
 

@@ -9,6 +9,7 @@ export const simpleLLMProviderSchema = llmProviderSchema.pick({
   type: true,
   name: true,
   models: true,
+  isInstance: true,
 });
 
 export type ISimpleLLMProvider = z.infer<typeof simpleLLMProviderSchema>;
