@@ -482,7 +482,7 @@ export class TableDuplicateService {
       },
     });
     const newField = await this.fieldOpenService.createField(targetTableId, {
-      type: mockType as FieldType,
+      type: (hasError ? mockType : lookupFieldType) as FieldType,
       dbFieldName,
       description,
       isLookup: true,
