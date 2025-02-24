@@ -101,7 +101,13 @@ export class AiService {
     }
 
     if (!aiIntegrationConfig) {
-      return aiConfig as IAIConfig;
+      return {
+        ...aiConfig,
+        llmProviders: aiConfig?.llmProviders.map((provider) => ({
+          ...provider,
+          isInstance: true,
+        })),
+      } as IAIConfig;
     }
 
     if (!aiConfig?.enable) {

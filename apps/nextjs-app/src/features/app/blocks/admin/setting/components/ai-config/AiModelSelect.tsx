@@ -204,12 +204,12 @@ export function AIModelSelect({
                                     </div>
                                   </div>
                                   {isCloud && modelRate && (
-                                    <div className="ml-6 flex items-center space-x-1 text-xs text-white">
-                                      <span className="rounded-full bg-teal-500 px-2 py-[2px]">
+                                    <div className="ml-6 flex items-center space-x-1 text-xs text-slate-500">
+                                      <span className="rounded-md border px-2.5 py-0.5">
                                         {t('admin.setting.ai.input')}{' '}
                                         {decimalToRatio(modelRate.inputRate)}
                                       </span>
-                                      <span className="rounded-full bg-teal-500 px-2 py-[2px]">
+                                      <span className="rounded-md border px-2.5 py-0.5">
                                         {t('admin.setting.ai.output')}{' '}
                                         {decimalToRatio(modelRate.outputRate)}
                                       </span>
