@@ -367,7 +367,7 @@ export class CollaboratorService {
     builder.offset(skip);
     builder.limit(take);
     builder.select({
-      resourceId: 'collaborator.resource_id',
+      resource_id: 'collaborator.resource_id',
       role_name: 'collaborator.role_name',
       created_time: 'collaborator.created_time',
       resource_type: 'collaborator.resource_type',
@@ -409,7 +409,7 @@ export class CollaboratorService {
     >(builder.toQuery());
     return collaborators.map((collaborator) => ({
       type: PrincipalType.User,
-      resourceType: CollaboratorType.Space,
+      resourceType: collaborator.resource_type as CollaboratorType,
       userId: collaborator.user_id,
       userName: collaborator.user_name,
       email: collaborator.user_email,
