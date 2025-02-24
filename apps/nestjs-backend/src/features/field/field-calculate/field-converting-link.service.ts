@@ -253,7 +253,7 @@ export class FieldConvertingLinkService {
     Object.keys(foreignKeyMap).forEach((foreignId) => {
       const ids = foreignKeyMap[foreignId].map((item) => item.id);
       // relational behavior needs to be reversed
-      if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
+      if (relationship === Relationship.OneOne || relationship === Relationship.OneMany) {
         opsMap[foreignId] = [
           RecordOpBuilder.editor.setRecord.build({
             fieldId: symmetricFieldId as string,
@@ -263,7 +263,7 @@ export class FieldConvertingLinkService {
         ];
       }
 
-      if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+      if (relationship === Relationship.ManyMany || relationship === Relationship.ManyOne) {
         opsMap[foreignId] = [
           RecordOpBuilder.editor.setRecord.build({
             fieldId: symmetricFieldId as string,

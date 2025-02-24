@@ -1240,12 +1240,10 @@ export class FieldSupplementService {
 
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
-    console.log('cleanForeignKey', options);
     const dropTable = async (tableName: string) => {
       const alterTableSchema = this.knex.schema.dropTable(tableName);
 
       for (const sql of alterTableSchema.toSQL()) {
-        console.log('dropTable:sql:', sql.sql);
         await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
       }
     };

@@ -33,7 +33,6 @@ import {
 } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import type { IFkRecordMap } from '../../calculation/link.service';
 import { LinkService } from '../../calculation/link.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import type { ICellContext } from '../../calculation/utils/changes';
@@ -788,7 +787,6 @@ export class FieldConvertingService {
       return;
     }
 
-    let fkRecordMap: IFkRecordMap | undefined;
     if (field.type === FieldType.Link && !field.isLookup) {
       const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
       recordOpsMap = composeOpMaps([recordOpsMap, result.opsMapByLink]);
@@ -796,7 +794,7 @@ export class FieldConvertingService {
 
     await this.batchService.updateRecords(recordOpsMap);
 
-    await this.referenceService.calculateOpsMap(recordOpsMap, fkRecordMap);
+    await this.referenceService.calculateOpsMap(recordOpsMap);
   }
 
   private async getExistRecords(tableId: string, newField: IFieldInstance) {
