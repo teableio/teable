@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo } from 'react';
+import { useMedia } from 'react-use';
 
 export const useIsTouchDevice = () => {
+  const isTouchDeviceByMedia = useMedia('(pointer: coarse)');
   return useMemo(() => {
     return (
       !!(
@@ -10,11 +12,7 @@ export const useIsTouchDevice = () => {
           ((window as any).DocumentTouch &&
             typeof document !== 'undefined' &&
             document instanceof (window as any).DocumentTouch))
-      ) ||
-      !!(
-        typeof navigator !== 'undefined' &&
-        (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints)
-      )
+      ) || isTouchDeviceByMedia
     );
-  }, []);
+  }, [isTouchDeviceByMedia]);
 };
