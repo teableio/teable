@@ -44,17 +44,24 @@ export class TableDuplicateService {
 
   async duplicateTable(baseId: string, tableId: string, duplicateRo: IDuplicateTableRo) {
     const { includeRecords, name } = duplicateRo;
-    const sourceTable = await this.prismaService.tableMeta.findUniqueOrThrow({
+    const {
+      id: sourceTableId,
+      icon,
+      description,
+      dbTableName,
+    } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
     });
     return await this.prismaService.$tx(
       async () => {
         const newTableVo = await this.tableService.createTable(baseId, {
           name,
+          icon,
+          description,
         });
-        const sourceToTargetFieldMap = await this.duplicateFields(sourceTable.id, newTableVo.id);
+        const sourceToTargetFieldMap = await this.duplicateFields(sourceTableId, newTableVo.id);
         const sourceToTargetViewMap = await this.duplicateViews(
-          sourceTable.id,
+          sourceTableId,
           newTableVo.id,
           sourceToTargetFieldMap
         );
@@ -66,7 +73,7 @@ export class TableDuplicateService {
 
         includeRecords &&
           (await this.duplicateTableData(
-            sourceTable.dbTableName,
+            dbTableName,
             newTableVo.dbTableName,
             sourceToTargetViewMap,
             sourceToTargetFieldMap
