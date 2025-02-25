@@ -1,5 +1,4 @@
 import { useTheme } from '@teable/next-themes';
-import { PluginPosition } from '@teable/openapi';
 import { useBasePermission } from '@teable/sdk/hooks';
 import type { IChildBridgeMethods, IUIConfig } from '@teable/sdk/plugin-bridge';
 import { useRouter } from 'next/router';
@@ -16,9 +15,7 @@ export const useSyncUIConfig = (
   const expandPluginId = router.query.expandPluginId as string;
   const canSetting = basePermissions?.['base|update'];
   const pluginInstallId =
-    pluginParams.positionType === PluginPosition.Dashboard
-      ? pluginParams.pluginInstallId
-      : undefined;
+    'pluginInstallId' in pluginParams ? pluginParams.pluginInstallId : undefined;
 
   useEffect(() => {
     const uiConfig: IUIConfig = {

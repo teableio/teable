@@ -17,7 +17,7 @@ export const chartConfig: IOfficialPluginConfig = {
 
   `,
   helpUrl: 'https://help.teable.io/en/basic/plugin/chart',
-  positions: [PluginPosition.Dashboard],
+  positions: [PluginPosition.Dashboard, PluginPosition.Panel],
   i18n: {
     zh: {
       name: '图表',

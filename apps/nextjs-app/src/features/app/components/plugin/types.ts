@@ -32,6 +32,7 @@ export type IContextMenuPluginParams = IPluginParamsBase & {
 
 export type IPanelPluginParams = IPluginParamsBase & {
   baseId: string;
+  tableId: string;
   positionType: PluginPosition.Panel;
 };
 

@@ -4,6 +4,7 @@ import {
   pluginGetAuthCode,
   PluginPosition,
   updateDashboardPluginStorage,
+  updatePluginPanelStorage,
 } from '@teable/openapi';
 import type { IParentBridgeUtilsMethods } from '@teable/sdk/plugin-bridge';
 import { useEffect, useRef } from 'react';
@@ -32,10 +33,10 @@ export const useUtilsEvent = (params: IPluginParams) => {
     },
   });
   const { positionId, positionType, pluginId } = params;
-  const pluginInstallId =
-    params.positionType === PluginPosition.Dashboard ? params.pluginInstallId : undefined;
+  const pluginInstallId = 'pluginInstallId' in params ? params.pluginInstallId : undefined;
   const shareId = 'shareId' in params ? params.shareId : undefined;
   const baseId = 'baseId' in params ? params.baseId : undefined;
+  const tableId = 'tableId' in params ? params.tableId : undefined;
 
   useEffect(() => {
     ref.current.updateStorage = (storage) => {
@@ -43,9 +44,19 @@ export const useUtilsEvent = (params: IPluginParams) => {
         console.error('Share plugin does not support updateStorage');
         return Promise.resolve({});
       }
-      return updateDashboardPluginStorage(baseId!, positionId, pluginInstallId!, storage).then(
-        (res) => res.data.storage ?? {}
-      );
+      switch (positionType) {
+        case PluginPosition.Dashboard:
+          return updateDashboardPluginStorage(baseId!, positionId, pluginInstallId!, storage).then(
+            (res) => res.data.storage ?? {}
+          );
+        case PluginPosition.Panel:
+          return updatePluginPanelStorage(tableId!, positionId, pluginInstallId!, { storage }).then(
+            (res) => res.data.storage ?? {}
+          );
+        default:
+          console.error(`Unsupported position type: ${positionType}`);
+          return Promise.resolve({});
+      }
     };
     ref.current.getAuthCode = () => {
       // TODO: plugin in share page need to get auth code from share page, need plugin id and shareId to get auth code
@@ -55,7 +66,7 @@ export const useUtilsEvent = (params: IPluginParams) => {
       }
       return pluginGetAuthCode(pluginId, baseId!).then((res) => res.data);
     };
-  }, [shareId, pluginId, positionId, positionType, pluginInstallId, baseId]);
+  }, [shareId, pluginId, positionId, tableId, positionType, pluginInstallId, baseId]);
 
   return ref.current;
 };

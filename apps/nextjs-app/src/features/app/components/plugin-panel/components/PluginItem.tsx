@@ -107,8 +107,10 @@ export const PluginItem = (props: {
           positionType={PluginPosition.Panel}
           pluginId={pluginId}
           pluginUrl={pluginUrl}
+          tableId={tableId}
           pluginInstallId={pluginInstallId}
-          positionId={pluginInstallId}
+          positionId={pluginPanelId}
+          onExpand={onExpand}
         />
       </div>
     </div>
