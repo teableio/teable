@@ -42,7 +42,8 @@
     "tableIndex": "索引",
     "showAllRow": "显示全部",
     "hideNotMatchRow": "仅显示匹配行",
-    "more": "更多"
+    "more": "更多",
+    "expand": "展开"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -161,7 +162,9 @@
     "global": "全局",
     "organizationPanel": "组织管理面板",
     "unknownError": "未知错误",
-    "float": "浮动"
+    "pluginPanel": "面板",
+    "pluginContextMenu": "菜单",
+    "plugin": "插件"
   },
   "level": {
     "free": "免费版",

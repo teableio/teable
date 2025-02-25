@@ -42,7 +42,8 @@
     "tableIndex": "Index",
     "showAllRow": "Display all rows",
     "hideNotMatchRow": "Hide not match row",
-    "more": "More"
+    "more": "More",
+    "expand": "Expand"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -161,7 +162,9 @@
     "global": "Global",
     "organizationPanel": "Organization Panel",
     "unknownError": "Unknown error",
-    "float": "Float"
+    "pluginPanel": "Panel",
+    "pluginContextMenu": "Context Menu",
+    "plugin": "Plugins"
   },
   "level": {
     "free": "Free",

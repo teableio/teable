@@ -23,6 +23,7 @@ import { useTranslation, Trans } from 'next-i18next';
 import { Fragment, useCallback, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
+import { PluginMenu } from './PluginMenu';
 
 export interface IMenuItemProps<T> {
   type: T;
@@ -114,7 +115,8 @@ export const RecordMenu = () => {
   const permission = useTablePermission();
   const recordMenuRef = useRef<HTMLDivElement>(null);
 
-  useClickAway(recordMenuRef, () => {
+  useClickAway(recordMenuRef, (e) => {
+    console.log('useClickAway', e);
     closeRecordMenu();
   });
 
@@ -196,6 +198,7 @@ export const RecordMenu = () => {
         },
       },
     ],
+    [],
     [
       {
         type: MenuItemType.Delete,
@@ -218,87 +221,101 @@ export const RecordMenu = () => {
     return null;
   }
 
+  const pluginItemIndex = menuItemGroups.length - 2;
   return (
-    <Popover open={visible}>
-      <PopoverTrigger asChild style={style} className="absolute">
-        <div className="size-0 opacity-0" />
-      </PopoverTrigger>
-      <PopoverContent className="size-auto min-w-40 rounded-md p-0" align="start">
-        <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
-          <CommandList>
-            {menuItemGroups.map((items, index) => {
-              const nextItems = menuItemGroups[index + 1] ?? [];
-              if (!items.length) return null;
+    <>
+      <Popover open={visible}>
+        <PopoverTrigger asChild style={style} className="absolute">
+          <div className="size-0 opacity-0" />
+        </PopoverTrigger>
+        <PopoverContent className="size-auto min-w-40 rounded-md p-0" align="start">
+          <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
+            <CommandList>
+              {menuItemGroups.map((items, index) => {
+                if (index === pluginItemIndex) {
+                  return (
+                    <PluginMenu
+                      key={`plugin-menu-${tableId}`}
+                      tableId={tableId}
+                      closeRecordMenu={closeRecordMenu}
+                    />
+                  );
+                }
 
-              return (
-                <Fragment key={index}>
-                  <CommandGroup aria-valuetext="name">
-                    {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
-                      return (
-                        <CommandItem
-                          className={cn('px-4 py-2', className, {
-                            'px-0 py-0': [
-                              MenuItemType.InsertBelow,
-                              MenuItemType.InsertAbove,
-                            ].includes(type),
-                          })}
-                          key={type}
-                          value={name}
-                          onSelect={async () => {
-                            if (disabled) {
-                              return;
-                            }
-                            await onClick();
-                            closeRecordMenu();
-                          }}
-                        >
-                          {disabled ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger
-                                  className={cn('flex items-center gap-2', {
-                                    'opacity-50': disabled,
-                                  })}
-                                >
-                                  <div className="pointer-events-none">
-                                    {render ? (
-                                      render
-                                    ) : (
-                                      <>
-                                        {icon}
-                                        {name}
-                                      </>
-                                    )}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent hideWhenDetached={true}>
-                                  {t('table:view.insertToolTip')}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <>
-                              {render ? (
-                                render
-                              ) : (
-                                <>
-                                  {icon}
-                                  {name}
-                                </>
-                              )}
-                            </>
-                          )}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                  {nextItems.length > 0 && <CommandSeparator />}
-                </Fragment>
-              );
-            })}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                const nextItems = menuItemGroups[index + 1] ?? [];
+                const hasNextItems = nextItems.length > 0 || index + 1 === pluginItemIndex;
+                if (!items.length) return null;
+
+                return (
+                  <Fragment key={index}>
+                    <CommandGroup aria-valuetext="name">
+                      {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
+                        return (
+                          <CommandItem
+                            className={cn('px-4 py-2', className, {
+                              'px-0 py-0': [
+                                MenuItemType.InsertBelow,
+                                MenuItemType.InsertAbove,
+                              ].includes(type),
+                            })}
+                            key={type}
+                            value={name}
+                            onSelect={async () => {
+                              if (disabled) {
+                                return;
+                              }
+                              await onClick();
+                              closeRecordMenu();
+                            }}
+                          >
+                            {disabled ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger
+                                    className={cn('flex items-center gap-2', {
+                                      'opacity-50': disabled,
+                                    })}
+                                  >
+                                    <div className="pointer-events-none">
+                                      {render ? (
+                                        render
+                                      ) : (
+                                        <>
+                                          {icon}
+                                          {name}
+                                        </>
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent hideWhenDetached={true}>
+                                    {t('table:view.insertToolTip')}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <>
+                                {render ? (
+                                  render
+                                ) : (
+                                  <>
+                                    {icon}
+                                    {name}
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                    {hasNextItems && <CommandSeparator />}
+                  </Fragment>
+                );
+              })}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </>
   );
 };

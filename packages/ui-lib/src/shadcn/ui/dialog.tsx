@@ -36,6 +36,7 @@ interface DialogContentProps
   closeable?: boolean;
   overlayClassName?: string;
   overlayStyle?: React.CSSProperties;
+  overlay?: React.ReactNode;
 }
 
 const DialogContent = React.forwardRef<
@@ -43,11 +44,20 @@ const DialogContent = React.forwardRef<
   DialogContentProps
 >(
   (
-    { className, children, container, closeable = true, overlayClassName, overlayStyle, ...props },
+    {
+      className,
+      children,
+      container,
+      closeable = true,
+      overlayClassName,
+      overlayStyle,
+      overlay,
+      ...props
+    },
     ref
   ) => (
     <DialogPortal container={container}>
-      <DialogOverlay className={overlayClassName} style={overlayStyle} />
+      {overlay ? overlay : <DialogOverlay className={overlayClassName} style={overlayStyle} />}
       <DialogPrimitive.Content
         ref={ref}
         className={cn(

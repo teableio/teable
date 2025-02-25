@@ -27,15 +27,17 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
     const language = i18n.language as unknown as keyof IPluginI18n;
     const [detailPlugin, setDetailPlugin] = useState<IGetPluginCenterListVo[number]>();
 
+    const onClose = () => {
+      setOpen(false);
+      setDetailPlugin(undefined);
+    };
+
     useImperativeHandle(
       ref,
       () =>
         ({
           open: () => setOpen(true),
-          close: () => {
-            setOpen(false);
-            setDetailPlugin(undefined);
-          },
+          close: onClose,
         }) as IPluginCenterDialogRef
     );
 
@@ -45,16 +47,28 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
     });
     const isEmpty = plugins?.length === 0;
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(open) => {
+          if (!open) {
+            onClose();
+            return;
+          }
+          setOpen(open);
+        }}
+      >
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent
           className="max-w-4xl"
           style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
         >
           <div
-            className={cn('mt-4 w-full space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0', {
-              'flex md:flex': isEmpty,
-            })}
+            className={cn(
+              'md:h-fit mt-4 w-full space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0',
+              {
+                'md:h-auto flex md:flex': isEmpty,
+              }
+            )}
           >
             {plugins?.map((plugin) => {
               const name = get(plugin.i18n, [language, 'name']) ?? plugin.name;
@@ -97,6 +111,7 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
                     variant={'outline'}
                     onClick={(e) => {
                       onInstall?.(plugin.id, name, plugin);
+                      onClose();
                       e.stopPropagation();
                     }}
                   >

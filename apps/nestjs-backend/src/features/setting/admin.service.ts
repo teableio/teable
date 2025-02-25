@@ -26,6 +26,13 @@ export class AdminService {
     });
   }
 
+  async unpublishPlugin(pluginId: string) {
+    return this.prismaService.plugin.update({
+      where: { id: pluginId, status: PluginStatus.Published },
+      data: { status: PluginStatus.Developing },
+    });
+  }
+
   async repairTableAttachmentThumbnail() {
     // once handle 1000 attachments
     const take = 1000;

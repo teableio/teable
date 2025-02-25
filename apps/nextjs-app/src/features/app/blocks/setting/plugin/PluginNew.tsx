@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { ICreatePluginRo } from '@teable/openapi';
 import { createPlugin, createPluginRoSchema } from '@teable/openapi';
 import {
+  Checkbox,
   Form,
   FormControl,
   FormDescription,
@@ -152,6 +153,20 @@ export const PluginNew = (props: { onCreated?: (secret: string) => void }) => {
           />
           <FormField
             control={form.control}
+            name="config"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('plugin:form.config.label')}</FormLabel>
+                <FormDescription>{t('plugin:form.config.description')}</FormDescription>
+                <FormControl>
+                  <JsonEditor value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
             name="i18n"
             render={({ field }) => (
               <FormItem>
@@ -173,6 +188,23 @@ export const PluginNew = (props: { onCreated?: (secret: string) => void }) => {
                 <FormDescription>{t('plugin:form.url.description')}</FormDescription>
                 <FormControl>
                   <Input value={field.value ?? ''} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="autoCreateMember"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('plugin:form.autoCreateMember.label')}</FormLabel>
+                <FormDescription>{t('plugin:form.autoCreateMember.description')}</FormDescription>
+                <FormControl>
+                  <Checkbox
+                    checked={field.value ?? false}
+                    onCheckedChange={(checked) => field.onChange(checked ?? false)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

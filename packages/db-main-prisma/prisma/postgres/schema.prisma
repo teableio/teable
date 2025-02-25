@@ -72,6 +72,8 @@ model TableMeta {
   base             Base      @relation(fields: [baseId], references: [id])
   fields           Field[]
   views            View[]
+  pluginPanel      PluginPanel[]
+  pluginContextMenu PluginContextMenu[]
 
   @@index([order])
   @@map("table_meta")
@@ -446,6 +448,7 @@ model Plugin {
   secret           String    @unique
   maskedSecret     String    @map("masked_secret")
   i18n             String?
+  config           String?
   pluginUser       String?   @map("plugin_user")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
@@ -526,4 +529,33 @@ model Integration {
   lastModifiedTime  DateTime? @updatedAt @map("last_modified_time")
 
   @@map("integration")
+}
+
+model PluginPanel {
+  id               String    @id @default(cuid())
+  name             String
+  tableId          String    @map("table_id")
+  layout           String?
+  createdBy        String    @map("created_by")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+
+  table            TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("plugin_panel")
+}
+
+model PluginContextMenu {
+  tableId          String    @map("table_id")
+  pluginInstallId  String    @map("plugin_install_id") @unique
+  order            Float     @map("order")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+
+  table            TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("plugin_context_menu")
 }

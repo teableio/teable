@@ -1,5 +1,5 @@
-import { DraggableHandle, Edit, Maximize2, MoreHorizontal, X } from '@teable/icons';
-import { useBasePermission } from '@teable/sdk/hooks';
+import { DragHandleDots2Icon } from '@radix-ui/react-icons';
+import { Edit, Maximize2, MoreHorizontal, X } from '@teable/icons';
 import {
   Button,
   cn,
@@ -12,23 +12,34 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
-import { dashboardConfig } from '@/features/i18n/dashboard.config';
-import { MenuDeleteItem } from '../../components/MenuDeleteItem';
+import { MenuDeleteItem } from '@/features/app/components/MenuDeleteItem';
 
 export const PluginHeader = (props: {
   name: string;
+  draggableHandleClassName: string;
   isExpanded?: boolean;
+  canManage?: boolean;
+  dragging?: boolean;
   onClose: () => void;
   onDelete: () => void;
   onExpand: () => void;
   onNameChange: (name: string) => void;
 }) => {
-  const { name, isExpanded, onClose, onDelete, onExpand, onNameChange } = props;
+  const {
+    name,
+    dragging,
+    canManage,
+    isExpanded,
+    draggableHandleClassName,
+    onClose,
+    onDelete,
+    onExpand,
+    onNameChange,
+  } = props;
   const [rename, setRename] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { t } = useTranslation(dashboardConfig.i18nNamespaces);
-  const basePermissions = useBasePermission();
+  const { t } = useTranslation(['common']);
 
   if (isExpanded) {
     return (
@@ -41,15 +52,18 @@ export const PluginHeader = (props: {
     );
   }
 
-  const canManage = basePermissions?.['base|update'];
   return (
-    <div className="flex h-8 items-center gap-1 px-1">
-      <DraggableHandle
+    <div className="flex h-8 shrink-0 items-center gap-1 px-1">
+      <DragHandleDots2Icon
         className={cn(
-          'dashboard-draggable-handle cursor-pointer opacity-0 group-hover:opacity-100',
+          'size-4 text-gray-500 cursor-pointer opacity-0 group-hover:opacity-100',
           {
             'pointer-events-none !opacity-0': !canManage,
-          }
+          },
+          {
+            'opacity-100': dragging,
+          },
+          draggableHandleClassName
         )}
       />
       <div className="relative flex h-full flex-1 items-center overflow-hidden px-0.5">
@@ -81,7 +95,7 @@ export const PluginHeader = (props: {
         })}
       >
         <Button
-          title={t('dashboard:expand')}
+          title={t('common:actions.expand')}
           className="h-5 w-auto p-2"
           size={'xs'}
           variant={'ghost'}
@@ -109,7 +123,7 @@ export const PluginHeader = (props: {
             )}
             <DropdownMenuItem onSelect={onExpand}>
               <Maximize2 className="mr-1.5" />
-              {t('dashboard:expand')}
+              {t('common:actions.expand')}
             </DropdownMenuItem>
             {canManage && (
               <>

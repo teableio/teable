@@ -57,6 +57,13 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   });
 
   const selectedDashboard = dashboardList?.find(({ id }) => id === dashboardId);
+  const submitRename = () => {
+    if (!rename || selectedDashboard?.name === rename) {
+      setRename(null);
+      return;
+    }
+    renameDashboardMutate();
+  };
 
   return (
     <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
@@ -79,11 +86,15 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         })}
         value={rename ?? ''}
         onBlur={() => {
-          if (!rename || selectedDashboard?.name === rename) {
-            setRename(null);
-            return;
+          submitRename();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            submitRename();
           }
-          renameDashboardMutate();
+          if (e.key === 'Escape') {
+            setRename(null);
+          }
         }}
         onChange={(e) => setRename(e.target.value)}
       />

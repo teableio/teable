@@ -228,6 +228,20 @@ export const PluginEdit = (props: { secret?: string }) => {
           />
           <FormField
             control={form.control}
+            name="config"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('plugin:form.config.label')}</FormLabel>
+                <FormDescription>{t('plugin:form.config.description')}</FormDescription>
+                <FormControl>
+                  <JsonEditor value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
             name="i18n"
             render={({ field }) => (
               <FormItem>

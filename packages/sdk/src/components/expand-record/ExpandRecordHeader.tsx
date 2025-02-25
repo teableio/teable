@@ -142,7 +142,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           )}
 
           {editable && (
-            <TooltipWrap description="comment">
+            <TooltipWrap description={t('comment.title')}>
               <Button
                 size={'xs'}
                 onClick={onCommentToggle}

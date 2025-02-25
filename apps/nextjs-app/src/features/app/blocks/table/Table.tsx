@@ -14,6 +14,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
+import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
 import { useViewErrorHandler } from './hooks/use-view-error-handler';
@@ -66,25 +68,29 @@ export const Table: React.FC<ITableProps> = ({
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>
           <PersonalViewProxy serverData={viewServerData}>
-            <div className="flex h-full grow basis-[500px] flex-col">
-              <TableHeader />
-              <FieldProvider serverSideData={fieldServerData}>
-                <ErrorBoundary
-                  fallback={
-                    <div className="flex size-full items-center justify-center">
-                      <FailAlert />
-                    </div>
-                  }
-                >
-                  <PersonalViewProvider>
-                    <View
-                      recordServerData={recordServerData}
-                      recordsServerData={recordsServerData}
-                      groupPointsServerDataMap={groupPointsServerDataMap}
-                    />
-                  </PersonalViewProvider>
-                </ErrorBoundary>
-              </FieldProvider>
+            <div className="flex h-full grow basis-[500px]">
+              <div className="flex flex-1 flex-col">
+                <TableHeader />
+                <FieldProvider serverSideData={fieldServerData}>
+                  <ErrorBoundary
+                    fallback={
+                      <div className="flex size-full items-center justify-center">
+                        <FailAlert />
+                      </div>
+                    }
+                  >
+                    <PersonalViewProvider>
+                      <View
+                        recordServerData={recordServerData}
+                        recordsServerData={recordsServerData}
+                        groupPointsServerDataMap={groupPointsServerDataMap}
+                      />
+                    </PersonalViewProvider>
+                  </ErrorBoundary>
+                </FieldProvider>
+              </div>
+              <PluginPanel tableId={tableId} />
+              <PluginContextMenu tableId={tableId} baseId={baseId} />
             </div>
           </PersonalViewProxy>
         </ViewProvider>

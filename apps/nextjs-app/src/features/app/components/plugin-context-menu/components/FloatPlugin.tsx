@@ -2,31 +2,42 @@ import { DragHandleDots2Icon } from '@radix-ui/react-icons';
 import { X } from '@teable/icons';
 import { PluginPosition } from '@teable/openapi';
 import { Button } from '@teable/ui-lib/shadcn';
+import { isEqual } from 'lodash';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Rnd } from 'react-rnd';
 import { PluginContent } from '@/features/app/components/plugin/PluginContent';
 import { useFloatPluginPosition } from './useFloatPluginPosition';
 
 export const FloatPlugin = (props: {
-  pluginId: string;
   name: string;
+  tableId: string;
+  pluginId: string;
   pluginUrl?: string;
+  pluginInstallId: string;
   onClose?: () => void;
 }) => {
-  const { pluginId, pluginUrl, name, onClose } = props;
+  const { tableId, pluginInstallId, pluginId, pluginUrl, name, onClose } = props;
   const router = useRouter();
   const baseId = router.query.baseId as string;
-  const { position, updatePosition } = useFloatPluginPosition(pluginId);
+  const { position, updatePosition } = useFloatPluginPosition(tableId, pluginInstallId);
   const [isDragging, setIsDragging] = useState(false);
+  const preBody = useRef<{ width: number; height: number }>({
+    width: document.body.clientWidth,
+    height: document.body.clientHeight,
+  });
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(() => {
       const { width, height } = document.body.getBoundingClientRect();
+      if (preBody.current.width === width && preBody.current.height === height) {
+        return;
+      }
+      preBody.current = { width, height };
       const { x, y, width: w, height: h } = position;
-      const newWidth = w > width ? Math.max(120, width - 20) : w;
-      const newHeight = h > height ? Math.max(90, height - 20) : h;
+      const newWidth = w > width ? Math.max(120, width - 10) : w;
+      const newHeight = h > height ? Math.max(90, height - 10) : h;
 
       let newX = x;
       let newY = y;
@@ -35,6 +46,10 @@ export const FloatPlugin = (props: {
       }
       if (y + h > height) {
         newY = Math.max(0, height - h);
+      }
+      const newPosition = { x: newX, y: newY, width: newWidth, height: newHeight };
+      if (isEqual(position, newPosition)) {
+        return;
       }
       updatePosition({
         x: newX,
@@ -50,14 +65,13 @@ export const FloatPlugin = (props: {
       resizeObserver.disconnect();
     };
   }, [position, updatePosition]);
-
   return createPortal(
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <Rnd
-      className="fixed overflow-hidden rounded-sm border bg-background"
+      className="!max-h-full !max-w-full overflow-hidden rounded-sm border bg-background"
       style={{
         position: 'fixed',
-        zIndex: 100,
+        zIndex: 10000,
       }}
       position={{
         x: position.x,
@@ -115,9 +129,10 @@ export const FloatPlugin = (props: {
           className="flex-1"
           baseId={baseId}
           pluginId={pluginId}
+          pluginInstallId={pluginInstallId}
           positionId={baseId}
           pluginUrl={pluginUrl}
-          positionType={PluginPosition.Float}
+          positionType={PluginPosition.ContextMenu}
           dragging={isDragging}
         />
       </div>

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { ThemeProvider } from '@teable/next-themes';
-import { getDashboardInstallPlugin } from '@teable/openapi';
+import { getDashboardInstallPlugin, getPluginPanelPlugin, PluginPosition } from '@teable/openapi';
 import type { IUIConfig } from '@teable/sdk';
 import { isIframe, usePluginBridge } from '@teable/sdk';
 import { Spin } from '@teable/ui-lib';
@@ -39,16 +39,34 @@ export const Pages = (props: IPageParams) => {
 };
 
 const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
-  const { baseId, positionId: dashboardId, pluginInstallId, uiConfig } = props;
+  const { baseId, positionId, positionType, tableId, pluginInstallId, uiConfig } = props;
   const [isIframeMode, setIsIframeMode] = useState(true);
   const pluginBridge = usePluginBridge();
   const { t } = useTranslation();
-  const { data: pluginInstall, isLoading } = useQuery({
-    queryKey: ['plugin-install'],
+  const { data: dashboardPluginInstall, isLoading: isDashboardPluginInstallLoading } = useQuery({
+    queryKey: ['plugin-install', baseId, positionId, pluginInstallId],
     queryFn: () =>
-      getDashboardInstallPlugin(baseId, dashboardId, pluginInstallId).then((res) => res.data),
-    enabled: Boolean(baseId && dashboardId && pluginInstallId),
+      getDashboardInstallPlugin(baseId, positionId, pluginInstallId).then((res) => res.data),
+    enabled: Boolean(
+      positionType === PluginPosition.Dashboard && baseId && positionId && pluginInstallId
+    ),
   });
+
+  const { data: pluginPanelPluginInstall, isLoading: isPluginPanelPluginLoading } = useQuery({
+    queryKey: ['plugin-panel-plugin', tableId, positionId, pluginInstallId],
+    queryFn: () =>
+      getPluginPanelPlugin(tableId!, positionId, pluginInstallId).then((res) => res.data),
+    enabled: Boolean(
+      positionType === PluginPosition.Panel && tableId && positionId && pluginInstallId
+    ),
+  });
+
+  const isLoading =
+    positionType === PluginPosition.Dashboard
+      ? isDashboardPluginInstallLoading
+      : isPluginPanelPluginLoading;
+  const pluginInstall =
+    positionType === PluginPosition.Dashboard ? dashboardPluginInstall : pluginPanelPluginInstall;
 
   useEffect(() => {
     setIsIframeMode(isIframe);
@@ -58,8 +76,8 @@ const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
     return <div className="text-muted-foreground text-center">{t('notBaseId')}</div>;
   }
 
-  if (!dashboardId) {
-    return <div className="text-muted-foreground text-center">{t('notDashboardId')}</div>;
+  if (!positionId) {
+    return <div className="text-muted-foreground text-center">{t('notPositionId')}</div>;
   }
 
   if (!pluginInstallId) {

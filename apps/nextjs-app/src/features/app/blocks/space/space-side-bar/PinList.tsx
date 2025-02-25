@@ -81,10 +81,9 @@ export const PinList = () => {
       return;
     }
 
-    const [pin] = list.slice(from, from + 1);
-
-    const anchorPin = to === 0 ? list[0] : list[to - 1];
-    const position = to === 0 ? 'before' : 'after';
+    const pin = list[from];
+    const anchorPin = list[to];
+    const position = to > from ? 'after' : 'before';
 
     updateOrder({
       id: pin.id,

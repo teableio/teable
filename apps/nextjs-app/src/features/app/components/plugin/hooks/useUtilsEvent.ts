@@ -39,10 +39,6 @@ export const useUtilsEvent = (params: IPluginParams) => {
 
   useEffect(() => {
     ref.current.updateStorage = (storage) => {
-      if (positionType === PluginPosition.Float) {
-        console.error('Float plugin does not support updateStorage');
-        return Promise.resolve({});
-      }
       if (shareId) {
         console.error('Share plugin does not support updateStorage');
         return Promise.resolve({});

@@ -3,13 +3,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PluginPosition, removePlugin, renamePlugin } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 import { PluginContent } from '../../components/plugin/PluginContent';
+import { PluginHeader } from '../../components/plugin/PluginHeader';
 import { useIsExpandPlugin } from '../hooks/useIsExpandPlugin';
-import { PluginHeader } from './PluginHeader';
 
 export const PluginItem = (props: {
   name: string;
@@ -24,6 +24,8 @@ export const PluginItem = (props: {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isExpandPlugin = useIsExpandPlugin();
+  const basePermissions = useBasePermission();
+  const canManage = basePermissions?.['base|update'];
 
   const { mutate: removePluginMutate } = useMutation({
     mutationFn: () => removePlugin(baseId, dashboardId, pluginInstallId),
@@ -85,12 +87,15 @@ export const PluginItem = (props: {
         onClick={(e) => e.stopPropagation()}
       >
         <PluginHeader
+          dragging={dragging}
+          draggableHandleClassName="dashboard-draggable-handle"
           name={name}
           onDelete={removePluginMutate}
           onNameChange={renamePluginMutate}
           onExpand={onExpand}
           onClose={onClose}
           isExpanded={isExpanded}
+          canManage={canManage}
         />
         <PluginContent
           baseId={baseId}

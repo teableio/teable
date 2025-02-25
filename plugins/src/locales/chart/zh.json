@@ -1,6 +1,6 @@
 {
   "notBaseId": "缺少 baseId",
-  "notDashboardId": "缺少 dashboardId",
+  "notPositionId": "缺少 positionId",
   "notPluginInstallId": "缺少 pluginInstallId",
   "initBridge": "桥初始化中...",
   "actions": {

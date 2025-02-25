@@ -4,17 +4,16 @@ export interface IPluginParamsBase {
   pluginId: string;
   pluginUrl: string | undefined;
   positionId: string;
+  pluginInstallId: string;
 }
 
 export interface IDashboardPluginParams extends IPluginParamsBase {
   baseId: string;
   positionType: PluginPosition.Dashboard;
-  pluginInstallId: string;
 }
 
 export type IViewPluginParams = IPluginParamsBase & {
   positionType: PluginPosition.View;
-  pluginInstallId: string;
 } & (
     | {
         shareId: string;
@@ -26,9 +25,18 @@ export type IViewPluginParams = IPluginParamsBase & {
       }
   );
 
-export interface IFloatPluginParams extends IPluginParamsBase {
-  positionType: PluginPosition.Float;
+export type IContextMenuPluginParams = IPluginParamsBase & {
   baseId: string;
-}
+  positionType: PluginPosition.ContextMenu;
+};
 
-export type IPluginParams = IDashboardPluginParams | IViewPluginParams | IFloatPluginParams;
+export type IPanelPluginParams = IPluginParamsBase & {
+  baseId: string;
+  positionType: PluginPosition.Panel;
+};
+
+export type IPluginParams =
+  | IDashboardPluginParams
+  | IViewPluginParams
+  | IContextMenuPluginParams
+  | IPanelPluginParams;

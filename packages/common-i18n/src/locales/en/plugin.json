@@ -47,6 +47,14 @@
     "url": {
       "label": "Url",
       "description": "URL of the plugin"
+    },
+    "autoCreateMember": {
+      "label": "Auto Create Member",
+      "description": "auto create member for the plugin"
+    },
+    "config": {
+      "label": "Config",
+      "description": "config of the plugin"
     }
   },
   "markdown": {

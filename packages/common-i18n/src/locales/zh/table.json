@@ -540,5 +540,13 @@
   "plugin": {
     "recent": "最近使用",
     "more": "探索更多..."
+  },
+  "addPlugin": "添加插件",
+  "pluginContextMenu": {
+    "mangeButton": "管理插件",
+    "manage": "管理你的上下文菜单插件",
+    "noPlugin": "没有上下文菜单插件",
+    "delete": "删除",
+    "deleteDescription": "你确定要删除这个插件吗？"
   }
 }

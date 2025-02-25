@@ -10,3 +10,4 @@ export * from './submit';
 export * from './get-token';
 export * from './refresh-token';
 export * from './get-auth-code';
+export * from './unpublish';

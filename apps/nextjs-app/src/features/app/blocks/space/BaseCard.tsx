@@ -115,6 +115,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                   onChange={(e) => setBaseName(e.target.value)}
                   onBlur={toggleRenameBase}
                   onClick={clickStopPropagation}
+                  onMouseDown={clickStopPropagation}
                 />
               </form>
             ) : (

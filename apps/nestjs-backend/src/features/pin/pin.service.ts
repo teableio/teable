@@ -123,7 +123,6 @@ export class PinService {
         return this.prismaService.pinResource.findFirst({
           select: { order: true, id: true },
           where: {
-            resourceId: id,
             type: type,
             order: whereOrder,
           },

@@ -1,4 +1,3 @@
-import { PluginPosition } from '@teable/openapi';
 import type { IChildBridgeMethods } from '@teable/sdk/plugin-bridge';
 import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -23,7 +22,7 @@ type IPluginContentProps = {
 } & IPluginParams;
 
 export const PluginContent = (props: IPluginContentProps) => {
-  const { className, renderClassName, pluginId, positionType, dragging, onExpand } = props;
+  const { className, renderClassName, pluginInstallId, dragging, onExpand } = props;
   const { t } = useTranslation(['common']);
   const [bridge, setBridge] = useState<IChildBridgeMethods>();
   const iframeUrl = useIframeUrl(props);
@@ -57,7 +56,7 @@ export const PluginContent = (props: IPluginContentProps) => {
         </div>
       )}
       <PluginRender
-        title={positionType === PluginPosition.Float ? pluginId : props.pluginInstallId}
+        title={pluginInstallId}
         width={width}
         height={height}
         onBridge={setBridge}

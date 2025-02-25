@@ -28,7 +28,8 @@ export type IPluginI18n = z.infer<typeof pluginI18nSchema>;
 export enum PluginPosition {
   Dashboard = 'dashboard',
   View = 'view',
-  Float = 'float',
+  ContextMenu = 'contextMenu',
+  Panel = 'panel',
 }
 
 export enum PluginStatus {
@@ -52,3 +53,29 @@ export const pluginCreatedBySchema = z.object({
   email: z.string().email(),
   avatar: z.string().optional(),
 });
+
+export const pluginConfigSchema = z
+  .object({
+    [PluginPosition.ContextMenu]: z
+      .object({
+        width: z.number().or(z.string()),
+        height: z.number().or(z.string()),
+        x: z.number().or(z.string()),
+        y: z.number().or(z.string()),
+      })
+      .partial(),
+    [PluginPosition.View]: z.null(),
+    [PluginPosition.Dashboard]: z.null(),
+    [PluginPosition.Panel]: z.null(),
+  })
+  .partial()
+  .superRefine((data, ctx) => {
+    const keys = Object.keys(data);
+    const res = z.array(z.nativeEnum(PluginPosition)).safeParse(keys);
+    if (!res.success) {
+      res.error.issues.forEach((issue) => {
+        ctx.addIssue(issue);
+      });
+    }
+  });
+export type IPluginConfig = z.infer<typeof pluginConfigSchema>;

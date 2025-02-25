@@ -36,6 +36,7 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
 import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
 import { tableConfig } from '@/features/i18n/table.config';
+import { usePluginPanelStorage } from '../../../components/plugin-panel/hooks/usePluginPanelStorage';
 import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
@@ -45,7 +46,6 @@ import { useLockedViewTipStore } from '../store';
 import { AddView } from './AddView';
 import { Collaborators } from './Collaborators';
 import { LockedViewTip } from './LockedViewTip';
-import { PluginMenu } from './plugin/PluginMenu';
 import { TableInfo } from './TableInfo';
 
 const RightList = ({
@@ -66,6 +66,7 @@ const RightList = ({
 
   const [isHistoryDialogOpen, setHistoryDialogOpen] = useState(false);
   const [isTrashDialogOpen, setTrashDialogOpen] = useState(false);
+  const { toggleVisible } = usePluginPanelStorage(tableId!);
 
   const onRecordClick = (recordId: string) => {
     router.push(
@@ -119,16 +120,19 @@ const RightList = ({
             <Settings className="size-4" />
           </Link>
         </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          className={cn('flex', buttonClassName)}
+          onClick={toggleVisible}
+        >
+          <Puzzle className="size-4" />
+        </Button>
         <Button asChild variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
           <a href={t('help.mainLink')} title={t('help.title')} target="_blank" rel="noreferrer">
             <HelpCircle className="size-4" />
           </a>
         </Button>
-        <PluginMenu>
-          <Button variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
-            <Puzzle className="size-4" />
-          </Button>
-        </PluginMenu>
       </div>
       <BaseCollaboratorModalTrigger
         base={{

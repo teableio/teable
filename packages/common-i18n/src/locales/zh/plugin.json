@@ -47,6 +47,14 @@
     "url": {
       "label": "网址",
       "description": "插件的URL"
+    },
+    "autoCreateMember": {
+      "label": "自动创建成员",
+      "description": "自动创建成员用于插件"
+    },
+    "config": {
+      "label": "配置",
+      "description": "插件的配置"
     }
   },
   "markdown": {
