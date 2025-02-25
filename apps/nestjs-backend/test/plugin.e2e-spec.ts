@@ -32,6 +32,7 @@ const mockPlugin = {
       detailDesc: 'detail',
     },
   },
+  autoCreateMember: true,
 };
 describe('PluginController', () => {
   let app: INestApplication;
@@ -95,7 +96,7 @@ describe('PluginController', () => {
       description: 'updated',
       detailDesc: 'updated',
       helpUrl: 'https://updated.com',
-      logo: '/plugin/updated',
+      logo: 'https://updated.com/plugin/updated',
       positions: [PluginPosition.Dashboard],
       i18n: {
         en: {
@@ -111,7 +112,7 @@ describe('PluginController', () => {
     expect(putRes.data.description).toBe(updatePluginRo.description);
     expect(putRes.data.detailDesc).toBe(updatePluginRo.detailDesc);
     expect(putRes.data.helpUrl).toBe(updatePluginRo.helpUrl);
-    expect(putRes.data.logo).toEqual(expect.stringContaining(updatePluginRo.logo));
+    expect(putRes.data.logo).toEqual(expect.stringContaining('plugin/updated'));
     expect(putRes.data.i18n).toEqual(updatePluginRo.i18n);
   });
 
@@ -133,12 +134,13 @@ describe('PluginController', () => {
 
   it('/api/admin/plugin/center/list (GET)', async () => {
     const res = await createPlugin(mockPlugin);
+    const preList = await getPluginCenterList();
     await submitPlugin(res.data.id);
     await publishPlugin(res.data.id);
     const getRes = await getPluginCenterList();
     await deletePlugin(res.data.id);
 
-    expect(getRes.data).toHaveLength(3);
+    expect(getRes.data).toHaveLength(preList.data.length + 1);
     const plugin = getRes.data.find((p) => p.id === res.data.id);
     expect(plugin).not.toBeUndefined();
     expect(getPluginCenterListVoSchema.safeParse(getRes.data).success).toBe(true);
