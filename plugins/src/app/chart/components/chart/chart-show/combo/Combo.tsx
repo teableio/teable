@@ -262,6 +262,9 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
                         offset={12}
                         className="fill-foreground"
                         fontSize={12}
+                        formatter={(value: number) => {
+                          return `${prefix ?? ''}${decimal ? value.toFixed(decimal) : value}${suffix ?? ''}`;
+                        }}
                       />
                     )}
                   </Line>
@@ -286,6 +289,9 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
                         offset={12}
                         className="fill-foreground"
                         fontSize={12}
+                        formatter={(value: number) => {
+                          return `${prefix ?? ''}${decimal ? value.toFixed(decimal) : value}${suffix ?? ''}`;
+                        }}
                       />
                     )}
                   </Area>
