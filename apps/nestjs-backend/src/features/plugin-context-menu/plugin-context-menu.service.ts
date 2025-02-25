@@ -112,7 +112,7 @@ export class PluginContextMenuService {
       await prisma.pluginContextMenu.create({
         data: {
           pluginInstallId: pluginInstall.id,
-          order,
+          order: order + 1,
           createdBy: userId,
           tableId,
         },
@@ -120,7 +120,7 @@ export class PluginContextMenuService {
       return {
         pluginInstallId: pluginInstall.id,
         name: pluginName,
-        order,
+        order: order + 1,
       };
     });
   }

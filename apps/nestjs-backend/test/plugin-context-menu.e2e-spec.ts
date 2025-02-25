@@ -137,8 +137,8 @@ describe('Plugin Context Menu', () => {
       const list2 = await getPluginContextMenuList(tableId);
       expect(list2.data.map((item) => item.pluginInstallId)).toEqual([
         pluginInstallId,
-        pluginInstallId2,
         pluginInstallId3,
+        pluginInstallId2,
       ]);
     });
   });

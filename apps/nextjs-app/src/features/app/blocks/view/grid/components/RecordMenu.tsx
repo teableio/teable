@@ -115,8 +115,7 @@ export const RecordMenu = () => {
   const permission = useTablePermission();
   const recordMenuRef = useRef<HTMLDivElement>(null);
 
-  useClickAway(recordMenuRef, (e) => {
-    console.log('useClickAway', e);
+  useClickAway(recordMenuRef, () => {
     closeRecordMenu();
   });
 
