@@ -28,6 +28,7 @@ export const DuplicateTableRoute: RouteConfig = registerRoute({
   method: 'post',
   path: DUPLICATE_TABLE,
   description: 'Duplicate a table',
+  summary: 'Duplicate a table',
   request: {
     params: z.object({
       baseId: z.string(),
