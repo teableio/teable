@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { isMeTag, Me } from '@teable/core';
 import { User as UserIcon } from '@teable/icons';
 import type { UserCollaboratorItem } from '@teable/openapi';
-import { getBaseCollaboratorList } from '@teable/openapi';
+import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../../../config/react-query-keys';
@@ -157,6 +157,7 @@ const FilterUserSelect = (props: IFilterUserProps) => {
       skip: 0,
       take: 100,
       search,
+      type: PrincipalType.User,
     }),
     queryFn: ({ queryKey }) =>
       getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
