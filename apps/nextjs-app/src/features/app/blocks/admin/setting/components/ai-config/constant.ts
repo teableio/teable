@@ -1,4 +1,15 @@
-import { Anthropic, Azure, Cohere, Deepseek, GoogleLogo, Mistral, Openai } from '@teable/icons';
+import {
+  Anthropic,
+  Azure,
+  Cohere,
+  Deepseek,
+  GoogleLogo,
+  Lingyiwanwu,
+  Mistral,
+  Openai,
+  Qwen,
+  Zhipu,
+} from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
 export const LLM_PROVIDER_ICONS = {
@@ -9,6 +20,9 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.COHERE]: Cohere,
   [LLMProviderType.MISTRAL]: Mistral,
   [LLMProviderType.DEEPSEEK]: Deepseek,
+  [LLMProviderType.QWEN]: Qwen,
+  [LLMProviderType.ZHIPU]: Zhipu,
+  [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
 };
 
 export const LLM_PROVIDERS = [
@@ -60,5 +74,26 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://api.deepseek.ai/v1',
     modelsPlaceholder: 'deepseek-chat,deepseek-reasoner,deepseek-coder',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
+  },
+  {
+    value: LLMProviderType.QWEN,
+    label: '通义千问',
+    baseUrlPlaceholder: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    modelsPlaceholder: 'qwen-plus,qwen-plus,qwen-max',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.QWEN],
+  },
+  {
+    value: LLMProviderType.ZHIPU,
+    label: '智谱',
+    baseUrlPlaceholder: 'https://open.bigmodel.cn/api/paas/v4',
+    modelsPlaceholder: 'glm-3-turbo,glm-4,glm-4-air',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.ZHIPU],
+  },
+  {
+    value: LLMProviderType.LINGYIWANWU,
+    label: '零一万物',
+    baseUrlPlaceholder: 'https://api.lingyiwanwu.com/v1',
+    modelsPlaceholder: 'yi-lightning,yi-large',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.LINGYIWANWU],
   },
 ] as const;

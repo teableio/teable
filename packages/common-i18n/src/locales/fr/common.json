@@ -261,7 +261,11 @@
         "selectModel": "Sélectionner un modèle...",
         "input": "Entrée",
         "output": "Sortie",
-        "systemModelTips": "Le ratio d'entrée/sortie représente le taux de change entre les crédits et les jetons. Par exemple, « 1 : 1 000 » signifie qu'un crédit équivaut à peu près à 1 000 jetons.<br></br>Remarque : chaque utilisation déduira au moins 1 crédit. Même si la consommation réelle est inférieure à 1 crédit, elle sera tout de même facturée comme 1 crédit."
+        "systemModelTips": "Le ratio d'entrée/sortie représente le taux de change entre les crédits et les jetons. Par exemple, « 1 : 1 000 » signifie qu'un crédit équivaut à peu près à 1 000 jetons.<br></br>Remarque : chaque utilisation déduira au moins 1 crédit. Même si la consommation réelle est inférieure à 1 crédit, elle sera tout de même facturée comme 1 crédit.",
+        "supportVisionTip": "Ce modèle prend en charge l'entrée d'images",
+        "supportAudioTip": "Ce modèle prend en charge l'entrée audio",
+        "supportVideoTip": "Ce modèle prend en charge l'entrée vidéo",
+        "supportDeepThinkTip": "Ce modèle prend en charge la réflexion approfondie"
       }
     }
   },

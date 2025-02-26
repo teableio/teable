@@ -305,7 +305,11 @@
         "selectModel": "Wähle Modell...",
         "input": "Eingabe",
         "output": "Ausgabe",
-        "systemModelTips": "Das Input-Output-Verhältnis stellt den Wechselkurs zwischen Credits und Tokens dar. Beispielsweise bedeutet „1:1000“, dass 1 Credit ungefähr 1000 Tokens entspricht.<br></br>Hinweis: Bei jeder Nutzung wird mindestens 1 Credit abgezogen. Auch wenn der tatsächliche Verbrauch weniger als 1 Credit beträgt, wird er dennoch als 1 Credit abgerechnet."
+        "systemModelTips": "Das Input-Output-Verhältnis stellt den Wechselkurs zwischen Credits und Tokens dar. Beispielsweise bedeutet „1:1000“, dass 1 Credit ungefähr 1000 Tokens entspricht.<br></br>Hinweis: Bei jeder Nutzung wird mindestens 1 Credit abgezogen. Auch wenn der tatsächliche Verbrauch weniger als 1 Credit beträgt, wird er dennoch als 1 Credit abgerechnet.",
+        "supportVisionTip": "Dieses Modell unterstützt Bildeingabe",
+        "supportAudioTip": "Dieses Modell unterstützt Audioeingabe",
+        "supportVideoTip": "Dieses Modell unterstützt Videoeingabe",
+        "supportDeepThinkTip": "Dieses Modell unterstützt tiefes Denken"
       }
     }
   },

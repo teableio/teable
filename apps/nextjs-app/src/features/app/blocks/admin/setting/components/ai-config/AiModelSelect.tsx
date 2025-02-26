@@ -1,7 +1,7 @@
 'use client';
 
-import { HelpCircle } from '@teable/icons';
-import type { IModelRateMap } from '@teable/openapi';
+import { Audio, DeepThinking, Eye, HelpCircle } from '@teable/icons';
+import type { IModelDefinationMap } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
 import {
   cn,
@@ -23,6 +23,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { Fragment, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDER_ICONS } from './constant';
@@ -40,8 +41,8 @@ interface IAIModelSelectProps {
   className?: string;
   options?: IModelOption[];
   disabled?: boolean;
-  modelRateMap?: IModelRateMap;
   needGroup?: boolean;
+  modelDefinationMap?: IModelDefinationMap;
 }
 
 export function AIModelSelect({
@@ -51,7 +52,7 @@ export function AIModelSelect({
   className,
   options = [],
   disabled,
-  modelRateMap,
+  modelDefinationMap,
   needGroup,
 }: IAIModelSelectProps) {
   const [open, setOpen] = useState(false);
@@ -177,7 +178,46 @@ export function AIModelSelect({
                             const Icon =
                               LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
                             const checked = value.toLowerCase() === modelKey.toLowerCase();
-                            const modelRate = modelRateMap?.[model as string];
+                            const modelDefination = modelDefinationMap?.[model as string];
+                            const {
+                              inputRate,
+                              outputRate,
+                              visionEnable,
+                              audioEnable,
+                              deepThinkEnable,
+                            } = modelDefination ?? {};
+                            const featureList: { key: string; tooltip: string; icon: ReactNode }[] =
+                              [];
+
+                            if (visionEnable) {
+                              featureList.push({
+                                key: 'vision',
+                                tooltip: t('admin.setting.ai.supportVisionTip'),
+                                icon: <Eye className="size-4" />,
+                              });
+                            }
+                            if (audioEnable) {
+                              featureList.push({
+                                key: 'audio',
+                                tooltip: t('admin.setting.ai.supportAudioTip'),
+                                icon: <Audio className="size-4" />,
+                              });
+                            }
+                            // if (videoEnable) {
+                            //   featureList.push({
+                            //     key: 'video',
+                            //     tooltip: t('admin.setting.ai.supportVideoTip'),
+                            //     icon: <Video className="size-4" />,
+                            //   });
+                            // }
+                            if (deepThinkEnable) {
+                              featureList.push({
+                                key: 'deepThink',
+                                tooltip: t('admin.setting.ai.supportDeepThinkTip'),
+                                icon: <DeepThinking className="size-4" />,
+                              });
+                            }
+
                             return (
                               <CommandItem
                                 key={modelKey}
@@ -203,16 +243,30 @@ export function AIModelSelect({
                                       {model}
                                     </div>
                                   </div>
-                                  {isCloud && modelRate && (
+                                  {isCloud && modelDefination && (
                                     <div className="ml-6 flex items-center space-x-1 text-xs text-slate-500">
                                       <span className="rounded-md border px-2.5 py-0.5">
                                         {t('admin.setting.ai.input')}{' '}
-                                        {decimalToRatio(modelRate.inputRate)}
+                                        {decimalToRatio(inputRate as number)}
                                       </span>
                                       <span className="rounded-md border px-2.5 py-0.5">
                                         {t('admin.setting.ai.output')}{' '}
-                                        {decimalToRatio(modelRate.outputRate)}
+                                        {decimalToRatio(outputRate as number)}
                                       </span>
+                                      {featureList.map(({ key, tooltip, icon }) => (
+                                        <TooltipProvider key={key}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="rounded-md border p-0.5">
+                                                {icon}
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="max-w-[320px]">{tooltip}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ))}
                                     </div>
                                   )}
                                 </div>

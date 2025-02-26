@@ -305,7 +305,11 @@
         "selectModel": "选择模型...",
         "input": "输入",
         "output": "输出",
-        "systemModelTips": "输入与输出中的比例代表算力与 Token 的兑换比率，例如 “1:1000” 表示 1 个算力约等于 1000 个Token。<br></br>注意：每次使用至少扣除 1 个算力，即使实际消耗不足 1 个算力，也按 1 个算力进行计算。"
+        "systemModelTips": "输入与输出中的比例代表算力与 Token 的兑换比率，例如 “1:1000” 表示 1 个算力约等于 1000 个Token。<br></br>注意：每次使用至少扣除 1 个算力，即使实际消耗不足 1 个算力，也按 1 个算力进行计算。",
+        "supportVisionTip": "该模型支持图片输入",
+        "supportAudioTip": "该模型支持音频输入",
+        "supportVideoTip": "该模型支持视频输入",
+        "supportDeepThinkTip": "该模型支持深度思考"
       }
     }
   },
