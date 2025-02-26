@@ -11,7 +11,7 @@ export const usePieConfig = (dimension?: string, rows?: Record<string, unknown>[
     return labels.reduce((acc, label, index) => {
       return {
         ...acc,
-        [label]: {
+        [`pie-${index}`]: {
           color: getColor(index),
           label,
         },

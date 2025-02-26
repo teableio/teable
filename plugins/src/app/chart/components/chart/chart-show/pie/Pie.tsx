@@ -1,10 +1,4 @@
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@teable/ui-lib';
+import { ChartContainer, ChartLegend, ChartTooltip, ChartTooltipContent } from '@teable/ui-lib';
 import { useMemo, useState } from 'react';
 import { PieChart, Pie, Label, Sector } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultLegendContent';
@@ -13,6 +7,7 @@ import { useBaseQueryData } from '../../../../hooks/useBaseQueryData';
 import { useUIConfig } from '../../../../hooks/useUIConfig';
 import type { IPieConfig } from '../../../types';
 import { TooltipItem } from '../combo/TooltipItem';
+import { PieLegendContent } from './PieLegendContent';
 import { usePieConfig } from './usePieConfig';
 import { useRefObserve } from './useRefObserve';
 
@@ -22,6 +17,7 @@ export const ChartPie = (props: { config: IPieConfig }) => {
   const pieConfig = usePieConfig(config.dimension, queryData?.rows);
   const [hoverLegend, setHoverLegend] = useState<number>();
   const [hoverPieIndex, setHoverPieIndex] = useState<number>();
+
   const { isExpand } = useUIConfig();
   const total = useMemo(() => {
     const measure = config.measure;
@@ -36,9 +32,10 @@ export const ChartPie = (props: { config: IPieConfig }) => {
     if (!queryData?.rows || !dimension) {
       return [];
     }
-    return queryData.rows.map((row) => ({
+    return queryData.rows.map((row, index) => ({
       ...row,
-      fill: `var(--color-${row[dimension]})`,
+      value: `pie-${index}`,
+      fill: `var(--color-pie-${index})`,
     }));
   }, [config.dimension, queryData?.rows]);
 
@@ -116,7 +113,7 @@ export const ChartPie = (props: { config: IPieConfig }) => {
               verticalAlign="top"
               onMouseEnter={handleLegendMouseEnter}
               onMouseLeave={handleLegendMouseLeave}
-              content={<ChartLegendContent className="cursor-pointer" />}
+              content={<PieLegendContent className="cursor-pointer" nameKey={'pieColorKey'} />}
             />
           )}
           <Pie
