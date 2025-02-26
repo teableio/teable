@@ -541,6 +541,16 @@
     "recent": "最近使用",
     "more": "探索更多..."
   },
+  "pluginPanel": {
+    "empty": {
+      "description": "没有插件面板"
+    },
+    "createPluginPanel": {
+      "button": "创建插件面板",
+      "title": "创建插件面板"
+    },
+    "namePlaceholder": "输入插件面板名称"
+  },
   "addPlugin": "添加插件",
   "pluginContextMenu": {
     "mangeButton": "管理插件",

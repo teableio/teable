@@ -53,7 +53,7 @@ export const PluginLayout = ({ tableId }: { tableId: string }) => {
     return (
       <div className="flex flex-1 items-center justify-center">
         <CreatePluginDialog tableId={tableId}>
-          <Button size={'sm'}>Create Plugin</Button>
+          <Button size={'sm'}>{t('table:addPlugin')}</Button>
         </CreatePluginDialog>
       </div>
     );

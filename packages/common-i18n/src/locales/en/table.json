@@ -546,7 +546,6 @@
     "empty": {
       "description": "No plugin panels have been added yet."
     },
-    "createPanel": {},
     "createPluginPanel": {
       "button": "Create a plugin panel",
       "title": "Create a plugin panel"
