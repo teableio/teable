@@ -29,6 +29,13 @@ export const LLM_PROVIDER_ICONS = {
 
 export const LLM_PROVIDERS = [
   {
+    value: LLMProviderType.DEEPSEEK,
+    label: 'DeepSeek',
+    baseUrlPlaceholder: 'https://api.deepseek.ai/v1',
+    modelsPlaceholder: 'deepseek-chat,deepseek-reasoner,deepseek-coder',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
+  },
+  {
     value: LLMProviderType.OPENAI,
     label: 'OpenAI',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
@@ -71,29 +78,22 @@ export const LLM_PROVIDERS = [
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.MISTRAL],
   },
   {
-    value: LLMProviderType.DEEPSEEK,
-    label: 'DeepSeek',
-    baseUrlPlaceholder: 'https://api.deepseek.ai/v1',
-    modelsPlaceholder: 'deepseek-chat,deepseek-reasoner,deepseek-coder',
-    Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
-  },
-  {
     value: LLMProviderType.QWEN,
-    label: '通义千问',
+    label: 'Qwen',
     baseUrlPlaceholder: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     modelsPlaceholder: 'qwen-plus,qwen-plus,qwen-max',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.QWEN],
   },
   {
     value: LLMProviderType.ZHIPU,
-    label: '智谱',
+    label: 'Zhipu',
     baseUrlPlaceholder: 'https://open.bigmodel.cn/api/paas/v4',
     modelsPlaceholder: 'glm-3-turbo,glm-4,glm-4-air',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.ZHIPU],
   },
   {
     value: LLMProviderType.LINGYIWANWU,
-    label: '零一万物',
+    label: 'Yi',
     baseUrlPlaceholder: 'https://api.lingyiwanwu.com/v1',
     modelsPlaceholder: 'yi-lightning,yi-large',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.LINGYIWANWU],
