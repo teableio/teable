@@ -64,7 +64,7 @@ export abstract class Importer {
 
   public static CHUNK_SIZE = 1024 * 1024 * 0.2;
 
-  public static MAX_CHUNK_LENGTH = 500;
+  public static MAX_CHUNK_LENGTH = 300;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
