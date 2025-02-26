@@ -157,6 +157,7 @@ export { default as Users } from './components/Users';
 export { default as Video } from './components/Video';
 export { default as Webhook } from './components/Webhook';
 export { default as X } from './components/X';
+export { default as Xai } from './components/Xai';
 export { default as Zap } from './components/Zap';
 export { default as Zhipu } from './components/Zhipu';
 export { default as ZoomIn } from './components/ZoomIn';

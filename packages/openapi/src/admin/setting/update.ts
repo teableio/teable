@@ -14,6 +14,7 @@ export enum LLMProviderType {
   QWEN = 'qwen',
   ZHIPU = 'zhipu',
   LINGYIWANWU = 'lingyiwanwu',
+  XAI = 'xai',
 }
 
 export const llmProviderSchema = z.object({

@@ -5,6 +5,7 @@ import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createXai } from '@ai-sdk/xai';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
@@ -32,6 +33,7 @@ export class AiService {
     [LLMProviderType.QWEN]: createQwen,
     [LLMProviderType.ZHIPU]: createOpenAI,
     [LLMProviderType.LINGYIWANWU]: createOpenAI,
+    [LLMProviderType.XAI]: createXai,
   } as const;
 
   public parseModelKey(modelKey: string) {

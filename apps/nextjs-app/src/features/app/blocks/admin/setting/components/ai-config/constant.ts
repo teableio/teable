@@ -9,6 +9,7 @@ import {
   Openai,
   Qwen,
   Zhipu,
+  Xai,
 } from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
@@ -23,6 +24,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.QWEN]: Qwen,
   [LLMProviderType.ZHIPU]: Zhipu,
   [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
+  [LLMProviderType.XAI]: Xai,
 };
 
 export const LLM_PROVIDERS = [
@@ -95,5 +97,12 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://api.lingyiwanwu.com/v1',
     modelsPlaceholder: 'yi-lightning,yi-large',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.LINGYIWANWU],
+  },
+  {
+    value: LLMProviderType.XAI,
+    label: 'XAI',
+    baseUrlPlaceholder: 'https://api.x.ai/v1',
+    modelsPlaceholder: 'grok-2,grok-3,grok-3-reasoner',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.XAI],
   },
 ] as const;
