@@ -4,6 +4,7 @@ import { BadRequestException } from '@nestjs/common';
 import { getUniqName, FieldType } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
+import dayjs from 'dayjs';
 import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
 import fetch from 'node-fetch';
 import sizeof from 'object-sizeof';
@@ -13,6 +14,18 @@ import type { ZodType } from 'zod';
 import z from 'zod';
 import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
+
+export const parseBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+
+  if (typeof value === 'string') {
+    const lowered = value.toLowerCase();
+    if (lowered === 'true') return true;
+    if (lowered === 'false') return false;
+  }
+
+  return Boolean(value);
+};
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine((value: unknown) => {
@@ -27,7 +40,7 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
     }
     return false;
   }),
-  [FieldType.Date]: z.coerce.date(),
+  [FieldType.Date]: z.any().refine((value) => dayjs(value).isValid()),
   [FieldType.Number]: z.coerce.number(),
   [FieldType.LongText]: z
     .string()
