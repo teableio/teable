@@ -9,7 +9,7 @@ import {
   hasNoneOf,
   CellValueType,
 } from '@teable/core';
-import { zonedTimeToUtc } from 'date-fns-tz';
+import { fromZonedTime } from 'date-fns-tz';
 import type { IFieldInstance } from '../features/field/model/factory';
 
 const SPECIAL_OPERATOR_FIELD_TYPE_SET = new Set([
@@ -59,7 +59,7 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
   } else if (type === FieldType.Date) {
     const timeZone =
       options?.formatting?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const dateStr = zonedTimeToUtc(value as string, timeZone).toISOString();
+    const dateStr = fromZonedTime(value as string, timeZone).toISOString();
     value = {
       exactDate: dateStr,
       mode: exactDate.value,

@@ -1,7 +1,7 @@
 import { type IDateFieldOptions, TimeFormatting } from '@teable/core';
-import { Button, Calendar, Input } from '@teable/ui-lib';
+import { Button, Calendar, cn, Input, NavView } from '@teable/ui-lib';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
-import { formatInTimeZone, toDate, utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { formatInTimeZone, toDate, toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { AppContext } from '../../../context';
@@ -32,6 +32,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   const { time, timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone } =
     options?.formatting || {};
   const [date, setDate] = useState<string | null>(value || null);
+  const [navView, setNavView] = useState<NavView>(NavView.Day);
   const notHaveTimePicker = disableTimePicker || time === TimeFormatting.None;
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const { lang = 'en' } = useContext(AppContext);
@@ -46,7 +47,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   const onSelect = (value?: Date) => {
     if (!value) return onChange?.(null);
 
-    const curDatetime = zonedTimeToUtc(value, timeZone);
+    const curDatetime = fromZonedTime(value, timeZone);
 
     if (date) {
       const prevDatetime = toDate(date, { timeZone });
@@ -77,12 +78,12 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
       return;
     }
 
-    return utcToZonedTime(date, timeZone);
+    return toZonedTime(date, timeZone);
   }, [date, timeZone]);
 
   const onTimeChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     if (!date) return;
-    const datetime = utcToZonedTime(date, timeZone);
+    const datetime = toZonedTime(date, timeZone);
     const timeValue = e.target.value;
 
     const hours = Number.parseInt(timeValue.split(':')[0] || '00', 10);
@@ -91,7 +92,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     datetime.setHours(hours);
     datetime.setMinutes(minutes);
 
-    setDate(zonedTimeToUtc(datetime, timeZone).toISOString());
+    setDate(fromZonedTime(datetime, timeZone).toISOString());
   };
 
   const saveValue = (nowDate?: string) => {
@@ -103,7 +104,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   };
 
   const now = () => {
-    return zonedTimeToUtc(new Date(), timeZone);
+    return fromZonedTime(new Date(), timeZone);
   };
 
   return (
@@ -118,7 +119,12 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
         className={className}
         disabled={readonly}
         footer={
-          <div className="flex items-center justify-center p-1">
+          <div
+            className={cn(
+              'flex items-center justify-center p-1',
+              navView === NavView.Year && 'hidden'
+            )}
+          >
             {!notHaveTimePicker && date ? (
               <Input
                 className="mr-3 w-7/12"
@@ -140,6 +146,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
             </Button>
           </div>
         }
+        onNavViewChange={(navView) => setNavView(navView)}
       />
       <input className="absolute size-0 opacity-0" ref={defaultFocusRef} />
     </>
