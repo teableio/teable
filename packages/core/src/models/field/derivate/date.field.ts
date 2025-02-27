@@ -87,6 +87,11 @@ export class DateFieldCore extends FieldCore {
         ? dayjs.tz(value, format, this.options.formatting.timeZone)
         : dayjs.tz(value, this.options.formatting.timeZone);
       if (!formatValue.isValid()) return null;
+      const formatValueISOString = formatValue.toISOString();
+      // ISOString start with '-' means the date is invalid
+      if (formatValueISOString.startsWith('-')) {
+        return null;
+      }
       return formatValue.toISOString();
     } catch (e) {
       return this.defaultTzFormat(value);

@@ -8,7 +8,7 @@ import {
   getActionTriggerChannel,
   getTableImportChannel,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
   IImportOptionRo,
@@ -235,11 +235,8 @@ export class ImportOpenApiService {
                 const { sourceColumnIndex, type } = col;
                 // empty row will be return void row value
                 const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-                if (type === FieldType.Checkbox) {
-                  res.fields[fields[index].id] = parseBoolean(value);
-                } else {
-                  res.fields[fields[index].id] = value?.toString();
-                }
+                res.fields[fields[index].id] =
+                  type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
               });
             }
             // inplace records
@@ -271,14 +268,17 @@ export class ImportOpenApiService {
             worker.postMessage({ type: 'done', chunkId });
             this.updateRowCount(table.id);
           } catch (e) {
-            const error = e as Error;
-            this.logger.error(error?.message, error?.stack);
+            const wrappedError = e as Error;
+            // adapt the prisma error message
+            e instanceof Prisma.PrismaClientKnownRequestError &&
+              (wrappedError.message = e?.meta?.message as string);
+            this.logger.error(wrappedError?.message, wrappedError?.stack);
             notification &&
               this.notificationService.sendImportResultNotify({
                 baseId,
                 tableId: table.id,
                 toUserId: userId,
-                message: `❌ ${table.name} import aborted: ${error.message} fail row range: [${recordCount - records.length}, ${recordCount - 1}]. Please check the data for this range and retry.
+                message: `❌ ${table.name} import aborted: ${wrappedError.message} fail row range: [${recordCount - records.length}, ${recordCount - 1}]. Please check the data for this range and retry.
                 `,
               });
             worker.terminate();
