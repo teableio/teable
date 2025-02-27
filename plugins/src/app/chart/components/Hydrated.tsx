@@ -1,8 +1,15 @@
 import { dehydrate } from '@tanstack/react-query';
-import type { IGetDashboardInstallPluginVo, IPluginPanelPluginGetVo } from '@teable/openapi';
+import type {
+  IGetBaseVo,
+  IGetDashboardInstallPluginVo,
+  IPluginPanelPluginGetVo,
+  ITableListVo,
+} from '@teable/openapi';
 import {
   createAxios,
+  GET_BASE,
   GET_DASHBOARD_INSTALL_PLUGIN,
+  GET_TABLE_LIST,
   PLUGIN_PANEL_PLUGIN_GET,
   PluginPosition,
   urlBuilder,
@@ -68,9 +75,25 @@ export const Hydrated = async ({
     });
   }
 
+  const baseServerData = await ssrAxios
+    .get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }), {
+      headers: {
+        cookie,
+      },
+    })
+    .then(({ data }) => data);
+
+  const tableServerData = await ssrAxios
+    .get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }), {
+      headers: {
+        cookie,
+      },
+    })
+    .then(({ data }) => data);
+
   return (
     <QueryClientProvider dehydratedState={dehydrate(queryClient)}>
-      <Pages {...searchParams} />
+      <Pages {...searchParams} baseServerData={baseServerData} tableServerData={tableServerData} />
     </QueryClientProvider>
   );
 };
