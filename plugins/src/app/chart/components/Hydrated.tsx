@@ -13,7 +13,8 @@ import type { IPageParams } from '../../../types';
 import { Pages } from './Pages';
 
 export const ssrAxios = createAxios();
-ssrAxios.defaults.baseURL = `http://localhost:${process.env.PORT}/api`;
+ssrAxios.defaults.baseURL =
+  process.env.PLUGIN_TEABLE_BACKEND_BASE_URL || 'http://127.0.0.1:3000/api';
 
 export const Hydrated = async ({
   searchParams,
