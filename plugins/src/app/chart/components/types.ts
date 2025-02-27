@@ -160,6 +160,6 @@ export interface IChartStorage {
 }
 
 export interface IChartServerData {
-  tableServerData: ITableVo[];
-  baseServerData: IGetBaseVo;
+  tableServerData?: ITableVo[];
+  baseServerData?: IGetBaseVo;
 }
