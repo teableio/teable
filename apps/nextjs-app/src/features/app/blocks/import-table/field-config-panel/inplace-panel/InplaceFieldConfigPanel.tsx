@@ -6,11 +6,10 @@ import {
   getTablePermission,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { TablePermissionContext } from '@teable/sdk/context/table-permission/TablePermissionContext';
-import { useBaseId, useField, useFields, useTable, useTablePermission } from '@teable/sdk/hooks';
+import { useBaseId } from '@teable/sdk/hooks';
 import { isEqual } from 'lodash';
-import { useContext, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
 import { InplaceImportOptionPanel } from '../CollapsePanel';
 import { InplacePreviewColumn } from './InplacePreviewColumn';
 

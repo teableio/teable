@@ -22,6 +22,8 @@ import type {
   IPublicSettingVo,
   IGetDashboardVo,
   IGetDashboardListVo,
+  IGetBasePermissionVo,
+  ITablePermissionVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -46,6 +48,8 @@ import {
   SPACE_COLLABORATE_LIST,
   UPDATE_NOTIFICATION_STATUS,
   USER_ME,
+  GET_BASE_PERMISSION,
+  GET_TABLE_PERMISSION,
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
@@ -142,6 +146,18 @@ export class SsrApi {
 
   async getBaseList() {
     return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL).then(({ data }) => data);
+  }
+
+  async getBasePermission(baseId: string) {
+    return await this.axios
+      .get<IGetBasePermissionVo>(urlBuilder(GET_BASE_PERMISSION, { baseId }))
+      .then((res) => res.data);
+  }
+
+  async getTablePermission(baseId: string, tableId: string) {
+    return await this.axios
+      .get<ITablePermissionVo>(urlBuilder(GET_TABLE_PERMISSION, { baseId, tableId }))
+      .then((res) => res.data);
   }
 
   async getSpaceCollaboratorList(spaceId: string, query?: ListSpaceCollaboratorRo) {

@@ -101,7 +101,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   useViewListener(viewId, viewMatches, updateRowCount);
 
   const rowCount = useMemo(() => {
-    if (!resRowCount) return 0;
+    if (!resRowCount) return null;
 
     const { rowCount } = resRowCount;
     return rowCount;

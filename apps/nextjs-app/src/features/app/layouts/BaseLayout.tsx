@@ -1,11 +1,11 @@
 import type { DehydratedState } from '@tanstack/react-query';
 import type { IGetBaseVo, ITableVo } from '@teable/openapi';
-import { NotificationProvider, SessionProvider, useIsHydrated } from '@teable/sdk';
+import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import type { IUser } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import React, { Fragment } from 'react';
-import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/features/app/layouts';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
@@ -19,14 +19,13 @@ export const BaseLayout: React.FC<{
   children: React.ReactNode;
   tableServerData: ITableVo[];
   baseServerData: IGetBaseVo;
-  user?: IUser;
   dehydratedState?: DehydratedState;
+  user?: IUser;
 }> = ({ children, tableServerData, baseServerData, user, dehydratedState }) => {
   const router = useRouter();
   const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
-  const isHydrated = useIsHydrated();
 
   return (
     <AppLayout>
@@ -58,7 +57,7 @@ export const BaseLayout: React.FC<{
                           <SideBarFooter />
                         </Fragment>
                       </Sidebar>
-                      {isHydrated && <div className="min-w-80 flex-1">{children}</div>}
+                      <div className="min-w-80 flex-1">{children}</div>
                     </div>
                   </div>
                   <UsageLimitModal />

@@ -11,9 +11,9 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import type { Dispatch, SetStateAction } from 'react';
 import { useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { ChoiceItem } from '@/features/app/components/field-setting/options/SelectOptions';
 import { tableConfig } from '@/features/i18n/table.config';

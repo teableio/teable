@@ -1,5 +1,5 @@
 import { CellValue } from '@teable/sdk/components';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';

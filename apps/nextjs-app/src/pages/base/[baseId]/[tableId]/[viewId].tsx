@@ -1,3 +1,5 @@
+import { QueryClient, dehydrate } from '@tanstack/react-query';
+import { ReactQueryKeys } from '@teable/sdk';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
@@ -37,6 +39,20 @@ export const getServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR<IViewPageProps>(async (context, ssrApi) => {
       const { tableId, viewId, baseId, recordId, fromNotify: notifyId } = context.query;
+      const queryClient = new QueryClient();
+
+      await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: ['basePermission', baseId as string],
+          queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getTablePermission(baseId as string, tableId as string),
+          queryFn: ({ queryKey }) => ssrApi.getTablePermission(queryKey[1], queryKey[2]),
+        }),
+      ]);
+
       let recordServerData;
       if (recordId) {
         if (notifyId) {
@@ -67,6 +83,7 @@ export const getServerSideProps = withEnv(
             ...serverData,
             ...(recordServerData ? { recordServerData } : {}),
             ...(await getTranslationsProps(context, i18nNamespaces)),
+            dehydratedState: dehydrate(queryClient),
           },
         };
       }
