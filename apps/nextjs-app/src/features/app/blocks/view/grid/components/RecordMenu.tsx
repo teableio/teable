@@ -229,7 +229,7 @@ export const RecordMenu = () => {
         </PopoverTrigger>
         <PopoverContent className="size-auto min-w-40 rounded-md p-0" align="start">
           <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
-            <CommandList>
+            <CommandList className="max-h-96">
               {menuItemGroups.map((items, index) => {
                 if (index === pluginItemIndex) {
                   return (

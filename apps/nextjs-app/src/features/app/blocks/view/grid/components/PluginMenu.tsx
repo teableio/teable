@@ -12,7 +12,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
   ScrollArea,
-  Separator,
 } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
@@ -34,77 +33,118 @@ export const PluginMenu = (props: { tableId?: string; closeRecordMenu: () => voi
     enabled: !!tableId,
   });
   const pluginContextMenuManageDialogRef = useRef<IPluginContextMenuManageDialogRef>(null);
+  const menuItems = pluginContextMenu?.slice(0, 3);
+  const hasMore = pluginContextMenu && pluginContextMenu.length > 3;
 
   return (
     <Fragment>
-      <CommandGroup aria-valuetext="name">
-        <HoverCard openDelay={100}>
-          <HoverCardTrigger>
-            <CommandItem className="h-9 justify-between px-4">
-              <div className="flex items-center justify-between gap-2">
-                <Puzzle className="size-4 shrink-0" />
-                {t('common:noun.plugin')}
-              </div>
-              <ChevronRight className="size-4" />
-            </CommandItem>
-          </HoverCardTrigger>
-          <HoverCardContent
-            side="right"
-            align="start"
-            sideOffset={10}
-            className="p-0"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <ScrollArea
-              className={cn({
-                'h-32': pluginContextMenu?.length && pluginContextMenu.length > 5,
-              })}
-            >
-              <div className="flex flex-col">
-                {pluginContextMenu?.map(({ pluginInstallId, name, logo }) => {
-                  return (
-                    <Button
-                      variant="ghost"
-                      className="mx-1 h-9 justify-start gap-2 px-4 text-sm font-normal"
-                      key={pluginInstallId}
-                      onClick={async () => {
-                        closeRecordMenu();
-                        setActivePluginId(pluginInstallId);
-                      }}
-                    >
-                      <Image
-                        className="size-4 shrink-0 rounded-sm"
-                        src={logo}
-                        alt={name}
-                        width={56}
-                        height={56}
-                        sizes="100%"
-                        style={{
-                          objectFit: 'contain',
-                        }}
-                      />
-                      {name}
-                    </Button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-            <Separator />
-            <div className="m-1 h-9">
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 px-4 text-sm font-normal"
-                onClick={async () => {
-                  pluginContextMenuManageDialogRef.current?.open();
-                }}
-              >
-                <Settings className="mr-2 size-4 shrink-0" />
-                {t('table:pluginContextMenu.mangeButton')}
-              </Button>
+      <CommandGroup
+        aria-valuetext="name"
+        heading={
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <Puzzle className="shrink-0" />
+              {t('common:noun.plugin')}
             </div>
-          </HoverCardContent>
-        </HoverCard>
+            <HoverCard openDelay={100}>
+              <HoverCardTrigger>
+                <Button
+                  variant="link"
+                  size={'xs'}
+                  className={cn('h-auto font-normal text-muted-foreground gap-0 p-0', {
+                    hidden: !hasMore,
+                  })}
+                >
+                  {t('common:actions.more')}
+                  <ChevronRight />
+                </Button>
+              </HoverCardTrigger>
+              <HoverCardContent
+                side="right"
+                align="start"
+                sideOffset={10}
+                className="p-0"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <ScrollArea
+                  className={cn({
+                    'h-40': pluginContextMenu?.length && pluginContextMenu.length > 5,
+                  })}
+                >
+                  <div className="flex flex-col py-1">
+                    {!pluginContextMenu?.length && (
+                      <div className="flex items-center justify-center py-2 text-[13px] text-muted-foreground">
+                        {t('table:pluginContextMenu.noPlugin')}
+                      </div>
+                    )}
+                    {pluginContextMenu?.map(({ pluginInstallId, name, logo }) => {
+                      return (
+                        <Button
+                          variant="ghost"
+                          className="mx-1 h-9 justify-start gap-2 px-4 text-sm font-normal"
+                          key={pluginInstallId}
+                          onClick={async () => {
+                            closeRecordMenu();
+                            setActivePluginId(pluginInstallId);
+                          }}
+                        >
+                          <Image
+                            className="size-4 shrink-0 rounded-sm"
+                            src={logo}
+                            alt={name}
+                            width={56}
+                            height={56}
+                            sizes="100%"
+                            style={{
+                              objectFit: 'contain',
+                            }}
+                          />
+                          {name}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </HoverCardContent>
+            </HoverCard>
+          </div>
+        }
+      >
+        {menuItems?.map(({ pluginInstallId, name, logo }) => (
+          <CommandItem
+            className="h-9 justify-start gap-2 px-4 text-sm font-normal"
+            key={pluginInstallId}
+            value={pluginInstallId}
+            onSelect={async () => {
+              closeRecordMenu();
+              setActivePluginId(pluginInstallId);
+            }}
+          >
+            <Image
+              className="size-4 shrink-0 rounded-sm"
+              src={logo}
+              alt={name}
+              width={56}
+              height={56}
+              sizes="100%"
+              style={{
+                objectFit: 'contain',
+              }}
+            />
+            {name}
+          </CommandItem>
+        ))}
+        <CommandItem
+          className="h-9 justify-start gap-2 px-4 text-sm font-normal"
+          onSelect={async () => {
+            pluginContextMenuManageDialogRef.current?.open();
+          }}
+        >
+          <Settings className="size-4 shrink-0" />
+          {t('table:pluginContextMenu.mangeButton')}
+        </CommandItem>
       </CommandGroup>
+
       <CommandSeparator />
       {tableId && (
         <PluginContextMenuManageDialog tableId={tableId} ref={pluginContextMenuManageDialogRef} />
