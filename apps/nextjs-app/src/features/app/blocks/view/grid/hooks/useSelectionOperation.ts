@@ -64,6 +64,9 @@ export const useSelectionOperation = (props?: {
         collapsedGroupIds,
         search,
       }),
+    meta: {
+      preventGlobalError: true,
+    },
   });
 
   const { mutateAsync: pasteReq } = useMutation({
@@ -76,6 +79,9 @@ export const useSelectionOperation = (props?: {
         collapsedGroupIds,
         search,
       }),
+    meta: {
+      preventGlobalError: true,
+    },
   });
 
   const { mutateAsync: temporaryPasteReq } = useMutation({
