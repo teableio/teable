@@ -4,7 +4,6 @@ import { BadRequestException } from '@nestjs/common';
 import { getUniqName, FieldType } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
-import dayjs from 'dayjs';
 import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
 import fetch from 'node-fetch';
 import sizeof from 'object-sizeof';
@@ -40,8 +39,12 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
     }
     return false;
   }),
-  [FieldType.Date]: z.any().refine((value) => dayjs(value).isValid()),
-  [FieldType.Number]: z.coerce.number(),
+  [FieldType.Date]: z.any().refine((value) => {
+    return new Date(value).toString() !== 'Invalid Date';
+  }),
+  [FieldType.Number]: z.any().refine((value) => {
+    return !isNaN(Number(value));
+  }),
   [FieldType.LongText]: z
     .string()
     .refine((value) => z.string().safeParse(value) && /\n/.test(value)),
