@@ -7,18 +7,30 @@ import type {
   IRecord,
   IUserCellValue,
 } from '@teable/core';
-import { assertNever, FieldType, is, isExactly, isMeTag, or } from '@teable/core';
+import {
+  assertNever,
+  contains,
+  FieldType,
+  hasAllOf,
+  isExactly,
+  isMeTag,
+  is,
+  or,
+} from '@teable/core';
 import { getBaseCollaboratorList, getRecords, PrincipalType } from '@teable/openapi';
 import { keyBy } from 'lodash';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const VALIDATE_FILTER_OPERATORS = [is.value, isExactly.value, contains.value, hasAllOf.value];
 
 export const validateFilterOperators = (filter: IFilter | IFilterItem | undefined): boolean => {
   if (!filter) return false;
   if ('filterSet' in filter) {
     if (filter.conjunction === or.value && filter.filterSet.length > 1) return false;
-    return filter.filterSet.every((item) => validateFilterOperators(item));
+    return filter.filterSet.some((item) => validateFilterOperators(item));
   }
   if ('operator' in filter) {
-    return [is.value, isExactly.value].includes(filter.operator as never);
+    return VALIDATE_FILTER_OPERATORS.some((operator) => operator === filter.operator);
   }
   return false;
 };
@@ -101,11 +113,7 @@ export const extractDefaultFieldsFromFilters = async ({
   ) => {
     const { fieldId, operator, value } = filter || {};
 
-    if (
-      ![is.value, isExactly.value].includes(operator as never) ||
-      !fieldId ||
-      !fieldMap[fieldId]
-    ) {
+    if (!VALIDATE_FILTER_OPERATORS.includes(operator as never) || !fieldId || !fieldMap[fieldId]) {
       return;
     }
 
