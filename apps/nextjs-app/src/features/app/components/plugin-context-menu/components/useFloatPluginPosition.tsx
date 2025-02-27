@@ -58,5 +58,7 @@ export const useFloatPluginPosition = (tableId: string, pluginInstallId: string)
   return {
     position: pluginsPosition?.[pluginInstallId] ?? defaultPosition,
     updatePosition,
+    frozenResize: config?.frozenResize,
+    frozenDrag: config?.frozenDrag,
   };
 };

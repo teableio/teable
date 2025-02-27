@@ -62,6 +62,8 @@ export const pluginConfigSchema = z
         height: z.number().or(z.string()),
         x: z.number().or(z.string()),
         y: z.number().or(z.string()),
+        frozenResize: z.boolean().optional(),
+        frozenDrag: z.boolean().optional(),
       })
       .partial(),
     [PluginPosition.View]: z.null(),
