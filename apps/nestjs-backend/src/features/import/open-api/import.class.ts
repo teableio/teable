@@ -19,7 +19,7 @@ export const parseBoolean = (value: unknown): boolean => {
   if (typeof value === 'boolean') return value;
 
   if (typeof value === 'string') {
-    const lowered = value.toLowerCase();
+    const lowered = value.replaceAll("'", '').replaceAll('"', '').toLowerCase();
     if (lowered === 'true') return true;
     if (lowered === 'false') return false;
   }
