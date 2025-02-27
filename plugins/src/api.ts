@@ -17,10 +17,17 @@ export type IGetTokenVo = {
   accessToken: string;
 };
 
-export const fetchGetToken = async (data: IGetTokenRo) => {
-  const res = await fetch(`/plugin/api/plugin/getToken`, {
+export const fetchGetToken = async (
+  data: IGetTokenRo,
+  opts?: {
+    cookie?: string;
+    baseUrl?: string;
+  }
+) => {
+  const res = await fetch(`${opts?.baseUrl || ''}/plugin/api/plugin/getToken`, {
     method: 'POST',
     body: JSON.stringify(data),
+    headers: opts?.cookie ? { cookie: opts.cookie } : undefined,
   });
   return res.json() as Promise<IGetTokenVo>;
 };

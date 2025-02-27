@@ -20,11 +20,15 @@ import type {
   IGroupPointsVo,
   ListSpaceCollaboratorRo,
   IPublicSettingVo,
+  IGetDashboardVo,
+  IGetDashboardListVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
   GET_BASE,
   GET_BASE_ALL,
+  GET_DASHBOARD,
+  GET_DASHBOARD_LIST,
   GET_DEFAULT_VIEW_ID,
   GET_FIELD_LIST,
   GET_GROUP_POINTS,
@@ -191,6 +195,18 @@ export class SsrApi {
           groupBy: JSON.stringify(query?.groupBy),
         },
       })
+      .then(({ data }) => data);
+  }
+
+  async getDashboard(baseId: string, dashboardId: string) {
+    return this.axios
+      .get<IGetDashboardVo>(urlBuilder(GET_DASHBOARD, { baseId, id: dashboardId }))
+      .then(({ data }) => data);
+  }
+
+  async getDashboardList(baseId: string) {
+    return this.axios
+      .get<IGetDashboardListVo>(urlBuilder(GET_DASHBOARD_LIST, { baseId }))
       .then(({ data }) => data);
   }
 }

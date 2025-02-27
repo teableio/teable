@@ -1,4 +1,6 @@
-import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { type IGetBaseVo, type ITableVo } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { DashboardPage } from '@/features/app/dashboard/Pages';
@@ -17,13 +19,30 @@ const Node: NextPageWithLayout = () => <DashboardPage />;
 export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
-      const { baseId } = context.query;
+      const { baseId, dashboardId: dashboardIdQuery } = context.query;
       const result = await ssrApi.getTables(baseId as string);
       const base = await ssrApi.getBaseById(baseId as string);
+      const queryClient = new QueryClient();
+
+      const dashboardList = await queryClient.fetchQuery({
+        queryKey: ReactQueryKeys.getDashboardList(baseId as string),
+        queryFn: ({ queryKey }) => ssrApi.getDashboardList(queryKey[1]),
+      });
+
+      const dashboardId = dashboardIdQuery ? (dashboardIdQuery as string) : dashboardList[0]?.id;
+
+      if (dashboardId) {
+        await queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getDashboard(dashboardId),
+          queryFn: ({ queryKey }) => ssrApi.getDashboard(baseId as string, queryKey[1]),
+        });
+      }
+
       return {
         props: {
           tableServerData: result,
           baseServerData: base,
+          dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, dashboardConfig.i18nNamespaces)),
         },
       };
@@ -33,7 +52,10 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
 Node.getLayout = function getLayout(
   page: ReactElement,
-  pageProps: { tableServerData: ITableVo[]; baseServerData: IGetBaseVo }
+  pageProps: {
+    tableServerData: ITableVo[];
+    baseServerData: IGetBaseVo;
+  }
 ) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };

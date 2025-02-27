@@ -41,7 +41,6 @@ export const Pages = (props: IPageParams) => {
 const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
   const { baseId, positionId, positionType, tableId, pluginInstallId, uiConfig } = props;
   const [isIframeMode, setIsIframeMode] = useState(true);
-  const pluginBridge = usePluginBridge();
   const { t } = useTranslation();
   const { data: dashboardPluginInstall, isLoading: isDashboardPluginInstallLoading } = useQuery({
     queryKey: ['plugin-install', baseId, positionId, pluginInstallId],
@@ -82,14 +81,6 @@ const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
 
   if (!pluginInstallId) {
     return <div className="text-muted-foreground text-center">{t('notPluginInstallId')}</div>;
-  }
-
-  if (!pluginBridge && isIframeMode) {
-    return (
-      <div className="flex flex-col items-center justify-center">
-        <p className="text-muted-foreground text-center">{t('initBridge')}</p>
-      </div>
-    );
   }
 
   if (isLoading || !pluginInstall) {
