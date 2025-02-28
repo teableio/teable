@@ -29,11 +29,23 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           queryKey: ReactQueryKeys.baseAll(),
           queryFn: () => ssrApi.getBaseList(),
         }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.pinList(),
+          queryFn: () => ssrApi.getPinList(),
+        }),
       ]);
+
+      if (process.env.NEXT_BUILD_ENV_EDITION?.toUpperCase() === 'CLOUD') {
+        await queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.subscriptionSummaryList(),
+          queryFn: () => ssrApi.getSubscriptionSummaryList(),
+        });
+      }
 
       return {
         props: {
-          dehydratedState: dehydrate(queryClient, {}),
+          dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, spaceConfig.i18nNamespaces)),
         },
       };

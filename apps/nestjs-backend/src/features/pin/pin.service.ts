@@ -3,7 +3,7 @@ import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   PinType,
-  GetPinListVo,
+  IGetPinListVo,
   AddPinRo,
   DeletePinRo,
   UpdatePinOrderRo,
@@ -64,7 +64,7 @@ export class PinService {
       });
   }
 
-  async getList(): Promise<GetPinListVo> {
+  async getList(): Promise<IGetPinListVo> {
     const list = await this.prismaService.pinResource.findMany({
       where: {
         createdBy: this.cls.get('user.id'),

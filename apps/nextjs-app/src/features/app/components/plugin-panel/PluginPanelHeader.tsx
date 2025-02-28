@@ -65,7 +65,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
   };
 
   return (
-    <div className="relative flex h-[42px] shrink-0 items-center justify-between gap-2 border-b px-2 @container/plugin-panel-header">
+    <div className="relative flex h-[43px] shrink-0 items-center justify-between gap-2 border-b px-2 @container/plugin-panel-header">
       <PluginPanelSelector tableId={tableId} />
       <Input
         ref={renameRef}

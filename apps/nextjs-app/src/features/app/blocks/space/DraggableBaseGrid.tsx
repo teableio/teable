@@ -4,7 +4,7 @@ import { updateBaseOrder } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk';
 import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base';
 import type { DragEndEvent } from '@teable/ui-lib/base';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { BaseCard } from './BaseCard';
 
 interface IDraggableBaseGridProps {
@@ -15,15 +15,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
   const { bases } = props;
   const queryClient = useQueryClient();
   const isHydrated = useIsHydrated();
-  const [innerBases, setInnerBases] = useState<IGetBaseAllVo>([]);
-
-  useEffect(() => {
-    if (!bases?.length) {
-      return;
-    }
-
-    setInnerBases(bases);
-  }, [bases]);
+  const [innerBases, setInnerBases] = useState<IGetBaseAllVo>(bases);
 
   const { mutateAsync: updateBaseFn } = useMutation({
     mutationFn: updateBaseOrder,
@@ -60,7 +52,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
   };
 
   return isHydrated ? (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3 overflow-y-auto pb-8">
       <DndKitContext onDragEnd={onDragEndHandler}>
         <Droppable items={innerBases.map(({ id }) => id)}>
           {innerBases.map((base) => (
@@ -69,7 +61,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
                 <div ref={setNodeRef} {...attributes} {...listeners} style={style}>
                   <BaseCard
                     key={base.id}
-                    className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
+                    className="h-24 w-[17rem] max-w-[34rem] flex-1"
                     base={base}
                   />
                 </div>

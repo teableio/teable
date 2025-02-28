@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { GetPinListVo } from '@teable/openapi';
+import type { IGetPinListVo } from '@teable/openapi';
 import { getPinList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 
@@ -14,6 +14,6 @@ export const usePinMap = () => {
       acc[pin.id] = pin;
       return acc;
     },
-    {} as Record<string, GetPinListVo[number]>
+    {} as Record<string, IGetPinListVo[number]>
   );
 };

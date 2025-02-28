@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DraggableHandle, Star } from '@teable/icons';
-import type { GetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import type { IGetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { getPinList, getSpaceList, updatePinOrder } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
 import type { DragEndEvent } from '@teable/ui-lib/base';
@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from '../useBaseList';
@@ -20,7 +20,6 @@ import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
 export const PinList = () => {
-  const [pinList, setPinList] = useState<GetPinListVo>([]);
   const [pinListExpanded, setPinListExpanded] = useLocalStorage<boolean>(
     LocalStorageKeys.PinListExpanded
   );
@@ -32,12 +31,7 @@ export const PinList = () => {
     queryFn: () => getPinList().then((data) => data.data),
   });
 
-  useEffect(() => {
-    if (!pinListData) {
-      return;
-    }
-    setPinList([...pinListData]);
-  }, [pinListData]);
+  const [pinList, setPinList] = useState<IGetPinListVo>(pinListData || []);
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),

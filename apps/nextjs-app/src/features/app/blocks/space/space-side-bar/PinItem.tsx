@@ -1,5 +1,5 @@
 import { Component, Database } from '@teable/icons';
-import type { GetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import type { IGetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -9,7 +9,7 @@ import { ItemButton } from './ItemButton';
 interface IPinItemProps {
   className?: string;
   right?: React.ReactNode;
-  pin: GetPinListVo[number];
+  pin: IGetPinListVo[number];
   baseMap: { [key in string]: IGetBaseVo };
   spaceMap: { [key in string]: IGetSpaceVo };
 }
