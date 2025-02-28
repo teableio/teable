@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { type CellFormat } from '@teable/core';
+import { useSession } from '@teable/sdk';
 import { useContext } from 'react';
 import { useEnv } from '../../../hooks/useEnv';
 import { ChartContext } from '../components/ChartProvider';
@@ -9,6 +10,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
   const { baseId, pluginId } = useEnv();
   const { storage, onQueryError } = useContext(ChartContext);
   const query = storage?.query;
+  const { user } = useSession();
 
   const { data } = useQuery({
     queryKey: baseQueryKeys(baseId, query!, cellFormat),
@@ -18,6 +20,9 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
         pluginId,
         queryKeys: queryKey,
         onQueryError,
+        options: {
+          currentUserId: user?.id,
+        },
       });
     },
   });

@@ -1,4 +1,4 @@
-import type { CellFormat, HttpError } from '@teable/core';
+import { Me, type CellFormat, type HttpError } from '@teable/core';
 import { BASE_QUERY, urlBuilder } from '@teable/openapi';
 import type { IBaseQuery, IBaseQueryVo } from '@teable/openapi';
 import { fetchGetToken, GetTokenType } from '../../api';
@@ -35,16 +35,24 @@ export const getBaseQueryData = async ({
   pluginId,
   queryKeys,
   onQueryError,
+  options,
 }: {
   pluginId: string;
   queryKeys: ReturnType<typeof baseQueryKeys>;
   onQueryError?: (error: string | undefined) => void;
+  options?: {
+    currentUserId?: string;
+  };
 }) => {
   onQueryError?.(undefined);
   const [, baseId, query, cellFormat] = queryKeys;
   const url = urlBuilder(BASE_QUERY, { baseId });
+  let queryString = JSON.stringify(query);
+  if (options?.currentUserId) {
+    queryString = queryString.replaceAll(`"value":"${Me}"`, `"value":"${options.currentUserId}"`);
+  }
   const params = new URLSearchParams({
-    query: JSON.stringify(query),
+    query: queryString,
   });
   if (cellFormat) {
     params.append('cellFormat', cellFormat);
