@@ -1,4 +1,5 @@
 import type {
+  IDateFilter,
   IFieldVo,
   IFilter,
   IFilterItem,
@@ -16,6 +17,10 @@ import {
   isMeTag,
   is,
   or,
+  today,
+  tomorrow,
+  yesterday,
+  exactDate as exactDateConst,
 } from '@teable/core';
 import { getBaseCollaboratorList, getRecords, PrincipalType } from '@teable/openapi';
 import { keyBy } from 'lodash';
@@ -47,6 +52,7 @@ export const generateValueByFilteredField = ({
   currentUserId: string;
   userMap: Record<string, IUserCellValue>;
   linkMap: Record<string, ILinkCellValue>;
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 }): unknown => {
   const { type, isMultipleCellValue } = field;
 
@@ -56,13 +62,33 @@ export const generateValueByFilteredField = ({
     case FieldType.SingleLineText:
     case FieldType.LongText:
     case FieldType.Number:
-    case FieldType.Date:
     case FieldType.Rating:
     case FieldType.Checkbox:
     case FieldType.Attachment:
     case FieldType.SingleSelect:
     case FieldType.MultipleSelect: {
       return value;
+    }
+    case FieldType.Date: {
+      const { exactDate, mode } = value as IDateFilter;
+      const now = new Date();
+
+      if (mode === today.value) return now.toISOString();
+      if (mode === tomorrow.value) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        return tomorrow.toISOString();
+      }
+      if (mode === yesterday.value) {
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        return yesterday.toISOString();
+      }
+      if (mode === exactDateConst.value) {
+        return exactDate;
+      }
+
+      return null;
     }
     case FieldType.User: {
       if (isMultipleCellValue) {
