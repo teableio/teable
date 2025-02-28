@@ -125,7 +125,11 @@
       "light": "Hell",
       "system": "System",
       "version": "App Version",
-      "language": "Sprache"
+      "language": "Sprache",
+      "interactionMode": "Interaktionsmodus",
+      "mouseMode": "Cursor-Modus",
+      "touchMode": "Touch-Modus",
+      "systemMode": "Systemeinstellung folgen"
     },
     "nav": {
       "settings": "Einstellungen",

@@ -126,7 +126,11 @@
       "light": "浅色",
       "version": "应用版本",
       "system": "系统",
-      "language": "语言"
+      "language": "语言",
+      "interactionMode": "交互模式",
+      "mouseMode": "光标模式",
+      "touchMode": "触控模式",
+      "systemMode": "跟随系统"
     },
     "nav": {
       "settings": "设置",

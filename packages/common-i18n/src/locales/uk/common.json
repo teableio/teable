@@ -118,7 +118,11 @@
       "light": "Світла",
       "system": "Системна",
       "version": "Версія програми",
-      "language": "Мова"
+      "language": "Мова",
+      "interactionMode": "Режим взаємодії",
+      "mouseMode": "Режим курсора",
+      "touchMode": "Сенсорний режим",
+      "systemMode": "Слідувати системі"
     },
     "nav": {
       "settings": "Налаштування",

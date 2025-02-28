@@ -101,7 +101,11 @@
       "light": "Açık",
       "system": "Sistem",
       "version": "Uygulama sürümü",
-      "language": "Dil"
+      "language": "Dil",
+      "interactionMode": "Etkileşim Modu",
+      "mouseMode": "İmleç Modu",
+      "touchMode": "Dokunmatik Mod",
+      "systemMode": "Sistemi Takip Et"
     },
     "nav": {
       "settings": "Ayarlar",

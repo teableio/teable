@@ -98,7 +98,11 @@
       "light": "Светлая",
       "system": "Системная",
       "version": "Версия приложения",
-      "language": "Язык"
+      "language": "Язык",
+      "interactionMode": "Режим взаимодействия",
+      "mouseMode": "Режим курсора",
+      "touchMode": "Сенсорный режим",
+      "systemMode": "Следовать системе"
     },
     "nav": {
       "settings": "Настройки",

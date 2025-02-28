@@ -97,7 +97,11 @@
       "light": "ライト",
       "system": "システム",
       "version": "アプリバージョン",
-      "language": "言語"
+      "language": "言語",
+      "interactionMode": "インタラクションモード",
+      "mouseMode": "カーソルモード",
+      "touchMode": "タッチモード",
+      "systemMode": "システム設定に従う"
     },
     "nav": {
       "settings": "設定",

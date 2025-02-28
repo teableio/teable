@@ -1,18 +1,16 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo } from 'react';
 import { useMedia } from 'react-use';
+import { InteractionMode, useInteractionModeStore } from '../store';
 
 export const useIsTouchDevice = () => {
-  const isTouchDeviceByMedia = useMedia('(pointer: coarse)');
-  return useMemo(() => {
-    return (
-      !!(
-        typeof window !== 'undefined' &&
-        ('ontouchstart' in window ||
-          ((window as any).DocumentTouch &&
-            typeof document !== 'undefined' &&
-            document instanceof (window as any).DocumentTouch))
-      ) || isTouchDeviceByMedia
-    );
-  }, [isTouchDeviceByMedia]);
+  const isTouchDevice = useMedia('(pointer: coarse)');
+  const { interactionMode: interactionType } = useInteractionModeStore();
+
+  switch (interactionType) {
+    case InteractionMode.Touch:
+      return true;
+    case InteractionMode.Mouse:
+      return false;
+    default:
+      return isTouchDevice;
+  }
 };

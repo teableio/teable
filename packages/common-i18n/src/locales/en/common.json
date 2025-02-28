@@ -126,7 +126,11 @@
       "light": "Light",
       "system": "System",
       "version": "App version",
-      "language": "Language"
+      "language": "Language",
+      "interactionMode": "Interaction Mode",
+      "mouseMode": "Cursor Mode",
+      "touchMode": "Touch Mode",
+      "systemMode": "Follow System"
     },
     "nav": {
       "settings": "Settings",

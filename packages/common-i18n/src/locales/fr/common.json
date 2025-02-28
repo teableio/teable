@@ -98,7 +98,11 @@
       "light": "Clair",
       "system": "Système",
       "version": "Version de l'application",
-      "language": "Langue"
+      "language": "Langue",
+      "interactionMode": "Mode d'interaction",
+      "mouseMode": "Mode souris",
+      "touchMode": "Mode tactile",
+      "systemMode": "Suivre le système"
     },
     "nav": {
       "settings": "Paramètres",

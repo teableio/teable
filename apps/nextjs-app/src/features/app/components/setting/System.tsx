@@ -1,11 +1,25 @@
 import { useTheme } from '@teable/next-themes';
 import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
 import { LanguagePicker } from '../LanguagePicker';
+import { InteractionSelect } from './InteractionSelect';
 
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
   const { theme, setTheme } = useTheme();
+
+  const isSupportsMultiplePointers = useMemo(() => {
+    const touchSupported: boolean =
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (navigator as any).msMaxTouchPoints > 0;
+    const mouseSupported: boolean =
+      window.matchMedia('(pointer: fine)').matches || window.matchMedia('(hover: hover)').matches;
+    return touchSupported && mouseSupported;
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -111,6 +125,14 @@ export const System: React.FC = () => {
           <LanguagePicker />
         </div>
       </div>
+      {isSupportsMultiplePointers && (
+        <div>
+          <Label>{t('settings.setting.interactionMode')}</Label>
+          <div className="pt-2">
+            <InteractionSelect />
+          </div>
+        </div>
+      )}
       <div>
         <Label>{t('settings.setting.version')}</Label>
         <div className="pt-2 text-base">{process.env.NEXT_PUBLIC_BUILD_VERSION}</div>
