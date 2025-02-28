@@ -1,4 +1,4 @@
-import type { IFilter, IGroup } from '@teable/core';
+import type { IGroup } from '@teable/core';
 import type { IGetRecordsRo, IQueryBaseRo } from '@teable/openapi';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { useEffect } from 'react';
@@ -9,8 +9,6 @@ interface ISelectionStore {
   setFields: (fields: IFieldInstance[] | undefined) => void;
   search?: IQueryBaseRo['search'];
   setSearch: (search: IQueryBaseRo['search']) => void;
-  filter?: IFilter;
-  setFilter: (filter: IFilter | undefined) => void;
   groupBy?: IGroup;
   setGroupBy: (groupBy: IGroup | undefined) => void;
   personalViewCommonQuery?: IGetRecordsRo;
@@ -20,7 +18,6 @@ interface ISelectionStore {
 }
 
 export const useSelectionStore = create<ISelectionStore>((set) => ({
-  setFilter: (filter) => set((state) => ({ ...state, filter })),
   setGroupBy: (groupBy) => set((state) => ({ ...state, groupBy })),
   setPersonalViewCommonQuery: (personalViewCommonQuery) =>
     set((state) => ({ ...state, personalViewCommonQuery })),
@@ -30,23 +27,18 @@ export const useSelectionStore = create<ISelectionStore>((set) => ({
 }));
 
 export const useSyncSelectionStore = ({
-  filter,
   groupBy,
   personalViewCommonQuery,
   collapsedGroupIds,
   search,
   fields,
 }: {
-  filter?: IFilter;
   groupBy?: IGroup;
   personalViewCommonQuery?: IGetRecordsRo;
   collapsedGroupIds?: string[];
   search?: IQueryBaseRo['search'];
   fields?: IFieldInstance[];
 }) => {
-  useEffect(() => {
-    useSelectionStore.setState({ filter });
-  }, [filter]);
   useEffect(() => {
     useSelectionStore.setState({ groupBy });
   }, [groupBy]);

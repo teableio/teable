@@ -52,7 +52,6 @@ export const useSelectionOperation = (props?: {
   const { personalViewCommonQuery } = usePersonalView();
   // Parameters for retrieving selected records in plugins
   useSyncSelectionStore({
-    filter: view?.filter,
     groupBy: view?.group,
     personalViewCommonQuery,
     collapsedGroupIds,

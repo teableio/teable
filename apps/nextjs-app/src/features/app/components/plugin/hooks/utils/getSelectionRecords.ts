@@ -14,7 +14,7 @@ export const getSelectionRecords = async (
   }
   // eslint-disable-next-line sonarjs/cognitive-complexity
 ): Promise<IGetSelectionRecordsVo> => {
-  const { filter, groupBy, search, fields, collapsedGroupIds, personalViewCommonQuery } =
+  const { groupBy, search, fields, collapsedGroupIds, personalViewCommonQuery } =
     useSelectionStore.getState();
   if (!fields) {
     return {
@@ -38,7 +38,6 @@ export const getSelectionRecords = async (
     return getRecords(tableId, {
       ...personalViewCommonQuery,
       viewId,
-      filter,
       groupBy,
       search,
       collapsedGroupIds,
