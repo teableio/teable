@@ -291,7 +291,7 @@ export const TableHeader: React.FC = () => {
       >
         <TableInfo className="shrink-0 grow-0" />
         <ExpandViewList />
-        <ScrollArea className="h-full">
+        <ScrollArea className="h-[42px]">
           <div className="flex h-[42px] items-center gap-2">
             <ViewList />
           </div>
