@@ -94,6 +94,23 @@ export class TableOpenApiService {
     return fieldSnapshots;
   }
 
+  private async createFields(tableId: string, fieldVos: IFieldVo[]) {
+    const fieldNameSet = new Set<string>();
+
+    for (const fieldVo of fieldVos) {
+      if (fieldNameSet.has(fieldVo.name)) {
+        throw new BadRequestException(`duplicate field name: ${fieldVo.name}`);
+      }
+      fieldNameSet.add(fieldVo.name);
+    }
+
+    const fieldInstances = fieldVos.map((fieldVo) => createFieldInstanceByVo(fieldVo));
+
+    await this.fieldCreatingService.alterCreateFields(tableId, fieldInstances);
+
+    return fieldVos;
+  }
+
   private async createRecords(tableId: string, data: ICreateRecordsRo) {
     return this.recordOpenApiService.createRecords(tableId, data);
   }
@@ -147,9 +164,10 @@ export class TableOpenApiService {
       const tableVo = await this.createTableMeta(baseId, tableRo);
       const tableId = tableVo.id;
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+
       // create teable should not set computed field isPending, because noting need to calculate when create
       preparedFields.forEach((field) => delete field.isPending);
-      const fieldVos = await this.createField(tableId, preparedFields);
+      const fieldVos = await this.createFields(tableId, preparedFields);
       const viewVos = await this.createView(tableId, tableRo.views);
 
       return {

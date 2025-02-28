@@ -126,6 +126,75 @@ export class FieldService implements IReadonlyAdapterService {
     });
   }
 
+  private async dbCreateFields(tableId: string, fieldInstances: IFieldInstance[]) {
+    const userId = this.cls.get('user.id');
+    const agg = await this.prismaService.txClient().field.aggregate({
+      where: { tableId, deletedTime: null },
+      _max: {
+        order: true,
+      },
+    });
+    const order = agg._max.order == null ? 0 : agg._max.order + 1;
+    const existedFieldIds = (
+      await this.prismaService.txClient().field.findMany({
+        where: { tableId, deletedTime: null },
+        select: { id: true },
+      })
+    ).map(({ id }) => id);
+    const datas: Prisma.FieldCreateManyInput[] = fieldInstances
+      .filter(({ id }) => !existedFieldIds.includes(id))
+      .map(
+        (
+          {
+            id,
+            name,
+            dbFieldName,
+            description,
+            type,
+            options,
+            lookupOptions,
+            notNull,
+            unique,
+            isPrimary,
+            isComputed,
+            hasError,
+            dbFieldType,
+            cellValueType,
+            isMultipleCellValue,
+            isLookup,
+          },
+          index
+        ) => ({
+          id,
+          name,
+          description,
+          type,
+          options: JSON.stringify(options),
+          notNull,
+          unique,
+          isPrimary,
+          order: order + index,
+          version: 1,
+          isComputed,
+          isLookup,
+          hasError,
+          // add lookupLinkedFieldId for indexing
+          lookupLinkedFieldId: lookupOptions?.linkFieldId,
+          lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
+          dbFieldName,
+          dbFieldType,
+          cellValueType,
+          isMultipleCellValue,
+          createdBy: userId,
+          tableId,
+        })
+      );
+
+    return this.prismaService.txClient().field.createMany({
+      data: datas,
+    });
+  }
+
   async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {
     const multiFieldData: RawField[] = [];
 
@@ -136,6 +205,10 @@ export class FieldService implements IReadonlyAdapterService {
       multiFieldData.push(fieldData);
     }
     return multiFieldData;
+  }
+
+  async dbCreateMultipleFields(tableId: string, fieldInstances: IFieldInstance[]) {
+    return await this.dbCreateFields(tableId, fieldInstances);
   }
 
   private async alterTableAddField(dbTableName: string, fieldInstances: IFieldInstance[]) {
@@ -473,6 +546,28 @@ export class FieldService implements IReadonlyAdapterService {
 
     // 1. save field meta in db
     await this.dbCreateMultipleField(tableId, fields);
+
+    // 2. alter table with real field in visual table
+    await this.alterTableAddField(dbTableName, fields);
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+  }
+
+  // write field at once database operation
+  async batchCreateFieldsAtOnce(tableId: string, dbTableName: string, fields: IFieldInstance[]) {
+    if (!fields.length) return;
+
+    const dataList = fields.map((field) => {
+      const snapshot = instanceToPlain(field, { excludePrefixes: ['_'] }) as IFieldVo;
+      return {
+        docId: field.id,
+        version: 0,
+        data: snapshot,
+      };
+    });
+
+    // 1. save field meta in db
+    await this.dbCreateMultipleFields(tableId, fields);
 
     // 2. alter table with real field in visual table
     await this.alterTableAddField(dbTableName, fields);
