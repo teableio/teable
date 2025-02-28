@@ -4,7 +4,7 @@ import { updateBaseOrder } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk';
 import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base';
 import type { DragEndEvent } from '@teable/ui-lib/base';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BaseCard } from './BaseCard';
 
 interface IDraggableBaseGridProps {
@@ -16,6 +16,10 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
   const queryClient = useQueryClient();
   const isHydrated = useIsHydrated();
   const [innerBases, setInnerBases] = useState<IGetBaseAllVo>(bases);
+
+  useEffect(() => {
+    setInnerBases(bases);
+  }, [bases]);
 
   const { mutateAsync: updateBaseFn } = useMutation({
     mutationFn: updateBaseOrder,
