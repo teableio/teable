@@ -38,6 +38,9 @@ export const PluginRender = (props: IPluginRenderProps) => {
       updateStorage: (storage) => {
         return utilsEvent.updateStorage(storage);
       },
+      getSelectionRecords: (selection, options) => {
+        return utilsEvent.getSelectionRecords(selection, options);
+      },
     };
     const connection = connectToChild<IChildBridgeMethods>({
       iframe: iframeRef.current,

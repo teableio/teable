@@ -6,9 +6,11 @@ import {
   updateDashboardPluginStorage,
   updatePluginPanelStorage,
 } from '@teable/openapi';
+import { useViewId } from '@teable/sdk/hooks';
 import type { IParentBridgeUtilsMethods } from '@teable/sdk/plugin-bridge';
 import { useEffect, useRef } from 'react';
 import type { IPluginParams } from '../types';
+import { getSelectionRecords } from './utils/getSelectionRecords';
 
 export const useUtilsEvent = (params: IPluginParams) => {
   const tempTokenCacheRef = useRef<IGetTempTokenVo | null>(null);
@@ -31,12 +33,17 @@ export const useUtilsEvent = (params: IPluginParams) => {
         return res.data;
       });
     },
+    getSelectionRecords: () => {
+      console.log('Initializing getSelectionRecords method');
+      return Promise.resolve({ records: [], fields: [] });
+    },
   });
   const { positionId, positionType, pluginId } = params;
   const pluginInstallId = 'pluginInstallId' in params ? params.pluginInstallId : undefined;
   const shareId = 'shareId' in params ? params.shareId : undefined;
   const baseId = 'baseId' in params ? params.baseId : undefined;
   const tableId = 'tableId' in params ? params.tableId : undefined;
+  const viewId = useViewId();
 
   useEffect(() => {
     ref.current.updateStorage = (storage) => {
@@ -67,6 +74,20 @@ export const useUtilsEvent = (params: IPluginParams) => {
       return pluginGetAuthCode(pluginId, baseId!).then((res) => res.data);
     };
   }, [shareId, pluginId, positionId, tableId, positionType, pluginInstallId, baseId]);
+
+  useEffect(() => {
+    ref.current.getSelectionRecords = (selection, options) => {
+      if (shareId) {
+        console.error('Share plugin does not support getSelectionRecords');
+        return Promise.resolve({ records: [], fields: [] });
+      }
+      if (!tableId || !viewId) {
+        console.error('Table ID or view ID is not available');
+        return Promise.resolve({ records: [], fields: [] });
+      }
+      return getSelectionRecords(tableId, viewId, selection, options);
+    };
+  }, [tableId, viewId, shareId]);
 
   return ref.current;
 };

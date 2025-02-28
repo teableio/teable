@@ -36,6 +36,7 @@ import {
   textPasteHandler,
 } from '../utils/copyAndPaste';
 import { getSyncCopyData } from '../utils/getSyncCopyData';
+import { useSyncSelectionStore } from './useSelectionStore';
 
 export const useSelectionOperation = (props?: {
   collapsedGroupIds?: string[];
@@ -49,6 +50,15 @@ export const useSelectionOperation = (props?: {
   const view = useView();
   const { searchQuery: search } = useSearch();
   const { personalViewCommonQuery } = usePersonalView();
+  // Parameters for retrieving selected records in plugins
+  useSyncSelectionStore({
+    filter: view?.filter,
+    groupBy: view?.group,
+    personalViewCommonQuery,
+    collapsedGroupIds,
+    search,
+    fields,
+  });
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
