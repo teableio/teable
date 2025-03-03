@@ -63,7 +63,7 @@ export const getSyncCopyData = ({
         );
       }
       Object.keys(recordMap)
-        .sort()
+        .sort((a, b) => Number(a) - Number(b))
         .forEach((recordIndex) => {
           const record = recordMap[recordIndex];
           if (!record) return;
