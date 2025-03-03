@@ -34,6 +34,11 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           queryKey: ReactQueryKeys.pinList(),
           queryFn: () => ssrApi.getPinList(),
         }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getPublicSetting(),
+          queryFn: () => ssrApi.getPublicSetting(),
+        }),
       ]);
 
       if (process.env.NEXT_BUILD_ENV_EDITION?.toUpperCase() === 'CLOUD') {

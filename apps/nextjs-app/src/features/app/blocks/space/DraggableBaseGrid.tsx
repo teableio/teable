@@ -4,15 +4,17 @@ import { updateBaseOrder } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk';
 import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base';
 import type { DragEndEvent } from '@teable/ui-lib/base';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useEffect, useState } from 'react';
 import { BaseCard } from './BaseCard';
 
 interface IDraggableBaseGridProps {
+  className?: string;
   bases: IGetBaseAllVo;
 }
 
 const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
-  const { bases } = props;
+  const { bases, className } = props;
   const queryClient = useQueryClient();
   const isHydrated = useIsHydrated();
   const [innerBases, setInnerBases] = useState<IGetBaseAllVo>(bases);
@@ -56,7 +58,12 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
   };
 
   return isHydrated ? (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3 overflow-y-auto pb-8">
+    <div
+      className={cn(
+        'grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3 pb-8',
+        className
+      )}
+    >
       <DndKitContext onDragEnd={onDragEndHandler}>
         <Droppable items={innerBases.map(({ id }) => id)}>
           {innerBases.map((base) => (
@@ -65,7 +72,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
                 <div ref={setNodeRef} {...attributes} {...listeners} style={style}>
                   <BaseCard
                     key={base.id}
-                    className="h-24 w-[17rem] max-w-[34rem] flex-1"
+                    className="h-24 max-w-[34rem] flex-1 sm:min-w-[17rem]"
                     base={base}
                   />
                 </div>
@@ -79,7 +86,11 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
     <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
       {innerBases.map((base) => (
         <div key={base.id}>
-          <BaseCard key={base.id} className="h-24 min-w-[17rem] max-w-[34rem] flex-1" base={base} />
+          <BaseCard
+            key={base.id}
+            className="h-24 max-w-[34rem] flex-1 sm:min-w-[17rem]"
+            base={base}
+          />
         </div>
       ))}
     </div>

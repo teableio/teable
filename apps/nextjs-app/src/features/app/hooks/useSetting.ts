@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPublicSetting } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
 
 export const useSetting = () => {
   const { user } = useSession();
   const { data: setting, isLoading } = useQuery({
-    queryKey: ['public-setting'],
+    queryKey: ReactQueryKeys.getPublicSetting(),
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
 

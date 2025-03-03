@@ -156,4 +156,6 @@ export const ReactQueryKeys = {
 
   getPluginContextMenuPlugin: (tableId: string, pluginInstallId: string) =>
     ['plugin-context-menu-plugin', tableId, pluginInstallId] as const,
+
+  getPublicSetting: () => ['public-setting'] as const,
 };

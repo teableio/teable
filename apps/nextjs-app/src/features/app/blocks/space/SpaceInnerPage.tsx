@@ -8,6 +8,7 @@ import {
   updateSpace,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { ScrollArea } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -96,9 +97,9 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="flex size-full min-w-[760px] px-12 py-8">
+      <div ref={ref} className="min-w-auto flex size-full px-12 py-8 sm:min-w-[760px]">
         <div className="flex w-full flex-1 flex-col space-y-6">
-          <div className="flex items-center gap-2 pb-6">
+          <div className="flex items-center gap-2 pb-6 sm:mr-16">
             <SpaceRenaming
               spaceName={spaceName!}
               isRenaming={renaming}
@@ -121,9 +122,20 @@ export const SpaceInnerPage: React.FC = () => {
               <div className="text-sm text-gray-500">{space.organization.name}</div>
             )}
           </div>
-
+          <SpaceActionBar
+            className="flex shrink-0 items-center justify-end gap-3 sm:hidden"
+            space={space}
+            buttonSize={'xs'}
+            invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
+            disallowSpaceInvitation={disallowSpaceInvitation}
+            onDelete={() => deleteSpaceMutator(space.id)}
+            onRename={() => setRenaming(true)}
+            onSpaceSetting={onSpaceSetting}
+          />
           {basesInSpace?.length ? (
-            <DraggableBaseGrid bases={basesInSpace} />
+            <ScrollArea className="sm:mr-8 sm:pb-2">
+              <DraggableBaseGrid bases={basesInSpace} className="sm:pr-8" />
+            </ScrollArea>
           ) : (
             <div className="flex items-center justify-center">
               <h1>{t('space:spaceIsEmpty')}</h1>
@@ -131,7 +143,7 @@ export const SpaceInnerPage: React.FC = () => {
           )}
         </div>
 
-        <div className="ml-16 w-72 min-w-60">
+        <div className="hidden w-72 min-w-60 flex-col sm:flex">
           <SpaceActionBar
             className="flex shrink-0 items-center justify-end gap-3 pb-8"
             space={space}
@@ -142,9 +154,11 @@ export const SpaceInnerPage: React.FC = () => {
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}
           />
-          <div className="text-left">
-            <Collaborators spaceId={spaceId} />
-          </div>
+          <ScrollArea className="flex-1">
+            <div className="text-left">
+              <Collaborators spaceId={spaceId} />
+            </div>
+          </ScrollArea>
         </div>
       </div>
     )
