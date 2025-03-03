@@ -62,6 +62,22 @@ export class FieldService implements IReadonlyAdapterService {
     return dbFieldName;
   }
 
+  async generateDbFieldNames(tableId: string, names: string[]) {
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId));
+    const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
+    return names
+      .map((name) => convertNameToValidCharacter(name, 40))
+      .map((dbFieldName) => {
+        if (columns.some((column) => column.name === dbFieldName)) {
+          const newDbFieldName = dbFieldName + new Date().getTime();
+          columns.push({ name: newDbFieldName });
+          return (dbFieldName += new Date().getTime());
+        }
+        columns.push({ name: dbFieldName });
+        return dbFieldName;
+      });
+  }
+
   private async dbCreateField(tableId: string, fieldInstance: IFieldInstance) {
     const userId = this.cls.get('user.id');
     const {

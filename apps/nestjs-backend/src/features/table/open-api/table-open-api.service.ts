@@ -119,7 +119,6 @@ export class TableOpenApiService {
   }
 
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
-    const fields: IFieldVo[] = [];
     const simpleFields: IFieldRo[] = [];
     const computeFields: IFieldRo[] = [];
     fieldRos.forEach((field) => {
@@ -130,11 +129,13 @@ export class TableOpenApiService {
       }
     });
 
-    for (const fieldRo of simpleFields) {
-      fields.push(await this.fieldSupplementService.prepareCreateField(tableId, fieldRo));
-    }
+    const fields: IFieldVo[] = await this.fieldSupplementService.prepareCreateFields(
+      tableId,
+      simpleFields
+    );
 
     const allFieldRos = simpleFields.concat(computeFields);
+
     for (const fieldRo of computeFields) {
       fields.push(
         await this.fieldSupplementService.prepareCreateField(
@@ -166,11 +167,13 @@ export class TableOpenApiService {
     const schema = await this.prismaService.$tx(async () => {
       const tableVo = await this.createTableMeta(baseId, tableRo);
       const tableId = tableVo.id;
+
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
 
       // create teable should not set computed field isPending, because noting need to calculate when create
       preparedFields.forEach((field) => delete field.isPending);
       const fieldVos = await this.createFields(tableId, preparedFields);
+
       const viewVos = await this.createView(tableId, tableRo.views);
 
       return {

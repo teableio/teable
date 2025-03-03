@@ -65,7 +65,7 @@ interface IParseResult {
 export abstract class Importer {
   public static DEFAULT_ERROR_MESSAGE = 'unknown error';
 
-  public static CHUNK_SIZE = 1024 * 1024 * 0.1;
+  public static CHUNK_SIZE = 1024 * 1024 * 0.2;
 
   public static MAX_CHUNK_LENGTH = 500;
 

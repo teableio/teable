@@ -267,18 +267,15 @@ export class ImportOpenApiService {
               }));
             worker.postMessage({ type: 'done', chunkId });
             this.updateRowCount(table.id);
-          } catch (e) {
-            const wrappedError = e as Error;
-            // adapt the prisma error message
-            e instanceof Prisma.PrismaClientKnownRequestError &&
-              (wrappedError.message = e?.meta?.message as string);
-            this.logger.error(wrappedError?.message, wrappedError?.stack);
+          } catch (e: unknown) {
+            const error = e as Error;
+            this.logger.error(error?.message, error?.stack);
             notification &&
               this.notificationService.sendImportResultNotify({
                 baseId,
                 tableId: table.id,
                 toUserId: userId,
-                message: `❌ ${table.name} import aborted: ${wrappedError.message} fail row range: [${recordCount - records.length}, ${recordCount - 1}]. Please check the data for this range and retry.
+                message: `❌ ${table.name} import aborted: ${error.message} fail row range: [${recordCount - records.length}, ${recordCount - 1}]. Please check the data for this range and retry.
                 `,
               });
             worker.terminate();

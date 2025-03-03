@@ -1073,6 +1073,53 @@ export class FieldSupplementService {
     return fieldVo;
   }
 
+  async prepareCreateFields(tableId: string, fieldRos: IFieldRo[], batchFieldVos?: IFieldVo[]) {
+    // throw error when dbFieldName is duplicated
+    const fieldRoDbFieldNames = fieldRos
+      .map((field) => field.dbFieldName)
+      .filter((name) => name !== undefined && name !== null) as string[];
+
+    if (fieldRoDbFieldNames.length) {
+      const existedField = await this.prismaService.txClient().field.findFirst({
+        where: { tableId, dbFieldName: { in: fieldRoDbFieldNames } },
+        select: { id: true, dbFieldName: true },
+      });
+
+      if (existedField) {
+        throw new BadRequestException(`dbFieldName ${existedField.dbFieldName} is duplicated`);
+      }
+    }
+
+    const fields: IFieldVo[] = (await Promise.all(
+      fieldRos.map(
+        async (fieldRo) => await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos)
+      )
+    )) as IFieldVo[];
+
+    const uniqFieldNames = await this.uniqFieldNames(
+      tableId,
+      fields.map((field) => field.name)
+    );
+
+    const dbFieldNames = await this.fieldService.generateDbFieldNames(tableId, uniqFieldNames);
+
+    return fieldRos.map((fieldRo, index) => {
+      const field = fields[index];
+      const fieldId = field.id || generateFieldId();
+      const fieldName = uniqFieldNames[index];
+      const dbFieldName = fieldRo.dbFieldName ?? dbFieldNames[index];
+      const fieldVo: IFieldVo = {
+        ...field,
+        id: fieldId,
+        name: fieldName,
+        dbFieldName,
+        isPending: field.isComputed ? true : undefined,
+      };
+      this.validateFormattingShowAs(fieldVo);
+      return fieldVo;
+    });
+  }
+
   async prepareUpdateField(
     tableId: string,
     fieldRo: IConvertFieldRo,
@@ -1111,6 +1158,21 @@ export class FieldSupplementService {
       return uniqName;
     }
     return fieldName;
+  }
+
+  private async uniqFieldNames(tableId: string, fieldNames: string[]) {
+    const fieldRaw = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { name: true },
+    });
+
+    const names = fieldRaw.map((item) => item.name);
+
+    return fieldNames.map((fieldName) => {
+      const uniqName = getUniqName(fieldName, names);
+      names.push(uniqName);
+      return uniqName;
+    });
   }
 
   async generateSymmetricField(tableId: string, field: LinkFieldDto) {
