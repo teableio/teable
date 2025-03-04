@@ -377,7 +377,7 @@ export class DatetimeDiff extends DateTimeFunc {
     const isFloat = Boolean(params[3]?.value ?? false);
     if (startDate == null || endDate == null) return null;
     const diffCount = startDate.diff(endDate, unit, isFloat);
-    return isNumber(diffCount) ? Math.abs(diffCount) : null;
+    return isNumber(diffCount) ? diffCount : null;
   }
 }
 

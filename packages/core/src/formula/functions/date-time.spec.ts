@@ -521,7 +521,7 @@ describe('DateTime', () => {
             timeZone: 'America/Los_Angeles',
           }
         )
-      ).toBe(403);
+      ).toBe(-403);
 
       expect(
         datetimeDiffFunc.eval(
@@ -560,7 +560,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(1);
+      expect(result).toBe(-1);
     });
 
     it('should return the difference in months between two dates', () => {
@@ -577,7 +577,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(13);
+      expect(result).toBe(-13);
     });
 
     it('should return the difference in days between two dates', () => {
@@ -594,7 +594,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(403);
+      expect(result).toBe(-403);
     });
 
     it('should return the difference in hours between two dates', () => {
@@ -611,7 +611,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(9674);
+      expect(result).toBe(-9674);
     });
 
     it('should return the difference in minutes between two dates', () => {
@@ -628,7 +628,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(580490);
+      expect(result).toBe(-580490);
     });
 
     it('should return the difference in seconds between two dates', () => {
@@ -645,7 +645,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBe(34829400);
+      expect(result).toBe(-34829400);
     });
 
     it('should return an approximate difference in months between two dates', () => {
@@ -663,7 +663,7 @@ describe('DateTime', () => {
         }
       );
 
-      expect(result).toBeCloseTo(13.23, 2);
+      expect(result).toBeCloseTo(-13.23, 2);
     });
   });
 
