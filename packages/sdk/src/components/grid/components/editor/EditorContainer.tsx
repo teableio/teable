@@ -3,7 +3,7 @@ import { getRandomString } from '@teable/core';
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
-import { GRID_DEFAULT, type IGridTheme } from '../../configs';
+import type { IGridTheme } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
 import {
@@ -71,7 +71,6 @@ export interface IEditorContainerRef {
   saveValue?: () => void;
 }
 
-const { cellEditorEdgePadding } = GRID_DEFAULT;
 const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
 
 export const EditorContainerBase: ForwardRefRenderFunction<
@@ -168,7 +167,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     const x = clamp(
       coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
       columnInitSize,
-      containerWidth - width - cellEditorEdgePadding
+      containerWidth - width
     );
     const y = clamp(
       coordInstance.getRowOffset(rowIndex) - scrollTop,
