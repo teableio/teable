@@ -477,7 +477,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [view]
   );
 
-  const generateRecord = (
+  const generateRecord = async (
     fieldValueMap: { [fieldId: string]: unknown },
     targetIndex?: number,
     rowOrder?: IUpdateOrderRo,
@@ -507,9 +507,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         );
       });
     } else {
+      const filterValueMap = await extractDefaultFieldsFromFilters({
+        filter,
+        fieldMap,
+        currentUserId: user.id,
+      });
       // insert empty records
       const emptyRecords = Array.from({ length: num }).fill({
-        fields: extractDefaultFieldsFromFilters({ filter, fieldMap, currentUserId: user.id }),
+        fields: {
+          ...fieldValueMap,
+          ...filterValueMap,
+        },
       }) as ICreateRecordsRo['records'];
       mutateCreateRecord(emptyRecords);
     }
