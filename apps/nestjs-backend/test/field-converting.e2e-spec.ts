@@ -1910,6 +1910,95 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
     });
 
+    it('should convert one-many to many-one link with 2 lookup and 2 formula fields', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[1].id, 1);
+
+      const linkField = await createField(table1.id, sourceFieldRo);
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      const lookupField1 = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const lookupField2 = await createField(table1.id, {
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[1].id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const formulaField1 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'formulaField2',
+        options: {
+          expression: `{${lookupField1.id}}`,
+        },
+      });
+
+      const formulaField2 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'formulaField2',
+        options: {
+          expression: `{${lookupField2.id}}`,
+        },
+      });
+
+      expect(formulaField1.isMultipleCellValue).toBeTruthy();
+      expect(formulaField2.isMultipleCellValue).toBeTruthy();
+
+      const recordsBefore = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+
+      expect(recordsBefore.records[0].fields[formulaField1.id]).toEqual(['x']);
+      expect(recordsBefore.records[0].fields[formulaField2.id]).toEqual([1]);
+
+      const newField = await convertField(table1.id, linkField.id, newFieldRo);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+      });
+
+      const newFormulaField2 = await getField(table1.id, formulaField2.id);
+
+      expect(newFormulaField2.isMultipleCellValue).toBeFalsy();
+      const recordsAfter = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+
+      expect(recordsAfter.records[0].fields[formulaField1.id]).toEqual('x');
+      expect(recordsAfter.records[0].fields[formulaField2.id]).toEqual(1);
+    });
+
     it('should convert one-way one-many to two-way many-one link with link', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
