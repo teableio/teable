@@ -15,7 +15,14 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
     oldColumns: string[]
   ) {
     const newColumnList = newColumns.map((col) => `"${col}"`).join(', ');
-    const oldColumnList = oldColumns.map((col) => `"${col}"`).join(', ');
+    const oldColumnList = oldColumns
+      .map((col) => {
+        if (col === '__version') {
+          return '1 AS "__version"';
+        }
+        return `"${col}"`;
+      })
+      .join(', ');
     return this.knex.raw(`INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ??`, [
       targetTable,
       sourceTable,
