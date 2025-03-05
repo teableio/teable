@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { type IGetBaseVo, type ITableVo } from '@teable/openapi';
+import type { ITableVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
@@ -20,14 +20,21 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId, dashboardId: dashboardIdQuery } = context.query;
-      const result = await ssrApi.getTables(baseId as string);
-      const base = await ssrApi.getBaseById(baseId as string);
       const queryClient = new QueryClient();
 
-      const dashboardList = await queryClient.fetchQuery({
-        queryKey: ReactQueryKeys.getDashboardList(baseId as string),
-        queryFn: ({ queryKey }) => ssrApi.getDashboardList(queryKey[1]),
-      });
+      const [tables, dashboardList] = await Promise.all([
+        ssrApi.getTables(baseId as string),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getDashboardList(baseId as string),
+          queryFn: ({ queryKey }) => ssrApi.getDashboardList(queryKey[1]),
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getBasePermission(baseId as string),
+          queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
+        }),
+      ]);
 
       const dashboardId = dashboardIdQuery ? (dashboardIdQuery as string) : dashboardList[0]?.id;
 
@@ -40,8 +47,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       return {
         props: {
-          tableServerData: result,
-          baseServerData: base,
+          tableServerData: tables,
           dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, dashboardConfig.i18nNamespaces)),
         },
@@ -54,7 +60,6 @@ Node.getLayout = function getLayout(
   page: ReactElement,
   pageProps: {
     tableServerData: ITableVo[];
-    baseServerData: IGetBaseVo;
   }
 ) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;

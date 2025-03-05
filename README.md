@@ -205,6 +205,10 @@ pnpm dev
 
 By default, the plugin development server is not started. To preview and develop plugins, run:
 ```sh
+# build packages
+pnpm build:packages
+
+# start plugin development server
 cd plugins
 pnpm dev
 ```

@@ -18,7 +18,7 @@ export const ChartLayout: React.FC<
   {
     children: React.ReactNode;
   } & IChartServerData
-> = ({ children, baseServerData, tableServerData }) => {
+> = ({ children, tableServerData }) => {
   const searchParams = useSearchParams();
   const baseId = searchParams.get('baseId');
   const { i18n, t } = useTranslation();
@@ -47,7 +47,7 @@ export const ChartLayout: React.FC<
             baseId: baseId as string,
           }}
         >
-          <BaseProvider serverData={baseServerData}>
+          <BaseProvider>
             <TableProvider serverData={tableServerData}>
               <div id="portal" className="relative flex h-screen w-full items-start">
                 {children}

@@ -1,9 +1,8 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
-import type { IGetBaseVo, IGroupPointsVo, ITableVo } from '@teable/openapi';
+import type { IGroupPointsVo, ITableVo } from '@teable/openapi';
 import type { SsrApi } from '@/backend/api/rest/table.ssr';
 
 export interface IViewPageProps {
-  baseServerData: IGetBaseVo;
   tableServerData: ITableVo[];
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
@@ -21,14 +20,10 @@ export const getViewPageServerData = async (
   const api = ssrApi;
   const tableResult = await api.getTable(baseId, tableId, viewId);
   if (tableResult) {
-    const [base, tablesResult] = await Promise.all([
-      api.getBaseById(baseId),
-      api.getTables(baseId),
-    ]);
+    const tablesResult = await api.getTables(baseId);
     const { fields, views, records, extra } = tableResult;
 
     return {
-      baseServerData: base,
       tableServerData: tablesResult,
       fieldServerData: fields,
       viewServerData: views,

@@ -1,4 +1,6 @@
-import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import { dehydrate, QueryClient } from '@tanstack/react-query';
+import type { ITableVo } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import { Trans, useTranslation } from 'next-i18next';
 import type { ReactElement } from 'react';
@@ -61,12 +63,26 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           },
         };
       }
-      const base = await ssrApi.getBaseById(baseId as string);
+
+      const queryClient = new QueryClient();
+
+      await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.base(baseId as string),
+          queryFn: ({ queryKey }) =>
+            queryKey[1] ? ssrApi.getBaseById(baseId as string) : undefined,
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getBasePermission(baseId as string),
+          queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
+        }),
+      ]);
 
       return {
         props: {
           tableServerData: tables,
-          baseServerData: base,
+          dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, ['common', 'sdk', 'table'])),
         },
       };
@@ -76,7 +92,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
 Node.getLayout = function getLayout(
   page: ReactElement,
-  pageProps: { tableServerData: ITableVo[]; baseServerData: IGetBaseVo }
+  pageProps: { tableServerData: ITableVo[] }
 ) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };

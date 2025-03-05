@@ -1,5 +1,5 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import type { ITableVo } from '@teable/openapi';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import type { IUser } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
@@ -18,10 +18,9 @@ import { useSdkLocale } from '../hooks/useSdkLocale';
 export const BaseLayout: React.FC<{
   children: React.ReactNode;
   tableServerData: ITableVo[];
-  baseServerData: IGetBaseVo;
   dehydratedState?: DehydratedState;
   user?: IUser;
-}> = ({ children, tableServerData, baseServerData, user, dehydratedState }) => {
+}> = ({ children, tableServerData, user, dehydratedState }) => {
   const router = useRouter();
   const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
@@ -39,7 +38,7 @@ export const BaseLayout: React.FC<{
                 viewId: viewId as string,
               }}
             >
-              <BaseProvider serverData={baseServerData}>
+              <BaseProvider>
                 <BasePermissionListener />
                 <TableProvider serverData={tableServerData}>
                   <div

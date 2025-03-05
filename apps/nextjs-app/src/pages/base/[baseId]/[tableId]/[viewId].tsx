@@ -16,7 +16,6 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
 const Node: NextPageWithLayout<ITableProps> = ({
-  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -25,7 +24,6 @@ const Node: NextPageWithLayout<ITableProps> = ({
 }) => {
   return (
     <Table
-      baseServerData={baseServerData}
       fieldServerData={fieldServerData}
       viewServerData={viewServerData}
       recordsServerData={recordsServerData}
@@ -43,7 +41,13 @@ export const getServerSideProps = withEnv(
 
       await Promise.all([
         queryClient.fetchQuery({
-          queryKey: ['basePermission', baseId as string],
+          queryKey: ReactQueryKeys.base(baseId as string),
+          queryFn: ({ queryKey }) =>
+            queryKey[1] ? ssrApi.getBaseById(baseId as string) : undefined,
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getBasePermission(baseId as string),
           queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
         }),
 
@@ -70,12 +74,14 @@ export const getServerSideProps = withEnv(
           };
         }
       }
+
       const serverData = await getViewPageServerData(
         ssrApi,
         baseId as string,
         tableId as string,
         viewId as string
       );
+
       if (serverData) {
         const { i18nNamespaces } = tableConfig;
         return {

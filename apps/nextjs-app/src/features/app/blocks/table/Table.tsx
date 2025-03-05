@@ -1,5 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
-import type { IGetBaseVo, IGroupPointsVo } from '@teable/openapi';
+import { getBaseById, type IGroupPointsVo } from '@teable/openapi';
 import {
   AnchorContext,
   FieldProvider,
@@ -8,6 +9,7 @@ import {
   ViewProvider,
   PersonalViewProxy,
   PersonalViewProvider,
+  ReactQueryKeys,
 } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
@@ -22,7 +24,6 @@ import { useViewErrorHandler } from './hooks/use-view-error-handler';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
-  baseServerData: IGetBaseVo;
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
@@ -31,7 +32,6 @@ export interface ITableProps {
 }
 
 export const Table: React.FC<ITableProps> = ({
-  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -46,6 +46,11 @@ export const Table: React.FC<ITableProps> = ({
     viewId: string;
     baseId: string;
   };
+  const { data: base } = useQuery({
+    queryKey: ReactQueryKeys.base(baseId as string),
+    queryFn: ({ queryKey }) => getBaseById(queryKey[1]).then((res) => res.data),
+  });
+
   useViewErrorHandler(baseId, tableId, viewId);
   useHotkeys(`mod+z`, () => undo(), {
     preventDefault: true,
@@ -60,7 +65,7 @@ export const Table: React.FC<ITableProps> = ({
       <Head>
         <title>
           {table?.name
-            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${baseServerData.name} - Teable`
+            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${base?.name} - Teable`
             : 'Teable'}
         </title>
         <style data-fullcalendar></style>

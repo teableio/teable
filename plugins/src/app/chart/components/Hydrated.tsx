@@ -75,15 +75,19 @@ export const Hydrated = async ({
     });
   }
 
-  const baseServerData = baseId
-    ? await ssrAxios
-        .get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }), {
-          headers: {
-            cookie,
-          },
-        })
-        .then(({ data }) => data)
-    : undefined;
+  queryClient.fetchQuery({
+    queryKey: ['base', baseId],
+    queryFn: ({ queryKey }) =>
+      queryKey[1]
+        ? ssrAxios
+            .get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId: queryKey[1] }), {
+              headers: {
+                cookie,
+              },
+            })
+            .then(({ data }) => data)
+        : undefined,
+  });
 
   const tableServerData = baseId
     ? await ssrAxios
@@ -97,7 +101,7 @@ export const Hydrated = async ({
 
   return (
     <QueryClientProvider dehydratedState={dehydrate(queryClient)}>
-      <Pages {...searchParams} baseServerData={baseServerData} tableServerData={tableServerData} />
+      <Pages {...searchParams} tableServerData={tableServerData} />
     </QueryClientProvider>
   );
 };

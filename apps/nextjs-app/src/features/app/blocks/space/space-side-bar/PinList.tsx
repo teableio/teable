@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from '../useBaseList';
@@ -31,8 +31,6 @@ export const PinList = () => {
     queryFn: () => getPinList().then((data) => data.data),
   });
 
-  const [pinList, setPinList] = useState<IGetPinListVo>(pinListData || []);
-
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList().then((data) => data.data),
@@ -45,7 +43,7 @@ export const PinList = () => {
       queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
     onError: () => {
-      setPinList(pinListData ?? []);
+      queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
   });
 
@@ -86,7 +84,10 @@ export const PinList = () => {
       anchorType: anchorPin.type,
       position,
     });
-    setPinList((prev) => {
+    queryClient.setQueryData(ReactQueryKeys.pinList(), (prev: IGetPinListVo | undefined) => {
+      if (!prev) {
+        return [];
+      }
       const pre = [...prev];
       pre.splice(from, 1);
       pre.splice(to, 0, pin);
@@ -113,16 +114,16 @@ export const PinList = () => {
         </AccordionTrigger>
         <AccordionContent>
           <div className="flex max-h-[30vh] flex-col overflow-y-auto px-3">
-            {pinList.length === 0 && (
+            {pinListData?.length === 0 && (
               <div className="text-center text-xs text-muted-foreground">
                 {t('space:pin.empty')}
               </div>
             )}
             <DndKitContext onDragEnd={onDragEndHandler}>
               <Droppable
-                items={pinList.map(({ id }) => id)}
+                items={pinListData?.map(({ id }) => id) ?? []}
                 overlayRender={(active) => {
-                  const activePin = pinList.find((pin) => pin.id === active?.id);
+                  const activePin = pinListData?.find((pin) => pin.id === active?.id);
                   if (!activePin) {
                     return <div />;
                   }
@@ -148,7 +149,7 @@ export const PinList = () => {
                   );
                 }}
               >
-                {pinList.map((pin) => (
+                {pinListData?.map((pin) => (
                   <Draggable key={pin.id} id={pin.id}>
                     {({ setNodeRef, attributes, listeners, style }) => (
                       <div ref={setNodeRef} {...attributes} style={style}>
