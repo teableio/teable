@@ -233,32 +233,21 @@ export class TableDuplicateService {
         options,
         description,
       });
-      if (isPrimary || unique || notNull) {
-        const updateData: {
-          isPrimary?: boolean;
-          unique?: boolean;
-          notNull?: boolean;
-        } = {
-          isPrimary,
-        };
-        if (unique !== undefined) updateData.unique = unique;
-        if (notNull !== undefined) updateData.notNull = notNull;
 
-        if (Object.keys(updateData).length > 0) {
-          await this.prismaService.txClient().field.update({
-            where: {
-              id: newField?.id,
-            },
-            data: updateData,
-          });
-        }
-      }
+      await this.replenishmentConstraint(newField.id, targetTableId, {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      });
+
       sourceToTargetFieldMap[id] = newField.id;
     }
 
     // these field require other field, we need to merge them and ensure a specific order
     const linkFields = fieldsInstances.filter((f) => f.type === FieldType.Link && !f.isLookup);
 
+    // duplicate link fields
     await this.duplicateLinkFields(
       sourceTableId,
       targetTableId,
@@ -266,6 +255,7 @@ export class TableDuplicateService {
       sourceToTargetFieldMap
     );
 
+    // duplicate link fields such as formula、lookup field
     await this.duplicateDependFields(
       sourceTableId,
       targetTableId,
@@ -280,28 +270,39 @@ export class TableDuplicateService {
   private async replenishmentConstraint(
     fId: string,
     targetTableId: string,
-    { notNull, unique, dbFieldName }: { notNull?: boolean; unique?: boolean; dbFieldName: string }
+    {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    }: { notNull?: boolean; unique?: boolean; dbFieldName: string; isPrimary?: boolean }
   ) {
-    if (notNull || unique) {
-      const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-        where: {
-          id: targetTableId,
-          deletedTime: null,
-        },
-        select: {
-          dbTableName: true,
-        },
-      });
-      await this.prismaService.txClient().field.update({
-        where: {
-          id: fId,
-        },
-        data: {
-          notNull,
-          unique,
-        },
-      });
+    if (!notNull && !unique && !isPrimary) {
+      return;
+    }
 
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      where: {
+        id: targetTableId,
+        deletedTime: null,
+      },
+      select: {
+        dbTableName: true,
+      },
+    });
+
+    await this.prismaService.txClient().field.update({
+      where: {
+        id: fId,
+      },
+      data: {
+        notNull: notNull ?? null,
+        unique: unique ?? null,
+        isPrimary: isPrimary ?? null,
+      },
+    });
+
+    if (notNull || unique) {
       const fieldValidationQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
           if (unique) table.dropUnique([dbFieldName]);
@@ -368,17 +369,6 @@ export class TableDuplicateService {
         unique,
         dbFieldName,
       });
-      if (notNull || unique) {
-        await this.prismaService.txClient().field.update({
-          where: {
-            id: newField?.id,
-          },
-          data: {
-            unique,
-            notNull,
-          },
-        });
-      }
       sourceToTargetFieldMap[id] = newField.id;
       sourceToTargetFieldMap[options.symmetricFieldId!] = (
         newField.options as ILinkFieldOptions
@@ -458,6 +448,9 @@ export class TableDuplicateService {
     }
   }
 
+  /**
+   * Duplicate fields that depend on other fields like formula、lookup field
+   */
   private async duplicateDependFields(
     sourceTableId: string,
     targetTableId: string,
@@ -560,6 +553,7 @@ export class TableDuplicateService {
       notNull,
       unique,
       description,
+      isPrimary,
     } = fieldInstance;
     const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
     const isSelfLink = foreignTableId === sourceTableId;
@@ -604,6 +598,7 @@ export class TableDuplicateService {
       notNull,
       unique,
       dbFieldName,
+      isPrimary,
     });
     sourceToTargetFieldMap[id] = newField.id;
     if (hasError) {
@@ -630,7 +625,8 @@ export class TableDuplicateService {
     sourceToTargetFieldMap: Record<string, string>,
     hasError: boolean = false
   ) {
-    const { type, dbFieldName, name, options, id, notNull, unique, description } = fieldInstance;
+    const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
+      fieldInstance;
     const { expression } = options as IFormulaFieldOptions;
     let newExpression = expression;
     Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
@@ -651,6 +647,7 @@ export class TableDuplicateService {
       notNull,
       unique,
       dbFieldName,
+      isPrimary,
     });
     sourceToTargetFieldMap[id] = newField.id;
 
