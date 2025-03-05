@@ -11,17 +11,17 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
   const { storage, onQueryError } = useContext(ChartContext);
   const query = storage?.query;
   const { user } = useSession();
-
+  const currentUserId = user?.id;
   const { data } = useQuery({
     queryKey: baseQueryKeys(baseId, query!, cellFormat),
-    enabled: !!query || Boolean(pluginId),
+    enabled: !!query || Boolean(pluginId) || Boolean(currentUserId),
     queryFn: async ({ queryKey }) => {
       return getBaseQueryData({
         pluginId,
         queryKeys: queryKey,
         onQueryError,
         options: {
-          currentUserId: user?.id,
+          currentUserId,
         },
       });
     },
