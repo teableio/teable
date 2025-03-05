@@ -4,6 +4,7 @@ import type {
   IGetDashboardInstallPluginVo,
   IPluginPanelPluginGetVo,
   ITableListVo,
+  IUserMeVo,
 } from '@teable/openapi';
 import {
   createAxios,
@@ -13,6 +14,7 @@ import {
   PLUGIN_PANEL_PLUGIN_GET,
   PluginPosition,
   urlBuilder,
+  USER_ME,
 } from '@teable/openapi';
 import { getQueryClient } from '../../../components/get-query-client';
 import QueryClientProvider from '../../../components/QueryClientProvider';
@@ -87,6 +89,18 @@ export const Hydrated = async ({
             })
             .then(({ data }) => data)
         : undefined,
+  });
+
+  queryClient.fetchQuery({
+    queryKey: ['user-me'],
+    queryFn: () =>
+      ssrAxios
+        .get<IUserMeVo>(urlBuilder(USER_ME), {
+          headers: {
+            cookie,
+          },
+        })
+        .then(({ data }) => data),
   });
 
   const tableServerData = baseId

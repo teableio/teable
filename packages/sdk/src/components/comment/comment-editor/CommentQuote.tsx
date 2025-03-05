@@ -90,7 +90,9 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
                   </span>
                 );
               case CommentNodeType.Mention:
-                return <MentionUser key={index} id={node.value} />;
+                return (
+                  <MentionUser key={index} id={node.value} name={node.name} avatar={node.avatar} />
+                );
               default:
                 assertNever(node);
             }
