@@ -14,7 +14,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
   const currentUserId = user?.id;
   const { data } = useQuery({
     queryKey: baseQueryKeys(baseId, query!, cellFormat),
-    enabled: !!query || Boolean(pluginId) || Boolean(currentUserId),
+    enabled: !!query && Boolean(pluginId) && Boolean(currentUserId),
     queryFn: async ({ queryKey }) => {
       return getBaseQueryData({
         pluginId,
