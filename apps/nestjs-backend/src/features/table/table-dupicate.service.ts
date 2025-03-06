@@ -118,11 +118,21 @@ export class TableDuplicateService {
 
     const columnInfoQuery = this.dbProvider.columnInfo(sourceDbTableName);
 
+    const newColumnsInfoQuery = this.dbProvider.columnInfo(targetDbTableName);
+
     const oldOriginColumns = (
-      await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(columnInfoQuery)
+      await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery)
     ).map(({ name }) => name);
 
-    const oldFieldColumns = oldOriginColumns.filter(
+    const newOriginColumns = (
+      await prisma.$queryRawUnsafe<{ name: string }[]>(newColumnsInfoQuery)
+    ).map(({ name }) => name);
+
+    // const oldFieldColumns = oldOriginColumns.filter(
+    //   (name) => !name.startsWith(ROW_ORDER_FIELD_PREFIX) && !name.startsWith('__fk_fld')
+    // );
+
+    const newFieldColumns = newOriginColumns.filter(
       (name) => !name.startsWith(ROW_ORDER_FIELD_PREFIX) && !name.startsWith('__fk_fld')
     );
 
@@ -148,9 +158,11 @@ export class TableDuplicateService {
       await this.createFkField(targetDbTableName, name.slice(5));
     }
 
-    const oldColumns = oldFieldColumns.concat(oldRowColumns).concat(oldFkColumns);
+    // use new table field columns info
+    // old table contains ghost columns or customer columns
+    const oldColumns = newFieldColumns.concat(oldRowColumns).concat(oldFkColumns);
 
-    const newColumns = oldFieldColumns.concat(newRowColumns).concat(newFkColumns);
+    const newColumns = newFieldColumns.concat(newRowColumns).concat(newFkColumns);
 
     const sql = this.dbProvider
       .duplicateTableQuery(qb)
@@ -220,7 +232,9 @@ export class TableDuplicateService {
     const sourceToTargetFieldMap: Record<string, string> = {};
 
     const commonFields = fieldsInstances.filter(
-      (f) => !f.isLookup && ![FieldType.Formula, FieldType.Link].includes(f.type as FieldType)
+      (f) =>
+        !f.isLookup &&
+        ![FieldType.Formula, FieldType.Link, FieldType.Rollup].includes(f.type as FieldType)
     );
 
     for (let i = 0; i < commonFields.length; i++) {
@@ -457,7 +471,9 @@ export class TableDuplicateService {
     fieldsInstances: IFieldInstance[],
     sourceToTargetFieldMap: Record<string, string>
   ) {
-    const dependFields = fieldsInstances.filter((f) => f.isLookup || f.type === FieldType.Formula);
+    const dependFields = fieldsInstances.filter(
+      (f) => f.isLookup || f.type === FieldType.Formula || f.type === FieldType.Rollup
+    );
     if (!dependFields.length) return;
 
     const checkedField = [] as IFieldInstance[];
@@ -511,7 +527,7 @@ export class TableDuplicateService {
       return referencedFields.every((field) => keys.includes(field));
     }
 
-    if (field.isLookup) {
+    if (field.isLookup || field.type === FieldType.Rollup) {
       const { lookupOptions } = field;
       const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
       const isSelfLink = foreignTableId === sourceTableId;
@@ -534,6 +550,8 @@ export class TableDuplicateService {
       await this.duplicateFormulaField(targetTableId, field, sourceToTargetFieldMap, hasError);
     } else if (field.isLookup) {
       await this.duplicateLookupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
+    } else if (field.type === FieldType.Rollup) {
+      await this.duplicateRollupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
     }
   }
 
@@ -592,6 +610,79 @@ export class TableDuplicateService {
             ? mockFieldId
             : lookupFieldId,
       },
+      name,
+    });
+    await this.replenishmentConstraint(newField.id, targetTableId, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+    sourceToTargetFieldMap[id] = newField.id;
+    if (hasError) {
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: newField.id,
+        },
+        data: {
+          hasError,
+          type: lookupFieldType,
+          lookupOptions: JSON.stringify({
+            ...newField.lookupOptions,
+            lookupFieldId: lookupFieldId,
+          }),
+          options: JSON.stringify(options),
+        },
+      });
+    }
+  }
+
+  private async duplicateRollupField(
+    sourceTableId: string,
+    targetTableId: string,
+    fieldInstance: IFieldInstance,
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    const {
+      dbFieldName,
+      name,
+      lookupOptions,
+      id,
+      hasError,
+      options,
+      notNull,
+      unique,
+      description,
+      isPrimary,
+    } = fieldInstance;
+    const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
+    const isSelfLink = foreignTableId === sourceTableId;
+
+    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
+      where: {
+        id: lookupFieldId,
+      },
+      select: {
+        type: true,
+      },
+    });
+    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
+    const newField = await this.fieldOpenService.createField(targetTableId, {
+      type: FieldType.Rollup,
+      dbFieldName,
+      description,
+      lookupOptions: {
+        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
+        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        lookupFieldId: isSelfLink
+          ? hasError
+            ? mockFieldId
+            : sourceToTargetFieldMap[lookupFieldId]
+          : hasError
+            ? mockFieldId
+            : lookupFieldId,
+      },
+      options,
       name,
     });
     await this.replenishmentConstraint(newField.id, targetTableId, {
