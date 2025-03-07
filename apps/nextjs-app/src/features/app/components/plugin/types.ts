@@ -27,6 +27,7 @@ export type IViewPluginParams = IPluginParamsBase & {
 
 export type IContextMenuPluginParams = IPluginParamsBase & {
   baseId: string;
+  tableId: string;
   positionType: PluginPosition.ContextMenu;
 };
 
