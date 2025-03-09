@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "Se esperaba {{expected}}, se recibió {{received}}",
+    "invalid_type_received_undefined": "Requerido",
+    "invalid_type_received_null": "Requerido",
+    "invalid_literal": "Valor literal inválido, se esperaba {{expected}}",
+    "unrecognized_keys": "Clave(s) no reconocida(s) en el objeto: {{- keys}}",
+    "invalid_union": "Entrada inválida",
+    "invalid_union_discriminator": "Valor discriminador inválido. Se esperaba {{- options}}",
+    "invalid_enum_value": "Valor de enumeración inválido. Se esperaba {{- options}}, se recibió '{{received}}'",
+    "invalid_arguments": "Argumentos de función inválidos",
+    "invalid_return_type": "Tipo de retorno de función inválido",
+    "invalid_date": "Fecha inválida",
+    "custom": "Entrada inválida",
+    "invalid_intersection_types": "Los resultados de la intersección no se pudieron combinar",
+    "not_multiple_of": "El número debe ser múltiplo de {{multipleOf}}",
+    "not_finite": "El número debe ser finito",
+    "invalid_string": {
+      "email": "{{validation}} inválido",
+      "url": "{{validation}} inválida",
+      "uuid": "{{validation}} inválido",
+      "cuid": "{{validation}} inválido",
+      "regex": "Inválido",
+      "datetime": "{{validation}} inválida",
+      "startsWith": "Entrada inválida: debe comenzar con \"{{startsWith}}\"",
+      "endsWith": "Entrada inválida: debe terminar con \"{{endsWith}}\""
+    },
+    "too_small": {
+      "array": {
+        "exact": "El array debe contener exactamente {{minimum}} elemento(s)",
+        "inclusive": "El array debe contener al menos {{minimum}} elemento(s)",
+        "not_inclusive": "El array debe contener más de {{minimum}} elemento(s)"
+      },
+      "string": {
+        "exact": "La cadena debe contener exactamente {{minimum}} caracter(es)",
+        "inclusive": "La cadena debe contener al menos {{minimum}} caracter(es)",
+        "not_inclusive": "La cadena debe contener más de {{minimum}} caracter(es)"
+      },
+      "number": {
+        "exact": "El número debe ser exactamente {{minimum}}",
+        "inclusive": "El número debe ser mayor o igual a {{minimum}}",
+        "not_inclusive": "El número debe ser mayor que {{minimum}}"
+      },
+      "set": {
+        "exact": "Entrada inválida",
+        "inclusive": "Entrada inválida",
+        "not_inclusive": "Entrada inválida"
+      },
+      "date": {
+        "exact": "La fecha debe ser exactamente {{- minimum, datetime}}",
+        "inclusive": "La fecha debe ser mayor o igual a {{- minimum, datetime}}",
+        "not_inclusive": "La fecha debe ser mayor que {{- minimum, datetime}}"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "El array debe contener exactamente {{maximum}} elemento(s)",
+        "inclusive": "El array debe contener como máximo {{maximum}} elemento(s)",
+        "not_inclusive": "El array debe contener menos de {{maximum}} elemento(s)"
+      },
+      "string": {
+        "exact": "La cadena debe contener exactamente {{maximum}} caracter(es)",
+        "inclusive": "La cadena debe contener como máximo {{maximum}} caracter(es)",
+        "not_inclusive": "La cadena debe contener menos de {{maximum}} caracter(es)"
+      },
+      "number": {
+        "exact": "El número debe ser exactamente {{maximum}}",
+        "inclusive": "El número debe ser menor o igual a {{maximum}}",
+        "not_inclusive": "El número debe ser menor que {{maximum}}"
+      },
+      "set": {
+        "exact": "Entrada inválida",
+        "inclusive": "Entrada inválida",
+        "not_inclusive": "Entrada inválida"
+      },
+      "date": {
+        "exact": "La fecha debe ser exactamente {{- maximum, datetime}}",
+        "inclusive": "La fecha debe ser menor o igual a {{- maximum, datetime}}",
+        "not_inclusive": "La fecha debe ser menor que {{- maximum, datetime}}"
+      }
+    }
+  },
+  "validations": {
+    "email": "correo electrónico",
+    "url": "url",
+    "uuid": "uuid",
+    "cuid": "cuidero",
+    "regex": "regular",
+    "datetime": "de fecha y hora"
+  },
+  "types": {
+    "function": "función",
+    "number": "número",
+    "string": "cadena",
+    "nan": "yaya",
+    "integer": "entero",
+    "float": "flotar",
+    "boolean": "booleano",
+    "date": "fecha",
+    "bigint": "bigint",
+    "undefined": "indefinido",
+    "symbol": "símbolo",
+    "null": "nulo",
+    "array": "formación",
+    "object": "objeto",
+    "unknown": "desconocido",
+    "promise": "promesa",
+    "void": "vacío",
+    "never": "nunca",
+    "map": "mapa",
+    "set": "colocar"
+  }
+}

@@ -1,0 +1,359 @@
+{
+  "brand": "Teable",
+  "actions": {
+    "title": "Acciones",
+    "add": "Agregar",
+    "save": "Guardar",
+    "doNotSave": "No guardar",
+    "submit": "Enviar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "edit": "Editar",
+    "fill": "Completar",
+    "update": "Actualizar",
+    "create": "Crear",
+    "delete": "Eliminar",
+    "cancel": "Cancelar",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "back": "Volver",
+    "remove": "Eliminar",
+    "saveSucceed": "¡Guardado con éxito!",
+    "submitSucceed": "¡Enviado con éxito!",
+    "editSucceed": "¡Editado con éxito!",
+    "updateSucceed": "¡Actualizado con éxito!",
+    "deleteSucceed": "¡Eliminado con éxito!",
+    "resetSucceed": "¡Papelera vaciada con éxito!",
+    "restoreSucceed": "¡Restaurado con éxito!",
+    "loading": "Cargando...",
+    "refreshPage": "Refrescar página",
+    "yesDelete": "Sí, eliminar",
+    "rename": "Renombrar",
+    "duplicate": "Duplicar",
+    "change": "Cambiar",
+    "upgrade": "Actualizar",
+    "search": "Buscar",
+    "loadMore": "Cargar más",
+    "collapseSidebar": "Colapsar barra lateral",
+    "restore": "Restaurar",
+    "permanentDelete": "Eliminar permanentemente",
+    "globalSearch": "Búsqueda global",
+    "fieldSearch": "Buscar campo",
+    "tableIndex": "Índice",
+    "showAllRow": "Mostrar todas las filas",
+    "hideNotMatchRow": "Ocultar filas sin coincidencia",
+    "more": "Más"
+  },
+  "quickAction": {
+    "title": "Acciones Rápidas...",
+    "placeHolder": "Escribe un comando o busca..."
+  },
+  "password": {
+    "setInvalid": "La contraseña no es válida, debe tener al menos 8 caracteres y contener al menos una letra y un número."
+  },
+  "settings": {
+    "title": "Configuración",
+    "back": "Volver al inicio",
+    "account": {
+      "title": "Mi perfil",
+      "tab": "Mi cuenta",
+      "updatePhoto": "Actualizar foto",
+      "updateNameDesc": "Tu nombre se mostrará en contribuciones y menciones. Puedes cambiarlo en cualquier momento.",
+      "securityTitle": "Seguridad de la cuenta",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "passwordDesc": "Establece una contraseña permanente para iniciar sesión en tu cuenta.",
+      "changePassword": {
+        "title": "Cambiar contraseña",
+        "desc": "Por favor, ingresa tu contraseña actual y tu nueva contraseña.",
+        "current": "Ingresa tu contraseña actual",
+        "new": "Ingresa tu nueva contraseña",
+        "confirm": "Confirma tu nueva contraseña"
+      },
+      "changePasswordError": {
+        "disMatch": "Su nueva contraseña no coincide.",
+        "equal": "Su nueva contraseña debe ser diferente de su contraseña actual.",
+        "invalid": "Su contraseña actual no es válida."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Cambie la contraseña con éxito.",
+        "desc": "Será redirigido a la página de inicio de sesión en 2 segundos."
+      },
+      "manageToken": "Token de Acceso",
+      "addPassword": {
+        "title": "Agregar contraseña",
+        "desc": "Establezca una contraseña permanente para iniciar sesión en su cuenta.",
+        "password": "Ingrese su contraseña",
+        "confirm": "Confirma tu contraseña"
+      },
+      "addPasswordError": {
+        "disMatch": "Su contraseña no coincide."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Agregue la contraseña con éxito."
+      },
+      "changeEmail": {
+        "title": "Actualizar correo electrónico",
+        "desc": "Ingrese su contraseña actual y su nuevo correo electrónico.",
+        "current": "Ingrese su contraseña actual",
+        "new": "Ingrese su nuevo correo electrónico",
+        "code": "Ingrese el código de verificación",
+        "getCode": "Obtener código de verificación",
+        "error": {
+          "invalidCode": "El código de verificación no es válido.",
+          "invalidPassword": "La contraseña no es válida.",
+          "invalidConflict": "El nuevo correo electrónico ya está registrado.",
+          "invalidSameEmail": "El nuevo correo electrónico es el mismo que el correo electrónico actual."
+        },
+        "success": {
+          "title": "🎉 Cambie el correo electrónico con éxito.",
+          "desc": "Será redirigido a la página de inicio de sesión en 2 segundos.",
+          "sendSuccess": "Código de verificación enviado correctamente."
+        }
+      }
+    },
+    "notify": {
+      "title": "Mis Notificaciones",
+      "label": "Actividad en tu espacio",
+      "desc": "Recibe correos electrónicos cuando recibas comentarios, menciones, invitaciones a páginas, recordatorios, solicitudes de acceso y cambios de propiedades."
+    },
+    "setting": {
+      "title": "Mis Ajustes",
+      "theme": "Tema",
+      "themeDesc": "Selecciona el tema para la aplicación.",
+      "dark": "Oscuro",
+      "light": "Claro",
+      "system": "Sistema",
+      "version": "Versión de la aplicación",
+      "language": "Idioma"
+    },
+    "nav": {
+      "settings": "Configuración",
+      "logout": "Cerrar sesión"
+    },
+    "integration": {
+      "title": "Integración",
+      "description": "Ha otorgado el acceso a su cuenta __var_0__ a su cuenta.",
+      "lastUsed": "La última vez que se usa en __var_0__",
+      "revoke": "Revocar",
+      "owner": "Propietario de __var_0__",
+      "revokeTitle": "¿Estás seguro de que quieres revocar la autorización?",
+      "revokeDesc": "__Var_0__ ya no podrá acceder a la API de la tábora. ",
+      "scopeTitle": "Permisos",
+      "scopeDesc": "Esta aplicación podrá obtener los siguientes ámbitos:"
+    }
+  },
+  "noun": {
+    "table": "Tabla",
+    "view": "Vista",
+    "space": "Espacio",
+    "base": "Base",
+    "field": "Campo",
+    "record": "Registro",
+    "dashboard": "Panel",
+    "automation": "Automatización",
+    "authorityMatrix": "Matriz de Autoridad",
+    "adminPanel": "Panel de Administración",
+    "license": "Licencia",
+    "instanceId": "ID de Instancia",
+    "beta": "Beta",
+    "trash": "Papelera",
+    "global": "Global",
+    "organizationPanel": "Panel de Organización",
+    "unknownError": "Error desconocido",
+    "float": "Flotar"
+  },
+  "level": {
+    "free": "Gratis",
+    "plus": "Más",
+    "pro": "Pro",
+    "enterprise": "Empresa"
+  },
+  "noResult": "Sin resultado.",
+  "untitled": "Intitulado",
+  "name": "Nombre",
+  "description": "Descripción",
+  "required": "Requerido",
+  "atLeastOne": "Al menos reserva un __var_0__",
+  "guide": {
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "done": "Listo",
+    "skip": "Omitir",
+    "createSpaceTooltipTitle": "Crear un espacio",
+    "createSpaceTooltipContent": "La tiza se organiza en espacios, donde cada espacio invita a los usuarios a colaborar. ",
+    "createBaseTooltipTitle": "Crear una base",
+    "createBaseTooltipContent": "Una base (abreviatura de \"base de datos\") es un lugar para almacenar datos importantes y los flujos de trabajo que dependen de ello.",
+    "createTableTooltipTitle": "Crear una mesa",
+    "createTableTooltipContent": "Las tablas están diseñadas para manejar eficientemente diversos conjuntos de datos, ofreciendo una visualización versátil de información a través de varios tipos de datos.",
+    "createViewTooltipTitle": "Crear una vista",
+    "createViewTooltipContent": "Actualmente, los usuarios pueden crear vistas de cuadrícula, galería, kanban y formulario, con vistas de calendario planificadas para futuros lanzamientos. ",
+    "viewFilteringTooltipTitle": "Registros filtrantes",
+    "viewFilteringTooltipContent": "Una de las características centrales de las vistas es la capacidad de filtrar registros desde una vista de acuerdo con las condiciones que establece. ",
+    "viewSortingTooltipTitle": "Clasificación de registros",
+    "viewSortingTooltipContent": "Mientras esté en una vista, puede ordenar sus registros para que aparezcan en un orden particular de acuerdo con los valores en campos específicos. ",
+    "viewGroupingTooltipTitle": "Grupos de registros",
+    "viewGroupingTooltipContent": "Los registros de agrupación permiten a los creadores construir un conjunto de una o más condiciones que ayuden a clasificar el conjunto de datos que se presenta dentro de una vista particular.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "TABLE ofrece una potente API que admite casi todas las características del producto, lo que permite a los desarrolladores hacer llamadas usando un <a> token </a>."
+  },
+  "token": "Simbólico",
+  "poweredBy": "Alimentado por <0> </0>",
+  "invite": {
+    "dialog": {
+      "title": "__Var_0__ compartir espacios",
+      "desc_one": "Este espacio tiene <b> __ var_0__ colaborador </b>. ",
+      "desc_other": "Este espacio tiene <b> __ var_0__ colaboradores </b>. ",
+      "tabEmail": "Invitar por correo electrónico",
+      "emailPlaceholder": "Invitar a más colaboradores por correo electrónico",
+      "tabLink": "Invitar por enlace",
+      "linkPlaceholder": "Cree un enlace de invitación que otorgue el acceso <0/> a cualquier persona que lo abra.",
+      "emailSend": "Enviar invitación",
+      "linkSend": "Crear enlace",
+      "spaceTitle": "Colaboradores espaciales",
+      "collaboratorSearchPlaceholder": "Encuentra un colaborador espacial por nombre o correo electrónico",
+      "collaboratorJoin": "unido __var_0__",
+      "collaboratorRemove": "Eliminar el colaborador",
+      "linkTitle": "Invitar enlaces",
+      "linkCreatedTime": "creado __var_0__",
+      "linkCopySuccess": "Enlace copiado",
+      "linkRemove": "Eliminar enlace"
+    },
+    "base": {
+      "title": "Compartir __var_0__",
+      "desc_one": "Esta base se comparte con el colaborador __var_0__.",
+      "desc_other": "Esta base se comparte con los colaboradores __var_0__.",
+      "baseTitle": "Colaboradores base",
+      "collaboratorSearchPlaceholder": "Encuentre un colaborador base por nombre o correo electrónico"
+    },
+    "addOrgCollaborator": {
+      "title": "Agregar colaborador de organización",
+      "placeholder": "Seleccionar miembro o departamento de la organización"
+    }
+  },
+  "help": {
+    "title": "Ayuda",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/en/api-doc/token"
+  },
+  "pagePermissionChangeTip": "Los permisos de la página se han actualizado. ",
+  "listEmptyTips": "La lista está vacía",
+  "billing": {
+    "overLimits": "Límites excedidos",
+    "overLimitsDescription": "Tu suscripción actual ha excedido su límite de uso. Por favor, actualiza tu plan para continuar usando esta función sin interrupciones.",
+    "userLimitExceededDescription": "La instancia actual ha alcanzado el número máximo de usuarios permitidos por tu licencia. Por favor, desactiva algunos usuarios o actualiza la licencia.",
+    "unavailableInPlanTips": "El plan de suscripción actual no admite esta función",
+    "levelTips": "Este espacio está actualmente en el plan __var_0__",
+    "spaceSubscriptionModal": {
+      "title": "Plan de suscripción de actualización de Space",
+      "description": "Solo puede actualizar los espacios de trabajo donde es un propietario"
+    },
+    "status": {
+      "active": "Activo",
+      "canceled": "Cancelado",
+      "incomplete": "Incompleto",
+      "incompleteExpired": "Caducado incompleto",
+      "trialing": "Juicio",
+      "pastDue": "Debido a",
+      "unpaid": "No pagado",
+      "paused": "Detenido",
+      "seatLimitExceeded": "Límite de asiento excedido"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "Cambie la configuración de su instancia actual",
+      "allowSignUp": "Permitir crear nuevas cuentas",
+      "allowSignUpDescription": "Deshabilitar esta opción prohibirá los registros de nuevos usuarios, y el botón de registro ya no aparecerá en la página de inicio de sesión.",
+      "allowSpaceInvitation": "Permitir envío de invitaciones de espacio",
+      "allowSpaceInvitationDescription": "Deshabilitar esta opción evitará que los usuarios que no sean administradores inviten a otros a unir espacios. ",
+      "allowSpaceCreation": "Permitir que todos creen nuevos espacios",
+      "allowSpaceCreationDescription": "Deshabilitar esta opción evitará que los usuarios que no sean administradores creen nuevos espacios.",
+      "enableEmailVerification": "Habilitar la verificación de correo electrónico",
+      "enableEmailVerificationDescription": "Deshabilitar esta opción evitará que los usuarios creen nuevas cuentas sin verificar su dirección de correo electrónico.",
+      "generalSettings": "Configuración general",
+      "aiSettings": "Configuración de AI",
+      "ai": {
+        "name": "Nombre",
+        "nameDescription": "El nombre del proveedor de LLM",
+        "enable": "Habilitar AI",
+        "enableDescription": "Habilitar AI para la instancia actual, todos los usuarios podrán usar funciones de AI",
+        "updateLLMProvider": "Actualizar el proveedor de LLM",
+        "addProvider": "Agregar proveedor de LLM",
+        "addProviderDescription": "Agregue un nuevo proveedor de LLM a la lista",
+        "providerType": "Tipo de proveedor",
+        "baseUrl": "URL base",
+        "apiKey": "Llave de API",
+        "baseUrlDescription": "La URL base del proveedor de LLM",
+        "apiKeyDescription": "La clave API del proveedor de LLM",
+        "models": "Modelos",
+        "modelsDescription": "Los modelos compatibles con el proveedor de LLM",
+        "baseUrlRequired": "Se requiere URL base",
+        "fetchModelListError": "No se pudo obtener la lista de modelos",
+        "provider": "Proveedor de LLM",
+        "providerDescription": "El proveedor de LLM para usar",
+        "modelPreferences": "Preferencias de modelo",
+        "modelPreferencesDescription": "Las preferencias del modelo para el proveedor de LLM",
+        "embeddingModel": "Modelo de incrustación",
+        "embeddingModelDescription": "Opcional, generalmente la ID del modelo contiene \"incrustación\"",
+        "translationModel": "Modelo de traducción",
+        "translationModelDescription": "El modelo de traducción para usar",
+        "codingModel": "Modelo de codificación",
+        "codingModelDescription": "Utilizado para la generación de fórmulas de IA y características relacionadas",
+        "configUpdated": "Configuración de ai actualizada",
+        "noModelFound": "No se encuentra ningún modelo.",
+        "searchModel": "Modelo de búsqueda ...",
+        "selectModel": "Seleccionar modelo ...",
+        "input": "Aporte",
+        "output": "Producción",
+        "systemModelTips": "La relación de entrada / salida representa el tipo de cambio entre créditos y tokens. "
+      }
+    }
+  },
+  "notification": {
+    "title": "Notificaciones",
+    "unread": "No leído",
+    "read": "Leer",
+    "markAs": "Marque esta notificación como __var_0__",
+    "markAllAsRead": "Marcar todo como leído",
+    "noUnread": "No __var_0__ notificaciones",
+    "changeSetting": "Cambiar la configuración de notificación de página",
+    "new": "nuevo __var_0__",
+    "showMore": "Mostrar más"
+  },
+  "role": {
+    "title": {
+      "owner": "Propietario",
+      "creator": "Creador",
+      "editor": "Editor",
+      "commenter": "Comentador",
+      "viewer": "Espectador"
+    },
+    "description": {
+      "owner": "Puede configurar y editar completamente las bases, automatización, matrices de autoridad y administrar la configuración y la facturación del espacio",
+      "creator": "Puede configurar y editar completamente las bases, automatizar y habilitar la matriz de autoridad",
+      "editor": "Puede editar registros y vistas, pero no puede configurar tablas o campos",
+      "commenter": "Puede comentar los registros",
+      "viewer": "No se puede editar o comentar"
+    }
+  },
+  "trash": {
+    "type": "Tipo",
+    "resetTrash": "Vaciar papelera",
+    "deletedBy": "Eliminado por",
+    "deletedTime": "Fecha de eliminación",
+    "fromSpace": "Del espacio \"{{name}}\"",
+    "permanentDeleteTips": "¿Estás seguro de que deseas eliminar permanentemente \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "¿Estás seguro de que deseas vaciar la papelera?"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Complemento no configurando URL",
+    "install": "Instalar",
+    "publisher": "Editor",
+    "lastUpdated": "Última actualización",
+    "pluginNotFound": "Complemento no encontrado",
+    "pluginEmpty": {
+      "title": "Todavía no hay complementos"
+    }
+  }
+}

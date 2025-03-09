@@ -1,0 +1,58 @@
+{
+  "initialSpaceName": "Espacio de {{name}}",
+  "page": {
+    "title": "Aplicación Teable"
+  },
+  "action": {
+    "createBase": "Crear una base",
+    "createSpace": "Crear un espacio",
+    "invite": "Invitar"
+  },
+  "allSpaces": "Todos los espacios",
+  "spaceIsEmpty": "Este espacio está vacío",
+  "baseModal": {
+    "copy": "Copiar",
+    "duplicate": "Duplicar \"{{baseName}}\"",
+    "createBaseFromTemplate": "Crear base desde plantilla",
+    "duplicateRecords": "Duplicar registros",
+    "duplicateRecordsTip": "Tu historial de revisiones no será duplicado.",
+    "toSpace": "Al espacio",
+    "copyToSpace": "Copiar al espacio",
+    "duplicateBase": "Duplicar base",
+    "missTargetTip": "Por favor, selecciona un espacio para duplicar la base.",
+    "copying": "Duplicando base, esto puede tomar un momento...",
+    "copyingTemplate": "Creando base desde plantilla, esto puede tomar un momento...",
+    "howToCreate": "¿Cómo quieres empezar?",
+    "fromScratch": "Desde cero",
+    "fromTemplate": "Desde plantilla"
+  },
+  "spaceSetting": {
+    "title": "Configuración del espacio",
+    "general": "General",
+    "collaborators": "Colaboradores",
+    "generalDescription": "Cambia la configuración de tu espacio actual aquí",
+    "collaboratorDescription": "Gestiona los colaboradores de tu espacio y establece sus permisos de acceso",
+    "spaceName": "Nombre del Espacio",
+    "spaceId": "ID del Espacio"
+  },
+  "pin": {
+    "add": "Agregar a fijados",
+    "remove": "Quitar de fijados",
+    "pin": "Fijar",
+    "empty": "Tus bases y espacios fijados aparecerán aquí"
+  },
+  "tip": {
+    "delete": "¿Estás seguro de que quieres eliminar <0/>?"
+  },
+  "sharedBase": {
+    "title": "Bases compartidas",
+    "description": "Las bases compartidas contigo aparecerán aquí",
+    "empty": "Aún no hay bases compartidas"
+  },
+  "integration": {
+    "title": "Integración",
+    "description": "Administrar integraciones de su espacio",
+    "addIntegration": "Agregar integración",
+    "ai": "AI"
+  }
+}

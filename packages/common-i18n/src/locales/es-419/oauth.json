@@ -1,0 +1,63 @@
+{
+  "add": "Nueva App OAuth",
+  "title": {
+    "add": "Nueva App OAuth",
+    "edit": "Editar App OAuth"
+  },
+  "form": {
+    "name": {
+      "label": "Nombre de la App OAuth",
+      "description": "El nombre de tu App OAuth."
+    },
+    "description": {
+      "label": "Descripción",
+      "description": "Una breve descripción de tu App OAuth."
+    },
+    "homePageUrl": {
+      "label": "URL de la página principal",
+      "description": "La URL completa del sitio web de tu App OAuth."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Se recomienda una imagen cuadrada.",
+      "placeholder": "Arrastra y suelta tu logo aquí o haz clic para subir",
+      "button": "Subir un logo",
+      "clear": "Limpiar",
+      "lengthError": "Solo se permite un archivo.",
+      "typeError": "Solo se permiten archivos de imagen."
+    },
+    "callbackUrl": {
+      "label": "URL de callback",
+      "description": "La URL completa a la que redirigir después de que un usuario autorice tu integración.",
+      "add": "Agregar URL de callback"
+    },
+    "scopes": {
+      "label": "Scopes",
+      "description": "Los permisos que necesita tu App OAuth."
+    },
+    "secret": {
+      "label": "Client secrets",
+      "add": "Generar un nuevo client secret",
+      "newDescription": "Asegúrate de copiar tu nuevo client secret ahora. No podrás verlo nuevamente.",
+      "empty": "Necesitas un client secret para autenticarte como la aplicación en la API.",
+      "lastUsed": "Último uso el {{date}}",
+      "tag": "Client secret",
+      "neverUsed": "Nunca usado"
+    },
+    "clientId": {
+      "label": "Client ID: "
+    }
+  },
+  "formType": {
+    "basic": "Información básica",
+    "scopes": "Escopas",
+    "identify": "Identificar y autorizar a los usuarios",
+    "clientInfo": "Información del cliente"
+  },
+  "decision": {
+    "title": "{{name}} está solicitando acceso a su cuenta",
+    "scopes": "Esta aplicación podrá obtener los siguientes ámbitos:",
+    "redirectDescription": "La autorización redirigirá a",
+    "authorize": "Autorizar"
+  }
+}

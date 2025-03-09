@@ -1,0 +1,15 @@
+{
+  "empty": {
+    "title": "Aún No Hay Tableros",
+    "description": "Parece que aún no has creado ningún tablero. Los tableros te ayudan a visualizar y gestionar tus datos de manera más efectiva.",
+    "create": "Crear Tu Primer Tablero"
+  },
+  "addPlugin": "Agregar un Complemento",
+  "createDashboard": {
+    "button": "Crear Tablero",
+    "title": "Crear Nuevo Tablero",
+    "placeholder": "Ingresa el nombre del tablero"
+  },
+  "findDashboard": "Buscar un tablero...",
+  "expand": "Expandir"
+}

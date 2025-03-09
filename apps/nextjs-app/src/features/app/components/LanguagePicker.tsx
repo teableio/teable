@@ -8,9 +8,11 @@ import {
 } from '@teable/ui-lib/shadcn/ui/dropdown-menu';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
+
 const languages = [
   { key: 'zh', title: '中文' },
   { key: 'en', title: 'English' },
+  { key: 'es-419', title: 'Español (Latinoamérica)' },
   { key: 'fr', title: 'Français' },
   { key: 'de', title: 'Deutsch' },
   { key: 'ja', title: '日本語' },
@@ -41,7 +43,7 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
     window.location.reload();
   };
 
-  const currentLanguage = i18n.language.split('-')[0];
+  const currentLanguage = i18n.language;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

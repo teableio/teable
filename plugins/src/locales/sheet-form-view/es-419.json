@@ -1,0 +1,51 @@
+{
+  "toolbar": {
+    "design": "Diseño",
+    "preview": "Vista previa",
+    "share": "Compartir",
+    "insertCell": "Insertar Celda",
+    "submit": "Enviar"
+  },
+  "tooltips": {
+    "insertCellTips": "Por favor, selecciona un campo primero",
+    "unSupportFieldType": "Tipo de campo no soportado",
+    "selected": "Este campo ya ha sido seleccionado",
+    "submitSuccess": "Enviado con éxito",
+    "onlyPreview": "Esto es solo para vista previa, por favor comparte la vista primero para poder enviar"
+  },
+  "validation": {
+    "coordinate": "coordenada",
+    "validateError": "error de validación",
+    "errorInfo": "mensaje de error",
+    "unknownError": "error desconocido",
+    "unTitle": "sin título"
+  },
+  "share": {
+    "label": "Compartir",
+    "statusLabel": "Compartiendo",
+    "noPermission": "Sin permiso para compartir vista",
+    "shareLink": "Enlace para compartir",
+    "copied": "Copiado",
+    "genLink": "Generar nuevo enlace",
+    "allowCopy": "Permitir a los visualizadores copiar datos de esta vista",
+    "showAllFields": "Mostrar todos los campos en registros expandidos",
+    "restrict": "Restringir por contraseña",
+    "tips": "Las personas con el enlace pueden ver la vista.",
+    "passwordTitle": "Ingresa una contraseña",
+    "passwordTips": "Restricciones de contraseña para acceder a las vistas compartidas",
+    "embed": "Incrustar",
+    "embedPreview": "Vista previa incrustada",
+    "hideToolbar": "Ocultar barra de herramientas",
+    "URLSetting": "Configuración de parámetros URL",
+    "URLSettingDescription": "Ajustar las siguientes configuraciones no afectará los enlaces compartidos. Necesitas copiar el enlace con los nuevos parámetros para que surta efecto",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "requireLogin": "Requerir inicio de sesión para enviar",
+    "theme": {
+      "label": "Tema",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    }
+  }
+}
