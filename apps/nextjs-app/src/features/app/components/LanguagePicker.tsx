@@ -19,7 +19,7 @@ const languages = [
   { key: 'ru', title: 'Русский' },
   { key: 'uk', title: 'Українська' },
   { key: 'tr', title: 'Türkçe' },
-  { key: 'es-419', title: 'Español (Latinoamérica)' },
+  { key: 'es', title: 'Español (Latinoamérica)' },
   { key: 'default', title: 'Default' },
 ];
 
