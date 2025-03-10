@@ -215,9 +215,11 @@ export class FieldConvertingService {
     return ops;
   }
 
-  private async generateReferenceFieldOps(fieldId: string) {
-    const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
-    const { fieldMap, fieldId2TableId, directedGraph } = topoOrdersContext;
+  private async generateReferenceFieldOps(fields: IFieldInstance[]) {
+    const fieldIds = fields.map((field) => field.id);
+    const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext(fieldIds);
+    const { fieldId2TableId, directedGraph } = topoOrdersContext;
+    const fieldMap = { ...topoOrdersContext.fieldMap, ...keyBy(fields, 'id') };
 
     // Find affected fields using directedGraph
     const affectedFields = new Set<string>();
@@ -231,8 +233,10 @@ export class FieldConvertingService {
       }
     }
 
-    // Start from the initial field
-    findAffectedFields(fieldId);
+    // Start from each initial field
+    fieldIds.forEach((fieldId) => {
+      findAffectedFields(fieldId);
+    });
 
     // Filter topoOrders to only include affected fields
     const topoOrders = topoOrdersContext.topoOrders.filter((item) => affectedFields.has(item.id));
@@ -370,17 +374,13 @@ export class FieldConvertingService {
       const lookupOptions = field.lookupOptions!;
       const ops: IOtOperation[] = [];
       ops.push(
-        FieldOpBuilder.editor.setFieldProperty.build({
-          key: 'lookupOptions',
-          newValue: {
-            ...lookupOptions,
-            relationship,
-            fkHostTableName,
-            foreignKeyName,
-            selfKeyName,
-          },
-          oldValue: lookupOptions,
-        })
+        this.buildOpAndMutateField(field, 'lookupOptions', {
+          ...lookupOptions,
+          relationship,
+          fkHostTableName,
+          foreignKeyName,
+          selfKeyName,
+        })!
       );
 
       const lookupToFieldRaw = lookupToFieldsMap[lookupOptions.lookupFieldId];
@@ -391,20 +391,16 @@ export class FieldConvertingService {
 
         if (isMultipleCellValue !== field.isMultipleCellValue) {
           ops.push(
-            FieldOpBuilder.editor.setFieldProperty.build({
-              key: 'isMultipleCellValue',
-              newValue: isMultipleCellValue,
-              oldValue: field.isMultipleCellValue,
-            }),
-            FieldOpBuilder.editor.setFieldProperty.build({
-              key: 'dbFieldType',
-              newValue: this.fieldSupplementService.getDbFieldType(
+            this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue)!,
+            this.buildOpAndMutateField(
+              field,
+              'dbFieldType',
+              this.fieldSupplementService.getDbFieldType(
                 field.type,
                 field.cellValueType,
                 isMultipleCellValue
-              ),
-              oldValue: field.dbFieldType,
-            })
+              )
+            )!
           );
         }
 
@@ -416,20 +412,15 @@ export class FieldConvertingService {
         );
 
         if (!isEqual(newOptions, field.options)) {
-          ops.push(
-            FieldOpBuilder.editor.setFieldProperty.build({
-              key: 'options',
-              newValue: newOptions,
-              oldValue: field.options,
-            })
-          );
+          ops.push(this.buildOpAndMutateField(field, 'options', newOptions)!);
         }
       }
 
       pushOpsMap(relatedFieldsRawMap[field.id].tableId, field.id, ops);
     });
 
-    return getOpsMap();
+    const referenceFieldOpsMap = await this.generateReferenceFieldOps(relatedFields);
+    return composeOpMaps([getOpsMap(), referenceFieldOpsMap]);
   }
 
   /**
@@ -447,7 +438,7 @@ export class FieldConvertingService {
 
     const refFieldOpsMap = await this.updateLookupRollupRef(newField, oldField);
 
-    const fieldOpsMap = await this.generateReferenceFieldOps(newField.id);
+    const fieldOpsMap = await this.generateReferenceFieldOps([newField]);
 
     await this.submitFieldOpsMap(composeOpMaps([refFieldOpsMap, fieldOpsMap]));
   }

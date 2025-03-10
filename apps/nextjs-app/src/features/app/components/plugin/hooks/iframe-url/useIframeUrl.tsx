@@ -3,7 +3,12 @@ import { PluginPosition } from '@teable/openapi';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef } from 'react';
 import type { IPluginParams } from '../../types';
-import { getDashboardIframeUrl, getFloatIframeUrl, getViewIframeUrl } from './utils';
+import {
+  getContextMenuIframeUrl,
+  getDashboardIframeUrl,
+  getPanelIframeUrl,
+  getViewIframeUrl,
+} from './utils';
 
 export const useIframeUrl = (params: IPluginParams) => {
   const { pluginUrl } = params;
@@ -26,8 +31,10 @@ export const useIframeUrl = (params: IPluginParams) => {
         return getDashboardIframeUrl(urlStr, params);
       case PluginPosition.View:
         return getViewIframeUrl(urlStr, params);
-      case PluginPosition.Float:
-        return getFloatIframeUrl(urlStr, params);
+      case PluginPosition.ContextMenu:
+        return getContextMenuIframeUrl(urlStr, params);
+      case PluginPosition.Panel:
+        return getPanelIframeUrl(urlStr, params);
       default:
         throw new Error(`Invalid position type`);
     }

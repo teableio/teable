@@ -12,13 +12,14 @@ import { useTranslation } from 'next-i18next';
 const languages = [
   { key: 'zh', title: '中文' },
   { key: 'en', title: 'English' },
-  { key: 'es-419', title: 'Español (Latinoamérica)' },
+  { key: 'it', title: 'Italiano' },
   { key: 'fr', title: 'Français' },
   { key: 'de', title: 'Deutsch' },
   { key: 'ja', title: '日本語' },
   { key: 'ru', title: 'Русский' },
   { key: 'uk', title: 'Українська' },
   { key: 'tr', title: 'Türkçe' },
+  { key: 'es-419', title: 'Español (Latinoamérica)' },
   { key: 'default', title: 'Default' },
 ];
 

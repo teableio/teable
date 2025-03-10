@@ -38,7 +38,7 @@ export class TableService implements IReadonlyAdapterService {
     return convertNameToValidCharacter(name, 40);
   }
 
-  private async createDBTable(baseId: string, tableRo: ICreateTableRo) {
+  private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
     const userId = this.cls.get('user.id');
     const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
       where: { baseId, deletedTime: null },
@@ -91,6 +91,10 @@ export class TableService implements IReadonlyAdapterService {
     const tableMeta = await this.prismaService.txClient().tableMeta.create({
       data,
     });
+
+    if (!createTable) {
+      return tableMeta;
+    }
 
     const createTableSchema = this.knex.schema.createTable(dbTableName, (table) => {
       table.string('__id').unique().notNullable();
@@ -204,8 +208,12 @@ export class TableService implements IReadonlyAdapterService {
     return viewRaw;
   }
 
-  async createTable(baseId: string, snapshot: ICreateTableRo): Promise<ITableVo> {
-    const tableVo = await this.createDBTable(baseId, snapshot);
+  async createTable(
+    baseId: string,
+    snapshot: ICreateTableRo,
+    createTable: boolean = true
+  ): Promise<ITableVo> {
+    const tableVo = await this.createDBTable(baseId, snapshot, createTable);
     await this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       {
         docId: tableVo.id,

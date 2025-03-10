@@ -102,7 +102,7 @@ export class FieldSupplementService {
   }
 
   private async getDefaultLinkName(foreignTableId: string) {
-    const tableRaw = await this.prismaService.tableMeta.findUnique({
+    const tableRaw = await this.prismaService.txClient().tableMeta.findUnique({
       where: { id: foreignTableId },
       select: { name: true },
     });
@@ -195,7 +195,7 @@ export class FieldSupplementService {
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
 
-    const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
+    const { id: lookupFieldId } = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
       select: { id: true },
     });
@@ -374,7 +374,7 @@ export class FieldSupplementService {
     }
 
     const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
-    const linkFieldRaw = await this.prismaService.field.findFirst({
+    const linkFieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
       select: { name: true, options: true, isMultipleCellValue: true },
     });
@@ -392,7 +392,7 @@ export class FieldSupplementService {
       throw new BadRequestException(`foreignTableId ${foreignTableId} is invalid`);
     }
 
-    const lookupFieldRaw = await this.prismaService.field.findFirst({
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { id: lookupFieldId, deletedTime: null },
     });
 
@@ -555,7 +555,7 @@ export class FieldSupplementService {
       throw new BadRequestException('expression parse error');
     }
 
-    const fieldRaws = await this.prismaService.field.findMany({
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds }, deletedTime: null },
     });
 
@@ -1073,6 +1073,53 @@ export class FieldSupplementService {
     return fieldVo;
   }
 
+  async prepareCreateFields(tableId: string, fieldRos: IFieldRo[], batchFieldVos?: IFieldVo[]) {
+    // throw error when dbFieldName is duplicated
+    const fieldRoDbFieldNames = fieldRos
+      .map((field) => field.dbFieldName)
+      .filter((name) => name !== undefined && name !== null) as string[];
+
+    if (fieldRoDbFieldNames.length) {
+      const existedField = await this.prismaService.txClient().field.findFirst({
+        where: { tableId, dbFieldName: { in: fieldRoDbFieldNames } },
+        select: { id: true, dbFieldName: true },
+      });
+
+      if (existedField) {
+        throw new BadRequestException(`dbFieldName ${existedField.dbFieldName} is duplicated`);
+      }
+    }
+
+    const fields: IFieldVo[] = (await Promise.all(
+      fieldRos.map(
+        async (fieldRo) => await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos)
+      )
+    )) as IFieldVo[];
+
+    const uniqFieldNames = await this.uniqFieldNames(
+      tableId,
+      fields.map((field) => field.name)
+    );
+
+    const dbFieldNames = await this.fieldService.generateDbFieldNames(tableId, uniqFieldNames);
+
+    return fieldRos.map((fieldRo, index) => {
+      const field = fields[index];
+      const fieldId = field.id || generateFieldId();
+      const fieldName = uniqFieldNames[index];
+      const dbFieldName = fieldRo.dbFieldName ?? dbFieldNames[index];
+      const fieldVo: IFieldVo = {
+        ...field,
+        id: fieldId,
+        name: fieldName,
+        dbFieldName,
+        isPending: field.isComputed ? true : undefined,
+      };
+      this.validateFormattingShowAs(fieldVo);
+      return fieldVo;
+    });
+  }
+
   async prepareUpdateField(
     tableId: string,
     fieldRo: IConvertFieldRo,
@@ -1111,6 +1158,21 @@ export class FieldSupplementService {
       return uniqName;
     }
     return fieldName;
+  }
+
+  private async uniqFieldNames(tableId: string, fieldNames: string[]) {
+    const fieldRaw = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { name: true },
+    });
+
+    const names = fieldRaw.map((item) => item.name);
+
+    return fieldNames.map((fieldName) => {
+      const uniqName = getUniqName(fieldName, names);
+      names.push(uniqName);
+      return uniqName;
+    });
   }
 
   async generateSymmetricField(tableId: string, field: LinkFieldDto) {
@@ -1191,7 +1253,11 @@ export class FieldSupplementService {
 
     if (relationship === Relationship.ManyOne) {
       alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
-        table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
       });
     }
 
@@ -1199,7 +1265,11 @@ export class FieldSupplementService {
       if (isOneWay) {
         alterTableSchema = this.knex.schema.createTable(fkHostTableName, (table) => {
           table.increments('__id').primary();
-          table.string(selfKeyName).references('__id').inTable(dbTableName);
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
           table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
           table.unique([selfKeyName, foreignKeyName], {
             indexName: `index_${selfKeyName}_${foreignKeyName}`,
@@ -1207,7 +1277,11 @@ export class FieldSupplementService {
         });
       } else {
         alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
-          table.string(selfKeyName).references('__id').inTable(dbTableName);
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
         });
       }
     }

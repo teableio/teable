@@ -2,7 +2,7 @@ import type { IFilter } from '@teable/core';
 import { mergeFilter, and, exactDate, isOnOrBefore, isOnOrAfter, or, is } from '@teable/core';
 import { RowCountProvider } from '@teable/sdk/context';
 import { format } from 'date-fns';
-import { zonedTimeToUtc } from 'date-fns-tz';
+import { fromZonedTime } from 'date-fns-tz';
 import { useMemo } from 'react';
 import { useCalendar } from '../hooks';
 import { EventList } from './EventList';
@@ -21,8 +21,8 @@ export const EventListContainer = (props: IEventListContainerProps) => {
     const { timeZone } = startDateField.options.formatting;
 
     const dateStr = format(date, 'yyyy-MM-dd');
-    const startDateUtc = zonedTimeToUtc(`${dateStr} 00:00:00`, timeZone);
-    const endDateUtc = zonedTimeToUtc(`${dateStr} 23:59:59.999`, timeZone);
+    const startDateUtc = fromZonedTime(`${dateStr} 00:00:00`, timeZone);
+    const endDateUtc = fromZonedTime(`${dateStr} 23:59:59.999`, timeZone);
 
     const filter = mergeFilter(recordQuery?.filter, {
       conjunction: and.value,

@@ -85,7 +85,10 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
-    <Card className={cn('group cursor-pointer hover:shadow-md', className)} onClick={intoBase}>
+    <Card
+      className={cn('group cursor-pointer hover:shadow-md overflow-x-hidden', className)}
+      onClick={intoBase}
+    >
       <CardContent className="flex size-full items-center gap-3 px-4 py-6">
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
@@ -115,6 +118,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                   onChange={(e) => setBaseName(e.target.value)}
                   onBlur={toggleRenameBase}
                   onClick={clickStopPropagation}
+                  onMouseDown={clickStopPropagation}
                 />
               </form>
             ) : (

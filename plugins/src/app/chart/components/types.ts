@@ -1,4 +1,4 @@
-import type { IBaseQuery } from '@teable/openapi';
+import type { IBaseQuery, ITableVo } from '@teable/openapi';
 import { z } from 'zod';
 
 export const chartBaseAxisSchema = z.object({
@@ -157,4 +157,8 @@ export type IChartConfig = z.infer<typeof chartConfigSchema>;
 export interface IChartStorage {
   config?: IChartConfig;
   query: IBaseQuery;
+}
+
+export interface IChartServerData {
+  tableServerData?: ITableVo[];
 }

@@ -33,10 +33,8 @@ export const DraggableList = () => {
 
     const list = [...tables];
     const [table] = list.splice(from, 1);
-
     list.splice(to, 0, table);
     setInnerTables(list);
-
     const tableIndex = list.findIndex((v) => v.id === table.id);
     if (tableIndex == 0) {
       await table.updateOrder({ anchorId: list[1].id, position: 'before' });

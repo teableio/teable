@@ -5,20 +5,20 @@ import type {
   NotificationStatesEnum,
   IGetFieldsQuery,
 } from '@teable/core';
-import type {
-  IShareViewRowCountRo,
-  IShareViewAggregationsRo,
-  IAggregationRo,
-  IGroupPointsRo,
-  IQueryBaseRo,
-  ResourceType,
-  ListSpaceCollaboratorRo,
-  IGetRecordsRo,
-  ListBaseCollaboratorRo,
-  ICalendarDailyCollectionRo,
-  IGetDepartmentListRo,
-  IGetDepartmentUserRo,
-  IShareViewCollaboratorsRo,
+import {
+  type IShareViewRowCountRo,
+  type IShareViewAggregationsRo,
+  type IAggregationRo,
+  type IGroupPointsRo,
+  type IQueryBaseRo,
+  type ResourceType,
+  type ListSpaceCollaboratorRo,
+  type IGetRecordsRo,
+  type ListBaseCollaboratorRo,
+  type ICalendarDailyCollectionRo,
+  type IGetDepartmentListRo,
+  type IGetDepartmentUserRo,
+  type IShareViewCollaboratorsRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -119,6 +119,8 @@ export const ReactQueryKeys = {
   getTablePermission: (baseId: string, tableId: string) =>
     ['table-permission', baseId, tableId] as const,
 
+  getBasePermission: (baseId: string) => ['base-permission', baseId] as const,
+
   getRecordHistory: (tableId: string, recordId?: string) =>
     ['record-history', tableId, recordId] as const,
 
@@ -146,4 +148,16 @@ export const ReactQueryKeys = {
   getOrganizationMe: () => ['organization-me'] as const,
 
   getIntegrationList: (spaceId: string) => ['integration-list', spaceId] as const,
+
+  getPluginPanelList: (tableId: string) => ['plugin-list', tableId] as const,
+
+  getPluginPanel: (tableId: string, panelId: string) => ['plugin', tableId, panelId] as const,
+
+  getPluginContextMenuPlugins: (tableId: string) =>
+    ['plugin-context-menu-plugins', tableId] as const,
+
+  getPluginContextMenuPlugin: (tableId: string, pluginInstallId: string) =>
+    ['plugin-context-menu-plugin', tableId, pluginInstallId] as const,
+
+  getPublicSetting: () => ['public-setting'] as const,
 };

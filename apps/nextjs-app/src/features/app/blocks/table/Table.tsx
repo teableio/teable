@@ -1,5 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
-import type { IGetBaseVo, IGroupPointsVo } from '@teable/openapi';
+import { getBaseById, type IGroupPointsVo } from '@teable/openapi';
 import {
   AnchorContext,
   FieldProvider,
@@ -8,19 +9,21 @@ import {
   ViewProvider,
   PersonalViewProxy,
   PersonalViewProvider,
+  ReactQueryKeys,
 } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
+import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
 import { useViewErrorHandler } from './hooks/use-view-error-handler';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
-  baseServerData: IGetBaseVo;
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
@@ -29,7 +32,6 @@ export interface ITableProps {
 }
 
 export const Table: React.FC<ITableProps> = ({
-  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -44,6 +46,11 @@ export const Table: React.FC<ITableProps> = ({
     viewId: string;
     baseId: string;
   };
+  const { data: base } = useQuery({
+    queryKey: ReactQueryKeys.base(baseId as string),
+    queryFn: ({ queryKey }) => getBaseById(queryKey[1]).then((res) => res.data),
+  });
+
   useViewErrorHandler(baseId, tableId, viewId);
   useHotkeys(`mod+z`, () => undo(), {
     preventDefault: true,
@@ -58,7 +65,7 @@ export const Table: React.FC<ITableProps> = ({
       <Head>
         <title>
           {table?.name
-            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${baseServerData.name} - Teable`
+            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${base?.name} - Teable`
             : 'Teable'}
         </title>
         <style data-fullcalendar></style>
@@ -66,25 +73,29 @@ export const Table: React.FC<ITableProps> = ({
       <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>
           <PersonalViewProxy serverData={viewServerData}>
-            <div className="flex h-full grow basis-[500px] flex-col">
-              <TableHeader />
-              <FieldProvider serverSideData={fieldServerData}>
-                <ErrorBoundary
-                  fallback={
-                    <div className="flex size-full items-center justify-center">
-                      <FailAlert />
-                    </div>
-                  }
-                >
-                  <PersonalViewProvider>
-                    <View
-                      recordServerData={recordServerData}
-                      recordsServerData={recordsServerData}
-                      groupPointsServerDataMap={groupPointsServerDataMap}
-                    />
-                  </PersonalViewProvider>
-                </ErrorBoundary>
-              </FieldProvider>
+            <div className="flex h-full grow basis-[500px]">
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <TableHeader />
+                <FieldProvider serverSideData={fieldServerData}>
+                  <ErrorBoundary
+                    fallback={
+                      <div className="flex size-full items-center justify-center">
+                        <FailAlert />
+                      </div>
+                    }
+                  >
+                    <PersonalViewProvider>
+                      <View
+                        recordServerData={recordServerData}
+                        recordsServerData={recordsServerData}
+                        groupPointsServerDataMap={groupPointsServerDataMap}
+                      />
+                    </PersonalViewProvider>
+                  </ErrorBoundary>
+                </FieldProvider>
+              </div>
+              <PluginPanel tableId={tableId} />
+              <PluginContextMenu tableId={tableId} baseId={baseId} />
             </div>
           </PersonalViewProxy>
         </ViewProvider>

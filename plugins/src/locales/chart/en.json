@@ -1,6 +1,6 @@
 {
   "notBaseId": "Missing baseId",
-  "notDashboardId": "Missing dashboardId",
+  "notPositionId": "Missing positionId",
   "notPluginInstallId": "Missing pluginInstallId",
   "initBridge": "Bridge Initializing...",
   "actions": {

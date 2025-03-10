@@ -8,7 +8,8 @@ interface NextImageOptimizationParams {
 
 export const convertNextImageUrl = (params: NextImageOptimizationParams) => {
   const query = new URLSearchParams(params as never).toString();
-  return `${window.location.origin}/_next/image?${query}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/_next/image?${query}`;
 };
 
 export const findClosestWidth = (width: number, height: number): number => {

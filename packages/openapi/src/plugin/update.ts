@@ -2,7 +2,13 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { pluginI18nSchema, PluginPosition, PluginStatus, pluginUserSchema } from './types';
+import {
+  pluginConfigSchema,
+  pluginI18nSchema,
+  PluginPosition,
+  PluginStatus,
+  pluginUserSchema,
+} from './types';
 
 export const UPDATE_PLUGIN = '/plugin/{id}';
 
@@ -11,7 +17,8 @@ export const updatePluginRoSchema = z.object({
   description: z.string().max(150).optional(),
   detailDesc: z.string().max(3000).optional(),
   url: z.string().url().optional(),
-  logo: z.string(),
+  config: pluginConfigSchema.optional(),
+  logo: z.string().optional(),
   helpUrl: z.string().url().optional(),
   positions: z.array(z.nativeEnum(PluginPosition)).min(1),
   i18n: pluginI18nSchema.optional(),
@@ -25,6 +32,7 @@ export const updatePluginVoSchema = z.object({
   description: z.string().optional(),
   detailDesc: z.string().optional(),
   logo: z.string(),
+  config: pluginConfigSchema.optional(),
   url: z.string().optional(),
   helpUrl: z.string().optional(),
   positions: z.array(z.nativeEnum(PluginPosition)),

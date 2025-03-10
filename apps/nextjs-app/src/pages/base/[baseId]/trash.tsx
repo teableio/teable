@@ -1,4 +1,6 @@
-import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import { dehydrate, QueryClient } from '@tanstack/react-query';
+import type { ITableVo } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { BaseTrashPage } from '@/features/app/blocks/trash/BaseTrashPage';
@@ -16,13 +18,22 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
-      const result = await ssrApi.getTables(baseId as string);
-      const base = await ssrApi.getBaseById(baseId as string);
+      const queryClient = new QueryClient();
+
+      const [tables] = await Promise.all([
+        ssrApi.getTables(baseId as string),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.base(baseId as string),
+          queryFn: ({ queryKey }) =>
+            queryKey[1] ? ssrApi.getBaseById(baseId as string) : undefined,
+        }),
+      ]);
 
       return {
         props: {
-          tableServerData: result,
-          baseServerData: base,
+          tableServerData: tables,
+          dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, tableConfig.i18nNamespaces)),
         },
       };
@@ -32,7 +43,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
 Trash.getLayout = function getLayout(
   page: ReactElement,
-  pageProps: { tableServerData: ITableVo[]; baseServerData: IGetBaseVo }
+  pageProps: { tableServerData: ITableVo[] }
 ) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };

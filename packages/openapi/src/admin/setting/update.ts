@@ -11,6 +11,10 @@ export enum LLMProviderType {
   COHERE = 'cohere',
   MISTRAL = 'mistral',
   DEEPSEEK = 'deepseek',
+  QWEN = 'qwen',
+  ZHIPU = 'zhipu',
+  LINGYIWANWU = 'lingyiwanwu',
+  XAI = 'xai',
 }
 
 export const llmProviderSchema = z.object({

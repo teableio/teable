@@ -71,12 +71,18 @@ export const IntegrationPage = () => {
   }, [t]);
 
   const onCreateIntegration = (config: LLMProvider) => {
-    createIntegrationMutator({
+    const aiConfig: ICreateIntegrationRo = {
       type: IntegrationType.AI,
       config: {
         llmProviders: [config],
       },
-    });
+    };
+
+    if (!integrationList?.find(({ type }) => type === IntegrationType.AI)) {
+      aiConfig.enable = true;
+    }
+
+    createIntegrationMutator(aiConfig);
   };
 
   const onConfigUpdate = (id: string, config: IAIIntegrationConfig) => {

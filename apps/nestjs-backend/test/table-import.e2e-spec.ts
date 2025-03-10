@@ -70,7 +70,7 @@ interface ITestFile {
 const data = `field_1,field_2,field_3,field_4,field_5,field_6
 1,string_1,true,2022-11-10 16:00:00,,"long
 text"
-2,string_2,false,2022-11-11 16:00:00,,`;
+2,string_2,"false",2022-11-11 16:00:00,,`;
 const tsvData = `field_1	field_2	field_3	field_4	field_5	field_6
 1	string_1	true	2022-11-10 16:00:00		"long\ntext"
 2	string_2	false	2022-11-11 16:00:00		`;

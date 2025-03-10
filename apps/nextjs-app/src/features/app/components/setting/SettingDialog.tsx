@@ -49,7 +49,7 @@ export const SettingDialog = () => {
   }, [t]);
 
   const content = (
-    <Tabs defaultValue="profile" className="flex min-h-[40rem] gap-4 pt-4">
+    <Tabs defaultValue="profile" className="flex h-full gap-4 overflow-hidden">
       <TabsList className="grid gap-2 bg-inherit text-left">
         {tabList.map(({ key, name, Icon }) => {
           return (
@@ -64,16 +64,32 @@ export const SettingDialog = () => {
           );
         })}
       </TabsList>
-      <TabsContent tabIndex={-1} value="profile" className="mt-0 w-full">
+      <TabsContent
+        tabIndex={-1}
+        value="profile"
+        className="mt-0 size-full overflow-y-auto overflow-x-hidden"
+      >
         <Account />
       </TabsContent>
-      <TabsContent tabIndex={-1} value="system" className="mt-0 w-full">
+      <TabsContent
+        tabIndex={-1}
+        value="system"
+        className="mt-0 size-full overflow-y-auto overflow-x-hidden"
+      >
         <System />
       </TabsContent>
-      <TabsContent tabIndex={-1} value="notifications" className="mt-0 w-full">
+      <TabsContent
+        tabIndex={-1}
+        value="notifications"
+        className="mt-0 size-full overflow-y-auto overflow-x-hidden"
+      >
         <Notifications />
       </TabsContent>
-      <TabsContent tabIndex={-1} value="integration" className="mt-0 w-full">
+      <TabsContent
+        tabIndex={-1}
+        value="integration"
+        className="mt-0 size-full overflow-y-auto overflow-x-hidden"
+      >
         <Integration />
       </TabsContent>
     </Tabs>
@@ -83,13 +99,13 @@ export const SettingDialog = () => {
     <>
       {isTouchDevice ? (
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent className="h-5/6 rounded-t-lg px-1 py-0" side="bottom">
+          <SheetContent className="h-5/6 rounded-t-lg px-1 pb-0 pt-4" side="bottom">
             {content}
           </SheetContent>
         </Sheet>
       ) : (
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="h-5/6 max-h-[800px] max-w-6xl">{content}</DialogContent>
+          <DialogContent className="h-5/6 max-h-[800px] max-w-6xl pb-0">{content}</DialogContent>
         </Dialog>
       )}
     </>

@@ -46,16 +46,42 @@ const getSvgs = async ({ fileId, canvas, group }) => {
   return usingIconNodes.map(({ id, name }) => ({ id, name, url: svgs.data.images[id] }));
 };
 
-const downloadSVGsData = async (data) => {
-  return Promise.all(
-    data.map(async (dataItem) => {
-      const downloadedSvg = await axios.get(dataItem.url);
-      return {
-        ...dataItem,
-        data: downloadedSvg.data,
-      };
-    })
-  );
+const downloadSVGsData = async (data, batchSize = 20, delayBetweenBatches = 500) => {
+  const results = [];
+  const batchCount = Math.ceil(data.length / batchSize);
+
+  for (let i = 0; i < batchCount; i++) {
+    const batchData = data.slice(i * batchSize, (i + 1) * batchSize);
+
+    console.log(`Processing batch ${i + 1}/${batchCount}, containing ${batchData.length} requests`);
+
+    const batchResults = await Promise.all(
+      batchData.map(async (dataItem) => {
+        try {
+          const downloadedSvg = await axios.get(dataItem.url);
+          return {
+            ...dataItem,
+            data: downloadedSvg.data,
+            success: true,
+          };
+        } catch (error) {
+          console.error(`Failed to download ${dataItem.url}:`, error.message);
+          return {
+            ...dataItem,
+            success: false,
+          };
+        }
+      })
+    );
+
+    results.push(...batchResults);
+
+    if (i < batchCount - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
+    }
+  }
+
+  return results;
 };
 
 const transformReactComponent = (svgList) => {
@@ -63,6 +89,7 @@ const transformReactComponent = (svgList) => {
     fs.mkdirSync(componentsDir);
   }
   svgList.forEach((svg) => {
+    if (!svg.success) return;
     const svgCode = svg.data;
     const svgName = svg.name.split('/').pop();
     const camelCaseInput = _.camelCase(svgName);

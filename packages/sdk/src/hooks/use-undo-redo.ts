@@ -1,8 +1,10 @@
 import { redo, undo } from '@teable/openapi';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { sonner } from '@teable/ui-lib';
 import { useCallback } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import { useTableId } from './use-table-id';
+
+const { toast } = sonner;
 
 export const useUndoRedo = () => {
   const tableId = useTableId();

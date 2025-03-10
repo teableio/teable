@@ -34,6 +34,7 @@ import { JsonEditor } from './component/JsonEditor';
 import { LogoEditor } from './component/LogoEditor';
 import { NewSecret } from './component/NewSecret';
 import { PositionSelector } from './component/PositionSelector';
+import { StatusBadge } from './component/StatusBadge';
 import { MarkDownEditor } from './MarkDownEditor';
 
 export const PluginEdit = (props: { secret?: string }) => {
@@ -87,6 +88,9 @@ export const PluginEdit = (props: { secret?: string }) => {
       onSubmit={form.handleSubmit(onSubmit)}
       onCancel={() => router.push({ pathname: router.pathname })}
     >
+      {initFormValue?.status && (
+        <StatusBadge className="absolute right-10" status={initFormValue.status} />
+      )}
       <div className="space-y-2">
         <NewSecret secret={newSecret} ref={secretRef} />
         <div>
@@ -217,6 +221,20 @@ export const PluginEdit = (props: { secret?: string }) => {
                 <FormDescription>{t('plugin:form.positions.description')}</FormDescription>
                 <FormControl>
                   <PositionSelector value={field.value} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="config"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('plugin:form.config.label')}</FormLabel>
+                <FormDescription>{t('plugin:form.config.description')}</FormDescription>
+                <FormControl>
+                  <JsonEditor value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

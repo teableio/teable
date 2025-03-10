@@ -1,4 +1,5 @@
-import type { IGetBasePermissionVo, IGetTempTokenVo } from '@teable/openapi';
+import type { IFieldVo } from '@teable/core';
+import type { IGetBasePermissionVo, IGetTempTokenVo, IRecordsVo } from '@teable/openapi';
 import type { AsyncMethodReturns } from 'penpal';
 import type { IRange, SelectionRegionType } from '../components/grid/interface';
 
@@ -17,6 +18,11 @@ export interface ISelection {
   type: SelectionRegionType;
 }
 
+export interface IGetSelectionRecordsVo {
+  records: IRecordsVo['records'];
+  fields: IFieldVo[];
+}
+
 export type IBasePermissions = IGetBasePermissionVo;
 
 export interface IParentBridgeUIMethods {
@@ -28,6 +34,15 @@ export interface IParentBridgeUtilsMethods {
   updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   getAuthCode: () => Promise<string>;
   getSelfTempToken: () => Promise<IGetTempTokenVo>;
+  getSelectionRecords: (
+    selection: ISelection,
+    options?: {
+      // The number of records to skip, default is 0
+      skip?: number;
+      // The number of records to take, default is 100
+      take?: number;
+    }
+  ) => Promise<IGetSelectionRecordsVo>;
 }
 
 export type IParentBridgeMethods = IParentBridgeUIMethods & IParentBridgeUtilsMethods;

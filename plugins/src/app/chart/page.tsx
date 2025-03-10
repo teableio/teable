@@ -1,14 +1,14 @@
 import enSDkJson from '@teable/common-i18n/src/locales/en/sdk.json';
 import zhSDkJson from '@teable/common-i18n/src/locales/zh/sdk.json';
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { EnvProvider } from '../../components/EnvProvider';
 import { I18nProvider } from '../../components/I18nProvider';
-import QueryClientProvider from '../../components/QueryClientProvider';
 import { PageType } from '../../components/types';
 import enCommonJson from '../../locales/chart/en.json';
 import zhCommonJson from '../../locales/chart/zh.json';
 import type { IPageParams } from '../../types';
-import { Pages } from './components/Pages';
+import { Hydrated } from './components/Hydrated';
 import icon from './favicon.ico';
 
 type Props = {
@@ -31,6 +31,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function Home(props: { searchParams: IPageParams }) {
+  const cookieStore = await cookies();
   return (
     <main className="flex h-screen flex-col items-center justify-center">
       <EnvProvider>
@@ -40,9 +41,7 @@ export default async function Home(props: { searchParams: IPageParams }) {
           defaultNS="common"
           pageType={PageType.Chart}
         >
-          <QueryClientProvider>
-            <Pages {...props.searchParams} />
-          </QueryClientProvider>
+          <Hydrated searchParams={props.searchParams} cookie={cookieStore.toString()} />
         </I18nProvider>
       </EnvProvider>
     </main>

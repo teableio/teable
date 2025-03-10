@@ -6,7 +6,7 @@ import { registerRoute, urlBuilder } from '../utils';
 
 export const GET_AI_CONFIG = '/{baseId}/ai/config';
 
-export const modelRateSchema = z.object({
+export const modelDefinationSchema = z.object({
   inputRate: z.number().openapi({
     example: 0.001,
     description: 'The number of credits spent using a prompt token',
@@ -15,17 +15,21 @@ export const modelRateSchema = z.object({
     example: 0.0025,
     description: 'The number of credits spent using a completion token',
   }),
+  visionEnable: z.boolean().optional().openapi({ description: 'Whether to enable vision' }),
+  audioEnable: z.boolean().optional().openapi({ description: 'Whether to enable audio' }),
+  videoEnable: z.boolean().optional().openapi({ description: 'Whether to enable video' }),
+  deepThinkEnable: z.boolean().optional().openapi({ description: 'Whether to enable deep think' }),
 });
 
-export type IModelRate = z.infer<typeof modelRateSchema>;
+export type IModelDefination = z.infer<typeof modelDefinationSchema>;
 
-export const modelRateMapSchema = z.record(z.string(), modelRateSchema);
+export const modelDefinationMapSchema = z.record(z.string(), modelDefinationSchema);
 
-export type IModelRateMap = z.infer<typeof modelRateMapSchema>;
+export type IModelDefinationMap = z.infer<typeof modelDefinationMapSchema>;
 
 export const getAIConfigSchema = aiConfigSchema.merge(
   z.object({
-    modelRateMap: modelRateMapSchema.optional(),
+    modelDefinationMap: modelDefinationMapSchema.optional(),
   })
 );
 

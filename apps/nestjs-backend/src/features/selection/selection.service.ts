@@ -644,6 +644,11 @@ export class SelectionService {
   // For pasting to add new lines
   async temporaryPaste(tableId: string, pasteRo: IPasteRo) {
     const { content, header = [], viewId, ranges, projection } = pasteRo;
+    const pasteContent = this.parseCopyContent(content);
+    const pasteContentSize = pasteContent.length * pasteContent[0].length;
+    if (pasteContentSize > this.thresholdConfig.maxPasteCells) {
+      throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
+    }
 
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId,
@@ -688,8 +693,12 @@ export class SelectionService {
     const { ranges, type, ...queryRo } = rangesRo;
     const { viewId } = queryRo;
     const { cellCount } = await this.parseRange(tableId, rangesRo);
-
-    if (cellCount > this.thresholdConfig.maxPasteCells) {
+    const pasteContent = this.parseCopyContent(content);
+    const pasteContentSize = pasteContent.length * pasteContent[0].length;
+    if (
+      cellCount > this.thresholdConfig.maxPasteCells ||
+      pasteContentSize > this.thresholdConfig.maxPasteCells
+    ) {
       throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
     }
 
@@ -713,7 +722,7 @@ export class SelectionService {
       type
     );
 
-    const tableData = this.expandPasteContent(this.parseCopyContent(content), rangeCell);
+    const tableData = this.expandPasteContent(pasteContent, rangeCell);
     const tableColCount = tableData[0].length;
     const tableRowCount = tableData.length;
 

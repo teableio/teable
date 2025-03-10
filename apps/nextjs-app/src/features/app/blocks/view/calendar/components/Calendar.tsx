@@ -29,7 +29,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { addDays, subDays, format, set } from 'date-fns';
 import { enUS, zhCN, ja, ru, fr } from 'date-fns/locale';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -134,7 +134,7 @@ export const Calendar = (props: ICalendarProps) => {
 
         const { timeZone } = startDateField.options.formatting;
         const newDate = set(date, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
-        const newDateStr = zonedTimeToUtc(newDate, timeZone).toISOString();
+        const newDateStr = fromZonedTime(newDate, timeZone).toISOString();
 
         const { data } = await Record.createRecords(tableId, {
           fieldKeyType: FieldKeyType.Id,
@@ -235,8 +235,8 @@ export const Calendar = (props: ICalendarProps) => {
             start as string,
             startDateField
           ),
-          start: start ? utcToZonedTime(new Date(start as string), timeZone) : undefined,
-          end: endDate ? utcToZonedTime(new Date(endDate), timeZone) : undefined,
+          start: start ? toZonedTime(new Date(start as string), timeZone) : undefined,
+          end: endDate ? toZonedTime(new Date(endDate), timeZone) : undefined,
           textColor,
           backgroundColor,
           allDay: true,

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DraggableHandle, Star } from '@teable/icons';
-import type { GetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import type { IGetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { getPinList, getSpaceList, updatePinOrder } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
 import type { DragEndEvent } from '@teable/ui-lib/base';
@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from '../useBaseList';
@@ -20,7 +20,6 @@ import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
 export const PinList = () => {
-  const [pinList, setPinList] = useState<GetPinListVo>([]);
   const [pinListExpanded, setPinListExpanded] = useLocalStorage<boolean>(
     LocalStorageKeys.PinListExpanded
   );
@@ -31,13 +30,6 @@ export const PinList = () => {
     queryKey: ReactQueryKeys.pinList(),
     queryFn: () => getPinList().then((data) => data.data),
   });
-
-  useEffect(() => {
-    if (!pinListData) {
-      return;
-    }
-    setPinList([...pinListData]);
-  }, [pinListData]);
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
@@ -51,7 +43,7 @@ export const PinList = () => {
       queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
     onError: () => {
-      setPinList(pinListData ?? []);
+      queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
   });
 
@@ -81,10 +73,9 @@ export const PinList = () => {
       return;
     }
 
-    const [pin] = list.slice(from, from + 1);
-
-    const anchorPin = to === 0 ? list[0] : list[to - 1];
-    const position = to === 0 ? 'before' : 'after';
+    const pin = list[from];
+    const anchorPin = list[to];
+    const position = to > from ? 'after' : 'before';
 
     updateOrder({
       id: pin.id,
@@ -93,7 +84,10 @@ export const PinList = () => {
       anchorType: anchorPin.type,
       position,
     });
-    setPinList((prev) => {
+    queryClient.setQueryData(ReactQueryKeys.pinList(), (prev: IGetPinListVo | undefined) => {
+      if (!prev) {
+        return [];
+      }
       const pre = [...prev];
       pre.splice(from, 1);
       pre.splice(to, 0, pin);
@@ -120,16 +114,16 @@ export const PinList = () => {
         </AccordionTrigger>
         <AccordionContent>
           <div className="flex max-h-[30vh] flex-col overflow-y-auto px-3">
-            {pinList.length === 0 && (
+            {pinListData?.length === 0 && (
               <div className="text-center text-xs text-muted-foreground">
                 {t('space:pin.empty')}
               </div>
             )}
             <DndKitContext onDragEnd={onDragEndHandler}>
               <Droppable
-                items={pinList.map(({ id }) => id)}
+                items={pinListData?.map(({ id }) => id) ?? []}
                 overlayRender={(active) => {
-                  const activePin = pinList.find((pin) => pin.id === active?.id);
+                  const activePin = pinListData?.find((pin) => pin.id === active?.id);
                   if (!activePin) {
                     return <div />;
                   }
@@ -155,7 +149,7 @@ export const PinList = () => {
                   );
                 }}
               >
-                {pinList.map((pin) => (
+                {pinListData?.map((pin) => (
                   <Draggable key={pin.id} id={pin.id}>
                     {({ setNodeRef, attributes, listeners, style }) => (
                       <div ref={setNodeRef} {...attributes} style={style}>

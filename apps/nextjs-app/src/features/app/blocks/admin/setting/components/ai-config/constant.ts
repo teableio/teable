@@ -1,4 +1,16 @@
-import { Anthropic, Azure, Cohere, Deepseek, GoogleLogo, Mistral, Openai } from '@teable/icons';
+import {
+  Anthropic,
+  Azure,
+  Cohere,
+  Deepseek,
+  GoogleLogo,
+  Lingyiwanwu,
+  Mistral,
+  Openai,
+  Qwen,
+  Zhipu,
+  Xai,
+} from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
 export const LLM_PROVIDER_ICONS = {
@@ -9,9 +21,20 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.COHERE]: Cohere,
   [LLMProviderType.MISTRAL]: Mistral,
   [LLMProviderType.DEEPSEEK]: Deepseek,
+  [LLMProviderType.QWEN]: Qwen,
+  [LLMProviderType.ZHIPU]: Zhipu,
+  [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
+  [LLMProviderType.XAI]: Xai,
 };
 
 export const LLM_PROVIDERS = [
+  {
+    value: LLMProviderType.DEEPSEEK,
+    label: 'DeepSeek',
+    baseUrlPlaceholder: 'https://api.deepseek.ai/v1',
+    modelsPlaceholder: 'deepseek-chat,deepseek-reasoner,deepseek-coder',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
+  },
   {
     value: LLMProviderType.OPENAI,
     label: 'OpenAI',
@@ -55,10 +78,31 @@ export const LLM_PROVIDERS = [
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.MISTRAL],
   },
   {
-    value: LLMProviderType.DEEPSEEK,
-    label: 'DeepSeek',
-    baseUrlPlaceholder: 'https://api.deepseek.ai/v1',
-    modelsPlaceholder: 'deepseek-chat,deepseek-reasoner,deepseek-coder',
-    Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
+    value: LLMProviderType.QWEN,
+    label: 'Qwen',
+    baseUrlPlaceholder: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    modelsPlaceholder: 'qwen-plus,qwen-plus,qwen-max',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.QWEN],
+  },
+  {
+    value: LLMProviderType.ZHIPU,
+    label: 'Zhipu',
+    baseUrlPlaceholder: 'https://open.bigmodel.cn/api/paas/v4',
+    modelsPlaceholder: 'glm-3-turbo,glm-4,glm-4-air',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.ZHIPU],
+  },
+  {
+    value: LLMProviderType.LINGYIWANWU,
+    label: 'Yi',
+    baseUrlPlaceholder: 'https://api.lingyiwanwu.com/v1',
+    modelsPlaceholder: 'yi-lightning,yi-large',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.LINGYIWANWU],
+  },
+  {
+    value: LLMProviderType.XAI,
+    label: 'XAI',
+    baseUrlPlaceholder: 'https://api.x.ai/v1',
+    modelsPlaceholder: 'grok-2,grok-3,grok-3-reasoner',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.XAI],
   },
 ] as const;

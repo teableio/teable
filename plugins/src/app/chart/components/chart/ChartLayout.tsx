@@ -12,10 +12,13 @@ import { useSearchParams } from 'next/navigation';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChartContext } from '../ChartProvider';
+import type { IChartServerData } from '../types';
 
-export const ChartLayout: React.FC<{
-  children: React.ReactNode;
-}> = ({ children }) => {
+export const ChartLayout: React.FC<
+  {
+    children: React.ReactNode;
+  } & IChartServerData
+> = ({ children, tableServerData }) => {
   const searchParams = useSearchParams();
   const baseId = searchParams.get('baseId');
   const { i18n, t } = useTranslation();
@@ -45,7 +48,7 @@ export const ChartLayout: React.FC<{
           }}
         >
           <BaseProvider>
-            <TableProvider>
+            <TableProvider serverData={tableServerData}>
               <div id="portal" className="relative flex h-screen w-full items-start">
                 {children}
               </div>

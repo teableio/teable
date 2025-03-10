@@ -4,8 +4,8 @@ import type { SUPPORTEDTYPE } from '@teable/openapi';
 import { importTypeMap } from '@teable/openapi';
 import { Input, Button, Spin } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 interface IUrlPanel {

@@ -27,6 +27,8 @@ import { OAuthModule } from './features/oauth/oauth.module';
 import { OrganizationModule } from './features/organization/organization.module';
 import { PinModule } from './features/pin/pin.module';
 import { PluginModule } from './features/plugin/plugin.module';
+import { PluginContextMenuModule } from './features/plugin-context-menu/plugin-context-menu.module';
+import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { SettingModule } from './features/setting/setting.module';
 import { ShareModule } from './features/share/share.module';
@@ -72,6 +74,8 @@ export const appModules = {
     CommentOpenApiModule,
     OrganizationModule,
     AiModule,
+    PluginPanelModule,
+    PluginContextMenuModule,
   ],
   providers: [InitBootstrapProvider],
 };

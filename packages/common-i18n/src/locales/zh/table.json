@@ -358,7 +358,10 @@
       "cancel": "取消",
       "leave": "取消",
       "downAsCsv": "下载 CSV",
-      "importData": "导入数据"
+      "importData": "导入数据",
+      "duplicate": "复制数据表",
+      "importing": "导入中",
+      "includeRecords": "包含记录"
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
@@ -540,5 +543,23 @@
   "plugin": {
     "recent": "最近使用",
     "more": "探索更多..."
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "没有插件面板"
+    },
+    "createPluginPanel": {
+      "button": "创建插件面板",
+      "title": "创建插件面板"
+    },
+    "namePlaceholder": "输入插件面板名称"
+  },
+  "addPlugin": "添加插件",
+  "pluginContextMenu": {
+    "mangeButton": "管理插件",
+    "manage": "管理你的上下文菜单插件",
+    "noPlugin": "没有上下文菜单插件",
+    "delete": "删除",
+    "deleteDescription": "你确定要删除这个插件吗？"
   }
 }

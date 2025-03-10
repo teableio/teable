@@ -110,13 +110,17 @@ export class ForeignKeyIntegrityService {
     return issues;
   }
 
-  async fix(_tableId: string, fieldId: string): Promise<IIntegrityIssue | undefined> {
+  async fix(tableId: string, fieldId: string): Promise<IIntegrityIssue | undefined> {
     const field = await this.prismaService.field.findFirstOrThrow({
       where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
     });
 
     const options = JSON.parse(field.options as string) as ILinkFieldOptions;
     const { foreignTableId, fkHostTableName, foreignKeyName, selfKeyName } = options;
+    const table = await this.prismaService.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { id: true, name: true, dbTableName: true },
+    });
     const foreignTable = await this.prismaService.tableMeta.findFirstOrThrow({
       where: { id: foreignTableId, deletedTime: null },
       select: { id: true, name: true, dbTableName: true },
@@ -125,10 +129,10 @@ export class ForeignKeyIntegrityService {
     let totalFixed = 0;
 
     // Fix invalid self references
-    if (fkHostTableName !== fkHostTableName) {
+    if (table.dbTableName !== fkHostTableName) {
       const selfDeleted = await this.deleteMissingReferences({
         fkHostTableName,
-        targetTableName: fkHostTableName,
+        targetTableName: table.dbTableName,
         keyName: selfKeyName,
       });
       totalFixed += selfDeleted;

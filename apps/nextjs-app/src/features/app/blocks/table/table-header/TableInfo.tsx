@@ -1,9 +1,15 @@
 import { Table2 } from '@teable/icons';
-import { useConnection, useTable, useTablePermission, useLanDayjs } from '@teable/sdk/hooks';
+import {
+  useConnection,
+  useTable,
+  useTablePermission,
+  useLanDayjs,
+  useIsHydrated,
+} from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn, Input } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -16,6 +22,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const table = useTable();
   const dayjs = useLanDayjs();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const isHydrated = useIsHydrated();
 
   const { loading: isImporting } = useImportStatus(table?.id as string);
 
@@ -78,7 +85,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
           />
         )}
         <div className="hidden text-xs leading-none text-slate-400 @xl/view-header:block">
-          {t('table:lastModify')} {dayjs(table?.lastModifiedTime).fromNow()}
+          {t('table:lastModify')} {isHydrated ? dayjs(table?.lastModifiedTime).fromNow() : ''}
         </div>
       </div>
     </div>

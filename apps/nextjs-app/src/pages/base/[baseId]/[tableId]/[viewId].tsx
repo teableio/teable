@@ -1,3 +1,5 @@
+import { QueryClient, dehydrate } from '@tanstack/react-query';
+import { ReactQueryKeys } from '@teable/sdk';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
@@ -10,9 +12,10 @@ import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 
 const Node: NextPageWithLayout<ITableProps> = ({
-  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -21,7 +24,6 @@ const Node: NextPageWithLayout<ITableProps> = ({
 }) => {
   return (
     <Table
-      baseServerData={baseServerData}
       fieldServerData={fieldServerData}
       viewServerData={viewServerData}
       recordsServerData={recordsServerData}
@@ -35,6 +37,26 @@ export const getServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR<IViewPageProps>(async (context, ssrApi) => {
       const { tableId, viewId, baseId, recordId, fromNotify: notifyId } = context.query;
+      const queryClient = new QueryClient();
+
+      await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.base(baseId as string),
+          queryFn: ({ queryKey }) =>
+            queryKey[1] ? ssrApi.getBaseById(baseId as string) : undefined,
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getBasePermission(baseId as string),
+          queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getTablePermission(baseId as string, tableId as string),
+          queryFn: ({ queryKey }) => ssrApi.getTablePermission(queryKey[1], queryKey[2]),
+        }),
+      ]);
+
       let recordServerData;
       if (recordId) {
         if (notifyId) {
@@ -52,12 +74,14 @@ export const getServerSideProps = withEnv(
           };
         }
       }
+
       const serverData = await getViewPageServerData(
         ssrApi,
         baseId as string,
         tableId as string,
         viewId as string
       );
+
       if (serverData) {
         const { i18nNamespaces } = tableConfig;
         return {
@@ -65,6 +89,7 @@ export const getServerSideProps = withEnv(
             ...serverData,
             ...(recordServerData ? { recordServerData } : {}),
             ...(await getTranslationsProps(context, i18nNamespaces)),
+            dehydratedState: dehydrate(queryClient),
           },
         };
       }

@@ -29,15 +29,35 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         }),
 
         queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string),
+          queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string, {
+            skip: 0,
+            take: 50,
+          }),
           queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1]),
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.spaceList(),
+          queryFn: () => ssrApi.getSpaceList(),
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getPublicSetting(),
+          queryFn: () => ssrApi.getPublicSetting(),
         }),
       ]);
 
+      if (process.env.NEXT_BUILD_ENV_EDITION?.toUpperCase() === 'CLOUD') {
+        await queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.subscriptionSummary(spaceId as string),
+          queryFn: ({ queryKey }) => ssrApi.getSubscriptionSummary(queryKey[1]),
+        });
+      }
+
       return {
         props: {
-          dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, spaceConfig.i18nNamespaces)),
+          dehydratedState: dehydrate(queryClient),
         },
       };
     })

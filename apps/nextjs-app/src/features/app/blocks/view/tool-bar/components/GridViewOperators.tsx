@@ -1,6 +1,6 @@
 import { type IGridViewOptions } from '@teable/core';
 import { ArrowUpDown, Filter as FilterIcon, EyeOff, LayoutList, Share2 } from '@teable/icons';
-import { HideFields, RowHeight, useFields, Sort, Group, ViewFilter } from '@teable/sdk';
+import { HideFields, RowHeight, Sort, Group, ViewFilter } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -14,7 +14,6 @@ import { useToolBarStore } from './useToolBarStore';
 export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView();
-  const fields = useFields();
   const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
@@ -28,7 +27,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     setGroupRef(groupRef);
   }, [setFilterRef, setGroupRef, setSortRef]);
 
-  if (!view || !fields.length) {
+  if (!view) {
     return <div></div>;
   }
   return (

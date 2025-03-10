@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "Previsto {{expected}}, ricevuto {{received}}",
+    "invalid_type_received_undefined": "Richiesto",
+    "invalid_type_received_null": "Richiesto",
+    "invalid_literal": "Valore letterale non valido, previsto {{expected}}",
+    "unrecognized_keys": "Chiave(i) non riconosciuta(e) nell'oggetto: {{- keys}}",
+    "invalid_union": "Input non valido",
+    "invalid_union_discriminator": "Valore discriminatore non valido. Previsto {{- options}}",
+    "invalid_enum_value": "Valore enum non valido. Previsto {{- options}}, ricevuto '{{received}}'",
+    "invalid_arguments": "Argomenti della funzione non validi",
+    "invalid_return_type": "Tipo di ritorno della funzione non valido",
+    "invalid_date": "Data non valida",
+    "custom": "Input non valido",
+    "invalid_intersection_types": "I risultati dell'intersezione non possono essere uniti",
+    "not_multiple_of": "Il numero deve essere un multiplo di {{multipleOf}}",
+    "not_finite": "Il numero deve essere finito",
+    "invalid_string": {
+      "email": "{{validation}} non valido",
+      "url": "{{validation}} non valido",
+      "uuid": "{{validation}} non valido",
+      "cuid": "{{validation}} non valido",
+      "regex": "Non valido",
+      "datetime": "{{validation}} non valido",
+      "startsWith": "Input non valido: deve iniziare con \"{{startsWith}}\"",
+      "endsWith": "Input non valido: deve terminare con \"{{endsWith}}\""
+    },
+    "too_small": {
+      "array": {
+        "exact": "L'array deve contenere esattamente {{minimum}} elemento(i)",
+        "inclusive": "L'array deve contenere almeno {{minimum}} elemento(i)",
+        "not_inclusive": "L'array deve contenere più di {{minimum}} elemento(i)"
+      },
+      "string": {
+        "exact": "La stringa deve contenere esattamente {{minimum}} carattere(i)",
+        "inclusive": "La stringa deve contenere almeno {{minimum}} carattere(i)",
+        "not_inclusive": "La stringa deve contenere più di {{minimum}} carattere(i)"
+      },
+      "number": {
+        "exact": "Il numero deve essere esattamente {{minimum}}",
+        "inclusive": "Il numero deve essere maggiore o uguale a {{minimum}}",
+        "not_inclusive": "Il numero deve essere maggiore di {{minimum}}"
+      },
+      "set": {
+        "exact": "Input non valido",
+        "inclusive": "Input non valido",
+        "not_inclusive": "Input non valido"
+      },
+      "date": {
+        "exact": "La data deve essere esattamente {{- minimum, datetime}}",
+        "inclusive": "La data deve essere maggiore o uguale a {{- minimum, datetime}}",
+        "not_inclusive": "La data deve essere maggiore di {{- minimum, datetime}}"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "L'array deve contenere esattamente {{maximum}} elemento(i)",
+        "inclusive": "L'array deve contenere al massimo {{maximum}} elemento(i)",
+        "not_inclusive": "L'array deve contenere meno di {{maximum}} elemento(i)"
+      },
+      "string": {
+        "exact": "La stringa deve contenere esattamente {{maximum}} carattere(i)",
+        "inclusive": "La stringa deve contenere al massimo {{maximum}} carattere(i)",
+        "not_inclusive": "La stringa deve contenere meno di {{maximum}} carattere(i)"
+      },
+      "number": {
+        "exact": "Il numero deve essere esattamente {{maximum}}",
+        "inclusive": "Il numero deve essere minore o uguale a {{maximum}}",
+        "not_inclusive": "Il numero deve essere minore di {{maximum}}"
+      },
+      "set": {
+        "exact": "Input non valido",
+        "inclusive": "Input non valido",
+        "not_inclusive": "Input non valido"
+      },
+      "date": {
+        "exact": "La data deve essere esattamente {{- maximum, datetime}}",
+        "inclusive": "La data deve essere minore o uguale a {{- maximum, datetime}}",
+        "not_inclusive": "La data deve essere minore di {{- maximum, datetime}}"
+      }
+    }
+  },
+  "validations": {
+    "email": "email",
+    "url": "url",
+    "uuid": "uuid",
+    "cuid": "cuid",
+    "regex": "regex",
+    "datetime": "datetime"
+  },
+  "types": {
+    "function": "funzione",
+    "number": "numero",
+    "string": "stringa",
+    "nan": "nan",
+    "integer": "intero",
+    "float": "float",
+    "boolean": "booleano",
+    "date": "data",
+    "bigint": "bigint",
+    "undefined": "undefined",
+    "symbol": "simbolo",
+    "null": "null",
+    "array": "array",
+    "object": "oggetto",
+    "unknown": "sconosciuto",
+    "promise": "promessa",
+    "void": "void",
+    "never": "mai",
+    "map": "mappa",
+    "set": "set"
+  }
+}

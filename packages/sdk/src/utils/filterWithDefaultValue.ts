@@ -1,4 +1,5 @@
 import type {
+  IDateFilter,
   IFieldVo,
   IFilter,
   IFilterItem,
@@ -7,18 +8,34 @@ import type {
   IRecord,
   IUserCellValue,
 } from '@teable/core';
-import { assertNever, FieldType, is, isExactly, isMeTag, or } from '@teable/core';
+import {
+  assertNever,
+  contains,
+  FieldType,
+  hasAllOf,
+  isExactly,
+  isMeTag,
+  is,
+  or,
+  today,
+  tomorrow,
+  yesterday,
+  exactDate as exactDateConst,
+} from '@teable/core';
 import { getBaseCollaboratorList, getRecords, PrincipalType } from '@teable/openapi';
 import { keyBy } from 'lodash';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const VALIDATE_FILTER_OPERATORS = [is.value, isExactly.value, contains.value, hasAllOf.value];
 
 export const validateFilterOperators = (filter: IFilter | IFilterItem | undefined): boolean => {
   if (!filter) return false;
   if ('filterSet' in filter) {
     if (filter.conjunction === or.value && filter.filterSet.length > 1) return false;
-    return filter.filterSet.every((item) => validateFilterOperators(item));
+    return filter.filterSet.some((item) => validateFilterOperators(item));
   }
   if ('operator' in filter) {
-    return [is.value, isExactly.value].includes(filter.operator as never);
+    return VALIDATE_FILTER_OPERATORS.some((operator) => operator === filter.operator);
   }
   return false;
 };
@@ -35,6 +52,7 @@ export const generateValueByFilteredField = ({
   currentUserId: string;
   userMap: Record<string, IUserCellValue>;
   linkMap: Record<string, ILinkCellValue>;
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 }): unknown => {
   const { type, isMultipleCellValue } = field;
 
@@ -44,13 +62,33 @@ export const generateValueByFilteredField = ({
     case FieldType.SingleLineText:
     case FieldType.LongText:
     case FieldType.Number:
-    case FieldType.Date:
     case FieldType.Rating:
     case FieldType.Checkbox:
     case FieldType.Attachment:
     case FieldType.SingleSelect:
     case FieldType.MultipleSelect: {
       return value;
+    }
+    case FieldType.Date: {
+      const { exactDate, mode } = value as IDateFilter;
+      const now = new Date();
+
+      if (mode === today.value) return now.toISOString();
+      if (mode === tomorrow.value) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        return tomorrow.toISOString();
+      }
+      if (mode === yesterday.value) {
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        return yesterday.toISOString();
+      }
+      if (mode === exactDateConst.value) {
+        return exactDate;
+      }
+
+      return null;
     }
     case FieldType.User: {
       if (isMultipleCellValue) {
@@ -101,11 +139,7 @@ export const extractDefaultFieldsFromFilters = async ({
   ) => {
     const { fieldId, operator, value } = filter || {};
 
-    if (
-      ![is.value, isExactly.value].includes(operator as never) ||
-      !fieldId ||
-      !fieldMap[fieldId]
-    ) {
+    if (!VALIDATE_FILTER_OPERATORS.includes(operator as never) || !fieldId || !fieldMap[fieldId]) {
       return;
     }
 

@@ -30,6 +30,7 @@ import type {
   ICreateRecordsRo,
   ICreateTableRo,
   ICreateTableWithDefault,
+  IDuplicateTableRo,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
@@ -51,6 +52,7 @@ import { FieldOpenApiService } from '../../field/open-api/field-open-api.service
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { TableDuplicateService } from '../table-dupicate.service';
 import { TableService } from '../table.service';
 
 @Injectable()
@@ -67,6 +69,7 @@ export class TableOpenApiService {
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly permissionService: PermissionService,
+    private readonly tableDuplicateService: TableDuplicateService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -94,12 +97,28 @@ export class TableOpenApiService {
     return fieldSnapshots;
   }
 
+  private async createFields(tableId: string, fieldVos: IFieldVo[]) {
+    const fieldNameSet = new Set<string>();
+
+    for (const fieldVo of fieldVos) {
+      if (fieldNameSet.has(fieldVo.name)) {
+        throw new BadRequestException(`duplicate field name: ${fieldVo.name}`);
+      }
+      fieldNameSet.add(fieldVo.name);
+    }
+
+    const fieldInstances = fieldVos.map((fieldVo) => createFieldInstanceByVo(fieldVo));
+
+    await this.fieldCreatingService.alterCreateFields(tableId, fieldInstances);
+
+    return fieldVos;
+  }
+
   private async createRecords(tableId: string, data: ICreateRecordsRo) {
     return this.recordOpenApiService.createRecords(tableId, data);
   }
 
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
-    const fields: IFieldVo[] = [];
     const simpleFields: IFieldRo[] = [];
     const computeFields: IFieldRo[] = [];
     fieldRos.forEach((field) => {
@@ -110,11 +129,13 @@ export class TableOpenApiService {
       }
     });
 
-    for (const fieldRo of simpleFields) {
-      fields.push(await this.fieldSupplementService.prepareCreateField(tableId, fieldRo));
-    }
+    const fields: IFieldVo[] = await this.fieldSupplementService.prepareCreateFields(
+      tableId,
+      simpleFields
+    );
 
     const allFieldRos = simpleFields.concat(computeFields);
+
     for (const fieldRo of computeFields) {
       fields.push(
         await this.fieldSupplementService.prepareCreateField(
@@ -146,10 +167,13 @@ export class TableOpenApiService {
     const schema = await this.prismaService.$tx(async () => {
       const tableVo = await this.createTableMeta(baseId, tableRo);
       const tableId = tableVo.id;
+
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+
       // create teable should not set computed field isPending, because noting need to calculate when create
       preparedFields.forEach((field) => delete field.isPending);
-      const fieldVos = await this.createField(tableId, preparedFields);
+      const fieldVos = await this.createFields(tableId, preparedFields);
+
       const viewVos = await this.createView(tableId, tableRo.views);
 
       return {
@@ -176,6 +200,10 @@ export class TableOpenApiService {
       ...schema,
       records,
     };
+  }
+
+  async duplicateTable(baseId: string, tableId: string, tableRo: IDuplicateTableRo) {
+    return await this.tableDuplicateService.duplicateTable(baseId, tableId, tableRo);
   }
 
   async createTableMeta(baseId: string, tableRo: ICreateTableRo) {

@@ -1,4 +1,5 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { getUniqName } from '@teable/core';
 import {
   MoreHorizontal,
   Pencil,
@@ -8,10 +9,11 @@ import {
   Import,
   FileCsv,
   FileExcel,
+  Copy,
 } from '@teable/icons';
-import { SUPPORTEDTYPE } from '@teable/openapi';
+import { duplicateTable, SUPPORTEDTYPE } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase, useTables } from '@teable/sdk/hooks';
+import { useBase, useBasePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -23,6 +25,9 @@ import {
   DropdownMenuPortal,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  Switch,
+  Label,
+  Input,
 } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -44,8 +49,10 @@ export const TableOperation = (props: ITableOperationProps) => {
   const { table, className, onRename, open, setOpen } = props;
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
+  const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
   const base = useBase();
+  const permission = useBasePermission();
   const tables = useTables();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -53,14 +60,29 @@ export const TableOperation = (props: ITableOperationProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { trigger } = useDownload({ downloadUrl: `/api/export/${table.id}`, key: 'table' });
 
+  const defaultTableName = useMemo(
+    () =>
+      getUniqName(
+        `${table?.name} ${t('space:baseModal.copy')}`,
+        tables.map((t) => t.name)
+      ),
+    [t, table?.name, tables]
+  );
+
+  const [duplicateOption, setDuplicateOption] = useState({
+    name: defaultTableName,
+    includeRecords: true,
+  });
+
   const menuPermission = useMemo(() => {
     return {
       deleteTable: table.permission?.['table|delete'],
       updateTable: table.permission?.['table|update'],
+      duplicateTable: table.permission?.['table|read'] && permission?.['table|create'],
       exportTable: table.permission?.['table|export'],
       importTable: table.permission?.['table|import'],
     };
-  }, [table.permission]);
+  }, [permission, table.permission]);
 
   const deleteTable = async () => {
     const tableId = table?.id;
@@ -85,6 +107,23 @@ export const TableOperation = (props: ITableOperationProps) => {
       );
     }
   };
+
+  const { mutateAsync: duplicateTableFn, isLoading } = useMutation({
+    mutationFn: () => duplicateTable(baseId as string, table.id, duplicateOption),
+    onSuccess: (data) => {
+      const {
+        data: { id },
+      } = data;
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.tableList(baseId as string),
+      });
+      setDuplicateSetting(false);
+      router.push({
+        pathname: '/base/[baseId]/[tableId]',
+        query: { baseId, tableId: id },
+      });
+    },
+  });
 
   if (!Object.values(menuPermission).some(Boolean)) {
     return null;
@@ -122,6 +161,12 @@ export const TableOperation = (props: ITableOperationProps) => {
               {t('table:table.design')}
             </Link>
           </DropdownMenuItem>
+          {menuPermission.duplicateTable && (
+            <DropdownMenuItem onClick={() => setDuplicateSetting(true)}>
+              <Copy className="mr-2" />
+              {t('table:import.menu.duplicate')}
+            </DropdownMenuItem>
+          )}
           {menuPermission.exportTable && (
             <DropdownMenuItem
               onClick={() => {
@@ -194,6 +239,46 @@ export const TableOperation = (props: ITableOperationProps) => {
         }
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={deleteTable}
+      />
+
+      <ConfirmDialog
+        open={duplicateSetting}
+        onOpenChange={setDuplicateSetting}
+        title={`${t('common:actions.duplicate')} ${table?.name}`}
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.duplicate')}
+        confirmLoading={isLoading}
+        content={
+          <div className="flex flex-col space-y-2 text-sm">
+            <div className="flex flex-col gap-2">
+              <Label>
+                {t('common:noun.table')} {t('common:name')}
+              </Label>
+              <Input
+                defaultValue={defaultTableName}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDuplicateOption((prev) => ({ ...prev, name: value }));
+                }}
+              />
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Switch
+                id="include-record"
+                checked={duplicateOption.includeRecords}
+                onCheckedChange={(val) => {
+                  setDuplicateOption((prev) => ({ ...prev, includeRecords: val }));
+                }}
+              />
+              <Label htmlFor="include-record">{t('table:import.menu.includeRecords')}</Label>
+            </div>
+          </div>
+        }
+        onCancel={() => setDuplicateSetting(false)}
+        onConfirm={async () => {
+          duplicateTableFn();
+        }}
       />
     </div>
   );

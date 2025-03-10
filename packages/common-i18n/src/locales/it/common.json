@@ -1,0 +1,356 @@
+{
+  "brand": "Teable",
+  "actions": {
+    "title": "Azioni",
+    "add": "Aggiungi",
+    "save": "Salva",
+    "doNotSave": "Non salvare",
+    "submit": "Invia",
+    "confirm": "Conferma",
+    "close": "Chiudi",
+    "edit": "Modifica",
+    "fill": "Compila",
+    "update": "Aggiorna",
+    "create": "Crea",
+    "delete": "Elimina",
+    "cancel": "Annulla",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci",
+    "back": "Indietro",
+    "remove": "Rimuovi",
+    "saveSucceed": "Salvataggio riuscito!",
+    "submitSucceed": "Invio riuscito!",
+    "editSucceed": "Modifica riuscita!",
+    "updateSucceed": "Aggiornamento riuscito!",
+    "deleteSucceed": "Eliminazione riuscita!",
+    "resetSucceed": "Cestino svuotato con successo!",
+    "restoreSucceed": "Ripristino riuscito!",
+    "loading": "Caricamento...",
+    "refreshPage": "Ricarica pagina",
+    "yesDelete": "Sì, elimina",
+    "rename": "Rinomina",
+    "duplicate": "Duplica",
+    "change": "Cambia",
+    "upgrade": "Aggiorna",
+    "search": "Cerca",
+    "loadMore": "Carica altro",
+    "collapseSidebar": "Comprimi barra laterale",
+    "restore": "Ripristina",
+    "permanentDelete": "Eliminazione permanente",
+    "globalSearch": "Ricerca globale",
+    "fieldSearch": "Cerca campo",
+    "tableIndex": "Indice",
+    "showAllRow": "Mostra tutte le righe",
+    "hideNotMatchRow": "Nascondi righe non corrispondenti",
+    "more": "Altro"
+  },
+  "quickAction": {
+    "title": "Azioni rapide...",
+    "placeHolder": "Digita un comando o cerca..."
+  },
+  "password": {
+    "setInvalid": "La password non è valida, deve contenere almeno 8 caratteri e almeno una lettera e un numero."
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "back": "Torna alla home",
+    "account": {
+      "title": "Il mio profilo",
+      "tab": "Il mio account",
+      "updatePhoto": "Aggiorna foto",
+      "updateNameDesc": "Il tuo nome sarà visualizzato nei contributi e nelle menzioni. Puoi cambiarlo in qualsiasi momento.",
+      "securityTitle": "Sicurezza dell'account",
+      "email": "Email",
+      "password": "Password",
+      "passwordDesc": "Imposta una password permanente per accedere al tuo account.",
+      "changePassword": {
+        "title": "Cambia password",
+        "desc": "Inserisci la tua password attuale e la tua nuova password.",
+        "current": "Inserisci la tua password attuale",
+        "new": "Inserisci la tua nuova password",
+        "confirm": "Conferma la tua nuova password"
+      },
+      "changePasswordError": {
+        "disMatch": "La tua nuova password non corrisponde.",
+        "equal": "La tua nuova password deve essere diversa dalla tua password attuale.",
+        "invalid": "La tua password attuale non è valida."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Cambio password riuscito.",
+        "desc": "Verrai reindirizzato alla pagina di accesso in 2 secondi."
+      },
+      "manageToken": "Token di accesso",
+      "addPassword": {
+        "title": "Aggiungi password",
+        "desc": "Imposta una password permanente per accedere al tuo account.",
+        "password": "Inserisci la tua password",
+        "confirm": "Conferma la tua password"
+      },
+      "addPasswordError": {
+        "disMatch": "La tua password non corrisponde."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Aggiunta password riuscita."
+      },
+      "changeEmail": {
+        "title": "Aggiorna email",
+        "desc": "Inserisci la tua password attuale e la tua nuova email.",
+        "current": "Inserisci la tua password attuale",
+        "new": "Inserisci la tua nuova email",
+        "code": "Inserisci il codice di verifica",
+        "getCode": "Ottieni codice di verifica",
+        "error": {
+          "invalidCode": "Il codice di verifica non è valido.",
+          "invalidPassword": "La password non è valida.",
+          "invalidConflict": "La nuova email è già registrata.",
+          "invalidSameEmail": "La nuova email è uguale all'email attuale."
+        },
+        "success": {
+          "title": "🎉 Cambio email riuscito.",
+          "desc": "Verrai reindirizzato alla pagina di accesso in 2 secondi.",
+          "sendSuccess": "Codice di verifica inviato con successo."
+        }
+      }
+    },
+    "notify": {
+      "title": "Le mie notifiche",
+      "label": "Attività nel tuo spazio",
+      "desc": "Ricevi email quando ricevi commenti, menzioni, inviti a pagine, promemoria, richieste di accesso e modifiche alle proprietà."
+    },
+    "setting": {
+      "title": "Le mie impostazioni",
+      "theme": "Tema",
+      "themeDesc": "Seleziona il tema per l'app.",
+      "dark": "Scuro",
+      "light": "Chiaro",
+      "system": "Sistema",
+      "version": "Versione dell'app",
+      "language": "Lingua"
+    },
+    "nav": {
+      "settings": "Impostazioni",
+      "logout": "Esci"
+    },
+    "integration": {
+      "title": "Integrazioni",
+      "description": "Hai concesso l'accesso al tuo account a {{count}} applicazioni.",
+      "lastUsed": "Ultimo utilizzo il {{date}}",
+      "revoke": "Revoca",
+      "owner": "Proprietario di {{user}}",
+      "revokeTitle": "Sei sicuro di voler revocare l'autorizzazione?",
+      "revokeDesc": "{{name}} non sarà più in grado di accedere all'API di Teable. Non puoi annullare questa azione.",
+      "scopeTitle": "Permessi",
+      "scopeDesc": "Questa applicazione sarà in grado di ottenere i seguenti ambiti:"
+    }
+  },
+  "noun": {
+    "table": "Tabella",
+    "view": "Vista",
+    "space": "Spazio",
+    "base": "Base",
+    "field": "Campo",
+    "record": "Record",
+    "dashboard": "Dashboard",
+    "automation": "Automazione",
+    "authorityMatrix": "Matrice di autorità",
+    "adminPanel": "Pannello di amministrazione",
+    "license": "Licenza",
+    "instanceId": "ID istanza",
+    "beta": "Beta",
+    "trash": "Cestino",
+    "global": "Globale",
+    "organizationPanel": "Pannello dell'organizzazione",
+    "unknownError": "Errore sconosciuto",
+    "float": "Virgola mobile"
+  },
+  "level": {
+    "free": "Gratuito",
+    "plus": "Plus",
+    "pro": "Pro",
+    "enterprise": "Enterprise"
+  },
+  "noResult": "Nessun risultato.",
+  "untitled": "Senza titolo",
+  "name": "Nome",
+  "description": "Descrizione",
+  "required": "Obbligatorio",
+  "atLeastOne": "Riserva almeno un {{noun}}",
+  "guide": {
+    "prev": "Precedente",
+    "next": "Successivo",
+    "done": "Fatto",
+    "skip": "Salta",
+    "createSpaceTooltipTitle": "Crea uno spazio",
+    "createSpaceTooltipContent": "Teable è organizzato in spazi, dove ogni spazio invita gli utenti a collaborare. <br></br>Gli spazi in Teable servono come elemento di navigazione principale all'interno della barra dei menu, offrendo una piattaforma fondamentale per gli utenti per aggiungere e gestire database secondo necessità.",
+    "createBaseTooltipTitle": "Crea una base",
+    "createBaseTooltipContent": "Una base (abbreviazione di \"database\") è un luogo per memorizzare dati importanti e i flussi di lavoro che ne dipendono.",
+    "createTableTooltipTitle": "Crea una tabella",
+    "createTableTooltipContent": "Le tabelle sono progettate per gestire in modo efficiente set di dati diversi, offrendo una visualizzazione versatile delle informazioni attraverso vari tipi di dati.",
+    "createViewTooltipTitle": "Crea una vista",
+    "createViewTooltipContent": "Attualmente, gli utenti possono creare viste Griglia, Galleria, Kanban e Modulo, con viste Calendario previste per i futuri rilasci. <br></br>Questa varietà fornisce agli utenti un toolkit completo per vari compiti di gestione dei dati.",
+    "viewFilteringTooltipTitle": "Filtraggio dei record",
+    "viewFilteringTooltipContent": "Una delle caratteristiche principali delle viste è la possibilità di filtrare i record da una vista in base alle condizioni impostate. <br></br>Quando un record viene filtrato in base a una condizione, non viene eliminato—è solo nascosto dalla vista particolare che stai utilizzando per guardare la tua tabella.",
+    "viewSortingTooltipTitle": "Ordinamento dei record",
+    "viewSortingTooltipContent": "Mentre sei in una vista, puoi ordinare i tuoi record in modo che appaiano in un ordine particolare in base ai valori in campi specifici. <br></br>Ordinare i tuoi record in una vista non influisce sull'ordine dei record in altre viste—si applica solo alla vista che stai utilizzando per guardare la tua tabella.",
+    "viewGroupingTooltipTitle": "Raggruppamento dei record",
+    "viewGroupingTooltipContent": "Raggruppare i record consente ai creatori di costruire un insieme di una o più condizioni che aiuteranno a categorizzare il set di dati presentato all'interno di una vista particolare.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable offre una potente API che supporta quasi tutte le funzionalità del prodotto, consentendo agli sviluppatori di effettuare chiamate utilizzando un <a>Token</a>."
+  },
+  "token": "Token",
+  "poweredBy": "Offerto da <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "Condivisione dello spazio {{spaceName}}",
+      "desc_one": "Questo spazio ha <b>{{count}} collaboratore</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
+      "desc_other": "Questo spazio ha <b>{{count}} collaboratori</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
+      "tabEmail": "Invita via email",
+      "emailPlaceholder": "Invita più collaboratori via email",
+      "tabLink": "Invita tramite link",
+      "linkPlaceholder": "Crea un link di invito che concede <0/> accesso a chiunque lo apra.",
+      "emailSend": "Invia invito",
+      "linkSend": "Crea link",
+      "spaceTitle": "Collaboratori dello spazio",
+      "collaboratorSearchPlaceholder": "Trova un collaboratore dello spazio per nome o email",
+      "collaboratorJoin": "si è unito {{joinTime}}",
+      "collaboratorRemove": "Rimuovi collaboratore",
+      "linkTitle": "Link di invito",
+      "linkCreatedTime": "creato {{createdTime}}",
+      "linkCopySuccess": "Link copiato",
+      "linkRemove": "Rimuovi link"
+    },
+    "base": {
+      "title": "Condividi {{baseName}}",
+      "desc_one": "Questa base è condivisa con {{count}} collaboratore.",
+      "desc_other": "Questa base è condivisa con {{count}} collaboratori.",
+      "baseTitle": "Collaboratori della base",
+      "collaboratorSearchPlaceholder": "Trova un collaboratore della base per nome o email"
+    },
+    "addOrgCollaborator": {
+      "title": "Aggiungi collaboratore dell'organizzazione",
+      "placeholder": "Seleziona membro dell'organizzazione o dipartimento"
+    }
+  },
+  "help": {
+    "title": "Aiuto",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/en/api-doc/token"
+  },
+  "pagePermissionChangeTip": "I permessi della pagina sono stati aggiornati. Si prega di aggiornare la pagina per vedere il contenuto più recente.",
+  "listEmptyTips": "La lista è vuota",
+  "billing": {
+    "overLimits": "Oltre i limiti",
+    "overLimitsDescription": "Il tuo abbonamento attuale ha superato il limite di utilizzo. Si prega di aggiornare il piano per continuare a utilizzare questa funzione senza interruzioni.",
+    "userLimitExceededDescription": "L'istanza corrente ha raggiunto il numero massimo di utenti consentiti dalla tua licenza. Si prega di disattivare alcuni utenti o aggiornare la licenza.",
+    "unavailableInPlanTips": "Il piano di abbonamento attuale non supporta questa funzione",
+    "levelTips": "Questo spazio è attualmente sul piano {{level}}",
+    "spaceSubscriptionModal": {
+      "title": "Aggiorna il piano di abbonamento dello spazio",
+      "description": "Puoi aggiornare solo gli spazi di lavoro di cui sei proprietario"
+    },
+    "status": {
+      "active": "Attivo",
+      "canceled": "Annullato",
+      "incomplete": "Incompleto",
+      "incompleteExpired": "Incompleto Scaduto",
+      "trialing": "In prova",
+      "pastDue": "Scaduto",
+      "unpaid": "Non pagato",
+      "paused": "In pausa",
+      "seatLimitExceeded": "Limite di posti superato"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "Modifica le impostazioni per la tua istanza corrente",
+      "allowSignUp": "Consenti la creazione di nuovi account",
+      "allowSignUpDescription": "Disabilitando questa opzione si proibiranno le nuove registrazioni degli utenti e il pulsante di registrazione non apparirà più nella pagina di accesso.",
+      "allowSpaceInvitation": "Consenti l'invio di inviti per lo spazio",
+      "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Abilitando questa opzione si consentirà agli utenti invitati direttamente di creare un account anche se la registrazione di nuovi account è disabilitata.",
+      "allowSpaceCreation": "Consenti a tutti di creare nuovi spazi",
+      "allowSpaceCreationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di creare nuovi spazi.",
+      "enableEmailVerification": "Abilita la verifica email",
+      "enableEmailVerificationDescription": "Disabilitando questa opzione si impedirà agli utenti di creare nuovi account senza verificare il loro indirizzo email.",
+      "generalSettings": "Impostazioni generali",
+      "aiSettings": "Impostazioni AI",
+      "ai": {
+        "name": "Nome",
+        "nameDescription": "Il nome del fornitore LLM",
+        "enable": "Abilita AI",
+        "enableDescription": "Abilita AI per l'istanza corrente, tutti gli utenti potranno utilizzare le funzionalità AI",
+        "updateLLMProvider": "Aggiorna fornitore LLM",
+        "addProvider": "Aggiungi fornitore LLM",
+        "addProviderDescription": "Aggiungi un nuovo fornitore LLM all'elenco",
+        "providerType": "Tipo di fornitore",
+        "baseUrl": "URL di base",
+        "apiKey": "Chiave API",
+        "baseUrlDescription": "L'URL di base del fornitore LLM",
+        "apiKeyDescription": "La chiave API del fornitore LLM",
+        "models": "Modelli",
+        "modelsDescription": "I modelli supportati dal fornitore LLM",
+        "baseUrlRequired": "URL di base richiesto",
+        "fetchModelListError": "Impossibile recuperare l'elenco dei modelli",
+        "provider": "Fornitore LLM",
+        "providerDescription": "Il fornitore LLM da utilizzare",
+        "modelPreferences": "Preferenze del modello",
+        "modelPreferencesDescription": "Le preferenze del modello per il fornitore LLM",
+        "embeddingModel": "Modello di embedding",
+        "embeddingModelDescription": "Il modello di embedding da utilizzare",
+        "translationModel": "Modello di traduzione",
+        "translationModelDescription": "Il modello di traduzione da utilizzare",
+        "codingModel": "Modello di codifica",
+        "codingModelDescription": "Il modello di codifica da utilizzare",
+        "configUpdated": "Configurazione AI aggiornata",
+        "noModelFound": "Nessun modello trovato.",
+        "searchModel": "Cerca modello...",
+        "selectModel": "Seleziona modello..."
+      }
+    }
+  },
+  "notification": {
+    "title": "Notifiche",
+    "unread": "Non lette",
+    "read": "Lette",
+    "markAs": "Segna questa notifica come {{status}}",
+    "markAllAsRead": "Segna tutto come letto",
+    "noUnread": "Nessuna notifica {{status}}",
+    "changeSetting": "Cambia le impostazioni delle notifiche della pagina",
+    "new": "nuovo {{count}}",
+    "showMore": "Mostra di più"
+  },
+  "role": {
+    "title": {
+      "owner": "Proprietario",
+      "creator": "Creatore",
+      "editor": "Editor",
+      "commenter": "Commentatore",
+      "viewer": "Visualizzatore"
+    },
+    "description": {
+      "owner": "Può configurare e modificare completamente basi, automazione, matrici di autorità e gestire le impostazioni e la fatturazione dello spazio",
+      "creator": "Può configurare e modificare completamente basi, automazione e abilitare la matrice di autorità",
+      "editor": "Può modificare record e viste, ma non può configurare tabelle o campi",
+      "commenter": "Può commentare i record",
+      "viewer": "Non può modificare o commentare"
+    }
+  },
+  "trash": {
+    "type": "Tipo",
+    "resetTrash": "Svuota cestino",
+    "deletedBy": "Eliminato da",
+    "deletedTime": "Ora di eliminazione",
+    "fromSpace": "Dallo spazio \"{{name}}\"",
+    "permanentDeleteTips": "Sei sicuro di voler eliminare definitivamente \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Plugin non impostato URL",
+    "install": "Installa",
+    "publisher": "Editore",
+    "lastUpdated": "Ultimo aggiornamento",
+    "pluginNotFound": "Plugin non trovato",
+    "pluginEmpty": {
+      "title": "Nessun plugin ancora"
+    }
+  }
+}

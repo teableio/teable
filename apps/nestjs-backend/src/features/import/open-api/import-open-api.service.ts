@@ -8,7 +8,7 @@ import {
   getActionTriggerChannel,
   getTableImportChannel,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
   IImportOptionRo,
@@ -26,7 +26,7 @@ import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
-import { importerFactory, getWorkerPath } from './import.class';
+import { importerFactory, getWorkerPath, parseBoolean } from './import.class';
 import type { CsvImporter, ExcelImporter } from './import.class';
 
 @Injectable()
@@ -232,10 +232,11 @@ export class ImportOpenApiService {
             // import new table
             if (columnInfo) {
               columnInfo.forEach((col, index) => {
-                const { sourceColumnIndex } = col;
+                const { sourceColumnIndex, type } = col;
                 // empty row will be return void row value
                 const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-                res.fields[fields[index].id] = value?.toString();
+                res.fields[fields[index].id] =
+                  type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
               });
             }
             // inplace records
@@ -266,7 +267,7 @@ export class ImportOpenApiService {
               }));
             worker.postMessage({ type: 'done', chunkId });
             this.updateRowCount(table.id);
-          } catch (e) {
+          } catch (e: unknown) {
             const error = e as Error;
             this.logger.error(error?.message, error?.stack);
             notification &&

@@ -18,6 +18,7 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
+import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
@@ -335,6 +336,10 @@ export class SqliteProvider implements IDbProvider {
 
   searchIndex() {
     return new IndexBuilderSqlite();
+  }
+
+  duplicateTableQuery(queryBuilder: Knex.QueryBuilder) {
+    return new DuplicateTableQuerySqlite(queryBuilder);
   }
 
   shareFilterCollaboratorsQuery(

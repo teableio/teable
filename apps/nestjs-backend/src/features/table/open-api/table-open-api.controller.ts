@@ -1,6 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
-import type { IGetAbnormalVo, ITableFullVo, ITableListVo, ITableVo } from '@teable/openapi';
+import type {
+  IDuplicateTableVo,
+  IGetAbnormalVo,
+  ITableFullVo,
+  ITableListVo,
+  ITableVo,
+} from '@teable/openapi';
 import {
   tableRoSchema,
   ICreateTableWithDefault,
@@ -17,6 +23,8 @@ import {
   IToggleIndexRo,
   toggleIndexRoSchema,
   TableIndex,
+  duplicateTableRoSchema,
+  IDuplicateTableRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -121,6 +129,18 @@ export class TableController {
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableWithDefault
   ): Promise<ITableFullVo> {
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
+  }
+
+  @Permissions('table|create')
+  @Permissions('table|read')
+  @Post(':tableId/duplicate')
+  async duplicateTable(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(duplicateTableRoSchema), TablePipe)
+    duplicateTableRo: IDuplicateTableRo
+  ): Promise<IDuplicateTableVo> {
+    return await this.tableOpenApiService.duplicateTable(baseId, tableId, duplicateTableRo);
   }
 
   @Delete(':tableId')

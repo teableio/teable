@@ -82,6 +82,11 @@ export class PluginController {
     return this.pluginService.submitPlugin(pluginId);
   }
 
+  @Patch(':pluginId/unpublish')
+  unpublishPlugin(@Param('pluginId') pluginId: string): Promise<void> {
+    return this.pluginService.unpublishPlugin(pluginId);
+  }
+
   @Post(':pluginId/token')
   @Public()
   accessToken(

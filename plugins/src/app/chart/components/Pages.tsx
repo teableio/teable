@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { ThemeProvider } from '@teable/next-themes';
-import { getDashboardInstallPlugin } from '@teable/openapi';
+import { getDashboardInstallPlugin, getPluginPanelPlugin, PluginPosition } from '@teable/openapi';
 import type { IUIConfig } from '@teable/sdk';
 import { isIframe, usePluginBridge } from '@teable/sdk';
 import { Spin } from '@teable/ui-lib';
@@ -12,9 +12,9 @@ import type { IPageParams } from '../../../types';
 import { ChartLayout } from '../components/chart/ChartLayout';
 import { ChartPage } from '../components/chart/ChartPage';
 import { ChartProvider } from './ChartProvider';
-import type { IChartStorage } from './types';
+import type { IChartServerData, IChartStorage } from './types';
 
-export const Pages = (props: IPageParams) => {
+export const Pages = (props: IPageParams & IChartServerData) => {
   const pluginBridge = usePluginBridge();
   const [uiConfig, setUIConfig] = useState<IUIConfig | undefined>();
 
@@ -38,17 +38,34 @@ export const Pages = (props: IPageParams) => {
   );
 };
 
-const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
-  const { baseId, positionId: dashboardId, pluginInstallId, uiConfig } = props;
+const Container = (props: IPageParams & { uiConfig?: IUIConfig } & IChartServerData) => {
+  const { baseId, positionId, positionType, tableId, pluginInstallId, uiConfig } = props;
   const [isIframeMode, setIsIframeMode] = useState(true);
-  const pluginBridge = usePluginBridge();
   const { t } = useTranslation();
-  const { data: pluginInstall, isLoading } = useQuery({
-    queryKey: ['plugin-install'],
+  const { data: dashboardPluginInstall, isLoading: isDashboardPluginInstallLoading } = useQuery({
+    queryKey: ['plugin-install', baseId, positionId, pluginInstallId],
     queryFn: () =>
-      getDashboardInstallPlugin(baseId, dashboardId, pluginInstallId).then((res) => res.data),
-    enabled: Boolean(baseId && dashboardId && pluginInstallId),
+      getDashboardInstallPlugin(baseId, positionId, pluginInstallId).then((res) => res.data),
+    enabled: Boolean(
+      positionType === PluginPosition.Dashboard && baseId && positionId && pluginInstallId
+    ),
   });
+
+  const { data: pluginPanelPluginInstall, isLoading: isPluginPanelPluginLoading } = useQuery({
+    queryKey: ['plugin-panel-plugin', tableId, positionId, pluginInstallId],
+    queryFn: () =>
+      getPluginPanelPlugin(tableId!, positionId, pluginInstallId).then((res) => res.data),
+    enabled: Boolean(
+      positionType === PluginPosition.Panel && tableId && positionId && pluginInstallId
+    ),
+  });
+
+  const isLoading =
+    positionType === PluginPosition.Dashboard
+      ? isDashboardPluginInstallLoading
+      : isPluginPanelPluginLoading;
+  const pluginInstall =
+    positionType === PluginPosition.Dashboard ? dashboardPluginInstall : pluginPanelPluginInstall;
 
   useEffect(() => {
     setIsIframeMode(isIframe);
@@ -58,20 +75,12 @@ const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
     return <div className="text-muted-foreground text-center">{t('notBaseId')}</div>;
   }
 
-  if (!dashboardId) {
-    return <div className="text-muted-foreground text-center">{t('notDashboardId')}</div>;
+  if (!positionId) {
+    return <div className="text-muted-foreground text-center">{t('notPositionId')}</div>;
   }
 
   if (!pluginInstallId) {
     return <div className="text-muted-foreground text-center">{t('notPluginInstallId')}</div>;
-  }
-
-  if (!pluginBridge && isIframeMode) {
-    return (
-      <div className="flex flex-col items-center justify-center">
-        <p className="text-muted-foreground text-center">{t('initBridge')}</p>
-      </div>
-    );
   }
 
   if (isLoading || !pluginInstall) {
@@ -86,7 +95,7 @@ const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
         isShowingSettings: isIframeMode ? !!uiConfig?.isShowingSettings : true,
       }}
     >
-      <ChartLayout>
+      <ChartLayout {...props}>
         <ChartPage />
       </ChartLayout>
     </ChartProvider>

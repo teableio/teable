@@ -359,7 +359,9 @@
       "cancel": "Cancel",
       "leave": "Leave",
       "downAsCsv": "Download CSV",
-      "importData": "Import Data"
+      "importData": "Import Data",
+      "duplicate": "Duplicate table",
+      "includeRecords": "Include records"
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",
@@ -541,5 +543,23 @@
   "plugin": {
     "recent": "Recents",
     "more": "Explore more..."
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "No plugin panels have been added yet."
+    },
+    "createPluginPanel": {
+      "button": "Create a plugin panel",
+      "title": "Create a plugin panel"
+    },
+    "namePlaceholder": "Enter a plugin panel name"
+  },
+  "addPlugin": "Add plugin",
+  "pluginContextMenu": {
+    "mangeButton": "Manage plugins",
+    "manage": "Manage your Context menu plugins",
+    "noPlugin": "No Context menu plugins",
+    "delete": "Delete",
+    "deleteDescription": "Are you sure you want to delete this plugin?"
   }
 }

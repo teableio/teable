@@ -20,11 +20,19 @@ import type {
   IGroupPointsVo,
   ListSpaceCollaboratorRo,
   IPublicSettingVo,
+  IGetDashboardVo,
+  IGetDashboardListVo,
+  IGetBasePermissionVo,
+  ITablePermissionVo,
+  IGetPinListVo,
+  ISubscriptionSummaryVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
   GET_BASE,
   GET_BASE_ALL,
+  GET_DASHBOARD,
+  GET_DASHBOARD_LIST,
   GET_DEFAULT_VIEW_ID,
   GET_FIELD_LIST,
   GET_GROUP_POINTS,
@@ -42,7 +50,12 @@ import {
   SPACE_COLLABORATE_LIST,
   UPDATE_NOTIFICATION_STATUS,
   USER_ME,
+  GET_BASE_PERMISSION,
+  GET_TABLE_PERMISSION,
   urlBuilder,
+  GET_PIN_LIST,
+  GET_SUBSCRIPTION_SUMMARY,
+  GET_SUBSCRIPTION_SUMMARY_LIST,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -140,11 +153,39 @@ export class SsrApi {
     return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL).then(({ data }) => data);
   }
 
+  async getPinList() {
+    return await this.axios.get<IGetPinListVo[]>(GET_PIN_LIST).then(({ data }) => data);
+  }
+
+  async getBasePermission(baseId: string) {
+    return await this.axios
+      .get<IGetBasePermissionVo>(urlBuilder(GET_BASE_PERMISSION, { baseId }))
+      .then((res) => res.data);
+  }
+
+  async getTablePermission(baseId: string, tableId: string) {
+    return await this.axios
+      .get<ITablePermissionVo>(urlBuilder(GET_TABLE_PERMISSION, { baseId, tableId }))
+      .then((res) => res.data);
+  }
+
   async getSpaceCollaboratorList(spaceId: string, query?: ListSpaceCollaboratorRo) {
     return await this.axios
       .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }), {
         params: query,
       })
+      .then(({ data }) => data);
+  }
+
+  async getSubscriptionSummary(spaceId: string) {
+    return await this.axios
+      .get<ISubscriptionSummaryVo>(urlBuilder(GET_SUBSCRIPTION_SUMMARY, { spaceId }))
+      .then(({ data }) => data);
+  }
+
+  async getSubscriptionSummaryList() {
+    return await this.axios
+      .get<ISubscriptionSummaryVo[]>(urlBuilder(GET_SUBSCRIPTION_SUMMARY_LIST))
       .then(({ data }) => data);
   }
 
@@ -191,6 +232,18 @@ export class SsrApi {
           groupBy: JSON.stringify(query?.groupBy),
         },
       })
+      .then(({ data }) => data);
+  }
+
+  async getDashboard(baseId: string, dashboardId: string) {
+    return this.axios
+      .get<IGetDashboardVo>(urlBuilder(GET_DASHBOARD, { baseId, id: dashboardId }))
+      .then(({ data }) => data);
+  }
+
+  async getDashboardList(baseId: string) {
+    return this.axios
+      .get<IGetDashboardListVo>(urlBuilder(GET_DASHBOARD_LIST, { baseId }))
       .then(({ data }) => data);
   }
 }

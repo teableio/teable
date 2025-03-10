@@ -13,6 +13,11 @@ export class AdminController {
     await this.adminService.publishPlugin(pluginId);
   }
 
+  @Patch('/plugin/:pluginId/unpublish')
+  async unpublishPlugin(@Param('pluginId') pluginId: string): Promise<void> {
+    await this.adminService.unpublishPlugin(pluginId);
+  }
+
   @Post('/attachment/repair-table-thumbnail')
   async repairTableAttachmentThumbnail(): Promise<void> {
     await this.adminService.repairTableAttachmentThumbnail();

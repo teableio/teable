@@ -1,0 +1,757 @@
+{
+  "common": {
+    "comingSoon": "Prossimamente",
+    "empty": "Vuoto",
+    "noRecords": "Nessun record disponibile",
+    "unnamedRecord": "Record senza nome",
+    "untitled": "Senza titolo",
+    "cancel": "Annulla",
+    "confirm": "Conferma",
+    "back": "Indietro",
+    "done": "Fatto",
+    "create": "Crea",
+    "search": {
+      "placeholder": "Cerca...",
+      "empty": "Nessun risultato trovato"
+    },
+    "selectPlaceHolder": "Seleziona...",
+    "loading": "Caricamento...",
+    "loadMore": "Carica altro",
+    "uploadFailed": "Caricamento fallito",
+    "rowCount": "{{count}} record",
+    "summary": "Riepilogo",
+    "summaryTip": "Passa il mouse per selezionare il riepilogo",
+    "actions": "Azioni",
+    "remove": "Rimuovi"
+  },
+  "preview": {
+    "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",
+    "loadFileError": "Caricamento file fallito"
+  },
+  "undoRedo": {
+    "undo": "Annulla",
+    "redo": "Ripeti",
+    "undoFailed": "Annullamento fallito",
+    "redoFailed": "Ripetizione fallita",
+    "nothingToUndo": "Niente da annullare",
+    "nothingToRedo": "Niente da ripetere",
+    "undoSucceed": "Annullamento riuscito",
+    "redoSucceed": "Ripetizione riuscita",
+    "undoing": "annullamento in corso...",
+    "redoing": "ripetizione in corso..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "Rilascia per caricare il file",
+      "uploadDragDefault": "Incolla o trascina e rilascia per caricare qui",
+      "upload": "carica"
+    },
+    "date": {
+      "placeholder": "Seleziona una data",
+      "today": "Oggi"
+    },
+    "formula": {
+      "title": "Editor di formule",
+      "guideSyntax": "Sintassi",
+      "guideExample": "Esempio",
+      "helperExample": "Esempio: ",
+      "fieldValue": "Restituisce il valore alle celle del campo {{fieldName}}.",
+      "placeholder": "Inserisci un'espressione",
+      "placeholderForAI": "Inserisci un'espressione o premi // per generare con AI"
+    },
+    "link": {
+      "placeholder": "Seleziona record da collegare",
+      "searchPlaceholder": "Cerca record",
+      "create": "Aggiungi Record",
+      "selectRecord": "Seleziona Record",
+      "unselected": "Non selezionato",
+      "selected": "Selezionato",
+      "expandRecordError": "Nessun permesso per visualizzare questo record.",
+      "alreadyOpen": "Questo record è già aperto.",
+      "goToForeignTable": "Vai alla tabella esterna"
+    },
+    "user": {
+      "searchPlaceholder": "Trova utenti per nome",
+      "notify": "Notifica agli utenti una volta selezionati"
+    },
+    "select": {
+      "addOption": "Aggiungi un'opzione '{{option}}'"
+    }
+  },
+  "filter": {
+    "label": "Filtro",
+    "displayLabel": "Filtra per ",
+    "displayLabel_other": "Filtra per {{fieldName}} e altri {{count}} campi",
+    "addCondition": "Aggiungi condizione",
+    "addConditionGroup": "Aggiungi gruppo di condizioni",
+    "nestedLimitTip": "Le condizioni del filtro possono essere annidate solo fino a {{depth}} livelli di profondità",
+    "linkInputPlaceholder": "Inserisci un valore",
+    "groupDescription": "Qualsiasi delle seguenti è vera…",
+    "currentUser": "Io (utente corrente)",
+    "tips": {
+      "scope": "In questa vista, mostra i record"
+    },
+    "invalidateSelected": "Valore non valido",
+    "invalidateSelectedTips": "Il valore selezionato è stato eliminato, per favore seleziona di nuovo",
+    "default": {
+      "empty": "Nessuna condizione di filtro applicata",
+      "placeholder": "Inserisci un valore"
+    },
+    "conjunction": {
+      "and": "e",
+      "or": "o",
+      "where": "dove"
+    },
+    "operator": {
+      "is": "è",
+      "isNot": "non è",
+      "contains": "contiene",
+      "doesNotContain": "non contiene",
+      "isEmpty": "è vuoto",
+      "isNotEmpty": "non è vuoto",
+      "isGreater": "è maggiore di",
+      "isGreaterEqual": "è maggiore o uguale a",
+      "isLess": "è minore di",
+      "isLessEqual": "è minore o uguale a",
+      "isAnyOf": "è uno di",
+      "isNoneOf": "non è nessuno di",
+      "hasAnyOf": "ha uno di",
+      "hasAllOf": "ha tutti di",
+      "hasNoneOf": "non ha nessuno di",
+      "isExactly": "è esattamente",
+      "isWithIn": "è entro",
+      "isBefore": "è prima di",
+      "isAfter": "è dopo",
+      "isOnOrBefore": "è il o prima di",
+      "isOnOrAfter": "è il o dopo",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "component": {
+      "date": {
+        "today": "oggi",
+        "tomorrow": "domani",
+        "yesterday": "ieri",
+        "oneWeekAgo": "una settimana fa",
+        "oneWeekFromNow": "una settimana da oggi",
+        "oneMonthAgo": "un mese fa",
+        "oneMonthFromNow": "un mese da oggi",
+        "daysAgo": "giorni fa",
+        "daysFromNow": "giorni da oggi",
+        "exactDate": "data esatta",
+        "currentWeek": "settimana corrente",
+        "currentMonth": "mese corrente",
+        "currentYear": "anno corrente",
+        "lastWeek": "settimana scorsa",
+        "lastMonth": "mese scorso",
+        "lastYear": "anno scorso",
+        "nextWeekPeriod": "prossima settimana",
+        "nextMonthPeriod": "prossimo mese",
+        "nextYearPeriod": "prossimo anno",
+        "pastWeek": "settimana passata",
+        "pastMonth": "mese passato",
+        "pastYear": "anno passato",
+        "nextWeek": "prossima settimana",
+        "nextMonth": "prossimo mese",
+        "nextYear": "prossimo anno",
+        "pastNumberOfDays": "numero di giorni passati",
+        "nextNumberOfDays": "numero di giorni futuri"
+      }
+    }
+  },
+  "color": {
+    "label": "colore"
+  },
+  "rowHeight": {
+    "short": "corto",
+    "medium": "medio",
+    "tall": "alto",
+    "extraTall": "extra alto"
+  },
+  "share": {
+    "title": "condividi"
+  },
+  "extensions": {
+    "title": "estensioni"
+  },
+  "hidden": {
+    "label": "Campi nascosti",
+    "configLabel_one": "{{count}} campo nascosto",
+    "configLabel_other": "{{count}} campi nascosti",
+    "configLabel_other_visible": "{{count}} campi visibili",
+    "showAll": "Mostra tutto",
+    "hideAll": "Nascondi tutto",
+    "primaryKey": "Campo principale: Identifica i record\nnon può essere nascosto o eliminato, visibile nei record collegati."
+  },
+  "expandRecord": {
+    "copy": "Copia negli appunti",
+    "duplicateRecord": "Duplica record",
+    "copyRecordUrl": "Copia URL del record",
+    "deleteRecord": "Elimina record",
+    "recordHistory": {
+      "hiddenRecordHistory": "Nascondi cronologia del record",
+      "showRecordHistory": "Mostra cronologia del record",
+      "createdTime": "Ora di creazione",
+      "createdBy": "Creato da",
+      "before": "Prima",
+      "after": "Dopo",
+      "viewRecord": "Visualizza record"
+    },
+    "showHiddenFields": "Mostra {{count}} campi nascosti",
+    "hideHiddenFields": "Nascondi {{count}} campi nascosti"
+  },
+  "sort": {
+    "label": "Ordina",
+    "displayLabel_one": "Ordina per {{count}} campo",
+    "displayLabel_other": "Ordina per {{count}} campi",
+    "setTips": "Ordina per",
+    "addButton": "Aggiungi un altro ordinamento",
+    "autoSort": "Ordina automaticamente i record",
+    "selectASCLabel": "primo → ultimo",
+    "selectDESCLabel": "ultimo → primo"
+  },
+  "group": {
+    "label": "Gruppo",
+    "displayLabel_one": "Raggruppa per {{count}} campo",
+    "displayLabel_other": "Raggruppa per {{count}} campi",
+    "setTips": "Raggruppa per",
+    "addButton": "Aggiungi sottogruppo"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "Testo a riga singola",
+      "longText": "Testo lungo",
+      "singleSelect": "Selezione singola",
+      "number": "Numero",
+      "multipleSelect": "Selezione multipla",
+      "link": "Collega a un altro record",
+      "formula": "Formula",
+      "date": "Data",
+      "createdTime": "Ora di creazione",
+      "lastModifiedTime": "Ultima modifica",
+      "attachment": "Allegato",
+      "checkbox": "Casella di controllo",
+      "rollup": "Rollup",
+      "user": "Utente",
+      "rating": "Valutazione",
+      "autoNumber": "Numero automatico",
+      "lookup": "Ricerca",
+      "button": "Pulsante",
+      "createdBy": "Creato da",
+      "lastModifiedBy": "Ultima modifica di"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Crea spazio",
+      "spaceDelete": "Elimina spazio",
+      "spaceRead": "Leggi spazio",
+      "spaceUpdate": "Aggiorna spazio",
+      "spaceInviteEmail": "Invita via email nello spazio",
+      "spaceInviteLink": "Invita tramite link nello spazio",
+      "spaceGrantRole": "Concedi ruolo nello spazio",
+      "baseCreate": "Crea base",
+      "baseDelete": "Elimina base",
+      "baseRead": "Leggi base",
+      "baseReadAll": "Leggi tutte le basi",
+      "baseUpdate": "Aggiorna base",
+      "baseInviteEmail": "Invita via email nella base",
+      "baseInviteLink": "Invita tramite link nella base",
+      "baseTableImport": "Importa dati nella base",
+      "baseTableExport": "Esporta dati dalla base",
+      "baseAuthorityMatrixConfig": "Configura matrice di autorità",
+      "baseDbConnect": "Connetti al database",
+      "tableCreate": "Crea tabella",
+      "tableRead": "Leggi tabella",
+      "tableDelete": "Elimina tabella",
+      "tableUpdate": "Aggiorna tabella",
+      "tableImport": "Importa dati nella tabella",
+      "tableExport": "Esporta dati dalla tabella",
+      "tableTrashRead": "Leggi cestino della tabella",
+      "tableTrashUpdate": "Aggiorna cestino della tabella",
+      "tableTrashReset": "Reimposta cestino della tabella",
+      "viewCreate": "Crea vista",
+      "viewDelete": "Elimina vista",
+      "viewRead": "Leggi vista",
+      "viewUpdate": "Aggiorna vista",
+      "viewShare": "Condividi vista",
+      "fieldCreate": "Crea campo",
+      "fieldDelete": "Elimina campo",
+      "fieldRead": "Leggi campo",
+      "fieldUpdate": "Aggiorna campo",
+      "recordCreate": "Crea record",
+      "recordComment": "Commenta record",
+      "recordDelete": "Elimina record",
+      "recordRead": "Leggi record",
+      "recordUpdate": "Aggiorna record",
+      "automationCreate": "Crea automazione",
+      "automationDelete": "Elimina automazione",
+      "automationRead": "Leggi automazione",
+      "automationUpdate": "Aggiorna automazione",
+      "userProfileRead": "Leggi profilo utente corrente",
+      "userEmailRead": "Leggi email utente corrente",
+      "recordHistoryRead": "Leggi cronologia record",
+      "baseQuery": "Interroga base",
+      "instanceRead": "Leggi istanza",
+      "instanceUpdate": "Aggiorna istanza",
+      "enterpriseRead": "Leggi configurazione enterprise",
+      "enterpriseUpdate": "Aggiorna configurazione enterprise"
+    }
+  },
+  "noun": {
+    "table": "Tabella",
+    "view": "Vista",
+    "space": "Spazio",
+    "base": "Base",
+    "field": "Campo",
+    "record": "Record",
+    "automation": "Automazione",
+    "user": "Utente",
+    "recordHistory": "Cronologia Record",
+    "you": "Tu",
+    "instance": "Istanza",
+    "enterprise": "Enterprise"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "Somma i numeri. Equivalente a numero1 + numero2 + ...",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "Restituisce la media dei numeri.",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "Restituisce il numero più grande tra quelli forniti.",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "Restituisce il numero più piccolo tra quelli forniti.",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "Arrotonda il valore al numero di decimali specificato da \"precision\" (Specifica, ROUND arrotonderà al numero intero più vicino alla precisione specificata, con i legami rotti arrotondando a metà verso l'infinito positivo.)",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "Arrotonda il valore al numero di decimali specificato da \"precision\" arrotondando sempre verso l'alto, cioè, lontano da zero. (Devi fornire un valore per la precisione o la funzione non funzionerà.)",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "Arrotonda il valore al numero di decimali specificato da \"precision\" arrotondando sempre verso il basso, cioè, verso zero. (Devi fornire un valore per la precisione o la funzione non funzionerà.)",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "Restituisce il multiplo intero più vicino di significato che è maggiore o uguale al valore. Se non viene fornito alcun significato, si assume un significato di 1.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "Restituisce il multiplo intero più vicino di significato che è minore o uguale al valore. Se non viene fornito alcun significato, si assume un significato di 1.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "Restituisce il più piccolo numero intero pari che è maggiore o uguale al valore specificato.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "Arrotonda il valore positivo al numero dispari più vicino e il valore negativo al numero dispari più vicino.",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "Restituisce numero1 se l'argomento logico è vero, altrimenti restituisce numero2. Può anche essere utilizzato per creare dichiarazioni IF annidate.\nPuò anche essere utilizzato per verificare se una cella è vuota/è vuota.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "Restituisce il valore assoluto.",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "Restituisce la radice quadrata di un numero non negativo.",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "Calcola la base specificata alla potenza specificata.",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "Calcola il numero di Eulero (e) alla potenza specificata.",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "Calcola il logaritmo del valore nella base fornita. La base predefinita è 10 se non specificata.",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "Restituisce il resto dopo aver diviso il primo argomento per il secondo.",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "Converte la stringa di testo in un numero.",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "Unisce vari argomenti di tipo valore in un singolo valore di testo.",
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
+    },
+    "FIND": {
+      "summary": "Trova un'occorrenza di stringToFind nella stringa whereToSearch a partire da una posizione startFromPosition opzionale. (startFromPosition è 0 per impostazione predefinita.) Se non viene trovata alcuna occorrenza di stringToFind, il risultato sarà 0.",
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "Cerca un'occorrenza di stringToFind nella stringa whereToSearch a partire da una posizione startFromPosition opzionale. (startFromPosition è 0 per impostazione predefinita.) Se non viene trovata alcuna occorrenza di stringToFind, il risultato sarà vuoto.\nSimile a FIND(), sebbene FIND() restituisca 0 anziché vuoto se non viene trovata alcuna occorrenza di stringToFind.",
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "Estrae una sottostringa di count caratteri a partire da whereToStart.",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "Estrae howMany caratteri dall'inizio della stringa.",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "Estrae howMany caratteri dalla fine della stringa.",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "Sostituisce il numero di caratteri a partire dal carattere start con il testo di sostituzione.\n(Se stai cercando un modo per trovare e sostituire tutte le occorrenze di old_text con new_text, vedi SUBSTITUTE().)",
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "Sostituisce tutte le sottostringhe che corrispondono all'espressione regolare con la sostituzione.",
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "Sostituisce le occorrenze di old_text con new_text.\nPuoi opzionalmente specificare un numero di indice (a partire da 1) per sostituire solo una specifica occorrenza di old_text. Se non viene specificato alcun numero di indice, tutte le occorrenze di old_text verranno sostituite.",
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "LOWER": {
+      "summary": "Rende una stringa minuscola.",
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
+    },
+    "UPPER": {
+      "summary": "Rende una stringa maiuscola.",
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
+    },
+    "REPT": {
+      "summary": "Ripete la stringa per il numero di volte specificato.",
+      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+    },
+    "TRIM": {
+      "summary": "Rimuove gli spazi bianchi all'inizio e alla fine della stringa.",
+      "example": "TRIM(\" Hello \") => \"Hello\""
+    },
+    "LEN": {
+      "summary": "Estrae howMany caratteri dall'inizio della stringa.",
+      "example": "LEN(\"Hello\") => 5"
+    },
+    "T": {
+      "summary": "Restituisce l'argomento se è testo e vuoto altrimenti.",
+      "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "Sostituisce alcuni caratteri con equivalenti codificati per l'uso nella costruzione di URL o URI. Non codifica i seguenti caratteri: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
+    },
+    "IF": {
+      "summary": "Restituisce value1 se l'argomento logico è vero, altrimenti restituisce value2. Può anche essere utilizzato per creare dichiarazioni IF annidate.\nPuò anche essere utilizzato per verificare se una cella è vuota/è vuota.",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "Prende un'espressione, un elenco di valori possibili per quell'espressione e per ciascuno, un valore che l'espressione dovrebbe assumere in quel caso. Può anche prendere un valore predefinito se l'input dell'espressione non corrisponde a nessuno dei modelli definiti. In molti casi, SWITCH() può essere utilizzato al posto di una formula IF() annidata.",
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
+    },
+    "AND": {
+      "summary": "Restituisce vero se tutti gli argomenti sono veri, restituisce falso altrimenti.",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "Restituisce vero se uno qualsiasi degli argomenti è vero.",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "Restituisce vero se un numero dispari di argomenti è vero.",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "Inverte il valore logico del suo argomento.",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "Restituisce un valore vuoto.",
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "Restituisce il valore di errore.",
+      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+    },
+    "IS_ERROR": {
+      "summary": "Restituisce vero se l'espressione causa un errore.",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "Restituisce la data corrente.",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "Restituisce la data e l'ora correnti.",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "Restituisce l'anno a quattro cifre di una data.",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "Restituisce il mese di una data come numero compreso tra 1 (gennaio) e 12 (dicembre).",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "Restituisce il numero della settimana in un anno.",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "Restituisce il giorno della settimana come un intero compreso tra 0 e 6, inclusi. Puoi opzionalmente fornire un secondo argomento (\"Sunday\" o \"Monday\") per iniziare le settimane in quel giorno. Se omesso, le settimane iniziano di domenica per impostazione predefinita. Esempio:\nWEEKDAY(TODAY(), \"Monday\")",
+      "example": "WEEKNUM(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "Restituisce il giorno del mese di una data sotto forma di numero compreso tra 1-31.",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "Restituisce l'ora di una data come numero compreso tra 0 (12:00am) e 23 (11:00pm).",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "Restituisce il minuto di una data come un intero compreso tra 0 e 59.",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "Restituisce il secondo di una data come un intero compreso tra 0 e 59.",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "Calcola il numero di giorni tra la data corrente e un'altra data.",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "Calcola il numero di giorni tra la data corrente e un'altra data.",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "Restituisce la differenza tra le date in unità specificate. Le unità predefinite sono i secondi. (Vedi l'elenco dei specificatori di unità qui.)\nLa differenza tra le date è determinata sottraendo [date2] da [date1]. Ciò significa che se [date2] è successiva a [date1], il valore risultante sarà negativo.",
+      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+    },
+    "WORKDAY": {
+      "summary": "Restituisce il giorno lavorativo alla data di inizio, escludendo le festività specificate",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "Restituisce il numero di giorni lavorativi tra date1 e date2. I giorni lavorativi escludono i fine settimana e un elenco opzionale di festività, formattato come una stringa separata da virgole di date in formato ISO.",
+      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+    },
+    "IS_SAME": {
+      "summary": "Confronta due date fino a un'unità e determina se sono identiche. Restituisce vero se sì, falso se no.",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "Determina se date1 è successiva a date2. Restituisce vero se sì, falso se no.",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "Determina se date1 è precedente a date2. Restituisce vero se sì, falso se no.",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "Aggiunge \"count\" unità specificate a una data.",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "Formatta una data in una stringa (YYYY-MM-DD).",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "Formatta una data in una stringa solo ora (HH:mm:ss).",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "Formatta una data in una stringa specificata. Per una spiegazione su come utilizzare questa funzione con i campi data, fare clic qui. Per un elenco dei specificatori di formato supportati, fare clic qui.",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "Interpreta una stringa di testo come una data strutturata, con parametri di formato di input e locale opzionali. Il formato di output sarà sempre formattato \"M/D/YYYY h:mm a\".",
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "Restituisce l'ora di creazione del record corrente.",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "Restituisce la data e l'ora dell'ultima modifica effettuata da un utente in un campo non calcolato nella tabella.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "Restituisce il numero di tutti gli elementi inclusi testo e vuoti.",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "Restituisce il numero di valori non vuoti. Questa funzione conta sia i valori numerici che quelli di testo.",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "Restituisce il numero di elementi numerici.",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "Unisce l'array di elementi di rollup in una stringa con un separatore.",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "Restituisce solo gli elementi unici nell'array.",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "Appiattisce l'array rimuovendo qualsiasi nidificazione dell'array. Tutti gli elementi diventano elementi di un singolo array.",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "Rimuove le stringhe vuote e i valori nulli dall'array. Mantiene \"false\" e stringhe che contengono uno o più caratteri vuoti.",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "Restituisce tutti i valori di testo",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "Restituisce l'ID del record corrente.",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "Restituisce i numeri unici e incrementati per ogni record.",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "Compila variabili, caratteri operativi e funzioni per formare formule per i calcoli.",
+      "example": "Citazione della colonna: {Nome del campo}\n\nUtilizzo dell'operatore: 100 * 2 + 300\n\nUtilizzo della funzione: SUM({Campo numerico 1}, 100)\n\nUtilizzo dell'istruzione IF: \nIF(condizione logica, \"valore 1\", \"valore 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "Fields",
+    "numeric": "Numeric",
+    "text": "Text",
+    "logical": "Logical",
+    "date": "Date",
+    "array": "Array",
+    "system": "System"
+  },
+  "statisticFunc": {
+    "none": "None",
+    "count": "Count",
+    "empty": "Empty",
+    "filled": "Filled",
+    "unique": "Unique",
+    "max": "Max",
+    "min": "Min",
+    "sum": "Sum",
+    "average": "Average",
+    "checked": "Checked",
+    "unChecked": "Unchecked",
+    "percentEmpty": "Percent Empty",
+    "percentFilled": "Percent Filled",
+    "percentUnique": "Percent Unique",
+    "percentChecked": "Percent Checked",
+    "percentUnChecked": "Percent Unchecked",
+    "earliestDate": "Earliest Date",
+    "latestDate": "Latest Date",
+    "dateRangeOfDays": "Date Range (days)",
+    "dateRangeOfMonths": "Date Range (months)",
+    "totalAttachmentSize": "Total Attachment Size"
+  },
+  "baseQuery": {
+    "add": "Add",
+    "error": {
+      "invalidCol": "Invalid column, please reselect",
+      "invalidCols": "Invalid columns: {{colNames}}",
+      "invalidTable": "Invalid table, please reselect",
+      "requiredSelect": "You must select one"
+    },
+    "from": {
+      "title": "From",
+      "fromTable": "Select Table",
+      "fromQuery": "From Query"
+    },
+    "select": {
+      "title": "Select"
+    },
+    "where": {
+      "title": "Where"
+    },
+    "groupBy": {
+      "title": "Group By"
+    },
+    "orderBy": {
+      "title": "Order By",
+      "asc": "Ascending",
+      "desc": "Descending"
+    },
+    "limit": {
+      "title": "Limit"
+    },
+    "offset": {
+      "title": "Offset"
+    },
+    "join": {
+      "title": "Join",
+      "joinType": "Join Type",
+      "leftJoin": "Left Join",
+      "rightJoin": "Right Join",
+      "innerJoin": "Inner Join",
+      "fullJoin": "Full Join",
+      "data": "From"
+    },
+    "aggregation": {
+      "title": "Aggregation"
+    }
+  },
+  "comment": {
+    "title": "Comment",
+    "placeholder": "Leave a comment...",
+    "emptyComment": "Start a conversation",
+    "deletedComment": "Deleted Comment",
+    "imageSizeLimit": "Image size could not be greater than {{size}}",
+    "tip": {
+      "editing": "Editing...",
+      "edited": "(Edited)",
+      "onNotify": "Only be notified comment relative to you if you turn off",
+      "offNotify": "You will be notified by all active if you turn on",
+      "reactionUserSuffix": "reacted with {{emoji}} emoji",
+      "me": "You",
+      "connection": "and"
+    },
+    "toolbar": {
+      "link": "Link",
+      "image": "Image"
+    },
+    "floatToolbar": {
+      "editLink": "Edit Link",
+      "caption": "Caption",
+      "delete": "Delete",
+      "linkText": "Link Text",
+      "enterUrl": "Enter URL"
+    }
+  },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  }
+}

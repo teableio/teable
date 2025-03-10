@@ -1,47 +1,48 @@
 import { DragHandleDots2Icon } from '@radix-ui/react-icons';
 import { X } from '@teable/icons';
 import { PluginPosition } from '@teable/openapi';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Rnd } from 'react-rnd';
 import { PluginContent } from '@/features/app/components/plugin/PluginContent';
 import { useFloatPluginPosition } from './useFloatPluginPosition';
 
 export const FloatPlugin = (props: {
-  pluginId: string;
   name: string;
+  tableId: string;
+  pluginId: string;
   pluginUrl?: string;
+  pluginInstallId: string;
+  positionId: string;
   onClose?: () => void;
 }) => {
-  const { pluginId, pluginUrl, name, onClose } = props;
+  const { tableId, pluginInstallId, pluginId, pluginUrl, name, onClose, positionId } = props;
   const router = useRouter();
   const baseId = router.query.baseId as string;
-  const { position, updatePosition } = useFloatPluginPosition(pluginId);
+  const { position, updatePosition, frozenResize, frozenDrag } = useFloatPluginPosition(
+    tableId,
+    pluginInstallId
+  );
   const [isDragging, setIsDragging] = useState(false);
+  const [bodySize, setBodySize] = useState({
+    width: document.body.clientWidth,
+    height: document.body.clientHeight,
+  });
+  const preBody = useRef<{ width: number; height: number }>({
+    width: document.body.clientWidth,
+    height: document.body.clientHeight,
+  });
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(() => {
       const { width, height } = document.body.getBoundingClientRect();
-      const { x, y, width: w, height: h } = position;
-      const newWidth = w > width ? Math.max(120, width - 20) : w;
-      const newHeight = h > height ? Math.max(90, height - 20) : h;
-
-      let newX = x;
-      let newY = y;
-      if (x + w > width) {
-        newX = Math.max(0, width - w);
+      if (preBody.current.width === width && preBody.current.height === height) {
+        return;
       }
-      if (y + h > height) {
-        newY = Math.max(0, height - h);
-      }
-      updatePosition({
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
-      });
+      setBodySize({ width, height });
+      preBody.current = { width, height };
     });
 
     resizeObserver.observe(document.body);
@@ -51,21 +52,33 @@ export const FloatPlugin = (props: {
     };
   }, [position, updatePosition]);
 
+  const x =
+    position.x + position.width > bodySize.width
+      ? Math.max(0, bodySize.width - position.width)
+      : position.x;
+  const y =
+    position.y + position.height > bodySize.height
+      ? Math.max(0, bodySize.height - position.height)
+      : position.y;
+  const width = position.width > bodySize.width ? Math.max(120, bodySize.width) : position.width;
+  const height =
+    position.height > bodySize.height ? Math.max(90, bodySize.height) : position.height;
+
   return createPortal(
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <Rnd
-      className="fixed overflow-hidden rounded-sm border bg-background"
+      className="!max-h-full !max-w-full overflow-hidden rounded-sm border bg-background"
       style={{
         position: 'fixed',
-        zIndex: 100,
+        zIndex: 10000,
       }}
       position={{
-        x: position.x,
-        y: position.y,
+        x,
+        y,
       }}
       size={{
-        width: position.width,
-        height: position.height,
+        width,
+        height,
       }}
       dragHandleClassName="float-plugin-drag-handle"
       resizeHandleClasses={{
@@ -75,7 +88,7 @@ export const FloatPlugin = (props: {
       minHeight={90}
       minWidth={120}
       enableResizing={{
-        bottomRight: true,
+        bottomRight: !frozenResize,
       }}
       bounds={'parent'}
       onDrag={() => {
@@ -100,12 +113,16 @@ export const FloatPlugin = (props: {
         });
         setIsDragging(false);
       }}
+      disableDragging={frozenDrag}
+      disableResizing={frozenResize}
     >
       <div className="flex size-full flex-col">
         <div className="flex items-center justify-between gap-2 border-b px-1">
           <div className="flex items-center gap-2 overflow-hidden">
-            <DragHandleDots2Icon className="float-plugin-drag-handle inline-block size-4 shrink-0 cursor-move" />
-            <div className="truncate">{name}</div>
+            {!frozenDrag && (
+              <DragHandleDots2Icon className="float-plugin-drag-handle inline-block size-4 shrink-0 cursor-move" />
+            )}
+            <div className={cn('truncate', { 'ml-2': frozenDrag })}>{name}</div>
           </div>
           <Button variant="link" size="icon" onClick={onClose}>
             <X />
@@ -114,10 +131,12 @@ export const FloatPlugin = (props: {
         <PluginContent
           className="flex-1"
           baseId={baseId}
+          tableId={tableId}
           pluginId={pluginId}
-          positionId={baseId}
+          pluginInstallId={pluginInstallId}
+          positionId={positionId}
           pluginUrl={pluginUrl}
-          positionType={PluginPosition.Float}
+          positionType={PluginPosition.ContextMenu}
           dragging={isDragging}
         />
       </div>

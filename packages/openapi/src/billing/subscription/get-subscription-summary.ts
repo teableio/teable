@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { Axios, AxiosResponse } from 'axios';
-import { axios as axiosInstance } from '../../axios';
+import type { AxiosResponse } from 'axios';
+import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
 
@@ -62,20 +62,10 @@ export const GetSubscriptionSummaryRoute: RouteConfig = registerRoute({
 
 export async function getSubscriptionSummary(
   spaceId: string
-): Promise<AxiosResponse<ISubscriptionSummaryVo>>;
-export async function getSubscriptionSummary(
-  axios: Axios,
-  spaceId: string
-): Promise<AxiosResponse<ISubscriptionSummaryVo>>;
-export async function getSubscriptionSummary(
-  axios: Axios | string,
-  spaceId?: string
 ): Promise<AxiosResponse<ISubscriptionSummaryVo>> {
-  const theAxios = typeof axios === 'string' ? axiosInstance : axios;
-  const theSpaceId = typeof axios === 'string' ? axios : spaceId;
-  return theAxios.get<ISubscriptionSummaryVo>(
+  return axios.get<ISubscriptionSummaryVo>(
     urlBuilder(GET_SUBSCRIPTION_SUMMARY, {
-      spaceId: theSpaceId,
+      spaceId: spaceId,
     })
   );
 }

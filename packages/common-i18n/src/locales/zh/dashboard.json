@@ -10,6 +10,5 @@
     "title": "创建新仪表盘",
     "placeholder": "输入仪表盘名称"
   },
-  "findDashboard": "查找仪表盘...",
-  "expand": "展开"
+  "findDashboard": "查找仪表盘..."
 }

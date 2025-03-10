@@ -18,6 +18,7 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
+import { DuplicateTableQueryPostgres } from './duplicate-table/duplicate-query.postgres';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
@@ -378,6 +379,10 @@ export class PostgresProvider implements IDbProvider {
 
   searchIndex() {
     return new IndexBuilderPostgres();
+  }
+
+  duplicateTableQuery(queryBuilder: Knex.QueryBuilder) {
+    return new DuplicateTableQueryPostgres(queryBuilder);
   }
 
   shareFilterCollaboratorsQuery(

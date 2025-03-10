@@ -6,7 +6,7 @@ import { PinType } from './types';
 
 export const GET_PIN_LIST = '/pin/list';
 
-export const getPinListVoSchema = z.array(
+export const IGetPinListVoSchema = z.array(
   z.object({
     id: z.string(),
     type: z.nativeEnum(PinType),
@@ -14,7 +14,7 @@ export const getPinListVoSchema = z.array(
   })
 );
 
-export type GetPinListVo = z.infer<typeof getPinListVoSchema>;
+export type IGetPinListVo = z.infer<typeof IGetPinListVoSchema>;
 
 export const GetPinRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -25,7 +25,7 @@ export const GetPinRoute: RouteConfig = registerRoute({
       description: 'Get  pin list, include base pin',
       content: {
         'application/json': {
-          schema: getPinListVoSchema,
+          schema: IGetPinListVoSchema,
         },
       },
     },
@@ -34,5 +34,5 @@ export const GetPinRoute: RouteConfig = registerRoute({
 });
 
 export const getPinList = () => {
-  return axios.get<GetPinListVo>(GET_PIN_LIST);
+  return axios.get<IGetPinListVo>(GET_PIN_LIST);
 };

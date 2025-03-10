@@ -14,6 +14,18 @@ import z from 'zod';
 import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
 
+export const parseBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+
+  if (typeof value === 'string') {
+    const lowered = value.replaceAll("'", '').replaceAll('"', '').toLowerCase();
+    if (lowered === 'true') return true;
+    if (lowered === 'false') return false;
+  }
+
+  return Boolean(value);
+};
+
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine((value: unknown) => {
     if (typeof value === 'boolean') {
@@ -27,8 +39,12 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
     }
     return false;
   }),
-  [FieldType.Date]: z.coerce.date(),
-  [FieldType.Number]: z.coerce.number(),
+  [FieldType.Date]: z.any().refine((value) => {
+    return new Date(value).toString() !== 'Invalid Date';
+  }),
+  [FieldType.Number]: z.any().refine((value) => {
+    return !isNaN(Number(value));
+  }),
   [FieldType.LongText]: z
     .string()
     .refine((value) => z.string().safeParse(value) && /\n/.test(value)),

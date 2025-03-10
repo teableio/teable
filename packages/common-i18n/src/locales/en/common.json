@@ -42,7 +42,8 @@
     "tableIndex": "Index",
     "showAllRow": "Display all rows",
     "hideNotMatchRow": "Hide not match row",
-    "more": "More"
+    "more": "More",
+    "expand": "Expand"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -125,7 +126,11 @@
       "light": "Light",
       "system": "System",
       "version": "App version",
-      "language": "Language"
+      "language": "Language",
+      "interactionMode": "Interaction Mode",
+      "mouseMode": "Cursor Mode",
+      "touchMode": "Touch Mode",
+      "systemMode": "Follow System"
     },
     "nav": {
       "settings": "Settings",
@@ -161,7 +166,9 @@
     "global": "Global",
     "organizationPanel": "Organization Panel",
     "unknownError": "Unknown error",
-    "float": "Float"
+    "pluginPanel": "Panel",
+    "pluginContextMenu": "Context Menu",
+    "plugin": "Plugins"
   },
   "level": {
     "free": "Free",
@@ -306,7 +313,11 @@
         "selectModel": "Select model...",
         "input": "Input",
         "output": "Output",
-        "systemModelTips": "The input-to-output ratio represents the exchange rate between credits and tokens. For example, \"1:1000\" means 1 credit is roughly equal to 1000 tokens.<br></br>Note: Each use will deduct at least 1 credit. Even if the actual consumption is less than 1 credit, it will still be charged as 1 credit."
+        "systemModelTips": "The input-to-output ratio represents the exchange rate between credits and tokens. For example, \"1:1000\" means 1 credit is roughly equal to 1000 tokens.<br></br>Note: Each use will deduct at least 1 credit. Even if the actual consumption is less than 1 credit, it will still be charged as 1 credit.",
+        "supportVisionTip": "This model supports image input",
+        "supportAudioTip": "This model supports audio input",
+        "supportVideoTip": "This model supports video input",
+        "supportDeepThinkTip": "This model supports deep thinking"
       }
     }
   },

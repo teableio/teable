@@ -1,8 +1,8 @@
 import { FieldType } from '@teable/core';
 import type { IImportOption, IImportOptionRo, IImportSheetItem } from '@teable/openapi';
 import { Button, cn } from '@teable/ui-lib';
+import { useTranslation } from 'next-i18next';
 import { useState, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { ImportOptionPanel } from '../CollapsePanel';
 import { PreviewColumn } from './PreviewColumn';
 

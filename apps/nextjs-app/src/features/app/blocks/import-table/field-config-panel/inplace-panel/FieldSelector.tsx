@@ -13,8 +13,8 @@ import {
   cn,
 } from '@teable/ui-lib';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import { useTranslation } from 'next-i18next';
 import { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 
 interface IFieldSelector {
   options: {
