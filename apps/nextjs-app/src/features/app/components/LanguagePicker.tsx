@@ -44,7 +44,7 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
     window.location.reload();
   };
 
-  const currentLanguage = i18n.language;
+  const currentLanguage = i18n.language.split('-')[0];
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
