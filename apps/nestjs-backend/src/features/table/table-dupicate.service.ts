@@ -465,6 +465,8 @@ export class TableDuplicateService {
             'filter',
             'visibleFieldIds',
           ]),
+          // duplicate link field always be one-way, consider that advanced auth control etc.
+          isOneWay: true,
         },
       });
       await this.replenishmentConstraint(newField.id, targetTableId, {
