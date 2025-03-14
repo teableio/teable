@@ -187,16 +187,7 @@ export class CommentOpenApiService {
     if (!rawComment) {
       return null;
     }
-    const {
-      reaction: rawReaction,
-      content: rawContent,
-      createdBy,
-      createdTime,
-      lastModifiedTime,
-      deletedTime,
-      quoteId,
-      ...rest
-    } = rawComment;
+    const { reaction: rawReaction, content: rawContent, quoteId, ...rest } = rawComment;
     const content = (rawContent ? JSON.parse(rawContent) : null) as ICommentContent;
     const reaction = rawReaction ? (JSON.parse(rawReaction) as ICommentReaction) : [];
     const { imagePaths, mentionUserIds } = await this.collectionsContext(content);
@@ -417,7 +408,7 @@ export class CommentOpenApiService {
         throw new ForbiddenException('You have no permission to delete this comment');
       });
 
-    this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, { id: commentId });
+    this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteComment, { id: commentId });
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
   }
 
@@ -735,7 +726,7 @@ export class CommentOpenApiService {
   ) {
     const localPresence = this.createCommentPresence(tableId, recordId);
     const commentId = data.id as string;
-    let finalData: ICommentVo | null = null;
+    let finalData: ICommentVo | null | { id: string } = null;
 
     if (
       [
@@ -747,6 +738,14 @@ export class CommentOpenApiService {
     ) {
       finalData = await this.getCommentDetail(commentId);
     }
+
+    if (type === CommentPatchType.DeleteComment) {
+      finalData = {
+        ...finalData,
+        id: commentId,
+      };
+    }
+
     localPresence.submit(
       {
         type: type,
