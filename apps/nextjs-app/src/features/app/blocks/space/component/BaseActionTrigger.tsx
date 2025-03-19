@@ -1,4 +1,6 @@
-import { Copy, Pencil, Trash2 } from '@teable/icons';
+import { useMutation } from '@tanstack/react-query';
+import { Copy, Export, Pencil, Trash2 } from '@teable/icons';
+import { exportBase } from '@teable/openapi';
 import type { IGetBaseVo } from '@teable/openapi';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -36,6 +38,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const { t } = useTranslation('common');
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const baseStore = useDuplicateBaseStore();
+
+  const { mutateAsync: exportBaseFn } = useMutation({
+    mutationFn: (baseId: string) => exportBase(baseId),
+  });
+
   if (!showDelete && !showRename && !showDuplicate) {
     return null;
   }
@@ -68,6 +75,12 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
+          {
+            <DropdownMenuItem onClick={() => exportBaseFn(base.id)}>
+              <Export className="mr-2" />
+              {t('actions.export')}
+            </DropdownMenuItem>
+          }
           {showDelete && (
             <>
               <DropdownMenuSeparator />

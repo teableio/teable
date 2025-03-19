@@ -1,5 +1,5 @@
 import { NotificationStatesEnum } from '@teable/core';
-import { CheckSquare, MarkUnread, MoreHorizontal } from '@teable/icons';
+import { CheckSquare, MarkUnread } from '@teable/icons';
 import {
   Button,
   HoverCard,
@@ -15,17 +15,25 @@ import React from 'react';
 
 interface ActionBarProps {
   notifyStatus: NotificationStatesEnum;
-  onStatusCheck?: () => void;
+  onStatusCheck?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   children: React.ReactNode;
+  commonHandler: () => Promise<void>;
 }
 
 export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
-  const { notifyStatus, children, onStatusCheck } = props;
+  const { notifyStatus, children, onStatusCheck, commonHandler } = props;
   const { t } = useTranslation('common');
 
   return (
     <HoverCard openDelay={100} closeDelay={0}>
-      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+      <HoverCardTrigger
+        onClick={async () => {
+          console.log('ggggggg');
+          await commonHandler();
+        }}
+      >
+        {children}
+      </HoverCardTrigger>
       <HoverCardContent
         className="size-auto p-0"
         sideOffset={-35}
@@ -38,7 +46,11 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
             <TooltipProvider>
               <Tooltip delayDuration={20}>
                 <TooltipTrigger asChild>
-                  <Button className="size-full p-0" variant="ghost" onClick={onStatusCheck}>
+                  <Button
+                    className="size-full p-0"
+                    variant="ghost"
+                    onClick={(e) => onStatusCheck?.(e)}
+                  >
                     {notifyStatus === NotificationStatesEnum.Unread ? (
                       <CheckSquare className="text-sm" />
                     ) : (
@@ -57,7 +69,7 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="inline-flex size-6 cursor-pointer items-center justify-center rounded hover:bg-secondary">
+          {/* <div className="inline-flex size-6 cursor-pointer items-center justify-center rounded hover:bg-secondary">
             <TooltipProvider>
               <Tooltip delayDuration={20}>
                 <TooltipTrigger asChild>
@@ -70,7 +82,7 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </div>
+          </div> */}
         </div>
       </HoverCardContent>
     </HoverCard>

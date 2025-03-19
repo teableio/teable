@@ -29,6 +29,7 @@
     "yesDelete": "是，删除",
     "rename": "重命名",
     "duplicate": "复制",
+    "export": "导出",
     "change": "变更",
     "upgrade": "升级",
     "search": "搜索",
@@ -338,7 +339,10 @@
     "noUnread": "没有{{status}}通知",
     "changeSetting": "更改页面通知设置",
     "new": "新消息{{count}}条",
-    "showMore": "显示更多"
+    "showMore": "显示更多",
+    "exportBase": {
+      "successText": "导出成功, 请点击下载"
+    }
   },
   "role": {
     "title": {

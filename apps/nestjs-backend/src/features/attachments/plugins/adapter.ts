@@ -12,6 +12,7 @@ export default abstract class StorageAdapter {
     switch (type) {
       case UploadType.Table:
       case UploadType.Import:
+      case UploadType.ExportBase:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
       case UploadType.OAuth:
@@ -44,6 +45,8 @@ export default abstract class StorageAdapter {
         return 'comment';
       case UploadType.Logo:
         return 'logo';
+      case UploadType.ExportBase:
+        return 'export-base';
       default:
         throw new BadRequestException('Invalid upload type');
     }
@@ -131,4 +134,6 @@ export default abstract class StorageAdapter {
     height?: number,
     newPath?: string
   ): Promise<string>;
+
+  abstract downloadFile(bucket: string, path: string): Promise<ReadableStream>;
 }

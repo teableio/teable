@@ -57,6 +57,7 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
         showRename={menuPermission.spaceUpdate}
         showDelete={menuPermission.spaceDelete}
         showSpaceSetting={menuPermission.spaceUpdate}
+        showImportBase={menuPermission.spaceUpdate}
         onDelete={() => deleteSpaceMutator(space.id)}
         onRename={onRename}
         onSpaceSetting={onSpaceSetting}

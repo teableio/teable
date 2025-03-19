@@ -21,3 +21,24 @@ export function replaceJsonStringFieldIds(
     return newFieldId ? `"${newFieldId}"` : match;
   });
 }
+
+export function replaceStringByMap(
+  config: unknown,
+  maps: Record<string, Record<string, string>>
+): string | undefined {
+  if (!config) {
+    return;
+  }
+
+  let newConfigStr = JSON.stringify(config);
+
+  for (const [, value] of Object.entries(maps)) {
+    if (value) {
+      Object.entries(value).forEach(([mapKey, mapValue]) => {
+        newConfigStr = newConfigStr.replaceAll(mapKey, mapValue);
+      });
+    }
+  }
+
+  return newConfigStr;
+}

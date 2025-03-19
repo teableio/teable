@@ -14,6 +14,7 @@ import type {
   IImportOptionRo,
   IInplaceImportOptionRo,
   IImportColumn,
+  ITableFullVo,
 } from '@teable/openapi';
 import { difference, toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -94,15 +95,22 @@ export class ImportOpenApiService {
         return result;
       });
 
-      // create table with column
-      const table = await this.tableOpenApiService.createTable(baseId, {
-        name: name,
-        fields: fieldsRo,
-        views: DEFAULT_VIEWS,
-        records: [],
-      });
+      let table: ITableFullVo;
 
-      tableResult.push(table);
+      try {
+        // create table with column
+        table = await this.tableOpenApiService.createTable(baseId, {
+          name: name,
+          fields: fieldsRo,
+          views: DEFAULT_VIEWS,
+          records: [],
+        });
+
+        tableResult.push(table);
+      } catch (e) {
+        this.logger.error(e);
+        throw e;
+      }
 
       const { fields } = table;
 

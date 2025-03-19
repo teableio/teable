@@ -165,7 +165,7 @@ export class BaseService {
 
   async createBase(createBaseRo: ICreateBaseRo) {
     const userId = this.cls.get('user.id');
-    const { name, spaceId } = createBaseRo;
+    const { name, spaceId, icon } = createBaseRo;
 
     return this.prismaService.$transaction(async (prisma) => {
       const order = (await this.getMaxOrder(spaceId)) + 1;
@@ -176,6 +176,7 @@ export class BaseService {
           name: name || 'Untitled Base',
           spaceId,
           order,
+          icon,
           createdBy: userId,
         },
         select: {

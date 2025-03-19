@@ -54,6 +54,7 @@ export const NotificationsManage: React.FC = () => {
       ),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: isOpen,
+    staleTime: 0,
   });
 
   const { mutateAsync: markAllAsReadMutator } = useMutation({
@@ -116,7 +117,7 @@ export const NotificationsManage: React.FC = () => {
       <PopoverContent side="left" align="end" className="min-w-[500px] p-0">
         <div className="w-full">
           <NotificationList
-            className="relative mb-2 mt-3 max-h-[78vh] overflow-auto"
+            className="relative max-h-[78vh] overflow-auto"
             notifyStatus={notifyStatus}
             data={notifyPage?.pages}
             hasNextPage={hasNextPage}
@@ -124,7 +125,7 @@ export const NotificationsManage: React.FC = () => {
             onShowMoreClick={() => fetchNextPage()}
           />
           {notifyStatus === NotificationStatesEnum.Unread ? (
-            <div className="mb-2 mt-4 flex justify-end">
+            <div className="my-1.5 flex justify-end">
               <Button
                 variant="ghost"
                 size="xs"

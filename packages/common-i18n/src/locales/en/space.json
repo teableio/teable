@@ -30,7 +30,8 @@
     "generalDescription": "Change the settings for your current space here",
     "collaboratorDescription": "Manage collaborators of your space and set their access permission",
     "spaceName": "Space Name",
-    "spaceId": "Space ID"
+    "spaceId": "Space ID",
+    "importBase": "Import"
   },
   "pin": {
     "add": "Add to pin",
@@ -51,5 +52,10 @@
     "description": "Manage integrations of your space",
     "addIntegration": "Add integration",
     "ai": "AI"
+  },
+  "import": {
+    "importing": "Importing",
+    "importWayTip": "Click or drag and drop the file to upload in this area",
+    "confirm": "Confirm and continue"
   }
 }

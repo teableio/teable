@@ -1,0 +1,717 @@
+import { Readable, PassThrough } from 'stream';
+import { Injectable, Logger } from '@nestjs/common';
+import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
+import { FieldType, getRandomString, ViewType } from '@teable/core';
+import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { PluginPosition, UploadType, type IBaseJson } from '@teable/openapi';
+import archiver from 'archiver';
+import { stringify } from 'csv-stringify/sync';
+import { Knex } from 'knex';
+import { omit, pick } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../types/cls';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { createFieldInstanceByRaw } from '../field/model/factory';
+import { NotificationService } from '../notification/notification.service';
+import { createViewVoByRaw } from '../view/model/factory';
+import { EXCLUDE_SYSTEM_FIELDS } from './constant';
+
+@Injectable()
+export class BaseExportService {
+  public static CSV_CHUNK = 500;
+  private logger = new Logger(BaseExportService.name);
+
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly notificationService: NotificationService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
+  ) {}
+
+  private generateExportFolderId() {
+    return `${getRandomString(12)}`;
+  }
+
+  async exportBaseZip(baseId: string) {
+    this.processExportBaseZip(baseId)
+      .then(async (result) => {
+        const { path, token, name } = result;
+        const previewUrl = await this.storageAdapter.getPreviewUrl(
+          StorageAdapter.getBucket(UploadType.ExportBase),
+          path,
+          60 * 60 * 24 * 7,
+          {
+            // eslint-disable-next-line
+            'Content-Disposition': `attachment; filename="${encodeURIComponent(name)}"`,
+          }
+        );
+        const message = {
+          path: path,
+          token: token,
+          name,
+          previewUrl,
+        };
+
+        const messageString = JSON.stringify(message);
+        this.notifyExportResult(baseId, messageString);
+      })
+      .catch((e) => {
+        console.log('error', e);
+      });
+  }
+
+  private async processExportBaseZip(baseId: string) {
+    const prisma = this.prismaService.txClient();
+    // 0. get base info
+    const baseRaw = await prisma.base.findUniqueOrThrow({
+      where: {
+        id: baseId,
+        deletedTime: null,
+      },
+    });
+
+    // 1. get table info
+    const tableRaws = await prisma.tableMeta.findMany({
+      where: {
+        baseId,
+        deletedTime: null,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    const tableIds = tableRaws.map(({ id }) => id);
+
+    const fieldRaws = await prisma.field.findMany({
+      where: {
+        tableId: {
+          in: tableIds,
+        },
+        deletedTime: null,
+      },
+    });
+
+    const viewRaws = await prisma.view.findMany({
+      where: {
+        tableId: {
+          in: tableIds,
+        },
+        type: {
+          not: ViewType.Plugin,
+        },
+        deletedTime: null,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    const passThrough = new PassThrough();
+
+    const archive = archiver('zip', {
+      zlib: { level: 9 },
+    });
+
+    archive.on('warning', function (err) {
+      if (err.code === 'ENOENT') {
+        // log warning
+      } else {
+        // throw error
+        throw err;
+      }
+    });
+
+    archive.on('error', function (err) {
+      passThrough.emit('error', err);
+      throw err;
+    });
+
+    archive.pipe(passThrough);
+
+    // 3. generate template json
+    const { baseStructure: jsonObject, convertFields } = await this.generateBaseStructJson(
+      baseRaw,
+      tableRaws,
+      fieldRaws,
+      viewRaws
+    );
+    const jsonString = JSON.stringify(jsonObject, null, 2);
+    const jsonStream = Readable.from(jsonString);
+
+    // 4. export structure json
+    archive.append(jsonStream, { name: 'structure.json' });
+
+    const token = this.generateExportFolderId();
+    const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
+    const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
+
+    // 5. export attachments
+    await this.appendAttachments('attachments', tableRaws, archive);
+
+    // 6. export table data csv
+    const convertFieldIds = Object.values(convertFields)
+      .map((field) => field)
+      .flat()
+      .map(({ id }) => id);
+
+    const convertFieldRaws = await prisma.field.findMany({
+      where: {
+        id: {
+          in: convertFieldIds,
+        },
+        deletedTime: null,
+      },
+    });
+
+    for (const tableRaw of tableRaws) {
+      const convertFieldsRaw = convertFieldRaws.filter(({ tableId }) => tableId === tableRaw.id);
+      await this.appendTableDataCsv('tables', tableRaw, convertFieldsRaw, archive);
+    }
+
+    archive.finalize();
+
+    const uploadResult = await this.storageAdapter.uploadFile(
+      bucket,
+      `${pathDir}/${token}.zip`,
+      passThrough
+    );
+
+    return {
+      path: uploadResult.path,
+      token,
+      name: `${baseRaw.name}.zip`,
+    };
+  }
+
+  protected async generateBaseStructJson(
+    baseRaw: Base,
+    tableRaws: TableMeta[],
+    fieldRaws: Field[],
+    viewRaws: View[]
+  ): Promise<{
+    baseStructure: IBaseJson;
+    convertFields: Record<string, IBaseJson['tables'][number]['fields']>;
+  }> {
+    const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
+    const tables = [] as IBaseJson['tables'];
+    const convertFields = {} as Record<string, IBaseJson['tables'][number]['fields']>;
+
+    for (const table of tableRaws) {
+      const { name, description, order, id, icon } = table;
+      const tableObject = {
+        id,
+        name,
+        order,
+        description,
+        icon,
+      } as IBaseJson['tables'][number];
+      const { fields, convertFields: convertFieldsTable } = this.generateFieldStructJson(
+        fieldRaws.filter(({ tableId }) => tableId === id)
+      );
+      convertFields[id] = convertFieldsTable;
+      tableObject.fields = fields;
+      tableObject.views = this.generateViewStructJson(
+        viewRaws.filter(({ tableId }) => tableId === id)
+      );
+      tables.push(tableObject);
+    }
+
+    const plugins = await this.generatePluginJson(baseId);
+
+    return {
+      baseStructure: {
+        name: baseName,
+        icon: baseIcon,
+        tables,
+        plugins,
+      },
+      convertFields,
+    };
+  }
+
+  private async appendAttachments(
+    filePath: string,
+    tableRaws: TableMeta[],
+    archive: archiver.Archiver
+  ) {
+    const tableIds = tableRaws.map(({ id }) => id);
+    const prisma = this.prismaService.txClient();
+    const attachmentTokenRaws = await prisma.attachmentsTable.findMany({
+      where: {
+        tableId: {
+          in: tableIds,
+        },
+      },
+      select: {
+        token: true,
+        name: true,
+      },
+    });
+    const attachments = (
+      await prisma.attachments.findMany({
+        where: {
+          token: {
+            in: attachmentTokenRaws.map(({ token }) => token),
+          },
+        },
+        select: {
+          token: true,
+          path: true,
+          mimetype: true,
+        },
+      })
+    ).map((att) => ({
+      ...att,
+      name: attachmentTokenRaws.find(({ token }) => token === att.token)?.name,
+    }));
+    for (const { token, path, name } of attachments) {
+      const stream = await this.storageAdapter.downloadFile(
+        StorageAdapter.getBucket(UploadType.Table),
+        path
+      );
+
+      archive.append(stream, { name: `${filePath}/${token}.${name?.split('.').pop()}` });
+    }
+  }
+
+  private async appendTableDataCsv(
+    filePath: string,
+    tableRaw: TableMeta,
+    convertFields: Field[],
+    archive: archiver.Archiver
+  ) {
+    const { dbTableName, id } = tableRaw;
+    const csvStream = new PassThrough();
+    const prisma = this.prismaService.txClient();
+    const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
+    const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+
+    // 1. set csv header
+    const convertLinkFields = convertFields.filter(({ type }) => type === FieldType.Link);
+    const fkNames = convertLinkFields
+      .filter(({ type }) => type === FieldType.Link)
+      .map(({ id }) => `__fk_${id}`);
+    const columnHeader = columnInfo
+      .map(({ name }) => name)
+      // exclude system fields
+      .filter((name) => !EXCLUDE_SYSTEM_FIELDS.includes(name))
+      // exclude fk fields which are cross base link fields
+      .filter((name) => !fkNames.includes(name));
+    // write the column header
+    const headerRow = columnHeader.join(',');
+    csvStream.write(`${headerRow}\n`);
+
+    let offset = 0;
+    let hasMoreData = true;
+    archive.append(csvStream, { name: `${filePath}/${id}.csv` });
+
+    csvStream.on('error', (err) => {
+      this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
+      throw err;
+    });
+
+    csvStream.on('end', () => {
+      console.log('CSV Stream ended');
+    });
+
+    csvStream.on('finish', () => {
+      console.log('CSV Stream finished');
+    });
+
+    archive.on('error', (err) => {
+      this.logger.error(`CSV Stream archive error: ${err.message}`, err.stack);
+      throw err;
+    });
+
+    // 2. write csv content
+    while (hasMoreData) {
+      const csvChunk = await this.getCsvChunk(dbTableName, offset, convertFields);
+      if (csvChunk.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+      const csvString = stringify(csvChunk, {
+        columns: columnHeader,
+      });
+      csvStream.write(csvString);
+      offset += BaseExportService.CSV_CHUNK;
+    }
+    csvStream.end();
+  }
+
+  private async getCsvChunk(dbTableName: string, offset: number, convertFields: Field[]) {
+    const rawRecords = await this.getChunkRecords(dbTableName, offset);
+    // 1. clear unless system fields
+    const records = rawRecords.map((record) => omit(record, EXCLUDE_SYSTEM_FIELDS));
+    // 2. convert to csv value
+    return records.map((record) => this.transformConvertFieldsCellValue(record, convertFields));
+  }
+
+  private async getChunkRecords(dbTableName: string, offset: number) {
+    const prisma = this.prismaService.txClient();
+    const recordsQuery = await this.knex(dbTableName)
+      .select('*')
+      .limit(BaseExportService.CSV_CHUNK)
+      .offset(offset)
+      .orderBy('__auto_number', 'asc')
+      .toQuery();
+    return await prisma.$queryRawUnsafe<Record<string, unknown>[]>(recordsQuery);
+  }
+
+  /**
+   * @description convert the cell value to the csv value
+   * @param value - the cell value
+   * @param dbFieldName - the db field name
+   * @param convertFields - the fields which cross base link fields and relative fields (formula or lookup) need to be convert to single line text
+   * @returns the csv value
+   */
+  private transformConvertFieldsCellValue(value: Record<string, unknown>, convertFields: Field[]) {
+    if (!value) {
+      return value;
+    }
+
+    const newRecord = {} as Record<string, unknown>;
+
+    const convertDbFieldNames = convertFields.map(({ dbFieldName }) => dbFieldName);
+
+    Object.entries(value).forEach(([key, value]) => {
+      let newValue = value;
+      const fieldRaw = convertFields.find(({ dbFieldName }) => dbFieldName === key);
+      if (convertDbFieldNames.includes(key) && value && fieldRaw) {
+        const fieldIns = createFieldInstanceByRaw(fieldRaw);
+        newValue = fieldIns.cellValue2String(newValue);
+      }
+
+      newRecord[key] = newValue;
+    });
+
+    return newRecord;
+
+    // if (convertFields.map(({ dbFieldName }) => dbFieldName).includes(dbFieldName)) {
+    //   if (Array.isArray(value)) {
+    //     const values = value.map((v) => v?.title || v);
+    //     return values.join(',');
+    //   } else {
+    //     return value?.title || value;
+    //   }
+    // }
+    // if (typeof value === 'object') {
+    //   const jsonString = JSON.stringify(value);
+    //   return `"${jsonString.replace(/"/g, '""')}"`;
+    // } else {
+    //   return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+    // }
+  }
+
+  // cross base link field and relative fields should convert to text as well
+  private generateFieldStructJson(fieldRaws: Field[]): {
+    fields: IBaseJson['tables'][number]['fields'];
+    convertFields: IBaseJson['tables'][number]['fields'];
+  } {
+    const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    const crossBaseLinkFields = fields
+      .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+      .filter(({ options }) => Boolean((options as ILinkFieldOptions)?.baseId))
+      .map((field) => ({
+        ...pick(field, [
+          'id',
+          'name',
+          'description',
+          'dbFieldName',
+          'notNull',
+          'unique',
+          'isPrimary',
+          'hasError',
+          'tableId',
+          'order',
+        ]),
+        // convert to text
+        type: FieldType.SingleLineText,
+      }));
+
+    // fields which rely on the cross base link fields
+    const relativeFields = fields
+      .filter(({ type, isLookup }) => isLookup || type === FieldType.Rollup)
+      .filter(({ lookupOptions }) =>
+        crossBaseLinkFields
+          .map(({ id }) => id)
+          .includes((lookupOptions as ILookupOptionsVo)?.linkFieldId)
+      )
+      .map((field) => ({
+        ...pick(field, [
+          'id',
+          'name',
+          'description',
+          'dbFieldName',
+          'notNull',
+          'unique',
+          'isPrimary',
+          'hasError',
+          'tableId',
+          'order',
+        ]),
+        // convert to text
+        type: FieldType.SingleLineText,
+      }));
+
+    const otherFields = fields
+      .filter(
+        ({ id }) => ![...crossBaseLinkFields, ...relativeFields].map(({ id }) => id).includes(id)
+      )
+      .map((field) =>
+        pick(field, [
+          'id',
+          'name',
+          'description',
+          'options',
+          'type',
+          'dbFieldName',
+          'notNull',
+          'unique',
+          'isPrimary',
+          'hasError',
+          'tableId',
+          'order',
+          'lookupOptions',
+        ])
+      );
+
+    return {
+      fields: [
+        ...otherFields,
+        ...crossBaseLinkFields,
+        ...relativeFields,
+      ] as IBaseJson['tables'][number]['fields'],
+      convertFields: [
+        ...crossBaseLinkFields,
+        ...relativeFields,
+      ] as IBaseJson['tables'][number]['fields'],
+    };
+  }
+
+  private generateViewStructJson(viewRaws: View[]): IBaseJson['tables'][number]['views'] {
+    return viewRaws
+      .filter(({ type }) => type !== ViewType.Plugin)
+      .map((viewRaw) => createViewVoByRaw(viewRaw))
+      .map((view) =>
+        pick(view, [
+          'id',
+          'name',
+          'description',
+          'type',
+          'sort',
+          'filter',
+          'group',
+          'options',
+          'order',
+          'columnMeta',
+          'enableShare',
+          'shareMeta',
+          'isLocked',
+          'tableId',
+        ])
+      ) as IBaseJson['tables'][number]['views'];
+  }
+
+  private async generatePluginJson(baseId: string) {
+    const pluginJson = {} as IBaseJson['plugins'];
+
+    pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(baseId);
+
+    pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(baseId);
+
+    pluginJson[PluginPosition.View] = await this.generatePluginView(baseId);
+
+    return pluginJson;
+  }
+
+  private async generatePluginView(baseId: string) {
+    const tableIds = await this.prismaService.txClient().tableMeta.findMany({
+      where: {
+        baseId,
+        deletedTime: null,
+      },
+    });
+
+    const prisma = this.prismaService.txClient();
+
+    const viewPluginRaws = await prisma.view.findMany({
+      where: {
+        tableId: {
+          in: tableIds.map(({ id }) => id),
+        },
+        type: ViewType.Plugin,
+        deletedTime: null,
+      },
+      orderBy: {
+        createdTime: 'asc',
+      },
+    });
+
+    const viewPluginInstallRaws = await prisma.pluginInstall.findMany({
+      where: {
+        positionId: {
+          in: viewPluginRaws.map(({ id }) => id),
+        },
+      },
+    });
+
+    return viewPluginRaws.map((viewRaw) => {
+      const pluginInstall = viewPluginInstallRaws.find(
+        ({ positionId }) => positionId === viewRaw.id
+      )!;
+
+      return {
+        ...pick(viewRaw, ['id', 'name', 'description', 'type', 'isLocked', 'tableId', 'order']),
+        columnMeta: viewRaw.columnMeta ? JSON.parse(viewRaw.columnMeta) : null,
+        options: viewRaw.options ? JSON.parse(viewRaw.options) : null,
+        filter: viewRaw.filter ? JSON.parse(viewRaw.filter) : null,
+        group: viewRaw.group ? JSON.parse(viewRaw.group) : null,
+        shareMeta: viewRaw.shareMeta ? JSON.parse(viewRaw.shareMeta) : null,
+        pluginInstall: {
+          ...pick(pluginInstall, ['id', 'pluginId', 'baseId', 'name', 'positionId', 'position']),
+          storage: pluginInstall.storage ? JSON.parse(pluginInstall.storage) : null,
+        },
+      };
+    }) as unknown as IBaseJson['plugins'][PluginPosition.View];
+  }
+
+  private async generatePluginPanel(baseId: string) {
+    const prisma = this.prismaService.txClient();
+    const tableIds = await prisma.tableMeta.findMany({
+      where: {
+        baseId,
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const pluginPanelRaws = await prisma.pluginPanel.findMany({
+      where: {
+        tableId: {
+          in: tableIds.map(({ id }) => id),
+        },
+      },
+      orderBy: {
+        createdTime: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+        layout: true,
+        tableId: true,
+      },
+    });
+
+    const panelInstallPluginRaws = await prisma.pluginInstall.findMany({
+      where: {
+        positionId: {
+          in: pluginPanelRaws.map(({ id }) => id),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        pluginId: true,
+        positionId: true,
+        position: true,
+        storage: true,
+      },
+    });
+
+    return pluginPanelRaws.map(({ id, name, layout, tableId }) => {
+      const panelConfig = {
+        id,
+        name,
+        layout: layout ? JSON.parse(layout) : null,
+        tableId,
+      } as unknown as IBaseJson['plugins'][PluginPosition.Panel][number];
+
+      panelConfig.pluginInstall = panelInstallPluginRaws
+        .filter(({ positionId }) => positionId === id)
+        .map(({ id, pluginId, positionId, position, name, storage }) => ({
+          id,
+          pluginId,
+          positionId,
+          position,
+          name,
+          storage: storage ? JSON.parse(storage) : null,
+        })) as unknown as IBaseJson['plugins'][PluginPosition.Panel][number]['pluginInstall'];
+
+      return panelConfig;
+    });
+  }
+
+  private async generateDashboard(baseId: string) {
+    const prisma = this.prismaService.txClient();
+    const dashboardRaws = await prisma.dashboard.findMany({
+      where: {
+        baseId,
+      },
+      orderBy: {
+        createdTime: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+        layout: true,
+      },
+    });
+
+    const dashboardInstallPluginRaws = await prisma.pluginInstall.findMany({
+      where: {
+        positionId: {
+          in: dashboardRaws.map(({ id }) => id),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        pluginId: true,
+        positionId: true,
+        position: true,
+        storage: true,
+      },
+    });
+
+    return dashboardRaws.map(({ id, name, layout }) => {
+      const dashboardConfig = {
+        id,
+        name,
+        layout: layout ? JSON.parse(layout) : null,
+      } as unknown as IBaseJson['plugins'][PluginPosition.Dashboard][number];
+
+      dashboardConfig.pluginInstall = dashboardInstallPluginRaws
+        .filter(({ positionId }) => positionId === id)
+        .map(({ id, pluginId, positionId, position, name, storage }) => ({
+          id,
+          pluginId,
+          positionId,
+          position,
+          name,
+          storage: storage ? JSON.parse(storage) : null,
+        })) as unknown as IBaseJson['plugins'][PluginPosition.Dashboard][number]['pluginInstall'];
+
+      return dashboardConfig;
+    });
+  }
+
+  private async notifyExportResult(baseId: string, message: string) {
+    const userId = this.cls.get('user.id');
+    await this.notificationService.sendExportBaseResultNotify({
+      baseId: baseId,
+      toUserId: userId,
+      message: message,
+    });
+  }
+}

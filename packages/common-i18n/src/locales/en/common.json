@@ -29,6 +29,7 @@
     "yesDelete": "Yes, delete",
     "rename": "Rename",
     "duplicate": "Duplicate",
+    "export": "Export",
     "change": "Change",
     "upgrade": "Upgrade",
     "search": "Search",
@@ -339,7 +340,10 @@
     "noUnread": "No {{status}} notifications",
     "changeSetting": "Change page notification settings",
     "new": "new {{count}}",
-    "showMore": "Show more"
+    "showMore": "Show more",
+    "exportBase": {
+      "successText": "Export successfully"
+    }
   },
   "role": {
     "title": {

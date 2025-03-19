@@ -1,0 +1,1176 @@
+import type { Readable } from 'stream';
+import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { IFormulaFieldOptions, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
+import {
+  FieldType,
+  generateDashboardId,
+  generatePluginInstallId,
+  generatePluginPanelId,
+  Role,
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType, PluginPosition, PrincipalType, ResourceType } from '@teable/openapi';
+import type {
+  ICreateBaseVo,
+  IBaseJson,
+  ImportBaseRo,
+  IFieldJson,
+  IFieldWithTableIdJson,
+} from '@teable/openapi';
+
+import { Knex } from 'knex';
+import { get, pick } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import streamJson from 'stream-json';
+import streamValues from 'stream-json/streamers/StreamValues';
+import * as unzipper from 'unzipper';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../types/cls';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import { NotificationService } from '../notification/notification.service';
+import { TableService } from '../table/table.service';
+import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
+import { BaseImportAttachmentsQueueProcessor } from './base-import-attachments.processor';
+import { BaseImportCsvQueueProcessor } from './base-import-csv.processor';
+import { BaseService } from './base.service';
+import { replaceStringByMap } from './utils';
+
+@Injectable()
+export class BaseImportService {
+  private logger = new Logger(BaseImportService.name);
+
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly notificationService: NotificationService,
+    private readonly baseService: BaseService,
+    private readonly tableService: TableService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly baseImportAttachmentsQueueProcessor: BaseImportAttachmentsQueueProcessor,
+    private readonly baseImportCsvQueueProcessor: BaseImportCsvQueueProcessor,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
+  ) {}
+
+  async importBase(importBaseRo: ImportBaseRo) {
+    // 1. create base structure from json
+    // 2. upload attachments
+    // 3. create import table data task
+    const structureStream = await this.storageAdapter.downloadFile(
+      StorageAdapter.getBucket(UploadType.Import),
+      importBaseRo.notify.path
+    );
+
+    const { base, tableIdMap, viewIdMap, fieldIdMap, structure } = await this.processStructure(
+      structureStream,
+      importBaseRo
+    );
+
+    this.uploadAttachments(importBaseRo.notify.path);
+
+    this.appendTableData(importBaseRo.notify.path, tableIdMap, fieldIdMap, viewIdMap, structure);
+
+    return base;
+  }
+
+  private async processStructure(
+    zipStream: Readable,
+    importBaseRo: ImportBaseRo
+  ): Promise<{
+    base: ICreateBaseVo;
+    tableIdMap: Record<string, string>;
+    fieldIdMap: Record<string, string>;
+    viewIdMap: Record<string, string>;
+    structure: IBaseJson;
+  }> {
+    const { spaceId } = importBaseRo;
+    const parser = unzipper.Parse();
+    zipStream.pipe(parser);
+    return new Promise((resolve, reject) => {
+      parser.on('entry', (entry) => {
+        const filePath = entry.path;
+        if (filePath === 'structure.json') {
+          const parser = streamJson.parser();
+          const pipeline = entry.pipe(parser).pipe(streamValues.streamValues());
+
+          let structureObject: IBaseJson | null = null;
+          pipeline
+            .on('data', (data: { key: number; value: IBaseJson }) => {
+              structureObject = data.value;
+            })
+            .on('end', async () => {
+              if (structureObject) {
+                const result = await this.createBaseStructure(spaceId, structureObject);
+                resolve(result);
+              } else {
+                throw new Error('structure.json error');
+              }
+            })
+            .on('error', (err: Error) => {
+              parser.destroy(new Error(`resolve structure.json error: ${err.message}`));
+              reject(Error);
+            });
+        } else {
+          entry.autodrain();
+        }
+      });
+    });
+  }
+
+  private async uploadAttachments(path: string) {
+    const userId = this.cls.get('user.id');
+    this.baseImportAttachmentsQueueProcessor.queue.add('import_base_attachments', {
+      path,
+      userId,
+    });
+  }
+
+  private async appendTableData(
+    path: string,
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>,
+    structure: IBaseJson
+  ) {
+    const userId = this.cls.get('user.id');
+    this.baseImportCsvQueueProcessor.queue.add('base_import_csv', {
+      path,
+      userId,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      structure,
+    });
+  }
+
+  protected async createBaseStructure(spaceId: string, structure: IBaseJson) {
+    const { name, icon, tables, plugins } = structure;
+
+    // create base
+    const newBase = await this.baseService.createBase({
+      spaceId,
+      name,
+      icon: icon || undefined,
+    });
+
+    // create table
+    const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
+
+    // create plugins
+    await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
+
+    return {
+      base: newBase,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      structure,
+    };
+  }
+
+  private async createTables(baseId: string, tables: IBaseJson['tables']) {
+    const tableIdMap: Record<string, string> = {};
+
+    for (const table of tables) {
+      const { name, icon, description, id: tableId } = table;
+      const newTableVo = await this.tableService.createTable(baseId, {
+        name,
+        icon,
+        description,
+      });
+      tableIdMap[tableId] = newTableVo.id;
+    }
+
+    const fieldIdMap = await this.createFields(tables, tableIdMap);
+
+    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap);
+
+    // todo
+    // await this.repairCreateRelative()
+
+    return { tableIdMap, fieldIdMap, viewIdMap };
+  }
+
+  private async createFields(tables: IBaseJson['tables'], tableIdMap: Record<string, string>) {
+    const fieldMap: Record<string, string> = {};
+
+    const allFields = tables.reduce((acc, cur) => {
+      const fieldWithTableId = cur.fields.map((field) => ({
+        ...field,
+        sourceTableId: cur.id,
+        targetTableId: tableIdMap[cur.id],
+      }));
+      return [...acc, ...fieldWithTableId];
+    }, [] as IFieldWithTableIdJson[]);
+
+    const nonCommonFieldTypes = [FieldType.Link, FieldType.Rollup, FieldType.Formula];
+
+    const commonFields = allFields.filter(
+      ({ type, isLookup }) => !nonCommonFieldTypes.includes(type) && !isLookup
+    );
+
+    const linkFields = allFields.filter(
+      ({ type, isLookup }) => type === FieldType.Link && !isLookup
+    );
+
+    // formula, rollup, lookup fields
+    const dependencyFields = allFields.filter(
+      ({ type, isLookup }) => [FieldType.Formula, FieldType.Rollup].includes(type) || isLookup
+    );
+
+    await this.createCommonFields(commonFields, fieldMap);
+
+    await this.createLinkFields(linkFields, tableIdMap, fieldMap);
+
+    // await this.createDependencyFields(dependencyFields, fieldMap);
+
+    return fieldMap;
+  }
+
+  private async createCommonFields(
+    fields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    for (const field of fields) {
+      const {
+        name,
+        type,
+        options,
+        targetTableId,
+        isPrimary,
+        notNull,
+        dbFieldName,
+        description,
+        unique,
+      } = field;
+      const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
+        name,
+        type,
+        options,
+        dbFieldName,
+        description,
+      });
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+        notNull,
+        unique,
+        dbFieldName: newFieldVo.dbFieldName,
+        isPrimary,
+      });
+      fieldMap[field.id] = newFieldVo.id;
+    }
+  }
+
+  private async createLinkFields(
+    fields: IFieldWithTableIdJson[],
+    tableIdMap: Record<string, string>,
+    fieldMap: Record<string, string>
+  ) {
+    const selfLinkFields = fields.filter(
+      ({ options, sourceTableId }) =>
+        (options as ILinkFieldOptions).foreignTableId === sourceTableId
+    );
+
+    // cross base link fields should convert to text field
+    const crossBaseLinkFields = fields.filter(({ options }) =>
+      Boolean((options as ILinkFieldOptions)?.baseId)
+    );
+
+    if (crossBaseLinkFields.length > 0) {
+      throw new BadRequestException('cross base link fields are not supported');
+    }
+
+    // common cross table link fields
+    const commonLinkFields = fields.filter(
+      ({ id }) => ![...selfLinkFields, ...crossBaseLinkFields].map(({ id }) => id).includes(id)
+    );
+
+    await this.createSelfLinkFields(selfLinkFields, fieldMap);
+
+    await this.createCrossBaseLinkFields(crossBaseLinkFields, fieldMap);
+
+    await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap);
+  }
+
+  private async createSelfLinkFields(
+    fields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    const twoWaySelfLinkFields = fields.filter(
+      ({ options }) => !(options as ILinkFieldOptions).isOneWay
+    );
+
+    const mergedTwoWaySelfLinkFields = [] as [IFieldWithTableIdJson, IFieldWithTableIdJson][];
+
+    twoWaySelfLinkFields.forEach((f) => {
+      // two-way self link field should only create one of it
+      if (!mergedTwoWaySelfLinkFields.some((group) => group.some(({ id: fId }) => fId === f.id))) {
+        const groupField = twoWaySelfLinkFields.find(
+          ({ options }) => get(options, 'symmetricFieldId') === f.id
+        );
+        groupField && mergedTwoWaySelfLinkFields.push([f, groupField]);
+      }
+    });
+
+    const oneWaySelfLinkFields = fields.filter(
+      ({ options }) => (options as ILinkFieldOptions).isOneWay
+    );
+
+    for (const field of oneWaySelfLinkFields) {
+      const {
+        name,
+        targetTableId,
+        type,
+        options,
+        description,
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      } = field;
+      const { relationship } = options as ILinkFieldOptions;
+      const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
+        name,
+        type,
+        description,
+        options: {
+          // todo repair other filter data
+          foreignTableId: targetTableId,
+          relationship,
+        },
+      });
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      });
+      fieldMap[field.id] = newFieldVo.id;
+    }
+
+    for (const field of mergedTwoWaySelfLinkFields) {
+      const f = field[0];
+      const groupField = field[1];
+      const {
+        name,
+        type,
+        id,
+        description,
+        targetTableId,
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      } = f;
+      const options = f.options as ILinkFieldOptions;
+      const newField = await this.fieldOpenApiService.createField(targetTableId, {
+        type: type as FieldType,
+        dbFieldName,
+        name,
+        description,
+        options: {
+          ...pick(options, [
+            'relationship',
+            'isOneWay',
+            'filterByViewId',
+            'filter',
+            'visibleFieldIds',
+          ]),
+          foreignTableId: targetTableId,
+        },
+      });
+      await this.replenishmentConstraint(newField.id, targetTableId, {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      });
+      fieldMap[id] = newField.id;
+      fieldMap[groupField.id] = (newField.options as ILinkFieldOptions).symmetricFieldId!;
+
+      // self link should updated the opposite field dbFieldName and name
+      const { dbTableName: targetDbTableName } = await this.prismaService
+        .txClient()
+        .tableMeta.findUniqueOrThrow({
+          where: {
+            id: targetTableId,
+          },
+          select: {
+            dbTableName: true,
+          },
+        });
+
+      const { dbFieldName: genDbFieldName } = await this.prismaService
+        .txClient()
+        .field.findUniqueOrThrow({
+          where: {
+            id: fieldMap[groupField.id],
+          },
+          select: {
+            dbFieldName: true,
+          },
+        });
+
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: fieldMap[groupField.id],
+        },
+        data: {
+          dbFieldName: groupField.dbFieldName,
+          name: groupField.name,
+          description: groupField.description,
+        },
+      });
+
+      const alterTableSql = this.dbProvider.renameColumn(
+        targetDbTableName,
+        genDbFieldName,
+        groupField.dbFieldName
+      );
+
+      for (const sql of alterTableSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
+    }
+  }
+
+  private async createCrossBaseLinkFields(
+    fields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    // convert cross base link fields to text field, then transform data in import csv task
+    for (const field of fields) {
+      const { name, targetTableId } = field;
+      const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
+        name,
+        type: FieldType.SingleLineText,
+      });
+      fieldMap[field.id] = newFieldVo.id;
+    }
+  }
+
+  private async createCommonLinkFields(
+    fields: IFieldWithTableIdJson[],
+    tableIdMap: Record<string, string>,
+    fieldMap: Record<string, string>
+  ) {
+    const oneWayFields = fields.filter(({ options }) => (options as ILinkFieldOptions).isOneWay);
+    const twoWayFields = fields.filter(({ options }) => !(options as ILinkFieldOptions).isOneWay);
+
+    for (const field of oneWayFields) {
+      const {
+        name,
+        type,
+        options,
+        targetTableId,
+        description,
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      } = field;
+      const { foreignTableId, relationship } = options as ILinkFieldOptions;
+      const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
+        name,
+        type,
+        description,
+        options: {
+          // todo repair other filter data
+          foreignTableId: tableIdMap[foreignTableId],
+          relationship,
+        },
+      });
+      fieldMap[field.id] = newFieldVo.id;
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      });
+    }
+
+    const groupedTwoWayFields = [] as [IFieldWithTableIdJson, IFieldWithTableIdJson][];
+
+    twoWayFields.forEach((f) => {
+      // two-way link field should only create one of it
+      if (!groupedTwoWayFields.some((group) => group.some(({ id: fId }) => fId === f.id))) {
+        const symmetricField = twoWayFields.find(
+          ({ options }) => get(options, 'symmetricFieldId') === f.id
+        );
+        symmetricField && groupedTwoWayFields.push([f, symmetricField]);
+      }
+    });
+
+    for (const field of groupedTwoWayFields) {
+      const {
+        name,
+        type,
+        options,
+        targetTableId,
+        description,
+        id: fieldId,
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      } = field[0];
+      const symmetricField = field[1];
+      const { foreignTableId, relationship } = options as ILinkFieldOptions;
+      const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
+        name,
+        type,
+        description,
+        options: {
+          // todo repair other filter data
+          foreignTableId: tableIdMap[foreignTableId],
+          relationship,
+        },
+      });
+      fieldMap[fieldId] = newFieldVo.id;
+      fieldMap[symmetricField.id] = (newFieldVo.options as ILinkFieldOptions).symmetricFieldId!;
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      });
+      await this.repairSymmetricField(
+        symmetricField,
+        (newFieldVo.options as ILinkFieldOptions).foreignTableId,
+        (newFieldVo.options as ILinkFieldOptions).symmetricFieldId!
+      );
+    }
+  }
+
+  // create two-way link, the symmetricFieldId created automatically, and need to update config
+  private async repairSymmetricField(
+    symmetricField: IFieldWithTableIdJson,
+    targetTableId: string,
+    newFieldId: string
+  ) {
+    const { notNull, unique, dbFieldName, isPrimary, description, name } = symmetricField;
+    await this.replenishmentConstraint(newFieldId, targetTableId, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+    const { dbTableName: targetDbTableName } = await this.prismaService
+      .txClient()
+      .tableMeta.findUniqueOrThrow({
+        where: {
+          id: targetTableId,
+        },
+        select: {
+          dbTableName: true,
+        },
+      });
+
+    const { dbFieldName: genDbFieldName } = await this.prismaService
+      .txClient()
+      .field.findUniqueOrThrow({
+        where: {
+          id: newFieldId,
+        },
+        select: {
+          dbFieldName: true,
+        },
+      });
+
+    await this.prismaService.txClient().field.update({
+      where: {
+        id: newFieldId,
+      },
+      data: {
+        dbFieldName,
+        name,
+        description,
+      },
+    });
+
+    if (genDbFieldName !== dbFieldName) {
+      const alterTableSql = this.dbProvider.renameColumn(
+        targetDbTableName,
+        genDbFieldName,
+        dbFieldName
+      );
+
+      for (const sql of alterTableSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
+    }
+  }
+
+  private async createDependencyFields(
+    dependFields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    if (!dependFields.length) return;
+
+    const checkedField = [] as IFieldJson[];
+
+    while (dependFields.length) {
+      const curField = dependFields.shift();
+      if (!curField) continue;
+
+      const { sourceTableId, targetTableId } = curField;
+
+      const isChecked = checkedField.some((f) => f.id === curField.id);
+      // InDegree all ready
+      const isInDegreeReady = this.isInDegreeReady(curField, fieldMap);
+
+      if (isInDegreeReady) {
+        await this.duplicateSingleDependField(sourceTableId, targetTableId, curField, fieldMap);
+        continue;
+      }
+
+      if (isChecked) {
+        if (curField.hasError) {
+          await this.duplicateSingleDependField(
+            sourceTableId,
+            targetTableId,
+            curField,
+            fieldMap,
+            true
+          );
+        } else {
+          throw new BadGatewayException('Create circular field');
+        }
+      } else {
+        dependFields.push(curField);
+        checkedField.push(curField);
+      }
+    }
+  }
+
+  private async duplicateSingleDependField(
+    sourceTableId: string,
+    targetTableId: string,
+    field: IBaseJson['tables'][number]['fields'][number],
+    sourceToTargetFieldMap: Record<string, string>,
+    hasError = false
+  ) {
+    if (field.type === FieldType.Formula) {
+      await this.duplicateFormulaField(targetTableId, field, sourceToTargetFieldMap, hasError);
+    } else if (field.isLookup) {
+      await this.duplicateLookupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
+    } else if (field.type === FieldType.Rollup) {
+      await this.duplicateRollupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
+    }
+  }
+
+  private async duplicateLookupField(
+    sourceTableId: string,
+    targetTableId: string,
+    field: IBaseJson['tables'][number]['fields'][number],
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    const {
+      dbFieldName,
+      name,
+      lookupOptions,
+      id,
+      hasError,
+      options,
+      notNull,
+      unique,
+      description,
+      isPrimary,
+    } = field;
+    const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
+    const isSelfLink = foreignTableId === sourceTableId;
+
+    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
+      where: {
+        id: lookupFieldId,
+      },
+      select: {
+        type: true,
+      },
+    });
+    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
+    const { type: mockType } = await this.prismaService.txClient().field.findUniqueOrThrow({
+      where: {
+        id: mockFieldId,
+        deletedTime: null,
+      },
+      select: {
+        type: true,
+      },
+    });
+    const newField = await this.fieldOpenApiService.createField(targetTableId, {
+      type: (hasError ? mockType : lookupFieldType) as FieldType,
+      dbFieldName,
+      description,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
+        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        lookupFieldId: isSelfLink
+          ? hasError
+            ? mockFieldId
+            : sourceToTargetFieldMap[lookupFieldId]
+          : hasError
+            ? mockFieldId
+            : lookupFieldId,
+      },
+      name,
+    });
+    await this.replenishmentConstraint(newField.id, targetTableId, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+    sourceToTargetFieldMap[id] = newField.id;
+    if (hasError) {
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: newField.id,
+        },
+        data: {
+          hasError,
+          type: lookupFieldType,
+          lookupOptions: JSON.stringify({
+            ...newField.lookupOptions,
+            lookupFieldId: lookupFieldId,
+          }),
+          options: JSON.stringify(options),
+        },
+      });
+    }
+  }
+
+  private async duplicateRollupField(
+    sourceTableId: string,
+    targetTableId: string,
+    fieldInstance: IBaseJson['tables'][number]['fields'][number],
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    const {
+      dbFieldName,
+      name,
+      lookupOptions,
+      id,
+      hasError,
+      options,
+      notNull,
+      unique,
+      description,
+      isPrimary,
+    } = fieldInstance;
+    const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
+    const isSelfLink = foreignTableId === sourceTableId;
+
+    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
+      where: {
+        id: lookupFieldId,
+      },
+      select: {
+        type: true,
+      },
+    });
+    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
+    const newField = await this.fieldOpenApiService.createField(targetTableId, {
+      type: FieldType.Rollup,
+      dbFieldName,
+      description,
+      lookupOptions: {
+        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
+        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        lookupFieldId: isSelfLink
+          ? hasError
+            ? mockFieldId
+            : sourceToTargetFieldMap[lookupFieldId]
+          : hasError
+            ? mockFieldId
+            : lookupFieldId,
+      },
+      options,
+      name,
+    });
+    await this.replenishmentConstraint(newField.id, targetTableId, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+    sourceToTargetFieldMap[id] = newField.id;
+    if (hasError) {
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: newField.id,
+        },
+        data: {
+          hasError,
+          type: lookupFieldType,
+          lookupOptions: JSON.stringify({
+            ...newField.lookupOptions,
+            lookupFieldId: lookupFieldId,
+          }),
+          options: JSON.stringify(options),
+        },
+      });
+    }
+  }
+
+  private async duplicateFormulaField(
+    targetTableId: string,
+    fieldInstance: IBaseJson['tables'][number]['fields'][number],
+    sourceToTargetFieldMap: Record<string, string>,
+    hasError: boolean = false
+  ) {
+    const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
+      fieldInstance;
+    const { expression } = options as IFormulaFieldOptions;
+    const newExpression = replaceStringByMap(expression, { sourceToTargetFieldMap });
+    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
+    const newField = await this.fieldOpenApiService.createField(targetTableId, {
+      type,
+      dbFieldName: dbFieldName,
+      description,
+      options: {
+        ...options,
+        expression: hasError ? `{${mockFieldId}}` : newExpression,
+      },
+      name,
+    });
+    await this.replenishmentConstraint(newField.id, targetTableId, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+    sourceToTargetFieldMap[id] = newField.id;
+
+    if (hasError) {
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: newField.id,
+        },
+        data: {
+          hasError,
+          options: JSON.stringify({
+            ...options,
+            expression: newExpression,
+          }),
+        },
+      });
+    }
+  }
+
+  // field could not set constraint when create
+  private async replenishmentConstraint(
+    fId: string,
+    targetTableId: string,
+    {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    }: { notNull?: boolean; unique?: boolean; dbFieldName: string; isPrimary?: boolean }
+  ) {
+    if (!notNull && !unique && !isPrimary) {
+      return;
+    }
+
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      where: {
+        id: targetTableId,
+        deletedTime: null,
+      },
+      select: {
+        dbTableName: true,
+      },
+    });
+
+    await this.prismaService.txClient().field.update({
+      where: {
+        id: fId,
+      },
+      data: {
+        notNull: notNull ?? null,
+        unique: unique ?? null,
+        isPrimary: isPrimary ?? null,
+      },
+    });
+
+    if (notNull || unique) {
+      const fieldValidationQuery = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          if (unique) table.dropUnique([dbFieldName]);
+          if (notNull) table.setNullable(dbFieldName);
+        })
+        .toQuery();
+
+      await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
+    }
+  }
+
+  private isInDegreeReady(field: IFieldWithTableIdJson, fieldMap: Record<string, string>) {
+    if (field.type === FieldType.Formula) {
+      const formulaOptions = field.options as IFormulaFieldOptions;
+      const referencedFields = this.extractFieldIds(formulaOptions.expression);
+      const keys = Object.keys(fieldMap);
+      return referencedFields.every((field) => keys.includes(field));
+    }
+
+    if (field.isLookup || field.type === FieldType.Rollup) {
+      const { lookupOptions, sourceTableId } = field;
+      const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
+      const isSelfLink = foreignTableId === sourceTableId;
+      return isSelfLink ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId]) : true;
+    }
+
+    return false;
+  }
+
+  private extractFieldIds(expression: string): string[] {
+    const matches = expression.match(/\{fld[a-zA-Z0-9]+\}/g);
+
+    if (!matches) {
+      return [];
+    }
+    return matches.map((match) => match.slice(1, -1));
+  }
+
+  private async createViews(
+    tables: IBaseJson['tables'],
+    tableIdMap: Record<string, string>,
+    fieldMap: Record<string, string>
+  ) {
+    const viewMap: Record<string, string> = {};
+    for (const table of tables) {
+      const { views, id: tableId } = table;
+      for (const view of views) {
+        const { name, type, options, columnMeta, id: viewId, description, enableShare } = view;
+        const newColumnMetaString = replaceStringByMap(columnMeta, { fieldMap });
+        const newColumnMeta = newColumnMetaString ? JSON.parse(newColumnMetaString) : null;
+        const newViewVo = await this.viewOpenApiService.createView(tableIdMap[tableId], {
+          name,
+          type,
+          description,
+          enableShare,
+          options,
+          columnMeta: newColumnMeta,
+        });
+        viewMap[viewId] = newViewVo.id;
+      }
+    }
+
+    return viewMap;
+  }
+
+  private async createPlugins(
+    baseId: string,
+    plugins: IBaseJson['plugins'],
+    tableIdMap: Record<string, string>,
+    fieldMap: Record<string, string>,
+    viewIdMap: Record<string, string>
+  ) {
+    await this.createDashboard(baseId, plugins[PluginPosition.Dashboard], tableIdMap, fieldMap);
+    await this.createPanel(baseId, plugins[PluginPosition.Panel], tableIdMap, fieldMap);
+    await this.createPluginViews(
+      baseId,
+      plugins[PluginPosition.View],
+      tableIdMap,
+      fieldMap,
+      viewIdMap
+    );
+  }
+
+  private async createDashboard(
+    baseId: string,
+    plugins: IBaseJson['plugins'][PluginPosition.Dashboard],
+    tableMap: Record<string, string>,
+    fieldMap: Record<string, string>
+  ) {
+    const dashboardMap: Record<string, string> = {};
+    const pluginInstallMap: Record<string, string> = {};
+    const userId = this.cls.get('user.id');
+    const prisma = this.prismaService.txClient();
+    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+
+    for (const plugin of plugins) {
+      const { id, name } = plugin;
+      const newDashBoardId = generateDashboardId();
+      await prisma.dashboard.create({
+        data: {
+          id: newDashBoardId,
+          baseId,
+          name,
+          createdBy: userId,
+        },
+      });
+      dashboardMap[id] = newDashBoardId;
+    }
+
+    for (const pluginInstall of pluginInstalls) {
+      const { id, pluginId, positionId, position, name, storage } = pluginInstall;
+      const newPluginInstallId = generatePluginInstallId();
+      const newStorage = replaceStringByMap(storage, { tableMap, fieldMap });
+      await prisma.pluginInstall.create({
+        data: {
+          id: newPluginInstallId,
+          createdBy: userId,
+          baseId,
+          pluginId,
+          name,
+          positionId: dashboardMap[positionId],
+          position,
+          storage: newStorage,
+        },
+      });
+      pluginInstallMap[id] = newPluginInstallId;
+    }
+
+    // replace pluginId in layout with new pluginInstallId
+    for (const plugin of plugins) {
+      const { id, layout } = plugin;
+      const newLayout = replaceStringByMap(layout, { pluginInstallMap });
+      await prisma.dashboard.update({
+        where: { id: dashboardMap[id] },
+        data: {
+          layout: newLayout,
+        },
+      });
+    }
+
+    // create char user to collaborator
+    await prisma.collaborator.create({
+      data: {
+        roleName: Role.Owner,
+        createdBy: userId,
+        resourceId: baseId,
+        resourceType: ResourceType.Base,
+        principalType: PrincipalType.User,
+        principalId: 'pluchartuser',
+      },
+    });
+  }
+
+  private async createPanel(
+    baseId: string,
+    plugins: IBaseJson['plugins'][PluginPosition.Panel],
+    tableMap: Record<string, string>,
+    fieldMap: Record<string, string>
+  ) {
+    const panelMap: Record<string, string> = {};
+    const pluginInstallMap: Record<string, string> = {};
+    const userId = this.cls.get('user.id');
+    const prisma = this.prismaService.txClient();
+    const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
+
+    for (const plugin of plugins) {
+      const { id, name, tableId } = plugin;
+      const newPluginPanelId = generatePluginPanelId();
+      await prisma.pluginPanel.create({
+        data: {
+          id: newPluginPanelId,
+          tableId: tableMap[tableId],
+          name,
+          createdBy: userId,
+        },
+      });
+      panelMap[id] = newPluginPanelId;
+    }
+
+    for (const pluginInstall of pluginInstalls) {
+      const { id, pluginId, positionId, position, name, storage } = pluginInstall;
+      const newPluginInstallId = generatePluginInstallId();
+      const newStorage = replaceStringByMap(storage, { tableMap, fieldMap });
+      await prisma.pluginInstall.create({
+        data: {
+          id: newPluginInstallId,
+          createdBy: userId,
+          baseId,
+          pluginId,
+          name,
+          positionId: panelMap[positionId],
+          position,
+          storage: newStorage,
+        },
+      });
+      pluginInstallMap[id] = newPluginInstallId;
+    }
+
+    // replace pluginId in layout with new pluginInstallId
+    for (const plugin of plugins) {
+      const { id, layout } = plugin;
+      const newLayout = replaceStringByMap(layout, { pluginInstallMap });
+      await prisma.pluginPanel.update({
+        where: { id: panelMap[id] },
+        data: {
+          layout: newLayout,
+        },
+      });
+    }
+  }
+
+  private async createPluginViews(
+    baseId: string,
+    pluginViews: IBaseJson['plugins'][PluginPosition.View],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>
+  ) {
+    const prisma = this.prismaService.txClient();
+
+    for (const pluginView of pluginViews) {
+      const { id, name, description, enableShare, shareMeta, isLocked, tableId, pluginInstall } =
+        pluginView;
+      const { pluginId } = pluginInstall;
+      const { viewId: newViewId, pluginInstallId } = await this.viewOpenApiService.pluginInstall(
+        tableIdMap[tableId],
+        {
+          name,
+          pluginId,
+        }
+      );
+      viewIdMap[id] = newViewId;
+
+      // 1. update view options
+      const configProperties = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
+      const updateConfig = {} as Record<(typeof configProperties)[number], string>;
+      for (const property of configProperties) {
+        const result = replaceStringByMap(pluginView[property], {
+          tableIdMap,
+          fieldIdMap,
+          viewIdMap,
+        });
+
+        if (result) {
+          updateConfig[property] = result;
+        }
+      }
+      await prisma.view.update({
+        where: { id: newViewId },
+        data: {
+          description,
+          isLocked,
+          enableShare,
+          shareMeta: shareMeta ? JSON.stringify(shareMeta) : undefined,
+          ...updateConfig,
+        },
+      });
+
+      // 2. update plugin install
+      const newStorage = replaceStringByMap(pluginInstall.storage, {
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+      });
+      await prisma.pluginInstall.update({
+        where: { id: pluginInstallId },
+        data: {
+          storage: newStorage,
+        },
+      });
+    }
+  }
+}

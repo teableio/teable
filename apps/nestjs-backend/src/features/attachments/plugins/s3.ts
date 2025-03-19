@@ -282,4 +282,13 @@ export class S3Storage implements StorageAdapter {
     fse.removeSync(resizedImagePath);
     return upload.path;
   }
+
+  async downloadFile(bucket: string, path: string): Promise<Readable> {
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: path,
+    });
+    const { Body: stream } = await this.s3Client.send(command);
+    return stream as Readable;
+  }
 }

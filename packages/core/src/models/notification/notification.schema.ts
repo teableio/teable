@@ -22,6 +22,7 @@ export const tableRecordUrlSchema = z.object({
   tableId: z.string().startsWith(IdPrefix.Table),
   recordId: z.string().startsWith(IdPrefix.Record).optional(),
   commentId: z.string().startsWith(IdPrefix.Comment).optional(),
+  downloadUrl: z.string().optional(),
 });
 
 export const notificationUrlSchema = tableRecordUrlSchema.optional();
