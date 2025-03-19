@@ -11,6 +11,7 @@ import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
+import { ColorBg } from './ColorBg';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 import { StarButton } from './space-side-bar/StarButton';
 
@@ -91,7 +92,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       className={cn('relative group cursor-pointer hover:shadow-md overflow-x-hidden', className)}
       onClick={intoBase}
     >
-      <div className="absolute inset-0 z-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"></div>
+      <ColorBg emoji={base.icon || undefined} />
       <CardContent className="relative flex size-full items-center gap-3 px-4 py-0">
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
