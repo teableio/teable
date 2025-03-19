@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Database, MoreHorizontal } from '@teable/icons';
@@ -86,24 +88,20 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
     <Card
-      className={cn('group cursor-pointer hover:shadow-md overflow-x-hidden', className)}
+      className={cn('relative group cursor-pointer hover:shadow-md overflow-x-hidden', className)}
       onClick={intoBase}
     >
-      <CardContent className="flex size-full items-center gap-3 px-4 py-6">
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"></div>
+      <CardContent className="relative flex size-full items-center gap-3 px-4 py-0">
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
-            {base.icon ? (
-              <div className="size-14 min-w-14 text-[3.5rem] leading-none">
-                <Emoji emoji={base.icon} size={56} />
-              </div>
-            ) : (
-              <Database className="size-14 min-w-14" />
-            )}
+            <div className="size-12 rounded-lg bg-white bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-gray-200 transition-all group-hover:outline-gray-300 hover:shadow-lg">
+              {base.icon ? <Emoji emoji={base.icon} size={24} /> : <Database className="size-6" />}
+            </div>
           </EmojiPicker>
         </div>
-        <div className="h-full flex-1">
-          <div className="relative flex justify-between gap-3 p-0.5">
+        <div className="flex grow">
+          <div className="flex grow justify-between">
             {renaming ? (
               <form
                 onSubmit={(e) => {
@@ -122,26 +120,34 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 />
               </form>
             ) : (
-              <h3 className="line-clamp-2 flex-1" title={base.name}>
+              <h3 className="line-clamp-2 flex-1 text-sm" title={base.name}>
                 {base.name}
               </h3>
             )}
-            <div className="right-0 flex items-center gap-3 md:absolute md:translate-x-full md:opacity-0 md:group-hover:relative md:group-hover:translate-x-0 md:group-hover:opacity-100">
-              <StarButton className="size-4 opacity-100" id={base.id} type={PinType.Base} />
-              <div className="shrink-0">
-                <BaseActionTrigger
-                  base={base}
-                  showRename={hasUpdatePermission}
-                  showDuplicate={hasReadPermission}
-                  showDelete={hasDeletePermission}
-                  onDelete={() => deleteBaseMutator(base.id)}
-                  onRename={onRename}
+          </div>
+          <div className="absolute right-0 top-1 flex gap-2 px-1 md:opacity-0 md:group-hover:opacity-100">
+            <StarButton
+              className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200"
+              id={base.id}
+              type={PinType.Base}
+            />
+            <div className="shrink-0">
+              <BaseActionTrigger
+                base={base}
+                showRename={hasUpdatePermission}
+                showDuplicate={hasReadPermission}
+                showDelete={hasDeletePermission}
+                onDelete={() => deleteBaseMutator(base.id)}
+                onRename={onRename}
+              >
+                <Button
+                  variant="ghost"
+                  size={'xs'}
+                  className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200"
                 >
-                  <Button variant="outline" size={'xs'}>
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </BaseActionTrigger>
-              </div>
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </BaseActionTrigger>
             </div>
           </div>
         </div>

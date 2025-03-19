@@ -134,7 +134,7 @@ export const SpaceInnerPage: React.FC = () => {
           />
           {basesInSpace?.length ? (
             <ScrollArea className="sm:mr-8 sm:pb-2">
-              <DraggableBaseGrid bases={basesInSpace} className="sm:pr-8" />
+              <DraggableBaseGrid bases={basesInSpace} className="pb-8 sm:pr-8" />
             </ScrollArea>
           ) : (
             <div className="flex items-center justify-center">

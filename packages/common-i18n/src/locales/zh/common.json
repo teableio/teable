@@ -43,7 +43,8 @@
     "showAllRow": "显示全部",
     "hideNotMatchRow": "仅显示匹配行",
     "more": "更多",
-    "expand": "展开"
+    "expand": "展开",
+    "deleteTip": "确定要删除 \"{{name}}\" 吗？"
   },
   "quickAction": {
     "title": "快捷搜索...",

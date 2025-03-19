@@ -49,7 +49,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent
           align={align}
@@ -82,9 +82,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title={`Are you sure you want to delete ${base.name}?`}
-        cancelText="Cancel"
-        confirmText="Continue"
+        title={t('actions.deleteTip', { name: base.name })}
+        cancelText={t('actions.cancel')}
+        confirmText={t('actions.delete')}
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={handleDelete}
       />

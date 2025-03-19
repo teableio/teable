@@ -43,7 +43,8 @@
     "showAllRow": "Display all rows",
     "hideNotMatchRow": "Hide not match row",
     "more": "More",
-    "expand": "Expand"
+    "expand": "Expand",
+    "deleteTip": "Are you sure you want to delete \"{{name}}\"?"
   },
   "quickAction": {
     "title": "Quick Actions...",
