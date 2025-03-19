@@ -95,7 +95,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       <CardContent className="relative flex size-full items-center gap-3 px-4 py-0">
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
-            <div className="size-12 rounded-lg bg-white bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-gray-200 transition-all group-hover:outline-gray-300 hover:shadow-lg">
+            <div className="size-12 rounded-lg bg-white bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-card-foreground/10 transition-all group-hover:outline-card-foreground/15 hover:shadow-lg">
               {base.icon ? <Emoji emoji={base.icon} size={24} /> : <Database className="size-6" />}
             </div>
           </EmojiPicker>
@@ -127,7 +127,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
           </div>
           <div className="absolute right-0 top-1 flex gap-2 px-1 md:opacity-0 md:group-hover:opacity-100">
             <StarButton
-              className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200"
+              className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200/80"
               id={base.id}
               type={PinType.Base}
             />
@@ -143,7 +143,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 <Button
                   variant="ghost"
                   size={'xs'}
-                  className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200"
+                  className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200/80"
                 >
                   <MoreHorizontal className="size-4" />
                 </Button>
