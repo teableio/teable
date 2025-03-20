@@ -1,6 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
-import { getBaseById, type IGroupPointsVo } from '@teable/openapi';
+import {
+  getBaseById,
+  LastVisitResourceType,
+  updateUserLastVisit,
+  type IGroupPointsVo,
+} from '@teable/openapi';
 import {
   AnchorContext,
   FieldProvider,
@@ -14,6 +19,7 @@ import {
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
@@ -41,6 +47,8 @@ export const Table: React.FC<ITableProps> = ({
   const table = useTable();
   const router = useRouter();
   const { undo, redo } = useUndoRedo();
+  const queryClient = useQueryClient();
+
   const { baseId, tableId, viewId } = router.query as {
     tableId: string;
     viewId: string;
@@ -50,6 +58,17 @@ export const Table: React.FC<ITableProps> = ({
     queryKey: ReactQueryKeys.base(baseId as string),
     queryFn: ({ queryKey }) => getBaseById(queryKey[1]).then((res) => res.data),
   });
+
+  useEffect(() => {
+    updateUserLastVisit({
+      resourceId: tableId,
+      childResourceId: viewId,
+      parentResourceId: baseId,
+      resourceType: LastVisitResourceType.Table,
+    }).then(() => {
+      queryClient.invalidateQueries(ReactQueryKeys.userLastVisitMap(baseId));
+    });
+  }, [tableId, viewId, baseId, queryClient]);
 
   useViewErrorHandler(baseId, tableId, viewId);
   useHotkeys(`mod+z`, () => undo(), {

@@ -1,3 +1,4 @@
+import { LastVisitResourceType } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
@@ -9,10 +10,20 @@ const Node: NextPageWithLayout = () => {
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { tableId, baseId, ...queryParams } = context.query;
   const queryString = new URLSearchParams(queryParams as Record<string, string>).toString();
-  const result = await ssrApi.getDefaultViewId(baseId as string, tableId as string);
+  const userLastVisit = await ssrApi.getUserLastVisit(
+    LastVisitResourceType.View,
+    tableId as string
+  );
+
+  if (!userLastVisit) {
+    return {
+      notFound: true,
+    };
+  }
+
   return {
     redirect: {
-      destination: `/base/${baseId}/${tableId}/${result.id}?${queryString}`,
+      destination: `/base/${baseId}/${tableId}/${userLastVisit.resourceId}?${queryString}`,
       permanent: false,
     },
   };

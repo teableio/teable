@@ -559,3 +559,16 @@ model PluginContextMenu {
 
   @@map("plugin_context_menu")
 }
+
+model UserLastVisit {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  resourceType     String    @map("resource_type")
+  resourceId       String    @map("resource_id")
+  parentResourceId String    @map("parent_resource_id")
+  lastVisitTime    DateTime  @default(now()) @map("last_visit_time")
+
+  @@unique([userId, resourceType, parentResourceId])
+  @@index([userId, resourceType])
+  @@map("user_last_visit")
+}

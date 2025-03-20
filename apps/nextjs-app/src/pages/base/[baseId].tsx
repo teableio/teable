@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import type { ITableVo } from '@teable/openapi';
+import { LastVisitResourceType, type ITableVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import { Trans, useTranslation } from 'next-i18next';
@@ -52,13 +52,15 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
-      const tables = await ssrApi.getTables(baseId as string);
-      const defaultTable = tables[0];
-      if (defaultTable) {
-        const defaultView = await ssrApi.getDefaultViewId(baseId as string, defaultTable.id);
+      const userLastVisit = await ssrApi.getUserLastVisit(
+        LastVisitResourceType.Table,
+        baseId as string
+      );
+
+      if (userLastVisit && userLastVisit.childResourceId) {
         return {
           redirect: {
-            destination: `/base/${baseId}/${defaultTable.id}/${defaultView.id}`,
+            destination: `/base/${baseId}/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
             permanent: false,
           },
         };
@@ -66,7 +68,8 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       const queryClient = new QueryClient();
 
-      await Promise.all([
+      const [tables] = await Promise.all([
+        ssrApi.getTables(baseId as string),
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.base(baseId as string),
           queryFn: ({ queryKey }) =>

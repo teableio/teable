@@ -8,6 +8,7 @@ import {
 import { cn } from '@teable/ui-lib/shadcn';
 import { useState, useEffect } from 'react';
 import { TableListItem } from './TableListItem';
+import { useTableHref } from './useTableHref';
 
 export const DraggableList = () => {
   const tables = useTables();
@@ -17,6 +18,8 @@ export const DraggableList = () => {
   const isHydrated = useIsHydrated();
 
   const [innerTables, setInnerTables] = useState([...tables]);
+
+  const tableHrefMap = useTableHref();
 
   useEffect(() => {
     setInnerTables(tables);
@@ -59,6 +62,7 @@ export const DraggableList = () => {
                 })}
               >
                 <TableListItem
+                  href={tableHrefMap[table.id]}
                   table={table}
                   isActive={table.id === tableId}
                   isDragging={isDragging}

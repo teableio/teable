@@ -160,4 +160,6 @@ export const ReactQueryKeys = {
     ['plugin-context-menu-plugin', tableId, pluginInstallId] as const,
 
   getPublicSetting: () => ['public-setting'] as const,
+
+  userLastVisitMap: (baseId: string) => ['user-last-visit-map', baseId] as const,
 };

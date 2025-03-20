@@ -26,6 +26,8 @@ import type {
   ITablePermissionVo,
   IGetPinListVo,
   ISubscriptionSummaryVo,
+  LastVisitResourceType,
+  IUserLastVisitVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -56,6 +58,7 @@ import {
   GET_PIN_LIST,
   GET_SUBSCRIPTION_SUMMARY,
   GET_SUBSCRIPTION_SUMMARY_LIST,
+  GET_USER_LAST_VISIT,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -244,6 +247,14 @@ export class SsrApi {
   async getDashboardList(baseId: string) {
     return this.axios
       .get<IGetDashboardListVo>(urlBuilder(GET_DASHBOARD_LIST, { baseId }))
+      .then(({ data }) => data);
+  }
+
+  async getUserLastVisit(resourceType: LastVisitResourceType, parentResourceId: string) {
+    return this.axios
+      .get<IUserLastVisitVo | undefined>(GET_USER_LAST_VISIT, {
+        params: { resourceType, parentResourceId },
+      })
       .then(({ data }) => data);
   }
 }

@@ -15,29 +15,24 @@ interface IProps {
   isDragging?: boolean;
   className?: string;
   open?: boolean;
+  href: string;
 }
 
-export const TableListItem: React.FC<IProps> = ({ table, isActive, className, isDragging }) => {
+export const TableListItem: React.FC<IProps> = ({
+  table,
+  isActive,
+  className,
+  isDragging,
+  href,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const { baseId } = router.query;
   const viewId = router.query.viewId;
 
-  const navigateHandler = () => {
-    router.push(
-      {
-        pathname: '/base/[baseId]/[tableId]/[viewId]',
-        query: {
-          tableId: table.id,
-          viewId: table.defaultViewId,
-          baseId: baseId as string,
-        },
-      },
-      undefined,
-      { shallow: Boolean(table.defaultViewId) && Boolean(viewId) }
-    );
+  const navigateHandler = async () => {
+    router.push(href, undefined, { shallow: Boolean(viewId) });
   };
 
   useEffect(() => {
