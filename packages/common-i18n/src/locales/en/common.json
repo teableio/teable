@@ -278,7 +278,7 @@
       "allowSpaceCreation": "Allow everyone to create new spaces",
       "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces.",
       "enableEmailVerification": "Enable email verification",
-      "enableEmailVerificationDescription": "Disabling this option will prevent users from creating new accounts without verifying their email address.",
+      "enableEmailVerificationDescription": "Enabling this option will require users to verify their email address when creating a new account.",
       "generalSettings": "General settings",
       "aiSettings": "AI settings",
       "ai": {

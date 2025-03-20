@@ -273,7 +273,7 @@
       "allowSpaceCreation": "Jedem die Möglichkeit geben, neue Space anzulegen",
       "allowSpaceCreationDescription": "Wenn Sie diese Option deaktivieren, können andere Benutzer als Administratoren keine neuen Spaces erstellen.",
       "enableEmailVerification": "Aktivieren der E-Mail-Überprüfung",
-      "enableEmailVerificationDescription": "Durch die Deaktivierung dieser Option wird verhindert, dass Benutzer neue Konten erstellen, ohne ihre E-Mail-Adresse zu verifizieren.",
+      "enableEmailVerificationDescription": "Die Aktivierung dieser Option erfordert, dass Benutzer ihre E-Mail-Adresse bei der Erstellung eines neuen Kontos verifizieren.",
       "generalSettings": "Allgemeine Einstellungen",
       "aiSettings": "AI Konfiguration",
       "ai": {

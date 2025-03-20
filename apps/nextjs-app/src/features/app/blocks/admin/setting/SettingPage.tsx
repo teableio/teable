@@ -102,8 +102,8 @@ export const SettingPage = (props: ISettingPageProps) => {
             </div>
             <Switch
               id="enable-email-verification"
-              checked={!enableEmailVerification}
-              onCheckedChange={(checked) => onValueChange('enableEmailVerification', !checked)}
+              checked={Boolean(enableEmailVerification)}
+              onCheckedChange={(checked) => onValueChange('enableEmailVerification', checked)}
             />
           </div>
         </div>

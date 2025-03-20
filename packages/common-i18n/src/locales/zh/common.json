@@ -277,7 +277,7 @@
       "allowSpaceCreation": "允许所有人创建新的空间",
       "allowSpaceCreationDescription": "关闭此选项将禁止除管理员以外的用户创建新的空间。",
       "enableEmailVerification": "启用邮箱验证",
-      "enableEmailVerificationDescription": "关闭此选项将禁止用户创建新账户时无需验证邮箱地址。",
+      "enableEmailVerificationDescription": "启用此选项将要求用户在创建新账户时验证邮箱地址。",
       "generalSettings": "通用配置",
       "aiSettings": "AI 配置",
       "ai": {
