@@ -14,7 +14,7 @@ import {
   permanentDeleteTable,
   updateUserLastVisit,
 } from '@teable/openapi';
-import { initApp } from './utils/init-app';
+import { getViews, initApp } from './utils/init-app';
 
 describe('OpenAPI OAuthController (e2e)', () => {
   let app: INestApplication;
@@ -152,6 +152,24 @@ describe('OpenAPI OAuthController (e2e)', () => {
         resourceId: table2.views[0].id,
         resourceType: LastVisitResourceType.View,
       },
+    });
+  });
+
+  it('should fallback to default view when delete a view without any visit', async () => {
+    await createView(table1.id, { type: ViewType.Grid, name: 'view2', order: 1 });
+
+    await deleteView(table1.id, table1.views[0].id);
+    const views = await getViews(table1.id);
+
+    const res = await getUserLastVisit({
+      resourceType: LastVisitResourceType.Table,
+      parentResourceId: base.id,
+    });
+
+    expect(res.data).toEqual({
+      resourceId: table1.id,
+      childResourceId: views[0].id,
+      resourceType: LastVisitResourceType.Table,
     });
   });
 });

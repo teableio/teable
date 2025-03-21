@@ -52,15 +52,25 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
-      const userLastVisit = await ssrApi.getUserLastVisit(
-        LastVisitResourceType.Table,
-        baseId as string
-      );
+      const [userLastVisit, tables] = await Promise.all([
+        ssrApi.getUserLastVisit(LastVisitResourceType.Table, baseId as string),
+        ssrApi.getTables(baseId as string),
+      ]);
 
-      if (userLastVisit && userLastVisit.childResourceId) {
+      if (tables.length && userLastVisit && userLastVisit.childResourceId) {
+        // if userLastVisit.resourceId has no permission to the tables, redirect to the first table
+        if (tables.find((table) => table.id === userLastVisit.resourceId)) {
+          return {
+            redirect: {
+              destination: `/base/${baseId}/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
+              permanent: false,
+            },
+          };
+        }
+
         return {
           redirect: {
-            destination: `/base/${baseId}/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
+            destination: `/base/${baseId}/${tables[0].id}/${tables[0].defaultViewId}`,
             permanent: false,
           },
         };
@@ -68,8 +78,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       const queryClient = new QueryClient();
 
-      const [tables] = await Promise.all([
-        ssrApi.getTables(baseId as string),
+      await Promise.all([
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.base(baseId as string),
           queryFn: ({ queryKey }) =>

@@ -85,6 +85,9 @@ export class LastVisitService {
             orderBy: {
               order: 'asc',
             },
+            where: {
+              deletedTime: null,
+            },
           },
         },
         where: {
@@ -114,6 +117,9 @@ export class LastVisitService {
           take: 1,
           orderBy: {
             order: 'asc',
+          },
+          where: {
+            deletedTime: null,
           },
         },
       },
