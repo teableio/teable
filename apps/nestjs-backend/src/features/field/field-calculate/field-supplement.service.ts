@@ -1052,7 +1052,7 @@ export class FieldSupplementService {
 
     if (fieldRo.dbFieldName) {
       const existField = await this.prismaService.txClient().field.findFirst({
-        where: { tableId, dbFieldName: fieldRo.dbFieldName },
+        where: { tableId, dbFieldName: fieldRo.dbFieldName, deletedTime: null },
         select: { id: true },
       });
       if (existField) {
@@ -1146,7 +1146,7 @@ export class FieldSupplementService {
     };
   }
 
-  private async uniqFieldName(tableId: string, fieldName: string) {
+  async uniqFieldName(tableId: string, fieldName: string) {
     const fieldRaw = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
       select: { name: true },

@@ -169,7 +169,8 @@
     "unknownError": "未知错误",
     "pluginPanel": "面板",
     "pluginContextMenu": "菜单",
-    "plugin": "插件"
+    "plugin": "插件",
+    "copy": "副本"
   },
   "level": {
     "free": "免费版",

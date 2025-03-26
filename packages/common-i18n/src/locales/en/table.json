@@ -478,6 +478,7 @@
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
     "editField": "Edit field",
+    "duplicateField": "Duplicate field",
     "insertFieldLeft": "Insert left",
     "insertFieldRight": "Insert right",
     "freezeUpField": "Freeze up to this field",

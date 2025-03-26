@@ -169,7 +169,8 @@
     "unknownError": "Unknown error",
     "pluginPanel": "Panel",
     "pluginContextMenu": "Context Menu",
-    "plugin": "Plugins"
+    "plugin": "Plugins",
+    "copy": "Copy"
   },
   "level": {
     "free": "Free",

@@ -478,6 +478,7 @@
     "deleteRecord": "删除记录",
     "deleteAllSelectedRecords": "删除所有选定的记录",
     "editField": "编辑字段",
+    "duplicateField": "复制字段",
     "insertFieldLeft": "在左侧插入字段",
     "insertFieldRight": "在右侧插入字段",
     "freezeUpField": "冻结至此字段",

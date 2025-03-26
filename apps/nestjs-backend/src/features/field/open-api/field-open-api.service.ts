@@ -4,6 +4,7 @@ import {
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
+  generateFieldId,
   generateOperationId,
   IFieldRo,
 } from '@teable/core';
@@ -15,19 +16,25 @@ import type {
   IColumnMeta,
   ILinkFieldOptions,
   IGetFieldsQuery,
+  ILookupOptionsRo,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IDuplicateFieldRo } from '@teable/openapi';
 import { instanceToPlain } from 'class-transformer';
-import { groupBy } from 'lodash';
+import { Knex } from 'knex';
+import { groupBy, omit, pick } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
+import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -44,7 +51,6 @@ import {
   createFieldInstanceByVo,
   rawField2FieldObj,
 } from '../model/factory';
-
 @Injectable()
 export class FieldOpenApiService {
   private logger = new Logger(FieldOpenApiService.name);
@@ -64,6 +70,9 @@ export class FieldOpenApiService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     private readonly tableIndexService: TableIndexService,
+    private readonly shareDbService: ShareDbService,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -516,5 +525,147 @@ export class FieldOpenApiService {
     if (!foreignTableId || !filter) return [];
 
     return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
+  }
+
+  async duplicateField(
+    sourceTableId: string,
+    fieldId: string,
+    duplicateFieldRo: IDuplicateFieldRo
+  ) {
+    const { name } = duplicateFieldRo;
+    const prisma = this.prismaService.txClient();
+
+    // throw error if field not found
+    const fieldRaw = await prisma.field.findUniqueOrThrow({
+      where: {
+        id: fieldId,
+      },
+    });
+
+    const fieldName = await this.fieldSupplementService.uniqFieldName(sourceTableId, name);
+
+    const dbFieldName = await this.fieldService.generateDbFieldName(sourceTableId, fieldName);
+
+    const fieldInstance = createFieldInstanceByRaw(fieldRaw);
+
+    const newFieldInstance = {
+      ...fieldInstance,
+      name: fieldName,
+      dbFieldName,
+      id: generateFieldId(),
+      isPrimary: false,
+    } as IFieldInstance;
+
+    // create field may not support notNull and unique validate
+    delete newFieldInstance.notNull;
+    delete newFieldInstance.unique;
+
+    if (FieldType.Link === fieldInstance.type && !fieldInstance.isLookup) {
+      newFieldInstance.options = {
+        ...pick(fieldInstance.options, [
+          'filter',
+          'filterByViewId',
+          'foreignTableId',
+          'relationship',
+          'visibleFieldIds',
+        ]),
+        // all link field should be one way link
+        isOneWay: true,
+      };
+    }
+
+    if (fieldInstance.isLookup || fieldInstance.type === FieldType.Rollup) {
+      newFieldInstance.lookupOptions = {
+        ...pick(fieldInstance.lookupOptions, [
+          'foreignTableId',
+          'lookupFieldId',
+          'linkFieldId',
+          'filter',
+        ]),
+      } as IFieldInstance['lookupOptions'];
+    }
+
+    const newField = await this.createField(
+      sourceTableId,
+      omit(newFieldInstance, ['notNull', 'unique'])
+    );
+
+    if (!fieldInstance.isComputed) {
+      // di not async duplicate records
+      this.duplicateFieldData(sourceTableId, newField.id, fieldRaw.dbFieldName, newFieldInstance);
+    }
+
+    return newField;
+  }
+
+  async duplicateFieldData(
+    sourceTableId: string,
+    targetFieldId: string,
+    sourceDbFieldName: string,
+    fieldInstance: IFieldInstance
+  ) {
+    const chunkSize = 1000;
+
+    const dbTableName = await this.fieldService.getDbTableName(sourceTableId);
+
+    const count = await this.getFieldRecordsCount(dbTableName, sourceDbFieldName);
+
+    if (!count) {
+      return;
+    }
+
+    const page = Math.ceil(count / chunkSize);
+
+    for (let i = 0; i < page; i++) {
+      const sourceRecords = await this.getFieldRecords(
+        dbTableName,
+        sourceDbFieldName,
+        i,
+        chunkSize
+      );
+
+      await this.recordOpenApiService.updateRecords(sourceTableId, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: sourceRecords.map((record) => ({
+          id: record.id,
+          fields: {
+            [targetFieldId]: record.value,
+          },
+        })),
+      });
+
+      // last page should update field constraint
+      if (i === page - 1 && (fieldInstance.notNull || fieldInstance.unique)) {
+        await this.convertField(sourceTableId, targetFieldId, {
+          ...fieldInstance,
+          notNull: fieldInstance.notNull,
+          unique: fieldInstance.unique,
+        });
+      }
+    }
+  }
+
+  private async getFieldRecordsCount(dbTableName: string, dbFieldName: string) {
+    const query = this.knex(dbTableName).count('*').whereNotNull(dbFieldName).toQuery();
+    const result = await this.prismaService.$queryRawUnsafe<{ count: number }[]>(query);
+    return Number(result[0].count);
+  }
+
+  private async getFieldRecords(
+    dbTableName: string,
+    dbFieldName: string,
+    page: number,
+    chunkSize: number
+  ) {
+    const query = this.knex(dbTableName)
+      .select({ id: '__id', value: dbFieldName })
+      .whereNotNull(dbFieldName)
+      .orderBy('__auto_number')
+      .limit(chunkSize)
+      .offset(page * chunkSize)
+      .toQuery();
+    const result = await this.prismaService.$queryRawUnsafe<{ id: string; value: string }[]>(query);
+    return result.map((item) => item);
   }
 }

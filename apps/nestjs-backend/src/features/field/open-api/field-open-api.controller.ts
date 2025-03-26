@@ -22,7 +22,12 @@ import {
   updateFieldRoSchema,
   IUpdateFieldRo,
 } from '@teable/core';
-import { deleteFieldsQuerySchema, IDeleteFieldsQuery } from '@teable/openapi';
+import {
+  deleteFieldsQuerySchema,
+  duplicateFieldRoSchema,
+  IDeleteFieldsQuery,
+  IDuplicateFieldRo,
+} from '@teable/openapi';
 import type {
   IGetViewFilterLinkRecordsVo,
   IPlanFieldConvertVo,
@@ -159,5 +164,15 @@ export class FieldOpenApiController {
     @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
   ) {
     return this.fieldService.getDocIdsByQuery(tableId, query);
+  }
+
+  @Permissions('field|create')
+  @Post('/:fieldId/duplicate')
+  async duplicateField(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Body(new ZodValidationPipe(duplicateFieldRoSchema)) duplicateFieldRo: IDuplicateFieldRo
+  ) {
+    return this.fieldOpenApiService.duplicateField(tableId, fieldId, duplicateFieldRo);
   }
 }

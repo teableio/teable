@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
+import { useMutation } from '@tanstack/react-query';
 import type { IFilter, IGroup, ISort } from '@teable/core';
 import { getValidFilterOperators } from '@teable/core';
 import {
@@ -11,8 +12,10 @@ import {
   Filter,
   LayoutList,
   ArrowUpDown,
+  Copy,
 } from '@teable/icons';
-import { deleteFields } from '@teable/openapi';
+import type { IDuplicateFieldRo } from '@teable/openapi';
+import { deleteFields, duplicateField } from '@teable/openapi';
 import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
 import {
   useFields,
@@ -59,6 +62,7 @@ enum MenuItemType {
   Sort = 'Sort',
   Filter = 'Filter',
   Group = 'Group',
+  Duplicate = 'Duplicate',
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
@@ -93,6 +97,18 @@ export const FieldMenu = () => {
     });
     return permissions;
   }, [fields, fieldsPermission]);
+
+  const { mutateAsync: duplicateFieldFn } = useMutation({
+    mutationFn: ({
+      tableId,
+      fieldId,
+      duplicateFieldRo,
+    }: {
+      tableId: string;
+      fieldId: string;
+      duplicateFieldRo: IDuplicateFieldRo;
+    }) => duplicateField(tableId, fieldId, duplicateFieldRo),
+  });
 
   useClickAway(fieldSettingRef, () => {
     closeHeaderMenu();
@@ -152,6 +168,25 @@ export const FieldMenu = () => {
           openSetting({
             fieldId: fieldIds[0],
             operator: FieldOperator.Edit,
+          });
+        },
+      },
+      {
+        type: MenuItemType.Duplicate,
+        name: t('table:menu.duplicateField'),
+        icon: <Copy className={iconClassName} />,
+        hidden: fieldIds.length !== 1 || !menuFieldPermission['field|update'],
+        onClick: async () => {
+          if (!tableId) return;
+          const fieldId = fieldIds[0];
+          const field = allFields.find((f) => f.id === fieldId);
+          const newName = `${field?.name} ${t('common:noun.copy')}`;
+          await duplicateFieldFn({
+            tableId,
+            fieldId: fieldIds[0],
+            duplicateFieldRo: {
+              name: newName,
+            },
           });
         },
       },
