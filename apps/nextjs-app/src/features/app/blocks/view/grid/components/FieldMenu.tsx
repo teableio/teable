@@ -404,7 +404,7 @@ export const FieldMenu = () => {
               className="rounded-md border-none shadow-none"
               style={style}
             >
-              <CommandList className="max-h-96">
+              <CommandList className="max-h-[410px]">
                 {menuGroups.map((items, index) => {
                   const nextItems = menuGroups[index + 1] ?? [];
                   if (!items.length) return null;
