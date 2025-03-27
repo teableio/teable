@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { IdPrefix } from '@teable/core';
 import { axios } from '../axios';
 import { queryBaseSchema, contentQueryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
@@ -18,6 +19,10 @@ export type ISearchIndexVo = z.infer<typeof searchIndexVoSchema>;
 export const searchIndexByQueryRoSchema = contentQueryBaseSchema.extend({
   skip: z.coerce.number().optional(),
   take: z.coerce.number(),
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+    description:
+      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
+  }),
 });
 
 export type ISearchIndexByQueryRo = z.infer<typeof searchIndexByQueryRoSchema>;
