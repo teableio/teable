@@ -16,7 +16,6 @@ import type {
   IColumnMeta,
   ILinkFieldOptions,
   IGetFieldsQuery,
-  ILookupOptionsRo,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDuplicateFieldRo } from '@teable/openapi';

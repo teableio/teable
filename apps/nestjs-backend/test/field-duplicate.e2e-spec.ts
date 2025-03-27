@@ -2,33 +2,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, IFilterRo, ILinkFieldOptions, IViewGroupRo, IViewVo } from '@teable/core';
-import { FieldType, ViewType, RowHeightLevel, SortFunc } from '@teable/core';
-import type { IDuplicateTableVo, ITableFullVo } from '@teable/openapi';
-import {
-  createField,
-  getFields,
-  duplicateTable,
-  installViewPlugin,
-  updateViewColumnMeta,
-  updateViewSort,
-  updateViewGroup,
-  updateViewOptions,
-  duplicateField,
-} from '@teable/openapi';
+import type { ILinkFieldOptions } from '@teable/core';
+import { FieldType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { createField, getFields, duplicateField } from '@teable/openapi';
 import { omit, pick } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 
-import {
-  createTable,
-  permanentDeleteTable,
-  initApp,
-  getViews,
-  deleteField,
-  createView,
-  updateViewFilter,
-} from './utils/init-app';
+import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
   let app: INestApplication;
