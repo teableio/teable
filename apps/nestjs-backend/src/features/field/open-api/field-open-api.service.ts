@@ -610,6 +610,13 @@ export class FieldOpenApiService {
     const count = await this.getFieldRecordsCount(dbTableName, sourceDbFieldName);
 
     if (!count) {
+      if (fieldInstance.notNull || fieldInstance.unique) {
+        await this.convertField(sourceTableId, targetFieldId, {
+          ...fieldInstance,
+          notNull: fieldInstance.notNull,
+          unique: fieldInstance.unique,
+        });
+      }
       return;
     }
 
