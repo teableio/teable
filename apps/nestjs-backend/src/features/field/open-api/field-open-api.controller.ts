@@ -171,8 +171,9 @@ export class FieldOpenApiController {
   async duplicateField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
-    @Body(new ZodValidationPipe(duplicateFieldRoSchema)) duplicateFieldRo: IDuplicateFieldRo
+    @Body(new ZodValidationPipe(duplicateFieldRoSchema)) duplicateFieldRo: IDuplicateFieldRo,
+    @Headers('x-window-id') windowId: string
   ) {
-    return this.fieldOpenApiService.duplicateField(tableId, fieldId, duplicateFieldRo);
+    return this.fieldOpenApiService.duplicateField(tableId, fieldId, duplicateFieldRo, windowId);
   }
 }

@@ -529,7 +529,8 @@ export class FieldOpenApiService {
   async duplicateField(
     sourceTableId: string,
     fieldId: string,
-    duplicateFieldRo: IDuplicateFieldRo
+    duplicateFieldRo: IDuplicateFieldRo,
+    windowId?: string
   ) {
     const { name } = duplicateFieldRo;
     const prisma = this.prismaService.txClient();
@@ -593,6 +594,14 @@ export class FieldOpenApiService {
       // di not async duplicate records
       this.duplicateFieldData(sourceTableId, newField.id, fieldRaw.dbFieldName, newFieldInstance);
     }
+
+    this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {
+      operationId: generateOperationId(),
+      windowId,
+      tableId: sourceTableId,
+      userId: this.cls.get('user.id'),
+      fields: [newField],
+    });
 
     return newField;
   }
