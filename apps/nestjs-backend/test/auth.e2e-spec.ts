@@ -70,6 +70,33 @@ describe('Auth Controller (e2e)', () => {
     expect(error?.status).toBe(409);
   });
 
+  it('api/auth/signup - system email', async () => {
+    const error = await getError(() =>
+      signup({
+        email: 'anonymous@system.teable.io',
+        password: '12345678a',
+      })
+    );
+    expect(error?.status).toBe(400);
+  });
+
+  it('api/auth/signup - invite email', async () => {
+    await prismaService.user.create({
+      data: {
+        email: 'invite@test-invite-signup.com',
+        name: 'Invite',
+      },
+    });
+    const res = await signup({
+      email: 'invite@test-invite-signup.com',
+      password: '12345678a',
+    });
+    expect(res.status).toBe(201);
+    await prismaService.user.delete({
+      where: { email: 'invite@test-invite-signup.com' },
+    });
+  });
+
   describe('sign up with email verification', () => {
     let preEnableEmailVerification: boolean | null | undefined;
     beforeEach(async () => {
@@ -145,6 +172,26 @@ describe('Auth Controller (e2e)', () => {
   it('api/auth/send-signup-verification-code - registered email', async () => {
     const error = await getError(() => sendSignupVerificationCode(globalThis.testConfig.email));
     expect(error?.status).toBe(409);
+  });
+
+  it('api/auth/send-signup-verification-code - system email', async () => {
+    const error = await getError(() => sendSignupVerificationCode('anonymous@system.teable.io'));
+    expect(error?.status).toBe(400);
+  });
+
+  it('api/auth/send-signup-verification-code - invite email', async () => {
+    const inviteEmail = 'invite@test-invite-signup-verification-code.com';
+    await prismaService.user.create({
+      data: {
+        email: inviteEmail,
+        name: 'Invite',
+      },
+    });
+    const res = await sendSignupVerificationCode(inviteEmail);
+    expect(res.status).toBe(200);
+    await prismaService.user.findUnique({
+      where: { email: inviteEmail },
+    });
   });
 
   describe('change email', () => {
