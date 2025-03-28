@@ -23,6 +23,7 @@ export class FieldCreatingService {
     const fieldId = field.id;
 
     await this.fieldSupplementService.createReference(field);
+    await this.fieldSupplementService.createFieldTaskReference(tableId, field);
 
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
@@ -43,6 +44,7 @@ export class FieldCreatingService {
     for (const field of fieldInstances) {
       const fieldId = field.id;
       await this.fieldSupplementService.createReference(field);
+      await this.fieldSupplementService.createFieldTaskReference(tableId, field);
       await this.viewService.initViewColumnMeta(tableId, [fieldId], columnMeta && [columnMeta]);
     }
 

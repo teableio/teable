@@ -97,7 +97,10 @@ export const SelectOptions = (props: {
 
   return (
     <div className="flex grow flex-col space-y-2">
-      <div className="grow" style={{ maxHeight: choices.length * 36 }}>
+      <div
+        className="grow"
+        style={{ maxHeight: choices.length * 36, minHeight: Math.min(choices.length * 36, 140) }}
+      >
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable
             droppableId={'select-choice-container'}

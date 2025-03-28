@@ -1,4 +1,9 @@
-import { AggregationProvider, RecordProvider, RowCountProvider } from '@teable/sdk/context';
+import {
+  AggregationProvider,
+  RecordProvider,
+  RowCountProvider,
+  TaskStatusCollectionProvider,
+} from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { usePersonalView } from '@teable/sdk/hooks';
 import { GridToolBar } from '../tool-bar/GridToolBar';
@@ -13,12 +18,14 @@ export const GridView = (props: IViewBaseProps) => {
     <SearchProvider>
       <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
         <AggregationProvider query={personalViewAggregationQuery}>
-          <RowCountProvider query={personalViewCommonQuery}>
-            <GridToolBar />
-            <div className="w-full grow overflow-hidden sm:pl-2">
-              <GridViewBase groupPointsServerDataMap={groupPointsServerDataMap} />
-            </div>
-          </RowCountProvider>
+          <TaskStatusCollectionProvider>
+            <RowCountProvider query={personalViewCommonQuery}>
+              <GridToolBar />
+              <div className="w-full grow overflow-hidden sm:pl-2">
+                <GridViewBase groupPointsServerDataMap={groupPointsServerDataMap} />
+              </div>
+            </RowCountProvider>
+          </TaskStatusCollectionProvider>
         </AggregationProvider>
       </RecordProvider>
     </SearchProvider>

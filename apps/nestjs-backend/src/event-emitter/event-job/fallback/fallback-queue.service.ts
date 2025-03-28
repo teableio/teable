@@ -42,7 +42,8 @@ export class FallbackQueueService implements OnModuleInit {
         PROCESSOR_METADATA,
         instance.constructor || metatype
       );
-      localQueueEventEmitter.on('handle-listener', (job: Job<unknown>) => {
+      localQueueEventEmitter.removeAllListeners(`handle-listener-${queueName}`);
+      localQueueEventEmitter.on(`handle-listener-${queueName}`, (job: Job<unknown>) => {
         if (job.queueName !== queueName) {
           return;
         }

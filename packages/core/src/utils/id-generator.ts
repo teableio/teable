@@ -54,6 +54,8 @@ export enum IdPrefix {
   OrganizationDepartment = 'odp',
 
   Integration = 'int',
+
+  Task = 'tsk',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -212,4 +214,8 @@ export function generateOrganizationDepartmentId() {
 
 export function generateIntegrationId() {
   return IdPrefix.Integration + getRandomString(16);
+}
+
+export function generateTaskId() {
+  return IdPrefix.Task + getRandomString(16);
 }

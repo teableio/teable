@@ -1,5 +1,3 @@
-import type { CoordinateManager } from '../managers';
-
 export type ITimeoutID = {
   id: number;
 };

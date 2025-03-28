@@ -1189,6 +1189,16 @@ export class FieldConvertingService {
     };
   }
 
+  async updateAiConfigReference(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ) {
+    if (JSON.stringify(newField.aiConfig) === JSON.stringify(oldField.aiConfig)) return;
+
+    await this.fieldSupplementService.createFieldTaskReference(tableId, newField);
+  }
+
   async stageAlter(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const ops = this.getOriginFieldOps(newField, oldField);
 
@@ -1206,6 +1216,9 @@ export class FieldConvertingService {
     await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
 
     await this.updateReference(newField, oldField);
+
+    // apply ai config changes
+    await this.updateAiConfigReference(tableId, newField, oldField);
 
     // apply referenced fields changes
     await this.updateReferencedFields(newField, oldField);

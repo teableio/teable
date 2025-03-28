@@ -10,7 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
 import { IntegrationType, LLMProviderType, Task } from '@teable/openapi';
-import { streamText } from 'ai';
+import { generateText, streamText } from 'ai';
 import { createQwen } from 'qwen-ai-provider';
 import { SettingService } from '../setting/setting.service';
 import { TASK_MODEL_MAP } from './constant';
@@ -37,18 +37,17 @@ export class AiService {
   } as const;
 
   public parseModelKey(modelKey: string) {
-    const [type, model, provider] = modelKey.split('@');
-    return { type, model, provider };
+    const [type, model, name] = modelKey.split('@');
+    return { type, model, name };
   }
 
-  // modelKey-> type@model@provider
+  // modelKey-> type@model@name
   async getModelConfig(modelKey: string, llmProviders: LLMProvider[] = []) {
-    const { type, model, provider } = this.parseModelKey(modelKey);
+    const { type, model, name } = this.parseModelKey(modelKey);
 
     const providerConfig = llmProviders.find(
       (p) =>
-        p.name.toLowerCase() === provider.toLowerCase() &&
-        p.type.toLowerCase() === type.toLowerCase()
+        p.name.toLowerCase() === name.toLowerCase() && p.type.toLowerCase() === type.toLowerCase()
     );
 
     if (!providerConfig) {
@@ -151,17 +150,32 @@ export class AiService {
     }
   }
 
-  async generateStream(baseId: string, aiGenerateRo: IAiGenerateRo) {
-    const { prompt, task = Task.Coding } = aiGenerateRo;
-
+  private async getGenerationModelInstance(baseId: string, aiGenerateRo: IAiGenerateRo) {
+    const { modelKey: _modelKey, task = Task.Coding } = aiGenerateRo;
     const config = await this.getAIConfig(baseId);
     const currentTaskModel = TASK_MODEL_MAP[task];
-    const modelKey = config[currentTaskModel as keyof typeof config] as string;
-    const modelInstance = await this.getModelInstance(modelKey, config.llmProviders);
+    const modelKey = _modelKey ?? (config[currentTaskModel as keyof typeof config] as string);
+    return await this.getModelInstance(modelKey, config.llmProviders);
+  }
+
+  async generateStream(baseId: string, aiGenerateRo: IAiGenerateRo) {
+    const { prompt } = aiGenerateRo;
+    const modelInstance = await this.getGenerationModelInstance(baseId, aiGenerateRo);
 
     return await streamText({
       model: modelInstance,
       prompt: prompt,
     });
+  }
+
+  async generateText(baseId: string, aiGenerateRo: IAiGenerateRo) {
+    const { prompt } = aiGenerateRo;
+    const modelInstance = await this.getGenerationModelInstance(baseId, aiGenerateRo);
+
+    const { text } = await generateText({
+      model: modelInstance,
+      prompt: prompt,
+    });
+    return text;
   }
 }

@@ -17,6 +17,8 @@ export abstract class FieldCore implements IFieldVo {
 
   dbFieldName!: string;
 
+  aiConfig?: IFieldVo['aiConfig'];
+
   abstract type: FieldType;
 
   isComputed?: boolean;

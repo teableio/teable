@@ -148,7 +148,7 @@ const useGenerateColumns = () => {
               showAlways: i === 0,
               label: i === 0 ? t('common.summaryTip') : t('common.summary'),
             },
-            icon: iconString(type, isLookup),
+            icon: field.aiConfig != null ? 'ai' : iconString(type, isLookup),
           };
         })
         .filter(Boolean)

@@ -160,4 +160,10 @@ export class FieldOpenApiController {
   ) {
     return this.fieldService.getDocIdsByQuery(tableId, query);
   }
+
+  @Permissions('field|update')
+  @Post('/:fieldId/auto-fill')
+  async autoFillField(@Param('tableId') _tableId: string, @Param('fieldId') _fieldId: string) {
+    return { taskId: '' };
+  }
 }

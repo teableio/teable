@@ -8,6 +8,7 @@ import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
 import dayjs from 'dayjs';
+import type { ReactNode } from 'react';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { useTranslation } from '../../context/app/i18n';
@@ -16,6 +17,7 @@ import type { IFieldInstance } from '../../model';
 import { CellValue } from '../cell-value';
 import { OverflowTooltip } from '../cell-value/components';
 import { CollaboratorWithHoverCard } from '../collaborator';
+import { MagicAI } from '../comment/comment-editor/plate-ui/icons';
 import { InfiniteTable } from '../table';
 
 interface IRecordHistoryProps {
@@ -89,7 +91,20 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
 
           return (
             <div className="flex justify-center">
-              <CollaboratorWithHoverCard id={id} name={name} avatar={avatar} email={email} />
+              <CollaboratorWithHoverCard
+                id={id}
+                name={name}
+                avatar={
+                  (id === 'aiRobot' ? (
+                    <div className="flex size-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-orange-400">
+                      <MagicAI className="size-4" active />
+                    </div>
+                  ) : (
+                    avatar
+                  )) as ReactNode
+                }
+                email={email}
+              />
             </div>
           );
         },

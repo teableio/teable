@@ -1,6 +1,6 @@
 'use client';
 
-import { Audio, DeepThinking, Eye, HelpCircle } from '@teable/icons';
+import { Audio, ChevronDown, DeepThinking, Eye, HelpCircle } from '@teable/icons';
 import type { IModelDefinationMap } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
 import {
@@ -21,7 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Trans, useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { Fragment, useMemo, useState } from 'react';
@@ -76,14 +76,14 @@ export function AIModelSelect({
   }, [options]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild disabled={disabled}>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
           size={size}
-          className={cn('grow justify-between', className)}
+          className={cn('grow justify-between font-normal', className)}
         >
           <div className="flex max-w-[300px] items-center truncate sm:max-w-full">
             {!currentModel ? (
@@ -98,7 +98,7 @@ export function AIModelSelect({
               </>
             )}
           </div>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">

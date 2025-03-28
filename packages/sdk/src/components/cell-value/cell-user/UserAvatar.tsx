@@ -4,7 +4,7 @@ import { convertNextImageUrl } from '../../grid-enhancements/utils';
 
 export interface IUserAvatarProps {
   name: string;
-  avatar?: ReactNode | string | null;
+  avatar?: ReactNode;
   size?: number;
   className?: string;
   style?: React.CSSProperties;

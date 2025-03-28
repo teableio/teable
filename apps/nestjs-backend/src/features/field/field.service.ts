@@ -87,6 +87,7 @@ export class FieldService implements IReadonlyAdapterService {
       description,
       type,
       options,
+      aiConfig,
       lookupOptions,
       notNull,
       unique,
@@ -116,6 +117,7 @@ export class FieldService implements IReadonlyAdapterService {
       name,
       description,
       type,
+      aiConfig: aiConfig && JSON.stringify(aiConfig),
       options: JSON.stringify(options),
       notNull,
       unique,
@@ -636,6 +638,12 @@ export class FieldService implements IReadonlyAdapterService {
         throw new Error('field options is required');
       }
       return { options: JSON.stringify(newValue) };
+    }
+
+    if (key === 'aiConfig') {
+      return {
+        aiConfig: newValue ? JSON.stringify(newValue) : null,
+      };
     }
 
     if (key === 'lookupOptions') {

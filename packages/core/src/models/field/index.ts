@@ -8,3 +8,4 @@ export * from './show-as';
 export * from './field.schema';
 export * from './field-validation';
 export * from './cell-value-validation';
+export * from './ai-config';

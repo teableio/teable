@@ -84,6 +84,7 @@ model Field {
   name                String
   description         String?
   options             String?
+  aiConfig            String?   @map("ai_config")
   type                String
   cellValueType       String    @map("cell_value_type")
   isMultipleCellValue Boolean?  @map("is_multiple_cell_value")
@@ -558,4 +559,45 @@ model PluginContextMenu {
   table            TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("plugin_context_menu")
+}
+
+model Task {
+  id               String    @id @default(cuid())
+  type             String    @map("type")
+  status           String    @map("status")
+  snapshot         String?   @map("snapshot")
+  createdTime      DateTime  @default(now()) @map("created_time")
+
+  runs             TaskRun[]
+
+  @@map("task")
+}
+
+model TaskRun {
+  id               String    @id @default(cuid())
+  taskId           String    @map("task_id")
+  resourceId       String    @map("resource_id")
+  status           String    @map("status")
+  snapshot         String    @map("snapshot")
+  spent            Int?      @map("spent")
+  startedTime      DateTime? @map("started_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  task             Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([resourceId, status])
+  @@map("task_run")
+}
+
+model TaskReference {
+  id          String    @id @default(cuid())
+  fromFieldId String    @map("from_field_id")
+  toFieldId   String    @map("to_field_id")
+  createdTime DateTime  @default(now()) @map("created_time")
+
+  @@unique([toFieldId, fromFieldId])
+  @@index([fromFieldId])
+  @@index([toFieldId])
+  @@map("task_reference")
 }

@@ -11,8 +11,9 @@ import {
   Filter,
   LayoutList,
   ArrowUpDown,
+  RefreshCcw,
 } from '@teable/icons';
-import { deleteFields } from '@teable/openapi';
+import { autoFillField, deleteFields } from '@teable/openapi';
 import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
 import {
   useFields,
@@ -51,6 +52,7 @@ import type { IMenuItemProps } from './RecordMenu';
 
 enum MenuItemType {
   Edit = 'Edit',
+  AutoFill = 'AutoFill',
   Freeze = 'Freeze',
   Hidden = 'Hidden',
   Delete = 'Delete',
@@ -153,6 +155,18 @@ export const FieldMenu = () => {
             fieldId: fieldIds[0],
             operator: FieldOperator.Edit,
           });
+        },
+      },
+    ],
+    [
+      {
+        type: MenuItemType.AutoFill,
+        name: '更新整列记录',
+        icon: <RefreshCcw className={iconClassName} />,
+        hidden: fieldIds.length !== 1 || !fields[0].aiConfig?.type,
+        onClick: async () => {
+          if (!tableId) return;
+          await autoFillField(tableId, fieldIds[0]);
         },
       },
     ],

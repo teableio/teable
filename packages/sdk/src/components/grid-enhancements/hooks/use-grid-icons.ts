@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useFieldStaticGetter } from '../../../hooks/use-field-static-getter';
 import { FIELD_TYPE_ORDER, getSpriteMap } from '../../../utils';
 import { RATING_ICON_MAP } from '../../cell-value';
+import { MagicAI } from '../../comment/comment-editor/plate-ui/icons';
 import { RowControlType } from '../../grid/interface';
 
 export const useGridIcons = () => {
@@ -45,10 +46,17 @@ export const useGridIcons = () => {
         IconComponent: RATING_ICON_MAP[iconKey],
       }))
     );
+    const aiIcons = getSpriteMap([
+      {
+        type: 'ai',
+        IconComponent: MagicAI,
+      },
+    ]);
     return {
       ...columnHeaderIcons,
       ...rowHeaderIcons,
       ...ratingIcons,
+      ...aiIcons,
     };
   }, [getFieldStatic]);
 };

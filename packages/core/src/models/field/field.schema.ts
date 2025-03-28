@@ -3,6 +3,7 @@ import { assertNever } from '../../asserts';
 import type { IEnsureKeysMatchInterface } from '../../types';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
+import { fieldAIConfigSchema } from './ai-config';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,
@@ -128,6 +129,10 @@ export const fieldVoSchema = z.object({
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
   }),
 
+  aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
+    description: 'The AI configuration of the field.',
+  }),
+
   isLookup: z.boolean().optional().openapi({
     description:
       'Whether this field is lookup field. witch means cellValue and [fieldType] is looked up from the linked table.',
@@ -205,6 +210,7 @@ export const FIELD_VO_PROPERTIES = [
   'type',
   'description',
   'options',
+  'aiConfig',
   'name',
   'isLookup',
   'lookupOptions',
@@ -354,6 +360,9 @@ const baseFieldRoSchema = fieldVoSchema
       options: unionFieldOptionsRoSchema.optional().openapi({
         description:
           "The options of the field. The configuration of the field's options depend on the it's specific type.",
+      }),
+      aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
+        description: 'The AI configuration of the field.',
       }),
     })
   );

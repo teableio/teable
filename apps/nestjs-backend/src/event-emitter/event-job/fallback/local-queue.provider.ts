@@ -9,7 +9,7 @@ export const createLocalQueueProvider = (queueName: string): Provider => ({
   useFactory: async () => {
     return {
       add: (name: string, data: unknown, opts?: JobsOptions) => {
-        localQueueEventEmitter.emit('handle-listener', {
+        localQueueEventEmitter.emit(`handle-listener-${queueName}`, {
           id: getRandomString(10),
           name,
           data,
@@ -19,7 +19,7 @@ export const createLocalQueueProvider = (queueName: string): Provider => ({
       },
       addBulk: (jobs: JobsOptions[]) => {
         jobs.forEach((job) => {
-          localQueueEventEmitter.emit('handle-listener', job);
+          localQueueEventEmitter.emit(`handle-listener-${queueName}`, job);
         });
       },
     };

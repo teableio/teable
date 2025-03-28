@@ -145,7 +145,7 @@ export class FieldCalculationService {
     return Number(count);
   }
 
-  private async getRecordIds(dbTableName: string, page: number, chunkSize: number) {
+  async getRecordIds(dbTableName: string, page: number, chunkSize: number) {
     const query = this.knex(dbTableName)
       .select({ id: '__id' })
       .orderBy('__auto_number')

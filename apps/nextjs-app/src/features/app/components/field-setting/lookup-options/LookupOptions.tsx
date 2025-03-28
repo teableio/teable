@@ -10,43 +10,31 @@ import { Selector } from '@/components/Selector';
 import { tableConfig } from '@/features/i18n/table.config';
 import { LookupFilterOptions } from './LookupFilterOptions';
 
-const SelectFieldByTableId: React.FC<{
+export const SelectFieldByTableId: React.FC<{
   selectedId?: string;
   onChange: (lookupField: IFieldInstance) => void;
 }> = ({ selectedId, onChange }) => {
   const fields = useFields({ withHidden: true, withDenied: true });
-  const table = useTable();
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   return (
-    <div className="space-y-2">
-      <span className="neutral-content label-text mb-2">
-        <Trans
-          ns="table"
-          i18nKey="field.editor.lookupToTable"
-          values={{
-            tableName: table?.name,
-          }}
-        />
-      </span>
-      <Selector
-        className="w-full"
-        placeholder={t('table:field.editor.selectField')}
-        selectedId={selectedId}
-        onChange={(id) => {
-          onChange(fields.find((f) => f.id === id) as IFieldInstance);
-        }}
-        candidates={fields.map((f) => {
-          const Icon = getFieldStatic(f.type, f.isLookup).Icon;
-          return {
-            id: f.id,
-            name: f.name,
-            icon: <Icon className="size-4 shrink-0" />,
-          };
-        })}
-      />
-    </div>
+    <Selector
+      className="w-full"
+      placeholder={t('table:field.editor.selectField')}
+      selectedId={selectedId}
+      onChange={(id) => {
+        onChange(fields.find((f) => f.id === id) as IFieldInstance);
+      }}
+      candidates={fields.map((f) => {
+        const Icon = getFieldStatic(f.type, f.isLookup).Icon;
+        return {
+          id: f.id,
+          name: f.name,
+          icon: <Icon className="size-4 shrink-0" />,
+        };
+      })}
+    />
   );
 };
 
@@ -60,6 +48,7 @@ export const LookupOptions = (props: {
   ) => void;
 }) => {
   const { fieldId, options = {}, onChange } = props;
+  const table = useTable();
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [innerOptions, setInnerOptions] = useState<Partial<ILookupOptionsRo>>({
@@ -110,15 +99,26 @@ export const LookupOptions = (props: {
           {innerOptions.foreignTableId && (
             <>
               <StandaloneViewProvider baseId={baseId} tableId={innerOptions.foreignTableId}>
-                <SelectFieldByTableId
-                  selectedId={innerOptions.lookupFieldId}
-                  onChange={(lookupField: IFieldInstance) => {
-                    const linkField = linkFields.find(
-                      (l) => l.id === innerOptions.linkFieldId
-                    ) as LinkField;
-                    setOptions?.({ lookupFieldId: lookupField.id }, linkField, lookupField);
-                  }}
-                />
+                <div className="space-y-2">
+                  <span className="neutral-content label-text mb-2">
+                    <Trans
+                      ns="table"
+                      i18nKey="field.editor.lookupToTable"
+                      values={{
+                        tableName: table?.name,
+                      }}
+                    />
+                  </span>
+                  <SelectFieldByTableId
+                    selectedId={innerOptions.lookupFieldId}
+                    onChange={(lookupField: IFieldInstance) => {
+                      const linkField = linkFields.find(
+                        (l) => l.id === innerOptions.linkFieldId
+                      ) as LinkField;
+                      setOptions?.({ lookupFieldId: lookupField.id }, linkField, lookupField);
+                    }}
+                  />
+                </div>
               </StandaloneViewProvider>
               <>
                 <div className="flex justify-end">

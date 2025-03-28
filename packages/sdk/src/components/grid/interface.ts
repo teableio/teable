@@ -232,3 +232,8 @@ export interface IGroupCollection {
   groupColumns: IGridColumn[];
   getGroupCell: (cellValue: unknown, depth: number) => ICell;
 }
+
+export interface IColumnLoading {
+  index: number;
+  progress: number;
+}

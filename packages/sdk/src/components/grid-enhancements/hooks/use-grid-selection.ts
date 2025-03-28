@@ -21,7 +21,7 @@ interface IUseGridSelectionProps {
   gridRef: React.RefObject<IGridRef>;
 }
 
-interface IActiveCell {
+export interface IActiveCell {
   recordId: string;
   fieldId: string;
   rowIndex: number;
@@ -184,6 +184,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
 
   return useMemo(
     () => ({
+      activeCell,
       presortRecord,
       presortRecordData,
       onSelectionChanged,
@@ -192,6 +193,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
       setPresortRecordData,
     }),
     [
+      activeCell,
       presortRecord,
       presortRecordData,
       onSelectionChanged,

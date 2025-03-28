@@ -3,6 +3,7 @@ import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useRafState } from 'react-use';
+import { LoadingIndicator } from './components';
 import type { IGridTheme } from './configs';
 import { gridTheme, GRID_DEFAULT, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useResizeObserver } from './hooks';
@@ -24,6 +25,7 @@ import type {
   ILinearRow,
   IGroupCollection,
   DragRegionType,
+  IColumnLoading,
 } from './interface';
 import {
   RegionType,
@@ -145,6 +147,9 @@ export interface IGridRef {
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
   getCellIndicesAtPosition: (x: number, y: number) => ICellItem | null;
   getContainer: () => HTMLDivElement | null;
+  getCellBounds: (cell: ICellItem) => IRectangle | null;
+  setCellLoading: (cells: ICellItem[]) => void;
+  setColumnLoadings: (columnLoadings: IColumnLoading[]) => void;
 }
 
 const {
@@ -244,6 +249,37 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       return [columnIndex, realIndex];
     },
     getContainer: () => containerRef.current,
+    setCellLoading: (cells: ICellItem[]) => {
+      setCellLoadings(cells);
+    },
+    setColumnLoadings: (columnLoadings: IColumnLoading[]) => {
+      setColumnLoadings(columnLoadings);
+    },
+    getCellBounds: (cell: ICellItem) => {
+      const [columnIndex, rowIndex] = cell;
+      const { scrollLeft, scrollTop } = scrollState;
+
+      const columnOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
+      const columnWidth = coordInstance.getColumnWidth(columnIndex);
+
+      if (columnOffsetX == null || columnWidth == null) {
+        return null;
+      }
+
+      const rowOffsetY = coordInstance.getRowOffset(rowIndex);
+      const rowHeight = coordInstance.getRowHeight(rowIndex);
+
+      if (rowOffsetY == null || rowHeight == null) {
+        return null;
+      }
+
+      return {
+        x: columnOffsetX,
+        y: rowOffsetY - scrollTop,
+        width: columnWidth,
+        height: rowHeight,
+      };
+    },
   }));
 
   const hasAppendRow = onRowAppend != null;
@@ -258,6 +294,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
+  const [cellLoadings, setCellLoadings] = useState<ICellItem[]>([]);
+  const [columnLoadings, setColumnLoadings] = useState<IColumnLoading[]>([]);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
@@ -666,6 +704,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         setScrollState={setScrollState}
         onScrollChanged={onScrollChanged}
         onVisibleRegionChanged={onVisibleRegionChanged}
+      />
+
+      <LoadingIndicator
+        cellLoadings={cellLoadings}
+        columnLoadings={columnLoadings}
+        coordInstance={coordInstance}
+        scrollState={scrollState}
       />
     </div>
   );

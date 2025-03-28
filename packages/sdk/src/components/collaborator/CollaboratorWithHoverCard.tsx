@@ -1,12 +1,17 @@
 import { HoverCard, HoverCardTrigger, HoverCardContent, HoverCardPortal } from '@teable/ui-lib';
+import type { ReactNode } from 'react';
 import colors from 'tailwindcss/colors';
 import type { IUser } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import { useSession } from '../../hooks';
 import { UserAvatar } from '../cell-value';
 
-export type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPassword' | 'isAdmin'> & {
+export type ICollaboratorUser = Omit<
+  IUser,
+  'phone' | 'notifyMeta' | 'hasPassword' | 'isAdmin' | 'avatar'
+> & {
   borderColor?: string;
+  avatar?: ReactNode;
 };
 
 export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {

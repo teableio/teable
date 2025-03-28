@@ -13,7 +13,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { ICreateRecordsVo, IRecord, IRecordStatusVo, IRecordsVo } from '@teable/openapi';
+import type {
+  IAutoFillCellVo,
+  ICreateRecordsVo,
+  IRecord,
+  IRecordStatusVo,
+  IRecordsVo,
+} from '@teable/openapi';
 import {
   createRecordsRoSchema,
   getRecordQuerySchema,
@@ -199,5 +205,15 @@ export class RecordOpenApiController {
     @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
   ): Promise<IRecordStatusVo> {
     return await this.recordService.getRecordStatus(tableId, recordId, query);
+  }
+
+  @Permissions('record|update')
+  @Post(':recordId/:fieldId/auto-fill')
+  async autoFillCell(
+    @Param('tableId') _tableId: string,
+    @Param('recordId') _recordId: string,
+    @Param('fieldId') _fieldId: string
+  ): Promise<IAutoFillCellVo> {
+    return { taskId: '' };
   }
 }

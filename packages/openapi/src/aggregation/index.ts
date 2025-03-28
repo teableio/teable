@@ -5,3 +5,4 @@ export * from './get-calendar-daily-collection';
 export * from './type';
 export * from './get-search-count';
 export * from './get-search-by-index';
+export * from './get-task-status-collection';
