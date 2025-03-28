@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import type { ITableVo } from '@teable/openapi';
+import { LastVisitResourceType, type ITableVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
@@ -22,8 +22,10 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       const { baseId, dashboardId: dashboardIdQuery } = context.query;
       const queryClient = new QueryClient();
 
-      const [tables, dashboardList] = await Promise.all([
+      const [tables, lastVisit, dashboardList] = await Promise.all([
         ssrApi.getTables(baseId as string),
+
+        ssrApi.getUserLastVisit(LastVisitResourceType.Dashboard, baseId as string),
 
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.getDashboardList(baseId as string),
@@ -35,6 +37,15 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
         }),
       ]);
+
+      if (!dashboardIdQuery && lastVisit) {
+        return {
+          redirect: {
+            destination: `/base/${baseId}/dashboard?dashboardId=${lastVisit.resourceId}`,
+            permanent: false,
+          },
+        };
+      }
 
       const dashboardId = dashboardIdQuery ? (dashboardIdQuery as string) : dashboardList[0]?.id;
 

@@ -27,7 +27,7 @@
     "fromTemplate": "从模板创建"
   },
   "spaceSetting": {
-    "title": "空间设置",
+    "title": "设置",
     "general": "概览",
     "collaborators": "协作者",
     "generalDescription": "您可以在此处更改当前空间的设置",

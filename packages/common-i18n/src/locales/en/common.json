@@ -43,7 +43,8 @@
     "showAllRow": "Display all rows",
     "hideNotMatchRow": "Hide not match row",
     "more": "More",
-    "expand": "Expand"
+    "expand": "Expand",
+    "deleteTip": "Are you sure you want to delete \"{{name}}\"?"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -159,7 +160,7 @@
     "automation": "Automation",
     "authorityMatrix": "Authority Matrix",
     "adminPanel": "Admin Panel",
-    "license": "License",
+    "license": "Self-hosted License",
     "instanceId": "Instance ID",
     "beta": "Beta",
     "trash": "Trash",
@@ -277,7 +278,7 @@
       "allowSpaceCreation": "Allow everyone to create new spaces",
       "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces.",
       "enableEmailVerification": "Enable email verification",
-      "enableEmailVerificationDescription": "Disabling this option will prevent users from creating new accounts without verifying their email address.",
+      "enableEmailVerificationDescription": "Enabling this option will require users to verify their email address when creating a new account.",
       "generalSettings": "General settings",
       "aiSettings": "AI settings",
       "ai": {

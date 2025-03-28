@@ -65,7 +65,11 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(searchIndexByQueryRoSchema), TqlPipe) query: ISearchIndexByQueryRo
   ): Promise<ISearchIndexVo> {
-    return await this.aggregationOpenApiService.getRecordIndexBySearchOrder(tableId, query);
+    return await this.aggregationOpenApiService.getRecordIndexBySearchOrder(
+      tableId,
+      query,
+      query.projection
+    );
   }
 
   @Get('/group-points')

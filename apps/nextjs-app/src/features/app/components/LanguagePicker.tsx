@@ -8,6 +8,7 @@ import {
 } from '@teable/ui-lib/shadcn/ui/dropdown-menu';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
+
 const languages = [
   { key: 'zh', title: '中文' },
   { key: 'en', title: 'English' },
@@ -18,6 +19,7 @@ const languages = [
   { key: 'ru', title: 'Русский' },
   { key: 'uk', title: 'Українська' },
   { key: 'tr', title: 'Türkçe' },
+  { key: 'es', title: 'Español (Latinoamérica)' },
   { key: 'default', title: 'Default' },
 ];
 

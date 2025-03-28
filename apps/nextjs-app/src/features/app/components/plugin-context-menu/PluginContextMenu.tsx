@@ -32,6 +32,7 @@ export const PluginContextMenu = (props: { tableId: string; baseId: string }) =>
       <FloatPlugin
         name={plugin?.name}
         tableId={tableId}
+        positionId={plugin.positionId}
         pluginId={activePluginId}
         pluginInstallId={activePluginId}
         pluginUrl={plugin?.url}

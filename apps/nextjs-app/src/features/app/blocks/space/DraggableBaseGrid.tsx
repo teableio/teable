@@ -60,7 +60,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
   return isHydrated ? (
     <div
       className={cn(
-        'grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3 pb-8',
+        'grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3',
         className
       )}
     >
@@ -72,7 +72,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
                 <div ref={setNodeRef} {...attributes} {...listeners} style={style}>
                   <BaseCard
                     key={base.id}
-                    className="h-24 max-w-[34rem] flex-1 sm:min-w-[17rem]"
+                    className="h-20 max-w-[34rem] flex-1 sm:min-w-[17rem]"
                     base={base}
                   />
                 </div>
@@ -88,7 +88,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
         <div key={base.id}>
           <BaseCard
             key={base.id}
-            className="h-24 max-w-[34rem] flex-1 sm:min-w-[17rem]"
+            className="h-20 max-w-[34rem] flex-1 sm:min-w-[17rem]"
             base={base}
           />
         </div>

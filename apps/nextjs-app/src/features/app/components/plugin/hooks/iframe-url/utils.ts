@@ -37,9 +37,10 @@ export const getDashboardIframeUrl = (url: string, params: IDashboardPluginParam
 };
 
 export const getContextMenuIframeUrl = (url: string, params: IContextMenuPluginParams) => {
-  const { baseId } = params;
+  const { baseId, tableId } = params;
   const urlObj = new URL(getBaseIframeUrl(url, params));
   urlObj.searchParams.set('baseId', baseId);
+  urlObj.searchParams.set('tableId', tableId);
   return urlObj.toString();
 };
 

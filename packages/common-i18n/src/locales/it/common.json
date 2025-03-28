@@ -270,7 +270,7 @@
       "allowSpaceCreation": "Consenti a tutti di creare nuovi spazi",
       "allowSpaceCreationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di creare nuovi spazi.",
       "enableEmailVerification": "Abilita la verifica email",
-      "enableEmailVerificationDescription": "Disabilitando questa opzione si impedirà agli utenti di creare nuovi account senza verificare il loro indirizzo email.",
+      "enableEmailVerificationDescription": "Abilitando questa opzione si richiederà agli utenti di verificare il loro indirizzo email quando creano un nuovo account.",
       "generalSettings": "Impostazioni generali",
       "aiSettings": "Impostazioni AI",
       "ai": {

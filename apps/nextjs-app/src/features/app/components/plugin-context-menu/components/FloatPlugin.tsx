@@ -15,9 +15,10 @@ export const FloatPlugin = (props: {
   pluginId: string;
   pluginUrl?: string;
   pluginInstallId: string;
+  positionId: string;
   onClose?: () => void;
 }) => {
-  const { tableId, pluginInstallId, pluginId, pluginUrl, name, onClose } = props;
+  const { tableId, pluginInstallId, pluginId, pluginUrl, name, onClose, positionId } = props;
   const router = useRouter();
   const baseId = router.query.baseId as string;
   const { position, updatePosition, frozenResize, frozenDrag } = useFloatPluginPosition(
@@ -130,9 +131,10 @@ export const FloatPlugin = (props: {
         <PluginContent
           className="flex-1"
           baseId={baseId}
+          tableId={tableId}
           pluginId={pluginId}
           pluginInstallId={pluginInstallId}
-          positionId={baseId}
+          positionId={positionId}
           pluginUrl={pluginUrl}
           positionType={PluginPosition.ContextMenu}
           dragging={isDragging}

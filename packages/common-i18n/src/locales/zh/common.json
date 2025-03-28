@@ -43,7 +43,8 @@
     "showAllRow": "显示全部",
     "hideNotMatchRow": "仅显示匹配行",
     "more": "更多",
-    "expand": "展开"
+    "expand": "展开",
+    "deleteTip": "确定要删除 \"{{name}}\" 吗？"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -159,7 +160,7 @@
     "automation": "自动化",
     "authorityMatrix": "权限矩阵",
     "adminPanel": "管理面板",
-    "license": "许可证",
+    "license": "私有化部署许可证",
     "instanceId": "实例 ID",
     "beta": "测试版",
     "trash": "回收站",
@@ -263,7 +264,7 @@
       "pastDue": "逾期",
       "unpaid": "未支付",
       "paused": "已暂停",
-      "seatLimitExceeded": "席位数超限制"
+      "seatLimitExceeded": "用户数超限制"
     }
   },
   "admin": {
@@ -276,7 +277,7 @@
       "allowSpaceCreation": "允许所有人创建新的空间",
       "allowSpaceCreationDescription": "关闭此选项将禁止除管理员以外的用户创建新的空间。",
       "enableEmailVerification": "启用邮箱验证",
-      "enableEmailVerificationDescription": "关闭此选项将禁止用户创建新账户时无需验证邮箱地址。",
+      "enableEmailVerificationDescription": "启用此选项将要求用户在创建新账户时验证邮箱地址。",
       "generalSettings": "通用配置",
       "aiSettings": "AI 配置",
       "ai": {

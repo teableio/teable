@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "title": "Ingresa tu contraseña para ver esta página",
+    "submit": "Enviar",
+    "password": "Contraseña"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "Seleccionar..."
+  },
+  "openOnNewPage": "Abrir en nueva página",
+  "errorTips": "La fuente compartida tiene habilitada una Matriz de Autoridad, no se permite la visualización"
+}

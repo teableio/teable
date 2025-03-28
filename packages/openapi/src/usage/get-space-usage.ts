@@ -36,6 +36,7 @@ export enum UsageFeatureLimit {
   AuthenticationEnable = 'authenticationEnable',
   DomainVerificationEnable = 'domainVerificationEnable',
   OrganizationEnable = 'organizationEnable',
+  APIRateLimit = 'apiRateLimit',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -56,6 +57,7 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.AuthenticationEnable]: z.boolean(),
   [UsageFeatureLimit.DomainVerificationEnable]: z.boolean(),
   [UsageFeatureLimit.OrganizationEnable]: z.boolean(),
+  [UsageFeatureLimit.APIRateLimit]: z.number(),
 });
 
 export const usageVoSchema = z.object({

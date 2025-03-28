@@ -124,21 +124,25 @@ export class LocalAuthService {
     }
   }
 
+  private isRegisteredValidate(user: Awaited<ReturnType<typeof this.userService.getUserByEmail>>) {
+    if (user && (user.password !== null || user.accounts.length > 0)) {
+      throw new HttpException(`User ${user.email} is already registered`, HttpStatus.CONFLICT);
+    }
+    if (user && user.isSystem) {
+      throw new HttpException(`User ${user.email} is system user`, HttpStatus.BAD_REQUEST);
+    }
+  }
+
   async signup(body: ISignup) {
     const { email, password, defaultSpaceName, refMeta } = body;
     await this.verifySignup(body);
 
     const user = await this.userService.getUserByEmail(email);
-    if (user && (user.password !== null || user.accounts.length > 0)) {
-      throw new HttpException(`User ${email} is already registered`, HttpStatus.CONFLICT);
-    }
-    if (user && user.isSystem) {
-      throw new HttpException(`User ${email} is system user`, HttpStatus.BAD_REQUEST);
-    }
+    this.isRegisteredValidate(user);
     const { salt, hashPassword } = await this.encodePassword(password);
-    const res = await this.prismaService.$tx(async () => {
+    const res = await this.prismaService.$tx(async (prisma) => {
       if (user) {
-        return await this.prismaService.user.update({
+        return await prisma.user.update({
           where: { id: user.id, deletedTime: null },
           data: {
             salt,
@@ -172,10 +176,8 @@ export class LocalAuthService {
     if (this.baseConfig.enableEmailCodeConsole) {
       console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
     }
-    const exist = await this.userService.getUserByEmail(email);
-    if (exist) {
-      throw new ConflictException('Email is already registered');
-    }
+    const user = await this.userService.getUserByEmail(email);
+    this.isRegisteredValidate(user);
     const emailOptions = this.mailSenderService.sendEmailVerifyCodeEmailOptions({
       title: 'Signup verification',
       message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,

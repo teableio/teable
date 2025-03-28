@@ -1,0 +1,545 @@
+{
+  "toolbar": {
+    "comingSoon": "Próximamente",
+    "viewFilterInShare": "Esta vista se está utilizando en un enlace compartido. Las modificaciones a la configuración de la vista también cambiarán el enlace compartido.",
+    "createFieldButtonText": "Crear un nuevo campo <0/>",
+    "others": {
+      "share": {
+        "label": "Compartir",
+        "statusLabel": "Compartiendo",
+        "noPermission": "Sin permiso para compartir vista",
+        "shareLink": "Enlace para compartir",
+        "copied": "Copiado",
+        "genLink": "Generar nuevo enlace",
+        "allowCopy": "Permitir a los visualizadores copiar datos de esta vista",
+        "showAllFields": "Mostrar todos los campos en registros expandidos",
+        "restrict": "Restringir por contraseña",
+        "tips": "Las personas con el enlace pueden ver la vista.",
+        "passwordTitle": "Ingresa una contraseña",
+        "passwordTips": "Restricciones de contraseña para acceder a las vistas compartidas",
+        "embed": "Incrustar",
+        "embedPreview": "Vista previa incrustada",
+        "hideToolbar": "Ocultar barra de herramientas",
+        "URLSetting": "Configuración de parámetros URL",
+        "URLSettingDescription": "Ajustar las siguientes configuraciones no afectará los enlaces compartidos. Necesitas copiar el enlace con los nuevos parámetros para que surta efecto",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "requireLogin": "Requerir inicio de sesión"
+      },
+      "extensions": {
+        "label": "Extensiones",
+        "graph": "Gráfico"
+      },
+      "api": {
+        "label": "API",
+        "restfulApi": "API RESTful",
+        "databaseConnection": "Conexión a Base de Datos"
+      },
+      "personalView": {
+        "personal": "Personal",
+        "collaborative": "Colaborativo",
+        "dialog": {
+          "title": "Cambiar a modo colaborativo",
+          "description": "Al cambiar al modo colaborativo, la configuración personal de la vista se sincronizará con todos, por favor confirma si deseas sincronizar",
+          "cancelText": "No sincronizar",
+          "confirmText": "Sincronizar"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "Bienvenido",
+    "description": "Comienza a organizar tus datos",
+    "help": "Visite el <HelpCenter /> para obtener más información.",
+    "helpCenter": "Centro de ayuda"
+  },
+  "field": {
+    "fieldManagement": "Gestión de Campos",
+    "fieldManagementDesc": "Propiedades detalladas para todos los campos de la tabla actual",
+    "advancedProps": "Propiedades avanzadas",
+    "hide": "ocultar",
+    "default": {
+      "singleLineText": {
+        "title": "Etiqueta"
+      },
+      "longText": {
+        "title": "Notas"
+      },
+      "number": {
+        "title": "Número",
+        "formatType": "Tipo de formato",
+        "currencySymbol": "Símbolo de moneda",
+        "defaultSymbol": "$",
+        "precision": "Precisión",
+        "decimalExample": "Decimal (1.0)",
+        "currencyExample": "Moneda ($ 100)",
+        "percentExample": "Porcentaje (20%)"
+      },
+      "singleSelect": {
+        "title": "Estado",
+        "options": {
+          "todo": "Hacer",
+          "inProgress": "En curso",
+          "done": "Hecho"
+        }
+      },
+      "multipleSelect": {
+        "title": "Etiquetas"
+      },
+      "attachment": {
+        "title": "Accesorios"
+      },
+      "user": {
+        "title": "Colaborador"
+      },
+      "date": {
+        "title": "Fecha",
+        "dateFormatting": "Formato de fecha",
+        "timeFormatting": "Formato de tiempo",
+        "timeZone": "Huso horario",
+        "yearMonth": "Año/mes",
+        "monthDay": "Mes/día",
+        "year": "Año",
+        "month": "Mes",
+        "day": "Día",
+        "local": "Local",
+        "friendly": "Amigable",
+        "us": "A NOSOTROS",
+        "european": "europeo",
+        "asia": "Asia",
+        "custom": "Costumbre",
+        "12Hour": "12 horas",
+        "24Hour": "24 horas",
+        "noDisplay": "Sin pantalla"
+      },
+      "autoNumber": {
+        "title": "IDENTIFICACIÓN"
+      },
+      "createdTime": {
+        "title": "Tiempo creado"
+      },
+      "lastModifiedTime": {
+        "title": "Último tiempo modificado"
+      },
+      "createdBy": {
+        "title": "Creado por"
+      },
+      "lastModifiedBy": {
+        "title": "Última modificación por"
+      },
+      "rating": {
+        "title": "Clasificación"
+      },
+      "checkbox": {
+        "title": "Hecho"
+      },
+      "formula": {
+        "title": "Cálculo",
+        "formula": "Fórmula"
+      },
+      "lookup": {
+        "title": "__Var_0__ (de __var_1__)"
+      },
+      "rollup": {
+        "title": "__Var_0__ Rollup (de __var_1__)",
+        "rollup": "Acurrucado",
+        "selectAnRollupFunction": "Seleccione una función enrollable",
+        "func": {
+          "and": "Y",
+          "arrayCompact": "Arraycompact",
+          "arrayJoin": "Arrayjoin",
+          "arrayUnique": "Arrayunique",
+          "average": "PROMEDIO",
+          "concatenate": "CONCATENAR",
+          "count": "CONTAR",
+          "countA": "Cuenta",
+          "countAll": "Cuenta",
+          "max": "Máximo",
+          "min": "Mínimo",
+          "or": "O",
+          "sum": "SUMA",
+          "xor": "Xor"
+        },
+        "funcDesc": {
+          "and": "Devuelve verdadero si todos los valores son verdaderos",
+          "arrayCompact": "Elimina cadenas vacías y valores nulos de la matriz. ",
+          "arrayJoin": "Une todos los valores en una sola cadena separada por comas.",
+          "arrayUnique": "Devuelve solo elementos únicos.",
+          "average": "Promedio medio de los valores.",
+          "concatenate": "Une los valores de texto en un solo valor de texto.",
+          "count": "Cuente solo valores numéricos no vacíos. ",
+          "countA": "Cuente el número de valores no vacíos. ",
+          "countAll": "Cuenta todos los valores, incluidos los registros en blanco.",
+          "max": "Devuelve el más grande de los números dados.",
+          "min": "Devuelve el más pequeño de los números dados.",
+          "or": "Devuelve verdadero si alguno de los valores es verdadero.",
+          "sum": "Sumar los valores.",
+          "xor": "Devuelve verdadero si y solo si el número impar de valores es verdadero."
+        }
+      }
+    },
+    "editor": {
+      "addField": "Agregar Campo",
+      "editField": "Editar Campo",
+      "insertField": "Insertar Campo",
+      "graph": "Gráfico",
+      "defaultValue": "Valor predeterminado",
+      "reset": "Reiniciar",
+      "fieldUpdated": "El campo se ha actualizado",
+      "fieldCreated": "Se ha creado el campo",
+      "previewDependenciesGraph": "Gráfico de dependencias de vista previa",
+      "areYouSurePerformIt": "¿Estás seguro de que quieres realizarlo?",
+      "addDescription": "Agregar descripción",
+      "dbFieldName": "Nombre de campo de DB",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Describe este campo (opcional)",
+      "type": "Tipo",
+      "showAs": "Exhibir",
+      "color": "Color",
+      "number": "Número",
+      "chartBar": "Barra de gráfico",
+      "chartLine": "Línea de gráfico",
+      "ring": "Anillo",
+      "bar": "Bar",
+      "text": "Texto",
+      "url": "Url",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "maxNumber": "Número máximo",
+      "showNumber": "Numero",
+      "autoFillDate": "Llena automática con la fecha actual",
+      "createSymmetricLink": "Crear un campo de enlace posterior en la tabla de enlaces",
+      "allowLinkMultipleRecords": "Permitir múltiples select",
+      "allowLinkToDuplicateRecords": "Permite que los registros se seleccionen más de una vez",
+      "allowSymmetricFieldLinkMultipleRecords": "Permite que los registros se seleccionen más de una vez",
+      "oneToOne": "cara a cara",
+      "oneToMany": "uno a muchos",
+      "manyToOne": "muchos a uno",
+      "manyToMany": "muchos a muchos",
+      "self": "Ser",
+      "selectTable": "Seleccionar tabla ...",
+      "selectBase": "Seleccione una base ...",
+      "linkFromExternalBase": "Enlace desde la base externa",
+      "inSelfLink": "en retroceso",
+      "betweenTwoTables": "Entre dos mesas",
+      "linkTipMessage": "Consejos: esta configuración representa un <br> </br> <b> __ var_0 __ </b> relación <span> __ var_1 __ </span>",
+      "style": "Estilo",
+      "maximum": "Máximo",
+      "addOption": "Añadir opción",
+      "allowMultiUsers": "Permitir agregar varios usuarios",
+      "notifyUsers": "Notifique a los usuarios una vez que sean seleccionados",
+      "searchTable": "Tabla de búsqueda ...",
+      "calculating": "Calculador...",
+      "doSaveChanges": "¿Quieres guardar los cambios que hiciste?",
+      "linkFieldToLookup": "Campo de registro vinculado para usar para la búsqueda",
+      "lookupToTable": "__Var_0__ campo que desea buscar",
+      "selectField": "Seleccione un campo ...",
+      "linkTable": "Tabla de enlace",
+      "linkBase": "Base de enlace",
+      "tableNoPermission": "No hay tabla de permiso",
+      "baseNoPermission": "Sin base de permiso",
+      "noLinkTip": "No hay registros vinculados para buscar. ",
+      "fieldValidationRules": "Reglas de validación de valor de campo",
+      "enableValidateFieldUnique": "Prohibir los valores duplicados",
+      "enableValidateFieldNotNull": "Prohibir valores no vacíos",
+      "knowMore": "conocer más",
+      "linkFieldKnowMoreLink": "https://help.table.io/en/basic/field/advanced/link",
+      "filterByView": "Registros de filtro por vista",
+      "filter": "Registros de filtro",
+      "hideFields": "Ocultar campos",
+      "moreOptions": "Más opciones",
+      "allowNewOptionsWhenEditing": "Permitir nuevas opciones al editar"
+    },
+    "subTitle": {
+      "link": "Enlace a los registros en la tabla que elija",
+      "singleLineText": "Ingrese el texto o prefiera cada nueva celda con un valor predeterminado.",
+      "longText": "Ingrese múltiples líneas de texto.",
+      "attachment": "Agregue imágenes, documentos u otros archivos para verse o descargar.",
+      "checkbox": "Verifique o desmarque para indicar el estado.",
+      "multipleSelect": "Seleccione una o más opciones predefinidas en una lista.",
+      "singleSelect": "Seleccione una opción predefinida de una lista, o prefire cada celda nueva con una opción predeterminada.",
+      "user": "Agregue un usuario a un registro.",
+      "date": "Ingrese una fecha (por ejemplo, 11/12/2023) o elija una de un calendario.",
+      "number": "Ingrese un número, o prefiera cada nueva celda con un valor predeterminado.",
+      "duration": "Ingrese una duración del tiempo en horas, minutos o segundos (por ejemplo, 1:23).",
+      "rating": "Agregue una calificación en una escala predefinida.",
+      "formula": "Calcule los valores basados ​​en los campos.",
+      "rollup": "Resumir los datos de los registros vinculados.",
+      "count": "Cuente el número de registros vinculados.",
+      "createdTime": "Vea la fecha y hora en que se creó cada registro.",
+      "lastModifiedTime": "Vea la fecha y hora de la edición más reciente a algunos o todos los campos en un registro.",
+      "createdBy": "Vea qué usuario creó el registro.",
+      "lastModifiedBy": "Vea qué usuario hizo la edición más reciente a algunos o todos los campos en un registro.",
+      "autoNumber": "Genere automáticamente números incrementales únicos para cada registro.",
+      "button": "Activar una acción personalizada.",
+      "lookup": "Vea los valores desde un campo en un registro vinculado."
+    },
+    "fieldName": "Nombre de campo",
+    "fieldNameOptional": "Nombre de campo (opcional)",
+    "fieldType": "Tipo de Campo"
+  },
+  "table": {
+    "newTableLabel": "Nueva tabla",
+    "rename": "Renombrar",
+    "design": "Diseñar",
+    "tableRecordHistory": "Historial de registros de tabla",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar \"__var_0__\"?",
+    "dbTableName": "Nombre de la tabla en la base de datos física",
+    "schemaName": "Nombre del esquema en la base de datos física",
+    "baseInfo": "Información base",
+    "typeOfDatabase": "Tipo de base de datos",
+    "descriptionForTable": "Descripción para esta tabla",
+    "nameForTable": "Nombre para esta tabla",
+    "deleteTip1": "Se eliminarán los campos de enlace vinculados con esta tabla en otras tablas.",
+    "deleteTip2": "Esta tabla se puede restaurar desde la basura después de la eliminación.",
+    "operator": {
+      "createBlank": "Crear una mesa en blanco"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Copiar y pegar solo funciona en https o localhost",
+      "copyAndPasteBrowser": "Copiar y pegar no admitido en este navegador",
+      "copying": "Proceso de copiar...",
+      "copySuccessful": "Copiar exitoso",
+      "copyFailed": "Copia fallida",
+      "pasting": "Paliza...",
+      "pasteSuccessful": "Pegar exitoso",
+      "pasteFailed": "Pasta falló",
+      "clearing": "Claro...",
+      "clearSuccessful": "Claro exitoso",
+      "deleting": "Eliminar ...",
+      "deleteSuccessful": "Eliminar exitoso",
+      "pasteFileFailed": "Los archivos solo se pueden pegar en un campo de archivo adjunto",
+      "copyError": {
+        "noFocus": "Mantenga la página activa y no cambie Windows"
+      }
+    },
+    "graph": {
+      "tableLabel": "Etiqueta de mesa",
+      "effectCells": "Puede afectar las células",
+      "estimatedTime": "Tiempo estimado"
+    },
+    "integrity": {
+      "check": "Controlar",
+      "title": "Comprobación de integridad",
+      "loading": "Verificación de integridad ...",
+      "allGood": "¡Todo está bien!",
+      "fixIssues": "Solucionar problemas"
+    },
+    "index": {
+      "description": "Los índices pueden mejorar significativamente el rendimiento de la búsqueda, especialmente cuando se trata de grandes cantidades de datos (más de __var_0__ filas). ",
+      "repair": "reparar",
+      "repairTip": "Anomalías de índice detectados, lo que puede causar la degradación del rendimiento de la búsqueda. ",
+      "enableIndexTip": "Estás creando un índice. ",
+      "globalSearchTip": "Busque todos los campos, excepto la fecha y el campo de la casilla de verificación",
+      "autoIndexTip": "Su mesa ha excedido las filas __var_0__. ",
+      "enableIndex": "permitir",
+      "keepAsIs": "guarda"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Subir",
+      "import": "Importar",
+      "localFile": "Archivos Locales",
+      "linkUrl": "Enlace (URL)",
+      "linkUrlInputTitle": "Agregar archivo de URL",
+      "importTitle": "Crea una nueva mesa",
+      "incrementImportTitle": "Importación en -",
+      "optionsTitle": "Opción de importación",
+      "primitiveFields": "Campos primitivos",
+      "importFields": "Campo de importación",
+      "primaryField": "Campo primario",
+      "tipsTitle": "Consejos",
+      "confirm": "Confirmar y continuar"
+    },
+    "menu": {
+      "addFromOtherSource": "Agregar de otras fuentes",
+      "excelFile": "Microsoft Excel",
+      "csvFile": "Archivo CSV",
+      "cancel": "Cancelar",
+      "leave": "Dejar",
+      "downAsCsv": "Descargar CSV",
+      "importData": "Importar datos"
+    },
+    "tips": {
+      "importWayTip": "Haga clic o arrastre el archivo a esta área para cargar",
+      "leaveTip": "Sus datos aún se importarán.",
+      "fileExceedSizeTip": "Este tipo de archivo de tipo excede el límite de",
+      "analyzing": "analización",
+      "importing": "Importador",
+      "notSupportFieldType": "El tipo de campo no es compatible",
+      "resultEmpty": "No se encontraron resultados.",
+      "searchPlaceholder": "Buscar...",
+      "importAlert": "Una vez que comienza la importación, no se puede detener hasta que se complete o termine con éxito debido a la falla. ",
+      "noTips": "Sé eso, no te muestres de nuevo"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Tipos de campo automáticos",
+      "useFirstRowAsHeaderOptionName": "Use la primera fila como encabezado",
+      "importDataOptionName": "Importar datos",
+      "sheetKey": "Nombre de la hoja:",
+      "excludeFirstRow": "Excluir la primera fila en importación"
+    },
+    "form": {
+      "defaultFieldName": "Campo",
+      "error": {
+        "urlEmptyTip": "¡URL no debe estar vacía!",
+        "errorFileFormat": "¡El formato de archivo es incorrecto!",
+        "uniqueFieldName": "¡El nombre del campo debería ser único!",
+        "fieldNameEmpty": "¡El nombre del campo no debe estar vacío!",
+        "atLeastAImportField": "Establezca un campo de importación al menos",
+        "urlValidateTip": "No se pudo analizar la URL. "
+      },
+      "option": {
+        "doNotImport": "No importe"
+      }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "Descargar CSV"
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Agregar nuevo registro",
+    "prefillingRowTooltip": "Por favor, ingresa los datos del nuevo registro a continuación. El registro se guardará automáticamente cuando hagas clic fuera de esta fila.",
+    "presortRowTitle": "Este registro ha sido filtrado o movido debido a reglas de ordenamiento"
+  },
+  "form": {
+    "fieldsManagement": "Campos",
+    "addAll": "Agregar todos",
+    "removeAll": "Eliminar todos",
+    "hideFieldTip": "Ocultar el campo aquí",
+    "unableAddFieldTip": "No se puede agregar este tipo de campo",
+    "removeFromFormTip": "Eliminar del formulario",
+    "descriptionPlaceholder": "Ingresa la descripción del formulario",
+    "dragToFormTip": "Arrastra el campo aquí para agregarlo al formulario"
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Ocultar nombre del campo",
+      "customizeCards": "Personalizar tarjetas",
+      "stackedBy": "Agrupado por <0/>",
+      "chooseStackingField": "Elegir un campo de agrupación",
+      "chooseStackingFieldDescription": "¿Qué campo te gustaría usar para esta vista kanban? Tus registros se agruparán según este campo.",
+      "hideEmptyStack": "Ocultar grupo vacío",
+      "imageSetting": "Configuración de imagen",
+      "fit": "Ajustar",
+      "noImage": "Sin imagen",
+      "chooseAttachmentField": "Elegir campo de adjunto"
+    },
+    "stack": {
+      "addStack": "Agregar grupo",
+      "noCards": "Sin tarjetas",
+      "uncategorized": "Sin categorizar"
+    },
+    "stackMenu": {
+      "collapseStack": "Colapsar grupo",
+      "renameStack": "Renombrar grupo",
+      "deleteStack": "Eliminar grupo"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Insertar tarjeta arriba",
+      "insertCardBelow": "Insertar tarjeta abajo",
+      "expandCard": "Expandir tarjeta",
+      "deleteCard": "Eliminar tarjeta",
+      "duplicateCard": "Duplicar tarjeta"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Configuración de Calendario",
+      "startDateField": "Campo de fecha de inicio",
+      "endDateField": "Campo de fecha de fin",
+      "titleField": "Campo de título",
+      "colorField": "Campo de color",
+      "colorType": "Visualización de color",
+      "customColor": "Personalizar el color",
+      "alignWithRecords": "Alinearse con los registros"
+    },
+    "placeholder": {
+      "selectColorField": "Seleccione un campo de color"
+    },
+    "dialog": {
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha final",
+      "notAdd": "No agregar",
+      "addDateField": "Agregar campos de fecha",
+      "content": "Cree un horario de vista de calendario, y la tabla debe tener dos campos de fecha: fecha de inicio y fecha de finalización"
+    },
+    "moreLinkText": "Mostrar todos los registros __var_0__"
+  },
+  "menu": {
+    "insertRecordAbove": "Insertar <input /> registro arriba",
+    "insertRecordBelow": "Insertar <input /> registro a continuación",
+    "copyCells": "Copiar celdas",
+    "deleteRecord": "Eliminar registro",
+    "deleteAllSelectedRecords": "Eliminar todos los registros seleccionados",
+    "editField": "Campo de edición",
+    "insertFieldLeft": "Insertar a la izquierda",
+    "insertFieldRight": "Insertar a la derecha",
+    "freezeUpField": "Congelarse a este campo",
+    "hideField": "Esconder el campo",
+    "deleteField": "Eliminar campo",
+    "deleteAllSelectedFields": "Eliminar todos los campos seleccionados",
+    "filterField": "Filtrar por este campo",
+    "sortField": "Ordenar por este campo",
+    "groupField": "Grupo por este campo"
+  },
+  "connection": {
+    "title": "Conexiones",
+    "description": "Puede acceder a la base de datos directamente a través de la conexión de la base de datos, incluidas todas las tablas bajo la base actual",
+    "noPermission": "No tiene permiso para acceder a la base de datos",
+    "connectionCountTip": "El número máximo de conexiones de bases de datos es <b> __ var_0 __ </b> y las conexiones actuales son <b> __ var_1 __ </b>",
+    "createFailed": "Asegúrese de que la variable de entorno public_database_proxy esté configurada correctamente",
+    "helpLink": "https://help.table.io/en/deploy/database-connection"
+  },
+  "view": {
+    "addRecord": "Agregar registro",
+    "searchView": "Vista de búsqueda ...",
+    "dragToolTip": "La clasificación automática está activada, el arrastre manual no está disponible",
+    "insertToolTip": "La clasificación automática se enciende, el inserto con el pedido no está disponible",
+    "action": {
+      "rename": "Cambiar el nombre de la vista",
+      "duplicate": "Vista duplicada",
+      "delete": "Eliminar vista",
+      "lock": "Vista de bloqueo",
+      "unlock": "Vista de desbloqueo",
+      "enable": "Permitir"
+    },
+    "category": {
+      "table": "Vista de la cuadrícula",
+      "form": "Vista de formulario",
+      "kanban": "Vista kanban",
+      "gallery": "Vista de la galería",
+      "calendar": "Vista de calendario"
+    },
+    "crash": {
+      "title": "¡Chocar!",
+      "description": "Esta vista está rota. "
+    },
+    "addPluginView": "Agregar vista de complemento",
+    "search": {
+      "field_one": "__Var_0__",
+      "field_other": "Campos (__ var_0__)"
+    },
+    "locked": {
+      "tip": "Esta vista está bloqueada. "
+    }
+  },
+  "lastModifiedTime": "Último tiempo modificado",
+  "lastModify": "Última modificación:",
+  "pasteNewRecords": {
+    "title": "¿Quieres agregar múltiples registros?",
+    "description": "Los registros __var_0__ se agregarán a la tabla."
+  },
+  "tableTrash": {
+    "title": "Papelera de tablas",
+    "resourceType": "Tipo de recurso",
+    "deletedResource": "Recurso eliminado"
+  },
+  "plugin": {
+    "recent": "Frases",
+    "more": "Explorar más ..."
+  }
+}

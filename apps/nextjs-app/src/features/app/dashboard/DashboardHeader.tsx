@@ -39,7 +39,10 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
     onSuccess: () => {
       setMenuOpen(false);
       queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
-      router.push(`/base/${baseId}/dashboard`);
+      router.push({
+        pathname: '/base/[baseId]/dashboard',
+        query: { baseId },
+      });
     },
   });
 
@@ -76,7 +79,10 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         })}
         dashboardId={dashboardId}
         onChange={(dashboardId) => {
-          router.push(`/base/${baseId}/dashboard?id=${dashboardId}`);
+          router.push({
+            pathname: '/base/[baseId]/dashboard',
+            query: { baseId, dashboardId },
+          });
         }}
       />
       <Input

@@ -27,7 +27,7 @@
     "fromTemplate": "From template"
   },
   "spaceSetting": {
-    "title": "Space settings",
+    "title": "Settings",
     "general": "General",
     "collaborators": "Collaborators",
     "generalDescription": "Change the settings for your current space here",

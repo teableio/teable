@@ -15,11 +15,7 @@ export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
   const { resolvedTheme } = useTheme();
 
   if (disabled) {
-    return (
-      <div className={cn('rounded transition-colors hover:bg-secondary', className)}>
-        {children}
-      </div>
-    );
+    return <div className={cn('rounded transition-colors', className)}>{children}</div>;
   }
 
   const onEmojiSelect = (emoji: { native: string }) => {
@@ -29,9 +25,7 @@ export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className={cn('rounded transition-colors hover:bg-secondary', className)}>
-          {children}
-        </div>
+        <div className={cn('rounded transition-colors', className)}>{children}</div>
       </PopoverTrigger>
       <PopoverContent className="w-auto overflow-hidden p-0">
         <EmojiPickerCom theme={resolvedTheme} data={emojiData} onEmojiSelect={onEmojiSelect} />

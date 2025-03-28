@@ -1,0 +1,95 @@
+{
+  "notBaseId": "Falta el baseId",
+  "notDashboardId": "Falta el dashboardId",
+  "notPluginInstallId": "Falta el pluginInstallId",
+  "initBridge": "Inicializando Bridge...",
+  "actions": {
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "queryTitle": "Configuración de Consulta de Datos",
+  "notSupport": "No soportado",
+  "chart": {
+    "bar": "Barras",
+    "line": "Línea",
+    "pie": "Torta",
+    "area": "Área",
+    "table": "Tabla"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Seleccionar Tipo de Gráfico",
+      "label": "Tipo de Gráfico"
+    },
+    "pie": {
+      "dimension": "Dimensión",
+      "measure": "Medida",
+      "showTotal": "Mostrar Total"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "Eje X",
+        "placeholder": "Seleccionar Eje X"
+      },
+      "yAxis": {
+        "label": "Eje Y",
+        "placeholder": "Seleccionar Eje Y",
+        "position": "Posición del eje Y"
+      },
+      "xDisplay": {
+        "label": "Visualización X"
+      },
+      "yDisplay": {
+        "label": "Visualización Y"
+      },
+      "addXAxis": "Agregar desglose de series",
+      "addYAxis": "Agregar otra serie",
+      "stack": "Apilar",
+      "position": {
+        "label": "Posición",
+        "auto": "Automático",
+        "left": "Izquierda",
+        "right": "Derecha"
+      },
+      "goalLine": {
+        "label": "Línea de gol"
+      },
+      "range": {
+        "label": "Rango",
+        "min": "Mínimo",
+        "max": "Máximo"
+      },
+      "lineStyle": {
+        "label": "Estilo de línea",
+        "normal": "Normal",
+        "linear": "Lineal",
+        "step": "Paso"
+      },
+      "displayType": "Tipo de visualización"
+    },
+    "typeError": "Formulario: Tipo de gráfico no compatible",
+    "updateQuery": "Actualizar",
+    "queryError": "Error de consulta",
+    "querySuccess": "La consulta ha configurado",
+    "decimal": "Decimal",
+    "prefix": "Prefijo",
+    "suffix": "Sufijo",
+    "showLabel": "Mostrar la etiqueta de valores en la tabla",
+    "showLegend": "Exhibir la leyenda",
+    "value": "Valor",
+    "label": "Etiqueta",
+    "padding": {
+      "label": "Relleno",
+      "top": "Arriba",
+      "right": "Bien",
+      "bottom": "Abajo",
+      "left": "Izquierda"
+    },
+    "tableConfig": "Configuración de tabla",
+    "width": "Ancho"
+  },
+  "reloadQuery": "Consulta de recarga",
+  "noStorage": "Configure primero el complemento del gráfico",
+  "noPermission": "No hay permiso para acceder",
+  "goConfig": "Ir a la configuración"
+}

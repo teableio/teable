@@ -11,6 +11,7 @@ import { authConfig } from '@/features/i18n/auth.config';
 import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
+import { Terms } from '../components/Terms';
 
 export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[] }) => {
   const { children } = props;
@@ -57,6 +58,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
           <div className="relative w-80 py-[5em] lg:py-24">
             {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
             <SocialAuth />
+            <Terms />
             {children}
           </div>
         </div>

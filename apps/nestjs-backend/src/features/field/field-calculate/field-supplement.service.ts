@@ -1258,7 +1258,11 @@ export class FieldSupplementService {
 
     if (relationship === Relationship.ManyOne) {
       alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
-        table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
       });
     }
 
@@ -1266,7 +1270,11 @@ export class FieldSupplementService {
       if (isOneWay) {
         alterTableSchema = this.knex.schema.createTable(fkHostTableName, (table) => {
           table.increments('__id').primary();
-          table.string(selfKeyName).references('__id').inTable(dbTableName);
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
           table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
           table.unique([selfKeyName, foreignKeyName], {
             indexName: `index_${selfKeyName}_${foreignKeyName}`,
@@ -1274,7 +1282,11 @@ export class FieldSupplementService {
         });
       } else {
         alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
-          table.string(selfKeyName).references('__id').inTable(dbTableName);
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
         });
       }
     }

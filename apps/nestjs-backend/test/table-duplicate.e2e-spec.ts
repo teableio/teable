@@ -14,7 +14,6 @@ import {
   updateViewSort,
   updateViewGroup,
   updateViewOptions,
-  getField,
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { x_20 } from './data-helpers/20x';
@@ -111,7 +110,8 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
           options: omit(
             {
               ...f.options,
-              isOneWay: !!(f?.options as ILinkFieldOptions)?.isOneWay,
+              // all be one way link
+              isOneWay: false,
             },
             ['fkHostTableName', 'selfKeyName', 'symmetricFieldId']
           ),
@@ -123,7 +123,8 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
           options: omit(
             {
               ...f.options,
-              isOneWay: !!(f?.options as ILinkFieldOptions)?.isOneWay,
+              // all be one way link
+              isOneWay: false,
             },
             ['fkHostTableName', 'selfKeyName', 'symmetricFieldId']
           ),
@@ -153,17 +154,17 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
       );
     });
 
-    it('should create a link field in linked table when link field is two-way-link', async () => {
-      const fields = (await getFields(subTable.id)).data;
-      const { fields: targetFields } = duplicateTableData;
-      const assertField = targetFields.find(({ type }) => type === FieldType.Link)!;
-      const duplicatedLinkField = fields.find(
-        (f) =>
-          f.type === FieldType.Link &&
-          (f.options as ILinkFieldOptions).symmetricFieldId === assertField.id!
-      );
-      expect(duplicatedLinkField).toBeDefined();
-    });
+    // it.skip('should create a link field in linked table when link field is two-way-link', async () => {
+    //   const fields = (await getFields(subTable.id)).data;
+    //   const { fields: targetFields } = duplicateTableData;
+    //   const assertField = targetFields.find(({ type }) => type === FieldType.Link)!;
+    //   const duplicatedLinkField = fields.find(
+    //     (f) =>
+    //       f.type === FieldType.Link &&
+    //       (f.options as ILinkFieldOptions).symmetricFieldId === assertField.id!
+    //   );
+    //   expect(duplicatedLinkField).toBeDefined();
+    // });
   });
 
   describe('duplicate table with error field(formula or lookup field)', () => {

@@ -119,6 +119,7 @@ export const PluginMenu = (props: { tableId?: string; closeRecordMenu: () => voi
               closeRecordMenu();
               setActivePluginId(pluginInstallId);
             }}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <Image
               className="size-4 shrink-0 rounded-sm"
@@ -139,6 +140,7 @@ export const PluginMenu = (props: { tableId?: string; closeRecordMenu: () => voi
           onSelect={async () => {
             pluginContextMenuManageDialogRef.current?.open();
           }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <Settings className="size-4 shrink-0" />
           {t('table:pluginContextMenu.mangeButton')}

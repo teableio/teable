@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import type { ITableVo } from '@teable/openapi';
+import { LastVisitResourceType, type ITableVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import { Trans, useTranslation } from 'next-i18next';
@@ -52,13 +52,25 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
-      const tables = await ssrApi.getTables(baseId as string);
-      const defaultTable = tables[0];
-      if (defaultTable) {
-        const defaultView = await ssrApi.getDefaultViewId(baseId as string, defaultTable.id);
+      const [userLastVisit, tables] = await Promise.all([
+        ssrApi.getUserLastVisit(LastVisitResourceType.Table, baseId as string),
+        ssrApi.getTables(baseId as string),
+      ]);
+
+      if (tables.length && userLastVisit && userLastVisit.childResourceId) {
+        // if userLastVisit.resourceId has no permission to the tables, redirect to the first table
+        if (tables.find((table) => table.id === userLastVisit.resourceId)) {
+          return {
+            redirect: {
+              destination: `/base/${baseId}/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
+              permanent: false,
+            },
+          };
+        }
+
         return {
           redirect: {
-            destination: `/base/${baseId}/${defaultTable.id}/${defaultView.id}`,
+            destination: `/base/${baseId}/${tables[0].id}/${tables[0].defaultViewId}`,
             permanent: false,
           },
         };
