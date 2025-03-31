@@ -17,7 +17,7 @@ export const authConfig = registerAs('auth', () => ({
     expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
   },
   accessToken: {
-    prefix: process.env.BRAND_NAME!.toLocaleLowerCase(),
+    prefix: 'teable',
     encryption: {
       algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
       key: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx9',

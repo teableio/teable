@@ -1,5 +1,4 @@
 {
-  "brand": "Teable",
   "actions": {
     "title": "Actions",
     "add": "Add",
@@ -281,6 +280,14 @@
       "enableEmailVerificationDescription": "Enabling this option will require users to verify their email address when creating a new account.",
       "generalSettings": "General settings",
       "aiSettings": "AI settings",
+      "brandingSettings": {
+        "title": "Branding settings",
+        "description": "Only available in Enterprise Edition",
+        "brandName": "Brand name",
+        "logo": "Logo",
+        "logoUpload": "Upload Logo",
+        "logoUploadDescription": "Upload Logo image, supports PNG, JPEG format, recommended size is 100x100px. Maximum upload size is 500KB."
+      },
       "ai": {
         "name": "Name",
         "nameDescription": "The name of the LLM provider",

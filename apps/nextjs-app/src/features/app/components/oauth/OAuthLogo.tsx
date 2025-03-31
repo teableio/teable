@@ -1,6 +1,6 @@
-import { TeableNew } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
+import { TeableLogo } from '@/components/TeableLogo';
 import { usePreviewUrl } from '../../hooks/usePreviewUrl';
 
 export const OAuthLogo = (props: { logo?: string; name: string; className?: string }) => {
@@ -20,7 +20,7 @@ export const OAuthLogo = (props: { logo?: string; name: string; className?: stri
           }}
         />
       ) : (
-        <TeableNew className={cn('size-16 text-black', className)} />
+        <TeableLogo className={cn('size-16', className)} />
       )}
     </div>
   );

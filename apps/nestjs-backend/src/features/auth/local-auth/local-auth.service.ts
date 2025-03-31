@@ -178,7 +178,7 @@ export class LocalAuthService {
     }
     const user = await this.userService.getUserByEmail(email);
     this.isRegisteredValidate(user);
-    const emailOptions = this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+    const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
       title: 'Signup verification',
       message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
     });
@@ -223,7 +223,7 @@ export class LocalAuthService {
     const resetPasswordCode = getRandomString(30);
 
     const url = `${this.mailConfig.origin}/auth/reset-password?code=${resetPasswordCode}`;
-    const resetPasswordEmailOptions = this.mailSenderService.resetPasswordEmailOptions({
+    const resetPasswordEmailOptions = await this.mailSenderService.resetPasswordEmailOptions({
       name: user.name,
       email: user.email,
       resetPasswordUrl: url,
@@ -333,7 +333,7 @@ export class LocalAuthService {
     if (this.baseConfig.enableEmailCodeConsole) {
       console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
     }
-    const emailOptions = this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+    const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
       title: 'Change Email verification',
       message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
     });

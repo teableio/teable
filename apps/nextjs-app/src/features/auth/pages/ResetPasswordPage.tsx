@@ -7,6 +7,7 @@ import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
 import { authConfig } from '@/features/i18n/auth.config';
 import { LayoutMain } from '../components/LayoutMain';
 
@@ -16,6 +17,7 @@ export const ResetPasswordPage = () => {
   const router = useRouter();
   const code = router.query.code as string;
   const { t } = useTranslation(authConfig.i18nNamespaces);
+  useAutoFavicon();
   const { toast } = useToast();
 
   const {

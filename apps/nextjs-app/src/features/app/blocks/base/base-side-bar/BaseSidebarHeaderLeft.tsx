@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { ChevronsLeft, TeableNew, ChevronDown, Menu } from '@teable/icons';
+import { ChevronsLeft, ChevronDown, Menu } from '@teable/icons';
 import { CollaboratorType, deleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import { Button, Input } from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { useRef, useState } from 'react';
+import { TeableLogo } from '@/components/TeableLogo';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { BaseActionTrigger } from '../../space/component/BaseActionTrigger';
 import { BaseListTrigger } from '../../space/component/BaseListTrigger';
@@ -87,7 +88,7 @@ export const BaseSidebarHeaderLeft = () => {
           {base.icon ? (
             <Emoji emoji={base.icon} size={'1.5rem'} />
           ) : (
-            <TeableNew className="size-6 text-black" />
+            <TeableLogo className="size-6 text-black" />
           )}
         </div>
         <ChevronsLeft className="absolute top-0 size-6 opacity-0 transition-all group-hover/sidebar:opacity-100" />

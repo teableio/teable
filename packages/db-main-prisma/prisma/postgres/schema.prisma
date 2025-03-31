@@ -334,6 +334,8 @@ model Setting {
   disallowSpaceInvitation   Boolean?  @map("disallow_space_invitation")
   enableEmailVerification   Boolean?  @map("enable_email_verification")
   aiConfig                  String?   @map("ai_config")
+  brandName                 String?   @map("brand_name")
+  brandLogo                 String?   @map("brand_logo")
 
   @@map("setting")
 }

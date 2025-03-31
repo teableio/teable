@@ -49,6 +49,7 @@ export const updateSettingRoSchema = z.object({
   disallowSpaceInvitation: z.boolean().optional(),
   enableEmailVerification: z.boolean().optional(),
   aiConfig: aiConfigVoSchema.optional(),
+  brandName: z.string().optional(),
 });
 
 export type IUpdateSettingRo = z.infer<typeof updateSettingRoSchema>;

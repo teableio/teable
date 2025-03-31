@@ -20,7 +20,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
   return (
     <div className="w-full overflow-y-auto pb-8 sm:pt-8" ref={containerRef}>
       <FormBody
-        className="sm:shadow-mdw-full relative mx-auto mb-12 flex max-w-screen-sm flex-col items-center overflow-hidden sm:min-h-full sm:rounded-lg sm:border sm:pb-12"
+        className="sm:shadow-mdw-full relative mx-auto mb-12 flex max-w-screen-sm flex-col items-center overflow-hidden sm:rounded-lg sm:border sm:pb-12"
         submit={(formData) => onSubmit(formData)}
       />
       <BrandFooter />

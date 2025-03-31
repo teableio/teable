@@ -22,6 +22,8 @@ const publicAiConfigSchema = z.object({
 export const publicSettingVoSchema = settingVoSchema
   .pick({
     instanceId: true,
+    brandName: true,
+    brandLogo: true,
     disallowSignUp: true,
     disallowSpaceCreation: true,
     disallowSpaceInvitation: true,

@@ -86,7 +86,6 @@ FROM node:${NODE_VERSION}-bookworm-slim AS runner
 ENV TZ=UTC \
     NODE_ENV=production \
     PORT=${NEXTJS_APP_PORT:-3000}\
-    BRAND_NAME=teable\
     NEXTJS_DIR=apps/nextjs-app
 
 RUN set -ex; \

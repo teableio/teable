@@ -24,6 +24,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
 import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
+import { useBrand } from '../../hooks/useBrand';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
 import { useViewErrorHandler } from './hooks/use-view-error-handler';
@@ -59,6 +60,8 @@ export const Table: React.FC<ITableProps> = ({
     queryFn: ({ queryKey }) => getBaseById(queryKey[1]).then((res) => res.data),
   });
 
+  const { brandName } = useBrand();
+
   useEffect(() => {
     updateUserLastVisit({
       resourceId: tableId,
@@ -84,8 +87,8 @@ export const Table: React.FC<ITableProps> = ({
       <Head>
         <title>
           {table?.name
-            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${base?.name} - Teable`
-            : 'Teable'}
+            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${base?.name} - ${brandName}`
+            : `${brandName}`}
         </title>
         <style data-fullcalendar></style>
       </Head>

@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Settings, TeableNew } from '@teable/icons';
+import { Plus, Settings } from '@teable/icons';
 import { oauthGetList } from '@teable/openapi';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { TeableLogo } from '@/components/TeableLogo';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 
@@ -50,7 +51,7 @@ export const OAuthAppList = () => {
                     }}
                   />
                 ) : (
-                  <TeableNew className="size-16 text-black" />
+                  <TeableLogo className="size-16" />
                 )}
               </div>
               <div className="h-full flex-1 overflow-hidden">

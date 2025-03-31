@@ -1,7 +1,6 @@
-import { TeableNew } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
-import { useTranslation } from 'next-i18next';
-import { authConfig } from '@/features/i18n/auth.config';
+import { TeableLogo } from '@/components/TeableLogo';
+import { useBrand } from '@/features/app/hooks/useBrand';
 
 interface ITeableHeaderProps {
   className?: string;
@@ -10,7 +9,7 @@ interface ITeableHeaderProps {
 
 export const TeableFooter = (props: ITeableHeaderProps) => {
   const { className, enableClick } = props;
-  const { t } = useTranslation(authConfig.i18nNamespaces);
+  const { brandName } = useBrand();
 
   return (
     <div
@@ -20,8 +19,8 @@ export const TeableFooter = (props: ITeableHeaderProps) => {
         className
       )}
     >
-      <TeableNew className="size-8 text-black" />
-      {t('common:brand')}
+      <TeableLogo className="size-8" />
+      {brandName}
     </div>
   );
 };

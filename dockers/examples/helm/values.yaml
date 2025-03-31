@@ -143,7 +143,6 @@ affinity: {}
 ## To add an environment variable, simply include a new line in the 'envVars: {}' block,
 ## with the key-value pair representing the variable name and its corresponding value.
 envVars:
-  BRAND_NAME: teable
   NEXTJS_DIR: apps/nextjs-app
   NEXT_ENV_IMAGES_ALL_REMOTE: true
 

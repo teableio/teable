@@ -1,7 +1,7 @@
 import { parseDsn, type DriverClient, type IHttpError } from '@teable/core';
 import type { ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
-import { SsrApi } from '@/backend/api/rest/table.ssr';
+import { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
 import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
 import { shareConfig } from '@/features/i18n/share.config';

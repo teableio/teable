@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ParsedUrlQuery } from 'querystring';
 import { parseDsn } from '@teable/core';
 import { isUndefined, omitBy } from 'lodash';
@@ -9,13 +10,11 @@ import type {
 } from 'next';
 
 type GetServerSideProps<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   P extends { [key: string]: any } = { [key: string]: any },
   Q extends ParsedUrlQuery = ParsedUrlQuery,
   D extends PreviewData = PreviewData,
 > = (context: GetServerSidePropsContext<Q, D>) => Promise<GetServerSidePropsResult<P>>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function withEnv<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>
 ): NextGetServerSideProps<P> {

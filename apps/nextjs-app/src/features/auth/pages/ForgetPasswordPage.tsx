@@ -6,6 +6,7 @@ import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { z } from 'zod';
+import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
 import { authConfig } from '@/features/i18n/auth.config';
 import { LayoutMain } from '../components/LayoutMain';
 
@@ -13,6 +14,7 @@ export const ForgetPasswordPage = () => {
   const [error, setError] = useState<string>();
   const [email, setEmail] = useState<string>();
   const { t } = useTranslation(authConfig.i18nNamespaces);
+  useAutoFavicon();
   const { toast } = useToast();
 
   const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({

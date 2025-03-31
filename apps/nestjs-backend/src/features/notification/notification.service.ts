@@ -62,7 +62,7 @@ export class NotificationService {
     }
 
     const notifyId = generateNotificationId();
-    const emailOptions = this.mailSenderService.collaboratorCellTagEmailOptions({
+    const emailOptions = await this.mailSenderService.collaboratorCellTagEmailOptions({
       notifyId,
       fromUserName: fromUser.name,
       refRecord,
@@ -184,7 +184,7 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
-      const emailOptions = this.mailSenderService.commonEmailOptions({
+      const emailOptions = await this.mailSenderService.commonEmailOptions({
         ...emailConfig,
         to: toUserId,
         buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,

@@ -1,8 +1,5 @@
 {
   "initialSpaceName": "Простір {{name}}",
-  "page": {
-    "title": "Teable App"
-  },
   "action": {
     "createBase": "Створіть базу",
     "createSpace": "Створіть простір",

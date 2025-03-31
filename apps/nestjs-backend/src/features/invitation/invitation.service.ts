@@ -25,12 +25,14 @@ import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
+import { SettingService } from '../setting/setting.service';
 import { UserService } from '../user/user.service';
 
 @Injectable()
 export class InvitationService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly settingService: SettingService,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
@@ -152,8 +154,11 @@ export class InvitationService {
             invitationId: id,
           },
         });
+        const { brandName } = await this.settingService.getServerBrand();
+
         // get email info
-        const inviteEmailOptions = this.mailSenderService.inviteEmailOptions({
+        const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
+          brandName,
           name: user.name,
           email: user.email,
           resourceName,

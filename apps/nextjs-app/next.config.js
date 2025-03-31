@@ -230,6 +230,13 @@ const nextConfig = {
           { key: 'Cross-Origin-Embedder-Policy', value: 'same-origin' },
         ],
       },
+      {
+        source: '/images/(.*)',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET' },
+        ],
+      },
     ];
   },
 

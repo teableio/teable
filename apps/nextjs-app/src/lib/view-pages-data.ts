@@ -1,6 +1,6 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
 import type { IGroupPointsVo, ITableVo } from '@teable/openapi';
-import type { SsrApi } from '@/backend/api/rest/table.ssr';
+import type { SsrApi } from '@/backend/api/rest/ssr-api';
 
 export interface IViewPageProps {
   tableServerData: ITableVo[];

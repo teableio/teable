@@ -6,6 +6,8 @@ import { aiConfigVoSchema } from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
+  brandName: z.string().nullable(),
+  brandLogo: z.string().nullable(),
   disallowSignUp: z.boolean().nullable(),
   disallowSpaceCreation: z.boolean().nullable(),
   disallowSpaceInvitation: z.boolean().nullable(),

@@ -1,5 +1,4 @@
 {
-  "brand": "Teable",
   "actions": {
     "add": "添加",
     "title": "操作",
@@ -280,6 +279,14 @@
       "enableEmailVerificationDescription": "启用此选项将要求用户在创建新账户时验证邮箱地址。",
       "generalSettings": "通用配置",
       "aiSettings": "AI 配置",
+      "brandingSettings": {
+        "title": "品牌配置",
+        "description": "仅在企业版中可用",
+        "logo": "Logo",
+        "logoDescription": "Logo 是您在 Teable 中的品牌标识。",
+        "logoUpload": "上传 Logo",
+        "logoUploadDescription": "上传 Logo 图片，支持 PNG、JPEG 格式，推荐尺寸为 100x100px。最大上传大小为 500KB."
+      },
       "ai": {
         "name": "名称",
         "nameDescription": "名称可自定义，用于区分不同的模型提供商",
