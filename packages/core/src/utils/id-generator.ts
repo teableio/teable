@@ -54,6 +54,9 @@ export enum IdPrefix {
   OrganizationDepartment = 'odp',
 
   Integration = 'int',
+
+  Template = 'tpl',
+  TemplateCategory = 'tpc',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -212,4 +215,12 @@ export function generateOrganizationDepartmentId() {
 
 export function generateIntegrationId() {
   return IdPrefix.Integration + getRandomString(16);
+}
+
+export function generateTemplateId() {
+  return IdPrefix.Template + getRandomString(16);
+}
+
+export function generateTemplateCategoryId() {
+  return IdPrefix.TemplateCategory + getRandomString(16);
 }

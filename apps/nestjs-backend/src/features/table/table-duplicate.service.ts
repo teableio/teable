@@ -24,7 +24,7 @@ import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
-import { ViewOpenApiService } from './../view/open-api/view-open-api.service';
+import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
 import { TableService } from './table.service';
 
 @Injectable()

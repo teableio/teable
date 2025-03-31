@@ -230,6 +230,7 @@ export class BaseExportService {
       baseStructure: {
         name: baseName,
         icon: baseIcon,
+        version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
         tables,
         plugins,
       },
@@ -521,7 +522,7 @@ export class BaseExportService {
       ) as IBaseJson['tables'][number]['views'];
   }
 
-  private async generatePluginJson(baseId: string) {
+  async generatePluginJson(baseId: string) {
     const pluginJson = {} as IBaseJson['plugins'];
 
     pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(baseId);

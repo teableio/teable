@@ -35,8 +35,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     onRename,
     align = 'end',
   } = props;
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'space']);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const [exportConfirm, setExportConfirm] = React.useState(false);
   const baseStore = useDuplicateBaseStore();
 
   const { mutateAsync: exportBaseFn } = useMutation({
@@ -54,6 +55,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     setDeleteConfirm(false);
   };
 
+  const exportTips = (
+    <pre className="text-wrap text-sm leading-relaxed">{t('space:tip.exportTips')}</pre>
+  );
   return (
     <>
       <DropdownMenu modal>
@@ -76,7 +80,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             </DropdownMenuItem>
           )}
           {
-            <DropdownMenuItem onClick={() => exportBaseFn(base.id)}>
+            <DropdownMenuItem
+              onClick={() => {
+                setExportConfirm(true);
+              }}
+            >
               <Export className="mr-2" />
               {t('actions.export')}
             </DropdownMenuItem>
@@ -100,6 +108,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         confirmText={t('actions.delete')}
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={exportConfirm}
+        onOpenChange={setExportConfirm}
+        content={exportTips}
+        title={t('space:tip.title')}
+        cancelText={t('actions.cancel')}
+        confirmText={t('actions.confirm')}
+        onCancel={() => setExportConfirm(false)}
+        onConfirm={() => {
+          exportBaseFn(base.id);
+          setExportConfirm(false);
+        }}
       />
     </>
   );

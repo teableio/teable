@@ -30,6 +30,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { NotificationService } from '../notification/notification.service';
 import { TableService } from '../table/table.service';
@@ -191,8 +192,7 @@ export class BaseImportService {
 
     const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap);
 
-    // todo
-    // await this.repairCreateRelative()
+    await this.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
 
     return { tableIdMap, fieldIdMap, viewIdMap };
   }
@@ -228,7 +228,7 @@ export class BaseImportService {
 
     await this.createLinkFields(linkFields, tableIdMap, fieldMap);
 
-    // await this.createDependencyFields(dependencyFields, fieldMap);
+    await this.createDependencyFields(dependencyFields, fieldMap);
 
     return fieldMap;
   }
@@ -267,26 +267,28 @@ export class BaseImportService {
   }
 
   private async createLinkFields(
-    fields: IFieldWithTableIdJson[],
+    // filter lookup fields
+    linkFields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>
   ) {
-    const selfLinkFields = fields.filter(
+    const selfLinkFields = linkFields.filter(
       ({ options, sourceTableId }) =>
         (options as ILinkFieldOptions).foreignTableId === sourceTableId
     );
 
     // cross base link fields should convert to text field
-    const crossBaseLinkFields = fields.filter(({ options }) =>
+    const crossBaseLinkFields = linkFields.filter(({ options }) =>
       Boolean((options as ILinkFieldOptions)?.baseId)
     );
 
+    // already converted to text field in export side, prevent unexpected error
     if (crossBaseLinkFields.length > 0) {
       throw new BadRequestException('cross base link fields are not supported');
     }
 
     // common cross table link fields
-    const commonLinkFields = fields.filter(
+    const commonLinkFields = linkFields.filter(
       ({ id }) => ![...selfLinkFields, ...crossBaseLinkFields].map(({ id }) => id).includes(id)
     );
 
@@ -339,9 +341,9 @@ export class BaseImportService {
         type,
         description,
         options: {
-          // todo repair other filter data
           foreignTableId: targetTableId,
           relationship,
+          isOneWay: true,
         },
       });
       await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
@@ -427,14 +429,16 @@ export class BaseImportService {
         },
       });
 
-      const alterTableSql = this.dbProvider.renameColumn(
-        targetDbTableName,
-        genDbFieldName,
-        groupField.dbFieldName
-      );
+      if (genDbFieldName !== groupField.dbFieldName) {
+        const alterTableSql = this.dbProvider.renameColumn(
+          targetDbTableName,
+          genDbFieldName,
+          groupField.dbFieldName
+        );
 
-      for (const sql of alterTableSql) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql);
+        for (const sql of alterTableSql) {
+          await this.prismaService.txClient().$executeRawUnsafe(sql);
+        }
       }
     }
   }
@@ -480,9 +484,9 @@ export class BaseImportService {
         type,
         description,
         options: {
-          // todo repair other filter data
           foreignTableId: tableIdMap[foreignTableId],
           relationship,
+          isOneWay: true,
         },
       });
       fieldMap[field.id] = newFieldVo.id;
@@ -526,9 +530,9 @@ export class BaseImportService {
         type,
         description,
         options: {
-          // todo repair other filter data
           foreignTableId: tableIdMap[foreignTableId],
           relationship,
+          isOneWay: false,
         },
       });
       fieldMap[fieldId] = newFieldVo.id;
@@ -603,6 +607,90 @@ export class BaseImportService {
       for (const sql of alterTableSql) {
         await this.prismaService.txClient().$executeRawUnsafe(sql);
       }
+    }
+  }
+
+  private async repairFieldOptions(
+    tables: IBaseJson['tables'],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>
+  ) {
+    const prisma = this.prismaService.txClient();
+
+    const sourceFields = tables.map(({ fields }) => fields).flat();
+
+    const targetFieldRaws = await prisma.field.findMany({
+      where: {
+        id: { in: Object.values(fieldIdMap) },
+      },
+    });
+
+    const targetFields = targetFieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+
+    const linkFields = targetFields.filter(
+      (field) => field.type === FieldType.Link && !field.isLookup
+    );
+    const lookupFields = targetFields.filter((field) => field.isLookup);
+    const rollupFields = targetFields.filter((field) => field.type === FieldType.Rollup);
+
+    for (const field of linkFields) {
+      const { options, id } = field;
+      const sourceField = sourceFields.find((f) => fieldIdMap[f.id] === id);
+      const { filter, filterByViewId, visibleFieldIds } = sourceField?.options as ILinkFieldOptions;
+      const moreConfigStr = {
+        filter,
+        filterByViewId,
+        visibleFieldIds,
+      };
+
+      const newMoreConfigStr = replaceStringByMap(moreConfigStr, {
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+      });
+
+      const newOptions = {
+        ...options,
+        ...JSON.parse(newMoreConfigStr || '{}'),
+      };
+
+      await prisma.field.update({
+        where: {
+          id,
+        },
+        data: {
+          options: JSON.stringify(newOptions),
+        },
+      });
+    }
+    for (const field of [...lookupFields, ...rollupFields]) {
+      const { lookupOptions, id } = field;
+      const sourceField = sourceFields.find((f) => fieldIdMap[f.id] === id);
+      const { filter } = sourceField?.lookupOptions as ILookupOptionsRo;
+      const moreConfigStr = {
+        filter,
+      };
+
+      const newMoreConfigStr = replaceStringByMap(moreConfigStr, {
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+      });
+
+      const newLookupOptions = {
+        ...lookupOptions,
+        ...JSON.parse(newMoreConfigStr || '{}'),
+      };
+
+      await prisma.field.update({
+        where: {
+          id,
+        },
+        data: {
+          lookupOptions: JSON.stringify(newLookupOptions),
+        },
+      });
     }
   }
 
@@ -836,7 +924,11 @@ export class BaseImportService {
       description,
       options: {
         ...options,
-        expression: hasError ? `{${mockFieldId}}` : newExpression,
+        expression: hasError
+          ? `{${mockFieldId}}`
+          : newExpression
+            ? JSON.parse(newExpression)
+            : undefined,
       },
       name,
     });
@@ -857,7 +949,7 @@ export class BaseImportService {
           hasError,
           options: JSON.stringify({
             ...options,
-            expression: newExpression,
+            expression: newExpression ? JSON.parse(newExpression) : undefined,
           }),
         },
       });

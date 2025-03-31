@@ -236,7 +236,6 @@
       "baseInviteEmail": "ベースにメールで招待",
       "baseInviteLink": "ベースにリンクで招待",
       "baseTableImport": "ベースにデータをインポート",
-      "baseTableExport": "ベースからデータをエクスポート",
       "baseAuthorityMatrixConfig": "権限マトリックスを構成する",
       "baseDbConnect": "データベースに接続",
       "tableCreate": "テーブルの作成",

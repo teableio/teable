@@ -40,7 +40,9 @@
     "empty": "Your pined bases and space will appear here"
   },
   "tip": {
-    "delete": "Are you sure you want to delete <0/>?"
+    "delete": "Are you sure you want to delete <0/>?",
+    "title": "Tips",
+    "exportTips": "Exporting the database will export all data, including all records and attachments. The export process will be performed in the background, and you can download the exported file in the notification bar after completion. Note:\n1. All cross-base fields will be converted to single-line text fields."
   },
   "sharedBase": {
     "title": "Shared bases",
@@ -57,5 +59,9 @@
     "importing": "Importing",
     "importWayTip": "Click or drag and drop the file to upload in this area",
     "confirm": "Confirm and continue"
+  },
+  "template": {
+    "title": "Template",
+    "description": "Create a new base from a template quickly"
   }
 }

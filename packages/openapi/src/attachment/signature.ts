@@ -13,6 +13,7 @@ export enum UploadType {
   Comment = 7,
   Logo = 8,
   ExportBase = 9,
+  Template = 10,
 }
 
 export const signatureRoSchema = z.object({

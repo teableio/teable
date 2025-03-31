@@ -17,6 +17,7 @@ model Space {
   createdBy        String    @map("created_by")
   lastModifiedBy   String?   @map("last_modified_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  isTemplate       Boolean?  @map("is_template")
 
   baseGroup      Base[]
 

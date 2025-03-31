@@ -8,7 +8,7 @@ import { GraphModule } from '../../graph/graph.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
-import { TableDuplicateService } from '../table-dupicate.service';
+import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
 import { TableModule } from '../table.module';
 import { TableController } from './table-open-api.controller';

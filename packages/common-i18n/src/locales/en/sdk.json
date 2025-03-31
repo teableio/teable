@@ -264,7 +264,6 @@
       "baseInviteEmail": "Invite via email in base",
       "baseInviteLink": "Invite via link in base",
       "baseTableImport": "Import data into base",
-      "baseTableExport": "Export data from base",
       "baseAuthorityMatrixConfig": "Configure authority matrix",
       "baseDbConnect": "Connect to database",
       "tableCreate": "Create table",

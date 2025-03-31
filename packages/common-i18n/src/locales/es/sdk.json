@@ -595,7 +595,6 @@
       "baseInviteEmail": "Invitar por correo electrónico en la base",
       "baseInviteLink": "Invitar a través de un enlace en la base",
       "baseTableImport": "Importar datos a la base",
-      "baseTableExport": "Exportar datos de la base",
       "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
       "baseDbConnect": "Conectarse a la base de datos",
       "tableCreate": "Crear mesa",

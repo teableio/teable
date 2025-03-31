@@ -8,6 +8,7 @@ import { InvitationModule } from '../invitation/invitation.module';
 import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
+import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { BaseDuplicateService } from './base-duplicate.service';
@@ -44,6 +45,7 @@ import { DbConnectionService } from './db-connection.service';
     DbConnectionService,
     BaseDuplicateService,
     BaseQueryService,
+    TableDuplicateService,
   ],
   exports: [
     BaseService,

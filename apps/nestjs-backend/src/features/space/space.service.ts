@@ -98,7 +98,11 @@ export class SpaceService {
     });
     const spaceIds = map(collaboratorSpaceList, 'resourceId') as string[];
     const spaceList = await this.prismaService.space.findMany({
-      where: { id: { in: spaceIds }, deletedTime: null },
+      where: {
+        id: { in: spaceIds },
+        deletedTime: null,
+        isTemplate: null,
+      },
       select: { id: true, name: true },
       orderBy: { createdTime: 'asc' },
     });

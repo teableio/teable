@@ -33,7 +33,7 @@ export const Trigger = (props: IUploadProps) => {
             onChange(files[0]);
           }
         }}
-      ></input>
+      />
       <div
         role="button"
         tabIndex={0}

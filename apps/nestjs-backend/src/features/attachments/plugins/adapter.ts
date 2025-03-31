@@ -19,6 +19,7 @@ export default abstract class StorageAdapter {
       case UploadType.Form:
       case UploadType.Plugin:
       case UploadType.Logo:
+      case UploadType.Template:
         return storageConfig().publicBucket;
       case UploadType.Comment:
         return storageConfig().privateBucket;
@@ -47,6 +48,8 @@ export default abstract class StorageAdapter {
         return 'logo';
       case UploadType.ExportBase:
         return 'export-base';
+      case UploadType.Template:
+        return 'template';
       default:
         throw new BadRequestException('Invalid upload type');
     }

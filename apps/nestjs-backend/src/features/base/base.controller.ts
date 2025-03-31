@@ -92,7 +92,7 @@ export class BaseController {
   async importBase(
     @Body(new ZodValidationPipe(importBaseRoSchema))
     importBaseRo: ImportBaseRo
-  ): Promise<any> {
+  ): Promise<ICreateBaseRo> {
     return await this.baseImportService.importBase(importBaseRo);
   }
 
@@ -103,7 +103,7 @@ export class BaseController {
   async duplicateBase(
     @Body(new ZodValidationPipe(duplicateBaseRoSchema))
     duplicateBaseRo: IDuplicateBaseRo
-  ): Promise<ICreateBaseRo> {
+  ): Promise<ICreateBaseVo> {
     return await this.baseService.duplicateBase(duplicateBaseRo);
   }
 

@@ -182,12 +182,12 @@
   },
   "hidden": {
     "label": "Приховані поля",
- "configLabel_one": "{{count}} приховане поле",
- "configLabel_other": "{{count}} прихованих поля",
- "configLabel_other_visible": "{{count}} видимих ​​полів",
- "showAll": "Показати все",
- "hideAll": "Приховати все",
- "primaryKey": "Основне поле: Ідентифікує записи\nне можна приховати або видалити, видно у зв'язаних записах."
+    "configLabel_one": "{{count}} приховане поле",
+    "configLabel_other": "{{count}} прихованих поля",
+    "configLabel_other_visible": "{{count}} видимих ​​полів",
+    "showAll": "Показати все",
+    "hideAll": "Приховати все",
+    "primaryKey": "Основне поле: Ідентифікує записи\nне можна приховати або видалити, видно у зв'язаних записах."
   },
   "expandRecord": {
     "Копіювати": "Копіювати в буфер обміну",
@@ -264,7 +264,6 @@
       "baseInviteEmail": "Запросити електронною поштою в базі",
       "baseInviteLink": "Запросити за посиланням у базі",
       "baseTableImport": "Імпортувати дані в базу",
-      "baseTableExport": "Експортувати дані з бази",
       "baseAuthorityMatrixConfig": "Налаштувати матрицю повноважень",
       "baseDbConnect": "Підключитися до бази даних",
       "tableCreate": "Створити таблицю",

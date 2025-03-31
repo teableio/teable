@@ -138,6 +138,7 @@ export const BaseJsonSchema = z.object({
   icon: z.string().nullable(),
   tables: tableJsonSchema.array(),
   plugins: pluginJsonSchema,
+  version: z.string(),
 });
 
 export type IBaseJson = z.infer<typeof BaseJsonSchema>;

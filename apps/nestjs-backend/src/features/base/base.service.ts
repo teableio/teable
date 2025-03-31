@@ -299,7 +299,7 @@ export class BaseService {
     await this.checkBaseReadPermission(duplicateBaseRo.fromBaseId);
     return await this.prismaService.$tx(
       async () => {
-        return await this.baseDuplicateService.duplicate(duplicateBaseRo);
+        return await this.baseDuplicateService.duplicateBase(duplicateBaseRo);
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
@@ -319,7 +319,7 @@ export class BaseService {
   async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
     const { spaceId, templateId, withRecords } = createBaseFromTemplateRo;
     return await this.prismaService.$tx(async () => {
-      return await this.baseDuplicateService.duplicate({
+      return await this.baseDuplicateService.duplicateBase({
         fromBaseId: templateId,
         spaceId,
         withRecords,
