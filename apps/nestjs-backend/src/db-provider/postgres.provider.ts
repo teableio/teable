@@ -18,6 +18,7 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
+import { DuplicateAttachmentTableQueryPostgres } from './duplicate-table/duplicate-attachment-table-query.postgres';
 import { DuplicateTableQueryPostgres } from './duplicate-table/duplicate-query.postgres';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
@@ -383,6 +384,10 @@ export class PostgresProvider implements IDbProvider {
 
   duplicateTableQuery(queryBuilder: Knex.QueryBuilder) {
     return new DuplicateTableQueryPostgres(queryBuilder);
+  }
+
+  duplicateAttachmentTableQuery(queryBuilder: Knex.QueryBuilder) {
+    return new DuplicateAttachmentTableQueryPostgres(queryBuilder);
   }
 
   shareFilterCollaboratorsQuery(

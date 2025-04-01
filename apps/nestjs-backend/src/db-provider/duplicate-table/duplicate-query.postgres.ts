@@ -23,9 +23,9 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
         return `"${col}"`;
       })
       .join(', ');
-    return this.knex.raw(`INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ??`, [
-      targetTable,
-      sourceTable,
-    ]);
+    return this.knex.raw(
+      `INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ?? ORDER BY __auto_number`,
+      [targetTable, sourceTable]
+    );
   }
 }

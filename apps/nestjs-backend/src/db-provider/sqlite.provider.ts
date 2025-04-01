@@ -18,6 +18,7 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
+import { DuplicateAttachmentTableQuerySqlite } from './duplicate-table/duplicate-attachment-table-query.sqlite';
 import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
@@ -340,6 +341,10 @@ export class SqliteProvider implements IDbProvider {
 
   duplicateTableQuery(queryBuilder: Knex.QueryBuilder) {
     return new DuplicateTableQuerySqlite(queryBuilder);
+  }
+
+  duplicateAttachmentTableQuery(queryBuilder: Knex.QueryBuilder) {
+    return new DuplicateAttachmentTableQuerySqlite(queryBuilder);
   }
 
   shareFilterCollaboratorsQuery(

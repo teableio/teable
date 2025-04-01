@@ -539,6 +539,7 @@ export class FieldOpenApiService {
     const fieldRaw = await prisma.field.findUniqueOrThrow({
       where: {
         id: fieldId,
+        deletedTime: null,
       },
     });
 
