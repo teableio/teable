@@ -532,7 +532,7 @@ export class FieldOpenApiService {
     duplicateFieldRo: IDuplicateFieldRo,
     windowId?: string
   ) {
-    const { name } = duplicateFieldRo;
+    const { name, viewId } = duplicateFieldRo;
     const prisma = this.prismaService.txClient();
 
     // throw error if field not found
@@ -553,8 +553,34 @@ export class FieldOpenApiService {
       name: fieldName,
       dbFieldName,
       id: generateFieldId(),
-      isPrimary: false,
     } as IFieldInstance;
+
+    delete newFieldInstance.isPrimary;
+
+    if (viewId) {
+      const view = await prisma.view.findUniqueOrThrow({
+        where: { id: viewId, deletedTime: null },
+        select: {
+          id: true,
+          columnMeta: true,
+        },
+      });
+      const columnMeta = (view.columnMeta ? JSON.parse(view.columnMeta) : {}) as IColumnMeta;
+      const fieldViewOrder = columnMeta[fieldId]?.order;
+
+      const getterFieldViewOrders = Object.values(columnMeta)
+        .filter(({ order }) => order > fieldViewOrder)
+        .map(({ order }) => order);
+
+      const targetFieldViewOrder = getterFieldViewOrders?.length
+        ? (getterFieldViewOrders[0] + fieldViewOrder) / 2
+        : fieldViewOrder + 1;
+
+      (newFieldInstance as IFieldRo).order = {
+        viewId,
+        orderIndex: targetFieldViewOrder,
+      };
+    }
 
     // create field may not support notNull and unique validate
     delete newFieldInstance.notNull;
@@ -585,14 +611,19 @@ export class FieldOpenApiService {
       } as IFieldInstance['lookupOptions'];
     }
 
-    const newField = await this.createField(
-      sourceTableId,
-      omit(newFieldInstance, ['notNull', 'unique'])
-    );
+    // after create field, and add constraint relative
+    const newField = await this.createField(sourceTableId, {
+      ...omit(newFieldInstance, ['notNull', 'unique']),
+    });
 
     if (!fieldInstance.isComputed) {
       // di not async duplicate records
-      this.duplicateFieldData(sourceTableId, newField.id, fieldRaw.dbFieldName, newFieldInstance);
+      this.duplicateFieldData(
+        sourceTableId,
+        newField.id,
+        fieldRaw.dbFieldName,
+        omit(newFieldInstance, 'order') as IFieldInstance
+      );
     }
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {

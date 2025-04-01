@@ -9,6 +9,7 @@ export const DUPLICATE_FIELD = '/table/{tableId}/field/{fieldId}/duplicate';
 
 export const duplicateFieldRoSchema = z.object({
   name: z.string(),
+  viewId: z.string().optional(),
 });
 
 export type IDuplicateFieldRo = z.infer<typeof duplicateFieldRoSchema>;
@@ -17,7 +18,7 @@ export const DuplicateFieldRoute: RouteConfig = registerRoute({
   method: 'post',
   path: DUPLICATE_FIELD,
   summary: 'Duplicate field',
-  description: 'Duplicate field from one table to another or self',
+  description: 'Duplicate field',
   request: {
     params: z.object({
       tableId: z.string(),

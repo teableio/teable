@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, ViewType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { createField, getFields, duplicateField } from '@teable/openapi';
+import { createField, getFields, duplicateField, createView, getView } from '@teable/openapi';
 import { omit, pick } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
@@ -264,6 +263,68 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
       };
 
       expect(expectedRollupField).toEqual(assertRollupField);
+    });
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, subTable.id);
+    });
+  });
+
+  describe('duplicate field with view new field order should next to the original field', () => {
+    let table: ITableFullVo;
+    let subTable: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'record_query_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+
+      const x20Link = x_20_link(table);
+      subTable = await createTable(baseId, {
+        name: 'lookup_filter_x_20',
+        fields: x20Link.fields,
+        records: x20Link.records,
+      });
+
+      const view = (
+        await createView(table.id, {
+          name: 'view_x_20',
+          type: ViewType.Grid,
+        })
+      ).data;
+
+      const x20LinkFromLookups = x_20_link_from_lookups(table, subTable.fields[2].id);
+      for (const field of x20LinkFromLookups.fields) {
+        await createField(subTable.id, field);
+      }
+
+      table.fields = (await getFields(table.id)).data;
+      subTable.fields = (await getFields(subTable.id)).data;
+
+      const textField = table.fields.find((f) => f.type === FieldType.SingleLineText)!;
+
+      const fieldCopy = (
+        await duplicateField(table.id, textField.id, {
+          name: `${textField.name}_copy`,
+          viewId: view.id,
+        })
+      ).data;
+
+      const afterDuplicateView = (await getView(table.id, view.id)).data;
+
+      const afterDuplicateFieldIndex = afterDuplicateView.columnMeta[fieldCopy.id]?.order;
+      const originalFieldIndex = view.columnMeta[textField.id]?.order;
+
+      const getterFieldViewOrders = Object.values(view.columnMeta)
+        .filter(({ order }) => originalFieldIndex < order)
+        .map(({ order }) => order);
+
+      const targetFieldViewOrder = getterFieldViewOrders?.length
+        ? (getterFieldViewOrders[0] + originalFieldIndex) / 2
+        : originalFieldIndex + 1;
+
+      expect(afterDuplicateFieldIndex).toBe(targetFieldViewOrder);
     });
     afterAll(async () => {
       await permanentDeleteTable(baseId, table.id);

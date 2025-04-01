@@ -186,6 +186,7 @@ export const FieldMenu = () => {
             fieldId: fieldIds[0],
             duplicateFieldRo: {
               name: newName,
+              viewId: view.id,
             },
           });
         },
