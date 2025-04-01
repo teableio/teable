@@ -37,6 +37,7 @@ import { Events } from '../../../event-emitter/events';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';
+import { FieldKeyPipe } from './field-key.pipe';
 import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
@@ -70,7 +71,7 @@ export class RecordOpenApiController {
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe, FieldKeyPipe) query: IGetRecordsRo
   ): Promise<IRecordsVo> {
     return await this.recordService.getRecords(tableId, query);
   }

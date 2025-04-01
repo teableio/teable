@@ -1,11 +1,10 @@
-import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
 import { SortFunc } from './sort-func.enum';
 
 export const orderSchema = z.nativeEnum(SortFunc);
 
 export const sortItemSchema = z.object({
-  fieldId: z.string().startsWith(IdPrefix.Field).openapi({
+  fieldId: z.string().openapi({
     description: 'The id of the field.',
   }),
   order: orderSchema,

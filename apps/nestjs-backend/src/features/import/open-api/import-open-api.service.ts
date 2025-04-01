@@ -8,7 +8,7 @@ import {
   getActionTriggerChannel,
   getTableImportChannel,
 } from '@teable/core';
-import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
   IImportOptionRo,

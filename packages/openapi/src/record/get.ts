@@ -10,7 +10,9 @@ export type { IRecord } from '@teable/core';
 
 export const fieldKeyTypeRoSchema = z
   .nativeEnum(FieldKeyType, {
-    errorMap: () => ({ message: 'Error fieldKeyType, You should set it to "name" or "id"' }),
+    errorMap: () => ({
+      message: 'Error fieldKeyType, You should set it to "name" or "id" or "dbFieldName"',
+    }),
   })
   .default(FieldKeyType.Name) // is not work with optional()...
   .transform((v) => v ?? FieldKeyType.Name)

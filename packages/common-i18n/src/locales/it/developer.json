@@ -4,7 +4,6 @@
   "apiList": "Elenco completo delle API",
   "cellFormat": "Formato del risultato della cella",
   "fieldKeyType": "Tipo di chiave del campo",
-  "fieldKeyTypeDesc": "Il tipo di chiave del campo nel risultato",
   "chooseSource": "Scegli una fonte di dati",
   "action": {
     "selectBase": "Seleziona un database...",

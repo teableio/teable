@@ -17,6 +17,7 @@ import {
   formatDateToString,
   DateFormattingPreset,
   TimeFormatting,
+  FieldKeyType,
 } from '@teable/core';
 import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { updateViewSort as apiSetViewSort } from '@teable/openapi';
@@ -57,6 +58,7 @@ const getSortRecords = async (
   query?: Pick<IGetRecordsRo, 'viewId' | 'orderBy'>
 ) => {
   const result = await getRecords(tableId, {
+    fieldKeyType: FieldKeyType.Id,
     viewId: query?.viewId,
     orderBy: query?.orderBy,
   });
