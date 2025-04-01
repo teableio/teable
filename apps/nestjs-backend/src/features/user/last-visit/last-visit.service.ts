@@ -246,13 +246,12 @@ export class LastVisitService {
       })
       .where('ulv.user_id', userId)
       .where('ulv.resource_type', LastVisitResourceType.Automation)
-      .where('ulv.parent_resource_id', parentResourceId);
+      .where('ulv.parent_resource_id', parentResourceId)
+      .whereNotNull('v.id')
+      .limit(1)
+      .toQuery();
 
-    query.limit(1);
-
-    const sql = query.toQuery();
-
-    const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(sql);
+    const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(query);
     const lastVisit = results[0];
 
     if (lastVisit) {
