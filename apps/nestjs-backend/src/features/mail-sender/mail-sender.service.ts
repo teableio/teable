@@ -54,6 +54,7 @@ export class MailSenderService {
         resourceAlias,
         inviteUrl,
         partialBody: 'invite',
+        brandName,
       },
     };
   }
@@ -100,6 +101,7 @@ export class MailSenderService {
         recordIds,
         viewRecordUrlPrefix,
         partialBody,
+        brandName,
       },
     };
   }
@@ -119,6 +121,7 @@ export class MailSenderService {
       template: 'normal',
       context: {
         partialBody: 'common-body',
+        brandName,
         ...info,
       },
     };
@@ -134,6 +137,7 @@ export class MailSenderService {
         name,
         email,
         resetPasswordUrl,
+        brandName,
         partialBody: 'reset-password',
       },
     };
@@ -147,6 +151,7 @@ export class MailSenderService {
       template: 'normal',
       context: {
         partialBody: 'email-verify-code',
+        brandName,
         ...info,
       },
     };
