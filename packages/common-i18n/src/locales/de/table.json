@@ -276,7 +276,49 @@
     },
     "fieldName": "Feld Name",
     "fieldNameOptional": "Feld Name (Optional)",
-    "fieldType": "Feld Typ"
+    "fieldType": "Feld Typ",
+    "aiConfig": {
+      "title": "AI Konfiguration",
+      "type": {
+        "summary": "Zusammenfassung",
+        "translation": "Übersetzung",
+        "extraction": "Informationen extrahieren",
+        "improvement": "Verbesserung",
+        "tag": "Smart Tag",
+        "classification": "Smart Klassifizierung",
+        "customization": "Anpassung"
+      },
+      "label": {
+        "type": "AI Aktion Typ",
+        "model": "AI Modell",
+        "targetLanguage": "Zielsprache",
+        "sourceField": "Quellfeld",
+        "sourceFieldForTag": "Wählen Sie ein Feld, passen Sie es mit den erstellten Tags an",
+        "sourceFieldForClassify": "Wählen Sie ein Feld, passen Sie es mit den erstellten Klassifizierungen an",
+        "attachPrompt": "Anhängen von Anforderungen",
+        "prompt": "Anpassen von Prompt"
+      },
+      "placeholder": {
+        "summarize": "Zusammenfassung des Inhalts",
+        "translate": "Übersetzung kurz und verständlich, lebendig",
+        "extractInfo": "Email, Telefon, Name, Adresse extrahieren...",
+        "improveText": "Formell, freundlich, humorvoll...",
+        "attachPromptForTag": "Nicht erlaubt, mehr als drei Tags zu überschreiten",
+        "attachPromptForClassify": "Klassifizieren Sie “In Progress” als “Kein Risiko”",
+        "attachPrompt": "Bitte geben Sie zusätzliche Anforderungen ein",
+        "prompt": "Bitte geben Sie einen benutzerdefinierten Prompt ein",
+        "type": "AI Aktion auswählen",
+        "targetLanguage": "Englisch, Chinesisch, Französisch..."
+      },
+      "autoFill": {
+        "title": "Automatisch aktualisieren",
+        "tip": "Nachdem Sie diese Option aktiviert haben, wird das aktuelle Feld synchron mit den Inhaltsänderungen der AI-Konfiguration aktualisiert"
+      },
+      "autoFillFieldDialog": {
+        "title": "Alle Datensätze aktualisieren",
+        "description": "Alle Datensätze in der aktuellen Ansicht werden aktualisiert, einschließlich aller mit dem Feld generierten verknüpften Datensätze"
+      }
+    }
   },
   "table": {
     "newTableLabel": "Neue Tabelle",
@@ -484,7 +526,8 @@
     "deleteAllSelectedFields": "Alle ausgewählten Felder löschen",
     "filterField": "Filtern Sie nach diesem Feld",
     "sortField": "Sortieren nach diesem Feld",
-    "groupField": "Gruppieren nach diesem Feld"
+    "groupField": "Gruppieren nach diesem Feld",
+    "autoFill": "Alle Datensätze aktualisieren"
   },
   "connection": {
     "title": "Datenbankverbindung",

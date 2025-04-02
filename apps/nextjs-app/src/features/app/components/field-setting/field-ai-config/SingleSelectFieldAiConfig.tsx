@@ -7,8 +7,10 @@ import type {
 import { FieldAIActionType } from '@teable/core';
 import { ListChecks, Pencil } from '@teable/icons';
 import { Selector } from '@teable/ui-lib/base';
-import { Textarea } from '@teable/ui-lib/shadcn';
+import { Label, Textarea } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
 import type { IFieldEditorRo } from '../type';
 import { PromptEditorContainer } from './components';
@@ -23,20 +25,22 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
   const { aiConfig } = field;
   const { type } = aiConfig ?? {};
 
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
   const candidates = useMemo(() => {
     return [
       {
         id: FieldAIActionType.Classify,
         icon: <ListChecks className="size-4" />,
-        name: '智能分类',
+        name: t('table:field.aiConfig.type.classification'),
       },
       {
         id: FieldAIActionType.Customize,
         icon: <Pencil className="size-4" />,
-        name: '自定义生成',
+        name: t('table:field.aiConfig.type.customization'),
       },
     ];
-  }, []);
+  }, [t]);
 
   const onConfigChange = (
     key: keyof ISingleSelectFieldClassifyAIConfig | keyof ISingleSelectFieldCustomizeAIConfig,
@@ -68,10 +72,10 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
   return (
     <Fragment>
       <div className="flex flex-col gap-y-2">
-        <label>AI 动作类型</label>
+        <Label>{t('table:field.aiConfig.label.type')}</Label>
         <Selector
           className="w-full"
-          placeholder={'选择 AI 动作'}
+          placeholder={t('table:field.aiConfig.placeholder.type')}
           selectedId={type}
           onChange={(id) => {
             onConfigChange('type', id);
@@ -83,7 +87,7 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
       {type && type !== FieldAIActionType.Customize && (
         <Fragment>
           <div className="flex flex-col gap-y-2">
-            <label>选择一个字段，为其匹配已创建的分类</label>
+            <Label>{t('table:field.aiConfig.label.sourceFieldForClassify')}</Label>
             <SelectFieldByTableId
               selectedId={(aiConfig as ISingleSelectFieldClassifyAIConfig)?.sourceFieldId}
               onChange={(field) => {
@@ -92,9 +96,9 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
             />
           </div>
           <div className="flex flex-col gap-y-2">
-            <label>附加要求</label>
+            <Label>{t('table:field.aiConfig.label.attachPrompt')}</Label>
             <Textarea
-              placeholder="将“正在进行中”的分类为“无风险”"
+              placeholder={t('table:field.aiConfig.placeholder.attachPromptForClassify')}
               className="w-full"
               value={(aiConfig as ISingleSelectFieldClassifyAIConfig)?.attachPrompt || ''}
               onChange={(e) => {
@@ -110,7 +114,8 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
           <PromptEditorContainer
             value={(aiConfig as ISingleSelectFieldCustomizeAIConfig)?.prompt || ''}
             onChange={(value) => onConfigChange('prompt', value)}
-            label="自定义提示"
+            label={t('table:field.aiConfig.label.prompt')}
+            placeholder={t('table:field.aiConfig.placeholder.prompt')}
           />
         </div>
       )}

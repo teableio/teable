@@ -265,7 +265,49 @@
     },
     "fieldName": "Alan Adı",
     "fieldNameOptional": "Alan Adı (İsteğe bağlı)",
-    "fieldType": "Alan Türü"
+    "fieldType": "Alan Türü",
+    "aiConfig": {
+      "title": "AI Yapılandırması",
+      "type": {
+        "summary": "Özet",
+        "translation": "Çeviri",
+        "extraction": "Bilgi Çıkarma",
+        "improvement": "İyileştirme",
+        "tag": "Akıllı Etiket",
+        "classification": "Akıllı Sınıflandırma",
+        "customization": "Özelleştirme"
+      },
+      "label": {
+        "type": "AI Eylem Türü",
+        "model": "AI Model",
+        "targetLanguage": "Hedef Dil",
+        "sourceField": "Kaynak Alan",
+        "sourceFieldForTag": "Bir alan seçin, oluşturulan etiketlerle eşleştirin",
+        "sourceFieldForClassify": "Bir alan seçin, oluşturulan sınıflandırmalarla eşleştirin",
+        "attachPrompt": "Gereksinimleri ekleyin",
+        "prompt": "Özel Prompt"
+      },
+      "placeholder": {
+        "summarize": "İçerik özetini",
+        "translate": "Kısa ve anlaşılır, hafif tonlu çeviri",
+        "extractInfo": "Email, telefon, ad, adres...",
+        "improveText": "Resmi, arkadaşça, komik...",
+        "attachPromptForTag": "Üç etiketden fazla izin verilmiyor",
+        "attachPromptForClassify": "“Devam Ediyor” olarak “Risk Yok” olarak sınıflandır",
+        "attachPrompt": "Ek gereksinimleri girin",
+        "prompt": "Özel Prompt",
+        "type": "AI Eylemi Seçin",
+        "targetLanguage": "İngilizce, Çince, Fransızca..."
+      },
+      "autoFill": {
+        "title": "Otomatik Güncelle",
+        "tip": "Etkinleştirdiğinizde, mevcut alan, AI yapılandırmasının içerik değişiklikleriyle senkronize olarak güncellenecektir"
+      },
+      "autoFillFieldDialog": {
+        "title": "Tüm kayıtları güncelle",
+        "description": "Mevcut görünümdeki tüm kayıtlar güncellenecektir, mevcut alanın oluşturduğu tüm ilgili verileri içerecektir"
+      }
+    }
   },
   "table": {
     "newTableLabel": "Yeni tablo",
@@ -454,7 +496,8 @@
     "deleteAllSelectedFields": "Seçili tüm alanları sil",
     "filterField": "Bu alana göre filtrele",
     "sortField": "Bu alana göre sırala",
-    "groupField": "Bu alana göre grupla"
+    "groupField": "Bu alana göre grupla",
+    "autoFill": "Tüm kayıtları güncelle"
   },
   "connection": {
     "title": "Veritabanı Bağlantısı",

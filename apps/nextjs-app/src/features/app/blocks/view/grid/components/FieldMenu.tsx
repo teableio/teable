@@ -161,7 +161,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.AutoFill,
-        name: '更新整列记录',
+        name: t('table:menu.autoFill'),
         icon: <RefreshCcw className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !fields[0].aiConfig?.type || !permission['record|update'],
         onClick: async () => {

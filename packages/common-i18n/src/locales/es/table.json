@@ -276,7 +276,49 @@
     },
     "fieldName": "Nombre de campo",
     "fieldNameOptional": "Nombre de campo (opcional)",
-    "fieldType": "Tipo de Campo"
+    "fieldType": "Tipo de Campo",
+    "aiConfig": {
+      "title": "Configuración de IA",
+      "type": {
+        "summary": "Resumen",
+        "translation": "Traducción",
+        "extraction": "Extracción de información",
+        "improvement": "Mejora",
+        "tag": "Etiqueta inteligente",
+        "classification": "Clasificación inteligente",
+        "customization": "Personalización"
+      },
+      "label": {
+        "type": "Tipo de acción de IA",
+        "model": "Modelo de IA",
+        "targetLanguage": "Idioma objetivo",
+        "sourceField": "Campo de origen",
+        "sourceFieldForTag": "Seleccione un campo, coincida con las etiquetas creadas",
+        "sourceFieldForClassify": "Seleccione un campo, coincida con las clasificaciones creadas",
+        "attachPrompt": "Adjuntar requisitos",
+        "prompt": "Personalizar prompt"
+      },
+      "placeholder": {
+        "summarize": "Resumen del contenido",
+        "translate": "Traducción concisa y fácil de entender, light-hearted",
+        "extractInfo": "Extraer email, teléfono, nombre, dirección...",
+        "improveText": "Formal, amigable, humorístico...",
+        "attachPromptForTag": "No permitido superar tres etiquetas",
+        "attachPromptForClassify": "Clasificar “En curso” como “Sin riesgo”",
+        "attachPrompt": "Por favor, ingrese requisitos adicionales",
+        "prompt": "Por favor, ingrese un prompt personalizado",
+        "type": "Seleccione una acción de IA",
+        "targetLanguage": "Inglés, chino, francés..."
+      },
+      "autoFill": {
+        "title": "Actualizar automáticamente",
+        "tip": "Después de habilitarlo, el campo actual se actualizará sincronizadamente con los cambios del contenido de la configuración de IA"
+      },
+      "autoFillFieldDialog": {
+        "title": "Actualizar todos los registros",
+        "description": "Todos los registros en la vista actual se actualizarán, incluidos todos los datos relacionados generados por el campo"
+      }
+    }
   },
   "table": {
     "newTableLabel": "Nueva tabla",
@@ -484,7 +526,8 @@
     "deleteAllSelectedFields": "Eliminar todos los campos seleccionados",
     "filterField": "Filtrar por este campo",
     "sortField": "Ordenar por este campo",
-    "groupField": "Grupo por este campo"
+    "groupField": "Grupo por este campo",
+    "autoFill": "Actualizar todos los registros"
   },
   "connection": {
     "title": "Conexiones",

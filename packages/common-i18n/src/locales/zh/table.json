@@ -275,7 +275,49 @@
     },
     "fieldName": "字段名",
     "fieldNameOptional": "字段名 (可选)",
-    "fieldType": "字段类型"
+    "fieldType": "字段类型",
+    "aiConfig": {
+      "title": "AI 配置",
+      "type": {
+        "summary": "总结",
+        "translation": "翻译",
+        "extraction": "提取信息",
+        "improvement": "文案改写",
+        "tag": "智能标签",
+        "classification": "智能分类",
+        "customization": "自定义生成"
+      },
+      "label": {
+        "type": "AI 动作类型",
+        "model": "AI 模型",
+        "targetLanguage": "目标语言",
+        "sourceField": "来源字段",
+        "sourceFieldForTag": "选择一个字段，为其匹配已创建的标签",
+        "sourceFieldForClassify": "选择一个字段，为其匹配已创建的分类",
+        "attachPrompt": "附加要求",
+        "prompt": "自定义提示"
+      },
+      "placeholder": {
+        "summarize": "总结内容的关键点",
+        "translate": "翻译简洁易懂，语气轻松",
+        "extractInfo": "提取邮箱，电话，姓名，地址...",
+        "improveText": "语气正式，友好，幽默...",
+        "attachPromptForTag": "不允许超过三个标签",
+        "attachPromptForClassify": "将“正在进行中”的分类为“无风险”",
+        "attachPrompt": "请输入附加要求",
+        "prompt": "请输入自定义的提示",
+        "type": "选择 AI 动作",
+        "targetLanguage": "英文，中文，法语..."
+      },
+      "autoFill": {
+        "title": "自动更新",
+        "tip": "开启后，当前字段将跟随 AI 配置的内容变化而同步更新"
+      },
+      "autoFillFieldDialog": {
+        "title": "更新整列记录",
+        "description": "当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+      }
+    }
   },
   "table": {
     "newTableLabel": "表格",
@@ -486,7 +528,8 @@
     "deleteAllSelectedFields": "删除所有选定的字段",
     "filterField": "按此字段筛选",
     "sortField": "按此字段排序",
-    "groupField": "按此字段分组"
+    "groupField": "按此字段分组",
+    "autoFill": "更新整列记录"
   },
   "connection": {
     "title": "数据库连接",

@@ -267,7 +267,49 @@
     },
     "fieldName": "フィールド名",
     "fieldNameOptional": "フィールド名（オプション）",
-    "fieldType": "フィールドタイプ"
+    "fieldType": "フィールドタイプ",
+    "aiConfig": {
+      "title": "AI 設定",
+      "type": {
+        "summary": "サマリー",
+        "translation": "翻訳",
+        "extraction": "情報抽出",
+        "improvement": "改善",
+        "tag": "スマートタグ",
+        "classification": "スマート分類",
+        "customization": "カスタマイズ"
+      },
+      "label": {
+        "type": "AI アクションタイプ",
+        "model": "AI モデル",
+        "targetLanguage": "ターゲット言語",
+        "sourceField": "ソースフィールド",
+        "sourceFieldForTag": "フィールドを選択し、作成されたタグと一致させます",
+        "sourceFieldForClassify": "フィールドを選択し、作成された分類と一致させます",
+        "attachPrompt": "要件を添付",
+        "prompt": "カスタマイズされたプロンプト"
+      },
+      "placeholder": {
+        "summarize": "コンテンツのサマリー",
+        "translate": "簡潔でわかりやすく、軽快な翻訳",
+        "extractInfo": "メール、電話番号、名前、住所などを抽出...",
+        "improveText": "正式、親切、ユーモアがある...",
+        "attachPromptForTag": "3つ以内のタグを許可しない",
+        "attachPromptForClassify": "「進行中」を「リスクなし」と分類",
+        "attachPrompt": "追加の要件を入力してください",
+        "prompt": "カスタマイズされたプロンプトを入力してください",
+        "type": "AI アクションを選択",
+        "targetLanguage": "英語、中国語、フランス語..."
+      },
+      "autoFill": {
+        "title": "自動更新",
+        "tip": "有効にすると、現在のフィールドは AI 構成の内容の変更と同期して更新されます"
+      },
+      "autoFillFieldDialog": {
+        "title": "すべてのレコードを更新",
+        "description": "現在のビューのすべてのレコードが更新され、フィールドによって生成されたすべての関連データが含まれます"
+      }
+    }
   },
   "table": {
     "newTableLabel": "新しいテーブル",
@@ -468,7 +510,8 @@
     "freezeUpField": "このフィールドまでフリーズ",
     "hideField": "フィールドを非表示",
     "deleteField": "フィールドを削除",
-    "deleteAllSelectedFields": "選択したすべてのフィールドを削除"
+    "deleteAllSelectedFields": "選択したすべてのフィールドを削除",
+    "autoFill": "すべてのレコードを更新"
   },
   "connection": {
     "title": "データベース接続",

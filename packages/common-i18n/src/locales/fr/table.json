@@ -267,7 +267,49 @@
     },
     "fieldName": "Nom du champ",
     "fieldNameOptional": "Nom du champ (Optionnel)",
-    "fieldType": "Type de champ"
+    "fieldType": "Type de champ",
+    "aiConfig": {
+      "title": "Configuration AI",
+      "type": {
+        "summary": "Résumé",
+        "translation": "Traduction",
+        "extraction": "Extraction d'informations",
+        "improvement": "Amélioration",
+        "tag": "Tag intelligent",
+        "classification": "Classification intelligente",
+        "customization": "Personnalisation"
+      },
+      "label": {
+        "type": "Type d'action AI",
+        "model": "Modèle AI",
+        "targetLanguage": "Langue cible",
+        "sourceField": "Champ source",
+        "sourceFieldForTag": "Sélectionnez un champ, correspondant aux tags créés",
+        "sourceFieldForClassify": "Sélectionnez un champ, correspondant aux classifications créées",
+        "attachPrompt": "Attacher les exigences",
+        "prompt": "Personnaliser le prompt"
+      },
+      "placeholder": {
+        "summarize": "Résumé du contenu",
+        "translate": "Traduction concise et facile à comprendre, légèrement humoristique",
+        "extractInfo": "Extraction des emails, téléphones, noms, adresses...",
+        "improveText": "Formel, amical, humoristique...",
+        "attachPromptForTag": "Ne pas dépasser trois tags",
+        "attachPromptForClassify": "Classer “En cours” comme “Aucun risque”",
+        "attachPrompt": "Entrez des exigences supplémentaires",
+        "prompt": "Entrez un prompt personnalisé",
+        "type": "Sélectionner une action AI",
+        "targetLanguage": "Anglais, Chinois, Français..."
+      },
+      "autoFill": {
+        "title": "Mise à jour automatique",
+        "tip": "Après activation, le champ actuel sera mis à jour de manière synchrone avec les modifications du contenu de la configuration AI"
+      },
+      "autoFillFieldDialog": {
+        "title": "Mettre à jour tous les enregistrements",
+        "description": "Tous les enregistrements dans la vue actuelle seront mis à jour, y compris tous les données générées par le champ"
+      }
+    }
   },
   "table": {
     "newTableLabel": "Nouvelle table",
@@ -469,7 +511,8 @@
     "freezeUpField": "Geler jusqu'à ce champ",
     "hideField": "Masquer le champ",
     "deleteField": "Supprimer le champ",
-    "deleteAllSelectedFields": "Supprimer tous les champs sélectionnés"
+    "deleteAllSelectedFields": "Supprimer tous les champs sélectionnés",
+    "autoFill": "Mettre à jour tous les enregistrements"
   },
   "connection": {
     "title": "Connexion à la base de données",

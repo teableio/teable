@@ -9,8 +9,10 @@ import type {
 import { FieldAIActionType } from '@teable/core';
 import { ArrowUpDown, Edit, Export, Layers, Pencil } from '@teable/icons';
 import { Selector } from '@teable/ui-lib/base';
-import { Input, Textarea } from '@teable/ui-lib/shadcn';
+import { Input, Label, Textarea } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
 import type { IFieldEditorRo } from '../type';
 import { PromptEditorContainer } from './components';
@@ -25,48 +27,50 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
   const { aiConfig } = field;
   const { type } = aiConfig ?? {};
 
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
   const candidates = useMemo(() => {
     return [
       {
         id: FieldAIActionType.Summarize,
         icon: <Layers className="size-4" />,
-        name: '总结',
+        name: t('table:field.aiConfig.type.summary'),
       },
       {
         id: FieldAIActionType.Translate,
         icon: <ArrowUpDown className="size-4" />,
-        name: '翻译',
+        name: t('table:field.aiConfig.type.translation'),
       },
       {
         id: FieldAIActionType.ExtractInfo,
         icon: <Export className="size-4" />,
-        name: '提取信息',
+        name: t('table:field.aiConfig.type.extraction'),
       },
       {
         id: FieldAIActionType.ImproveText,
         icon: <Edit className="size-4" />,
-        name: '文案改写',
+        name: t('table:field.aiConfig.type.improvement'),
       },
       {
         id: FieldAIActionType.Customize,
         icon: <Pencil className="size-4" />,
-        name: '自定义生成',
+        name: t('table:field.aiConfig.type.customization'),
       },
     ];
-  }, []);
+  }, [t]);
 
   const getPlaceholder = (type: FieldAIActionType) => {
     switch (type) {
       case FieldAIActionType.Translate:
-        return '翻译简洁易懂，语气轻松';
+        return t('table:field.aiConfig.placeholder.translate');
       case FieldAIActionType.ImproveText:
-        return '语气正式，友好，幽默...';
+        return t('table:field.aiConfig.placeholder.improveText');
       case FieldAIActionType.ExtractInfo:
-        return '提取邮箱，电话，姓名，地址...';
+        return t('table:field.aiConfig.placeholder.extractInfo');
       case FieldAIActionType.Summarize:
-        return '总结内容的关键点';
+        return t('table:field.aiConfig.placeholder.summarize');
       case FieldAIActionType.Customize:
-        return '请输入自定义的提示';
+        return t('table:field.aiConfig.placeholder.prompt');
       default:
         return '';
     }
@@ -109,10 +113,10 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
   return (
     <Fragment>
       <div className="flex flex-col gap-y-2">
-        <label>AI 动作类型</label>
+        <Label>{t('table:field.aiConfig.label.type')}</Label>
         <Selector
           className="w-full"
-          placeholder={'选择 AI 动作'}
+          placeholder={t('table:field.aiConfig.placeholder.type')}
           selectedId={type}
           onChange={(id) => {
             onConfigChange('type', id);
@@ -123,7 +127,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
       {type && type !== FieldAIActionType.Customize && (
         <div className="flex flex-col gap-y-2">
-          <label>来源字段</label>
+          <Label>{t('table:field.aiConfig.label.sourceField')}</Label>
           <SelectFieldByTableId
             selectedId={(aiConfig as ITextFieldSummarizeAIConfig)?.sourceFieldId}
             onChange={(field) => {
@@ -135,11 +139,11 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
       {type === FieldAIActionType.Translate && (
         <div className="flex flex-col gap-y-2">
-          <label>目标语言</label>
+          <Label>{t('table:field.aiConfig.label.targetLanguage')}</Label>
           <Input
             type="text"
-            placeholder="英文，中文，法语..."
             className="w-full"
+            placeholder={t('table:field.aiConfig.placeholder.targetLanguage')}
             value={(aiConfig as ITextFieldTranslateAIConfig)?.targetLanguage || ''}
             onChange={(e) => {
               onConfigChange('targetLanguage', e.target.value);
@@ -150,7 +154,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
       {type && type !== FieldAIActionType.Customize && (
         <div className="flex flex-col gap-y-2">
-          <label>附加要求</label>
+          <Label>{t('table:field.aiConfig.label.attachPrompt')}</Label>
           <Textarea
             placeholder={getPlaceholder(type)}
             className="w-full"
@@ -167,7 +171,8 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
           <PromptEditorContainer
             value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}
             onChange={(value) => onConfigChange('prompt', value)}
-            label="自定义提示"
+            label={t('table:field.aiConfig.label.prompt')}
+            placeholder={t('table:field.aiConfig.placeholder.prompt')}
           />
         </div>
       )}

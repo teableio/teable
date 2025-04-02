@@ -1058,8 +1058,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           if (!val) setAutoFillFieldId(undefined);
         }}
         closeable={false}
-        title="确定要更新整列记录吗"
-        description="当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+        title={t('table:field.aiConfig.autoFillFieldDialog.title')}
+        description={t('table:field.aiConfig.autoFillFieldDialog.description')}
         onCancel={() => setAutoFillFieldId(undefined)}
         cancelText={t('common:actions.cancel')}
         confirmText={t('common:actions.update')}

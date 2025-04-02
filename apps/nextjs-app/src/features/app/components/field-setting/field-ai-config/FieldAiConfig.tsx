@@ -15,9 +15,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import React, { Fragment, useState } from 'react';
 import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
+import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
 import { MultipleSelectFieldAiConfig } from './MultipleSelectFieldAiConfig';
 import { SingleSelectFieldAiConfig } from './SingleSelectFieldAiConfig';
@@ -39,6 +41,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   const { type: fieldType, aiConfig } = field;
   const { type } = aiConfig ?? {};
   const baseId = useBaseId() as string;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [isExpanded, setIsExpanded] = useState(!!aiConfig);
 
   const { data: baseAiConfig } = useQuery({
@@ -100,7 +103,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
         >
           <div className="flex items-center gap-x-1">
             <MagicAI className="size-4" active />
-            AI 配置
+            {t('table:field.aiConfig.title')}
           </div>
           {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </div>
@@ -111,7 +114,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
             {type && (
               <Fragment>
                 <div className="flex flex-col gap-y-2">
-                  <label>AI 模型</label>
+                  <Label>{t('table:field.aiConfig.label.model')}</Label>
                   <AIModelSelect
                     value={aiConfig?.modelKey || ''}
                     onValueChange={(newValue) => {
@@ -125,7 +128,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                 </div>
                 <div className="flex items-center">
                   <Label htmlFor="autoFill" className="font-normal">
-                    自动更新
+                    {t('table:field.aiConfig.autoFill.title')}
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
@@ -135,9 +138,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-[320px]">
-                          开启后，当前字段将跟随 AI 配置的内容变化而同步更新
-                        </p>
+                        <p className="max-w-[320px]">{t('table:field.aiConfig.autoFill.tip')}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
