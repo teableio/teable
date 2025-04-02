@@ -156,7 +156,7 @@
     "@types/stream-json": "1.7.8",
     "@types/through2": "2.0.41",
     "@types/unzipper": "0.10.11",
-    "ai": "4.1.38",
+    "ai": "4.1.46",
     "ajv": "8.12.0",
     "archiver": "7.0.1",
     "axios": "1.7.7",

@@ -29,11 +29,18 @@ export class TemplateOpenApiService {
   async createTemplate(createTemplateRo: ICreateTemplateRo) {
     const userId = this.cls.get('user.id');
     const templateId = generateTemplateId();
+    const order = await this.prismaService.template.aggregate({
+      _max: {
+        order: true,
+      },
+    });
+    const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
     return await this.prismaService.template.create({
       data: {
         id: templateId,
         ...createTemplateRo,
         createdBy: userId,
+        order: finalOrder,
       },
     });
   }
