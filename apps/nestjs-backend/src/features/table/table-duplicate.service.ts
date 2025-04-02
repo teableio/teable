@@ -598,18 +598,11 @@ export class TableDuplicateService {
       unique,
       description,
       isPrimary,
+      type: lookupFieldType,
     } = fieldInstance;
     const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
     const isSelfLink = foreignTableId === sourceTableId;
 
-    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: {
-        id: lookupFieldId,
-      },
-      select: {
-        type: true,
-      },
-    });
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
     const { type: mockType } = await this.prismaService.txClient().field.findUniqueOrThrow({
       where: {
@@ -626,8 +619,9 @@ export class TableDuplicateService {
       description,
       isLookup: true,
       lookupOptions: {
+        // if lookup link field is self link, foreignTableId is targetTableId, otherwise it is the foreignTableId
         foreignTableId: isSelfLink ? targetTableId : foreignTableId,
-        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        linkFieldId: sourceToTargetFieldMap[linkFieldId],
         lookupFieldId: isSelfLink
           ? hasError
             ? mockFieldId
@@ -680,18 +674,11 @@ export class TableDuplicateService {
       unique,
       description,
       isPrimary,
+      type: lookupFieldType,
     } = fieldInstance;
     const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
     const isSelfLink = foreignTableId === sourceTableId;
 
-    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: {
-        id: lookupFieldId,
-      },
-      select: {
-        type: true,
-      },
-    });
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
     const newField = await this.fieldOpenService.createField(targetTableId, {
       type: FieldType.Rollup,
@@ -699,7 +686,7 @@ export class TableDuplicateService {
       description,
       lookupOptions: {
         foreignTableId: isSelfLink ? targetTableId : foreignTableId,
-        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        linkFieldId: sourceToTargetFieldMap[linkFieldId],
         lookupFieldId: isSelfLink
           ? hasError
             ? mockFieldId
