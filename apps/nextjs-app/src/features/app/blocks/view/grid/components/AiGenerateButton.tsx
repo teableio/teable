@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, RefreshCcw } from '@teable/icons';
 import { autoFillCell } from '@teable/openapi';
-import { useFields, useTableId } from '@teable/sdk';
+import { useFields, useTableId, useTablePermission } from '@teable/sdk';
 import type { IActiveCell, IGridRef } from '@teable/sdk';
 import { Button } from '@teable/ui-lib';
 import React, { useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
@@ -15,6 +15,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
   ({ gridRef, activeCell }, ref) => {
     const tableId = useTableId() as string;
     const fields = useFields();
+    const permission = useTablePermission();
     const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
 
@@ -38,7 +39,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     }));
 
     const onPositionChanged = useCallback(() => {
-      if (!activeCell) {
+      if (!activeCell || !permission['record|update']) {
         return setStyle(null);
       }
 
@@ -58,7 +59,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
           top: y + (height - 32) / 2,
         });
       }
-    }, [activeCell, fields, gridRef]);
+    }, [activeCell, fields, gridRef, permission]);
 
     useEffect(() => {
       onPositionChanged();

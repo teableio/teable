@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Square } from '@teable/icons';
 import { MagicAI } from '../../comment/comment-editor/plate-ui/icons';
 import type { ICellItem, IColumnLoading, IScrollState } from '../interface';
@@ -21,7 +22,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
 
   return (
     <div className="pointer-events-none absolute left-0 top-0 z-10">
-      {columnLoadings.map(({ index, progress }) => {
+      {columnLoadings.map(({ index, progress, onCancel }) => {
         const columnWidth = coordInstance.getColumnWidth(index);
         const columnOffset = coordInstance.getColumnRelativeOffset(index, scrollLeft);
         const isFreeze = index < freezeColumnCount;
@@ -43,7 +44,10 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
               height: 24,
             }}
           >
-            <div className="absolute right-1 top-1 rounded-full bg-background">
+            <div
+              className="pointer-events-auto absolute right-1 top-1 cursor-pointer rounded-full bg-background"
+              onClick={onCancel}
+            >
               <div
                 className="absolute right-0 top-0 flex size-6 items-center justify-center rounded-full"
                 style={{

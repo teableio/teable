@@ -49,9 +49,6 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
       <DialogContent
         className={contentClassName}
         closeable={closeable}
-        overlayStyle={{
-          pointerEvents: 'none',
-        }}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onClick={(e) => e.stopPropagation()}

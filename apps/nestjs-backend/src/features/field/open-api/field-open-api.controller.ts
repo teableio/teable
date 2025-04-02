@@ -22,8 +22,14 @@ import {
   updateFieldRoSchema,
   IUpdateFieldRo,
 } from '@teable/core';
-import { deleteFieldsQuerySchema, IDeleteFieldsQuery } from '@teable/openapi';
+import {
+  deleteFieldsQuerySchema,
+  IDeleteFieldsQuery,
+  IAutoFillFieldRo,
+  autoFillFieldRoSchema,
+} from '@teable/openapi';
 import type {
+  IAutoFillFieldVo,
   IGetViewFilterLinkRecordsVo,
   IPlanFieldConvertVo,
   IPlanFieldVo,
@@ -161,9 +167,19 @@ export class FieldOpenApiController {
     return this.fieldService.getDocIdsByQuery(tableId, query);
   }
 
-  @Permissions('field|update')
+  @Permissions('record|update')
   @Post('/:fieldId/auto-fill')
-  async autoFillField(@Param('tableId') _tableId: string, @Param('fieldId') _fieldId: string) {
-    return { taskId: '' };
+  async autoFillField(
+    @Param('tableId') _tableId: string,
+    @Param('fieldId') _fieldId: string,
+    @Body(new ZodValidationPipe(autoFillFieldRoSchema)) _query: IAutoFillFieldRo
+  ): Promise<IAutoFillFieldVo> {
+    return { taskId: null };
+  }
+
+  @Permissions('record|update')
+  @Post('/:fieldId/stop-fill')
+  async stopFillField(@Param('tableId') _tableId: string, @Param('fieldId') _fieldId: string) {
+    return null;
   }
 }

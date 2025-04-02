@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { createRecords, UploadType } from '@teable/openapi';
+import { autoFillField, createRecords, stopFillField, UploadType } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -74,7 +74,7 @@ import {
   useView,
   useViewId,
 } from '@teable/sdk/hooks';
-import { useToast } from '@teable/ui-lib';
+import { ConfirmDialog, useToast } from '@teable/ui-lib';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -144,6 +144,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { setGridRef, searchCursor, setRecordMap } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
+  const [autoFillFieldId, setAutoFillFieldId] = useState<string | undefined>();
 
   const aiGenerateButtonRef = useRef<{
     onScrollHandler: () => void;
@@ -429,8 +430,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const selectColumns = extract(start, end, columns);
       const indexedColumns = keyBy(selectColumns, 'id');
       const selectFields = fields.filter((field) => indexedColumns[field.id]);
+      const onAutoFill = (fieldId: string) => setAutoFillFieldId(fieldId);
       const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
-      openHeaderMenu({ position, fields: selectFields, onSelectionClear });
+      openHeaderMenu({ position, fields: selectFields, onSelectionClear, onAutoFill });
     }
   };
 
@@ -439,7 +441,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
       const selectedFields = fields.filter((field) => field.id === fieldId);
-      openHeaderMenu({ fields: selectedFields, position: { x, y: height } });
+      const onAutoFill = (fieldId: string) => setAutoFillFieldId(fieldId);
+      openHeaderMenu({ fields: selectedFields, position: { x, y: height }, onAutoFill });
     },
     [columns, fields, openHeaderMenu]
   );
@@ -896,10 +899,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return {
         index,
         progress: totalCount ? completedCount / totalCount : 0,
+        onCancel: () => {
+          stopFillField(tableId, fieldId);
+        },
       };
     });
     gridRef.current?.setColumnLoadings(loadingColumnIndexs);
-  }, [fields, taskStatusFieldMap]);
+  }, [tableId, fields, taskStatusFieldMap]);
 
   return (
     <div ref={containerRef} className="relative size-full">
@@ -1044,6 +1050,36 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           setNewRecords(undefined);
         }}
         onConfirm={() => newRecords && mutateCreateRecord(newRecords)}
+      />
+      <ConfirmDialog
+        open={Boolean(autoFillFieldId)}
+        onOpenChange={(val) => {
+          console.log('onOpenChange', val);
+          if (!val) setAutoFillFieldId(undefined);
+        }}
+        closeable={false}
+        title="确定要更新整列记录吗"
+        description="当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+        onCancel={() => setAutoFillFieldId(undefined)}
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.update')}
+        onConfirm={() => {
+          if (!tableId || !view || !autoFillFieldId) return;
+          const query = personalViewCommonQuery
+            ? {
+                filter: personalViewCommonQuery.filter,
+                orderBy: personalViewCommonQuery.orderBy,
+                groupBy: personalViewCommonQuery.groupBy,
+                ignoreViewQuery: true,
+              }
+            : {
+                viewId: view.id,
+                groupBy: group,
+              };
+
+          autoFillField(tableId, autoFillFieldId, query);
+          setAutoFillFieldId(undefined);
+        }}
       />
     </div>
   );

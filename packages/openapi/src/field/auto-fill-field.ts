@@ -2,12 +2,23 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { AxiosResponse } from 'axios';
 import { z } from 'zod';
 import { axios } from '../axios';
+import { contentQueryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 
 export const AUTO_FILL_FIELD = '/table/{tableId}/field/{fieldId}/auto-fill';
 
+export const autoFillFieldRoSchema = contentQueryBaseSchema.pick({
+  viewId: true,
+  filter: true,
+  orderBy: true,
+  groupBy: true,
+  ignoreViewQuery: true,
+});
+
+export type IAutoFillFieldRo = z.infer<typeof autoFillFieldRoSchema>;
+
 export const autoFillFieldVoSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().nullable().optional(),
 });
 
 export type IAutoFillFieldVo = z.infer<typeof autoFillFieldVoSchema>;
@@ -22,6 +33,13 @@ export const AutoFillFieldRoute: RouteConfig = registerRoute({
       tableId: z.string(),
       fieldId: z.string(),
     }),
+    body: {
+      content: {
+        'application/json': {
+          schema: autoFillFieldRoSchema,
+        },
+      },
+    },
   },
   responses: {
     200: {
@@ -38,7 +56,17 @@ export const AutoFillFieldRoute: RouteConfig = registerRoute({
 
 export async function autoFillField(
   tableId: string,
-  fieldId: string
+  fieldId: string,
+  query: IAutoFillFieldRo
 ): Promise<AxiosResponse<IAutoFillFieldVo>> {
-  return axios.post<IAutoFillFieldVo>(urlBuilder(AUTO_FILL_FIELD, { tableId, fieldId }));
+  const serializedQuery = {
+    ...query,
+    filter: query?.filter ? JSON.stringify(query.filter) : undefined,
+    orderBy: query?.orderBy ? JSON.stringify(query.orderBy) : undefined,
+  };
+
+  return axios.post<IAutoFillFieldVo>(
+    urlBuilder(AUTO_FILL_FIELD, { tableId, fieldId }),
+    serializedQuery
+  );
 }

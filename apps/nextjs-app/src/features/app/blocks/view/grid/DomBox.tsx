@@ -7,11 +7,11 @@ export const DomBox: FC<{ id?: string }> = (props) => {
 
   return (
     <>
-      {<FieldMenu />}
-      {<RecordMenu />}
-      {<FieldSetting />}
-      {<StatisticMenu />}
-      {<GridTooltip id={id} />}
+      <FieldMenu />
+      <RecordMenu />
+      <FieldSetting />
+      <StatisticMenu />
+      <GridTooltip id={id} />
     </>
   );
 };

@@ -2,11 +2,19 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IFieldAIConfig } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { ChevronDown, ChevronRight } from '@teable/icons';
+import { ChevronDown, ChevronRight, HelpCircle } from '@teable/icons';
 import { getAIConfig } from '@teable/openapi';
 import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
 import { useBaseId } from '@teable/sdk/hooks';
-import { Checkbox, cn } from '@teable/ui-lib/shadcn';
+import {
+  cn,
+  Label,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
 import React, { Fragment, useState } from 'react';
 import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
@@ -116,17 +124,31 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                   />
                 </div>
                 <div className="flex items-center">
-                  <Checkbox
+                  <Label htmlFor="autoFill" className="font-normal">
+                    自动更新
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="ml-1 cursor-pointer">
+                          <HelpCircle className="size-4" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[320px]">
+                          开启后，当前字段将跟随 AI 配置的内容变化而同步更新
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Switch
                     id="autoFill"
-                    className="mr-2"
+                    className="ml-2"
                     checked={Boolean(aiConfig?.isAutoFill)}
                     onCheckedChange={(checked) => {
                       onConfigChange('isAutoFill', checked);
                     }}
                   />
-                  <label htmlFor="autoFill" className="text-sm text-gray-700">
-                    自动填充
-                  </label>
                 </div>
               </Fragment>
             )}

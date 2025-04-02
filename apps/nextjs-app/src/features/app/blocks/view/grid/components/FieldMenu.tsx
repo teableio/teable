@@ -13,7 +13,7 @@ import {
   ArrowUpDown,
   RefreshCcw,
 } from '@teable/icons';
-import { autoFillField, deleteFields } from '@teable/openapi';
+import { deleteFields } from '@teable/openapi';
 import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
 import {
   useFields,
@@ -77,7 +77,7 @@ export const FieldMenu = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const { fields, onSelectionClear } = headerMenu ?? {};
+  const { fields, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
 
   const menuFieldPermission = useMemo(() => {
@@ -163,10 +163,9 @@ export const FieldMenu = () => {
         type: MenuItemType.AutoFill,
         name: '更新整列记录',
         icon: <RefreshCcw className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !fields[0].aiConfig?.type,
+        hidden: fieldIds.length !== 1 || !fields[0].aiConfig?.type || !permission['record|update'],
         onClick: async () => {
-          if (!tableId) return;
-          await autoFillField(tableId, fieldIds[0]);
+          onAutoFill?.(fieldIds[0]);
         },
       },
     ],

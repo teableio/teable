@@ -588,7 +588,6 @@ model Task {
 model TaskRun {
   id               String    @id @default(cuid())
   taskId           String    @map("task_id")
-  resourceId       String    @map("resource_id")
   status           String    @map("status")
   snapshot         String    @map("snapshot")
   spent            Int?      @map("spent")
@@ -598,7 +597,7 @@ model TaskRun {
 
   task             Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  @@index([resourceId, status])
+  @@index([taskId, status])
   @@map("task_run")
 }
 

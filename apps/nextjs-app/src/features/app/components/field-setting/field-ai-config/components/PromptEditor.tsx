@@ -120,34 +120,34 @@ export const PromptEditor = ({
     [onVariableDelete]
   );
 
+  const extensions = useMemo(() => {
+    return [
+      history(),
+      keymap.of([
+        ...defaultKeymap.filter((k) => !['Backspace', 'ArrowLeft', 'ArrowRight'].includes(k.key!)),
+        ...historyKeymap,
+        ...FieldVariableNavigation.createKeymap(),
+      ]),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      fieldDecorationsState,
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          const newValue = update.state.doc.toString();
+          lastValueRef.current = newValue;
+          onChange(newValue);
+          decorateFields(update.view);
+        }
+      }),
+      isLightTheme ? lightTheme({ height }) : darkTheme({ height }),
+      EditorView.lineWrapping,
+      EditorState.allowMultipleSelections.of(true),
+      placeholder ? EditorView.contentAttributes.of({ 'data-placeholder': placeholder }) : [],
+      EditorState.tabSize.of(2),
+    ];
+  }, [fieldDecorationsState, isLightTheme, height, placeholder, onChange, decorateFields]);
+
   const createEditorView = useCallback(
     (parent: HTMLElement) => {
-      const extensions = [
-        history(),
-        keymap.of([
-          ...defaultKeymap.filter(
-            (k) => !['Backspace', 'ArrowLeft', 'ArrowRight'].includes(k.key!)
-          ),
-          ...historyKeymap,
-          ...FieldVariableNavigation.createKeymap(),
-        ]),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        fieldDecorationsState,
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            const newValue = update.state.doc.toString();
-            lastValueRef.current = newValue;
-            onChange(newValue);
-            decorateFields(update.view);
-          }
-        }),
-        isLightTheme ? lightTheme({ height }) : darkTheme({ height }),
-        EditorView.lineWrapping,
-        EditorState.allowMultipleSelections.of(true),
-        placeholder ? EditorView.contentAttributes.of({ 'data-placeholder': placeholder }) : [],
-        EditorState.tabSize.of(2),
-      ];
-
       const view = new EditorView({
         state: EditorState.create({ doc: value, extensions }),
         parent,
@@ -159,7 +159,7 @@ export const PromptEditor = ({
 
       return view;
     },
-    [fieldDecorationsState, isLightTheme, height, placeholder, value, onChange, decorateFields]
+    [decorateFields, extensions, value]
   );
 
   useEffect(() => {
@@ -173,6 +173,10 @@ export const PromptEditor = ({
     return () => view.destroy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    actualEditorViewRef.current?.dispatch({ effects: StateEffect.reconfigure.of(extensions) });
+  }, [actualEditorViewRef, extensions]);
 
   useEffect(() => {
     if (!editorView || value === lastValueRef.current) return;

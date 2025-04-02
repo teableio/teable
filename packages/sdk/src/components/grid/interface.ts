@@ -236,4 +236,5 @@ export interface IGroupCollection {
 export interface IColumnLoading {
   index: number;
   progress: number;
+  onCancel?: () => void;
 }
