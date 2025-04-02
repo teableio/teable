@@ -890,7 +890,7 @@ export class FieldConvertingService {
       {
         containsIn: {
           keys: ['id', 'name', 'email', 'phone'],
-          values: oldCvStrArr.filter((cvStr) => cvStr != null) as string[],
+          values: Array.from(new Set(oldCvStrArr)).filter((cvStr) => cvStr != null) as string[],
         },
       }
     );

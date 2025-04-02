@@ -1,8 +1,5 @@
 {
   "initialSpaceName": "{{name}}のスペース",
-  "page": {
-    "title": "Teableアプリ"
-  },
   "action": {
     "createBase": "ベースの作成",
     "createSpace": "スペースの作成",

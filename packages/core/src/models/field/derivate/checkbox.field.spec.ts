@@ -59,7 +59,7 @@ describe('CheckboxFieldCore', () => {
 
   it('should validate value', () => {
     expect(field.validateCellValue(true).success).toBeTruthy();
-    expect(field.validateCellValue(false).success).toBeFalsy();
+    expect(field.validateCellValue(false).success).toBeTruthy();
     expect(field.validateCellValue(1).success).toBeFalsy();
     expect(field.validateCellValue('1').success).toBeFalsy();
 

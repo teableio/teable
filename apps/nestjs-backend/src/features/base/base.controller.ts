@@ -29,6 +29,8 @@ import {
   DeleteBaseCollaboratorRo,
   addBaseCollaboratorRoSchema,
   AddBaseCollaboratorRo,
+  listBaseCollaboratorUserRoSchema,
+  IListBaseCollaboratorUserRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -39,6 +41,7 @@ import type {
   IGetBasePermissionVo,
   IGetBaseVo,
   IGetSharedBaseVo,
+  IListBaseCollaboratorUserVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
   ListBaseInvitationLinkVo,
@@ -295,5 +298,24 @@ export class BaseController {
     addBaseCollaboratorRo: AddBaseCollaboratorRo
   ) {
     return await this.collaboratorService.addBaseCollaborators(baseId, addBaseCollaboratorRo);
+  }
+
+  @Permissions('base|read')
+  @Get(':baseId/collaborators/users')
+  async getUserCollaborators(
+    @Param('baseId') baseId: string,
+    @Query(new ZodValidationPipe(listBaseCollaboratorUserRoSchema))
+    listBaseCollaboratorUserRo: IListBaseCollaboratorUserRo
+  ): Promise<IListBaseCollaboratorUserVo> {
+    return {
+      users: await this.collaboratorService.getUserCollaborators(
+        baseId,
+        listBaseCollaboratorUserRo
+      ),
+      total: await this.collaboratorService.getUserCollaboratorsTotal(
+        baseId,
+        listBaseCollaboratorUserRo
+      ),
+    };
   }
 }

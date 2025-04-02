@@ -19,6 +19,7 @@ import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { MenuDeleteItem } from '../components/MenuDeleteItem';
+import { useBrand } from '../hooks/useBrand';
 import { AddPluginDialog } from './components/AddPluginDialog';
 import { DashboardSwitcher } from './components/DashboardSwitcher';
 
@@ -33,6 +34,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
+  const { brandName } = useBrand();
 
   const { mutate: deleteDashboardMutate } = useMutation({
     mutationFn: () => deleteDashboard(baseId, dashboardId),
@@ -71,7 +73,9 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   return (
     <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
       <Head>
-        <title>{selectedDashboard?.name ? `${selectedDashboard?.name} - Teable` : 'Teable'}</title>
+        <title>
+          {selectedDashboard?.name ? `${selectedDashboard?.name} - ${brandName}` : brandName}
+        </title>
       </Head>
       <DashboardSwitcher
         className={cn('w-44', {

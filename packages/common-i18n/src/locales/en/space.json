@@ -1,8 +1,5 @@
 {
   "initialSpaceName": "{{name}}'s space",
-  "page": {
-    "title": "Teable App"
-  },
   "action": {
     "createBase": "Create a base",
     "createSpace": "Create a space",

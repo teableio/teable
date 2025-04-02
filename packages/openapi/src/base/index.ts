@@ -19,3 +19,4 @@ export * from './invitation-email';
 export * from './get-shared-base';
 export * from './permanent-delete';
 export * from './collaborator-add';
+export * from './collaborator-get-list-user';

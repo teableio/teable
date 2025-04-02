@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { CellValueType, DriverClient, FieldType } from '@teable/core';
+import { CellValueType, DriverClient, FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords as apiGetRecords,
@@ -153,6 +153,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
 
           const { records } = (
             await apiGetRecords(tableId, {
+              fieldKeyType: FieldKeyType.Id,
               viewId,
               search: [queryValue, fieldId, true],
             })
@@ -225,6 +226,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
 
           const { records } = (
             await apiGetRecords(curTable.id, {
+              fieldKeyType: FieldKeyType.Id,
               viewId,
               search: [queryValue, field.id, true],
             })

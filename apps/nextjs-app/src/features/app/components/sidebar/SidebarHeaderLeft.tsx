@@ -1,4 +1,6 @@
-import { ChevronsLeft, TeableNew } from '@teable/icons';
+import { ChevronsLeft } from '@teable/icons';
+import { TeableLogo } from '@/components/TeableLogo';
+import { useBrand } from '../../hooks/useBrand';
 
 interface ISidebarBackButtonProps {
   title?: string;
@@ -8,7 +10,8 @@ interface ISidebarBackButtonProps {
 
 export const SidebarHeaderLeft = (props: ISidebarBackButtonProps) => {
   const { title, icon, onBack } = props;
-  const displayIcon = icon ?? <TeableNew className="size-5 shrink-0 text-black" />;
+  const displayIcon = icon ?? <TeableLogo className="size-5 shrink-0" />;
+  const { brandName } = useBrand();
 
   return (
     <>
@@ -31,7 +34,7 @@ export const SidebarHeaderLeft = (props: ISidebarBackButtonProps) => {
         displayIcon
       )}
 
-      <p className="ml-[2px] truncate text-sm">{title ?? 'Teable'}</p>
+      <p className="ml-[2px] truncate text-sm">{title ?? brandName}</p>
     </>
   );
 };

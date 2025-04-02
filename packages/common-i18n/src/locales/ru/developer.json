@@ -4,7 +4,6 @@
   "apiList": "Полный список API",
   "cellFormat": "Формат результата ячейки",
   "fieldKeyType": "Тип ключа поля",
-  "fieldKeyTypeDesc": "Тип ключа поля в результате",
   "chooseSource": "Выберите источник данных",
   "action": {
     "selectBase": "Выберите базу данных...",

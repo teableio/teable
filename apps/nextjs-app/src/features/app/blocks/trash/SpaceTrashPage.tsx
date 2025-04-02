@@ -190,7 +190,7 @@ export const SpaceTrashPage = () => {
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem className="gap-x-2" onClick={() => mutateRestore({ trashId })}>
                   <RefreshCcw className="size-4" />
                   {t('actions.restore')}

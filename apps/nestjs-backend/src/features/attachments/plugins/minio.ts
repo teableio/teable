@@ -17,7 +17,7 @@ export class MinioStorage implements StorageAdapter {
   minioClientPrivateNetwork: minio.Client;
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endPoint, internalEndPoint, internalPort, port, useSSL, accessKey, secretKey } =
+    const { endPoint, internalEndPoint, internalPort, port, useSSL, accessKey, secretKey, region } =
       this.config.minio;
     this.minioClient = new minio.Client({
       endPoint: endPoint!,
@@ -25,6 +25,7 @@ export class MinioStorage implements StorageAdapter {
       useSSL: useSSL!,
       accessKey: accessKey!,
       secretKey: secretKey!,
+      region: region,
     });
     this.minioClientPrivateNetwork = internalEndPoint
       ? new minio.Client({
@@ -33,6 +34,7 @@ export class MinioStorage implements StorageAdapter {
           useSSL: false,
           accessKey: accessKey!,
           secretKey: secretKey!,
+          region: region,
         })
       : this.minioClient;
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);

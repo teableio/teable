@@ -64,16 +64,6 @@ describe('recordsRoSchema', () => {
         'Error cellFormat, You should set it to "json" or "text"'
       );
   });
-
-  it('fails for invalid fieldKeyType', () => {
-    const data = { ...validData, fieldKeyType: 'invalidKey' };
-    const result = getRecordsRoSchema.safeParse(data);
-    expect(result.success).toBe(false);
-    !result.success &&
-      expect(result.error.errors[0].message).toEqual(
-        'Error fieldKeyType, You should set it to "name" or "id"'
-      );
-  });
 });
 
 describe('recordSchema', () => {

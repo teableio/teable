@@ -5,6 +5,7 @@ import type { FieldCore } from '../field/field';
 export enum FieldKeyType {
   Id = 'id',
   Name = 'name',
+  DbFieldName = 'dbFieldName',
 }
 
 export enum CellFormat {

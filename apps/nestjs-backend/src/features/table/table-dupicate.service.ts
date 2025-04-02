@@ -91,6 +91,9 @@ export class TableDuplicateService {
             tableId: newTableVo.id,
             deletedTime: null,
           },
+          orderBy: {
+            createdTime: 'asc',
+          },
         });
 
         return {
@@ -241,6 +244,10 @@ export class TableDuplicateService {
   private async duplicateFields(sourceTableId: string, targetTableId: string) {
     const fieldsRaw = await this.prismaService.txClient().field.findMany({
       where: { tableId: sourceTableId, deletedTime: null },
+      // for promise the link group create order
+      orderBy: {
+        createdTime: 'asc',
+      },
     });
     const fieldsInstances = fieldsRaw.map((f) => createFieldInstanceByRaw(f));
     const sourceToTargetFieldMap: Record<string, string> = {};
@@ -937,6 +944,9 @@ export class TableDuplicateService {
       where: {
         tableId: targetTableId,
         deletedTime: null,
+      },
+      orderBy: {
+        createdTime: 'asc',
       },
     });
 

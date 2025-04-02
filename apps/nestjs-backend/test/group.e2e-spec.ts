@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IGroupItem } from '@teable/core';
-import { CellValueType, SortFunc } from '@teable/core';
+import { CellValueType, FieldKeyType, SortFunc } from '@teable/core';
 import type { ITableFullVo, IGetRecordsRo } from '@teable/openapi';
 import { updateViewGroup, updateViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
@@ -35,13 +35,13 @@ const getRecordsByOrder = (
   const fns = conditions.map((condition) => {
     const { fieldId } = condition;
     const field = fields.find((field) => field.id === fieldId) as ITableFullVo['fields'][number];
-    const { name, isMultipleCellValue } = field;
+    const { id, isMultipleCellValue } = field;
     return (record: ITableFullVo['records'][number]) => {
-      if (isEmpty(record?.fields?.[name])) {
+      if (isEmpty(record?.fields?.[id])) {
         return -Infinity;
       }
       if (isMultipleCellValue) {
-        return JSON.stringify(record?.fields?.[name]);
+        return JSON.stringify(record?.fields?.[id]);
       }
     };
   });
@@ -114,10 +114,14 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
 
       const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
       await updateViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
-      const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
+      const ascOriginRecords = (
+        await getRecords(subTableId, { fieldKeyType: FieldKeyType.Id, groupBy: ascGroups })
+      ).records;
       const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
       await updateViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
-      const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
+      const descOriginRecords = (
+        await getRecords(subTableId, { fieldKeyType: FieldKeyType.Id, groupBy: descGroups })
+      ).records;
 
       const resultAscRecords = getRecordsByOrder(ascOriginRecords, ascGroups, fields2);
       const resultDescRecords = getRecordsByOrder(descOriginRecords, descGroups, fields2);
@@ -141,11 +145,15 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
 
       await updateViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
       await updateViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: descGroups } });
-      const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
+      const ascOriginRecords = (
+        await getRecords(subTableId, { fieldKeyType: FieldKeyType.Id, groupBy: ascGroups })
+      ).records;
 
       await updateViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
       await updateViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: ascGroups } });
-      const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
+      const descOriginRecords = (
+        await getRecords(subTableId, { fieldKeyType: FieldKeyType.Id, groupBy: descGroups })
+      ).records;
 
       const resultAscRecords = getRecordsByOrder(ascOriginRecords, ascGroups, fields2);
       const resultDescRecords = getRecordsByOrder(descOriginRecords, descGroups, fields2);

@@ -8,6 +8,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { developerConfig } from '@/features/i18n/developer.config';
+import { useTransformFieldKey } from './useTransformFieldKey';
 
 export const CodeBlock = ({
   code,
@@ -70,10 +71,10 @@ const generateCurlCode = (endpoint: string, params: Record<string, unknown>, tok
   Object.entries(params)
     .filter(([_, value]) => value != null)
     .forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        value.forEach((item) => queryParams.append(key, item.toString()));
-      } else if (key === 'filter' || key === 'orderBy') {
+      if (key === 'filter' || key === 'orderBy') {
         queryParams.append(key, JSON.stringify(value));
+      } else if (Array.isArray(value)) {
+        value.forEach((item) => queryParams.append(key, item.toString()));
       } else {
         queryParams.append(key, value as string);
       }
@@ -205,7 +206,7 @@ export const QueryParamsTable: React.FC<QueryParamsTableProps> = ({ query }) => 
 
 export const PreviewScript = ({
   tableId,
-  query,
+  query: queryRaw,
 }: {
   tableId: string;
   token?: string;
@@ -213,6 +214,7 @@ export const PreviewScript = ({
 }) => {
   const { t } = useTranslation(developerConfig.i18nNamespaces);
   const [currentUrl, setCurrentUrl] = useState('');
+  const query = useTransformFieldKey()(queryRaw);
 
   useEffect(() => {
     if (process) {

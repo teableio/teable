@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IUpdateSettingRo, ISettingVo } from '@teable/openapi';
-import { getSetting, updateSetting } from '@teable/openapi';
+import { BillingProductLevel, getInstanceUsage, getSetting, updateSetting } from '@teable/openapi';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { CopyInstance } from './components';
 import { AIConfigForm } from './components/ai-config/AiForm';
+import { Branding } from './components/Branding';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
@@ -27,6 +29,14 @@ export const SettingPage = (props: ISettingPageProps) => {
     },
   });
 
+  const isCloud = useIsCloud();
+
+  const { data: instanceUsage } = useQuery({
+    queryKey: ['instance-usage'],
+    queryFn: () => getInstanceUsage().then(({ data }) => data),
+    enabled: !isCloud,
+  });
+
   const onValueChange = (key: string, value: unknown) => {
     mutateUpdateSetting({ [key]: value });
   };
@@ -39,6 +49,8 @@ export const SettingPage = (props: ISettingPageProps) => {
     disallowSpaceCreation,
     disallowSpaceInvitation,
     enableEmailVerification,
+    brandName,
+    brandLogo,
   } = setting;
 
   return (
@@ -117,6 +129,15 @@ export const SettingPage = (props: ISettingPageProps) => {
           setAiConfig={(value) => onValueChange('aiConfig', value)}
         />
       </div>
+
+      {/* Branding Settings Section */}
+      {instanceUsage?.level === BillingProductLevel.Enterprise && (
+        <Branding
+          brandName={brandName}
+          brandLogo={brandLogo}
+          onChange={(brandName) => onValueChange('brandName', brandName)}
+        />
+      )}
 
       <div className="grow" />
       <p className="p-4 text-right text-xs">

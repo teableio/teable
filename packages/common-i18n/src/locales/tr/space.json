@@ -1,8 +1,5 @@
 {
   "initialSpaceName": "{{name}}'in alanı",
-  "page": {
-    "title": "Teable Uygulaması"
-  },
   "action": {
     "createBase": "Veritabanı oluştur",
     "createSpace": "Alan oluştur",

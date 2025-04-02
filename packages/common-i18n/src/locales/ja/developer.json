@@ -4,7 +4,6 @@
   "apiList": "完全なAPIリスト",
   "cellFormat": "セル結果の形式",
   "fieldKeyType": "フィールドキータイプ",
-  "fieldKeyTypeDesc": "結果のフィールドキータイプ",
   "chooseSource": "データソースを選択",
   "action": {
     "selectBase": "データベースを選択...",

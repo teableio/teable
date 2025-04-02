@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import { MailerService } from '@nestjs-modules/mailer';
 import { CollaboratorType } from '@teable/openapi';
-import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
+import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class MailSenderService {
@@ -12,7 +12,7 @@ export class MailSenderService {
   constructor(
     private readonly mailService: MailerService,
     @MailConfig() private readonly mailConfig: IMailConfig,
-    @BaseConfig() private readonly baseConfig: IBaseConfig
+    private readonly settingService: SettingService
   ) {}
 
   async sendMail(
@@ -35,15 +35,17 @@ export class MailSenderService {
 
   inviteEmailOptions(info: {
     name: string;
+    brandName: string;
     email: string;
     resourceName: string;
     resourceType: CollaboratorType;
     inviteUrl: string;
   }) {
-    const { name, email, inviteUrl, resourceName, resourceType } = info;
+    const { name, email, inviteUrl, resourceName, resourceType, brandName } = info;
     const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Base';
+
     return {
-      subject: `${name} (${email}) invited you to their ${resourceAlias} ${resourceName} - ${this.baseConfig.brandName}`,
+      subject: `${name} (${email}) invited you to their ${resourceAlias} ${resourceName} - ${brandName}`,
       template: 'normal',
       context: {
         name,
@@ -52,11 +54,12 @@ export class MailSenderService {
         resourceAlias,
         inviteUrl,
         partialBody: 'invite',
+        brandName,
       },
     };
   }
 
-  collaboratorCellTagEmailOptions(info: {
+  async collaboratorCellTagEmailOptions(info: {
     notifyId: string;
     fromUserName: string;
     refRecord: {
@@ -76,7 +79,7 @@ export class MailSenderService {
     const refLength = recordIds.length;
 
     const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/${tableId}`;
-
+    const { brandName } = await this.settingService.getServerBrand();
     if (refLength <= 1) {
       subject = `${fromUserName} added you to the ${fieldName} field of a record in ${tableName}`;
       partialBody = 'collaborator-cell-tag';
@@ -87,7 +90,7 @@ export class MailSenderService {
 
     return {
       notifyMessage: subject,
-      subject: `${subject} - ${this.baseConfig.brandName}`,
+      subject: `${subject} - ${brandName}`,
       template: 'normal',
       context: {
         notifyId,
@@ -98,11 +101,12 @@ export class MailSenderService {
         recordIds,
         viewRecordUrlPrefix,
         partialBody,
+        brandName,
       },
     };
   }
 
-  commonEmailOptions(info: {
+  async commonEmailOptions(info: {
     to: string;
     title: string;
     message: string;
@@ -110,39 +114,44 @@ export class MailSenderService {
     buttonText: string;
   }) {
     const { title, message } = info;
-
+    const { brandName } = await this.settingService.getServerBrand();
     return {
       notifyMessage: message,
-      subject: `${title} - ${this.baseConfig.brandName}`,
+      subject: `${title} - ${brandName}`,
       template: 'normal',
       context: {
         partialBody: 'common-body',
+        brandName,
         ...info,
       },
     };
   }
 
-  resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
+  async resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
     const { name, email, resetPasswordUrl } = info;
+    const { brandName } = await this.settingService.getServerBrand();
     return {
-      subject: `Reset your password - ${this.baseConfig.brandName}`,
+      subject: `Reset your password - ${brandName}`,
       template: 'normal',
       context: {
         name,
         email,
         resetPasswordUrl,
+        brandName,
         partialBody: 'reset-password',
       },
     };
   }
 
-  sendEmailVerifyCodeEmailOptions(info: { title: string; message: string }) {
+  async sendEmailVerifyCodeEmailOptions(info: { title: string; message: string }) {
     const { title } = info;
+    const { brandName } = await this.settingService.getServerBrand();
     return {
-      subject: `${title} - ${this.baseConfig.brandName}`,
+      subject: `${title} - ${brandName}`,
       template: 'normal',
       context: {
         partialBody: 'email-verify-code',
+        brandName,
         ...info,
       },
     };

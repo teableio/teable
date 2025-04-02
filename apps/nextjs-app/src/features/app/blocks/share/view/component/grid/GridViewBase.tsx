@@ -49,8 +49,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
-import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
-import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
+import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
+import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
 import { useSelectionOperation } from '../../../../view/grid/hooks';
 

@@ -70,6 +70,11 @@ export class LongTextFieldCore extends FieldCore {
     if (this.isMultipleCellValue) {
       return z.array(longTextCelValueSchema).nonempty().nullable().safeParse(value);
     }
-    return longTextCelValueSchema.nullable().safeParse(value);
+
+    return z
+      .string()
+      .transform((val) => (val === '' ? null : val))
+      .nullable()
+      .safeParse(value);
   }
 }

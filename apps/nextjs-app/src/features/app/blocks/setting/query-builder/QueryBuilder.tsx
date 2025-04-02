@@ -50,7 +50,7 @@ export const QueryBuilder = () => {
           <div className="text-sm">
             {t('developer:subTitle')}{' '}
             <Button variant="link" size="xs" asChild>
-              <Link href="/redocs" target="_blank">
+              <Link href={t('common:help.apiLink')} target="_blank">
                 <ArrowUpRight className="size-4" />
                 {t('developer:apiList')}
               </Link>
@@ -91,7 +91,6 @@ export const QueryBuilder = () => {
                   filter={filter}
                   onChange={(f) => {
                     setFilter(f);
-                    setFieldKeyType(FieldKeyType.Id);
                   }}
                 />
               </div>
@@ -101,7 +100,6 @@ export const QueryBuilder = () => {
                   orderBy={orderBy}
                   onChange={(o) => {
                     setOrderBy(o);
-                    setFieldKeyType(FieldKeyType.Id);
                   }}
                 />
               </div>
@@ -129,7 +127,6 @@ export const QueryBuilder = () => {
               </div>
               <div className="flex flex-col gap-2">
                 <h1 className="font-bold">{t('developer:fieldKeyType')}</h1>
-                <p className="text-xs">{t('developer:fieldKeyTypeDesc')}</p>
                 <ToggleGroup
                   className="w-auto justify-start"
                   variant="outline"
@@ -137,18 +134,17 @@ export const QueryBuilder = () => {
                   size="sm"
                   value={fieldKeyType || FieldKeyType.Name}
                   onValueChange={(v) => {
-                    if (orderBy || filter) {
-                      setFieldKeyType(FieldKeyType.Id);
-                    } else {
-                      setFieldKeyType(v as FieldKeyType);
-                    }
+                    setFieldKeyType(v as FieldKeyType);
                   }}
                 >
                   <ToggleGroupItem value="name" aria-label="Toggle json">
-                    Name
+                    name
                   </ToggleGroupItem>
                   <ToggleGroupItem value="id" aria-label="Toggle text">
-                    Id
+                    id
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="dbFieldName" aria-label="Toggle dbFieldName">
+                    dbFieldName
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>

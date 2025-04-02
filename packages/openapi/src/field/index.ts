@@ -8,3 +8,4 @@ export * from './delete-list';
 export * from './filter-link-records';
 export * from './auto-fill-field';
 export * from './stop-fill-field';
+export * from './duplicate';

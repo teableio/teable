@@ -71,6 +71,10 @@ export class SingleLineTextFieldCore extends FieldCore {
     if (this.isMultipleCellValue) {
       return z.array(singleLineTextCelValueSchema).nonempty().nullable().safeParse(value);
     }
-    return singleLineTextCelValueSchema.nullable().safeParse(value);
+    return z
+      .string()
+      .transform((val) => (val === '' ? null : val))
+      .nullable()
+      .safeParse(value);
   }
 }

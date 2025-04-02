@@ -7,3 +7,4 @@ export * from './sort';
 export * from './group';
 export * from './option.schema';
 export * from './column-meta.schema';
+export * from './query.replace';

@@ -19,8 +19,6 @@ export const envValidationSchema = Joi.object({
 
   PUBLIC_ORIGIN: Joi.string().uri().required(),
 
-  BRAND_NAME: Joi.string().required(),
-
   // cache
   BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').default('sqlite'),
   // cache-sqlite

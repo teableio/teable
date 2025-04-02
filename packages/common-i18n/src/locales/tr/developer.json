@@ -4,7 +4,6 @@
   "apiList": "Tüm API Listesi",
   "cellFormat": "Hücre sonuç formatı",
   "fieldKeyType": "Alan anahtar türü",
-  "fieldKeyTypeDesc": "Sonuçtaki alan anahtarının türü",
   "chooseSource": "Bir veri kaynağı seçin",
   "action": {
     "selectBase": "Bir veritabanı seçin...",

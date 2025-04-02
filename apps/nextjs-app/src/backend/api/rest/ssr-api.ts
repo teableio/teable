@@ -28,6 +28,7 @@ import type {
   ISubscriptionSummaryVo,
   LastVisitResourceType,
   IUserLastVisitVo,
+  IUsageVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -59,6 +60,7 @@ import {
   GET_SUBSCRIPTION_SUMMARY,
   GET_SUBSCRIPTION_SUMMARY_LIST,
   GET_USER_LAST_VISIT,
+  GET_INSTANCE_USAGE,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -66,7 +68,6 @@ import { getAxios } from './axios';
 export class SsrApi {
   axios: AxiosInstance;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   constructor() {
     this.axios = getAxios();
   }
@@ -256,5 +257,9 @@ export class SsrApi {
         params: { resourceType, parentResourceId },
       })
       .then(({ data }) => data);
+  }
+
+  async getInstanceUsage() {
+    return this.axios.get<IUsageVo>(GET_INSTANCE_USAGE).then(({ data }) => data);
   }
 }

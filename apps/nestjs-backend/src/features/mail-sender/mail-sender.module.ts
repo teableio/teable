@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import type { IMailConfig } from '../../configs/mail.config';
+import { SettingModule } from '../setting/setting.module';
 import { helpers } from './mail-helpers';
 import { MailSenderService } from './mail-sender.service';
 
@@ -18,9 +19,7 @@ export const { ConfigurableModuleClass: MailSenderModuleClass, OPTIONS_TYPE } =
 
 @Module({})
 export class MailSenderModule extends MailSenderModuleClass {
-  static register(options?: typeof OPTIONS_TYPE): DynamicModule {
-    const { global } = options || {};
-
+  static register(): DynamicModule {
     const module = MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -63,9 +62,8 @@ export class MailSenderModule extends MailSenderModuleClass {
     });
 
     return {
-      imports: [module],
+      imports: [SettingModule, module],
       module: MailSenderModule,
-      global,
       providers: [MailSenderService],
       exports: [MailSenderService],
     };

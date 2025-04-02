@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
-import type { IPublicSettingVo, ISettingVo } from '@teable/openapi';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Patch,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { IPublicSettingVo, ISettingVo, IUploadLogoVo } from '@teable/openapi';
 import { IUpdateSettingRo, updateSettingRoSchema } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -52,5 +61,25 @@ export class SettingController {
       ...res,
       aiConfig: res.aiConfig ? JSON.parse(res.aiConfig) : null,
     };
+  }
+
+  @UseInterceptors(
+    FileInterceptor('file', {
+      fileFilter: (_req, file, callback) => {
+        if (file.mimetype.startsWith('image/')) {
+          callback(null, true);
+        } else {
+          callback(new BadRequestException('Invalid file type'), false);
+        }
+      },
+      limits: {
+        fileSize: 500 * 1024, // limit file size is 500KB
+      },
+    })
+  )
+  @Patch('logo')
+  @Permissions('instance|update')
+  async uploadLogo(@UploadedFile() file: Express.Multer.File): Promise<IUploadLogoVo> {
+    return this.settingService.uploadLogo(file);
   }
 }

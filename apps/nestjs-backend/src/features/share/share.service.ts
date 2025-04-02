@@ -9,12 +9,7 @@ import {
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import {
-  UploadType,
-  ShareViewLinkRecordsType,
-  PluginPosition,
-  PrincipalType,
-} from '@teable/openapi';
+import { UploadType, ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
   IShareViewCalendarDailyCollectionRo,
   ShareViewFormSubmitRo,
@@ -31,10 +26,9 @@ import type {
   IShareViewCollaboratorsRo,
   ISearchCountRo,
   ISearchIndexByQueryRo,
-  UserCollaboratorItem,
 } from '@teable/openapi';
 import { Knex } from 'knex';
-import { isEmpty, pick } from 'lodash';
+import { isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -484,13 +478,17 @@ export class ShareService {
       select: { baseId: true },
       where: { id: tableId },
     });
-    const list = (await this.collaboratorService.getListByBase(baseId, {
+    const list = await this.collaboratorService.getUserCollaborators(baseId, {
       skip,
       take,
       search,
-      type: PrincipalType.User,
-    })) as UserCollaboratorItem[];
-    return list.map((item) => pick(item, 'userId', 'email', 'userName', 'avatar'));
+    });
+    return list.map((item) => ({
+      userId: item.id,
+      email: item.email,
+      userName: item.name,
+      avatar: item.avatar,
+    }));
   }
 
   async getShareSearchCount(tableId: string, query: ISearchCountRo) {

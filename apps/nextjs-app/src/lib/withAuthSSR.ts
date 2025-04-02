@@ -7,7 +7,7 @@ import type {
   PreviewData,
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
-import { SsrApi } from '@/backend/api/rest/table.ssr';
+import { SsrApi } from '@/backend/api/rest/ssr-api';
 
 export type GetServerSideProps<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

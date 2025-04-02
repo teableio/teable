@@ -2,6 +2,8 @@ import React from 'react';
 
 export interface IServerEnv {
   driver?: string;
+  brandName?: string;
+  brandLogo?: string;
   templateSiteLink?: string;
   microsoftClarityId?: string;
   umamiWebSiteId?: string;

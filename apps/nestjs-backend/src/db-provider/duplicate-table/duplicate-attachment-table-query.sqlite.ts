@@ -1,0 +1,56 @@
+import type { Knex } from 'knex';
+import { DuplicateAttachmentTableQueryAbstract } from './duplicate-attachment-table-query.abstract';
+
+export class DuplicateAttachmentTableQuerySqlite extends DuplicateAttachmentTableQueryAbstract {
+  protected knex: Knex.Client;
+  constructor(queryBuilder: Knex.QueryBuilder) {
+    super(queryBuilder);
+    this.knex = queryBuilder.client;
+  }
+
+  duplicateAttachmentTable(
+    sourceTableId: string,
+    targetTableId: string,
+    sourceFieldId: string,
+    targetFieldId: string,
+    userId: string
+  ) {
+    const attachmentTableDbName = 'attachments_table';
+    const targetColumns = [
+      'id',
+      'attachment_id',
+      'name',
+      'token',
+      'record_id',
+      'table_id',
+      'field_id',
+      'created_by',
+    ];
+
+    const sourceColumns = [
+      this.knex.raw(`(
+        'cm' || 
+        substr(hex(randomblob(4)), 1, 8) || 
+        substr(hex(randomblob(8)), 1, 15)
+      )`),
+      'attachment_id',
+      'name',
+      'token',
+      'record_id',
+      `${targetTableId} AS field_id`,
+      `${targetFieldId} AS field_id`,
+      `${userId} as created_by`,
+    ];
+
+    const newColumnList = targetColumns.map((col) => `"${col}"`).join(', ');
+    const oldColumnList = sourceColumns
+      .map((col) => {
+        return this.knex.raw(`?`, [col]);
+      })
+      .join(', ');
+    return this.knex.raw(
+      `INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ?? WHERE field_id = ? and table_id = ?`,
+      [attachmentTableDbName, attachmentTableDbName, sourceFieldId, sourceTableId]
+    );
+  }
+}

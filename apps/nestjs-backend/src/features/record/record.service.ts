@@ -112,11 +112,11 @@ export class RecordService {
   private dbRecord2RecordFields(
     record: IRecord['fields'],
     fields: IFieldInstance[],
-    fieldKeyType?: FieldKeyType,
+    fieldKeyType: FieldKeyType = FieldKeyType.Id,
     cellFormat: CellFormat = CellFormat.Json
   ) {
     return fields.reduce<IRecord['fields']>((acc, field) => {
-      const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
+      const fieldNameOrId = field[fieldKeyType];
       const dbCellValue = record[field.dbFieldName];
       const cellValue = field.convertDBValue2CellValue(dbCellValue);
       if (cellValue != null) {
@@ -406,17 +406,17 @@ export class RecordService {
     search: [string, string?, boolean?],
     fieldMap?: Record<string, IFieldInstance>
   ): [string, string?, boolean?] {
-    const [searchValue, fieldIdOrName, hideNotMatchRow] = search;
+    const [searchValue, fieldId, hideNotMatchRow] = search;
 
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
     }
 
-    if (!fieldIdOrName) {
-      return [searchValue, fieldIdOrName, hideNotMatchRow];
+    if (!fieldId) {
+      return [searchValue, fieldId, hideNotMatchRow];
     }
 
-    const fieldIds = fieldIdOrName?.split(',');
+    const fieldIds = fieldId?.split(',');
 
     fieldIds.forEach((id) => {
       const field = fieldMap[id];
@@ -425,7 +425,7 @@ export class RecordService {
       }
     });
 
-    return [searchValue, fieldIdOrName, hideNotMatchRow];
+    return [searchValue, fieldId, hideNotMatchRow];
   }
 
   async prepareQuery(
@@ -631,19 +631,19 @@ export class RecordService {
       return;
     }
 
-    const fieldIdOrNames = await this.prismaService.txClient().field.findMany({
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, name: true },
+      select: { id: true, name: true, dbFieldName: true },
     });
 
-    const fieldMap = keyBy(fieldIdOrNames, 'id');
+    const fieldMap = keyBy(fieldRaws, 'id');
 
     const projection = Object.entries(columnMeta).reduce<Record<string, boolean>>(
       (acc, [fieldId, column]) => {
         const field = fieldMap[fieldId];
         if (!field) return acc;
 
-        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        const fieldKey = field[fieldKeyType];
 
         if (useVisible) {
           if ('visible' in column && column.visible) {
@@ -1052,8 +1052,7 @@ export class RecordService {
         .filter(([, v]) => v)
         .map(([k]) => k);
       if (projectionFieldKeys.length) {
-        const key = fieldKeyType === FieldKeyType.Id ? 'id' : 'name';
-        whereParams[key] = { in: projectionFieldKeys };
+        whereParams[fieldKeyType] = { in: projectionFieldKeys };
       }
     }
 
@@ -1072,7 +1071,7 @@ export class RecordService {
     const previewToken: string[] = [];
     for (const field of fields) {
       if (field.type === FieldType.Attachment) {
-        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        const fieldKey = field[fieldKeyType];
         for (const record of records) {
           const cellValue = record.data.fields[fieldKey];
           if (cellValue == null) continue;
@@ -1111,7 +1110,7 @@ export class RecordService {
     const thumbnailTokens: string[] = [];
     for (const field of fields) {
       if (field.type === FieldType.Attachment) {
-        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        const fieldKey = field[fieldKeyType];
         for (const record of records) {
           const cellValue = record.data.fields[fieldKey];
           if (cellValue == null) continue;
@@ -1156,7 +1155,7 @@ export class RecordService {
     );
     for (const field of fields) {
       if (field.type === FieldType.Attachment) {
-        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        const fieldKey = field[fieldKeyType];
         for (const record of records) {
           const cellValue = record.data.fields[fieldKey];
           const presignedCellValue = await this.getAttachmentPresignedCellValue(

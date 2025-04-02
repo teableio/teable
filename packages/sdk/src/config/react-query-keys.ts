@@ -5,20 +5,21 @@ import type {
   NotificationStatesEnum,
   IGetFieldsQuery,
 } from '@teable/core';
-import {
-  type IShareViewRowCountRo,
-  type IShareViewAggregationsRo,
-  type IAggregationRo,
-  type IGroupPointsRo,
-  type IQueryBaseRo,
-  type ResourceType,
-  type ListSpaceCollaboratorRo,
-  type IGetRecordsRo,
-  type ListBaseCollaboratorRo,
-  type ICalendarDailyCollectionRo,
-  type IGetDepartmentListRo,
-  type IGetDepartmentUserRo,
-  type IShareViewCollaboratorsRo,
+import type {
+  IListBaseCollaboratorUserRo,
+  IShareViewRowCountRo,
+  IShareViewAggregationsRo,
+  IAggregationRo,
+  IGroupPointsRo,
+  IQueryBaseRo,
+  ResourceType,
+  ListSpaceCollaboratorRo,
+  IGetRecordsRo,
+  ListBaseCollaboratorRo,
+  ICalendarDailyCollectionRo,
+  IGetDepartmentListRo,
+  IGetDepartmentUserRo,
+  IShareViewCollaboratorsRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -66,6 +67,11 @@ export const ReactQueryKeys = {
     options
       ? (['base-collaborator-list', baseId, options] as const)
       : (['base-collaborator-list', baseId] as const),
+
+  baseCollaboratorListUser: (baseId: string, options?: IListBaseCollaboratorUserRo) =>
+    options
+      ? (['base-collaborator-list-user', baseId, options] as const)
+      : (['base-collaborator-list-user', baseId] as const),
 
   notifyList: (filter: { status: NotificationStatesEnum }) =>
     ['notification', 'list', filter] as const,

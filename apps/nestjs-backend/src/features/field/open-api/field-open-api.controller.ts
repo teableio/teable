@@ -24,9 +24,11 @@ import {
 } from '@teable/core';
 import {
   deleteFieldsQuerySchema,
-  IDeleteFieldsQuery,
   IAutoFillFieldRo,
   autoFillFieldRoSchema,
+  duplicateFieldRoSchema,
+  IDeleteFieldsQuery,
+  IDuplicateFieldRo,
 } from '@teable/openapi';
 import type {
   IAutoFillFieldVo,
@@ -165,6 +167,17 @@ export class FieldOpenApiController {
     @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
   ) {
     return this.fieldService.getDocIdsByQuery(tableId, query);
+  }
+
+  @Permissions('field|create')
+  @Post('/:fieldId/duplicate')
+  async duplicateField(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Body(new ZodValidationPipe(duplicateFieldRoSchema)) duplicateFieldRo: IDuplicateFieldRo,
+    @Headers('x-window-id') windowId: string
+  ) {
+    return this.fieldOpenApiService.duplicateField(tableId, fieldId, duplicateFieldRo, windowId);
   }
 
   @Permissions('record|update')

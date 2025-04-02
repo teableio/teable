@@ -15,6 +15,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
+import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
+import { useBrand } from '@/features/app/hooks/useBrand';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
 import { ShareTablePermissionProvider } from './ShareTablePermissionProvider';
@@ -31,6 +33,8 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
   const { i18n } = useTranslation();
 
   const { query } = useRouter();
+  const { brandName } = useBrand();
+  useAutoFavicon();
 
   const wsPath = useMemo(() => {
     if (typeof window === 'object') {
@@ -48,7 +52,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
     >
       <ShareViewContext.Provider value={props.shareViewData}>
         <Head>
-          <title>{view?.name ?? 'Teable'}</title>
+          <title>{view?.name ? `${view.name} - ${brandName}` : brandName}</title>
         </Head>
         <AppLayout>
           <SessionProvider

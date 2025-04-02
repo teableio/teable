@@ -4,7 +4,6 @@
   "apiList": "完整 API 列表",
   "cellFormat": "返回值格式",
   "fieldKeyType": "字段 key 类型",
-  "fieldKeyTypeDesc": "存在筛选或者排序条件时，仅可使用 Id 作为字段 Key",
   "chooseSource": "选择数据源",
   "action": {
     "selectBase": "选择一个数据库...",

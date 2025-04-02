@@ -14,7 +14,6 @@ import { EventEmitterModule } from '../event-emitter/event-emitter.module';
 import { AuthGuard } from '../features/auth/guard/auth.guard';
 import { PermissionGuard } from '../features/auth/guard/permission.guard';
 import { PermissionModule } from '../features/auth/permission.module';
-import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
 import { KnexModule } from './knex';
 
 const globalModules = {
@@ -38,7 +37,6 @@ const globalModules = {
       },
     }),
     CacheModule.register({ global: true }),
-    MailSenderModule.register({ global: true }),
     EventEmitterModule.register({ global: true }),
     KnexModule.register(),
     PrismaModule,

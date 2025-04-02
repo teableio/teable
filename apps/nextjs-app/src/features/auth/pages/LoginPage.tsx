@@ -1,10 +1,12 @@
-import { TeableNew } from '@teable/icons';
 import { ScrollArea, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import { useCallback } from 'react';
+import { TeableLogo } from '@/components/TeableLogo';
+import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
+import { useBrand } from '@/features/app/hooks/useBrand';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { authConfig } from '@/features/i18n/auth.config';
@@ -17,7 +19,9 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const { children } = props;
   useInitializationZodI18n();
   const { t } = useTranslation(authConfig.i18nNamespaces);
+  const { brandName } = useBrand();
   const router = useRouter();
+  useAutoFavicon();
   const redirect = decodeURIComponent((router.query.redirect as string) || '');
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
   const { passwordLoginDisabled } = useEnv();
@@ -38,8 +42,8 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
       <div className="flex min-h-screen">
         <NextSeo title={signType === 'signin' ? t('auth:page.signin') : t('auth:page.signup')} />
         <div className="fixed left-5 top-5 flex flex-none items-center gap-2">
-          <TeableNew className="size-8 text-black" />
-          {t('common:brand')}
+          <TeableLogo className="size-8" />
+          {brandName}
         </div>
         <DescContent />
         <div className="relative flex flex-1 shrink-0 flex-col items-center justify-center">
