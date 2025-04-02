@@ -326,9 +326,9 @@ export class BaseService {
       },
     });
 
-    const { baseId: fromBaseId } = template?.snapshot ? JSON.parse(template.snapshot) : {};
+    const { baseId: fromBaseId = '' } = template?.snapshot ? JSON.parse(template.snapshot) : {};
 
-    if (!template) {
+    if (!template || !fromBaseId) {
       throw new NotFoundException(`Template ${templateId} not found`);
     }
 
