@@ -589,7 +589,7 @@ model Template {
   isSystem         Boolean?  @map("is_system")
   isPublished      Boolean?  @map("is_published")
   snapshot         String?   @map("snapshot")
-  order            Int       @default(autoincrement()) @map("order")
+  order            Float     @map("order")
   usageCount       Int       @default(0) @map("usage_count")
 
   @@map("template")
