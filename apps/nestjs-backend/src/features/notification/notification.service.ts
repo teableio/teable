@@ -230,17 +230,16 @@ export class NotificationService {
       return;
     }
     const type = NotificationTypeEnum.ExportBase;
-    // const notifyPath = this.generateNotifyPath(type, downloadUrl);
 
     this.sendCommonNotify(
       {
         path: '',
         toUserId,
         message,
-        // emailConfig: {
-        //   title: 'Export base result notification',
-        //   message: message,
-        // },
+        emailConfig: {
+          title: 'Export base result notification',
+          message: message,
+        },
       },
       type
     );

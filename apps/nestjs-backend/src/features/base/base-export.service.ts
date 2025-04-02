@@ -42,24 +42,18 @@ export class BaseExportService {
   async exportBaseZip(baseId: string) {
     this.processExportBaseZip(baseId)
       .then(async (result) => {
-        const { path, token, name } = result;
+        const { path, name } = result;
         const previewUrl = await this.storageAdapter.getPreviewUrl(
           StorageAdapter.getBucket(UploadType.ExportBase),
           path,
           60 * 60 * 24 * 7,
           {
             // eslint-disable-next-line
-            'Content-Disposition': `attachment; filename="${encodeURIComponent(name)}"`,
+            'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
           }
         );
-        const message = {
-          path: path,
-          token: token,
-          name,
-          previewUrl,
-        };
 
-        const messageString = JSON.stringify(message);
+        const messageString = `<a href="${previewUrl}" name="${name}">${name}</a>`;
         this.notifyExportResult(baseId, messageString);
       })
       .catch((e) => {
