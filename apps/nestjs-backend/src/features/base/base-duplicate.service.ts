@@ -192,7 +192,7 @@ export class BaseDuplicateService {
 
     await this.createLinkFields(linkFields, tableIdMap, fieldMap);
 
-    await this.duplicateDependencyFields(dependencyFields, fieldMap);
+    await this.duplicateDependencyFields(dependencyFields, tableIdMap, fieldMap);
 
     return fieldMap;
   }
@@ -700,6 +700,7 @@ export class BaseDuplicateService {
 
   private async duplicateDependencyFields(
     dependFields: IFieldInstanceWithTableId[],
+    tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>
   ) {
     if (!dependFields.length) return;
@@ -717,7 +718,13 @@ export class BaseDuplicateService {
       const isInDegreeReady = this.isInDegreeReady(curField, fieldMap);
 
       if (isInDegreeReady) {
-        await this.duplicateSingleDependField(sourceTableId, targetTableId, curField, fieldMap);
+        await this.duplicateSingleDependField(
+          sourceTableId,
+          targetTableId,
+          curField,
+          tableIdMap,
+          fieldMap
+        );
         continue;
       }
 
@@ -727,6 +734,7 @@ export class BaseDuplicateService {
             sourceTableId,
             targetTableId,
             curField,
+            tableIdMap,
             fieldMap,
             true
           );
@@ -744,15 +752,28 @@ export class BaseDuplicateService {
     sourceTableId: string,
     targetTableId: string,
     field: IFieldInstanceWithTableId,
+    tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>,
     hasError = false
   ) {
     if (field.type === FieldType.Formula) {
       await this.duplicateFormulaField(targetTableId, field, sourceToTargetFieldMap, hasError);
     } else if (field.isLookup) {
-      await this.duplicateLookupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
+      await this.duplicateLookupField(
+        sourceTableId,
+        targetTableId,
+        field,
+        tableIdMap,
+        sourceToTargetFieldMap
+      );
     } else if (field.type === FieldType.Rollup) {
-      await this.duplicateRollupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
+      await this.duplicateRollupField(
+        sourceTableId,
+        targetTableId,
+        field,
+        tableIdMap,
+        sourceToTargetFieldMap
+      );
     }
   }
 
@@ -760,6 +781,7 @@ export class BaseDuplicateService {
     sourceTableId: string,
     targetTableId: string,
     field: IFieldInstanceWithTableId,
+    tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>
   ) {
     const {
@@ -773,18 +795,11 @@ export class BaseDuplicateService {
       unique,
       description,
       isPrimary,
+      type: lookupFieldType,
     } = field;
     const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
     const isSelfLink = foreignTableId === sourceTableId;
 
-    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: {
-        id: lookupFieldId,
-      },
-      select: {
-        type: true,
-      },
-    });
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
     const { type: mockType } = await this.prismaService.txClient().field.findUniqueOrThrow({
       where: {
@@ -801,15 +816,16 @@ export class BaseDuplicateService {
       description,
       isLookup: true,
       lookupOptions: {
-        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
-        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        // foreignTableId may are cross base table id, so we need to use tableIdMap to get the target table id
+        foreignTableId: (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
+        linkFieldId: sourceToTargetFieldMap[linkFieldId],
         lookupFieldId: isSelfLink
           ? hasError
             ? mockFieldId
             : sourceToTargetFieldMap[lookupFieldId]
           : hasError
             ? mockFieldId
-            : lookupFieldId,
+            : sourceToTargetFieldMap[lookupFieldId] || lookupFieldId,
       },
       name,
     });
@@ -842,6 +858,7 @@ export class BaseDuplicateService {
     sourceTableId: string,
     targetTableId: string,
     fieldInstance: IFieldInstanceWithTableId,
+    tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>
   ) {
     const {
@@ -873,15 +890,15 @@ export class BaseDuplicateService {
       dbFieldName,
       description,
       lookupOptions: {
-        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
-        linkFieldId: isSelfLink ? sourceToTargetFieldMap[linkFieldId] : linkFieldId,
+        foreignTableId: (isSelfLink ? targetTableId : tableIdMap[foreignTableId]) || foreignTableId,
+        linkFieldId: sourceToTargetFieldMap[linkFieldId],
         lookupFieldId: isSelfLink
           ? hasError
             ? mockFieldId
             : sourceToTargetFieldMap[lookupFieldId]
           : hasError
             ? mockFieldId
-            : lookupFieldId,
+            : sourceToTargetFieldMap[lookupFieldId] || lookupFieldId,
       },
       options,
       name,
