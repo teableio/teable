@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, ArrowUp } from '@teable/icons';
-import type { INotifyVo, ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
+import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
 import {
   createTemplateSnapshot,
   deleteTemplate,
@@ -193,8 +193,8 @@ export const TemplateTable = () => {
                 >
                   <Switch
                     className="scale-80"
-                    defaultChecked={Boolean(row.isPublished && row.name && row.description)}
-                    disabled={!row.snapshot}
+                    defaultChecked={Boolean(row.isPublished)}
+                    disabled={!row.snapshot || !row.name || !row.description}
                     onCheckedChange={(checked: boolean) => {
                       handlePublishTemplate(row?.id, checked);
                     }}
@@ -204,7 +204,7 @@ export const TemplateTable = () => {
               <TableCell>
                 <TemplateTooltips
                   content={t('settings.templateAdmin.tips.needBaseSource')}
-                  disabled={!row.baseId}
+                  disabled={!row.baseId || (edition !== 'CLOUD' && row.isSystem)}
                 >
                   <Button
                     variant="outline"
@@ -229,10 +229,10 @@ export const TemplateTable = () => {
               <TableCell className="text-center">
                 <TemplateTooltips
                   content={t('settings.templateAdmin.tips.forbiddenUpdateSystemTemplate')}
-                  disabled={edition !== 'CLOUD' && row.isSystem}
+                  disabled={(edition !== 'CLOUD' || !edition) && row.isSystem}
                 >
                   <BaseSelectPanel
-                    disabled={edition !== 'CLOUD' && row.isSystem}
+                    disabled={(edition !== 'CLOUD' || !edition) && row.isSystem}
                     baseList={baseList || []}
                     templateId={row.id}
                     baseId={row?.baseId}

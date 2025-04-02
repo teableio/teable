@@ -34,21 +34,24 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
           onClickHandler={() => onCategoryChange('all')}
         />
       </div>
-      <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-        <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.browseByCategory')} />
 
-        <div className="flex flex-1 flex-col gap-y-1 overflow-auto">
-          {categoryList?.map(({ name, id }) => (
-            <CategoryMenuItem
-              key={id}
-              category={name}
-              id={id}
-              currentCategoryId={currentCategoryId}
-              onClickHandler={() => onCategoryChange(id)}
-            />
-          ))}
+      {categoryList && categoryList.length > 0 && (
+        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+          <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.browseByCategory')} />
+
+          <div className="flex flex-1 flex-col gap-y-1 overflow-auto">
+            {categoryList?.map(({ name, id }) => (
+              <CategoryMenuItem
+                key={id}
+                category={name}
+                id={id}
+                currentCategoryId={currentCategoryId}
+                onClickHandler={() => onCategoryChange(id)}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { generateSpaceId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   createBase,
@@ -32,7 +31,7 @@ describe('Template Open API Controller (e2e)', () => {
     app = appContext.app;
     prismaService = app.get(PrismaService);
 
-    await prismaService.space.updateMany({
+    await prismaService.space.update({
       where: {
         id: 'spcDefaultTempSpcId',
       },
@@ -45,10 +44,11 @@ describe('Template Open API Controller (e2e)', () => {
     });
     await prismaService.space.update({
       where: {
-        id: (await spaceData).data.id,
+        id: spaceData.data.id,
       },
       data: {
         createdBy: 'system',
+        isTemplate: true,
       },
     });
     templateSpaceId = spaceData.data.id;

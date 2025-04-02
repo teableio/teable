@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ITemplateVo } from '@teable/openapi';
-import { duplicateBase, updateTemplateUsageCount } from '@teable/openapi';
+import { createBaseFromTemplate } from '@teable/openapi';
 import { Button, useToast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
@@ -11,31 +11,26 @@ interface ITemplateCardProps {
 }
 
 export const TemplateCard = ({ template }: ITemplateCardProps) => {
-  const { name, description, cover, snapshot, usageCount, id: templateId } = template;
+  const { name, description, cover, usageCount, id: templateId } = template;
   const { presignedUrl } = cover ?? {};
   const { t } = useTranslation('common');
   const router = useRouter();
   const spaceId = useSpaceId();
   const { toast } = useToast();
-  const { baseId: fromBaseId } = snapshot;
 
-  const { mutateAsync: updateTemplateUseCountFn } = useMutation({
-    mutationFn: () => updateTemplateUsageCount(templateId),
-  });
   const { mutateAsync: createTemplateToBase } = useMutation({
     mutationFn: () =>
-      duplicateBase({
-        fromBaseId,
+      createBaseFromTemplate({
         spaceId: spaceId as string,
+        templateId,
         withRecords: true,
-        name,
       }),
     onSuccess: (res) => {
       const { id: baseId } = res.data;
-      updateTemplateUseCountFn();
       router.push(`/base/${baseId}`);
     },
   });
+
   return (
     <div className="group relative flex h-[306px] w-[300px] cursor-pointer flex-col rounded-sm border p-0 hover:shadow-md">
       <div className="h-48 w-full shrink-0 bg-secondary">
@@ -57,9 +52,9 @@ export const TemplateCard = ({ template }: ITemplateCardProps) => {
       </div>
 
       <div className="absolute bottom-0 z-10 hidden w-full justify-around bg-secondary p-2 opacity-80 group-hover:flex">
-        <Button variant={'outline'} size={'sm'} className="w-24">
+        {/* <Button variant={'outline'} size={'sm'} className="w-24">
           {t('settings.templateAdmin.actions.preview')}
-        </Button>
+        </Button> */}
         <Button
           variant={'outline'}
           size={'sm'}

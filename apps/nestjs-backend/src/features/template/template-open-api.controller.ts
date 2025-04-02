@@ -89,4 +89,9 @@ export class TemplateOpenApiController {
   async updateTemplateUsageCount(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.updateTemplateUsageCount(templateId);
   }
+
+  @Post('/:templateId/use')
+  async useTemplate(@Param('templateId') templateId: string) {
+    return this.templateOpenApiService.useTemplate(templateId);
+  }
 }

@@ -318,13 +318,38 @@ export class BaseService {
 
   async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
     const { spaceId, templateId, withRecords } = createBaseFromTemplateRo;
-    return await this.prismaService.$tx(async () => {
-      return await this.baseDuplicateService.duplicateBase({
-        fromBaseId: templateId,
-        spaceId,
-        withRecords,
-      });
+    const template = await this.prismaService.template.findUniqueOrThrow({
+      where: { id: templateId },
+      select: {
+        snapshot: true,
+        name: true,
+      },
     });
+
+    const { baseId: fromBaseId } = template?.snapshot ? JSON.parse(template.snapshot) : {};
+
+    if (!template) {
+      throw new NotFoundException(`Template ${templateId} not found`);
+    }
+
+    return await this.prismaService.$tx(
+      async () => {
+        const res = await this.baseDuplicateService.duplicateBase({
+          name: template.name!,
+          fromBaseId,
+          spaceId,
+          withRecords,
+        });
+        await this.prismaService.template.update({
+          where: { id: templateId },
+          data: { usageCount: { increment: 1 } },
+        });
+        return res;
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
   }
 
   async getPermission() {

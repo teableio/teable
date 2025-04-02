@@ -174,23 +174,25 @@ export class TemplateOpenApiService {
       },
     });
 
-    const res = await this.baseService.duplicateBase({
-      fromBaseId: templateRaw.baseId,
-      spaceId: templateSpaceId.id,
-      withRecords: true,
-      name: templateRaw?.name || 'template snapshot',
-    });
+    return await this.prismaService.$transaction(async (prisma) => {
+      const res = await this.baseService.duplicateBase({
+        fromBaseId: templateRaw.baseId!,
+        spaceId: templateSpaceId.id,
+        withRecords: true,
+        name: templateRaw?.name || 'template snapshot',
+      });
 
-    return await this.prismaService.template.update({
-      where: { id: templateId },
-      data: {
-        snapshot: JSON.stringify({
-          baseId: res.id,
-          snapshotTime: new Date().toISOString(),
-          spaceId: res.spaceId,
-          name: res.name,
-        }),
-      },
+      return await prisma.template.update({
+        where: { id: templateId },
+        data: {
+          snapshot: JSON.stringify({
+            baseId: res.id,
+            snapshotTime: new Date().toISOString(),
+            spaceId: res.spaceId,
+            name: res.name,
+          }),
+        },
+      });
     });
   }
 
