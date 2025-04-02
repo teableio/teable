@@ -781,5 +781,36 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       ]);
     });
+
+    it('should use false to reset checkbox field', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Checkbox,
+      });
+      const { records } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [field.id]: true,
+            },
+          },
+        ],
+      });
+      expect(records[0].fields[field.id]).toEqual(true);
+
+      await updateRecord(table.id, records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [field.id]: false,
+          },
+        },
+      });
+
+      const { records: records2 } = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(records2[0].fields[field.id]).toEqual(undefined);
+    });
   });
 });

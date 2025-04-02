@@ -65,6 +65,10 @@ export class CheckboxFieldCore extends FieldCore {
     if (this.isMultipleCellValue) {
       return z.array(z.literal(true)).nonempty().nullable().safeParse(value);
     }
-    return z.literal(true).nullable().safeParse(value);
+    return z
+      .boolean()
+      .nullable()
+      .transform((val) => (val === false ? null : val))
+      .safeParse(value);
   }
 }
