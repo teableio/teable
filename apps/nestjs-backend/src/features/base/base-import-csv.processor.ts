@@ -1,20 +1,24 @@
 import type { TransformCallback } from 'stream';
 import { Transform } from 'stream';
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
+import {
+  PrismaClientKnownRequestError,
+  PrismaClientUnknownRequestError,
+} from '@prisma/client/runtime/library';
+import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
-import { Queue } from 'bullmq';
-import type { Job } from 'bullmq';
+import { Queue, QueueEvents, Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import * as unzipper from 'unzipper';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 
@@ -35,6 +39,7 @@ export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
 @Processor(BASE_IMPORT_CSV_QUEUE)
 export class BaseImportCsvQueueProcessor extends WorkerHost {
   private logger = new Logger(BaseImportCsvQueueProcessor.name);
+  readonly queueEvents = new QueueEvents(BASE_IMPORT_CSV_QUEUE);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -63,7 +68,12 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     return new Promise<{ success: boolean }>((resolve, reject) => {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
-        if (filePath.startsWith('tables/') && entry.type !== 'Directory') {
+        if (
+          filePath.startsWith('tables/') &&
+          entry.type !== 'Directory' &&
+          // exclude junction table
+          !filePath.includes('junction_')
+        ) {
           const tableId = filePath.replace('tables/', '').split('.')[0];
           const table = structure.tables.find((table) => table.id === tableId);
           const attachmentsFields =
@@ -224,6 +234,159 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       data: attachmentsTableData.map((a) => ({ ...a, createdBy: userId })),
     });
   }
+
+  private async importJunctionChunk(
+    path: string,
+    fieldIdMap: Record<string, string>,
+    structure: IBaseJson
+  ) {
+    const csvStream = await this.storageAdapter.downloadFile(
+      StorageAdapter.getBucket(UploadType.Import),
+      path
+    );
+
+    const sourceLinkFields = structure.tables
+      .map(({ fields }) => fields)
+      .flat()
+      .filter((f) => f.type === FieldType.Link && !f.isLookup);
+
+    const linkFieldRaws = await this.prismaService.field.findMany({
+      where: {
+        id: {
+          in: Object.values(fieldIdMap),
+        },
+        type: FieldType.Link,
+        isLookup: null,
+      },
+    });
+
+    const junctionDbTableNameMap = {} as Record<
+      string,
+      {
+        sourceSelfKeyName: string;
+        sourceForeignKeyName: string;
+        targetSelfKeyName: string;
+        targetForeignKeyName: string;
+        targetFkHostTableName: string;
+      }
+    >;
+
+    const linkFieldInstances = linkFieldRaws.map((f) => createFieldInstanceByRaw(f));
+
+    for (const sourceField of sourceLinkFields) {
+      const { options: sourceOptions } = sourceField;
+      const {
+        fkHostTableName: sourceFkHostTableName,
+        selfKeyName: sourceSelfKeyName,
+        foreignKeyName: sourceForeignKeyName,
+      } = sourceOptions as ILinkFieldOptions;
+      const targetField = linkFieldInstances.find((f) => f.id === fieldIdMap[sourceField.id])!;
+      const { options: targetOptions } = targetField;
+      const {
+        fkHostTableName: targetFkHostTableName,
+        selfKeyName: targetSelfKeyName,
+        foreignKeyName: targetForeignKeyName,
+      } = targetOptions as ILinkFieldOptions;
+      if (sourceFkHostTableName.includes('junction_')) {
+        junctionDbTableNameMap[sourceFkHostTableName] = {
+          sourceSelfKeyName,
+          sourceForeignKeyName,
+          targetSelfKeyName,
+          targetForeignKeyName,
+          targetFkHostTableName,
+        };
+      }
+    }
+
+    const parser = unzipper.Parse();
+    csvStream.pipe(parser);
+
+    return new Promise<{ success: boolean }>((resolve, reject) => {
+      parser.on('entry', (entry) => {
+        const filePath = entry.path;
+        if (
+          filePath.startsWith('tables/') &&
+          entry.type !== 'Directory' &&
+          filePath.includes('junction_')
+        ) {
+          const name = filePath.replace('tables/', '').split('.');
+          name.pop();
+          const junctionTableName = name.join('.');
+          const junctionInfo = junctionDbTableNameMap[junctionTableName];
+
+          const {
+            sourceForeignKeyName,
+            targetForeignKeyName,
+            sourceSelfKeyName,
+            targetSelfKeyName,
+            targetFkHostTableName,
+          } = junctionInfo;
+
+          const batchProcessor = new JunctionBatchProcessor(
+            chunkSize,
+            this.handleJunctionChunk.bind(this),
+            targetFkHostTableName
+          );
+
+          entry
+            .pipe(
+              csvParser.default({
+                // strict: true,
+                mapValues: ({ value }) => {
+                  return value;
+                },
+                mapHeaders: ({ header }) => {
+                  return header
+                    .replaceAll(sourceForeignKeyName, targetForeignKeyName)
+                    .replaceAll(sourceSelfKeyName, targetSelfKeyName);
+                },
+              })
+            )
+            .pipe(batchProcessor)
+            .on('error', (error: Error) => {
+              this.logger.error(`process csv import error: ${error.message}`, error.stack);
+              reject(error);
+            })
+            .on('end', () => {
+              this.logger.log(`csv ${junctionTableName} finished`);
+              resolve({ success: true });
+            });
+        } else {
+          entry.autodrain();
+        }
+      });
+    });
+  }
+
+  private async handleJunctionChunk(
+    results: Record<string, unknown>[],
+    targetFkHostTableName: string
+  ) {
+    const sql = this.knex.table(targetFkHostTableName).insert(results).toQuery();
+    try {
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(
+          `exc junction import task known error: (${error.code}): ${error.message}`,
+          error.stack
+        );
+      } else if (error instanceof PrismaClientUnknownRequestError) {
+        this.logger.error(`exc junction import task unknown error: ${error.message}`, error.stack);
+      } else {
+        this.logger.error(
+          `exc junction import task error: ${(error as Error)?.message}`,
+          (error as Error)?.stack
+        );
+      }
+    }
+  }
+
+  @OnWorkerEvent('completed')
+  async onCompleted(job: Job) {
+    const { fieldIdMap, path, structure } = job.data;
+    await this.importJunctionChunk(path, fieldIdMap, structure);
+  }
 }
 
 class BatchProcessor extends Transform {
@@ -291,6 +454,60 @@ class BatchProcessor extends Transform {
         this.viewIdMap,
         this.attachmentsFields
       )
+        .then(() => {
+          this.emit('progress', { processed: this.totalProcessed });
+          callback();
+        })
+        .catch((err: Error) => callback(err));
+    } else {
+      callback();
+    }
+  }
+}
+
+class JunctionBatchProcessor extends Transform {
+  private buffer: Record<string, unknown>[] = [];
+  private totalProcessed = 0;
+
+  constructor(
+    private readonly batchSize: number,
+    private readonly processBatch: (
+      batch: Record<string, unknown>[],
+      targetFkHostTableName: string
+    ) => Promise<void>,
+    private targetFkHostTableName: string
+  ) {
+    super({ objectMode: true });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _transform(
+    chunk: Record<string, unknown>,
+    encoding: BufferEncoding,
+    callback: TransformCallback
+  ): void {
+    this.buffer.push(chunk);
+    this.totalProcessed++;
+
+    if (this.buffer.length >= this.batchSize) {
+      const currentBatch = [...this.buffer];
+      this.buffer = [];
+
+      this.processBatch(currentBatch, this.targetFkHostTableName)
+        .then(() => {
+          this.emit('progress', { processed: this.totalProcessed });
+          callback();
+        })
+        .catch((err: Error) => callback(err));
+    } else {
+      callback();
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _flush(callback: TransformCallback): void {
+    if (this.buffer.length > 0) {
+      this.processBatch(this.buffer, this.targetFkHostTableName)
         .then(() => {
           this.emit('progress', { processed: this.totalProcessed });
           callback();

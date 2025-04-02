@@ -28,24 +28,26 @@ export class DuplicateAttachmentTableQueryPostgres extends DuplicateAttachmentTa
     ];
 
     const sourceColumns = [
-      this.knex.raw(`(
+      this.knex.raw(
+        `(
         'cm' || 
         substr(md5(random()::text || clock_timestamp()::text), 1, 8) || 
         substr(md5(random()::text), 1, 15)
-      )`),
+      )`
+      ),
       'attachment_id',
       'name',
       'token',
       'record_id',
-      `${targetTableId} AS field_id`,
-      `${targetFieldId} AS field_id`,
-      `${userId} as created_by`,
+      this.knex.raw(`'${targetTableId}' AS table_id`),
+      this.knex.raw(`'${targetFieldId}' AS field_id`),
+      this.knex.raw(`'${userId}' AS created_by`),
     ];
 
     const newColumnList = targetColumns.map((col) => `"${col}"`).join(', ');
     const oldColumnList = sourceColumns
       .map((col) => {
-        return this.knex.raw(`?`, [col]);
+        return typeof col === 'string' ? `"${col}"` : col;
       })
       .join(', ');
     return this.knex.raw(

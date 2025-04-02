@@ -176,6 +176,37 @@ export class BaseExportService {
       await this.appendTableDataCsv('tables', tableRaw, convertFieldsRaw, archive);
     }
 
+    const allLinkFieldRaws = await prisma.field.findMany({
+      where: {
+        type: FieldType.Link,
+        deletedTime: null,
+        tableId: {
+          in: tableRaws.map(({ id }) => id),
+        },
+      },
+    });
+
+    const linkFieldInstances = allLinkFieldRaws
+      .filter(({ type, isLookup }) => {
+        return type === FieldType.Link && !isLookup;
+      })
+      .map((f) => createFieldInstanceByRaw(f));
+
+    const junctionTableName = [] as string[];
+    for (const linkField of linkFieldInstances) {
+      const { options } = linkField;
+      const { fkHostTableName, selfKeyName, foreignKeyName } = options as ILinkFieldOptions;
+      if (fkHostTableName.includes('junction_') && !junctionTableName.includes(fkHostTableName)) {
+        await this.appendJunctionCsv(
+          'tables',
+          fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+          archive
+        );
+      }
+    }
+
     archive.finalize();
 
     const uploadResult = await this.storageAdapter.uploadFile(
@@ -334,7 +365,12 @@ export class BaseExportService {
 
     // 2. write csv content
     while (hasMoreData) {
-      const csvChunk = await this.getCsvChunk(dbTableName, offset, convertFields);
+      const csvChunk = await this.getCsvChunk(
+        dbTableName,
+        offset,
+        convertFields,
+        EXCLUDE_SYSTEM_FIELDS
+      );
       if (csvChunk.length === 0) {
         hasMoreData = false;
         break;
@@ -348,12 +384,112 @@ export class BaseExportService {
     csvStream.end();
   }
 
-  private async getCsvChunk(dbTableName: string, offset: number, convertFields: Field[]) {
+  private async appendJunctionCsv(
+    filePath: string,
+    fkHostTableName: string,
+    selfKeyName: string,
+    foreignKeyName: string,
+    archive: archiver.Archiver
+  ) {
+    const csvStream = new PassThrough();
+    const prisma = this.prismaService.txClient();
+    const columnInfoQuery = this.dbProvider.columnInfo(fkHostTableName);
+    const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+
+    // 1. set csv header
+    const columnHeader = columnInfo
+      .map(({ name }) => name)
+      // exclude id column
+      .filter((name) => name !== '__id');
+    // write the column header
+    const headerRow = columnHeader.join(',');
+    csvStream.write(`${headerRow}\n`);
+
+    let offset = 0;
+    let hasMoreData = true;
+    archive.append(csvStream, { name: `${filePath}/${fkHostTableName}.csv` });
+
+    csvStream.on('error', (err) => {
+      this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
+      throw err;
+    });
+
+    csvStream.on('end', () => {
+      console.log('CSV Stream ended');
+    });
+
+    csvStream.on('finish', () => {
+      console.log('CSV Stream finished');
+    });
+
+    archive.on('error', (err) => {
+      this.logger.error(`CSV Stream archive error: ${err.message}`, err.stack);
+      throw err;
+    });
+
+    // 2. write csv content
+    while (hasMoreData) {
+      const csvChunk = await this.getJunctionChunk(
+        fkHostTableName,
+        offset,
+        [selfKeyName, foreignKeyName],
+        ['__id']
+      );
+      if (csvChunk.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+      const csvString = stringify(csvChunk, {
+        columns: columnHeader,
+      });
+      csvStream.write(csvString);
+      offset += BaseExportService.CSV_CHUNK;
+    }
+    csvStream.end();
+  }
+
+  private async getCsvChunk(
+    dbTableName: string,
+    offset: number,
+    convertFields: Field[],
+    excludeFieldNames: string[]
+  ) {
     const rawRecords = await this.getChunkRecords(dbTableName, offset);
     // 1. clear unless system fields
-    const records = rawRecords.map((record) => omit(record, EXCLUDE_SYSTEM_FIELDS));
+    const records = rawRecords.map((record) => omit(record, excludeFieldNames));
     // 2. convert to csv value
     return records.map((record) => this.transformConvertFieldsCellValue(record, convertFields));
+  }
+
+  private async getJunctionChunk(
+    fkHostTableName: string,
+    offset: number,
+    convertFields: [string, string],
+    excludeFieldNames: string[]
+  ) {
+    const prisma = this.prismaService.txClient();
+    const recordsQuery = await this.knex(fkHostTableName)
+      .select('*')
+      .limit(BaseExportService.CSV_CHUNK)
+      .offset(offset)
+      .toQuery();
+    const rawRecords = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(recordsQuery);
+    // 1. clear unless fields
+    const records = rawRecords.map((record) => omit(record, excludeFieldNames));
+
+    return records.map((record) => {
+      if (!record) {
+        return record;
+      }
+
+      const newRecord = {} as Record<string, unknown>;
+
+      Object.entries(record).forEach(([key, value]) => {
+        newRecord[key] = value;
+      });
+
+      return newRecord;
+    });
   }
 
   private async getChunkRecords(dbTableName: string, offset: number) {
@@ -395,21 +531,6 @@ export class BaseExportService {
     });
 
     return newRecord;
-
-    // if (convertFields.map(({ dbFieldName }) => dbFieldName).includes(dbFieldName)) {
-    //   if (Array.isArray(value)) {
-    //     const values = value.map((v) => v?.title || v);
-    //     return values.join(',');
-    //   } else {
-    //     return value?.title || value;
-    //   }
-    // }
-    // if (typeof value === 'object') {
-    //   const jsonString = JSON.stringify(value);
-    //   return `"${jsonString.replace(/"/g, '""')}"`;
-    // } else {
-    //   return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
-    // }
   }
 
   // cross base link field and relative fields should convert to text as well

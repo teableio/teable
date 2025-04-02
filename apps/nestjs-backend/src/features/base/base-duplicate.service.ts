@@ -101,6 +101,7 @@ export class BaseDuplicateService {
     if (withRecords) {
       await this.duplicateTableData(tableIdMap, fieldIdMap, viewIdMap);
       await this.duplicateAttachments(tableIdMap, fieldIdMap);
+      await this.duplicateLinkJunction(tableIdMap, fieldIdMap);
     }
 
     return base as ICreateBaseVo;
@@ -1283,25 +1284,19 @@ export class BaseDuplicateService {
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>
   ) {
-    const tableIds = Object.keys(tableIdMap);
-    const attachmentIndexes = await this.prismaService.txClient().attachmentsTable.findMany({
-      where: { tableId: { in: tableIds } },
-    });
-
-    const userId = this.cls.get('user.id');
-    for (const attachmentIndex of attachmentIndexes) {
-      const newTableId = tableIdMap[attachmentIndex.tableId];
-      const newFieldId = fieldIdMap[attachmentIndex.fieldId];
-      await this.prismaService.txClient().attachmentsTable.create({
-        data: {
-          ...attachmentIndex,
-          id: undefined,
-          tableId: newTableId,
-          fieldId: newFieldId,
-          createdBy: userId,
-          createdTime: new Date(),
-        },
-      });
+    for (const [sourceTableId, targetTableId] of Object.entries(tableIdMap)) {
+      await this.tableDuplicateService.duplicateAttachments(
+        sourceTableId,
+        targetTableId,
+        fieldIdMap
+      );
     }
+  }
+
+  private async duplicateLinkJunction(
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>
+  ) {
+    await this.tableDuplicateService.duplicateLinkJunction(tableIdMap, fieldIdMap);
   }
 }
