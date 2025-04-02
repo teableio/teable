@@ -21,6 +21,8 @@ import {
   EMAIL_BASE_INVITATION,
   emailBaseInvitation,
   getBaseCollaboratorList,
+  getUserCollaborators,
+  listBaseCollaboratorUserVoSchema,
   listBaseInvitationLink,
   PrincipalType,
   UPDATE_BASE_COLLABORATE,
@@ -242,6 +244,25 @@ describe('OpenAPI BaseController (e2e)', () => {
         });
         const res = await user3Request.get<IUserMeVo>(USER_ME);
         newUser3Id = res.data.id;
+      });
+
+      it('/api/base/:baseId/collaborator/users (GET)', async () => {
+        const res = await getUserCollaborators(baseId);
+        expect(res.data.users).toHaveLength(3);
+        expect(res.data.total).toBe(3);
+        expect(listBaseCollaboratorUserVoSchema.strict().safeParse(res.data).success).toEqual(true);
+      });
+
+      it('/api/base/:baseId/collaborator/users (GET) - pagination', async () => {
+        const res = await getUserCollaborators(baseId, { skip: 1, take: 1 });
+        expect(res.data.users).toHaveLength(1);
+        expect(res.data.total).toBe(3);
+      });
+
+      it('/api/base/:baseId/collaborator/users (GET) - search', async () => {
+        const res = await getUserCollaborators(baseId, { search: 'newuser' });
+        expect(res.data.users).toHaveLength(2);
+        expect(res.data.total).toBe(2);
       });
 
       it('/api/base/:baseId/collaborators (PATCH)', async () => {

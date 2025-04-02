@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { CellValueType, IUserCellValue, IUserFieldOptions } from '@teable/core';
-import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
+import { getUserCollaborators } from '@teable/openapi';
 import { UserEditor } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
@@ -23,19 +23,15 @@ export const UserOptions = (props: {
 
   // TODO: Here is just to get the complete information of the user selected by defaultValue, only need to provide the interface to query by userId.
   const { data: collaboratorsData, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, {
+    queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, {
       includeSystem: true,
       skip: 0,
       take: 1000,
-      type: PrincipalType.User,
     }),
     queryFn: ({ queryKey }) =>
-      getBaseCollaboratorList(queryKey[1], {
-        ...queryKey[2],
-        type: PrincipalType.User,
-      }).then((res) => res.data),
+      getUserCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
   });
-  const collaborators = collaboratorsData?.collaborators;
+  const collaborators = collaboratorsData?.users;
 
   const onIsMultipleChange = (checked: boolean) => {
     onChange?.({
@@ -60,14 +56,14 @@ export const UserOptions = (props: {
   ): IUserCellValue | IUserCellValue[] | undefined => {
     if (!options.defaultValue || !collaborators) return undefined;
     const userMap = keyBy<{
-      userName: string;
-      userId: string;
+      id: string;
+      name: string;
       email: string;
       avatar?: string | null;
-    }>(collaborators, 'userId');
+    }>(collaborators, 'id');
     userMap['me'] = {
-      userName: t('sdk:filter.currentUser'),
-      userId: 'me',
+      name: t('sdk:filter.currentUser'),
+      id: 'me',
       email: '',
     };
     const { defaultValue, isMultiple } = options;
@@ -76,8 +72,8 @@ export const UserOptions = (props: {
       return values
         .filter((id) => userMap[id])
         .map((id) => ({
-          title: userMap[id].userName,
-          id: userMap[id].userId,
+          title: userMap[id].name,
+          id: userMap[id].id,
           email: userMap[id].email,
           avatarUrl: userMap[id].avatar,
         }));
@@ -86,8 +82,8 @@ export const UserOptions = (props: {
     const user = userMap[values[0]];
     if (!user) return undefined;
     return {
-      title: user.userName,
-      id: user.userId,
+      title: user.name,
+      id: user.id,
       email: user.email,
       avatarUrl: user.avatar,
     };

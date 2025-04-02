@@ -7,6 +7,8 @@ import type {
   AddBaseCollaboratorRo,
   AddSpaceCollaboratorRo,
   CollaboratorItem,
+  IItemBaseCollaboratorUser,
+  IListBaseCollaboratorUserRo,
 } from '@teable/openapi';
 import { CollaboratorType, UploadType, PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -233,13 +235,10 @@ export class CollaboratorService {
       where: { id: tableId },
     });
 
-    const base = await this.prismaService.txClient().base.findUniqueOrThrow({
-      where: { id: baseId },
-      select: { spaceId: true },
+    const builder = this.knex();
+    await this.getBaseCollaboratorBuilder(builder, baseId, {
+      includeSystem: true,
     });
-    const builder = this.knex('collaborator');
-    builder.join('users', 'collaborator.principal_id', 'users.id');
-    builder.whereIn('collaborator.resource_id', [baseId, base.spaceId]);
     if (query.containsIn) {
       builder.where((db) => {
         const keys = query.containsIn.keys;
@@ -250,30 +249,25 @@ export class CollaboratorService {
         return db;
       });
     }
+    builder.whereNotNull('users.id');
     builder.orderBy('collaborator.created_time', 'asc');
     builder.select({
-      user_id: 'users.id',
-      user_name: 'users.name',
-      user_email: 'users.email',
-      user_avatar: 'users.avatar',
-      user_is_system: 'users.is_system',
+      id: 'users.id',
+      name: 'users.name',
+      email: 'users.email',
+      avatar: 'users.avatar',
+      isSystem: 'users.is_system',
     });
-    const collaborators = await this.prismaService.txClient().$queryRawUnsafe<
+
+    return this.prismaService.txClient().$queryRawUnsafe<
       {
-        user_id: string;
-        user_name: string;
-        user_email: string;
-        user_avatar: string | null;
-        user_is_system: boolean | null;
+        id: string;
+        name: string;
+        email: string;
+        avatar: string | null;
+        isSystem: boolean | null;
       }[]
     >(builder.toQuery());
-    return collaborators.map(({ user_id, user_name, user_email, user_avatar, user_is_system }) => ({
-      id: user_id,
-      name: user_name,
-      email: user_email,
-      avatar: user_avatar,
-      isSystem: user_is_system,
-    }));
   }
 
   protected async getSpaceCollaboratorBuilder(
@@ -838,5 +832,34 @@ export class CollaboratorService {
         `You do not have permission to add this role collaborator: ${addRole}`
       );
     }
+  }
+
+  async getUserCollaboratorsTotal(baseId: string, options?: IListBaseCollaboratorUserRo) {
+    return this.getTotalBase(baseId, options);
+  }
+
+  async getUserCollaborators(baseId: string, options?: IListBaseCollaboratorUserRo) {
+    const { skip = 0, take = 50 } = options ?? {};
+    const builder = this.knex();
+    await this.getBaseCollaboratorBuilder(builder, baseId, options);
+    builder.whereNotNull('users.id');
+    builder.orderBy('collaborator.created_time', 'asc');
+    builder.offset(skip);
+    builder.limit(take);
+    builder.select({
+      id: 'users.id',
+      name: 'users.name',
+      email: 'users.email',
+      avatar: 'users.avatar',
+    });
+    const res = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<IItemBaseCollaboratorUser[]>(builder.toQuery());
+    return res.map((item) => ({
+      ...item,
+      avatar: item.avatar
+        ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), item.avatar)
+        : null,
+    }));
   }
 }

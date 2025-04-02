@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
-import type { UserCollaboratorItem } from '@teable/openapi';
-import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
+import { getUserCollaborators } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
 import React, { forwardRef, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
@@ -26,25 +25,28 @@ const DefaultDataWrapper = forwardRef<IUserEditorRef, IUserEditorMainProps>((pro
   const baseId = useBaseId();
   const [search, setSearch] = useState('');
   const { data, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, {
+    queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, {
       search: search,
-      type: PrincipalType.User,
     }),
     queryFn: ({ queryKey }) =>
-      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
+      getUserCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
+  const users = data?.users?.map((item) => ({
+    userId: item.id,
+    userName: item.name,
+    email: item.email,
+    avatar: item.avatar,
+  }));
+
   const collaborators = props.includeMe
-    ? [
-        { userId: 'me', userName: t('filter.currentUser'), email: '' },
-        ...(data?.collaborators || []),
-      ]
-    : data?.collaborators;
+    ? [{ userId: 'me', userName: t('filter.currentUser'), email: '' }, ...(users || [])]
+    : users;
 
   return (
     <UserEditorBase
       {...props}
-      collaborators={collaborators as UserCollaboratorItem[]}
+      collaborators={collaborators}
       isLoading={isLoading}
       ref={ref}
       onSearch={setSearch}

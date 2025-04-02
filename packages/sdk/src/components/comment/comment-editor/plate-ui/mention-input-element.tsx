@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { UserCollaboratorItem } from '@teable/openapi';
-import { getBaseCollaboratorList, PrincipalType } from '@teable/openapi';
+import { getUserCollaborators } from '@teable/openapi';
 import { cn, withRef } from '@udecode/cn';
 import { PlateElement } from '@udecode/plate-common/react';
 import { getMentionOnSelectItem } from '@udecode/plate-mention';
@@ -31,22 +30,17 @@ export const MentionInputElement = withRef<typeof PlateElement>(({ className, ..
   const baseId = useBaseId();
 
   const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId!, {
+    queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId!, {
       search,
-      type: PrincipalType.User,
       take: 100,
       skip: 0,
     }),
     queryFn: ({ queryKey }) =>
-      getBaseCollaboratorList(queryKey[1], { search, type: PrincipalType.User }).then(
-        (res) => res.data
-      ),
+      getUserCollaborators(queryKey[1], { search }).then((res) => res.data),
     enabled: !!baseId,
   });
 
-  const mentionUsers = (collaboratorsData?.collaborators as UserCollaboratorItem[])?.filter(
-    (item) => item.userId !== user.id
-  );
+  const mentionUsers = collaboratorsData?.users?.filter((item) => item.id !== user.id);
 
   return (
     <PlateElement
@@ -79,24 +73,24 @@ export const MentionInputElement = withRef<typeof PlateElement>(({ className, ..
 
           {mentionUsers?.map((item) => (
             <InlineComboboxItem
-              key={item.userId}
+              key={item.id}
               onClick={() =>
                 onSelectItem(
                   editor,
                   {
                     text: {
-                      id: item.userId,
-                      name: item.userName,
+                      id: item.id,
+                      name: item.name,
                       avatar: item.avatar ?? undefined,
                     },
                   },
                   search
                 )
               }
-              value={item.userName}
+              value={item.name}
             >
-              <UserAvatar avatar={item.avatar} name={item.userName} />
-              <span className="pl-1">{item.userName}</span>
+              <UserAvatar avatar={item.avatar} name={item.name} />
+              <span className="pl-1">{item.name}</span>
             </InlineComboboxItem>
           ))}
         </InlineComboboxContent>
