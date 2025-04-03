@@ -597,6 +597,8 @@ export class BaseExportService {
           'tableId',
           'order',
           'lookupOptions',
+          'isLookup',
+          'isMultiple',
         ])
       );
 
