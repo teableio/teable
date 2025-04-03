@@ -7,6 +7,7 @@ import {
   generatePluginInstallId,
   generatePluginPanelId,
   Role,
+  ViewType,
 } from '@teable/core';
 import type { TableMeta } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -1019,10 +1020,12 @@ export class BaseDuplicateService {
         deletedTime: null,
       },
     });
-    const views = viewRaws.map((viewRaw) => ({
-      ...createViewVoByRaw(viewRaw),
-      tableId: viewRaw.tableId,
-    }));
+    const views = viewRaws
+      .map((viewRaw) => ({
+        ...createViewVoByRaw(viewRaw),
+        tableId: viewRaw.tableId,
+      }))
+      .filter((view) => view.type !== ViewType.Plugin);
 
     for (const view of views) {
       const { name, type, id: viewId, description, enableShare, tableId } = view;

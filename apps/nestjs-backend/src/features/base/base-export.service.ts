@@ -4,7 +4,8 @@ import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
 import { FieldType, getRandomString, ViewType } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { PluginPosition, UploadType, type IBaseJson } from '@teable/openapi';
+import { PluginPosition, UploadType } from '@teable/openapi';
+import type { INotifyVo, IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
 import { stringify } from 'csv-stringify/sync';
 import { Knex } from 'knex';
@@ -13,6 +14,8 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -30,6 +33,7 @@ export class BaseExportService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly notificationService: NotificationService,
+    private readonly eventEmitterService: EventEmitterService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
@@ -42,7 +46,7 @@ export class BaseExportService {
   async exportBaseZip(baseId: string) {
     this.processExportBaseZip(baseId)
       .then(async (result) => {
-        const { path, name } = result;
+        const { path, name, token } = result;
         const previewUrl = await this.storageAdapter.getPreviewUrl(
           StorageAdapter.getBucket(UploadType.ExportBase),
           path,
@@ -54,7 +58,14 @@ export class BaseExportService {
         );
 
         const messageString = `<a href="${previewUrl}" name="${name}">${name}</a>`;
-        this.notifyExportResult(baseId, messageString);
+        this.notifyExportResult(baseId, messageString, {
+          mimetype: 'application/zip',
+          presignedUrl: previewUrl,
+          path,
+          token,
+          size: 1100,
+          url: path,
+        });
       })
       .catch((e) => {
         console.log('error', e);
@@ -205,14 +216,14 @@ export class BaseExportService {
 
     const uploadResult = await this.storageAdapter.uploadFile(
       bucket,
-      `${pathDir}/${token}.zip`,
+      `${pathDir}/${token}.tea`,
       passThrough
     );
 
     return {
       path: uploadResult.path,
       token,
-      name: `${baseRaw.name}.zip`,
+      name: `${baseRaw.name}.tea`,
     };
   }
 
@@ -829,8 +840,11 @@ export class BaseExportService {
     });
   }
 
-  private async notifyExportResult(baseId: string, message: string) {
+  private async notifyExportResult(baseId: string, message: string, notify: INotifyVo) {
     const userId = this.cls.get('user.id');
+    await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
+      notify,
+    });
     await this.notificationService.sendExportBaseResultNotify({
       baseId: baseId,
       toUserId: userId,

@@ -7,6 +7,7 @@ import {
   generatePluginInstallId,
   generatePluginPanelId,
   Role,
+  ViewType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType, PluginPosition, PrincipalType, ResourceType } from '@teable/openapi';
@@ -1052,7 +1053,8 @@ export class BaseImportService {
   ) {
     const viewMap: Record<string, string> = {};
     for (const table of tables) {
-      const { views, id: tableId } = table;
+      const { views: originalViews, id: tableId } = table;
+      const views = originalViews.filter((view) => view.type !== ViewType.Plugin);
       for (const view of views) {
         const { name, type, id: viewId, description, enableShare } = view;
 

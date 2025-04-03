@@ -66,4 +66,6 @@ export enum Events {
   CROP_IMAGE_COMPLETE = 'crop.image.complete',
 
   RECORD_HISTORY_CREATE = 'record.history.create',
+
+  BASE_EXPORT_COMPLETE = 'base.export.complete',
 }

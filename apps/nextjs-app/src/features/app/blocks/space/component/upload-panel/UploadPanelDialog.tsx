@@ -63,7 +63,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
             onChange={(file) => {
               setFile(file);
             }}
-            accept="application/zip"
+            accept=".tea"
             onFinished={(notify) => {
               setNotify(notify);
             }}
