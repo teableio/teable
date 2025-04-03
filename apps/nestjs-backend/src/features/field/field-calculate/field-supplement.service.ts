@@ -29,6 +29,7 @@ import {
   FieldType,
   generateChoiceId,
   generateFieldId,
+  getAiConfigSchema,
   getDefaultFormatting,
   getFormattingSchema,
   getRandomString,
@@ -1041,6 +1042,17 @@ export class FieldSupplementService {
       this.zodParse(formattingSchema, formatting);
     }
   }
+
+  private validateAiConfig(field: IFieldVo) {
+    const { type, aiConfig } = field;
+
+    const aiConfigSchema = getAiConfigSchema(type);
+
+    if (aiConfig) {
+      this.zodParse(aiConfigSchema, aiConfig);
+    }
+  }
+
   /**
    * prepare properties for computed field to make sure it's valid
    * this method do not do any db update
@@ -1073,6 +1085,7 @@ export class FieldSupplementService {
     };
 
     this.validateFormattingShowAs(fieldVo);
+    this.validateAiConfig(fieldVo);
 
     return fieldVo;
   }
@@ -1120,6 +1133,7 @@ export class FieldSupplementService {
         isPending: field.isComputed ? true : undefined,
       };
       this.validateFormattingShowAs(fieldVo);
+      this.validateAiConfig(fieldVo);
       return fieldVo;
     });
   }
@@ -1137,12 +1151,12 @@ export class FieldSupplementService {
         dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
         description:
           fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
-        aiConfig: fieldRo.aiConfig === undefined ? oldFieldVo.aiConfig : fieldRo.aiConfig,
       }, // for convenience, we fallback name adn dbFieldName when it be undefined
       oldFieldVo
     )) as IFieldVo;
 
     this.validateFormattingShowAs(fieldVo);
+    this.validateAiConfig(fieldVo);
 
     return {
       ...fieldVo,
