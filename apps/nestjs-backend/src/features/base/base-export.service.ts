@@ -521,6 +521,11 @@ export class BaseExportService {
         newValue = fieldIns.cellValue2String(newValue);
       }
 
+      // convert date to iso string
+      if (value instanceof Date) {
+        newValue = value.toISOString();
+      }
+
       newRecord[key] = newValue;
     });
 
