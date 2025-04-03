@@ -175,6 +175,7 @@ export const TemplateTable = () => {
               </TableCell>
               <TableCell>
                 <TemplateCategorySelect
+                  templateId={row.id}
                   value={row.categoryId}
                   onChange={(name) => onChangeTemplateCategory(row.id, name)}
                 />
@@ -189,7 +190,7 @@ export const TemplateTable = () => {
               <TableCell className="text-center align-middle">
                 <TemplateTooltips
                   content={t('settings.templateAdmin.tips.needSnapshot')}
-                  disabled={!row.snapshot}
+                  disabled={!row.snapshot || !row.name || !row.description}
                 >
                   <Switch
                     className="scale-80"

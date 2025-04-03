@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
 import {
   createTemplateRoSchema,
@@ -9,6 +10,7 @@ import {
   updateTemplateRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { TemplateOpenApiService } from './template-open-api.service';
 
@@ -29,6 +31,7 @@ export class TemplateOpenApiController {
   }
 
   @Post('/create')
+  @Permissions('instance|update')
   async createTemplate(
     @Body(new ZodValidationPipe(createTemplateRoSchema)) createTemplateRo: ICreateTemplateRo
   ) {
@@ -36,11 +39,13 @@ export class TemplateOpenApiController {
   }
 
   @Delete('/:templateId')
+  @Permissions('instance|update')
   async deleteTemplate(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.deleteTemplate(templateId);
   }
 
   @Patch('/:templateId')
+  @Permissions('instance|update')
   async updateTemplate(
     @Param('templateId') templateId: string,
     @Body(new ZodValidationPipe(updateTemplateRoSchema)) updateTemplateRo: IUpdateTemplateRo
@@ -49,31 +54,37 @@ export class TemplateOpenApiController {
   }
 
   @Patch('/:templateId/pin-top')
+  @Permissions('instance|update')
   async updateTemplateOrder(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.pinTopTemplate(templateId);
   }
 
   @Post('/:templateId/snapshot')
+  @Permissions('instance|update')
   async createTemplateSnapshot(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.createTemplateSnapshot(templateId);
   }
 
   @Post('/category/create')
+  @Permissions('instance|update')
   async createTemplateCategory(@Body() createTemplateCategoryRo: ICreateTemplateCategoryRo) {
     return this.templateOpenApiService.createTemplateCategory(createTemplateCategoryRo);
   }
 
   @Get('/category/list')
+  @Permissions('instance|update')
   async getTemplateCategoryList() {
     return this.templateOpenApiService.getTemplateCategoryList();
   }
 
   @Delete('/category/:templateCategoryId')
+  @Permissions('instance|update')
   async deleteTemplateCategory(@Param('templateCategoryId') templateCategoryId: string) {
     return this.templateOpenApiService.deleteTemplateCategory(templateCategoryId);
   }
 
   @Patch('/category/:templateCategoryId')
+  @Permissions('instance|update')
   async updateTemplateCategory(
     @Param('templateCategoryId') templateCategoryId: string,
     @Body(new ZodValidationPipe(updateTemplateCategoryRoSchema))

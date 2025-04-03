@@ -64,7 +64,8 @@
         "errorCategoryName": "分类不存在或已删除",
         "needSnapshot": "上架前，请先创建快照，并且模版名和描述不能为空",
         "needBaseSource": "创建快照前，请先选择模版来源",
-        "forbiddenUpdateSystemTemplate": "系统模版禁止修改"
+        "forbiddenUpdateSystemTemplate": "系统模版禁止修改",
+        "addCategoryTips": "请先在搜索框中输入分类名称。"
       },
       "category": {
         "menu": {

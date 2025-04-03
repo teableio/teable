@@ -2,7 +2,6 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
-import type { ITemplateCategoryListVo } from './get';
 
 export const UPDATE_TEMPLATE_CATEGORY = '/template/category/{templateCategoryId}';
 

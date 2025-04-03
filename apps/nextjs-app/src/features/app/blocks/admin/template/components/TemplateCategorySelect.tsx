@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Plus, Trash, Edit } from '@teable/icons';
-import type { ITemplateCategoryListVo } from '@teable/openapi';
+import type { ITemplateCategoryListVo, IUpdateTemplateRo } from '@teable/openapi';
 import {
   createTemplateCategory,
   deleteTemplateCategory,
   getTemplateCategoryList,
+  updateTemplate,
   updateTemplateCategory,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -20,11 +21,13 @@ import {
   Button,
   cn,
   Input,
+  useToast,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 
 interface ITemplateCategorySelectProps {
+  templateId: string;
   value?: string;
   onChange: (name: string) => void;
 }
@@ -122,19 +125,29 @@ const CategoryCommandItem = (props: ICategoryCommandItemProps) => {
 };
 
 export const TemplateCategorySelect = (props: ITemplateCategorySelectProps) => {
-  const { value, onChange } = props;
+  const { value, onChange, templateId } = props;
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: templateCategoryList } = useQuery({
     queryKey: ReactQueryKeys.templateCategoryList(),
     queryFn: () => getTemplateCategoryList().then((data) => data.data),
   });
 
+  const { mutateAsync: updateTemplateFn } = useMutation({
+    mutationFn: ({ templateId, updateRo }: { templateId: string; updateRo: IUpdateTemplateRo }) =>
+      updateTemplate(templateId, { ...updateRo }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(ReactQueryKeys.templateList());
+    },
+  });
+
   const { mutate: createTemplateCategoryFn } = useMutation({
     mutationFn: (name: string) => createTemplateCategory({ name }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries(ReactQueryKeys.templateCategoryList());
       setSearchValue('');
+      updateTemplateFn({ templateId, updateRo: { categoryId: res.data.id } });
     },
   });
 
@@ -202,6 +215,11 @@ export const TemplateCategorySelect = (props: ITemplateCategorySelectProps) => {
                 variant="ghost"
                 size={'xs'}
                 onClick={() => {
+                  if (!searchValue) {
+                    toast({
+                      title: t('settings.templateAdmin.tips.addCategoryTips'),
+                    });
+                  }
                   searchValue && createTemplateCategoryFn(searchValue);
                 }}
               >
