@@ -32,27 +32,27 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
   const candidates = useMemo(() => {
     return [
       {
-        id: FieldAIActionType.Summarize,
+        id: FieldAIActionType.Summary,
         icon: <Layers className="size-4" />,
         name: t('table:field.aiConfig.type.summary'),
       },
       {
-        id: FieldAIActionType.Translate,
+        id: FieldAIActionType.Translation,
         icon: <Translation className="size-4" />,
         name: t('table:field.aiConfig.type.translation'),
       },
       {
-        id: FieldAIActionType.ExtractInfo,
+        id: FieldAIActionType.Extraction,
         icon: <Export className="size-4" />,
         name: t('table:field.aiConfig.type.extraction'),
       },
       {
-        id: FieldAIActionType.ImproveText,
+        id: FieldAIActionType.Improvement,
         icon: <Edit className="size-4" />,
         name: t('table:field.aiConfig.type.improvement'),
       },
       {
-        id: FieldAIActionType.Customize,
+        id: FieldAIActionType.Customization,
         icon: <Pencil className="size-4" />,
         name: t('table:field.aiConfig.type.customization'),
       },
@@ -61,15 +61,15 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
   const getPlaceholder = (type: FieldAIActionType) => {
     switch (type) {
-      case FieldAIActionType.Translate:
+      case FieldAIActionType.Translation:
         return t('table:field.aiConfig.placeholder.translate');
-      case FieldAIActionType.ImproveText:
+      case FieldAIActionType.Improvement:
         return t('table:field.aiConfig.placeholder.improveText');
-      case FieldAIActionType.ExtractInfo:
+      case FieldAIActionType.Extraction:
         return t('table:field.aiConfig.placeholder.extractInfo');
-      case FieldAIActionType.Summarize:
+      case FieldAIActionType.Summary:
         return t('table:field.aiConfig.placeholder.summarize');
-      case FieldAIActionType.Customize:
+      case FieldAIActionType.Customization:
         return t('table:field.aiConfig.placeholder.prompt');
       default:
         return '';
@@ -125,7 +125,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         />
       </div>
 
-      {type && type !== FieldAIActionType.Customize && (
+      {type && type !== FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
           <Label>{t('table:field.aiConfig.label.sourceField')}</Label>
           <SelectFieldByTableId
@@ -137,7 +137,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         </div>
       )}
 
-      {type === FieldAIActionType.Translate && (
+      {type === FieldAIActionType.Translation && (
         <div className="flex flex-col gap-y-2">
           <Label>{t('table:field.aiConfig.label.targetLanguage')}</Label>
           <Input
@@ -152,7 +152,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         </div>
       )}
 
-      {type && type !== FieldAIActionType.Customize && (
+      {type && type !== FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
           <Label>{t('table:field.aiConfig.label.attachPrompt')}</Label>
           <Textarea
@@ -166,7 +166,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         </div>
       )}
 
-      {type === FieldAIActionType.Customize && (
+      {type === FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
           <PromptEditorContainer
             value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}

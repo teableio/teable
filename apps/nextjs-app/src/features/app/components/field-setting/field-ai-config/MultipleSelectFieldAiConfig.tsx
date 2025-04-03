@@ -36,7 +36,7 @@ export const MultipleSelectFieldAiConfig = (props: IMultipleSelectFieldAiConfigP
         name: t('table:field.aiConfig.type.tag'),
       },
       {
-        id: FieldAIActionType.Customize,
+        id: FieldAIActionType.Customization,
         icon: <Pencil className="size-4" />,
         name: t('table:field.aiConfig.type.customization'),
       },
@@ -85,7 +85,7 @@ export const MultipleSelectFieldAiConfig = (props: IMultipleSelectFieldAiConfigP
         />
       </div>
 
-      {type && type !== FieldAIActionType.Customize && (
+      {type && type !== FieldAIActionType.Customization && (
         <Fragment>
           <div className="flex flex-col gap-y-2">
             <Label>{t('table:field.aiConfig.label.sourceFieldForTag')}</Label>
@@ -110,7 +110,7 @@ export const MultipleSelectFieldAiConfig = (props: IMultipleSelectFieldAiConfigP
         </Fragment>
       )}
 
-      {type === FieldAIActionType.Customize && (
+      {type === FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
           <PromptEditorContainer
             value={(aiConfig as ISingleSelectFieldCustomizeAIConfig)?.prompt || ''}

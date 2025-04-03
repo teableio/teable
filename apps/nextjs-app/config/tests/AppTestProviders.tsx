@@ -1,5 +1,5 @@
 import type { IAppContext } from '@teable/sdk/context';
-import { AppContext, FieldContext, ViewContext } from '@teable/sdk/context';
+import { AppContext, FieldContext, TableContext, ViewContext } from '@teable/sdk/context';
 import { defaultLocale } from '@teable/sdk/context/app/i18n';
 import type { IFieldInstance, IViewInstance } from '@teable/sdk/model';
 import type { FC, PropsWithChildren } from 'react';
@@ -32,8 +32,10 @@ export const TestAnchorProvider: FC<
   }
 > = ({ children, fields = [], views = [] }) => {
   return (
-    <ViewContext.Provider value={{ views }}>
-      <FieldContext.Provider value={{ fields }}>{children}</FieldContext.Provider>
-    </ViewContext.Provider>
+    <TableContext.Provider value={{ tables: [] }}>
+      <ViewContext.Provider value={{ views }}>
+        <FieldContext.Provider value={{ fields }}>{children}</FieldContext.Provider>
+      </ViewContext.Provider>
+    </TableContext.Provider>
   );
 };

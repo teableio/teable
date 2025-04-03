@@ -30,12 +30,12 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
   const candidates = useMemo(() => {
     return [
       {
-        id: FieldAIActionType.Classify,
+        id: FieldAIActionType.Classification,
         icon: <ListChecks className="size-4" />,
         name: t('table:field.aiConfig.type.classification'),
       },
       {
-        id: FieldAIActionType.Customize,
+        id: FieldAIActionType.Customization,
         icon: <Pencil className="size-4" />,
         name: t('table:field.aiConfig.type.customization'),
       },
@@ -84,7 +84,7 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
         />
       </div>
 
-      {type && type !== FieldAIActionType.Customize && (
+      {type && type !== FieldAIActionType.Customization && (
         <Fragment>
           <div className="flex flex-col gap-y-2">
             <Label>{t('table:field.aiConfig.label.sourceFieldForClassify')}</Label>
@@ -109,7 +109,7 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
         </Fragment>
       )}
 
-      {type === FieldAIActionType.Customize && (
+      {type === FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
           <PromptEditorContainer
             value={(aiConfig as ISingleSelectFieldCustomizeAIConfig)?.prompt || ''}
