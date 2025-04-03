@@ -10,6 +10,7 @@ import type {
 import {
   DateFormattingPreset,
   DriverClient,
+  FieldAIActionType,
   FieldType,
   NumberFormattingType,
   Relationship,
@@ -291,6 +292,37 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       return await createField(table1.id, fieldRo, expectStatus);
     }
+
+    it('should create successfully for field ai config', async () => {
+      const baseField = await createField(table1.id, { type: FieldType.SingleLineText }, 201);
+      const fieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        aiConfig: {
+          type: FieldAIActionType.Summary,
+          modelKey: 'openai@gpt-4o@gpt',
+          sourceFieldId: baseField.id,
+        },
+      };
+      const aiField = await createField(table1.id, fieldRo, 201);
+      expect(aiField.aiConfig).toEqual({
+        type: FieldAIActionType.Summary,
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: baseField.id,
+      });
+    });
+
+    it('should create fail for user field with ai config', async () => {
+      const baseField = await createField(table1.id, { type: FieldType.SingleLineText }, 201);
+      const fieldRo: IFieldRo = {
+        type: FieldType.Attachment,
+        aiConfig: {
+          type: FieldAIActionType.Summary,
+          modelKey: 'openai@gpt-4o@GPT',
+          sourceFieldId: baseField.id,
+        },
+      };
+      await createField(table1.id, fieldRo, 400);
+    });
 
     it('should create successfully for a unique validation field with valid field types', async () => {
       const textField = await createFieldWithUnique(FieldType.SingleLineText);

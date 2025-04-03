@@ -3,7 +3,7 @@ import { IdPrefix } from '../../../utils';
 import { commonFieldAIConfig, FieldAIActionType } from './text';
 
 export const singleSelectFieldClassifyAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.Classify),
+  type: z.literal(FieldAIActionType.Classification),
   sourceFieldId: z.string().startsWith(IdPrefix.Field),
 });
 
@@ -12,7 +12,7 @@ export type ISingleSelectFieldClassifyAIConfig = z.infer<
 >;
 
 export const singleSelectFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.Customize),
+  type: z.literal(FieldAIActionType.Customization),
   prompt: z.string(),
   onlyAllowConfiguredOptions: z.boolean().optional(),
 });

@@ -1484,7 +1484,7 @@ export class FieldSupplementService {
     const existingFieldIdSet = new Set(existingFieldIds.map(({ id }) => id));
     const { type } = aiConfig ?? {};
 
-    if (type === FieldAIActionType.Customize) {
+    if (type === FieldAIActionType.Customization) {
       const { prompt } = aiConfig as ITextFieldCustomizeAIConfig;
       const fieldIds = extractFieldReferences(prompt);
       const fieldIdsToCreate = fieldIds.filter((id) => existingFieldIdSet.has(id));

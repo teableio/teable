@@ -10,7 +10,7 @@ export const multipleSelectFieldTagAIConfigSchema = commonFieldAIConfig.extend({
 export type IMultipleSelectFieldTagAIConfig = z.infer<typeof multipleSelectFieldTagAIConfigSchema>;
 
 export const multipleSelectFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.Customize),
+  type: z.literal(FieldAIActionType.Customization),
   prompt: z.string(),
   onlyAllowConfiguredOptions: z.boolean().optional(),
 });

@@ -8,6 +8,7 @@ import type {
   IRecord,
   IRollupFieldOptions,
   ISelectFieldOptions,
+  ITextFieldAIConfig,
   IUserCellValue,
 } from '@teable/core';
 import {
@@ -26,6 +27,7 @@ import {
   generateFieldId,
   DriverClient,
   CellFormat,
+  FieldAIActionType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { type ITableFullVo } from '@teable/openapi';
@@ -144,6 +146,35 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           type: FieldType.SingleLineText,
         })
       ).rejects.toThrow();
+    });
+
+    it('should modify ai config', async () => {
+      const baseField = await createField(table1.id, { type: FieldType.SingleLineText }, 201);
+      const oldAIConfig: ITextFieldAIConfig = {
+        type: FieldAIActionType.Summary,
+        modelKey: 'openai@gpt-4o@gpt',
+        sourceFieldId: baseField.id,
+      };
+      const newAIConfig: ITextFieldAIConfig = {
+        ...oldAIConfig,
+        type: FieldAIActionType.Extraction,
+        attachPrompt: 'Please extract the email from the text',
+      };
+
+      const sourceFieldRo: IFieldRo = {
+        name: 'AITextField',
+        description: 'hello',
+        type: FieldType.SingleLineText,
+        aiConfig: oldAIConfig,
+      };
+      const newFieldRo: IFieldRo = {
+        name: 'New AITextField',
+        type: FieldType.SingleLineText,
+        aiConfig: newAIConfig,
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField.aiConfig).toEqual(newAIConfig);
     });
 
     it('should modify options showAs', async () => {

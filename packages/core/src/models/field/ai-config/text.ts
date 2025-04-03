@@ -2,13 +2,13 @@ import { z } from 'zod';
 import { IdPrefix } from '../../../utils';
 
 export enum FieldAIActionType {
-  Summarize = 'summarize',
-  Translate = 'translate',
-  ImproveText = 'improveText',
-  ExtractInfo = 'extractInfo',
-  Classify = 'classify',
+  Summary = 'summary',
+  Translation = 'translation',
+  Improvement = 'improvement',
+  Extraction = 'extraction',
+  Classification = 'classification',
   Tag = 'tag',
-  Customize = 'customize',
+  Customization = 'customization',
 }
 
 export const commonFieldAIConfig = z.object({
@@ -20,21 +20,21 @@ export const commonFieldAIConfig = z.object({
 export type ICommonFieldAIConfig = z.infer<typeof commonFieldAIConfig>;
 
 export const textFieldExtractInfoAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.ExtractInfo),
+  type: z.literal(FieldAIActionType.Extraction),
   sourceFieldId: z.string().startsWith(IdPrefix.Field),
 });
 
 export type ITextFieldExtractInfoAIConfig = z.infer<typeof textFieldExtractInfoAIConfigSchema>;
 
 export const textFieldSummarizeAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.Summarize),
+  type: z.literal(FieldAIActionType.Summary),
   sourceFieldId: z.string().startsWith(IdPrefix.Field),
 });
 
 export type ITextFieldSummarizeAIConfig = z.infer<typeof textFieldSummarizeAIConfigSchema>;
 
 export const textFieldTranslateAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.Translate),
+  type: z.literal(FieldAIActionType.Translation),
   sourceFieldId: z.string().startsWith(IdPrefix.Field),
   targetLanguage: z.string(),
 });
@@ -42,14 +42,14 @@ export const textFieldTranslateAIConfigSchema = commonFieldAIConfig.extend({
 export type ITextFieldTranslateAIConfig = z.infer<typeof textFieldTranslateAIConfigSchema>;
 
 export const textFieldImproveTextAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.ImproveText),
+  type: z.literal(FieldAIActionType.Improvement),
   sourceFieldId: z.string().startsWith(IdPrefix.Field),
 });
 
 export type ITextFieldImproveTextAIConfig = z.infer<typeof textFieldImproveTextAIConfigSchema>;
 
 export const textFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.Customize),
+  type: z.literal(FieldAIActionType.Customization),
   prompt: z.string(),
 });
 
