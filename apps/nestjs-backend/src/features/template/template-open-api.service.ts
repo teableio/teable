@@ -154,12 +154,13 @@ export class TemplateOpenApiService {
   }
 
   async createTemplateSnapshot(templateId: string) {
-    const prisma = this.prismaService;
+    const prisma = this.prismaService.txClient();
     const templateRaw = await prisma.template.findUniqueOrThrow({
       where: { id: templateId },
       select: {
         baseId: true,
         name: true,
+        snapshot: true,
       },
     });
 
@@ -184,6 +185,17 @@ export class TemplateOpenApiService {
           withRecords: true,
           name: templateRaw?.name || 'template snapshot',
         });
+
+        if (templateRaw.snapshot) {
+          // delete previous base
+          const snapshot = JSON.parse(templateRaw.snapshot);
+          await prisma.base.update({
+            where: { id: snapshot.baseId },
+            data: {
+              deletedTime: new Date().toISOString(),
+            },
+          });
+        }
 
         return await prisma.template.update({
           where: { id: templateId },
