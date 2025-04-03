@@ -1071,6 +1071,18 @@ export class BaseImportService {
           enableShare,
           ...obj,
         });
+
+        // if (enableShare) {
+        //   await this.viewOpenApiService.enableShare(tableIdMap[tableId], newViewVo.id);
+        // }
+
+        // if (shareMeta) {
+        //   await this.viewOpenApiService.updateShareMeta(
+        //     tableIdMap[tableId],
+        //     newViewVo.id,
+        //     shareMeta
+        //   );
+        // }
         viewMap[viewId] = newViewVo.id;
       }
     }
