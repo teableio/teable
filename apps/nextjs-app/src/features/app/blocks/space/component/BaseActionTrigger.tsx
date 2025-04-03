@@ -19,6 +19,7 @@ interface IBaseActionTrigger {
   showRename: boolean;
   showDelete: boolean;
   showDuplicate: boolean;
+  showExport: boolean;
   onRename?: () => void;
   onDelete?: () => void;
   align?: 'center' | 'end' | 'start';
@@ -31,6 +32,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showRename,
     showDelete,
     showDuplicate,
+    showExport,
     onDelete,
     onRename,
     align = 'end',
@@ -79,7 +81,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
-          {
+          {showExport && (
             <DropdownMenuItem
               onClick={() => {
                 setExportConfirm(true);
@@ -88,7 +90,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               <Export className="mr-2" />
               {t('actions.export')}
             </DropdownMenuItem>
-          }
+          )}
           {showDelete && (
             <>
               <DropdownMenuSeparator />

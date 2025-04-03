@@ -138,6 +138,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 showRename={hasUpdatePermission}
                 showDuplicate={hasReadPermission}
                 showDelete={hasDeletePermission}
+                showExport={hasReadPermission}
                 onDelete={() => deleteBaseMutator(base.id)}
                 onRename={onRename}
               >
