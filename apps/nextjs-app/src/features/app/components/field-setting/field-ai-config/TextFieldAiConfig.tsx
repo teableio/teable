@@ -7,7 +7,7 @@ import type {
   ITextFieldTranslateAIConfig,
 } from '@teable/core';
 import { FieldAIActionType } from '@teable/core';
-import { ArrowUpDown, Edit, Export, Layers, Pencil } from '@teable/icons';
+import { Edit, Export, Layers, Pencil, Translation } from '@teable/icons';
 import { Selector } from '@teable/ui-lib/base';
 import { Input, Label, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -38,7 +38,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
       },
       {
         id: FieldAIActionType.Translate,
-        icon: <ArrowUpDown className="size-4" />,
+        icon: <Translation className="size-4" />,
         name: t('table:field.aiConfig.type.translation'),
       },
       {

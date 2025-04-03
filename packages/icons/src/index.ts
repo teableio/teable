@@ -146,6 +146,7 @@ export { default as Table2 } from './components/Table2';
 export { default as Teable } from './components/Teable';
 export { default as TeableNew } from './components/TeableNew';
 export { default as ThumbsUp } from './components/ThumbsUp';
+export { default as Translation } from './components/Translation';
 export { default as Trash } from './components/Trash';
 export { default as Trash2 } from './components/Trash2';
 export { default as Undo2 } from './components/Undo2';

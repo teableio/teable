@@ -19,6 +19,8 @@ import { useTranslation } from 'next-i18next';
 import React, { Fragment, useState } from 'react';
 import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
 import { MultipleSelectFieldAiConfig } from './MultipleSelectFieldAiConfig';
@@ -38,11 +40,14 @@ const SUPPORTED_FIELD_TYPES = new Set([
 ]);
 
 export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange }) => {
-  const { type: fieldType, aiConfig } = field;
+  const { type: fieldType, isLookup, aiConfig } = field;
   const { type } = aiConfig ?? {};
   const baseId = useBaseId() as string;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [isExpanded, setIsExpanded] = useState(!!aiConfig);
+
+  const isEE = useIsEE();
+  const isCloud = useIsCloud();
 
   const { data: baseAiConfig } = useQuery({
     queryKey: ['ai-config', baseId],
@@ -81,7 +86,11 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
     }
   };
 
-  if (!SUPPORTED_FIELD_TYPES.has(fieldType as FieldType)) {
+  if (!isCloud && !isEE) {
+    return null;
+  }
+
+  if (!SUPPORTED_FIELD_TYPES.has(fieldType as FieldType) || isLookup) {
     return null;
   }
 
