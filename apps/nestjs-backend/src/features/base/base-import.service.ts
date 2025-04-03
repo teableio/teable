@@ -153,26 +153,29 @@ export class BaseImportService {
   protected async createBaseStructure(spaceId: string, structure: IBaseJson) {
     const { name, icon, tables, plugins } = structure;
 
-    // create base
-    const newBase = await this.baseService.createBase({
-      spaceId,
-      name,
-      icon: icon || undefined,
+    //  in one transaction
+    return this.prismaService.$tx(async () => {
+      // create base
+      const newBase = await this.baseService.createBase({
+        spaceId,
+        name,
+        icon: icon || undefined,
+      });
+
+      // create table
+      const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
+
+      // create plugins
+      await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
+
+      return {
+        base: newBase,
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        structure,
+      };
     });
-
-    // create table
-    const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
-
-    // create plugins
-    await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
-
-    return {
-      base: newBase,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      structure,
-    };
   }
 
   private async createTables(baseId: string, tables: IBaseJson['tables']) {
@@ -791,18 +794,11 @@ export class BaseImportService {
       unique,
       description,
       isPrimary,
+      type: lookupFieldType,
     } = field;
     const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
     const isSelfLink = foreignTableId === sourceTableId;
 
-    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: {
-        id: lookupFieldId,
-      },
-      select: {
-        type: true,
-      },
-    });
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
     const { type: mockType } = await this.prismaService.txClient().field.findUniqueOrThrow({
       where: {
@@ -875,18 +871,11 @@ export class BaseImportService {
       unique,
       description,
       isPrimary,
+      type: lookupFieldType,
     } = fieldInstance;
     const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
     const isSelfLink = foreignTableId === sourceTableId;
 
-    const { type: lookupFieldType } = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: {
-        id: lookupFieldId,
-      },
-      select: {
-        type: true,
-      },
-    });
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
     const newField = await this.fieldOpenApiService.createField(targetTableId, {
       type: FieldType.Rollup,
