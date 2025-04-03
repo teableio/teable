@@ -41,7 +41,7 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
   };
 
   const fieldSelector = (
-    <FieldSelector onSelect={onFieldSelect}>
+    <FieldSelector onSelect={onFieldSelect} modal>
       <Button variant="outline" size="xs" className="gap-1">
         <Plus className="size-4" />
         字段

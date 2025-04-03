@@ -31,7 +31,10 @@ export const TaskStatusCollectionProvider: FC<ITaskStatusCollectionProviderProps
     queryClient.invalidateQueries(ReactQueryKeys.getTaskStatusCollection(tableId as string));
   }, [queryClient, tableId]);
 
-  const tableMatches = useMemo<ITableActionKey[]>(() => ['taskProcessing', 'taskCompleted'], []);
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['taskProcessing', 'taskCompleted', 'taskCancelled'],
+    []
+  );
   useTableListener(tableId, tableMatches, updateTaskStatusCollectionForTable);
 
   const taskStatusCollection = useMemo(
