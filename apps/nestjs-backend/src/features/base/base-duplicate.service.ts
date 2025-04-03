@@ -58,7 +58,7 @@ export class BaseDuplicateService {
   private async createBase(spaceId: string, name: string, icon?: string) {
     const userId = this.cls.get('user.id');
 
-    return this.prismaService.$transaction(async (prisma) => {
+    return this.prismaService.$tx(async (prisma) => {
       const order = (await this.getMaxOrder(spaceId)) + 1;
 
       const base = await prisma.base.create({

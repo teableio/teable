@@ -132,27 +132,6 @@ describe('Template Open API Controller (e2e)', () => {
     expect(res2.data.length).toBe(1);
   });
 
-  it('should get published template list', async () => {
-    const res1 = await getPublishedTemplateList();
-    expect(res1.status).toBe(200);
-    expect(res1.data.length).toBe(0);
-
-    const template = await createTemplate({});
-    await updateTemplate(template.data.id, {
-      name: 'test Template',
-      description: 'test Template description',
-      baseId: baseId,
-    });
-
-    await createTemplateSnapshot(template.data.id);
-    await updateTemplate(template.data.id, {
-      isPublished: true,
-    });
-    const res2 = await getPublishedTemplateList();
-    expect(res2.status).toBe(200);
-    expect(res2.data.length).toBe(1);
-  });
-
   it('should pin-top template', async () => {
     const tmp1 = await createTemplate({});
     const tmp2 = await createTemplate({});

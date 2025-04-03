@@ -11,6 +11,7 @@ import {
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -23,7 +24,8 @@ export class TemplateOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly baseService: BaseService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly attachmentsStorageService: AttachmentsStorageService
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async createTemplate(createTemplateRo: ICreateTemplateRo) {
@@ -174,26 +176,31 @@ export class TemplateOpenApiService {
       },
     });
 
-    return await this.prismaService.$transaction(async (prisma) => {
-      const res = await this.baseService.duplicateBase({
-        fromBaseId: templateRaw.baseId!,
-        spaceId: templateSpaceId.id,
-        withRecords: true,
-        name: templateRaw?.name || 'template snapshot',
-      });
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const res = await this.baseService.duplicateBase({
+          fromBaseId: templateRaw.baseId!,
+          spaceId: templateSpaceId.id,
+          withRecords: true,
+          name: templateRaw?.name || 'template snapshot',
+        });
 
-      return await prisma.template.update({
-        where: { id: templateId },
-        data: {
-          snapshot: JSON.stringify({
-            baseId: res.id,
-            snapshotTime: new Date().toISOString(),
-            spaceId: res.spaceId,
-            name: res.name,
-          }),
-        },
-      });
-    });
+        return await prisma.template.update({
+          where: { id: templateId },
+          data: {
+            snapshot: JSON.stringify({
+              baseId: res.id,
+              snapshotTime: new Date().toISOString(),
+              spaceId: res.spaceId,
+              name: res.name,
+            }),
+          },
+        });
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
   }
 
   async createTemplateCategory(createTemplateCategoryRo: ICreateTemplateCategoryRo) {
