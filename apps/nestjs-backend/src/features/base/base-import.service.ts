@@ -1054,16 +1054,22 @@ export class BaseImportService {
     for (const table of tables) {
       const { views, id: tableId } = table;
       for (const view of views) {
-        const { name, type, options, columnMeta, id: viewId, description, enableShare } = view;
-        const newColumnMetaString = replaceStringByMap(columnMeta, { fieldMap });
-        const newColumnMeta = newColumnMetaString ? JSON.parse(newColumnMetaString) : null;
+        const { name, type, id: viewId, description, enableShare } = view;
+
+        const keys = ['options', 'columnMeta', 'filter', 'group', 'sort'] as (keyof typeof view)[];
+        const obj = {} as Record<string, unknown>;
+
+        for (const key of keys) {
+          const keyString = replaceStringByMap(view[key], { fieldMap });
+          const newValue = keyString ? JSON.parse(keyString) : null;
+          obj[key] = newValue;
+        }
         const newViewVo = await this.viewOpenApiService.createView(tableIdMap[tableId], {
           name,
           type,
           description,
           enableShare,
-          options,
-          columnMeta: newColumnMeta,
+          ...obj,
         });
         viewMap[viewId] = newViewVo.id;
       }
