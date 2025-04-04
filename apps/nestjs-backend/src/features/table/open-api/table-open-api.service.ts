@@ -290,6 +290,7 @@ export class TableOpenApiService {
     return await this.prismaService.$tx(
       async () => {
         await this.dropTables(tableIds);
+        await this.cleanTaskRelatedData(tableIds);
         await this.cleanTablesRelatedData(baseId, tableIds);
       },
       {
@@ -309,6 +310,35 @@ export class TableOpenApiService {
         .txClient()
         .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
     }
+  }
+
+  async cleanTaskRelatedData(tableIds: string[]) {
+    const alternativeFields = await this.prismaService.txClient().field.findMany({
+      where: { tableId: { in: tableIds } },
+      select: { id: true },
+    });
+    const alternativeFieldIds = alternativeFields.map((field) => field.id);
+
+    // clean task reference for fields
+    await this.prismaService.txClient().taskReference.deleteMany({
+      where: {
+        OR: [
+          { fromFieldId: { in: alternativeFieldIds } },
+          { toFieldId: { in: alternativeFieldIds } },
+        ],
+      },
+    });
+
+    // clean task for table
+    await this.prismaService.txClient().task.deleteMany({
+      where: {
+        OR: tableIds.map((tableId) => ({
+          snapshot: {
+            contains: `"tableId":"${tableId}"`,
+          },
+        })),
+      },
+    });
   }
 
   async cleanReferenceFieldIds(tableIds: string[]) {

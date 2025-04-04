@@ -688,6 +688,12 @@ export class TrashService {
         where: { id: { in: deletedFieldIds } },
       });
 
+      await prisma.taskReference.deleteMany({
+        where: {
+          OR: [{ fromFieldId: { in: deletedFieldIds } }, { toFieldId: { in: deletedFieldIds } }],
+        },
+      });
+
       await prisma.ops.deleteMany({
         where: {
           collection: tableId,
