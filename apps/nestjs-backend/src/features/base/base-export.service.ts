@@ -27,6 +27,22 @@ import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 @Injectable()
 export class BaseExportService {
   public static CSV_CHUNK = 500;
+  public static FILE_SUFFIX = 'tea';
+  public static EXPORT_FIELD_COLUMNS = [
+    'id',
+    'name',
+    'description',
+    'options',
+    'type',
+    'dbFieldName',
+    'notNull',
+    'unique',
+    'isPrimary',
+    'hasError',
+    'order',
+    'lookupOptions',
+    'isLookup',
+  ];
   private logger = new Logger(BaseExportService.name);
 
   constructor(
@@ -74,15 +90,13 @@ export class BaseExportService {
 
   private async processExportBaseZip(baseId: string) {
     const prisma = this.prismaService.txClient();
-    // 0. get base info
+    //  1. get all raw info
     const baseRaw = await prisma.base.findUniqueOrThrow({
       where: {
         id: baseId,
         deletedTime: null,
       },
     });
-
-    // 1. get table info
     const tableRaws = await prisma.tableMeta.findMany({
       where: {
         baseId,
@@ -92,9 +106,7 @@ export class BaseExportService {
         order: 'asc',
       },
     });
-
     const tableIds = tableRaws.map(({ id }) => id);
-
     const fieldRaws = await prisma.field.findMany({
       where: {
         tableId: {
@@ -103,14 +115,10 @@ export class BaseExportService {
         deletedTime: null,
       },
     });
-
     const viewRaws = await prisma.view.findMany({
       where: {
         tableId: {
           in: tableIds,
-        },
-        type: {
-          not: ViewType.Plugin,
         },
         deletedTime: null,
       },
@@ -119,6 +127,7 @@ export class BaseExportService {
       },
     });
 
+    // create a stream pass through, ready to fill data
     const passThrough = new PassThrough();
 
     const archive = archiver('zip', {
@@ -141,62 +150,46 @@ export class BaseExportService {
 
     archive.pipe(passThrough);
 
-    // 3. generate template json
-    const { baseStructure: jsonObject, convertFields } = await this.generateBaseStructJson(
+    // 2. generate base structure json
+    const structure = await this.generateBaseStructJson({
       baseRaw,
       tableRaws,
       fieldRaws,
-      viewRaws
-    );
-    const jsonString = JSON.stringify(jsonObject, null, 2);
+      viewRaws,
+    });
+    const jsonString = JSON.stringify(structure, null, 2);
     const jsonStream = Readable.from(jsonString);
 
-    // 4. export structure json
+    // 3. export structure json
     archive.append(jsonStream, { name: 'structure.json' });
 
     const token = this.generateExportFolderId();
     const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
     const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
 
-    // 5. export attachments
+    // 4. export attachments
     await this.appendAttachments('attachments', tableRaws, archive);
 
-    // 6. export table data csv
-    const convertFieldIds = Object.values(convertFields)
-      .map((field) => field)
-      .flat()
-      .map(({ id }) => id);
+    // 5. export table data csv
+    const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
 
-    const convertFieldRaws = await prisma.field.findMany({
-      where: {
-        id: {
-          in: convertFieldIds,
-        },
-        deletedTime: null,
-      },
-    });
+    const crossBaseRelativeFieldsRaws = fieldRaws.filter(({ id }) =>
+      crossBaseRelativeFields.map(({ id }) => id).includes(id)
+    );
 
     for (const tableRaw of tableRaws) {
-      const convertFieldsRaw = convertFieldRaws.filter(({ tableId }) => tableId === tableRaw.id);
-      await this.appendTableDataCsv('tables', tableRaw, convertFieldsRaw, archive);
+      const crossBaseFieldRaws = crossBaseRelativeFieldsRaws.filter(
+        ({ tableId }) => tableId === tableRaw.id
+      );
+      await this.appendTableDataCsv('tables', tableRaw, crossBaseFieldRaws, archive);
     }
 
-    const allLinkFieldRaws = await prisma.field.findMany({
-      where: {
-        type: FieldType.Link,
-        deletedTime: null,
-        tableId: {
-          in: tableRaws.map(({ id }) => id),
-        },
-      },
-    });
-
-    const linkFieldInstances = allLinkFieldRaws
-      .filter(({ type, isLookup }) => {
-        return type === FieldType.Link && !isLookup;
-      })
+    const linkFieldInstances = fieldRaws
+      .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+      .filter(({ id }) => !crossBaseRelativeFields.map(({ id }) => id).includes(id))
       .map((f) => createFieldInstanceByRaw(f));
 
+    // 6. export junction csv for link fields
     const junctionTableName = [] as string[];
     for (const linkField of linkFieldInstances) {
       const { options } = linkField;
@@ -216,30 +209,33 @@ export class BaseExportService {
 
     const uploadResult = await this.storageAdapter.uploadFile(
       bucket,
-      `${pathDir}/${token}.tea`,
+      `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
       passThrough
     );
 
     return {
       path: uploadResult.path,
       token,
-      name: `${baseRaw.name}.tea`,
+      name: `${baseRaw.name}.${BaseExportService.FILE_SUFFIX}`,
     };
   }
 
-  protected async generateBaseStructJson(
-    baseRaw: Base,
-    tableRaws: TableMeta[],
-    fieldRaws: Field[],
-    viewRaws: View[]
-  ): Promise<{
-    baseStructure: IBaseJson;
-    convertFields: Record<string, IBaseJson['tables'][number]['fields']>;
-  }> {
+  async generateBaseStructJson({
+    baseRaw,
+    tableRaws,
+    fieldRaws,
+    viewRaws,
+    // whether support cross base link fields
+    crossBase = false,
+  }: {
+    baseRaw: Base;
+    tableRaws: TableMeta[];
+    fieldRaws: Field[];
+    viewRaws: View[];
+    crossBase?: boolean;
+  }) {
     const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
     const tables = [] as IBaseJson['tables'];
-    const convertFields = {} as Record<string, IBaseJson['tables'][number]['fields']>;
-
     for (const table of tableRaws) {
       const { name, description, order, id, icon } = table;
       const tableObject = {
@@ -249,28 +245,20 @@ export class BaseExportService {
         description,
         icon,
       } as IBaseJson['tables'][number];
-      const { fields, convertFields: convertFieldsTable } = this.generateFieldStructJson(
-        fieldRaws.filter(({ tableId }) => tableId === id)
-      );
-      convertFields[id] = convertFieldsTable;
-      tableObject.fields = fields;
-      tableObject.views = this.generateViewStructJson(
-        viewRaws.filter(({ tableId }) => tableId === id)
-      );
+      const currentTableFields = fieldRaws.filter(({ tableId }) => tableId === id);
+      tableObject.fields = this.generateFieldConfig(currentTableFields, crossBase);
+      tableObject.views = this.generateViewConfig(viewRaws.filter(({ tableId }) => tableId === id));
       tables.push(tableObject);
     }
 
     const plugins = await this.generatePluginJson(baseId);
 
     return {
-      baseStructure: {
-        name: baseName,
-        icon: baseIcon,
-        version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
-        tables,
-        plugins,
-      },
-      convertFields,
+      name: baseName,
+      icon: baseIcon,
+      version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
+      tables,
+      plugins,
     };
   }
 
@@ -322,7 +310,7 @@ export class BaseExportService {
   private async appendTableDataCsv(
     filePath: string,
     tableRaw: TableMeta,
-    convertFields: Field[],
+    crossBaseRelativeFields: Field[],
     archive: archiver.Archiver
   ) {
     const { dbTableName, id } = tableRaw;
@@ -332,7 +320,7 @@ export class BaseExportService {
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
     // 1. set csv header
-    const convertLinkFields = convertFields.filter(({ type }) => type === FieldType.Link);
+    const convertLinkFields = crossBaseRelativeFields.filter(({ type }) => type === FieldType.Link);
     const fkNames = convertLinkFields
       .filter(({ type }) => type === FieldType.Link)
       .map(({ id }) => `__fk_${id}`);
@@ -373,7 +361,7 @@ export class BaseExportService {
       const csvChunk = await this.getCsvChunk(
         dbTableName,
         offset,
-        convertFields,
+        crossBaseRelativeFields,
         EXCLUDE_SYSTEM_FIELDS
       );
       if (csvChunk.length === 0) {
@@ -456,14 +444,16 @@ export class BaseExportService {
   private async getCsvChunk(
     dbTableName: string,
     offset: number,
-    convertFields: Field[],
+    crossBaseRelativeFields: Field[],
     excludeFieldNames: string[]
   ) {
     const rawRecords = await this.getChunkRecords(dbTableName, offset);
     // 1. clear unless system fields
     const records = rawRecords.map((record) => omit(record, excludeFieldNames));
     // 2. convert to csv value
-    return records.map((record) => this.transformConvertFieldsCellValue(record, convertFields));
+    return records.map((record) =>
+      this.transformConvertFieldsCellValue(record, crossBaseRelativeFields)
+    );
   }
 
   private async getJunctionChunk(
@@ -515,19 +505,24 @@ export class BaseExportService {
    * @param convertFields - the fields which cross base link fields and relative fields (formula or lookup) need to be convert to single line text
    * @returns the csv value
    */
-  private transformConvertFieldsCellValue(value: Record<string, unknown>, convertFields: Field[]) {
+  private transformConvertFieldsCellValue(
+    value: Record<string, unknown>,
+    crossBaseRelativeFields: Field[]
+  ) {
     if (!value) {
       return value;
     }
 
     const newRecord = {} as Record<string, unknown>;
 
-    const convertDbFieldNames = convertFields.map(({ dbFieldName }) => dbFieldName);
+    const crossBaseRelativeDbFieldNames = crossBaseRelativeFields.map(
+      ({ dbFieldName }) => dbFieldName
+    );
 
     Object.entries(value).forEach(([key, value]) => {
       let newValue = value;
-      const fieldRaw = convertFields.find(({ dbFieldName }) => dbFieldName === key);
-      if (convertDbFieldNames.includes(key) && value && fieldRaw) {
+      const fieldRaw = crossBaseRelativeFields.find(({ dbFieldName }) => dbFieldName === key);
+      if (crossBaseRelativeDbFieldNames.includes(key) && value && fieldRaw) {
         const fieldIns = createFieldInstanceByRaw(fieldRaw);
         newValue = fieldIns.cellValue2String(newValue);
       }
@@ -544,30 +539,49 @@ export class BaseExportService {
   }
 
   // cross base link field and relative fields should convert to text as well
-  private generateFieldStructJson(fieldRaws: Field[]): {
-    fields: IBaseJson['tables'][number]['fields'];
-    convertFields: IBaseJson['tables'][number]['fields'];
-  } {
+  private generateFieldConfig(fieldRaws: Field[], crossBase = false) {
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    const createTimeMap = fieldRaws.reduce(
+      (acc, field) => {
+        acc[field.id] = field.createdTime.toISOString();
+        return acc;
+      },
+      {} as Record<string, string>
+    );
+
+    const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, crossBase);
+
+    const otherFields = fields
+      .filter(({ id }) => !crossBaseRelativeFields.map(({ id }) => id).includes(id))
+      .map((field) => ({
+        ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+        createTime: createTimeMap[field.id],
+      }));
+
+    return [...otherFields, ...crossBaseRelativeFields] as IBaseJson['tables'][number]['fields'];
+  }
+
+  private getCrossBaseFields(fieldRaws: Field[], crossBase = false) {
+    const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    const createTimeMap = fieldRaws.reduce(
+      (acc, field) => {
+        acc[field.id] = field.createdTime.toISOString();
+        return acc;
+      },
+      {} as Record<string, string>
+    );
     const crossBaseLinkFields = fields
       .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
       .filter(({ options }) => Boolean((options as ILinkFieldOptions)?.baseId))
-      .map((field) => ({
-        ...pick(field, [
-          'id',
-          'name',
-          'description',
-          'dbFieldName',
-          'notNull',
-          'unique',
-          'isPrimary',
-          'hasError',
-          'tableId',
-          'order',
-        ]),
-        // convert to text
-        type: FieldType.SingleLineText,
-      }));
+      .map((field) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: crossBase ? field.type : FieldType.SingleLineText,
+          createTime: createTimeMap[field.id],
+        };
+
+        return crossBase ? res : omit(res, ['options', 'lookupOptions']);
+      });
 
     // fields which rely on the cross base link fields
     const relativeFields = fields
@@ -578,81 +592,37 @@ export class BaseExportService {
           .includes((lookupOptions as ILookupOptionsVo)?.linkFieldId)
       )
       .map((field) => ({
-        ...pick(field, [
-          'id',
-          'name',
-          'description',
-          'dbFieldName',
-          'notNull',
-          'unique',
-          'isPrimary',
-          'hasError',
-          'tableId',
-          'order',
-        ]),
-        // convert to text
-        type: FieldType.SingleLineText,
+        ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+        type: crossBase ? field.type : FieldType.SingleLineText,
       }));
 
-    const otherFields = fields
-      .filter(
-        ({ id }) => ![...crossBaseLinkFields, ...relativeFields].map(({ id }) => id).includes(id)
-      )
-      .map((field) =>
-        pick(field, [
-          'id',
-          'name',
-          'description',
-          'options',
-          'type',
-          'dbFieldName',
-          'notNull',
-          'unique',
-          'isPrimary',
-          'hasError',
-          'tableId',
-          'order',
-          'lookupOptions',
-          'isLookup',
-          'isMultiple',
-        ])
-      );
-
-    return {
-      fields: [
-        ...otherFields,
-        ...crossBaseLinkFields,
-        ...relativeFields,
-      ] as IBaseJson['tables'][number]['fields'],
-      convertFields: [
-        ...crossBaseLinkFields,
-        ...relativeFields,
-      ] as IBaseJson['tables'][number]['fields'],
-    };
+    return [...crossBaseLinkFields, ...relativeFields] as IBaseJson['tables'][number]['fields'];
   }
 
-  private generateViewStructJson(viewRaws: View[]): IBaseJson['tables'][number]['views'] {
-    return viewRaws
-      .filter(({ type }) => type !== ViewType.Plugin)
-      .map((viewRaw) => createViewVoByRaw(viewRaw))
-      .map((view) =>
-        pick(view, [
-          'id',
-          'name',
-          'description',
-          'type',
-          'sort',
-          'filter',
-          'group',
-          'options',
-          'order',
-          'columnMeta',
-          'enableShare',
-          'shareMeta',
-          'isLocked',
-          'tableId',
-        ])
-      ) as IBaseJson['tables'][number]['views'];
+  private generateViewConfig(viewRaws: View[]): IBaseJson['tables'][number]['views'] {
+    return (
+      viewRaws
+        // .filter(({ type }) => type !== ViewType.Plugin)
+        .map((viewRaw) => createViewVoByRaw(viewRaw))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((view, index) => ({
+          ...pick(view, [
+            'id',
+            'name',
+            'description',
+            'type',
+            'sort',
+            'filter',
+            'group',
+            'options',
+            'columnMeta',
+            'enableShare',
+            'shareMeta',
+            'isLocked',
+          ]),
+          order: index,
+        })) as IBaseJson['tables'][number]['views']
+    );
   }
 
   async generatePluginJson(baseId: string) {

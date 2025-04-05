@@ -46,6 +46,8 @@ import { DbConnectionService } from './db-connection.service';
     BaseDuplicateService,
     BaseQueryService,
     TableDuplicateService,
+    BaseImportService,
+    BaseExportService,
   ],
   exports: [
     BaseService,

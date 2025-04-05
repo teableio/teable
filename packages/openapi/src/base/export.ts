@@ -29,21 +29,27 @@ export const viewJsonSchema = viewVoSchema
     }),
   });
 
-export const fieldTemplateJsonSchema = fieldVoSchema.pick({
-  id: true,
-  name: true,
-  description: true,
-  type: true,
-  options: true,
-  dbFieldName: true,
-  notNull: true,
-  unique: true,
-  isPrimary: true,
-  hasError: true,
-  order: true,
-  isLookup: true,
-  lookupOptions: true,
-});
+export const fieldJsonSchema = fieldVoSchema
+  .pick({
+    id: true,
+    name: true,
+    description: true,
+    type: true,
+    options: true,
+    dbFieldName: true,
+    notNull: true,
+    unique: true,
+    isPrimary: true,
+    hasError: true,
+    order: true,
+    isLookup: true,
+    lookupOptions: true,
+  })
+  .extend({
+    createTime: z.string().datetime().openapi({
+      description: 'The create time of the field.',
+    }),
+  });
 
 export const tableJsonSchema = z.object({
   id: z.string().startsWith(IdPrefix.Table).openapi({
@@ -59,7 +65,7 @@ export const tableJsonSchema = z.object({
     description: 'The emoji icon string of the table.',
   }),
   order: z.number(),
-  fields: fieldTemplateJsonSchema.array(),
+  fields: fieldJsonSchema.array(),
   views: viewJsonSchema.array(),
 });
 

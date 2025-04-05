@@ -1,8 +1,9 @@
 import type { Readable } from 'stream';
-import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import type { IFormulaFieldOptions, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
 import {
   FieldType,
+  generateBaseId,
   generateDashboardId,
   generatePluginInstallId,
   generatePluginPanelId,
@@ -33,12 +34,10 @@ import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
-import { NotificationService } from '../notification/notification.service';
 import { TableService } from '../table/table.service';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-csv.processor';
-import { BaseService } from './base.service';
 import { replaceStringByMap } from './utils';
 
 @Injectable()
@@ -48,8 +47,6 @@ export class BaseImportService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly notificationService: NotificationService,
-    private readonly baseService: BaseService,
     private readonly tableService: TableService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
@@ -59,6 +56,48 @@ export class BaseImportService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
   ) {}
+
+  private async getMaxOrder(spaceId: string) {
+    const spaceAggregate = await this.prismaService.txClient().base.aggregate({
+      where: { spaceId, deletedTime: null },
+      _max: { order: true },
+    });
+    return spaceAggregate._max.order || 0;
+  }
+
+  private async createBase(spaceId: string, name: string, icon?: string) {
+    const userId = this.cls.get('user.id');
+
+    return this.prismaService.$tx(async (prisma) => {
+      const order = (await this.getMaxOrder(spaceId)) + 1;
+
+      const base = await prisma.base.create({
+        data: {
+          id: generateBaseId(),
+          name: name || 'Untitled Base',
+          spaceId,
+          order,
+          icon,
+          createdBy: userId,
+        },
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          spaceId: true,
+        },
+      });
+
+      const sqlList = this.dbProvider.createSchema(base.id);
+      if (sqlList) {
+        for (const sql of sqlList) {
+          await prisma.$executeRawUnsafe(sql);
+        }
+      }
+
+      return base;
+    });
+  }
 
   async importBase(importBaseRo: ImportBaseRo) {
     // 1. create base structure from json
@@ -151,17 +190,13 @@ export class BaseImportService {
     });
   }
 
-  protected async createBaseStructure(spaceId: string, structure: IBaseJson) {
+  async createBaseStructure(spaceId: string, structure: IBaseJson) {
     const { name, icon, tables, plugins } = structure;
 
     //  in one transaction
     return this.prismaService.$tx(async () => {
       // create base
-      const newBase = await this.baseService.createBase({
-        spaceId,
-        name,
-        icon: icon || undefined,
-      });
+      const newBase = await this.createBase(spaceId, name, icon || undefined);
 
       // create table
       const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
@@ -281,15 +316,22 @@ export class BaseImportService {
         (options as ILinkFieldOptions).foreignTableId === sourceTableId
     );
 
-    // cross base link fields should convert to text field
-    const crossBaseLinkFields = linkFields.filter(({ options }) =>
-      Boolean((options as ILinkFieldOptions)?.baseId)
-    );
+    // cross base link fields should convert to one-way link field
+    // only for base-duplicate
+    const crossBaseLinkFields = linkFields
+      .filter(({ options }) => Boolean((options as ILinkFieldOptions)?.baseId))
+      .map((f) => ({
+        ...f,
+        options: {
+          ...f.options,
+          isOneWay: true,
+        },
+      })) as IFieldWithTableIdJson[];
 
     // already converted to text field in export side, prevent unexpected error
-    if (crossBaseLinkFields.length > 0) {
-      throw new BadRequestException('cross base link fields are not supported');
-    }
+    // if (crossBaseLinkFields.length > 0) {
+    //   throw new BadRequestException('cross base link fields are not supported');
+    // }
 
     // common cross table link fields
     const commonLinkFields = linkFields.filter(
@@ -298,7 +340,7 @@ export class BaseImportService {
 
     await this.createSelfLinkFields(selfLinkFields, fieldMap);
 
-    await this.createCrossBaseLinkFields(crossBaseLinkFields, fieldMap);
+    await this.createCommonLinkFields(crossBaseLinkFields, tableIdMap, fieldMap, true);
 
     await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap);
   }
@@ -465,7 +507,8 @@ export class BaseImportService {
   private async createCommonLinkFields(
     fields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    crossBase: boolean = false
   ) {
     const oneWayFields = fields.filter(({ options }) => (options as ILinkFieldOptions).isOneWay);
     const twoWayFields = fields.filter(({ options }) => !(options as ILinkFieldOptions).isOneWay);
@@ -488,7 +531,7 @@ export class BaseImportService {
         type,
         description,
         options: {
-          foreignTableId: tableIdMap[foreignTableId],
+          foreignTableId: crossBase ? foreignTableId : tableIdMap[foreignTableId],
           relationship,
           isOneWay: true,
         },
