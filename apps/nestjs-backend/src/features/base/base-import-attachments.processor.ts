@@ -98,40 +98,41 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
               this.storageAdapter
                 .uploadFile(bucket, `${pathDir}/${token}`, passThrough)
                 .then(({ path }) => {
-                  return this.storageAdapter.getObjectMeta(bucket, path, token);
-                })
-                .then(({ hash, size, mimetype, width, height }) => {
-                  return this.prismaService.txClient().attachments.create({
-                    data: {
-                      hash,
-                      size,
-                      mimetype,
-                      token,
-                      path: `${pathDir}/${token}`,
-                      width,
-                      height,
-                      createdBy: userId,
-                    },
-                    select: {
-                      token: true,
-                      size: true,
-                      mimetype: true,
-                      width: true,
-                      height: true,
-                      path: true,
-                    },
-                  });
-                })
-                .then(() => {
-                  this.logger.log(`attachment finished: ${token}`);
-                  processingFiles--;
-                  checkComplete();
-                })
-                .catch((err) => {
-                  this.logger.error(`attachment upload error ${token}: ${err.message}`);
-                  hasError = true;
-                  processingFiles--;
-                  checkComplete();
+                  return this.storageAdapter
+                    .getObjectMeta(bucket, path, token)
+                    .then(({ hash, size, mimetype, width, height }) => {
+                      this.prismaService.txClient().attachments.create({
+                        data: {
+                          hash,
+                          size,
+                          mimetype,
+                          token,
+                          path: `${pathDir}/${token}`,
+                          width,
+                          height,
+                          createdBy: userId,
+                        },
+                        select: {
+                          token: true,
+                          size: true,
+                          mimetype: true,
+                          width: true,
+                          height: true,
+                          path: true,
+                        },
+                      });
+                    })
+                    .then(() => {
+                      this.logger.log(`attachment finished: ${token}`);
+                      processingFiles--;
+                      checkComplete();
+                    })
+                    .catch((err) => {
+                      this.logger.error(`attachment upload error ${token}: ${err.message}`);
+                      hasError = true;
+                      processingFiles--;
+                      checkComplete();
+                    });
                 });
             });
         } else {
@@ -150,14 +151,14 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
       };
 
       parser.on('close', () => {
-        this.logger.log(`resolve zip file success`);
+        this.logger.log(`import attachments success`);
         if (processingFiles === 0) {
           checkComplete();
         }
       });
 
       parser.on('error', (err) => {
-        this.logger.error(`resolve zip file error: ${err.message}`);
+        this.logger.error(`import attachments error: ${err.message}`);
         hasError = true;
         reject(err);
       });

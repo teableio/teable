@@ -149,6 +149,16 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           entry.autodrain();
         }
       });
+
+      parser.on('close', () => {
+        this.logger.log('import csv completed');
+        resolve({ success: true });
+      });
+
+      parser.on('error', (error) => {
+        this.logger.error(`ZIP parser error: ${error.message}`, error.stack);
+        reject(error);
+      });
     });
   }
 
@@ -387,6 +397,16 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         } else {
           entry.autodrain();
         }
+      });
+
+      parser.on('close', () => {
+        this.logger.log('import csv junction completed');
+        resolve({ success: true });
+      });
+
+      parser.on('error', (error) => {
+        this.logger.error(`import csv junction parser error: ${error.message}`, error.stack);
+        reject(error);
       });
     });
   }

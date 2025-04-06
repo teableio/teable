@@ -114,9 +114,15 @@ export class BaseImportService {
       importBaseRo
     );
 
-    this.uploadAttachments(importBaseRo.notify.path);
+    await this.uploadAttachments(importBaseRo.notify.path);
 
-    this.appendTableData(importBaseRo.notify.path, tableIdMap, fieldIdMap, viewIdMap, structure);
+    await this.appendTableData(
+      importBaseRo.notify.path,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      structure
+    );
 
     return {
       base,
@@ -172,7 +178,7 @@ export class BaseImportService {
 
   private async uploadAttachments(path: string) {
     const userId = this.cls.get('user.id');
-    this.baseImportAttachmentsQueueProcessor.queue.add(
+    await this.baseImportAttachmentsQueueProcessor.queue.add(
       'import_base_attachments',
       {
         path,
@@ -192,7 +198,7 @@ export class BaseImportService {
     structure: IBaseJson
   ) {
     const userId = this.cls.get('user.id');
-    this.baseImportCsvQueueProcessor.queue.add(
+    await this.baseImportCsvQueueProcessor.queue.add(
       'base_import_csv',
       {
         path,
