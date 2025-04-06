@@ -50,6 +50,55 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
     }
   }
 
+  getFileMimeType = (extension: string): string => {
+    const ext = extension.toLowerCase().replace(/^\./, '');
+
+    const extensionToMimeType: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      bmp: 'image/bmp',
+      webp: 'image/webp',
+      svg: 'image/svg+xml',
+
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      ogg: 'audio/ogg',
+      flac: 'audio/x-flac',
+
+      mp4: 'video/mp4',
+      avi: 'video/x-msvideo',
+      mkv: 'video/x-matroska',
+      ogv: 'video/ogg',
+      webm: 'video/webm',
+
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ppt: 'application/vnd.ms-powerpoint',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      txt: 'text/plain',
+      csv: 'text/csv',
+
+      zip: 'application/zip',
+      rar: 'application/x-rar-compressed',
+
+      json: 'application/json',
+      xml: 'application/xml',
+      html: 'text/html',
+      htm: 'text/html',
+      css: 'text/css',
+      js: 'text/javascript',
+
+      md: 'text/markdown',
+    };
+
+    return extensionToMimeType[ext] || 'application/octet-stream';
+  };
+
   private async handleBaseImportAttachments(job: Job<IBaseImportJob>) {
     const { path, userId } = job.data;
     const zipStream = await this.storageAdapter.downloadFile(
@@ -73,7 +122,9 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
           entry.pipe(passThrough);
 
           const token = filePath.replace('attachments/', '').split('.')[0];
+          const fileSuffix = filePath.replace('attachments/', '').split('.').pop();
           const pathDir = StorageAdapter.getDir(UploadType.Table);
+          const mimeTypeFromExtension = this.getFileMimeType(fileSuffix);
 
           this.logger.log(`start upload attachment: ${token}`);
 
@@ -99,7 +150,11 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
               const { path } = await this.storageAdapter.uploadFile(
                 bucket,
                 `${pathDir}/${token}`,
-                passThrough
+                passThrough,
+                {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  'Content-Type': mimeTypeFromExtension,
+                }
               );
 
               const { hash, size, mimetype, width, height } =
@@ -109,7 +164,9 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
                 data: {
                   hash,
                   size,
-                  mimetype,
+                  mimetype: ['binary/octet-stream', 'application/octet-stream'].includes(mimetype)
+                    ? mimeTypeFromExtension
+                    : mimetype,
                   token,
                   path: `${pathDir}/${token}`,
                   width,
