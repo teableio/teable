@@ -72,7 +72,6 @@ export class TemplateOpenApiController {
   }
 
   @Get('/category/list')
-  @Permissions('instance|update')
   async getTemplateCategoryList() {
     return this.templateOpenApiService.getTemplateCategoryList();
   }
