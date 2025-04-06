@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { PassThrough } from 'stream';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
@@ -87,7 +88,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
                 id: true,
               },
             })
-            .then((res) => {
+            .then(async (res) => {
               if (res) {
                 this.logger.log(`attachment already exists: ${token}`);
                 processingFiles--;
@@ -95,45 +96,36 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
                 return;
               }
               // update attachment
-              this.storageAdapter
-                .uploadFile(bucket, `${pathDir}/${token}`, passThrough)
-                .then(({ path }) => {
-                  return this.storageAdapter
-                    .getObjectMeta(bucket, path, token)
-                    .then(({ hash, size, mimetype, width, height }) => {
-                      this.prismaService.txClient().attachments.create({
-                        data: {
-                          hash,
-                          size,
-                          mimetype,
-                          token,
-                          path: `${pathDir}/${token}`,
-                          width,
-                          height,
-                          createdBy: userId,
-                        },
-                        select: {
-                          token: true,
-                          size: true,
-                          mimetype: true,
-                          width: true,
-                          height: true,
-                          path: true,
-                        },
-                      });
-                    })
-                    .then(() => {
-                      this.logger.log(`attachment finished: ${token}`);
-                      processingFiles--;
-                      checkComplete();
-                    })
-                    .catch((err) => {
-                      this.logger.error(`attachment upload error ${token}: ${err.message}`);
-                      hasError = true;
-                      processingFiles--;
-                      checkComplete();
-                    });
-                });
+              const { path } = await this.storageAdapter.uploadFile(
+                bucket,
+                `${pathDir}/${token}`,
+                passThrough
+              );
+
+              const { hash, size, mimetype, width, height } =
+                await this.storageAdapter.getObjectMeta(bucket, path, token);
+
+              await this.prismaService.txClient().attachments.create({
+                data: {
+                  hash,
+                  size,
+                  mimetype,
+                  token,
+                  path: `${pathDir}/${token}`,
+                  width,
+                  height,
+                  createdBy: userId,
+                },
+              });
+              this.logger.log(`attachment finished: ${token}`);
+              processingFiles--;
+              checkComplete();
+            })
+            .catch((err) => {
+              this.logger.error(`attachment upload error ${token}: ${err.message}`);
+              hasError = true;
+              processingFiles--;
+              checkComplete();
             });
         } else {
           entry.autodrain();
