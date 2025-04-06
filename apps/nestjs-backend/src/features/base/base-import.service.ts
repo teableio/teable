@@ -179,10 +179,7 @@ export class BaseImportService {
         userId,
       },
       {
-        attempts: 1,
-        removeOnComplete: true,
-        removeOnFail: true,
-        jobId: `import_csv_${path}_${userId}`,
+        jobId: `import_attachments_${path}_${userId}`,
       }
     );
   }
@@ -206,9 +203,6 @@ export class BaseImportService {
         structure,
       },
       {
-        attempts: 1,
-        removeOnComplete: true,
-        removeOnFail: true,
         jobId: `import_csv_${path}_${userId}`,
       }
     );

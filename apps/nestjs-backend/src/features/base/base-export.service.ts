@@ -5,7 +5,7 @@ import { FieldType, getRandomString, ViewType } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
-import type { INotifyVo, IBaseJson } from '@teable/openapi';
+import type { IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
 import { stringify } from 'csv-stringify/sync';
 import { Knex } from 'knex';
