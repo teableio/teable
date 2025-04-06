@@ -614,6 +614,7 @@ export class BaseExportService {
             'columnMeta',
             'enableShare',
             'shareMeta',
+            'shareId',
             'isLocked',
           ]),
           order: index,

@@ -21,6 +21,7 @@ export const viewJsonSchema = viewVoSchema
     columnMeta: true,
     shareMeta: true,
     enableShare: true,
+    shareId: true,
     isLocked: true,
   })
   .extend({

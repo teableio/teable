@@ -7,6 +7,7 @@ import {
   generateDashboardId,
   generatePluginInstallId,
   generatePluginPanelId,
+  generateShareId,
   Role,
   ViewType,
 } from '@teable/core';
@@ -1130,6 +1131,7 @@ export class BaseImportService {
     return matches.map((match) => match.slice(1, -1));
   }
 
+  /* eslint-disable sonarjs/cognitive-complexity */
   private async createViews(
     tables: IBaseJson['tables'],
     tableIdMap: Record<string, string>,
@@ -1149,6 +1151,8 @@ export class BaseImportService {
           isLocked,
           order,
           columnMeta,
+          shareMeta,
+          shareId,
         } = view;
 
         const keys = ['options', 'columnMeta', 'filter', 'group', 'sort'] as (keyof typeof view)[];
@@ -1168,17 +1172,6 @@ export class BaseImportService {
           ...obj,
         });
 
-        // if (enableShare) {
-        //   await this.viewOpenApiService.enableShare(tableIdMap[tableId], newViewVo.id);
-        // }
-
-        // if (shareMeta) {
-        //   await this.viewOpenApiService.updateShareMeta(
-        //     tableIdMap[tableId],
-        //     newViewVo.id,
-        //     shareMeta
-        //   );
-        // }
         viewMap[viewId] = newViewVo.id;
 
         await this.prismaService.txClient().view.update({
@@ -1188,6 +1181,10 @@ export class BaseImportService {
           data: {
             order,
             columnMeta: columnMeta ? replaceStringByMap(columnMeta, { fieldMap }) : columnMeta,
+            shareId: shareId ? generateShareId() : undefined,
+            shareMeta: shareMeta ? JSON.stringify(shareMeta) : undefined,
+            enableShare,
+            isLocked,
           },
         });
       }
