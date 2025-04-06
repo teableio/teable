@@ -41,6 +41,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   private logger = new Logger(BaseImportCsvQueueProcessor.name);
   readonly queueEvents = new QueueEvents(BASE_IMPORT_CSV_QUEUE);
 
+  private processedJobs = new Set<string>();
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
@@ -52,7 +54,22 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<IBaseImportCsvJob>) {
-    this.handleBaseImportCsv(job);
+    const jobId = String(job.id);
+    if (this.processedJobs.has(jobId)) {
+      this.logger.log(`Job ${jobId} already processed, skipping`);
+      return;
+    }
+
+    this.processedJobs.add(jobId);
+
+    try {
+      await this.handleBaseImportCsv(job);
+    } catch (error) {
+      this.logger.error(
+        `Process base import csv failed: ${(error as Error)?.message}`,
+        (error as Error)?.stack
+      );
+    }
   }
 
   private async handleBaseImportCsv(job: Job<IBaseImportCsvJob>) {
@@ -61,6 +78,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       StorageAdapter.getBucket(UploadType.Import),
       path
     );
+    const processedFiles = new Set<string>();
 
     const parser = unzipper.Parse();
     csvStream.pipe(parser);
@@ -68,6 +86,12 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     return new Promise<{ success: boolean }>((resolve, reject) => {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
+
+        if (processedFiles.has(filePath)) {
+          this.logger.warn(`warning: duplicate process file: ${filePath}`);
+        }
+        processedFiles.add(filePath);
+
         if (
           filePath.startsWith('tables/') &&
           entry.type !== 'Directory' &&
@@ -301,9 +325,18 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     const parser = unzipper.Parse();
     csvStream.pipe(parser);
 
+    const processedFiles = new Set<string>();
+
     return new Promise<{ success: boolean }>((resolve, reject) => {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
+
+        if (processedFiles.has(filePath)) {
+          entry.autodrain();
+          return;
+        }
+        processedFiles.add(filePath);
+
         if (
           filePath.startsWith('tables/') &&
           entry.type !== 'Directory' &&

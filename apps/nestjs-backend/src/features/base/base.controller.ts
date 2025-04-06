@@ -43,6 +43,7 @@ import type {
   IGetBasePermissionVo,
   IGetBaseVo,
   IGetSharedBaseVo,
+  IImportBaseVo,
   IListBaseCollaboratorUserVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
@@ -92,7 +93,7 @@ export class BaseController {
   async importBase(
     @Body(new ZodValidationPipe(importBaseRoSchema))
     importBaseRo: ImportBaseRo
-  ): Promise<ICreateBaseRo> {
+  ): Promise<IImportBaseVo> {
     return await this.baseImportService.importBase(importBaseRo);
   }
 

@@ -62,7 +62,7 @@ export class BaseExportService {
   async exportBaseZip(baseId: string) {
     this.processExportBaseZip(baseId)
       .then(async (result) => {
-        const { path, name, token } = result;
+        const { path, name } = result;
         const previewUrl = await this.storageAdapter.getPreviewUrl(
           StorageAdapter.getBucket(UploadType.ExportBase),
           path,
@@ -74,17 +74,10 @@ export class BaseExportService {
         );
 
         const messageString = `<a href="${previewUrl}" name="${name}">${name}</a>`;
-        this.notifyExportResult(baseId, messageString, {
-          mimetype: 'application/zip',
-          presignedUrl: previewUrl,
-          path,
-          token,
-          size: 1100,
-          url: path,
-        });
+        this.notifyExportResult(baseId, messageString, previewUrl);
       })
       .catch((e) => {
-        console.log('error', e);
+        this.logger.error(`export base zip error: ${e.message}`, e?.stack);
       });
   }
 
@@ -553,9 +546,10 @@ export class BaseExportService {
 
     const otherFields = fields
       .filter(({ id }) => !crossBaseRelativeFields.map(({ id }) => id).includes(id))
-      .map((field) => ({
+      .map((field, index) => ({
         ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
         createTime: createTimeMap[field.id],
+        order: fieldRaws[index].order,
       }));
 
     return [...otherFields, ...crossBaseRelativeFields] as IBaseJson['tables'][number]['fields'];
@@ -573,11 +567,12 @@ export class BaseExportService {
     const crossBaseLinkFields = fields
       .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
       .filter(({ options }) => Boolean((options as ILinkFieldOptions)?.baseId))
-      .map((field) => {
+      .map((field, index) => {
         const res = {
           ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
           type: crossBase ? field.type : FieldType.SingleLineText,
           createTime: createTimeMap[field.id],
+          order: fieldRaws[index].order,
         };
 
         return crossBase ? res : omit(res, ['options', 'lookupOptions']);
@@ -591,9 +586,10 @@ export class BaseExportService {
           .map(({ id }) => id)
           .includes((lookupOptions as ILookupOptionsVo)?.linkFieldId)
       )
-      .map((field) => ({
+      .map((field, index) => ({
         ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
         type: crossBase ? field.type : FieldType.SingleLineText,
+        order: fieldRaws[index].order,
       }));
 
     return [...crossBaseLinkFields, ...relativeFields] as IBaseJson['tables'][number]['fields'];
@@ -810,10 +806,10 @@ export class BaseExportService {
     });
   }
 
-  private async notifyExportResult(baseId: string, message: string, notify: INotifyVo) {
+  private async notifyExportResult(baseId: string, message: string, previewUrl: string) {
     const userId = this.cls.get('user.id');
     await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
-      notify,
+      previewUrl,
     });
     await this.notificationService.sendExportBaseResultNotify({
       baseId: baseId,

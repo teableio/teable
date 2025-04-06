@@ -32,7 +32,9 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
   const { mutate: importBaseFn } = useMutation({
     mutationFn: (importBaseRo: ImportBaseRo) => importBase(importBaseRo),
     onSuccess: (result) => {
-      const { id: baseId } = result.data;
+      const {
+        base: { id: baseId },
+      } = result.data;
       onOpenChange(false);
       router.push(`/base/${baseId}`);
     },

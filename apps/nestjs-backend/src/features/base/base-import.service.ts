@@ -117,7 +117,12 @@ export class BaseImportService {
 
     this.appendTableData(importBaseRo.notify.path, tableIdMap, fieldIdMap, viewIdMap, structure);
 
-    return base;
+    return {
+      base,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+    };
   }
 
   private async processStructure(
@@ -166,10 +171,19 @@ export class BaseImportService {
 
   private async uploadAttachments(path: string) {
     const userId = this.cls.get('user.id');
-    this.baseImportAttachmentsQueueProcessor.queue.add('import_base_attachments', {
-      path,
-      userId,
-    });
+    this.baseImportAttachmentsQueueProcessor.queue.add(
+      'import_base_attachments',
+      {
+        path,
+        userId,
+      },
+      {
+        attempts: 1,
+        removeOnComplete: true,
+        removeOnFail: true,
+        jobId: `import_csv_${path}_${userId}`,
+      }
+    );
   }
 
   private async appendTableData(
@@ -180,38 +194,44 @@ export class BaseImportService {
     structure: IBaseJson
   ) {
     const userId = this.cls.get('user.id');
-    this.baseImportCsvQueueProcessor.queue.add('base_import_csv', {
-      path,
-      userId,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      structure,
-    });
+    this.baseImportCsvQueueProcessor.queue.add(
+      'base_import_csv',
+      {
+        path,
+        userId,
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        structure,
+      },
+      {
+        attempts: 1,
+        removeOnComplete: true,
+        removeOnFail: true,
+        jobId: `import_csv_${path}_${userId}`,
+      }
+    );
   }
 
   async createBaseStructure(spaceId: string, structure: IBaseJson) {
     const { name, icon, tables, plugins } = structure;
 
-    //  in one transaction
-    return this.prismaService.$tx(async () => {
-      // create base
-      const newBase = await this.createBase(spaceId, name, icon || undefined);
+    // create base
+    const newBase = await this.createBase(spaceId, name, icon || undefined);
 
-      // create table
-      const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
+    // create table
+    const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
 
-      // create plugins
-      await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
+    // create plugins
+    await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
 
-      return {
-        base: newBase,
-        tableIdMap,
-        fieldIdMap,
-        viewIdMap,
-        structure,
-      };
-    });
+    return {
+      base: newBase,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      structure,
+    };
   }
 
   private async createTables(baseId: string, tables: IBaseJson['tables']) {
@@ -239,14 +259,16 @@ export class BaseImportService {
   private async createFields(tables: IBaseJson['tables'], tableIdMap: Record<string, string>) {
     const fieldMap: Record<string, string> = {};
 
-    const allFields = tables.reduce((acc, cur) => {
-      const fieldWithTableId = cur.fields.map((field) => ({
-        ...field,
-        sourceTableId: cur.id,
-        targetTableId: tableIdMap[cur.id],
-      }));
-      return [...acc, ...fieldWithTableId];
-    }, [] as IFieldWithTableIdJson[]);
+    const allFields = tables
+      .reduce((acc, cur) => {
+        const fieldWithTableId = cur.fields.map((field) => ({
+          ...field,
+          sourceTableId: cur.id,
+          targetTableId: tableIdMap[cur.id],
+        }));
+        return [...acc, ...fieldWithTableId];
+      }, [] as IFieldWithTableIdJson[])
+      .sort((a, b) => a.createTime.localeCompare(b.createTime));
 
     const nonCommonFieldTypes = [FieldType.Link, FieldType.Rollup, FieldType.Formula];
 
@@ -295,13 +317,21 @@ export class BaseImportService {
         dbFieldName,
         description,
       });
-      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, field.order, {
         notNull,
         unique,
         dbFieldName: newFieldVo.dbFieldName,
         isPrimary,
       });
       fieldMap[field.id] = newFieldVo.id;
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: newFieldVo.id,
+        },
+        data: {
+          order: field.order,
+        },
+      });
     }
   }
 
@@ -392,7 +422,7 @@ export class BaseImportService {
           isOneWay: true,
         },
       });
-      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, field.order, {
         notNull,
         unique,
         dbFieldName,
@@ -432,7 +462,7 @@ export class BaseImportService {
           foreignTableId: targetTableId,
         },
       });
-      await this.replenishmentConstraint(newField.id, targetTableId, {
+      await this.replenishmentConstraint(newField.id, targetTableId, f.order, {
         notNull,
         unique,
         dbFieldName,
@@ -472,6 +502,7 @@ export class BaseImportService {
           dbFieldName: groupField.dbFieldName,
           name: groupField.name,
           description: groupField.description,
+          order: groupField.order,
         },
       });
 
@@ -537,7 +568,7 @@ export class BaseImportService {
         },
       });
       fieldMap[field.id] = newFieldVo.id;
-      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, field.order, {
         notNull,
         unique,
         dbFieldName,
@@ -569,6 +600,7 @@ export class BaseImportService {
         unique,
         dbFieldName,
         isPrimary,
+        order,
       } = field[0];
       const symmetricField = field[1];
       const { foreignTableId, relationship } = options as ILinkFieldOptions;
@@ -584,7 +616,7 @@ export class BaseImportService {
       });
       fieldMap[fieldId] = newFieldVo.id;
       fieldMap[symmetricField.id] = (newFieldVo.options as ILinkFieldOptions).symmetricFieldId!;
-      await this.replenishmentConstraint(newFieldVo.id, targetTableId, {
+      await this.replenishmentConstraint(newFieldVo.id, targetTableId, order, {
         notNull,
         unique,
         dbFieldName,
@@ -604,8 +636,8 @@ export class BaseImportService {
     targetTableId: string,
     newFieldId: string
   ) {
-    const { notNull, unique, dbFieldName, isPrimary, description, name } = symmetricField;
-    await this.replenishmentConstraint(newFieldId, targetTableId, {
+    const { notNull, unique, dbFieldName, isPrimary, description, name, order } = symmetricField;
+    await this.replenishmentConstraint(newFieldId, targetTableId, order, {
       notNull,
       unique,
       dbFieldName,
@@ -799,7 +831,7 @@ export class BaseImportService {
     sourceToTargetFieldMap: Record<string, string>,
     hasError = false
   ) {
-    if (field.type === FieldType.Formula) {
+    if (field.type === FieldType.Formula && !field.isLookup) {
       await this.duplicateFormulaField(targetTableId, field, sourceToTargetFieldMap, hasError);
     } else if (field.isLookup) {
       await this.duplicateLookupField(
@@ -872,7 +904,7 @@ export class BaseImportService {
       },
       name,
     });
-    await this.replenishmentConstraint(newField.id, targetTableId, {
+    await this.replenishmentConstraint(newField.id, targetTableId, field.order, {
       notNull,
       unique,
       dbFieldName,
@@ -940,7 +972,7 @@ export class BaseImportService {
       options,
       name,
     });
-    await this.replenishmentConstraint(newField.id, targetTableId, {
+    await this.replenishmentConstraint(newField.id, targetTableId, fieldInstance.order, {
       notNull,
       unique,
       dbFieldName,
@@ -990,7 +1022,7 @@ export class BaseImportService {
       },
       name,
     });
-    await this.replenishmentConstraint(newField.id, targetTableId, {
+    await this.replenishmentConstraint(newField.id, targetTableId, fieldInstance.order, {
       notNull,
       unique,
       dbFieldName,
@@ -1018,6 +1050,7 @@ export class BaseImportService {
   private async replenishmentConstraint(
     fId: string,
     targetTableId: string,
+    order: number,
     {
       notNull,
       unique,
@@ -1025,6 +1058,14 @@ export class BaseImportService {
       isPrimary,
     }: { notNull?: boolean; unique?: boolean; dbFieldName: string; isPrimary?: boolean }
   ) {
+    await this.prismaService.txClient().field.update({
+      where: {
+        id: fId,
+      },
+      data: {
+        order,
+      },
+    });
     if (!notNull && !unique && !isPrimary) {
       return;
     }
@@ -1099,7 +1140,16 @@ export class BaseImportService {
       const { views: originalViews, id: tableId } = table;
       const views = originalViews.filter((view) => view.type !== ViewType.Plugin);
       for (const view of views) {
-        const { name, type, id: viewId, description, enableShare } = view;
+        const {
+          name,
+          type,
+          id: viewId,
+          description,
+          enableShare,
+          isLocked,
+          order,
+          columnMeta,
+        } = view;
 
         const keys = ['options', 'columnMeta', 'filter', 'group', 'sort'] as (keyof typeof view)[];
         const obj = {} as Record<string, unknown>;
@@ -1114,6 +1164,7 @@ export class BaseImportService {
           type,
           description,
           enableShare,
+          isLocked,
           ...obj,
         });
 
@@ -1129,6 +1180,16 @@ export class BaseImportService {
         //   );
         // }
         viewMap[viewId] = newViewVo.id;
+
+        await this.prismaService.txClient().view.update({
+          where: {
+            id: newViewVo.id,
+          },
+          data: {
+            order,
+            columnMeta: columnMeta ? replaceStringByMap(columnMeta, { fieldMap }) : columnMeta,
+          },
+        });
       }
     }
 
@@ -1291,8 +1352,17 @@ export class BaseImportService {
     const prisma = this.prismaService.txClient();
 
     for (const pluginView of pluginViews) {
-      const { id, name, description, enableShare, shareMeta, isLocked, tableId, pluginInstall } =
-        pluginView;
+      const {
+        id,
+        name,
+        description,
+        enableShare,
+        shareMeta,
+        isLocked,
+        tableId,
+        pluginInstall,
+        order,
+      } = pluginView;
       const { pluginId } = pluginInstall;
       const { viewId: newViewId, pluginInstallId } = await this.viewOpenApiService.pluginInstall(
         tableIdMap[tableId],
@@ -1302,6 +1372,13 @@ export class BaseImportService {
         }
       );
       viewIdMap[id] = newViewId;
+
+      await prisma.view.update({
+        where: { id: newViewId },
+        data: {
+          order,
+        },
+      });
 
       // 1. update view options
       const configProperties = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;

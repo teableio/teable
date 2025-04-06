@@ -342,7 +342,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     });
 
     it('should duplicate all view plugins', async () => {
-      const pluginTable = await createTable(base.id, { name: 'table1PanelPlugin' });
+      const pluginTable = await createTable(base.id, { name: 'table1ViewPlugin' });
       const tableId = pluginTable.id;
 
       const sheetView1 = (

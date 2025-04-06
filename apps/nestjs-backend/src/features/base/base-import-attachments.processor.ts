@@ -20,6 +20,7 @@ export const BASE_IMPORT_ATTACHMENTS_QUEUE = 'base-import-attachments-queue';
 @Processor(BASE_IMPORT_ATTACHMENTS_QUEUE)
 export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
   private logger = new Logger(BaseImportAttachmentsQueueProcessor.name);
+  private processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -30,7 +31,22 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<IBaseImportJob>) {
-    this.handleBaseImportAttachments(job);
+    const jobId = String(job.id);
+    if (this.processedJobs.has(jobId)) {
+      this.logger.log(`Job ${jobId} already processed, skipping`);
+      return;
+    }
+
+    this.processedJobs.add(jobId);
+
+    try {
+      await this.handleBaseImportAttachments(job);
+    } catch (error) {
+      this.logger.error(
+        `Process base import attachments failed: ${(error as Error)?.message}`,
+        (error as Error)?.stack
+      );
+    }
   }
 
   private async handleBaseImportAttachments(job: Job<IBaseImportJob>) {

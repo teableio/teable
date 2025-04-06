@@ -49,6 +49,9 @@ export const fieldJsonSchema = fieldVoSchema
     createTime: z.string().datetime().openapi({
       description: 'The create time of the field.',
     }),
+    order: z.number().openapi({
+      description: 'The order of the field.',
+    }),
   });
 
 export const tableJsonSchema = z.object({
