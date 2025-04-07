@@ -10,7 +10,6 @@ env:
   INSTANCE_DOMAIN: pr-${{ github.event.pull_request.number }}
   DISPLAY_NAME: "teable-pr-${{ github.event.pull_request.number }}"
   MAIN_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable
-  DB_MIGRATE_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable-db-migrate
   IMAGE_TAG: ${{ github.sha }}-amd64
 
 jobs:
@@ -27,7 +26,6 @@ jobs:
           sed -i "s#__INSTANCE_NAME__#${{ env.INSTANCE_NAME }}#g" deploy.yaml
           sed -i "s#__INSTANCE_DOMAIN__#${{ env.INSTANCE_DOMAIN }}#g" deploy.yaml
           sed -i "s#__MAIN_IMAGE_REPOSITORY__#${{ env.MAIN_IMAGE_REPOSITORY }}#g" deploy.yaml
-          sed -i "s#__DB_MIGRATE_IMAGE_REPOSITORY__#${{ env.DB_MIGRATE_IMAGE_REPOSITORY }}#g" deploy.yaml
           sed -i "s#__IMAGE_TAG__#${{ env.IMAGE_TAG }}#g" deploy.yaml
           sed -i "s#__DISPLAY_NAME__#${{ env.DISPLAY_NAME }}#g" deploy.yaml
 

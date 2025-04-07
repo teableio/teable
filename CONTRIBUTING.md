@@ -144,10 +144,7 @@ This repo follows [conventional commit](https://www.conventionalcommits.org/en/v
 ## Docker Build
 
 ### Building Images Locally
-
-We have two main Docker images:
 - `teable`: The main application image
-- `teable-db-migrate`: Database migration tool (one-time setup tool)
 
 #### Build the Application Image
 > **Note**
@@ -161,27 +158,15 @@ docker build -f dockers/teable/Dockerfile -t teable:latest .
 docker build --platform linux/amd64 -f dockers/teable/Dockerfile -t teable:latest .
 ```
 
-#### Build the Migration Tool Image
-
-```bash
-# Build the database migration image
-docker build -f dockers/teable/Dockerfile.db-migrate -t teable-db-migrate:latest .
-```
-
-> **Important**
-> The `teable-db-migrate` image is used for database schema migrations. It should be run once before starting the main application. The container will automatically exit after completing the migrations.
-
 ### Pushing to Docker Hub
 
 ```bash
 # Tag your local image
 docker tag teable:latest your-username/teable:latest
-docker tag teable-db-migrate:latest your-username/teable-db-migrate:latest
 
 # Login to Docker Hub
 docker login
 
 # Push the image
 docker push your-username/teable:latest
-docker push your-username/teable-db-migrate:latest
 ```

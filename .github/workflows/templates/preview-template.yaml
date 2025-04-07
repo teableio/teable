@@ -64,7 +64,8 @@ spec:
       initContainers:
         - name: db-migrate
           image: >-
-            __DB_MIGRATE_IMAGE_REPOSITORY__:__IMAGE_TAG__
+            __MAIN_IMAGE_REPOSITORY__:__IMAGE_TAG__
+          args: ["migrate-only"]
           env:
             - name: PG_PASSWORD
               valueFrom:
@@ -92,6 +93,7 @@ spec:
         - name: teable-__INSTANCE_NAME__
           image: >-
             __MAIN_IMAGE_REPOSITORY__:__IMAGE_TAG__
+          args: ["skip-migrate"]
           env:
             - name: PG_PASSWORD
               valueFrom:
