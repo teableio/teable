@@ -306,7 +306,7 @@ export class BaseExportService {
 
     const thumbnailAttachments = attachments.filter(({ thumbnailPath }) => thumbnailPath);
 
-    const prefix = `${filePath}/thumbnails__`;
+    const prefix = `${filePath}/thumbnail__`;
     for (const { thumbnailPath } of thumbnailAttachments) {
       const {
         lg: thumbnailLgPath,
@@ -319,7 +319,8 @@ export class BaseExportService {
           StorageAdapter.getBucket(UploadType.Table),
           thumbnailLgPath
         );
-        archive.append(stream, { name: `${prefix}${thumbnailLgPath}.jpg` });
+        const fileName = thumbnailLgPath.split('/').pop();
+        archive.append(stream, { name: `${prefix}${fileName}` });
       }
 
       if (thumbnailMdPath) {
@@ -327,7 +328,8 @@ export class BaseExportService {
           StorageAdapter.getBucket(UploadType.Table),
           thumbnailMdPath
         );
-        archive.append(stream, { name: `${prefix}${thumbnailLgPath}.jpg` });
+        const fileName = thumbnailMdPath.split('/').pop();
+        archive.append(stream, { name: `${prefix}${fileName}` });
       }
 
       if (thumbnailSmPath) {
@@ -335,7 +337,8 @@ export class BaseExportService {
           StorageAdapter.getBucket(UploadType.Table),
           thumbnailSmPath
         );
-        archive.append(stream, { name: `${prefix}${thumbnailSmPath}.jpg` });
+        const fileName = thumbnailSmPath.split('/').pop();
+        archive.append(stream, { name: `${prefix}${fileName}` });
       }
     }
   }

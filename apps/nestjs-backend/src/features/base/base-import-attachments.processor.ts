@@ -131,41 +131,25 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
           entry.pipe(passThrough);
 
           const token = filePath.replace('attachments/', '').split('.')[0];
-          const isThumbnail = token.includes('thumbnails__');
+          const isThumbnail = token.includes('thumbnail__');
           const fileSuffix = filePath.replace('attachments/', '').split('.').pop();
           const pathDir = StorageAdapter.getDir(UploadType.Table);
           const mimeTypeFromExtension = this.getFileMimeType(fileSuffix);
 
-          const finalPath = isThumbnail ? token.split('__')[1] : `${pathDir}/${token}`;
+          const finalPath = isThumbnail
+            ? `table/${token.split('__')[1].split('.')[0]}`
+            : `${pathDir}/${token}`;
 
-          const finalToken = isThumbnail ? token.split('/')[1].split('_')[0] : token;
+          // const finalToken = isThumbnail ? token.split('__')[1].split('.')[0] : token;
 
           this.logger.log(`start upload attachment: ${token}`);
 
-          // if the token file is existed, skip the upload
-          this.prismaService
-            .txClient()
-            .attachments.findUnique({
-              where: {
-                token: finalToken,
-              },
-              select: {
-                id: true,
-              },
+          this.storageAdapter
+            .uploadFile(bucket, finalPath, passThrough, {
+              // eslint-disable-next-line @typescript-eslint/naming-convention
+              'Content-Type': mimeTypeFromExtension,
             })
-            .then(async (res) => {
-              if (res) {
-                this.logger.log(`attachment already exists: ${token}`);
-                processingFiles--;
-                checkComplete();
-                return;
-              }
-              // update attachment
-              await this.storageAdapter.uploadFile(bucket, finalPath, passThrough, {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                'Content-Type': mimeTypeFromExtension,
-              });
-
+            .then(() => {
               this.logger.log(`attachment finished: ${token}`);
               processingFiles--;
               checkComplete();
@@ -176,6 +160,41 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
               processingFiles--;
               checkComplete();
             });
+
+          // if the token file is existed, skip the upload
+          // this.prismaService
+          //   .txClient()
+          //   .attachments.findUnique({
+          //     where: {
+          //       token: finalToken,
+          //     },
+          //     select: {
+          //       id: true,
+          //     },
+          //   })
+          //   .then(async (res) => {
+          //     if (res) {
+          //       this.logger.log(`attachment already exists: ${token}`);
+          //       processingFiles--;
+          //       checkComplete();
+          //       return;
+          //     }
+          //     // update attachment
+          //     await this.storageAdapter.uploadFile(bucket, finalPath, passThrough, {
+          //       // eslint-disable-next-line @typescript-eslint/naming-convention
+          //       'Content-Type': mimeTypeFromExtension,
+          //     });
+
+          //     this.logger.log(`attachment finished: ${token}`);
+          //     processingFiles--;
+          //     checkComplete();
+          //   })
+          //   .catch((err) => {
+          //     this.logger.error(`attachment upload error ${token}: ${err.message}`);
+          //     hasError = true;
+          //     processingFiles--;
+          //     checkComplete();
+          //   });
         } else {
           entry.autodrain();
         }
