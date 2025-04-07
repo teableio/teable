@@ -7,7 +7,7 @@ import {
   PrismaClientUnknownRequestError,
 } from '@prisma/client/runtime/library';
 import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
@@ -229,8 +229,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           const attValues = JSON.parse(value as string) as IAttachmentCellValue;
           const fieldId = attachmentsFields.find(({ dbFieldName }) => dbFieldName === key)?.id;
           attValues.forEach((att) => {
+            const attachmentId = generateAttachmentId();
             attachmentsTableData.push({
-              attachmentId: att.id,
+              attachmentId,
               name: att.name,
               token: att.token,
               tableId: tableId,
@@ -265,7 +266,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     }[]
   ) {
     await this.prismaService.txClient().attachmentsTable.createMany({
-      data: attachmentsTableData.map((a) => ({ ...a, createdBy: userId })),
+      data: attachmentsTableData.map((a) => ({
+        ...a,
+        createdBy: userId,
+      })),
     });
   }
 
