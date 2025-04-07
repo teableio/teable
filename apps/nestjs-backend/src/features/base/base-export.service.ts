@@ -307,7 +307,8 @@ export class BaseExportService {
     const thumbnailAttachments = attachments.filter(({ thumbnailPath }) => thumbnailPath);
 
     const prefix = `${filePath}/thumbnail__`;
-    for (const { thumbnailPath } of thumbnailAttachments) {
+    for (const { thumbnailPath, name } of thumbnailAttachments) {
+      const suffix = name?.split('.').pop() || 'jpg';
       const {
         lg: thumbnailLgPath,
         md: thumbnailMdPath,
@@ -320,7 +321,7 @@ export class BaseExportService {
           thumbnailLgPath
         );
         const fileName = thumbnailLgPath.split('/').pop();
-        archive.append(stream, { name: `${prefix}${fileName}` });
+        archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
       }
 
       if (thumbnailMdPath) {
@@ -329,7 +330,7 @@ export class BaseExportService {
           thumbnailMdPath
         );
         const fileName = thumbnailMdPath.split('/').pop();
-        archive.append(stream, { name: `${prefix}${fileName}` });
+        archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
       }
 
       if (thumbnailSmPath) {
@@ -338,7 +339,7 @@ export class BaseExportService {
           thumbnailSmPath
         );
         const fileName = thumbnailSmPath.split('/').pop();
-        archive.append(stream, { name: `${prefix}${fileName}` });
+        archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
       }
     }
   }
