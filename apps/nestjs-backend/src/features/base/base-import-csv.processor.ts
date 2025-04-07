@@ -19,7 +19,6 @@ import * as unzipper from 'unzipper';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 
 interface IBaseImportCsvJob {
@@ -45,7 +44,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly recordOpenApiService: RecordOpenApiService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>
@@ -78,7 +76,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       StorageAdapter.getBucket(UploadType.Import),
       path
     );
-    const processedFiles = new Set<string>();
 
     const parser = unzipper.Parse();
     csvStream.pipe(parser);
@@ -86,18 +83,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     return new Promise<{ success: boolean }>((resolve, reject) => {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
+        const isTable = filePath.startsWith('tables/') && entry.type !== 'Directory';
+        const isJunction = filePath.includes('junction_');
 
-        if (processedFiles.has(filePath)) {
-          this.logger.warn(`warning: duplicate process file: ${filePath}`);
-        }
-        processedFiles.add(filePath);
-
-        if (
-          filePath.startsWith('tables/') &&
-          entry.type !== 'Directory' &&
-          // exclude junction table
-          !filePath.includes('junction_')
-        ) {
+        if (isTable && !isJunction) {
           const tableId = filePath.replace('tables/', '').split('.')[0];
           const table = structure.tables.find((table) => table.id === tableId);
           const attachmentsFields =
@@ -108,15 +97,13 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 id,
               })) || [];
 
-          const batchProcessor = new BatchProcessor(
-            chunkSize,
-            this.handleChunk.bind(this),
-            tableIdMap[tableId],
+          const batchProcessor = new BatchProcessor(this.handleChunk.bind(this), {
+            tableId: tableIdMap[tableId],
             userId,
             fieldIdMap,
             viewIdMap,
-            attachmentsFields
-          );
+            attachmentsFields,
+          });
 
           entry
             .pipe(
@@ -126,10 +113,12 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                   return value;
                 },
                 mapHeaders: ({ header }) => {
-                  if (header.startsWith('__row_')) {
-                    return `__row_${viewIdMap[header.slice(5)]}`;
+                  if (header.startsWith('__row_') && viewIdMap[header.slice(6)]) {
+                    return `__row_${viewIdMap[header.slice(6)]}`;
                   }
-                  if (header.startsWith('__fk_')) {
+
+                  // special case for cross base link fields, there is no map causing the old error link config
+                  if (header.startsWith('__fk_') && fieldIdMap[header.slice(5)]) {
                     return `__fk_${fieldIdMap[header.slice(5)]}`;
                   }
                   return header;
@@ -164,12 +153,15 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   private async handleChunk(
     results: Record<string, unknown>[],
-    tableId: string,
-    userId: string,
-    fieldIdMap: Record<string, string>,
-    viewIdMap: Record<string, string>,
-    attachmentsFields: { dbFieldName: string; id: string }[]
+    config: {
+      tableId: string;
+      userId: string;
+      fieldIdMap: Record<string, string>;
+      viewIdMap: Record<string, string>;
+      attachmentsFields: { dbFieldName: string; id: string }[];
+    }
   ) {
+    const { tableId, userId, fieldIdMap, attachmentsFields } = config;
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: {
@@ -188,25 +180,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
     const newResult = [...results].map((res) => {
       const newRes = { ...res };
-      const keys = Object.keys(newRes);
-      const rawKeys = keys.filter((key) => key.startsWith('__row_'));
-      const fkKeys = keys.filter((key) => key.startsWith('__fk_fld'));
-
-      rawKeys.forEach((key) => {
-        const value = res[key];
-        const fieldId = key.slice(5);
-        const newKey = fieldIdMap[fieldId] ? `__fk_${viewIdMap[fieldId]}` : key;
-        newRes[newKey] = value;
-        delete newRes[key];
-      });
-
-      fkKeys.forEach((key) => {
-        const value = res[key];
-        const viewId = key.slice(6);
-        const newKey = viewIdMap[viewId] ? `__row_${viewIdMap[viewId]}` : key;
-        newRes[newKey] = value;
-        delete newRes[key];
-      });
 
       EXCLUDE_SYSTEM_FIELDS.forEach((header) => {
         delete newRes[header];
@@ -449,73 +422,65 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 class BatchProcessor extends Transform {
   private buffer: Record<string, unknown>[] = [];
   private totalProcessed = 0;
+  public static BATCH_SIZE = 1000;
 
   constructor(
-    private readonly batchSize: number,
-    private readonly processBatch: (
+    private readonly processBatchFn: (
       batch: Record<string, unknown>[],
-      tableId: string,
-      userId: string,
-      fieldIdMap: Record<string, string>,
-      viewIdMap: Record<string, string>,
-      attachmentsFields: { dbFieldName: string; id: string }[]
+      config: {
+        tableId: string;
+        userId: string;
+        fieldIdMap: Record<string, string>;
+        viewIdMap: Record<string, string>;
+        attachmentsFields: { dbFieldName: string; id: string }[];
+      }
     ) => Promise<void>,
-    private tableId: string,
-    private userId: string,
-    private fieldIdMap: Record<string, string>,
-    private viewIdMap: Record<string, string>,
-    private attachmentsFields: { dbFieldName: string; id: string }[]
+    private config: {
+      tableId: string;
+      userId: string;
+      fieldIdMap: Record<string, string>;
+      viewIdMap: Record<string, string>;
+      attachmentsFields: { dbFieldName: string; id: string }[];
+    }
   ) {
     super({ objectMode: true });
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  _transform(
+  async _transform(
     chunk: Record<string, unknown>,
     encoding: BufferEncoding,
     callback: TransformCallback
-  ): void {
+  ) {
     this.buffer.push(chunk);
     this.totalProcessed++;
 
-    if (this.buffer.length >= this.batchSize) {
+    if (this.buffer.length >= BatchProcessor.BATCH_SIZE) {
       const currentBatch = [...this.buffer];
       this.buffer = [];
 
-      this.processBatch(
-        currentBatch,
-        this.tableId,
-        this.userId,
-        this.fieldIdMap,
-        this.viewIdMap,
-        this.attachmentsFields
-      )
-        .then(() => {
-          this.emit('progress', { processed: this.totalProcessed });
-          callback();
-        })
-        .catch((err: Error) => callback(err));
+      try {
+        await this.processBatchFn(currentBatch, this.config);
+        this.emit('progress', { processed: this.totalProcessed });
+        callback();
+      } catch (err: unknown) {
+        callback(err as Error);
+      }
     } else {
       callback();
     }
   }
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  _flush(callback: TransformCallback): void {
+  async _flush(callback: TransformCallback) {
     if (this.buffer.length > 0) {
-      this.processBatch(
-        this.buffer,
-        this.tableId,
-        this.userId,
-        this.fieldIdMap,
-        this.viewIdMap,
-        this.attachmentsFields
-      )
-        .then(() => {
-          this.emit('progress', { processed: this.totalProcessed });
-          callback();
-        })
-        .catch((err: Error) => callback(err));
+      try {
+        await this.processBatchFn(this.buffer, this.config);
+        this.emit('progress', { processed: this.totalProcessed });
+        callback();
+      } catch (err: unknown) {
+        callback(err as Error);
+      }
     } else {
       callback();
     }

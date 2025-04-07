@@ -377,6 +377,7 @@ export class BaseImportService {
 
     await this.createSelfLinkFields(selfLinkFields, fieldMap);
 
+    // deal with cross base link fields
     await this.createCommonLinkFields(crossBaseLinkFields, tableIdMap, fieldMap, true);
 
     await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap);
@@ -422,6 +423,7 @@ export class BaseImportService {
       const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
         name,
         type,
+        dbFieldName,
         description,
         options: {
           foreignTableId: targetTableId,
@@ -527,21 +529,6 @@ export class BaseImportService {
     }
   }
 
-  private async createCrossBaseLinkFields(
-    fields: IFieldWithTableIdJson[],
-    fieldMap: Record<string, string>
-  ) {
-    // convert cross base link fields to text field, then transform data in import csv task
-    for (const field of fields) {
-      const { name, targetTableId } = field;
-      const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
-        name,
-        type: FieldType.SingleLineText,
-      });
-      fieldMap[field.id] = newFieldVo.id;
-    }
-  }
-
   private async createCommonLinkFields(
     fields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
@@ -615,6 +602,7 @@ export class BaseImportService {
         name,
         type,
         description,
+        dbFieldName,
         options: {
           foreignTableId: tableIdMap[foreignTableId],
           relationship,
