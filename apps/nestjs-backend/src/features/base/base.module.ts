@@ -13,6 +13,7 @@ import { TableModule } from '../table/table.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportService } from './base-export.service';
+import { BaseImportAttachmentsCsvModule } from './base-import-attachments-csv.module';
 import { BaseImportAttachmentsModule } from './base-import-attachments.module';
 import { BaseImportCsvModule } from './base-import-csv.module';
 import { BaseImportService } from './base-import.service';
@@ -36,6 +37,7 @@ import { DbConnectionService } from './db-connection.service';
     NotificationModule,
     BaseImportAttachmentsModule,
     BaseImportCsvModule,
+    BaseImportAttachmentsCsvModule,
   ],
   providers: [
     DbProvider,

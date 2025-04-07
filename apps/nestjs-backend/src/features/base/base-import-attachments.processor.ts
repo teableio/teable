@@ -1,14 +1,17 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { PassThrough } from 'stream';
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
-import { Queue } from 'bullmq';
-import type { Job } from 'bullmq';
+import { Queue, Job } from 'bullmq';
 import * as unzipper from 'unzipper';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import {
+  BASE_IMPORT_ATTACHMENTS_CSV_QUEUE,
+  BaseImportAttachmentsCsvQueueProcessor,
+} from './base-import-attachments-csv.processor';
 
 interface IBaseImportJob {
   path: string;
@@ -25,6 +28,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly baseImportAttachmentsCsvQueueProcessor: BaseImportAttachmentsCsvQueueProcessor,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_ATTACHMENTS_QUEUE) public readonly queue: Queue<IBaseImportJob>
   ) {
@@ -100,7 +104,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
   };
 
   private async handleBaseImportAttachments(job: Job<IBaseImportJob>) {
-    const { path, userId } = job.data;
+    const { path } = job.data;
     const zipStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
       path
@@ -115,16 +119,26 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
 
       parser.on('entry', (entry) => {
         const filePath = entry.path;
-        if (filePath.startsWith('attachments/') && entry.type !== 'Directory') {
+        const fileSuffix = filePath.split('.').pop();
+        if (
+          filePath.startsWith('attachments/') &&
+          entry.type !== 'Directory' &&
+          fileSuffix !== 'csv'
+        ) {
           processingFiles++;
 
           const passThrough = new PassThrough();
           entry.pipe(passThrough);
 
           const token = filePath.replace('attachments/', '').split('.')[0];
+          const isThumbnail = token.includes('thumbnails__');
           const fileSuffix = filePath.replace('attachments/', '').split('.').pop();
           const pathDir = StorageAdapter.getDir(UploadType.Table);
           const mimeTypeFromExtension = this.getFileMimeType(fileSuffix);
+
+          const finalPath = isThumbnail ? token.split('__')[1] : `${pathDir}/${token}`;
+
+          const finalToken = isThumbnail ? token.split('/')[1].split('_')[0] : token;
 
           this.logger.log(`start upload attachment: ${token}`);
 
@@ -133,7 +147,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
             .txClient()
             .attachments.findUnique({
               where: {
-                token,
+                token: finalToken,
               },
               select: {
                 id: true,
@@ -147,33 +161,11 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
                 return;
               }
               // update attachment
-              const { path } = await this.storageAdapter.uploadFile(
-                bucket,
-                `${pathDir}/${token}`,
-                passThrough,
-                {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  'Content-Type': mimeTypeFromExtension,
-                }
-              );
-
-              const { hash, size, mimetype, width, height } =
-                await this.storageAdapter.getObjectMeta(bucket, path, token);
-
-              await this.prismaService.txClient().attachments.create({
-                data: {
-                  hash,
-                  size,
-                  mimetype: ['binary/octet-stream', 'application/octet-stream'].includes(mimetype)
-                    ? mimeTypeFromExtension
-                    : mimetype,
-                  token,
-                  path: `${pathDir}/${token}`,
-                  width,
-                  height,
-                  createdBy: userId,
-                },
+              await this.storageAdapter.uploadFile(bucket, finalPath, passThrough, {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                'Content-Type': mimeTypeFromExtension,
               });
+
               this.logger.log(`attachment finished: ${token}`);
               processingFiles--;
               checkComplete();
@@ -212,5 +204,20 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
         reject(err);
       });
     });
+  }
+
+  @OnWorkerEvent('completed')
+  async onCompleted(job: Job) {
+    const { path, userId } = job.data;
+    this.baseImportAttachmentsCsvQueueProcessor.queue.add(
+      BASE_IMPORT_ATTACHMENTS_CSV_QUEUE,
+      {
+        path,
+        userId,
+      },
+      {
+        jobId: `import_attachments_csv_${path}_${userId}`,
+      }
+    );
   }
 }

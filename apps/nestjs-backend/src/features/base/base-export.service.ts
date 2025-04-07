@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
@@ -163,6 +164,9 @@ export class BaseExportService {
     // 4. export attachments
     await this.appendAttachments('attachments', tableRaws, archive);
 
+    // 4.1 export attachments data .csv
+    await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
+
     // 5. export table data csv
     const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
 
@@ -284,6 +288,7 @@ export class BaseExportService {
           token: true,
           path: true,
           mimetype: true,
+          thumbnailPath: true,
         },
       })
     ).map((att) => ({
@@ -297,6 +302,41 @@ export class BaseExportService {
       );
 
       archive.append(stream, { name: `${filePath}/${token}.${name?.split('.').pop()}` });
+    }
+
+    const thumbnailAttachments = attachments.filter(({ thumbnailPath }) => thumbnailPath);
+
+    const prefix = `${filePath}/thumbnails__`;
+    for (const { thumbnailPath } of thumbnailAttachments) {
+      const {
+        lg: thumbnailLgPath,
+        md: thumbnailMdPath,
+        sm: thumbnailSmPath,
+      } = JSON.parse(thumbnailPath as string);
+
+      if (thumbnailLgPath) {
+        const stream = await this.storageAdapter.downloadFile(
+          StorageAdapter.getBucket(UploadType.Table),
+          thumbnailLgPath
+        );
+        archive.append(stream, { name: `${prefix}${thumbnailLgPath}.jpg` });
+      }
+
+      if (thumbnailMdPath) {
+        const stream = await this.storageAdapter.downloadFile(
+          StorageAdapter.getBucket(UploadType.Table),
+          thumbnailMdPath
+        );
+        archive.append(stream, { name: `${prefix}${thumbnailLgPath}.jpg` });
+      }
+
+      if (thumbnailSmPath) {
+        const stream = await this.storageAdapter.downloadFile(
+          StorageAdapter.getBucket(UploadType.Table),
+          thumbnailSmPath
+        );
+        archive.append(stream, { name: `${prefix}${thumbnailSmPath}.jpg` });
+      }
     }
   }
 
@@ -367,6 +407,79 @@ export class BaseExportService {
       csvStream.write(csvString);
       offset += BaseExportService.CSV_CHUNK;
     }
+    csvStream.end();
+  }
+
+  private async appendAttachmentsDataCsv(
+    filePath: string,
+    tableRaws: TableMeta[],
+    archive: archiver.Archiver
+  ) {
+    const csvStream = new PassThrough();
+    const prisma = this.prismaService.txClient();
+
+    const tokens = await prisma.attachmentsTable.findMany({
+      where: {
+        tableId: {
+          in: tableRaws.map(({ id }) => id),
+        },
+      },
+      select: {
+        token: true,
+      },
+    });
+
+    const attachments = await prisma.attachments.findMany({
+      where: {
+        token: {
+          in: tokens.map(({ token }) => token),
+        },
+        deletedTime: null,
+      },
+    });
+
+    if (!attachments.length) {
+      return;
+    }
+
+    const columnInfo = Object.keys(attachments[0]);
+
+    // 1. set csv header
+    const columnHeader = columnInfo
+      // exclude system fields
+      .filter((name) => !EXCLUDE_SYSTEM_FIELDS.includes(name));
+
+    const headerRow = columnHeader.join(',');
+    csvStream.write(`${headerRow}\n`);
+
+    archive.append(csvStream, { name: `${filePath}/attachments.csv` });
+
+    csvStream.on('error', (err) => {
+      this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
+      throw err;
+    });
+
+    csvStream.on('end', () => {
+      console.log('CSV Stream ended');
+    });
+
+    csvStream.on('finish', () => {
+      console.log('CSV Stream finished');
+    });
+
+    archive.on('error', (err) => {
+      this.logger.error(`CSV Stream archive error: ${err.message}`, err.stack);
+      throw err;
+    });
+
+    const csvString = stringify(
+      attachments.map((att) => pick(att, columnHeader)),
+      {
+        columns: columnHeader,
+      }
+    );
+    csvStream.write(csvString);
+
     csvStream.end();
   }
 

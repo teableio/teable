@@ -37,6 +37,7 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { TableService } from '../table/table.service';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
+import { BaseImportAttachmentsCsvQueueProcessor } from './base-import-attachments-csv.processor';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-csv.processor';
 import { replaceStringByMap } from './utils';
@@ -53,6 +54,7 @@ export class BaseImportService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly baseImportAttachmentsQueueProcessor: BaseImportAttachmentsQueueProcessor,
     private readonly baseImportCsvQueueProcessor: BaseImportCsvQueueProcessor,
+    private readonly baseImportAttachmentsCsvQueueProcessor: BaseImportAttachmentsCsvQueueProcessor,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
@@ -114,15 +116,11 @@ export class BaseImportService {
       importBaseRo
     );
 
-    await this.uploadAttachments(importBaseRo.notify.path);
+    this.uploadAttachments(importBaseRo.notify.path);
 
-    await this.appendTableData(
-      importBaseRo.notify.path,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      structure
-    );
+    // this.uploadAttachmentsCsv(importBaseRo.notify.path);
+
+    this.appendTableData(importBaseRo.notify.path, tableIdMap, fieldIdMap, viewIdMap, structure);
 
     return {
       base,
@@ -189,6 +187,14 @@ export class BaseImportService {
       }
     );
   }
+
+  // private async uploadAttachmentsCsv(path: string) {
+  //   const userId = this.cls.get('user.id');
+  //   await this.baseImportAttachmentsCsvQueueProcessor.queue.add('import_base_attachments_csv', {
+  //     path,
+  //     userId,
+  //   });
+  // }
 
   private async appendTableData(
     path: string,
