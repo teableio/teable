@@ -306,6 +306,9 @@
       "autoFillFieldDialog": {
         "title": "Tüm kayıtları güncelle",
         "description": "Mevcut görünümdeki tüm kayıtlar güncellenecektir, mevcut alanın oluşturduğu tüm ilgili verileri içerecektir"
+      },
+      "action": {
+        "addAttachment": "Ek alan ekle"
       }
     }
   },

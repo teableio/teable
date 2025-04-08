@@ -17,6 +17,8 @@ const createEditorThemeBase = (options?: IEditorThemeOptions) => ({
     overflow: 'auto',
     lineHeight: '1.5',
     maxHeight: '320px',
+    fontFamily:
+      'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
   },
   '&.cm-focused': {
     outline: 'none',

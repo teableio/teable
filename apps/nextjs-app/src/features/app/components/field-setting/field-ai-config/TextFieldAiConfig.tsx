@@ -1,4 +1,5 @@
 import type {
+  ISingleSelectFieldClassifyAIConfig,
   ITextFieldAIConfig,
   ITextFieldCustomizeAIConfig,
   ITextFieldExtractInfoAIConfig,
@@ -9,13 +10,12 @@ import type {
 import { FieldAIActionType } from '@teable/core';
 import { Edit, Export, Layers, Pencil, Translation } from '@teable/icons';
 import { Selector } from '@teable/ui-lib/base';
-import { Input, Label, Textarea } from '@teable/ui-lib/shadcn';
+import { Input, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
-import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
 import type { IFieldEditorRo } from '../type';
-import { PromptEditorContainer } from './components';
+import { AttachmentSelect, FieldSelect, PromptEditorContainer } from './components';
 
 interface ITextFieldAiConfigProps {
   field: Partial<IFieldEditorRo>;
@@ -101,9 +101,15 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
           aiConfig: { ...aiConfig, attachPrompt: value as string } as ITextFieldImproveTextAIConfig,
         });
       case 'prompt':
-        console.log('prompt', value);
         return onChange?.({
           aiConfig: { ...aiConfig, prompt: value as string } as ITextFieldCustomizeAIConfig,
+        });
+      case 'attachmentFieldIds':
+        return onChange?.({
+          aiConfig: {
+            ...aiConfig,
+            attachmentFieldIds: value as string[],
+          } as ITextFieldCustomizeAIConfig,
         });
       default:
         throw new Error(`Unsupported key: ${key}`);
@@ -113,7 +119,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
   return (
     <Fragment>
       <div className="flex flex-col gap-y-2">
-        <Label>{t('table:field.aiConfig.label.type')}</Label>
+        <span>{t('table:field.aiConfig.label.type')}</span>
         <Selector
           className="w-full"
           placeholder={t('table:field.aiConfig.placeholder.type')}
@@ -127,19 +133,17 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
       {type && type !== FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
-          <Label>{t('table:field.aiConfig.label.sourceField')}</Label>
-          <SelectFieldByTableId
-            selectedId={(aiConfig as ITextFieldSummarizeAIConfig)?.sourceFieldId}
-            onChange={(field) => {
-              onConfigChange('sourceFieldId', field.id);
-            }}
+          <span>{t('table:field.aiConfig.label.sourceField')}</span>
+          <FieldSelect
+            selectedId={(aiConfig as ISingleSelectFieldClassifyAIConfig)?.sourceFieldId}
+            onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
           />
         </div>
       )}
 
       {type === FieldAIActionType.Translation && (
         <div className="flex flex-col gap-y-2">
-          <Label>{t('table:field.aiConfig.label.targetLanguage')}</Label>
+          <span>{t('table:field.aiConfig.label.targetLanguage')}</span>
           <Input
             type="text"
             className="w-full"
@@ -154,7 +158,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
       {type && type !== FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
-          <Label>{t('table:field.aiConfig.label.attachPrompt')}</Label>
+          <span>{t('table:field.aiConfig.label.attachPrompt')}</span>
           <Textarea
             placeholder={getPlaceholder(type)}
             className="w-full"
@@ -167,14 +171,23 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
       )}
 
       {type === FieldAIActionType.Customization && (
-        <div className="flex flex-col gap-y-2">
-          <PromptEditorContainer
-            value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}
-            onChange={(value) => onConfigChange('prompt', value)}
-            label={t('table:field.aiConfig.label.prompt')}
-            placeholder={t('table:field.aiConfig.placeholder.prompt')}
-          />
-        </div>
+        <Fragment>
+          <div className="flex flex-col gap-y-2">
+            <PromptEditorContainer
+              value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}
+              onChange={(value) => onConfigChange('prompt', value)}
+              label={t('table:field.aiConfig.label.prompt')}
+              placeholder={t('table:field.aiConfig.placeholder.prompt')}
+            />
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <span>{t('table:field.default.attachment.title')}</span>
+            <AttachmentSelect
+              value={(aiConfig as ITextFieldCustomizeAIConfig)?.attachmentFieldIds || []}
+              onChange={(value) => onConfigChange('attachmentFieldIds', value)}
+            />
+          </div>
+        </Fragment>
       )}
     </Fragment>
   );

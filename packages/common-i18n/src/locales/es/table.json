@@ -317,6 +317,9 @@
       "autoFillFieldDialog": {
         "title": "Actualizar todos los registros",
         "description": "Todos los registros en la vista actual se actualizarán, incluidos todos los datos relacionados generados por el campo"
+      },
+      "action": {
+        "addAttachment": "Agregar adjunto"
       }
     }
   },

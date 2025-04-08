@@ -869,9 +869,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   );
 
-  useEffect(() => {
-    setGridRef?.(gridRef);
-  }, [setGridRef]);
+  useEffect(() => setGridRef?.(gridRef), [setGridRef]);
 
   useEffect(() => {
     const recordId2IndexMap: { [id: string]: number } = {};

@@ -308,6 +308,9 @@
       "autoFillFieldDialog": {
         "title": "すべてのレコードを更新",
         "description": "現在のビューのすべてのレコードが更新され、フィールドによって生成されたすべての関連データが含まれます"
+      },
+      "action": {
+        "addAttachment": "添付ファイルを追加"
       }
     }
   },

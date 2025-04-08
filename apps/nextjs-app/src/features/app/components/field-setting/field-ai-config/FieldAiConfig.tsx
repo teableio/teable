@@ -114,7 +114,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
             {type && (
               <Fragment>
                 <div className="flex flex-col gap-y-2">
-                  <Label>{t('table:field.aiConfig.label.model')}</Label>
+                  <span>{t('table:field.aiConfig.label.model')}</span>
                   <AIModelSelect
                     value={aiConfig?.modelKey || ''}
                     onValueChange={(newValue) => {

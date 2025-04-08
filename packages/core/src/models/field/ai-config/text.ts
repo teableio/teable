@@ -50,6 +50,7 @@ export type ITextFieldImproveTextAIConfig = z.infer<typeof textFieldImproveTextA
 
 export const textFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
   type: z.literal(FieldAIActionType.Customization),
+  attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
   prompt: z.string(),
 });
 

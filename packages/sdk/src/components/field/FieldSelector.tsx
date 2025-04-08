@@ -61,10 +61,10 @@ export function FieldSelector(props: IFieldSelector) {
             className={cn('h-8 max-w-[200px] flex items-center', className)}
           >
             <div className="flex flex-1 items-center truncate">
-              <Icon className="size-4 shrink-0 p-0.5 opacity-50" />
+              <Icon className="size-4 shrink-0 opacity-50" />
               <span className="min-w-8 truncate pl-1 text-left">{selectedField?.name}</span>
             </div>
-            <ChevronsUpDown className="size-4 shrink-0 p-0.5 opacity-50" />
+            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
           </Button>
         )}
       </PopoverTrigger>

@@ -317,6 +317,9 @@
       "autoFillFieldDialog": {
         "title": "Alle Datensätze aktualisieren",
         "description": "Alle Datensätze in der aktuellen Ansicht werden aktualisiert, einschließlich aller mit dem Feld generierten verknüpften Datensätze"
+      },
+      "action": {
+        "addAttachment": "Anhang hinzufügen"
       }
     }
   },

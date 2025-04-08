@@ -316,6 +316,9 @@
       "autoFillFieldDialog": {
         "title": "更新整列记录",
         "description": "当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+      },
+      "action": {
+        "addAttachment": "添加附件"
       }
     }
   },

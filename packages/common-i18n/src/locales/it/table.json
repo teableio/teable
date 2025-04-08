@@ -317,6 +317,9 @@
       "autoFillFieldDialog": {
         "title": "Aggiorna tutti i record",
         "description": "Tutti i record nella vista corrente verranno aggiornati, incluso tutti i dati generati dal campo"
+      },
+      "action": {
+        "addAttachment": "Aggiungi allegato"
       }
     }
   },

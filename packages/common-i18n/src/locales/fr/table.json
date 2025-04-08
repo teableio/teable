@@ -308,6 +308,9 @@
       "autoFillFieldDialog": {
         "title": "Mettre à jour tous les enregistrements",
         "description": "Tous les enregistrements dans la vue actuelle seront mis à jour, y compris tous les données générées par le champ"
+      },
+      "action": {
+        "addAttachment": "Ajouter un fichier"
       }
     }
   },

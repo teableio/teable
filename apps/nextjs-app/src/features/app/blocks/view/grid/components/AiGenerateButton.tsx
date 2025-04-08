@@ -12,17 +12,39 @@ interface IAIButtonProps {
 }
 
 export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIButtonProps>(
-  ({ gridRef, activeCell }, ref) => {
+  (props, ref) => {
+    const { gridRef, activeCell } = props;
     const tableId = useTableId() as string;
     const fields = useFields();
     const permission = useTablePermission();
     const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
+    const [generatingCells, setGeneratingCells] = React.useState<Set<string>>(new Set());
 
-    const { mutate: mutateGenerate, isLoading } = useMutation({
+    const { mutate: mutateGenerate } = useMutation({
       mutationFn: ({ recordId, fieldId }: { recordId: string; fieldId: string }) =>
         autoFillCell(tableId, recordId, fieldId),
+      onMutate: ({ recordId, fieldId }) => {
+        const cellKey = `${recordId}:${fieldId}`;
+        setGeneratingCells((prev) => new Set(prev).add(cellKey));
+        return { recordId, fieldId };
+      },
+      onSettled: (_, __, context) => {
+        if (context) {
+          const cellKey = `${context.recordId}:${context.fieldId}`;
+          setGeneratingCells((prev) => {
+            const updated = new Set(prev);
+            updated.delete(cellKey);
+            return updated;
+          });
+        }
+      },
     });
+
+    const isCellGenerating = (cell?: IActiveCell) => {
+      if (!cell) return false;
+      return generatingCells.has(`${cell.recordId}:${cell.fieldId}`);
+    };
 
     useImperativeHandle(ref, () => ({
       onScrollHandler: () => {
@@ -74,7 +96,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
     }, []);
 
     const onGenerate = () => {
-      if (!activeCell || isLoading) return;
+      if (!activeCell || isCellGenerating(activeCell)) return;
       mutateGenerate({
         recordId: activeCell.recordId,
         fieldId: activeCell.fieldId,
@@ -90,9 +112,9 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
           size="sm"
           className="disabled:opacity-100"
           onClick={onGenerate}
-          disabled={isLoading}
+          disabled={isCellGenerating(activeCell)}
         >
-          {isLoading ? (
+          {isCellGenerating(activeCell) ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
             <RefreshCcw className="size-4" />

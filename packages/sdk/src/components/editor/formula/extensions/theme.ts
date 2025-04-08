@@ -25,7 +25,11 @@ const EDITOR_THEME_BASE = {
     fontSize: '14px',
     backgroundColor: 'transparent',
   },
-  '.cm-scroller': { overflow: 'auto' },
+  '.cm-scroller': {
+    overflow: 'auto',
+    fontFamily:
+      'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
+  },
   '&.cm-focused': { outline: 'none' },
   '&.cm-focused .cm-matchingBracket': { background: hexToRGBA(colors.yellow[500], 0.6) },
   '.cm-line': { padding: '0px', lineHeight: '24px' },

@@ -1,6 +1,8 @@
 import type { EditorView } from '@codemirror/view';
+import { FieldType } from '@teable/core';
 import { Maximize2, Plus } from '@teable/icons';
 import { FieldSelector } from '@teable/sdk/components';
+import { useFields } from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -12,7 +14,7 @@ import {
   DialogTitle,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { PromptEditor, type EditorViewRef, type IPromptEditorProps } from './PromptEditor';
 
 interface IPromptEditorContainerProps extends IPromptEditorProps {
@@ -21,6 +23,7 @@ interface IPromptEditorContainerProps extends IPromptEditorProps {
 
 export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
   const { label, className } = props;
+  const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation('common');
   const [isDialogVisible, setDialogVisible] = useState(false);
   const mainEditorViewRef = useRef<EditorView | null>(null) as EditorViewRef;
@@ -40,14 +43,19 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
     }
   };
 
+  const excludedFieldIds = useMemo(() => {
+    return fields.filter((field) => field.type === FieldType.Attachment).map((field) => field.id);
+  }, [fields]);
+
   const fieldSelector = (
-    <FieldSelector onSelect={onFieldSelect} modal>
+    <FieldSelector excludedIds={excludedFieldIds} onSelect={onFieldSelect} modal>
       <Button variant="outline" size="xs" className="gap-1">
         <Plus className="size-4" />
-        字段
+        {t('noun.field')}
       </Button>
     </FieldSelector>
   );
+
   return (
     <>
       <div className={cn('flex flex-col overflow-hidden gap-y-2', className)}>
