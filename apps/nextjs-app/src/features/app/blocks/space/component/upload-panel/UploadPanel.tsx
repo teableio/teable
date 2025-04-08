@@ -56,7 +56,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
         >
           <div className="flex h-full items-center justify-center rounded-sm border-2 border-dashed hover:border-secondary">
             {!isImporting ? (
-              <Button variant="ghost">{t('space:import.importWayTip')}</Button>
+              <Button variant="ghost">{t('space:import.baseImportTips')}</Button>
             ) : (
               <div className="absolute flex size-full items-center justify-center bg-secondary opacity-90">
                 <span className="mr-1 size-4 animate-spin">

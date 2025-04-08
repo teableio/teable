@@ -102,6 +102,7 @@ export class BaseDuplicateService {
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>
   ) {
+    const prisma = this.prismaService.txClient();
     const tableId2DbTableNameMap: Record<string, string> = {};
     const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
     const sourceTableRaws = await this.prismaService.txClient().tableMeta.findMany({
@@ -153,49 +154,47 @@ export class BaseDuplicateService {
       allForeignKeyInfos.push(...newForeignKeyInfos);
     }
 
-    await this.prismaService.$tx(async (prisma) => {
-      for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-        const dropForeignKeyQuery = this.knex.schema
-          .alterTable(dbTableName, (table) => {
-            table.dropForeign(column_name, constraint_name);
-          })
-          .toQuery();
+    for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
+      const dropForeignKeyQuery = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          table.dropForeign(column_name, constraint_name);
+        })
+        .toQuery();
 
-        await prisma.$executeRawUnsafe(dropForeignKeyQuery);
-      }
+      await prisma.$executeRawUnsafe(dropForeignKeyQuery);
+    }
 
-      for (const tableId of oldTableId) {
-        const newTableId = tableIdMap[tableId];
-        const oldDbTableName = tableId2DbTableNameMap[tableId];
-        const newDbTableName = tableId2DbTableNameMap[newTableId];
-        await this.tableDuplicateService.duplicateTableData(
-          oldDbTableName,
-          newDbTableName,
-          viewIdMap,
-          fieldIdMap
-        );
-      }
+    for (const tableId of oldTableId) {
+      const newTableId = tableIdMap[tableId];
+      const oldDbTableName = tableId2DbTableNameMap[tableId];
+      const newDbTableName = tableId2DbTableNameMap[newTableId];
+      await this.tableDuplicateService.duplicateTableData(
+        oldDbTableName,
+        newDbTableName,
+        viewIdMap,
+        fieldIdMap
+      );
+    }
 
-      for (const {
-        constraint_name: constraintName,
-        column_name: columnName,
-        referenced_table_schema: referencedTableSchema,
-        referenced_table_name: referencedTableName,
-        referenced_column_name: referencedColumnName,
-        dbTableName,
-      } of allForeignKeyInfos) {
-        const addForeignKeyQuerySql = this.knex.schema
-          .alterTable(dbTableName, (table) => {
-            table
-              .foreign(columnName, constraintName)
-              .references(referencedColumnName)
-              .inTable(`${referencedTableSchema}.${referencedTableName}`);
-          })
-          .toQuery();
+    for (const {
+      constraint_name: constraintName,
+      column_name: columnName,
+      referenced_table_schema: referencedTableSchema,
+      referenced_table_name: referencedTableName,
+      referenced_column_name: referencedColumnName,
+      dbTableName,
+    } of allForeignKeyInfos) {
+      const addForeignKeyQuerySql = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          table
+            .foreign(columnName, constraintName)
+            .references(referencedColumnName)
+            .inTable(`${referencedTableSchema}.${referencedTableName}`);
+        })
+        .toQuery();
 
-        await prisma.$executeRawUnsafe(addForeignKeyQuerySql);
-      }
-    });
+      await prisma.$executeRawUnsafe(addForeignKeyQuerySql);
+    }
   }
 
   private async duplicateAttachments(

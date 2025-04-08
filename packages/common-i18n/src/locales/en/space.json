@@ -58,6 +58,7 @@
   "import": {
     "importing": "Importing",
     "importWayTip": "Click or drag and drop the file to upload in this area",
+    "baseImportTips": "Click or drag and drop .tea file to upload in this area",
     "confirm": "Confirm and continue"
   },
   "template": {

@@ -58,6 +58,7 @@
   "import": {
     "importing": "导入中",
     "importWayTip": "点击或拖拽文件到此区域上传",
+    "baseImportTips": "点击或者拖拽 .tea 文件到此区域上传",
     "confirm": "确认并继续"
   },
   "template": {
