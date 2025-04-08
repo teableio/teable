@@ -12,7 +12,7 @@ const darkTheme = {
   // Cell
   cellBg: '#09090b',
   cellBgHovered: colors.neutral[900],
-  cellBgSelected: colors.zinc[900],
+  cellBgSelected: hexToRGBA(colors.zinc[800], 0.8),
   cellBgLoading: colors.zinc[800],
   cellLineColor: '#333338',
   cellLineColorActived: colors.zinc[400],

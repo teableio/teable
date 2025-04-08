@@ -75,7 +75,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
         const isColumnVisible =
           isFreeze ||
           (columnOffset + columnWidth - 24 >= freezeRegionWidth && columnOffset <= containerWidth);
-        const isRowVisible = y >= rowInitSize - 4 && y <= containerHeight;
+        const isRowVisible = y >= rowInitSize - 4 && y <= containerHeight - rowInitSize + 4;
 
         if (!isColumnVisible || !isRowVisible) return null;
 
