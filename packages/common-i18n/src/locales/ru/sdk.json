@@ -251,7 +251,6 @@
       "baseInviteEmail": "Пригласить по электронной почте в базу",
       "baseInviteLink": "Пригласить по ссылке в базу",
       "baseTableImport": "Импортировать данные в базу",
-      "baseTableExport": "Экспортировать данные из базы",
       "baseAuthorityMatrixConfig": "Настроить матрицу полномочий",
       "baseDbConnect": "Подключение к базе данных",
       "tableCreate": "Создать таблицу",

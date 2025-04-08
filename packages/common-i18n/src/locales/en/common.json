@@ -29,6 +29,7 @@
     "yesDelete": "Yes, delete",
     "rename": "Rename",
     "duplicate": "Duplicate",
+    "export": "Export",
     "change": "Change",
     "upgrade": "Upgrade",
     "search": "Search",
@@ -54,6 +55,58 @@
   },
   "settings": {
     "title": "Settings",
+    "templateAdmin": {
+      "title": "Template Admin",
+      "noData": "No data",
+      "importing": "Importing...",
+      "usageCount": "Use count: {{count}}",
+      "tips": {
+        "errorCategoryName": "Category does not exist or has been deleted",
+        "needSnapshot": "Please create a snapshot before publishing, and the template name and description cannot be empty",
+        "needBaseSource": "Please select a base source before creating a snapshot",
+        "forbiddenUpdateSystemTemplate": "System template cannot be modified",
+        "addCategoryTips": "Please enter a category name in search input first."
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Get Started",
+          "all": "All",
+          "browseByCategory": "Browse by category"
+        }
+      },
+      "header": {
+        "cover": "Cover",
+        "name": "Name",
+        "description": "Description",
+        "category": "Category",
+        "isSystem": "System",
+        "source": "Source",
+        "status": "Status",
+        "publishSnapshot": "Publish Snapshot",
+        "snapshotTime": "Snapshot Time",
+        "actions": "Actions"
+      },
+      "actions": {
+        "title": "Actions",
+        "publish": "Publish",
+        "delete": "Delete",
+        "duplicate": "Duplicate",
+        "preview": "Preview",
+        "use": "Use",
+        "pinTop": "Pin Top",
+        "addCategory": "Add Category",
+        "selectCategory": "Select Category"
+      },
+      "baseSelectPanel": {
+        "title": "Select template source",
+        "description": "Select a base to be the template",
+        "confirm": "Confirm",
+        "search": "Search base",
+        "cancel": "Cancel",
+        "selectBase": "Select base",
+        "createTemplate": "Create template"
+      }
+    },
     "back": "Back to home",
     "account": {
       "title": "My profile",
@@ -339,7 +392,10 @@
     "noUnread": "No {{status}} notifications",
     "changeSetting": "Change page notification settings",
     "new": "new {{count}}",
-    "showMore": "Show more"
+    "showMore": "Show more",
+    "exportBase": {
+      "successText": "Export successfully"
+    }
   },
   "role": {
     "title": {

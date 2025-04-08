@@ -3,6 +3,7 @@ export enum NotificationTypeEnum {
   CollaboratorCellTag = 'collaboratorCellTag',
   CollaboratorMultiRowTag = 'collaboratorMultiRowTag',
   Comment = 'comment',
+  ExportBase = 'exportBase',
 }
 
 export enum NotificationStatesEnum {

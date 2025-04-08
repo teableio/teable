@@ -251,7 +251,6 @@
       "baseInviteEmail": "Veritabanında e-posta ile davet et",
       "baseInviteLink": "Veritabanında bağlantı ile davet et",
       "baseTableImport": "Veritabanına veri aktar",
-      "baseTableExport": "Veritabanından veri dışa aktar",
       "baseAuthorityMatrixConfig": "Yetki matrisini yapılandır",
       "baseDbConnect": "Veritabanına bağlan",
       "tableCreate": "Tablo oluştur",

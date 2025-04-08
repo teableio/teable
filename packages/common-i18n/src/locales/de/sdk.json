@@ -264,7 +264,6 @@
       "baseInviteEmail": "per E-Mail in die Base einladen",
       "baseInviteLink": "per Link in die Base einladen",
       "baseTableImport": "Daten in Base importieren",
-      "baseTableExport": "Daten aus Base exportieren",
       "baseAuthorityMatrixConfig": "Authority Matrix konfigurieren",
       "baseDbConnect": "Zu Datenbank verbinden",
       "tableCreate": "Tabelle erstellen",

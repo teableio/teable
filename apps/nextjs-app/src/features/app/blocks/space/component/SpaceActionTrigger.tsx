@@ -1,4 +1,4 @@
-import { Pencil, Settings, Trash2 } from '@teable/icons';
+import { Pencil, Settings, Trash2, Import } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -17,11 +17,13 @@ interface ISpaceActionTrigger {
   showRename?: boolean;
   showDelete?: boolean;
   showSpaceSetting?: boolean;
+  showImportBase?: boolean;
   onRename?: () => void;
   onDelete?: () => void;
   onSpaceSetting?: () => void;
   open?: boolean;
   setOpen?: (open: boolean) => void;
+  onImportBase?: () => void;
 }
 
 export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTrigger>> = (
@@ -33,14 +35,17 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
     showDelete,
     showRename,
     showSpaceSetting,
+    showImportBase,
     onDelete,
     onRename,
     onSpaceSetting,
     open,
     setOpen,
+    onImportBase,
   } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+
   if (!showDelete && !showRename) {
     return null;
   }
@@ -59,6 +64,12 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
             <DropdownMenuItem onClick={onSpaceSetting}>
               <Settings className="mr-2" />
               {t('space:spaceSetting.title')}
+            </DropdownMenuItem>
+          )}
+          {showImportBase && (
+            <DropdownMenuItem onClick={() => onImportBase?.()}>
+              <Import className="mr-2" />
+              {t('space:spaceSetting.importBase')}
             </DropdownMenuItem>
           )}
           {showDelete && (

@@ -6,7 +6,6 @@ import { RecordModule } from '../record/record.module';
 import { ViewModule } from '../view/view.module';
 import { TablePermissionService } from './table-permission.service';
 import { TableService } from './table.service';
-
 @Module({
   imports: [CalculationModule, FieldModule, RecordModule, ViewModule],
   providers: [TableService, DbProvider, TablePermissionService],

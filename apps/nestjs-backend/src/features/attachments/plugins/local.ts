@@ -319,4 +319,8 @@ export class LocalStorage implements StorageAdapter {
     await resizedImage.toFile(resizedImagePath);
     return newPath;
   }
+
+  async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
+    return createReadStream(resolve(this.storageDir, bucket, path));
+  }
 }

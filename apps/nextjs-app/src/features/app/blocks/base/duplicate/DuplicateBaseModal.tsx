@@ -3,6 +3,7 @@ import { hasPermission } from '@teable/core';
 import { Database } from '@teable/icons';
 import { duplicateBase, getSpaceList, type IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
   Dialog,
@@ -37,7 +38,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
     queryFn: () => getSpaceList().then((res) => res.data),
   });
 
-  const { mutateAsync: duplicateBaseMutator } = useMutation({
+  const { mutateAsync: duplicateBaseMutator, isLoading } = useMutation({
     mutationFn: duplicateBase,
     onSuccess: ({ data }) => {
       closeModal();
@@ -129,8 +130,15 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
             {t('common:actions.cancel')}
           </Button>
         </DialogClose>
-        <Button size="sm" type="submit" onClick={() => onSubmit()}>
+        <Button
+          size="sm"
+          type="submit"
+          onClick={() => onSubmit()}
+          className="flex items-center gap-2"
+        >
           {t('space:baseModal.duplicateBase')}
+
+          {isLoading && <Spin className="size-4" />}
         </Button>
       </DialogFooter>
     </DialogContent>

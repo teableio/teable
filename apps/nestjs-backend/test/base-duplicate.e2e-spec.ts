@@ -1,18 +1,30 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
-import { DriverClient, FieldType, Relationship } from '@teable/core';
+import { DriverClient, FieldType, Relationship, ViewType } from '@teable/core';
 import type { ICreateBaseVo, ICreateSpaceVo } from '@teable/openapi';
 import {
   createBase,
+  createDashboard,
   createField,
+  createPluginPanel,
   createSpace,
   deleteBase,
   deleteSpace,
   duplicateBase,
   getBaseList,
+  getDashboard,
+  getDashboardInstallPlugin,
+  getDashboardList,
   getField,
+  getPluginPanel,
+  getPluginPanelPlugin,
   getTableList,
+  getViewList,
+  installPlugin,
+  installPluginPanel,
+  installViewPlugin,
+  listPluginPanels,
 } from '@teable/openapi';
 import { createRecords, createTable, getRecords, initApp, updateRecord } from './utils/init-app';
 
@@ -58,6 +70,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(getResult.data.length).toBe(1);
     expect(getResult.data[0].name).toBe(table1.name);
     expect(getResult.data[0].id).not.toBe(table1.id);
+    await deleteBase(dupResult.data.id);
   });
 
   it('duplicate with records', async () => {
@@ -81,6 +94,8 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(records.records[0].createdTime).toBeTruthy();
     expect(records.records[0].fields[table1.fields[0].name]).toEqual('new value');
     expect(records.records.length).toBe(3);
+
+    await deleteBase(dupResult.data.id);
   });
 
   it('duplicate base with link field', async () => {
@@ -164,15 +179,6 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       record: { fields: { [table1.fields[0].name]: 'text 2' } },
     });
 
-    // const table1Fields = await getFields(table1.id);
-    // const table2Fields = await getFields(table2.id);
-    // const newTable1Fields = await getFields(newTable1.id);
-    // const newTable2Fields = await getFields(newTable2.id);
-    // console.log('table1LinkField', table1Fields[3]);
-    // console.log('table2LinkField', table2Fields[3]);
-    // console.log('newTable1LinkField', newTable1Fields[3]);
-    // console.log('newTable2LinkField', newTable2Fields[3]);
-
     const newTable1RecordsAfter = await getRecords(newTable1.id);
     const newTable2RecordsAfter = await getRecords(newTable2.id);
     expect(newTable1RecordsAfter.records[0].fields[table1LinkField.name]).toBeUndefined();
@@ -187,6 +193,8 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       },
     ]);
     expect(newTable2RecordsAfter.records[0].fields[table2LookupField.name]).toEqual(['text 2']);
+
+    await deleteBase(dupResult.data.id);
   });
 
   it('should autoNumber work in a duplicated table', async () => {
@@ -206,6 +214,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     const records = await getRecords(newTable.id);
     expect(records.records[records.records.length - 1].autoNumber).toEqual(records.records.length);
     expect(records.records.length).toBe(4);
+    await deleteBase(dupResult.data.id);
   });
 
   describe('Duplicate cross space', () => {
@@ -233,6 +242,132 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       expect(baseResult.data.length).toBe(1);
 
       expect(tableResult.data.length).toBe(1);
+      await deleteBase(dupResult.data.id);
+    });
+  });
+
+  describe('should duplicate all plugins', () => {
+    it('should duplicate all dashboard plugins', async () => {
+      const dashboard = (await createDashboard(base.id, { name: 'dashboard' })).data;
+      const dashboard2 = (await createDashboard(base.id, { name: 'dashboard2' })).data;
+
+      await installPlugin(base.id, dashboard.id, {
+        name: 'plugin1',
+        pluginId: 'plgchart',
+      });
+
+      await installPlugin(base.id, dashboard.id, {
+        name: 'plugin2',
+        pluginId: 'plgchart',
+      });
+
+      await installPlugin(base.id, dashboard2.id, {
+        name: 'plugin2_1',
+        pluginId: 'plgchart',
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy',
+      });
+
+      const newBaseId = dupResult.data.id;
+
+      const dashboardList = (await getDashboardList(newBaseId)).data;
+
+      const dashboard1Info = (await getDashboard(newBaseId, dashboardList[0].id)).data;
+
+      expect(dashboard1Info.layout?.length).toBe(2);
+      const installedPlugins = (
+        await getDashboardInstallPlugin(
+          newBaseId,
+          dashboardList[0].id,
+          dashboard1Info.layout![0].pluginInstallId
+        )
+      ).data;
+
+      expect(dashboardList.length).toBe(2);
+      expect(installedPlugins.name).toBe('plugin1');
+
+      await deleteBase(dupResult.data.id);
+    });
+
+    it('should duplicate all panel plugins', async () => {
+      const pluginTable = await createTable(base.id, { name: 'table1PanelPlugin' });
+
+      const panel = (await createPluginPanel(pluginTable.id, { name: 'panel1' })).data;
+      const panel2 = (await createPluginPanel(pluginTable.id, { name: 'panel2' })).data;
+
+      await installPluginPanel(pluginTable.id, panel.id, {
+        name: 'plugin1',
+        pluginId: 'plgchart',
+      });
+
+      await installPluginPanel(pluginTable.id, panel.id, {
+        name: 'plugin2',
+        pluginId: 'plgchart',
+      });
+
+      await installPluginPanel(pluginTable.id, panel2.id, {
+        name: 'plugin2_1',
+        pluginId: 'plgchart',
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy',
+      });
+
+      const panelList = (await listPluginPanels(pluginTable.id)).data;
+
+      const panel1Info = (
+        await getPluginPanel(pluginTable.id, panelList.find(({ name }) => name === 'panel1')!.id)
+      ).data;
+
+      const installedPlugins = (
+        await getPluginPanelPlugin(
+          pluginTable.id,
+          panelList.find(({ name }) => name === 'panel1')!.id,
+          panel1Info.layout![0].pluginInstallId
+        )
+      ).data;
+
+      expect(panel1Info.layout?.length).toBe(2);
+      expect(panelList.length).toBe(2);
+      expect(installedPlugins.name).toBe('plugin1');
+
+      await deleteBase(dupResult.data.id);
+    });
+
+    it('should duplicate all view plugins', async () => {
+      const pluginTable = await createTable(base.id, { name: 'table1ViewPlugin' });
+      const tableId = pluginTable.id;
+
+      const sheetView1 = (
+        await installViewPlugin(tableId, { name: 'sheetView1', pluginId: 'plgsheetform' })
+      ).data;
+      const sheetView2 = (
+        await installViewPlugin(tableId, { name: 'sheetView2', pluginId: 'plgsheetform' })
+      ).data;
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy',
+      });
+
+      const views = (await getViewList(tableId)).data;
+
+      const pluginViews = views.filter(({ type }) => type === ViewType.Plugin);
+
+      expect(pluginViews.length).toBe(2);
+
+      expect(pluginViews.find(({ name }) => name === sheetView1.name)).toBeDefined();
+      expect(pluginViews.find(({ name }) => name === sheetView2.name)).toBeDefined();
+
+      await deleteBase(dupResult.data.id);
     });
   });
 });

@@ -13,10 +13,11 @@ interface ISpaceOperationProps {
   onRename?: () => void;
   open?: boolean;
   setOpen?: (open: boolean) => void;
+  onImportBase?: () => void;
 }
 
 export const SpaceOperation = (props: ISpaceOperationProps) => {
-  const { space, className, onRename, open, setOpen } = props;
+  const { space, className, onRename, open, setOpen, onImportBase } = props;
   const queryClient = useQueryClient();
   const router = useRouter();
   const menuPermission = useMemo(() => {
@@ -57,11 +58,13 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
         showRename={menuPermission.spaceUpdate}
         showDelete={menuPermission.spaceDelete}
         showSpaceSetting={menuPermission.spaceUpdate}
+        showImportBase={menuPermission.spaceUpdate}
         onDelete={() => deleteSpaceMutator(space.id)}
         onRename={onRename}
         onSpaceSetting={onSpaceSetting}
         open={open}
         setOpen={setOpen}
+        onImportBase={onImportBase}
       >
         <div>
           <MoreHorizontal className={className} />

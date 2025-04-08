@@ -1,4 +1,6 @@
-import { Copy, Pencil, Trash2 } from '@teable/icons';
+import { useMutation } from '@tanstack/react-query';
+import { Copy, Export, Pencil, Trash2 } from '@teable/icons';
+import { exportBase } from '@teable/openapi';
 import type { IGetBaseVo } from '@teable/openapi';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -17,6 +19,7 @@ interface IBaseActionTrigger {
   showRename: boolean;
   showDelete: boolean;
   showDuplicate: boolean;
+  showExport: boolean;
   onRename?: () => void;
   onDelete?: () => void;
   align?: 'center' | 'end' | 'start';
@@ -29,13 +32,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showRename,
     showDelete,
     showDuplicate,
+    showExport,
     onDelete,
     onRename,
     align = 'end',
   } = props;
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'space']);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const [exportConfirm, setExportConfirm] = React.useState(false);
   const baseStore = useDuplicateBaseStore();
+
+  const { mutateAsync: exportBaseFn } = useMutation({
+    mutationFn: (baseId: string) => exportBase(baseId),
+  });
+
   if (!showDelete && !showRename && !showDuplicate) {
     return null;
   }
@@ -47,6 +57,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     setDeleteConfirm(false);
   };
 
+  const exportTips = (
+    <pre className="text-wrap text-sm leading-relaxed">{t('space:tip.exportTips')}</pre>
+  );
   return (
     <>
       <DropdownMenu modal>
@@ -68,6 +81,16 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
+          {showExport && (
+            <DropdownMenuItem
+              onClick={() => {
+                setExportConfirm(true);
+              }}
+            >
+              <Export className="mr-2" />
+              {t('actions.export')}
+            </DropdownMenuItem>
+          )}
           {showDelete && (
             <>
               <DropdownMenuSeparator />
@@ -87,6 +110,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         confirmText={t('actions.delete')}
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={exportConfirm}
+        onOpenChange={setExportConfirm}
+        content={exportTips}
+        title={t('space:tip.title')}
+        cancelText={t('actions.cancel')}
+        confirmText={t('actions.confirm')}
+        onCancel={() => setExportConfirm(false)}
+        onConfirm={() => {
+          exportBaseFn(base.id);
+          setExportConfirm(false);
+        }}
       />
     </>
   );

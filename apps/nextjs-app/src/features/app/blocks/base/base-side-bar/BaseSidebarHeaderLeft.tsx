@@ -119,6 +119,7 @@ export const BaseSidebarHeaderLeft = () => {
           showRename={hasUpdatePermission}
           showDuplicate={hasReadPermission}
           showDelete={hasDeletePermission}
+          showExport={hasReadPermission}
           onDelete={() => deleteBaseMutator(base.id)}
           onRename={onRename}
           align="start"

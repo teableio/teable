@@ -20,17 +20,6 @@ services:
       timeout: 3s
       retries: 3
 
-  teable-db-migrate:
-    image: ghcr.io/teableio/teable-db-migrate:latest
-    deploy:
-      restart_policy:
-        condition: on-failure
-    environment:
-      - TZ=${TIMEZONE}
-      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
-    networks:
-      - teable-swarm
-
   teable-cache:
     image: redis:7.2.4
     expose:

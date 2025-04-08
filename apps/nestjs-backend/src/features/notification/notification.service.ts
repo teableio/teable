@@ -173,7 +173,7 @@ export class NotificationService {
         id: notifyData.id,
         message: notifyData.message,
         notifyType: type,
-        url: this.mailConfig.origin + path,
+        url: path,
         notifyIcon: systemNotifyIcon,
         isRead: false,
         createdTime: notifyData.createdTime.toISOString(),
@@ -221,6 +221,28 @@ export class NotificationService {
         message: message,
       },
     });
+  }
+
+  async sendExportBaseResultNotify(params: { baseId: string; toUserId: string; message: string }) {
+    const { toUserId, message } = params;
+    const toUser = await this.userService.getUserById(toUserId);
+    if (!toUser) {
+      return;
+    }
+    const type = NotificationTypeEnum.ExportBase;
+
+    this.sendCommonNotify(
+      {
+        path: '',
+        toUserId,
+        message,
+        emailConfig: {
+          title: 'Export base result notification',
+          message: message,
+        },
+      },
+      type
+    );
   }
 
   async sendCommentNotify(params: {
@@ -322,6 +344,7 @@ export class NotificationService {
 
     switch (notifyType) {
       case NotificationTypeEnum.System:
+      case NotificationTypeEnum.ExportBase:
         return { iconUrl: `${origin}/images/favicon/favicon.svg` };
       case NotificationTypeEnum.Comment:
       case NotificationTypeEnum.CollaboratorCellTag:
@@ -356,6 +379,10 @@ export class NotificationService {
         const { baseId, tableId, recordId } = urlMeta || {};
 
         return `/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
+      }
+      case NotificationTypeEnum.ExportBase: {
+        const { downloadUrl } = urlMeta || {};
+        return downloadUrl as string;
       }
       default:
         throw assertNever(notifyType);

@@ -246,4 +246,8 @@ export class MinioStorage implements StorageAdapter {
     fse.removeSync(resizedImagePath);
     return upload.path;
   }
+
+  async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
+    return this.minioClientPrivateNetwork.getObject(bucket, path);
+  }
 }

@@ -36,3 +36,4 @@ export * from './ai';
 export * from './integrity';
 export * from './plugin-panel';
 export * from './plugin-context-menu';
+export * from './template';

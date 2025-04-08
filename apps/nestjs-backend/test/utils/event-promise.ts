@@ -23,3 +23,15 @@ export function createAwaitWithEvent(eventEmitterService: EventEmitterService, e
     return result;
   };
 }
+
+export function createAwaitWithEventWithResult<R = unknown>(
+  eventEmitterService: EventEmitterService,
+  event: Events
+) {
+  return async function fn<T>(fn: () => Promise<T>) {
+    const promise = createEventPromise(eventEmitterService, event);
+    await fn();
+    await promise;
+    return (await promise) as R;
+  };
+}

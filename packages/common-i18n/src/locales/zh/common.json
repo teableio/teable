@@ -29,6 +29,7 @@
     "yesDelete": "是，删除",
     "rename": "重命名",
     "duplicate": "复制",
+    "export": "导出",
     "change": "变更",
     "upgrade": "升级",
     "search": "搜索",
@@ -54,6 +55,58 @@
   },
   "settings": {
     "title": "设置",
+    "templateAdmin": {
+      "title": "模板管理",
+      "noData": "暂无数据",
+      "importing": "导入中...",
+      "usageCount": "应用次数：{{count}}",
+      "tips": {
+        "errorCategoryName": "分类不存在或已删除",
+        "needSnapshot": "上架前，请先创建快照，并且模版名和描述不能为空",
+        "needBaseSource": "创建快照前，请先选择模版来源",
+        "forbiddenUpdateSystemTemplate": "系统模版禁止修改",
+        "addCategoryTips": "请先在搜索框中输入分类名称。"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "开始",
+          "all": "全部",
+          "browseByCategory": "按分类浏览"
+        }
+      },
+      "header": {
+        "cover": "封面",
+        "name": "名称",
+        "description": "描述",
+        "category": "分类",
+        "isSystem": "系统模版",
+        "source": "来源",
+        "status": "已上架",
+        "publishSnapshot": "发布快照",
+        "snapshotTime": "快照时间",
+        "actions": "操作"
+      },
+      "actions": {
+        "title": "操作",
+        "publish": "发布",
+        "delete": "删除",
+        "duplicate": "复制",
+        "preview": "预览",
+        "use": "使用",
+        "pinTop": "置顶",
+        "addCategory": "添加分类",
+        "selectCategory": "选择分类"
+      },
+      "baseSelectPanel": {
+        "title": "选择模板来源",
+        "description": "选择一个数据库作为模板",
+        "confirm": "确认",
+        "search": "搜索...",
+        "cancel": "取消",
+        "selectBase": "选择数据库",
+        "createTemplate": "新建模板"
+      }
+    },
     "back": "返回主页",
     "account": {
       "title": "我的档案",
@@ -338,7 +391,10 @@
     "noUnread": "没有{{status}}通知",
     "changeSetting": "更改页面通知设置",
     "new": "新消息{{count}}条",
-    "showMore": "显示更多"
+    "showMore": "显示更多",
+    "exportBase": {
+      "successText": "导出成功, 请点击下载"
+    }
   },
   "role": {
     "title": {

@@ -30,7 +30,8 @@
     "generalDescription": "您可以在此处更改当前空间的设置",
     "collaboratorDescription": "您可以在此处管理空间的协作者并设置他们的权限",
     "spaceName": "空间名称",
-    "spaceId": "空间 ID"
+    "spaceId": "空间 ID",
+    "importBase": "导入"
   },
   "pin": {
     "add": "添加到收藏",
@@ -39,7 +40,9 @@
     "empty": "您收藏的数据库和空间将显示在这里"
   },
   "tip": {
-    "delete": "确定要删除 \"<0/>\" 空间吗？"
+    "delete": "确定要删除 \"<0/>\" 空间吗？",
+    "title": "提示",
+    "exportTips": "导出数据库将导出所有数据，包括所有记录和附件，导出过程将在后台进行，导出完成后，您可以在通知栏下载。注意：\n1. 所有跨数据库关联的字段将会转换成单行文本字段。"
   },
   "sharedBase": {
     "title": "共享数据库",
@@ -51,5 +54,14 @@
     "description": "管理空间集成",
     "addIntegration": "添加集成",
     "ai": "AI"
+  },
+  "import": {
+    "importing": "导入中",
+    "importWayTip": "点击或拖拽文件到此区域上传",
+    "confirm": "确认并继续"
+  },
+  "template": {
+    "title": "模板中心",
+    "description": "快速从模板创建一个新数据库"
   }
 }

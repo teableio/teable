@@ -19,6 +19,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
 
   const dynamicComponent = useCallback(() => {
     switch (notifyType) {
+      case NotificationTypeEnum.ExportBase:
       case NotificationTypeEnum.System: {
         const { iconUrl } = notifyIcon as INotificationSystemIcon;
 

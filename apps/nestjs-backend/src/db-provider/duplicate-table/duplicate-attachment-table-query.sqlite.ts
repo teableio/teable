@@ -37,15 +37,15 @@ export class DuplicateAttachmentTableQuerySqlite extends DuplicateAttachmentTabl
       'name',
       'token',
       'record_id',
-      `${targetTableId} AS field_id`,
-      `${targetFieldId} AS field_id`,
-      `${userId} as created_by`,
+      this.knex.raw(`'${targetTableId}' AS table_id`),
+      this.knex.raw(`'${targetFieldId}' AS field_id`),
+      this.knex.raw(`'${userId}' AS created_by`),
     ];
 
     const newColumnList = targetColumns.map((col) => `"${col}"`).join(', ');
     const oldColumnList = sourceColumns
       .map((col) => {
-        return this.knex.raw(`?`, [col]);
+        return typeof col === 'string' ? `"${col}"` : col;
       })
       .join(', ');
     return this.knex.raw(

@@ -8,6 +8,7 @@ import React from 'react';
 import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
+import { UploadPanelDialog } from '../../blocks/space/component/upload-panel';
 import { SpaceCollaboratorModalTrigger } from '../collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { CreateBaseModalTrigger } from './CreateBaseModal';
 
@@ -32,6 +33,8 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     onDelete,
     onSpaceSetting,
   } = props;
+  const [importBaseOpen, setImportBaseOpen] = React.useState(false);
+
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   return (
@@ -56,14 +59,22 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         showRename={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
         showSpaceSetting={hasPermission(space.role, 'space|update')}
+        showImportBase={hasPermission(space.role, 'space|update')}
         onDelete={onDelete}
         onRename={onRename}
         onSpaceSetting={onSpaceSetting}
+        onImportBase={() => setImportBaseOpen(true)}
       >
         <Button variant={'outline'} size={buttonSize}>
           <MoreHorizontal />
         </Button>
       </SpaceActionTrigger>
+
+      <UploadPanelDialog
+        spaceId={space.id}
+        open={importBaseOpen}
+        onOpenChange={setImportBaseOpen}
+      />
     </div>
   );
 };

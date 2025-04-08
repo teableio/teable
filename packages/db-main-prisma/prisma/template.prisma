@@ -17,6 +17,7 @@ model Space {
   createdBy        String    @map("created_by")
   lastModifiedBy   String?   @map("last_modified_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  isTemplate       Boolean?  @map("is_template")
 
   baseGroup      Base[]
 
@@ -129,7 +130,7 @@ model View {
   columnMeta       String    @map("column_meta")
   isLocked         Boolean?  @map("is_locked")
   enableShare      Boolean?  @map("enable_share")
-  shareId          String?   @map("share_id")
+  shareId          String?   @map("share_id") @unique
   shareMeta        String?   @map("share_meta")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
@@ -573,6 +574,38 @@ model UserLastVisit {
   @@unique([userId, resourceType, parentResourceId])
   @@index([userId, resourceType])
   @@map("user_last_visit")
+}
+
+model Template {
+  id               String    @id @default(cuid())
+  baseId           String?    @map("base_id")
+  cover            String?
+  name             String?
+  description      String?
+  categoryId       String?   @map("category_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+  isSystem         Boolean?  @map("is_system")
+  isPublished      Boolean?  @map("is_published")
+  snapshot         String?   @map("snapshot")
+  order            Float     @map("order")
+  usageCount       Int       @default(0) @map("usage_count")
+
+  @@map("template")
+}
+
+model TemplateCategory {
+  id               String    @id @default(cuid())
+  name             String    @unique
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+  order            Float     @map("order")
+
+  @@map("template_category")
 }
 
 model Task {

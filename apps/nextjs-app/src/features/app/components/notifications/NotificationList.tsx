@@ -4,13 +4,11 @@ import { Inbox } from '@teable/icons';
 import type { INotificationVo } from '@teable/openapi';
 import { updateNotificationStatus } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
-import { useLanDayjs } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib';
-import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { NotificationActionBar } from './NotificationActionBar';
-import { NotificationIcon } from './NotificationIcon';
+import { NotificationItem } from './NotificationItem';
 
 interface NotificationListProps {
   notifyStatus: NotificationStatesEnum;
@@ -26,75 +24,22 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
   const { notifyStatus, data, className, hasNextPage, isFetchingNextPage, onShowMoreClick } = props;
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
-  const dayjs = useLanDayjs();
-
-  const newPagesArray = (updatedId: string) => {
-    return data?.map((item) => ({
-      ...item,
-      notifications: item.notifications.filter(({ id }) => id !== updatedId),
-    }));
-  };
 
   const { mutateAsync: updateStatusMutator } = useMutation({
     mutationFn: updateNotificationStatus,
-    onSuccess: async (_data, variables, _context) => {
-      await queryClient.invalidateQueries(ReactQueryKeys.notifyUnreadCount());
-      queryClient.setQueryData(
-        ReactQueryKeys.notifyList({ status: notifyStatus }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (data: any) => ({
-          pages: newPagesArray(variables.notificationId),
-          pageParams: data.pageParams,
-        })
-      );
+    onSuccess: async () => {
+      queryClient.invalidateQueries(ReactQueryKeys.notifyUnreadCount());
+      queryClient.invalidateQueries(ReactQueryKeys.notifyList({ status: notifyStatus }));
     },
   });
 
-  const renderNotifications = () => {
-    return data?.map(({ notifications }) => {
-      return (
-        notifications &&
-        notifications.map(({ id, isRead, url, message, notifyIcon, notifyType, createdTime }) => {
-          const fromNow = dayjs(createdTime).fromNow();
-
-          return (
-            <NotificationActionBar
-              key={id}
-              notifyStatus={notifyStatus}
-              onStatusCheck={() =>
-                updateStatusMutator({
-                  notificationId: id,
-                  updateNotifyStatusRo: { isRead: !isRead },
-                })
-              }
-            >
-              <Link
-                className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
-                href={url}
-                onClick={async () => {
-                  !isRead &&
-                    updateStatusMutator({
-                      notificationId: id,
-                      updateNotifyStatusRo: { isRead: true },
-                    });
-                }}
-              >
-                <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
-                <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">
-                  <div
-                    className="max-h-20 overflow-auto break-words"
-                    dangerouslySetInnerHTML={{ __html: message }}
-                  ></div>
-                  <div className="truncate text-[11px] opacity-75" title={fromNow}>
-                    {fromNow}
-                  </div>
-                </div>
-              </Link>
-            </NotificationActionBar>
-          );
-        })
-      );
-    });
+  const commonHandler = async (notificationId: string, isRead: boolean) => {
+    if (isRead) {
+      await updateStatusMutator({
+        notificationId,
+        updateNotifyStatusRo: { isRead },
+      });
+    }
   };
 
   return (
@@ -115,7 +60,27 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
         </div>
       ) : (
         <>
-          {renderNotifications()}
+          {data?.map(({ notifications }) => {
+            return notifications.map((notification) => {
+              const { id, isRead } = notification;
+              return (
+                <NotificationActionBar
+                  key={id}
+                  notifyStatus={notifyStatus}
+                  onStatusCheck={(e) => {
+                    e.stopPropagation();
+                    updateStatusMutator({
+                      notificationId: id,
+                      updateNotifyStatusRo: { isRead: !isRead },
+                    });
+                  }}
+                  commonHandler={() => commonHandler(id, !isRead)}
+                >
+                  <NotificationItem data={notification} notifyStatus={notifyStatus} />
+                </NotificationActionBar>
+              );
+            });
+          })}
           {hasNextPage && (
             <Button
               variant="ghost"

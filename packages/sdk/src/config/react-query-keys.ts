@@ -29,6 +29,12 @@ export const ReactQueryKeys = {
 
   baseAll: () => ['base-all'] as const,
 
+  templateList: () => ['template-list'] as const,
+
+  templateCategoryList: () => ['template-category-list'] as const,
+
+  publishedTemplateList: () => ['published-template-list'] as const,
+
   baseList: (spaceId: string) => ['base-list', spaceId] as const,
 
   pinList: () => ['pin-list'] as const,

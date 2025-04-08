@@ -1,16 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Component } from '@teable/icons';
-import { PinType, type IGetSpaceVo, updateSpace } from '@teable/openapi';
+import { PinType, updateSpace } from '@teable/openapi';
+import type { IGetSpaceVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk';
 import { Input } from '@teable/ui-lib';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useClickAway, useMount } from 'react-use';
 import { SpaceOperation } from '@/features/app/blocks/space/space-side-bar/SpaceOperation';
+import { UploadPanelDialog } from '../component/upload-panel';
 import { ItemButton } from './ItemButton';
 import { StarButton } from './StarButton';
-
 interface IProps {
   space: IGetSpaceVo;
   isActive: boolean;
@@ -23,6 +24,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [importBaseOpen, setImportBaseOpen] = React.useState(false);
 
   const { mutateAsync: updateSpaceMutator } = useMutation({
     mutationFn: updateSpace,
@@ -50,6 +52,10 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
     isActive && ref.current?.scrollIntoView({ block: 'center' });
   });
 
+  const openImportBase = () => {
+    setImportBaseOpen(true);
+  };
+
   return (
     <div className="relative overflow-y-auto">
       <ItemButton className="group" isActive={isActive} ref={ref}>
@@ -74,6 +80,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
             open={open}
             setOpen={setOpen}
             className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+            onImportBase={openImportBase}
           />
         </Link>
       </ItemButton>
@@ -99,6 +106,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
           }}
         />
       )}
+      <UploadPanelDialog spaceId={id} open={importBaseOpen} onOpenChange={setImportBaseOpen} />
     </div>
   );
 };
