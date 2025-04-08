@@ -58,7 +58,7 @@ export const FieldEditor = (props: {
         ...field,
         type: FieldType.SingleLineText, // reset fieldType to default
         options: undefined, // reset options
-        aiConfig: undefined,
+        aiConfig: null,
         isLookup: true,
         unique: undefined,
         notNull: undefined,
@@ -81,7 +81,7 @@ export const FieldEditor = (props: {
       type,
       isLookup: undefined,
       lookupOptions: undefined,
-      aiConfig: undefined,
+      aiConfig: null,
       options,
       unique: checkFieldUniqueValidationEnabled(type, field.isLookup) ? field.unique : undefined,
       notNull:
