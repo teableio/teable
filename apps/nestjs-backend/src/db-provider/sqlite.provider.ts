@@ -52,27 +52,11 @@ export class SqliteProvider implements IDbProvider {
     return `${baseId}_${name}`;
   }
 
+  // make no-sense
   getForeignKeysInfo(tableName: string): string {
-    const [_, dbTableName] = this.splitTableName(tableName);
     return this.knex
       .raw(
-        `
-      WITH RECURSIVE
-      foreign_keys AS (
-        SELECT 
-          m.name || '_' || s.from || '_fkey' as constraint_name,
-          s.from as column_name,
-          'public' as referenced_table_schema,
-          s."table" as referenced_table_name,
-          s."to" as referenced_column_name
-        FROM sqlite_master m
-        JOIN pragma_foreign_key_list(m.name) s
-        WHERE m.type = 'table'
-          AND m.name = ?
-      )
-      SELECT * FROM foreign_keys;
-      `,
-        [dbTableName]
+        'SELECT NULL as constraint_name, NULL as column_name, NULL as referenced_column_name, NULL as referenced_table_schema, NULL as referenced_table_name WHERE 1=0'
       )
       .toQuery();
   }
