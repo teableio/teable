@@ -1119,10 +1119,11 @@ export class BaseImportService {
     }
 
     if (field.isLookup || field.type === FieldType.Rollup) {
-      const { lookupOptions, sourceTableId } = field;
-      const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
-      const isSelfLink = foreignTableId === sourceTableId;
-      return isSelfLink ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId]) : true;
+      const { lookupOptions } = field;
+      const { linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
+      // const isSelfLink = foreignTableId === sourceTableId;
+      return Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId]);
+      // return isSelfLink ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId]) : true;
     }
 
     return false;

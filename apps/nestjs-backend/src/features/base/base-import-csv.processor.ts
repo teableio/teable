@@ -16,6 +16,8 @@ import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import * as unzipper from 'unzipper';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -48,7 +50,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     private readonly recordOpenApiService: RecordOpenApiService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>
+    @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {
     super();
   }
@@ -176,6 +179,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         dbTableName: true,
       },
     });
+    const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
+    const columnInfo = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
     const attachmentsTableData = [] as {
       attachmentId: string;
@@ -247,6 +254,23 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       res['__version'] = 1;
       return res;
     });
+
+    // add lacking view order field
+    if (recordsToInsert.length) {
+      const sourceColumns = Object.keys(recordsToInsert[0]);
+      const lackingColumns = sourceColumns
+        .filter((column) => !columnInfo.map(({ name }) => name).includes(column))
+        .filter((name) => name.startsWith('__row_'));
+
+      for (const name of lackingColumns) {
+        const sql = this.knex.schema
+          .alterTable(dbTableName, (table) => {
+            table.double(name);
+          })
+          .toQuery();
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
+    }
 
     const sql = this.knex.table(dbTableName).insert(recordsToInsert).toQuery();
     await this.prismaService.txClient().$executeRawUnsafe(sql);

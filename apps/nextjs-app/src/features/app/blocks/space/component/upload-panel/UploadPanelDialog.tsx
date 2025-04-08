@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { importBase, type ImportBaseRo, type INotifyVo } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/index';
 import {
   Button,
   cn,
@@ -29,7 +30,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
 
   const router = useRouter();
 
-  const { mutate: importBaseFn } = useMutation({
+  const { mutate: importBaseFn, isLoading } = useMutation({
     mutationFn: (importBaseRo: ImportBaseRo) => importBase(importBaseRo),
     onSuccess: (result) => {
       const {
@@ -78,8 +79,11 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
             onClick={() => {
               notify && importBaseFn({ spaceId, notify });
             }}
+            className="flex items-center gap-2"
           >
             {t('space:import.confirm')}
+
+            {isLoading && <Spin className="size-4" />}
           </Button>
         </DialogFooter>
       </DialogContent>
