@@ -1,5 +1,3 @@
-import type { TransformCallback } from 'stream';
-import { Transform } from 'stream';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Attachments } from '@teable/db-main-prisma';
@@ -11,15 +9,14 @@ import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import * as unzipper from 'unzipper';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import StorageAdapter from '../../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../../attachments/plugins/storage';
+import { BatchProcessor } from '../BatchProcessor.class';
 
 interface IBaseImportAttachmentsCsvJob {
   path: string;
   userId: string;
 }
-
-const chunkSize = 1000;
 
 export const BASE_IMPORT_ATTACHMENTS_CSV_QUEUE = 'base-import-attachments-csv-queue';
 
@@ -66,7 +63,6 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
       StorageAdapter.getBucket(UploadType.Import),
       path
     );
-    const processedFiles = new Set<string>();
 
     const parser = unzipper.Parse();
     csvStream.pipe(parser);
@@ -75,11 +71,6 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
 
-        if (processedFiles.has(filePath)) {
-          this.logger.warn(`warning: duplicate process file: ${filePath}`);
-        }
-        processedFiles.add(filePath);
-
         const fileSuffix = filePath.split('.').pop();
 
         if (
@@ -87,7 +78,9 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
           entry.type !== 'Directory' &&
           fileSuffix === 'csv'
         ) {
-          const batchProcessor = new BatchProcessor(chunkSize, this.handleChunk.bind(this), userId);
+          const batchProcessor = new BatchProcessor<Attachments>((chunk) =>
+            this.handleChunk(chunk, userId)
+          );
 
           entry
             .pipe(
@@ -156,53 +149,6 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
           createdBy: userId,
         },
       });
-    }
-  }
-}
-
-class BatchProcessor extends Transform {
-  private buffer: Attachments[] = [];
-  private totalProcessed = 0;
-
-  constructor(
-    private readonly batchSize: number,
-    private readonly processBatch: (batch: Attachments[], userId: string) => Promise<void>,
-    private userId: string
-  ) {
-    super({ objectMode: true });
-  }
-
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  _transform(chunk: Attachments, encoding: BufferEncoding, callback: TransformCallback): void {
-    this.buffer.push(chunk);
-    this.totalProcessed++;
-
-    if (this.buffer.length >= this.batchSize) {
-      const currentBatch = [...this.buffer];
-      this.buffer = [];
-
-      this.processBatch(currentBatch, this.userId)
-        .then(() => {
-          this.emit('progress', { processed: this.totalProcessed });
-          callback();
-        })
-        .catch((err: Error) => callback(err));
-    } else {
-      callback();
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  _flush(callback: TransformCallback): void {
-    if (this.buffer.length > 0) {
-      this.processBatch(this.buffer, this.userId)
-        .then(() => {
-          this.emit('progress', { processed: this.totalProcessed });
-          callback();
-        })
-        .catch((err: Error) => callback(err));
-    } else {
-      callback();
     }
   }
 }

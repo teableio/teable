@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { EventJobModule } from '../../event-emitter/event-job/event-job.module';
-import { StorageModule } from '../attachments/plugins/storage.module';
+import { EventJobModule } from '../../../event-emitter/event-job/event-job.module';
+import { StorageModule } from '../../attachments/plugins/storage.module';
 import { BaseImportAttachmentsCsvModule } from './base-import-attachments-csv.module';
 import {
   BaseImportAttachmentsCsvQueueProcessor,
