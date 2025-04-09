@@ -271,7 +271,7 @@
     "aiConfig": {
       "title": "AI 設定",
       "type": {
-        "summary": "サマリー",
+        "summary": "要約",
         "translation": "翻訳",
         "extraction": "情報抽出",
         "improvement": "改善",

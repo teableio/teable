@@ -280,13 +280,13 @@
     "aiConfig": {
       "title": "AI Config",
       "type": {
-        "summary": "Summary",
-        "translation": "Translation",
-        "extraction": "Extraction Information",
-        "improvement": "Improvement",
-        "tag": "Smart Tag",
-        "classification": "Smart Classification",
-        "customization": "Customization"
+        "summary": "Summarize",
+        "translation": "Translate",
+        "extraction": "Extract Information",
+        "improvement": "Improve",
+        "tag": "Smart-Tag",
+        "classification": "Smart-Classify",
+        "customization": "Customize"
       },
       "label": {
         "type": "AI Action Type",

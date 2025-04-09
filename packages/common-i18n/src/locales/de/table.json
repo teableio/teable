@@ -281,12 +281,12 @@
       "title": "AI Konfiguration",
       "type": {
         "summary": "Zusammenfassung",
-        "translation": "Übersetzung",
-        "extraction": "Informationen extrahieren",
-        "improvement": "Verbesserung",
-        "tag": "Smart Tag",
-        "classification": "Smart Klassifizierung",
-        "customization": "Anpassung"
+        "translation": "Übersetzen",
+        "extraction": "Information extrahieren",
+        "improvement": "Verbessern",
+        "tag": "Smart-Tag",
+        "classification": "Smart-Klassifizierung",
+        "customization": "Anpassen"
       },
       "label": {
         "type": "AI Aktion Typ",

@@ -280,13 +280,13 @@
     "aiConfig": {
       "title": "Configuración de IA",
       "type": {
-        "summary": "Resumen",
-        "translation": "Traducción",
-        "extraction": "Extracción de información",
-        "improvement": "Mejora",
+        "summary": "Resumir",
+        "translation": "Traducir",
+        "extraction": "Extraer información",
+        "improvement": "Mejorar",
         "tag": "Etiqueta inteligente",
-        "classification": "Clasificación inteligente",
-        "customization": "Personalización"
+        "classification": "Clasificar inteligente",
+        "customization": "Personalizar"
       },
       "label": {
         "type": "Tipo de acción de IA",

@@ -282,10 +282,10 @@
       "type": {
         "summary": "Сума",
         "translation": "Переклад",
-        "extraction": "Інформація",
+        "extraction": "Витяг інформації",
         "improvement": "Покращення",
-        "tag": "Розумний тег",
-        "classification": "Розумна класифікація",
+        "tag": "Смарт-тег",
+        "classification": "Смарт-класифікація",
         "customization": "Налаштування"
       },
       "label": {

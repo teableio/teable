@@ -271,13 +271,13 @@
     "aiConfig": {
       "title": "Configuration AI",
       "type": {
-        "summary": "Résumé",
-        "translation": "Traduction",
-        "extraction": "Extraction d'informations",
-        "improvement": "Amélioration",
-        "tag": "Tag intelligent",
+        "summary": "Résumer",
+        "translation": "Traduire",
+        "extraction": "Extraire des informations",
+        "improvement": "Améliorer",
+        "tag": "Étiquette intelligente",
         "classification": "Classification intelligente",
-        "customization": "Personnalisation"
+        "customization": "Personnaliser"
       },
       "label": {
         "type": "Type d'action AI",

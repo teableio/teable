@@ -270,12 +270,12 @@
       "title": "AI Yapılandırması",
       "type": {
         "summary": "Özet",
-        "translation": "Çeviri",
+        "translation": "Çevir",
         "extraction": "Bilgi Çıkarma",
-        "improvement": "İyileştirme",
+        "improvement": "İyileştir",
         "tag": "Akıllı Etiket",
         "classification": "Akıllı Sınıflandırma",
-        "customization": "Özelleştirme"
+        "customization": "Özelleştir"
       },
       "label": {
         "type": "AI Eylem Türü",
