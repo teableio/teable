@@ -4,10 +4,8 @@ import type { Attachments } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import type { Job } from 'bullmq';
-import { Queue, QueueEvents } from 'bullmq';
+import { Queue } from 'bullmq';
 import * as csvParser from 'csv-parser';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import * as unzipper from 'unzipper';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
@@ -24,13 +22,11 @@ export const BASE_IMPORT_ATTACHMENTS_CSV_QUEUE = 'base-import-attachments-csv-qu
 @Processor(BASE_IMPORT_ATTACHMENTS_CSV_QUEUE)
 export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
   private logger = new Logger(BaseImportAttachmentsCsvQueueProcessor.name);
-  readonly queueEvents = new QueueEvents(BASE_IMPORT_ATTACHMENTS_CSV_QUEUE);
 
   private processedJobs = new Set<string>();
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_ATTACHMENTS_CSV_QUEUE)
     public readonly queue: Queue<IBaseImportAttachmentsCsvJob>

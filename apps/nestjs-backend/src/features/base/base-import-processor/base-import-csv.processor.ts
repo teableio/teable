@@ -5,7 +5,7 @@ import { FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
-import { Queue, QueueEvents, Job } from 'bullmq';
+import { Queue, Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -32,7 +32,6 @@ export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
 @Processor(BASE_IMPORT_CSV_QUEUE)
 export class BaseImportCsvQueueProcessor extends WorkerHost {
   private logger = new Logger(BaseImportCsvQueueProcessor.name);
-  readonly queueEvents = new QueueEvents(BASE_IMPORT_CSV_QUEUE);
 
   private processedJobs = new Set<string>();
 
