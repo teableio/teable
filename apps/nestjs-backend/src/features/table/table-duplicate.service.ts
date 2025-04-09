@@ -1,5 +1,10 @@
 import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
-import type { IFormulaFieldOptions, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
+import type {
+  IFieldVo,
+  IFormulaFieldOptions,
+  ILinkFieldOptions,
+  ILookupOptionsRo,
+} from '@teable/core';
 import {
   generateViewId,
   generateShareId,
@@ -18,6 +23,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { extractFieldReferences } from '../../utils';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw, rawField2FieldObj } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -258,7 +264,8 @@ export class TableDuplicateService {
     const commonFields = fieldsInstances.filter(
       (f) =>
         !f.isLookup &&
-        ![FieldType.Formula, FieldType.Link, FieldType.Rollup].includes(f.type as FieldType)
+        ![FieldType.Formula, FieldType.Link, FieldType.Rollup].includes(f.type as FieldType) &&
+        !f.aiConfig
     );
 
     for (let i = 0; i < commonFields.length; i++) {
@@ -498,7 +505,7 @@ export class TableDuplicateService {
     sourceToTargetFieldMap: Record<string, string>
   ) {
     const dependFields = fieldsInstances.filter(
-      (f) => f.isLookup || f.type === FieldType.Formula || f.type === FieldType.Rollup
+      (f) => f.isLookup || f.type === FieldType.Formula || f.type === FieldType.Rollup || f.aiConfig
     );
     if (!dependFields.length) return;
 
@@ -546,6 +553,21 @@ export class TableDuplicateService {
     sourceTableId: string,
     sourceToTargetFieldMap: Record<string, string>
   ) {
+    if (field.aiConfig) {
+      const { aiConfig } = field;
+
+      if ('sourceFieldId' in aiConfig) {
+        return Boolean(sourceToTargetFieldMap[aiConfig.sourceFieldId]);
+      }
+
+      if ('prompt' in aiConfig) {
+        const { prompt, attachmentFieldIds = [] } = aiConfig;
+        const fieldIds = extractFieldReferences(prompt);
+        const keys = Object.keys(sourceToTargetFieldMap);
+        return [...fieldIds, ...attachmentFieldIds].every((field) => keys.includes(field));
+      }
+    }
+
     if (field.type === FieldType.Formula) {
       const formulaOptions = field.options as IFormulaFieldOptions;
       const referencedFields = this.extractFieldIds(formulaOptions.expression);
@@ -572,6 +594,10 @@ export class TableDuplicateService {
     sourceToTargetFieldMap: Record<string, string>,
     hasError = false
   ) {
+    if (field.aiConfig) {
+      await this.duplicateFieldAiConfig(targetTableId, field, sourceToTargetFieldMap);
+    }
+
     if (field.type === FieldType.Formula) {
       await this.duplicateFormulaField(targetTableId, field, sourceToTargetFieldMap, hasError);
     } else if (field.isLookup) {
@@ -769,6 +795,50 @@ export class TableDuplicateService {
         },
       });
     }
+  }
+
+  private async duplicateFieldAiConfig(
+    targetTableId: string,
+    fieldInstance: IFieldInstance,
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    if (!fieldInstance.aiConfig) return;
+
+    const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
+      fieldInstance;
+
+    const aiConfig: IFieldVo['aiConfig'] = { ...fieldInstance.aiConfig };
+
+    if ('sourceFieldId' in aiConfig) {
+      aiConfig.sourceFieldId = sourceToTargetFieldMap[aiConfig.sourceFieldId as string];
+    }
+
+    if ('prompt' in aiConfig) {
+      const { prompt, attachmentFieldIds = [] } = aiConfig;
+      Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
+        aiConfig.prompt = prompt.replaceAll(key, value);
+      });
+      aiConfig.attachmentFieldIds = attachmentFieldIds?.map(
+        (fieldId) => sourceToTargetFieldMap[fieldId]
+      );
+    }
+
+    const newField = await this.fieldOpenService.createField(targetTableId, {
+      type,
+      dbFieldName,
+      description,
+      options,
+      aiConfig,
+      name,
+    });
+
+    await this.replenishmentConstraint(newField.id, targetTableId, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+    sourceToTargetFieldMap[id] = newField.id;
   }
 
   private async duplicateViews(
