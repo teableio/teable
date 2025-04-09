@@ -45,6 +45,8 @@ export interface IDbProvider {
 
   renameTableName(oldTableName: string, newTableName: string): string[];
 
+  getForeignKeysInfo(dbTableName: string): string;
+
   dropTable(tableName: string): string;
 
   renameColumn(tableName: string, oldName: string, newName: string): string[];

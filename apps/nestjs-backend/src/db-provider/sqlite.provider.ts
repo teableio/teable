@@ -52,6 +52,15 @@ export class SqliteProvider implements IDbProvider {
     return `${baseId}_${name}`;
   }
 
+  // make no-sense
+  getForeignKeysInfo(tableName: string): string {
+    return this.knex
+      .raw(
+        'SELECT NULL as constraint_name, NULL as column_name, NULL as referenced_column_name, NULL as referenced_table_schema, NULL as referenced_table_name WHERE 1=0'
+      )
+      .toQuery();
+  }
+
   renameTableName(oldTableName: string, newTableName: string) {
     return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
   }

@@ -6,8 +6,8 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { Queue, Job } from 'bullmq';
 import * as unzipper from 'unzipper';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import StorageAdapter from '../../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import {
   BASE_IMPORT_ATTACHMENTS_CSV_QUEUE,
   BaseImportAttachmentsCsvQueueProcessor,
