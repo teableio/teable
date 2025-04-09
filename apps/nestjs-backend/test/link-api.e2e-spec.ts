@@ -2698,7 +2698,7 @@ describe('OpenAPI link (e2e)', () => {
     ])(
       'should clean one-way $relationship link record when delete a record',
       async ({ relationship }) => {
-        const manyOneFieldRo: IFieldRo = {
+        const linkFieldRo: IFieldRo = {
           type: FieldType.Link,
           options: {
             relationship,
@@ -2710,16 +2710,24 @@ describe('OpenAPI link (e2e)', () => {
         // set primary key 'x' in table2
         await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
         // get get a oneManyField involved
-        const manyOneField = await createField(table1.id, manyOneFieldRo);
+        const linkField = await createField(table1.id, linkFieldRo);
 
         if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
-          await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, {
+          await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
             id: table2.records[0].id,
           });
+          await updateRecordByApi(table1.id, table1.records[1].id, linkField.id, {
+            id: table2.records[1].id,
+          });
         } else {
-          await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, [
+          await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
             {
               id: table2.records[0].id,
+            },
+          ]);
+          await updateRecordByApi(table1.id, table1.records[1].id, linkField.id, [
+            {
+              id: table2.records[1].id,
             },
           ]);
         }
@@ -2727,7 +2735,10 @@ describe('OpenAPI link (e2e)', () => {
         await deleteRecord(table2.id, table2.records[0].id);
 
         const table1Record = await getRecord(table1.id, table1.records[0].id);
-        expect(table1Record.fields[manyOneField.id]).toBeUndefined();
+        expect(table1Record.fields[linkField.id]).toBeUndefined();
+
+        // check if the record is successfully deleted
+        await deleteRecord(table1.id, table1.records[1].id);
       }
     );
   });

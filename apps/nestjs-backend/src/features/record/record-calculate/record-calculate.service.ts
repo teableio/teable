@@ -106,13 +106,11 @@ export class RecordCalculateService {
     await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.fkRecordMap);
   }
 
-  async calculateDeletedRecord(tableId: string, recordIds: string[]) {
+  async calculateDeletedRecord(tableId: string, records: IRecord[]) {
     const cellContextsByTableId = await this.linkService.getDeleteRecordUpdateContext(
       tableId,
-      recordIds
+      records
     );
-
-    // console.log('calculateDeletedRecord', tableId, recordIds);
 
     for (const effectedTableId in cellContextsByTableId) {
       const cellContexts = cellContextsByTableId[effectedTableId];

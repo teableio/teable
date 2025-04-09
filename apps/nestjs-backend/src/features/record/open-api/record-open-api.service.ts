@@ -382,7 +382,7 @@ export class RecordOpenApiService {
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
     const { records, orders } = await this.prismaService.$tx(async () => {
       const records = await this.recordService.getRecordsById(tableId, recordIds);
-      await this.recordCalculateService.calculateDeletedRecord(tableId, recordIds);
+      await this.recordCalculateService.calculateDeletedRecord(tableId, records.records);
       const orders = windowId
         ? await this.recordService.getRecordIndexes(tableId, recordIds)
         : undefined;

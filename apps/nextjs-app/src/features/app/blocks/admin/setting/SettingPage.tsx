@@ -3,7 +3,7 @@ import type { IUpdateSettingRo, ISettingVo } from '@teable/openapi';
 import { BillingProductLevel, getInstanceUsage, getSetting, updateSetting } from '@teable/openapi';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { AIConfigForm } from './components/ai-config/AiForm';
 import { Branding } from './components/Branding';
@@ -29,12 +29,12 @@ export const SettingPage = (props: ISettingPageProps) => {
     },
   });
 
-  const isCloud = useIsCloud();
+  const isEE = useIsEE();
 
   const { data: instanceUsage } = useQuery({
     queryKey: ['instance-usage'],
     queryFn: () => getInstanceUsage().then(({ data }) => data),
-    enabled: !isCloud,
+    enabled: isEE,
   });
 
   const onValueChange = (key: string, value: unknown) => {

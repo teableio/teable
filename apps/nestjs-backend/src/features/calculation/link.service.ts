@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
+import type { ILinkCellValue, ILinkFieldOptions, IRecord } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -1111,14 +1111,18 @@ export class LinkService {
     }, {});
   }
 
-  private async getContextByDelete(linkFieldRaws: Field[], recordIds: string[]) {
+  private async getContextByDelete(tableId: string, linkFieldRaws: Field[], records: IRecord[]) {
     const cellContextsMap: { [tableId: string]: ICellContext[] } = {};
+    const recordIds = records.map((record) => record.id);
 
     const keyToValue = (key: string | string[] | null) =>
       key ? (Array.isArray(key) ? key.map((id) => ({ id })) : { id: key }) : null;
 
     for (const fieldRaws of linkFieldRaws) {
       const options = JSON.parse(fieldRaws.options as string) as ILinkFieldOptions;
+      if (!options.isOneWay) {
+        continue;
+      }
       const tableId = fieldRaws.tableId;
       const foreignKeys = await this.getJoinedForeignKeys(recordIds, options);
       const fieldItems = this.parseFkRecordItemToDelete(options, recordIds, foreignKeys);
@@ -1135,6 +1139,23 @@ export class LinkService {
         });
       });
     }
+
+    // delete link cell clean foreign key
+    records.forEach((record) => {
+      Object.entries(record.fields).forEach(([fieldId, value]) => {
+        if (isLinkCellValue(value)) {
+          if (!cellContextsMap[tableId]) {
+            cellContextsMap[tableId] = [];
+          }
+          cellContextsMap[tableId].push({
+            fieldId,
+            recordId: record.id,
+            oldValue: value,
+            newValue: null,
+          });
+        }
+      });
+    });
 
     return cellContextsMap;
   }
@@ -1167,9 +1188,8 @@ export class LinkService {
     });
   }
 
-  async getDeleteRecordUpdateContext(tableId: string, recordIds: string[]) {
+  async getDeleteRecordUpdateContext(tableId: string, records: IRecord[]) {
     const linkFieldRaws = await this.getRelatedLinkFieldRaws(tableId);
-
-    return await this.getContextByDelete(linkFieldRaws, recordIds);
+    return await this.getContextByDelete(tableId, linkFieldRaws, records);
   }
 }
