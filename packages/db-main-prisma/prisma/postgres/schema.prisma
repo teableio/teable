@@ -617,6 +617,7 @@ model Task {
 
   runs             TaskRun[]
 
+  @@index([type, status])
   @@map("task")
 }
 
@@ -626,6 +627,7 @@ model TaskRun {
   status           String    @map("status")
   snapshot         String    @map("snapshot")
   spent            Int?      @map("spent")
+  errorMsg         String?   @map("error_msg")
   startedTime      DateTime? @map("started_time")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
