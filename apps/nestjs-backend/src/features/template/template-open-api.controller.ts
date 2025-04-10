@@ -94,9 +94,4 @@ export class TemplateOpenApiController {
       updateTemplateCategoryRo
     );
   }
-
-  @Patch('/:templateId/usage-count')
-  async updateTemplateUsageCount(@Param('templateId') templateId: string) {
-    return this.templateOpenApiService.updateTemplateUsageCount(templateId);
-  }
 }

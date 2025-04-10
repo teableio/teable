@@ -1,7 +1,7 @@
 import { Edit } from '@teable/icons';
 import { Textarea } from '@teable/ui-lib/shadcn';
 import { useRef, useState } from 'react';
-import Markdown from 'react-markdown';
+import { MarkdownPreview } from '@/features/app/components/mark-down-preview';
 
 interface MarkdownEditorProps {
   value: string;
@@ -12,7 +12,7 @@ export const MarkdownEditor = ({ value, onChange }: MarkdownEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full items-center gap-2 overflow-hidden">
       {isEditing ? (
         <Textarea
           defaultValue={value}
@@ -34,7 +34,9 @@ export const MarkdownEditor = ({ value, onChange }: MarkdownEditorProps) => {
           ref={inputRef}
         />
       ) : (
-        <Markdown>{value}</Markdown>
+        <div className="flex-1 overflow-auto">
+          <MarkdownPreview>{value}</MarkdownPreview>
+        </div>
       )}
 
       <Edit

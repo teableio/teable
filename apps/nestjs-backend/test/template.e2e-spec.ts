@@ -150,6 +150,17 @@ describe('Template Open API Controller (e2e)', () => {
     expect(tmpList2.data.map(({ id }) => id)).toEqual([tmp3.data.id, tmp1.data.id, tmp2.data.id]);
   });
 
+  it('should support update template markdown description and get ', async () => {
+    const template = await createTemplate({});
+    await updateTemplate(template.data.id, {
+      markdownDescription: '# test markdown description',
+    });
+    const tmpList = await getTemplateList();
+    expect(tmpList.status).toBe(200);
+    expect(tmpList.data.length).toBe(1);
+    expect(tmpList.data[0].markdownDescription).toBe('# test markdown description');
+  });
+
   it('should delete template', async () => {
     const template = await createTemplate({});
     const res1 = await getTemplateList();

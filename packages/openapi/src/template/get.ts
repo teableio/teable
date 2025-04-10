@@ -29,6 +29,7 @@ export const templateVoSchema = z.object({
   baseId: z.string().startsWith(IdPrefix.Base).optional(),
   cover: templateCoverVoSchema,
   usageCount: z.number(),
+  markdownDescription: z.string().optional(),
 });
 
 export type ITemplateVo = z.infer<typeof templateVoSchema>;

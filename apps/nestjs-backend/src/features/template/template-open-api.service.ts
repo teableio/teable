@@ -276,11 +276,4 @@ export class TemplateOpenApiService {
       data: { ...updateTemplateCategoryRo },
     });
   }
-
-  async updateTemplateUsageCount(templateId: string) {
-    await this.prismaService.template.update({
-      where: { id: templateId },
-      data: { usageCount: { increment: 1 } },
-    });
-  }
 }
