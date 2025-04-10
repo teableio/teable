@@ -83,6 +83,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { usePrevious, useClickAway } from 'react-use';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
@@ -119,6 +120,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const ssrRecord = useSSRRecord();
   const theme = useGridTheme();
   const fields = useFields();
+  const usage = useBaseUsage();
   const allFields = useFields({ withHidden: true });
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
@@ -145,6 +147,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
   const [autoFillFieldId, setAutoFillFieldId] = useState<string | undefined>();
+
+  const { fieldAIEnable = false } = usage?.limit ?? {};
 
   const aiGenerateButtonRef = useRef<{
     onScrollHandler: () => void;
@@ -432,7 +436,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const selectFields = fields.filter((field) => indexedColumns[field.id]);
       const onAutoFill = (fieldId: string) => setAutoFillFieldId(fieldId);
       const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
-      openHeaderMenu({ position, fields: selectFields, onSelectionClear, onAutoFill });
+      openHeaderMenu({
+        position,
+        fields: selectFields,
+        aiEnable: fieldAIEnable,
+        onSelectionClear,
+        onAutoFill,
+      });
     }
   };
 
@@ -442,9 +452,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const { x, height } = bounds;
       const selectedFields = fields.filter((field) => field.id === fieldId);
       const onAutoFill = (fieldId: string) => setAutoFillFieldId(fieldId);
-      openHeaderMenu({ fields: selectedFields, position: { x, y: height }, onAutoFill });
+      openHeaderMenu({
+        fields: selectedFields,
+        position: { x, y: height },
+        aiEnable: fieldAIEnable,
+        onAutoFill,
+      });
     },
-    [columns, fields, openHeaderMenu]
+    [columns, fields, fieldAIEnable, openHeaderMenu]
   );
 
   const onColumnHeaderDblClick = useCallback(
@@ -956,7 +971,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onItemClick={onItemClick}
         onItemHovered={onItemHovered}
       />
-      <AiGenerateButton ref={aiGenerateButtonRef} gridRef={gridRef} activeCell={activeCell} />
+      {fieldAIEnable && (
+        <AiGenerateButton ref={aiGenerateButtonRef} gridRef={gridRef} activeCell={activeCell} />
+      )}
       {inPrefilling && (
         <PrefillingRowContainer
           style={prefillingRowStyle}

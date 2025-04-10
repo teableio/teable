@@ -1,7 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import { Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
-import { getBaseUsage, getInstanceUsage } from '@teable/openapi';
-import { useBase, useBasePermission } from '@teable/sdk/hooks';
+import { useBasePermission } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { useIsCloud } from '@/features/app/hooks/useIsCloud';
-import { useIsEE } from '@/features/app/hooks/useIsEE';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableList } from '../../table-list/TableList';
 import { QuickAction } from './QuickAction';
@@ -29,26 +26,9 @@ export const BaseSideBar = () => {
   const router = useRouter();
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-
-  const isEE = useIsEE();
-  const isCloud = useIsCloud();
-
-  const base = useBase();
   const basePermission = useBasePermission();
+  const usage = useBaseUsage();
 
-  const { data: baseUsage } = useQuery({
-    queryKey: ['base-usage', base.id],
-    queryFn: ({ queryKey }) => getBaseUsage(queryKey[1]).then(({ data }) => data),
-    enabled: isCloud,
-  });
-
-  const { data: instanceUsage } = useQuery({
-    queryKey: ['instance-usage'],
-    queryFn: () => getInstanceUsage().then(({ data }) => data),
-    enabled: isEE,
-  });
-
-  const usage = instanceUsage ?? baseUsage;
   const { automationEnable = true, advancedPermissionsEnable = true } = usage?.limit ?? {};
 
   const pageRoutes: {

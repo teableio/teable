@@ -12,7 +12,6 @@ import {
   Filter,
   LayoutList,
   ArrowUpDown,
-  RefreshCcw,
   Copy,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
@@ -26,6 +25,7 @@ import {
   useTablePermission,
   useView,
 } from '@teable/sdk';
+import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
 import { TablePermissionContext } from '@teable/sdk/context/table-permission';
 import { insertSingle } from '@teable/sdk/utils';
 
@@ -81,7 +81,7 @@ export const FieldMenu = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const { fields, onSelectionClear, onAutoFill } = headerMenu ?? {};
+  const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
 
   const menuFieldPermission = useMemo(() => {
@@ -198,8 +198,9 @@ export const FieldMenu = () => {
       {
         type: MenuItemType.AutoFill,
         name: t('table:menu.autoFill'),
-        icon: <RefreshCcw className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !fields[0].aiConfig?.type || !permission['record|update'],
+        icon: <MagicAI className={iconClassName} />,
+        hidden:
+          !aiEnable || !fields[0].aiConfig || fieldIds.length !== 1 || !permission['record|update'],
         onClick: async () => {
           onAutoFill?.(fieldIds[0]);
         },
@@ -373,7 +374,9 @@ export const FieldMenu = () => {
         },
       },
     ],
-  ].map((items) => items.filter(({ hidden }) => !hidden));
+  ]
+    .map((items) => items.filter(({ hidden }) => !hidden))
+    .filter((items) => items.length);
 
   return (
     <>
@@ -392,9 +395,8 @@ export const FieldMenu = () => {
                   })}
                   key={type}
                   onClick={async () => {
-                    if (disabled) {
-                      return;
-                    }
+                    if (disabled) return;
+
                     await onClick();
                     onSelectionClear?.();
                     closeHeaderMenu();
