@@ -29,13 +29,13 @@ const parseDsn = (dsn) => {
 const pgMigrate = async () => {
   console.log('Current working directory:', process.cwd());
   console.log('Running migration...');
-  const result = await $({cwd: '/app/packages/db-main-prisma'})`pnpm prisma migrate deploy --schema ./prisma/postgres/schema.prisma`;
+  const result = await $({cwd: '/app/packages/db-main-prisma'})`npx prisma migrate deploy --schema ./prisma/postgres/schema.prisma`;
   console.log('Migration command completed:', result);
   return result;
 };
 
 const killMe = async () => {
-  await $`exit 0`;
+  await $`exit 1`;
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
