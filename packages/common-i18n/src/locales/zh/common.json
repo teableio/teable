@@ -78,6 +78,7 @@
         "cover": "封面",
         "name": "名称",
         "description": "描述",
+        "markdownDescription": "富文本描述",
         "category": "分类",
         "isSystem": "系统模板",
         "source": "来源",

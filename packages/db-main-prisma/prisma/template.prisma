@@ -577,21 +577,22 @@ model UserLastVisit {
 }
 
 model Template {
-  id               String    @id @default(cuid())
-  baseId           String?    @map("base_id")
-  cover            String?
-  name             String?
-  description      String?
-  categoryId       String?   @map("category_id")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  lastModifiedBy   String?   @map("last_modified_by")
-  isSystem         Boolean?  @map("is_system")
-  isPublished      Boolean?  @map("is_published")
-  snapshot         String?   @map("snapshot")
-  order            Float     @map("order")
-  usageCount       Int       @default(0) @map("usage_count")
+  id                      String    @id @default(cuid())
+  baseId                  String?   @map("base_id")
+  cover                   String?
+  name                    String?
+  description             String?
+  markdownDescription     String?   @map("markdown_description")
+  categoryId              String?   @map("category_id")
+  createdTime             DateTime  @default(now()) @map("created_time")
+  createdBy               String    @map("created_by")
+  lastModifiedTime        DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy          String?   @map("last_modified_by")
+  isSystem                Boolean?  @map("is_system")
+  isPublished             Boolean?  @map("is_published")
+  snapshot                String?   @map("snapshot")
+  order                   Float     @map("order")
+  usageCount              Int       @default(0) @map("usage_count")
 
   @@map("template")
 }

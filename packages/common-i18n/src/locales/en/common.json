@@ -78,6 +78,7 @@
         "cover": "Cover",
         "name": "Name",
         "description": "Description",
+        "markdownDescription": "Markdown Description",
         "category": "Category",
         "isSystem": "System",
         "source": "Source",

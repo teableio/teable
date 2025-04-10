@@ -33,6 +33,7 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { BaseSelectPanel } from './BaseSelectPanel';
+import { MarkdownEditor } from './MarkdownEditor';
 import { TemplateCategorySelect } from './TemplateCategorySelect';
 import { TemplateCover } from './TemplateCover';
 import { TemplateTooltips } from './TemplateTooltips';
@@ -107,6 +108,10 @@ export const TemplateTable = () => {
     updateTemplateFn({ templateId, updateRo: { categoryId: templateCategoryId } });
   };
 
+  const onChangeTemplateMarkdownDescription = (templateId: string, markdownDescription: string) => {
+    updateTemplateFn({ templateId, updateRo: { markdownDescription } });
+  };
+
   const { mutateAsync: pinTopTemplateFn } = useMutation({
     mutationFn: (templateId: string) => pinTopTemplate(templateId),
     onSuccess: () => {
@@ -125,6 +130,9 @@ export const TemplateTable = () => {
             </TableHead>
             <TableHead className="w-52 max-w-52 shrink-0">
               {t('settings.templateAdmin.header.description')}
+            </TableHead>
+            <TableHead className="w-52 max-w-52 shrink-0">
+              {t('settings.templateAdmin.header.markdownDescription')}
             </TableHead>
             <TableHead>{t('settings.templateAdmin.header.category')}</TableHead>
             <TableHead className="min-w-24 text-center">
@@ -170,6 +178,14 @@ export const TemplateTable = () => {
                   value={row.description}
                   onChange={(value) => {
                     onChangeTemplateDescription(row.id, value);
+                  }}
+                />
+              </TableCell>
+              <TableCell className="max-w-48">
+                <MarkdownEditor
+                  value={row.markdownDescription}
+                  onChange={(value) => {
+                    onChangeTemplateMarkdownDescription(row.id, value);
                   }}
                 />
               </TableCell>

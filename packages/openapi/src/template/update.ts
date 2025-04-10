@@ -32,6 +32,7 @@ export const updateTemplateRoSchema = z.object({
   isPublished: z.boolean().optional(),
   isSystem: z.boolean().optional(),
   baseId: z.string().optional(),
+  markdownDescription: z.string().optional(),
 });
 
 export type IUpdateTemplateRo = z.infer<typeof updateTemplateRoSchema>;
