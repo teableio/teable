@@ -1069,7 +1069,7 @@ export class TableDuplicateService {
           return true;
         }
         // if not allow cross base, filter out it.
-        return Boolean((field.options as ILinkFieldOptions).baseId);
+        return !(field.options as ILinkFieldOptions).baseId;
       });
     const targetFields = targetLinkFieldRaws.map((f) => createFieldInstanceByRaw(f));
 
