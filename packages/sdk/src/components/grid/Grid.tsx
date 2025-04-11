@@ -256,7 +256,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       setColumnLoadings(columnLoadings);
     },
     getCellBounds: (cell: ICellItem) => {
-      const [columnIndex, rowIndex] = cell;
+      const [columnIndex, _rowIndex] = cell;
+      const rowIndex = real2RowIndex(_rowIndex);
       const { scrollLeft, scrollTop } = scrollState;
 
       const columnOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
