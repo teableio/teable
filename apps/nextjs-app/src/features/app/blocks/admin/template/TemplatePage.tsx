@@ -23,7 +23,7 @@ export const TemplatePage = () => {
         </Button>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <TemplateTable />
       </div>
     </div>

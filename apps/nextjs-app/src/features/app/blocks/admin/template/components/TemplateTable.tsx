@@ -115,10 +115,10 @@ export const TemplateTable = () => {
   });
 
   return (
-    <div className="mt-2 size-full">
-      <Table className="rounded-sm border">
-        <TableHeader>
-          <TableRow>
+    <div className="mt-2">
+      <Table className="max-h-50 relative size-full scroll-smooth rounded-sm border">
+        <TableHeader className="z-10 border bg-background">
+          <TableRow className="sticky top-0 z-10 h-16 border bg-background">
             <TableHead>{t('settings.templateAdmin.header.cover')}</TableHead>
             <TableHead className="w-40 shrink-0">
               {t('settings.templateAdmin.header.name')}
@@ -148,7 +148,7 @@ export const TemplateTable = () => {
 
         <TableBody>
           {templateData?.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow key={row.id} className="max-h-24">
               <TableCell className="max-w-40">
                 <TemplateCover
                   cover={row.cover}

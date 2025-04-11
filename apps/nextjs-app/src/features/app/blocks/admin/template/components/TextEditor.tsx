@@ -1,4 +1,5 @@
 import { Edit } from '@teable/icons';
+import { DividerRegion } from '@teable/sdk/components/grid/renderers/layout-renderer/interface';
 import { Input } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
@@ -14,7 +15,7 @@ export const TextEditor = (props: ITextEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex h-full items-center gap-2">
       {isEditing ? (
         <Input
           defaultValue={value}
@@ -37,7 +38,7 @@ export const TextEditor = (props: ITextEditorProps) => {
           ref={inputRef}
         />
       ) : (
-        <span className="line-clamp-6" title={value}>
+        <span className="line-clamp-6 break-words" title={value}>
           {value || defaultPlaceholder || t('untitled')}
         </span>
       )}
