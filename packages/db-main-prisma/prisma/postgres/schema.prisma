@@ -614,6 +614,9 @@ model Task {
   status           String    @map("status")
   snapshot         String?   @map("snapshot")
   createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
 
   runs             TaskRun[]
 
