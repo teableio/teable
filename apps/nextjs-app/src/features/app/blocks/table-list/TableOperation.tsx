@@ -155,10 +155,10 @@ export const TableOperation = (props: ITableOperationProps) => {
                 pathname: '/base/[baseId]/design',
                 query: { baseId, tableId: table.id },
               }}
-              title={t('table:table.design')}
+              title={t('common:noun.design')}
             >
               <Settings className="mr-2" />
-              {t('table:table.design')}
+              {t('common:noun.design')}
             </Link>
           </DropdownMenuItem>
           {menuPermission.duplicateTable && (

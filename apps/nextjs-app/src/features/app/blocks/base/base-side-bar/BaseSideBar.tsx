@@ -154,7 +154,7 @@ export const BaseSideBar = () => {
                 >
                   <Link href={`/base/${baseId}/design`} className="font-normal">
                     <Settings className="size-4 shrink-0" />
-                    <p className="truncate">{t('table:table.design')}</p>
+                    <p className="truncate">{t('common:noun.design')}</p>
                     <div className="grow basis-0"></div>
                   </Link>
                 </Button>

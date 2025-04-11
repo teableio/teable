@@ -211,6 +211,7 @@
     "dashboard": "仪表盘",
     "automation": "自动化",
     "authorityMatrix": "权限矩阵",
+    "design": "设计",
     "adminPanel": "管理面板",
     "license": "私有化部署许可证",
     "instanceId": "实例 ID",
@@ -222,7 +223,8 @@
     "pluginPanel": "面板",
     "pluginContextMenu": "菜单",
     "plugin": "插件",
-    "copy": "副本"
+    "copy": "副本",
+    "enterpriseFeature": "企业版功能"
   },
   "level": {
     "free": "免费版",
@@ -293,6 +295,7 @@
   },
   "help": {
     "title": "帮助",
+    "appLink": "https://app.teable.cn",
     "mainLink": "https://help.teable.cn",
     "apiLink": "https://help.teable.cn/zh/api-doc"
   },
@@ -304,6 +307,10 @@
     "userLimitExceededDescription": "当前实例已达到许可证允许的最大用户数限制，请停用超限的用户或升级许可证以继续使用。",
     "unavailableInPlanTips": "当前订阅计划不支持此功能",
     "levelTips": "当前空间使用的是{{level}}计划",
+    "enterpriseFeature": "企业版功能",
+    "automationRequiresUpgrade": "升级到企业版以启用自动化",
+    "authorityMatrixRequiresUpgrade": "升级到企业版以启用权限矩阵",
+    "viewPricing": "查看定价",
     "spaceSubscriptionModal": {
       "title": "升级空间站的订阅计划",
       "description": "您只能升级具有「可管理」权限的空间站"

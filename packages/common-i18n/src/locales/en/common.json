@@ -211,6 +211,7 @@
     "dashboard": "Dashboard",
     "automation": "Automation",
     "authorityMatrix": "Authority Matrix",
+    "design": "Design",
     "adminPanel": "Admin Panel",
     "license": "Self-hosted License",
     "instanceId": "Instance ID",
@@ -294,6 +295,7 @@
   },
   "help": {
     "title": "Help",
+    "appLink": "https://app.teable.io",
     "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/en/api-doc/token"
   },
@@ -305,6 +307,10 @@
     "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
     "unavailableInPlanTips": "The current subscription plan does not support this feature",
     "levelTips": "This space is currently on the {{level}} plan",
+    "enterpriseFeature": "Enterprise Feature",
+    "automationRequiresUpgrade": "Upgrade to Enterprise Edition (EE) to enable automation",
+    "authorityMatrixRequiresUpgrade": "Upgrade to Enterprise Edition (EE) to enable authority matrix",
+    "viewPricing": "View Pricing",
     "spaceSubscriptionModal": {
       "title": "Upgrade space's subscription plan",
       "description": "You can only upgrade workspaces where you are an owner"

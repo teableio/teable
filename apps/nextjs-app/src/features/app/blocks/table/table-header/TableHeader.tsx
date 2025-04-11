@@ -115,7 +115,7 @@ const RightList = ({
               pathname: '/base/[baseId]/design',
               query: { baseId: base.id, tableId },
             }}
-            title={t('table:table.design')}
+            title={t('common:noun.design')}
           >
             <Settings className="size-4" />
           </Link>
@@ -260,9 +260,9 @@ const RightMenu = ({ className }: { className?: string }) => {
                 pathname: '/base/[baseId]/design',
                 query: { baseId: base.id, tableId },
               }}
-              title={t('table:table.design')}
+              title={t('common:noun.design')}
             >
-              <Settings className="size-4" /> {t('table:table.design')}
+              <Settings className="size-4" /> {t('common:noun.design')}
             </Link>
           </Button>
           <Button asChild variant="ghost" size="xs" className="flex justify-start">
