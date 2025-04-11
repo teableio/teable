@@ -65,6 +65,15 @@ export class BaseExportService {
   }
 
   async exportBaseZip(baseId: string) {
+    const { name: baseName } = await this.prismaService.base.findFirstOrThrow({
+      where: {
+        id: baseId,
+      },
+      select: {
+        name: true,
+      },
+    });
+
     this.processExportBaseZip(baseId)
       .then(async (result) => {
         const { path, name } = result;
@@ -77,12 +86,13 @@ export class BaseExportService {
             'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
           }
         );
-
-        const messageString = `<a href="${previewUrl}" name="${name}">${name}</a>`;
+        const messageString = `${baseName} Export successfully: <a href="${previewUrl}" name="${name}" class="hover:text-blue-500 underline">🗂️ ${name}</a>`;
         this.notifyExportResult(baseId, messageString, previewUrl);
       })
-      .catch((e) => {
+      .catch(async (e) => {
         this.logger.error(`export base zip error: ${e.message}`, e?.stack);
+        const messageString = `❌ ${baseName} export failed: ${e.message}`;
+        this.notifyExportResult(baseId, messageString);
       });
   }
 
@@ -928,7 +938,7 @@ export class BaseExportService {
     });
   }
 
-  private async notifyExportResult(baseId: string, message: string, previewUrl: string) {
+  private async notifyExportResult(baseId: string, message: string, previewUrl?: string) {
     const userId = this.cls.get('user.id');
     await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
       previewUrl,
