@@ -121,6 +121,79 @@ export class NotificationService {
     }
   }
 
+  async sendHtmlContentNotify(
+    params: {
+      path: string;
+      fromUserId?: string;
+      toUserId: string;
+      message: string;
+      emailConfig?: {
+        title: string;
+        message: string;
+        buttonUrl?: string;
+        buttonText?: string;
+      };
+    },
+    type = NotificationTypeEnum.System
+  ) {
+    const { toUserId, emailConfig, message, path, fromUserId = SYSTEM_USER_ID } = params;
+    const notifyId = generateNotificationId();
+    const toUser = await this.userService.getUserById(toUserId);
+    if (!toUser) {
+      return;
+    }
+
+    const data: Prisma.NotificationCreateInput = {
+      id: notifyId,
+      fromUserId: fromUserId,
+      toUserId,
+      type,
+      urlPath: path,
+      createdBy: fromUserId,
+      message,
+    };
+    const notifyData = await this.createNotify(data);
+
+    const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
+
+    const rawUsers = await this.prismaService.user.findMany({
+      select: { id: true, name: true, avatar: true },
+      where: { id: fromUserId },
+    });
+    const fromUserSets = keyBy(rawUsers, 'id');
+
+    const systemNotifyIcon = this.generateNotifyIcon(
+      notifyData.type as NotificationTypeEnum,
+      fromUserId,
+      fromUserSets
+    );
+
+    const socketNotification = {
+      notification: {
+        id: notifyData.id,
+        message: notifyData.message,
+        notifyType: type,
+        url: path,
+        notifyIcon: systemNotifyIcon,
+        isRead: false,
+        createdTime: notifyData.createdTime.toISOString(),
+      },
+      unreadCount: unreadCount,
+    };
+
+    this.sendNotifyBySocket(toUser.id, socketNotification);
+
+    if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
+      const emailOptions = await this.mailSenderService.htmlEmailOptions({
+        ...emailConfig,
+        to: toUserId,
+        buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
+        buttonText: emailConfig.buttonText || 'View',
+      });
+      this.sendNotifyByMail(toUser.email, emailOptions);
+    }
+  }
+
   async sendCommonNotify(
     params: {
       path: string;
@@ -231,7 +304,7 @@ export class NotificationService {
     }
     const type = NotificationTypeEnum.ExportBase;
 
-    this.sendCommonNotify(
+    this.sendHtmlContentNotify(
       {
         path: '',
         toUserId,

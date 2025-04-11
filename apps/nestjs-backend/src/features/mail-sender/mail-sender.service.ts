@@ -106,6 +106,27 @@ export class MailSenderService {
     };
   }
 
+  async htmlEmailOptions(info: {
+    to: string;
+    title: string;
+    message: string;
+    buttonUrl: string;
+    buttonText: string;
+  }) {
+    const { title, message } = info;
+    const { brandName } = await this.settingService.getServerBrand();
+    return {
+      notifyMessage: message,
+      subject: `${title} - ${brandName}`,
+      template: 'normal',
+      context: {
+        partialBody: 'html-body',
+        brandName,
+        ...info,
+      },
+    };
+  }
+
   async commonEmailOptions(info: {
     to: string;
     title: string;
