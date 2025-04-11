@@ -7,6 +7,8 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CopyButton } from '../../components/CopyButton';
+import { useBaseUsage } from '../../hooks/useBaseUsage';
+import { useIsCloud } from '../../hooks/useIsCloud';
 
 const ContentCard = () => {
   const baseId = useBaseId() as string;
@@ -124,6 +126,9 @@ const ContentCard = () => {
 export const DbConnectionPanel = ({ className }: { className?: string }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const permissions = useBasePermission();
+  const isCloud = useIsCloud();
+  const usage = useBaseUsage();
+  const maxNumDatabaseConnections = usage?.limit.maxNumDatabaseConnections;
 
   return (
     <div className={className}>
@@ -133,13 +138,25 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
           <h2 className="font-semibold">{t('table:connection.title')}</h2>
         </div>
         <Button variant="ghost" size="icon">
-          <a href={t('table:connection.helpLink')} target="_blank" rel="noreferrer">
+          <a
+            href={`${t('common:help.mainLink')}/api-doc/sql-query`}
+            target="_blank"
+            rel="noreferrer"
+          >
             <HelpCircle className="size-4" />
           </a>
         </Button>
       </div>
       <p className="mb-2 text-sm text-muted-foreground">{t('table:connection.description')}</p>
-      {permissions?.['base|db_connection'] ? <ContentCard /> : t('table:connection.noPermission')}
+      {isCloud && !maxNumDatabaseConnections ? (
+        <div className="text-sm text-muted-foreground">
+          {t('common:billing.unavailableInPlanTips')}
+        </div>
+      ) : permissions?.['base|db_connection'] ? (
+        <ContentCard />
+      ) : (
+        t('table:connection.noPermission')
+      )}
     </div>
   );
 };

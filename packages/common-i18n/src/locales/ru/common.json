@@ -200,7 +200,6 @@
   },
   "help": {
     "title": "Помощь",
-    "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Разрешения страницы были обновлены. Пожалуйста, обновите страницу, чтобы увидеть последние изменения.",

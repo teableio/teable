@@ -205,7 +205,6 @@
   },
   "help": {
     "title": "Yardım",
-    "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Sayfa izinleri güncellendi. En son içeriği görmek için lütfen sayfayı yenileyin.",

@@ -232,7 +232,6 @@
   },
   "help": {
     "title": "Ayuda",
-    "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Los permisos de la página se han actualizado. ",

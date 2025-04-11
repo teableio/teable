@@ -296,7 +296,7 @@
   "help": {
     "title": "帮助",
     "appLink": "https://app.teable.cn",
-    "mainLink": "https://help.teable.cn",
+    "mainLink": "https://help.teable.cn/zh",
     "apiLink": "https://help.teable.cn/zh/api-doc"
   },
   "pagePermissionChangeTip": "页面权限已更新，请刷新页面以查看最新内容。",

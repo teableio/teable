@@ -228,7 +228,6 @@
   },
   "help": {
     "title": "Допомога",
-    "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Дозволи сторінки оновлено. Будь ласка, оновіть сторінку, щоб побачити найновіший вміст.",
