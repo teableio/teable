@@ -9,7 +9,7 @@ const Openai = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix_openai)">
       <path fill="#57A981" d="M0 12a12 12 0 1 0 24 0 12 12 0 0 0-24 0" />
       <path
         fill="#fff"
@@ -17,7 +17,7 @@ const Openai = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__openai">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

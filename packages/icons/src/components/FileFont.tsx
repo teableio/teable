@@ -9,7 +9,7 @@ const FileFont = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__file-font)">
       <path
         fill="#00B2EA"
         fillRule="evenodd"
@@ -18,7 +18,7 @@ const FileFont = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__file-font">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

@@ -9,7 +9,7 @@ const Lingyiwanwu = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__lingyiwanwu)">
       <path
         fill="#003425"
         d="M12 24c6.628 0 12-5.372 12-12 0-6.627-5.372-12-12-12C5.373 0 0 5.373 0 12c0 6.628 5.373 12 12 12"
@@ -21,7 +21,7 @@ const Lingyiwanwu = (props: SVGProps<SVGSVGElement>) => (
       <path fill="#00FF25" d="M18.405 12.207a1.036 1.036 0 1 0 0-2.072 1.036 1.036 0 0 0 0 2.072" />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__lingyiwanwu">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

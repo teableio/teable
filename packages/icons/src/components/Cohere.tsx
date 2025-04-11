@@ -9,7 +9,7 @@ const Cohere = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__cohere)">
       <path
         fill="#39594D"
         d="M7.775 14.288c.645 0 1.931-.036 3.705-.767 2.07-.852 6.188-2.4 9.158-3.988 2.078-1.11 2.987-2.581 2.987-4.56A4.97 4.97 0 0 0 18.653 0H7.144A7.144 7.144 0 0 0 0 7.144c0 3.944 2.994 7.144 7.775 7.144"
@@ -24,7 +24,7 @@ const Cohere = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__cohere">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

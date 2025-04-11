@@ -17,7 +17,7 @@ const SendMail = (props: SVGProps<SVGSVGElement>) => (
       strokeLinejoin="round"
       d="M17.6 7H6.4C5.627 7 5 7.56 5 8.25v7.5c0 .69.627 1.25 1.4 1.25h11.2c.773 0 1.4-.56 1.4-1.25v-7.5C19 7.56 18.373 7 17.6 7"
     />
-    <g filter="url(#prefix__a)" shapeRendering="crispEdges">
+    <g filter="url(#prefix__send-mail)" shapeRendering="crispEdges">
       <path
         fill="#2684FF"
         fillOpacity={0.6}
@@ -33,7 +33,7 @@ const SendMail = (props: SVGProps<SVGSVGElement>) => (
     </g>
     <defs>
       <filter
-        id="prefix__a"
+        id="prefix__send-mail"
         width={22}
         height={13}
         x={1}

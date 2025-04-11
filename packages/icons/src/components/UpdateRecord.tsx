@@ -9,7 +9,7 @@ const UpdateRecord = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__update-record)">
       <rect width={24} height={24} fill="#A7F3D0" rx={3} />
       <path
         stroke="#22C55E"
@@ -20,7 +20,7 @@ const UpdateRecord = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__update-record">
         <rect width={24} height={24} fill="#fff" rx={3} />
       </clipPath>
     </defs>

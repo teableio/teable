@@ -9,7 +9,7 @@ const TeableNew = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix_teable-new)">
       <path fill="#fff" d="M6 6h14.5v14.5H6z" />
       <path
         fill="currentColor"
@@ -22,7 +22,7 @@ const TeableNew = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix_teable-new">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

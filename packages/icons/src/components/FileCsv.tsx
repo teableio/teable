@@ -9,7 +9,7 @@ const FileCsv = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__file-csv)">
       <path
         fill="#D24625"
         d="M12.544 0h1.63v2.233c2.91.016 5.82-.032 8.747.016a.952.952 0 0 1 1.058 1.058c.045 5.498 0 10.999.026 16.497-.026.563.053 1.188-.264 1.688-.4.29-.913.264-1.379.264H14.18v2.233h-1.71C8.32 23.225 4.16 22.513 0 21.767V2.238C4.18 1.49 8.363.762 12.544 0"
@@ -28,7 +28,7 @@ const FileCsv = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__file-csv">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

@@ -9,7 +9,7 @@ const GoogleLogo = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__google-logo)">
       <path
         fill="#4285F4"
         d="M24 12.276c0-.816-.068-1.636-.212-2.439H12.24v4.621h6.613a5.55 5.55 0 0 1-2.447 3.647v2.998h3.945C22.668 19.013 24 15.927 24 12.276"
@@ -28,7 +28,7 @@ const GoogleLogo = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__google-logo">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

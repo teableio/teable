@@ -9,7 +9,7 @@ const FileVideo = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__file-video)">
       <path
         fill="#844FDA"
         fillRule="evenodd"
@@ -18,7 +18,7 @@ const FileVideo = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__file-video">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

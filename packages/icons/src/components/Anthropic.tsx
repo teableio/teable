@@ -9,7 +9,7 @@ const Anthropic = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__anthropic)">
       <path fill="#CA9F7B" d="M6 0h12q6 0 6 6v12q0 6-6 6H6q-6 0-6-6V6q0-6 6-6" />
       <path
         fill="#191918"
@@ -17,7 +17,7 @@ const Anthropic = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__anthropic">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

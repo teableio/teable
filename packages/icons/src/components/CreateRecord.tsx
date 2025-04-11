@@ -9,7 +9,7 @@ const CreateRecord = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix_create-record)">
       <rect width={24} height={24} fill="#C4B5FD" rx={3} />
       <path
         fill="#A855F7"
@@ -17,7 +17,7 @@ const CreateRecord = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix_create-record">
         <rect width={24} height={24} fill="#fff" rx={3} />
       </clipPath>
     </defs>

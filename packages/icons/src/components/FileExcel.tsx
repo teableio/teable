@@ -9,7 +9,7 @@ const FileExcel = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__file-excel)">
       <path fill="#21A366" d="M16 1H7c-.6 0-1 .4-1 1v5l10 5 4 1.5 4-1.5V7z" />
       <path fill="#107C41" d="M6 7h10v5H6z" />
       <path fill="#33C481" d="M24 2v5h-8V1h7c.5 0 1 .5 1 1" />
@@ -30,7 +30,7 @@ const FileExcel = (props: SVGProps<SVGSVGElement>) => (
       <path fill="#107C41" d="M16 12h8v5h-8z" />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__file-excel">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

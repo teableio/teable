@@ -107,7 +107,21 @@ const transformReactComponent = (svgList) => {
         },
         plugins: [
           // Clean SVG files using SVGO
-          '@svgr/plugin-svgo',
+          [
+            '@svgr/plugin-svgo',
+            {
+              multipass: true,
+              plugins: [
+                {
+                  name: 'prefixIds',
+                  params: {
+                    prefix: componentName.toLowerCase(),
+                    delim: '_',
+                  },
+                },
+              ],
+            },
+          ],
           // Generate JSX
           '@svgr/plugin-jsx',
           // Format the result using Prettier

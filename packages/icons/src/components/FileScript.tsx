@@ -9,7 +9,7 @@ const FileScript = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__file-script)">
       <path
         fill="#121219"
         fillRule="evenodd"
@@ -18,7 +18,7 @@ const FileScript = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__file-script">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>

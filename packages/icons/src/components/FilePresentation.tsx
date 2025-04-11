@@ -9,7 +9,7 @@ const FilePresentation = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <g clipPath="url(#prefix__a)">
+    <g clipPath="url(#prefix__file-presentation)">
       <path
         fill="#FFB900"
         fillRule="evenodd"
@@ -18,7 +18,7 @@ const FilePresentation = (props: SVGProps<SVGSVGElement>) => (
       />
     </g>
     <defs>
-      <clipPath id="prefix__a">
+      <clipPath id="prefix__file-presentation">
         <path fill="#fff" d="M0 0h24v24H0z" />
       </clipPath>
     </defs>
