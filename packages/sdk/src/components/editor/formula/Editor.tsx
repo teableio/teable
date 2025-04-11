@@ -414,8 +414,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                     {t('functionType.fields')}
                   </h3>
                   {filteredFields.map((result, index: number) => {
-                    const { id, name, type, isLookup } = result.item;
-                    const { Icon } = getFieldStatic(type, isLookup);
+                    const { id, name, type, isLookup, aiConfig } = result.item;
+                    const { Icon } = getFieldStatic(type, isLookup, Boolean(aiConfig));
                     const isSuggestionItem =
                       suggestionItemType === SuggestionItemType.Field && suggestionItemKey === id;
                     return (
@@ -429,7 +429,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                         onClick={onItemClick}
                         onMouseEnter={() => setSuggestionItemIndex(index)}
                       >
-                        <Icon className="mr-1 shrink-0" />
+                        <Icon className="mr-1 size-4 shrink-0" />
                         <span className="truncate">{name}</span>
                       </div>
                     );

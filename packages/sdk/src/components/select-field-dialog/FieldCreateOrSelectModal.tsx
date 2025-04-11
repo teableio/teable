@@ -122,8 +122,8 @@ export const FieldCreateOrSelectModal = forwardRef<
             ) : (
               <RadioGroup className="gap-4" value={selectedFieldId} onValueChange={onFieldSelect}>
                 {filteredFields.map((field) => {
-                  const { id, type, name, isLookup } = field;
-                  const { Icon } = getFieldStatic(type, isLookup);
+                  const { id, type, name, isLookup, aiConfig } = field;
+                  const { Icon } = getFieldStatic(type, isLookup, Boolean(aiConfig));
                   return (
                     <div key={id} className="flex items-center space-x-2">
                       <RadioGroupItem value={id} id={id} />

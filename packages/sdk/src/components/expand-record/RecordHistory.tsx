@@ -116,7 +116,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
         cell: ({ row }) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           const { name: fieldName, type: fieldType } = after.meta;
-          const { Icon } = getFieldStatic(fieldType, false);
+          const { Icon } = getFieldStatic(fieldType, false, false);
           return (
             <div className="flex items-center gap-x-1">
               <Icon className="shrink-0" />

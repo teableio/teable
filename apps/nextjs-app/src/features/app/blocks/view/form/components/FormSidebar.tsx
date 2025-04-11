@@ -27,14 +27,18 @@ interface IDragItemProps {
   field: IFieldInstance;
   disabled?: boolean;
   onClick?: () => void;
-  getFieldStatic: (type: FieldType, isLookup: boolean | undefined) => IFieldStatic;
+  getFieldStatic: (
+    type: FieldType,
+    isLookup: boolean | undefined,
+    hasAiConfig: boolean | undefined
+  ) => IFieldStatic;
 }
 
 export const DragItem: FC<IDragItemProps> = (props) => {
   const { field, disabled, onClick, getFieldStatic } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { type, name, isLookup } = field;
-  const Icon = getFieldStatic(type, isLookup).Icon;
+  const { type, name, isLookup, aiConfig } = field;
+  const Icon = getFieldStatic(type, isLookup, Boolean(aiConfig)).Icon;
   const content = (
     <div
       className={cn(
@@ -44,7 +48,7 @@ export const DragItem: FC<IDragItemProps> = (props) => {
       onClick={() => !disabled && onClick?.()}
     >
       <div className="flex items-center overflow-hidden">
-        <Icon className="ml-1 mr-2 shrink-0" />
+        <Icon className="ml-1 mr-2 size-4 shrink-0" />
         <span className="truncate text-sm">{name}</span>
       </div>
       {!disabled && <DraggableHandle className="ml-1 shrink-0" />}

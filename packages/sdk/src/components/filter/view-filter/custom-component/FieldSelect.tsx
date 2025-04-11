@@ -28,10 +28,10 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
   const fieldStaticGetter = useFieldStaticGetter();
   const optionRender = useCallback(
     (option: (typeof options)[number]) => {
-      const { Icon } = fieldStaticGetter(option.type, option.isLookup);
+      const { Icon } = fieldStaticGetter(option.type, option.isLookup, Boolean(option.aiConfig));
       return (
         <>
-          <Icon className="shrink-0"></Icon>
+          <Icon className="size-4 shrink-0" />
           <div className="truncate pl-1 text-[13px]">{option.label}</div>
         </>
       );
@@ -63,8 +63,8 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
       optionRender={optionRender}
       defaultLabel={<DefaultErrorLabel />}
       displayRender={(selectedField) => {
-        const { type, isLookup, label } = selectedField;
-        const { Icon } = fieldStaticGetter(type, isLookup);
+        const { type, isLookup, label, aiConfig } = selectedField;
+        const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
         return (
           <div className="flex flex-1 items-center truncate">
             <Icon className="shrink-0" />

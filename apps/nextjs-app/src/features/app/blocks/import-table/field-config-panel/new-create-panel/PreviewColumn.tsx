@@ -29,7 +29,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
   const candidates = useMemo(
     () =>
       IMPORT_SUPPORTED_TYPES.map<{ value: FieldType; label: string; icon: JSX.Element }>((type) => {
-        const { title, Icon } = getFieldStatic(type, false);
+        const { title, Icon } = getFieldStatic(type, false, false);
         return {
           value: type,
           label: title,

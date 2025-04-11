@@ -28,8 +28,8 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
 
   if (!view || !tableId) return null;
 
-  const { type, name, description, isComputed, isLookup, id: fieldId } = field;
-  const Icon = getFieldStatic(type, isLookup).Icon;
+  const { type, name, description, isComputed, isLookup, id: fieldId, aiConfig } = field;
+  const Icon = getFieldStatic(type, isLookup, Boolean(aiConfig)).Icon;
 
   const onHidden = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     event.stopPropagation();
@@ -61,7 +61,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
       <div className="mb-2 flex w-full items-center justify-between">
         <div className="flex overflow-hidden">
           <div className="flex h-6 shrink-0 items-center">
-            <Icon className="shrink-0" />
+            <Icon className="size-4 shrink-0" />
           </div>
           <h3 className="mx-1">{name}</h3>
         </div>

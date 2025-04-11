@@ -188,7 +188,11 @@ export const SheetView = () => {
                     className="flex size-full flex-col items-start justify-start"
                   >
                     {fields.map((field) => {
-                      const Icon = fieldStaticGetter(field.type, false).Icon;
+                      const Icon = fieldStaticGetter(
+                        field.type,
+                        false,
+                        Boolean(field.aiConfig)
+                      ).Icon;
                       return (
                         <TooltipProvider key={field.id}>
                           <Tooltip>
@@ -209,7 +213,7 @@ export const SheetView = () => {
                                     UnSupportFieldType.includes(field.type)
                                   }
                                 >
-                                  <Icon className="shrink-0" />
+                                  <Icon className="size-4 shrink-0" />
                                   <span className="truncate" title={field.name}>
                                     {field.name}
                                   </span>

@@ -21,8 +21,8 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
 
   if (!activeViewId || !view) return null;
 
-  const { id: fieldId, type, name, description, isLookup } = field;
-  const Icon = getFieldStatic(type, isLookup).Icon;
+  const { id: fieldId, type, name, description, isLookup, aiConfig } = field;
+  const Icon = getFieldStatic(type, isLookup, Boolean(aiConfig)).Icon;
 
   const required = view?.columnMeta[fieldId]?.required;
   const isError = errors.has(fieldId);
@@ -31,7 +31,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
     <div className="relative w-full py-5" id={`form-field-${fieldId}`}>
       <div className="mb-2 flex w-full overflow-hidden">
         <div className="flex h-6 shrink-0 items-center">
-          <Icon className="shrink-0" />
+          <Icon className="size-4 shrink-0" />
         </div>
         <h3 className="ml-1">{name}</h3>
       </div>

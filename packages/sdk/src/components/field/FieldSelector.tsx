@@ -39,7 +39,8 @@ export function FieldSelector(props: IFieldSelector) {
 
   const { Icon } = fieldStaticGetter(
     selectedField?.type || FieldType.SingleLineText,
-    selectedField?.isLookup
+    selectedField?.isLookup,
+    Boolean(selectedField?.aiConfig)
   );
 
   const selectHandler = (value: string) => {

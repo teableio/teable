@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FieldType } from '@teable/core';
 
@@ -24,6 +25,7 @@ import {
 } from '@teable/icons';
 
 import { useCallback } from 'react';
+import { MagicAI } from '../components/comment/comment-editor/plate-ui/icons';
 import { useTranslation } from '../context/app/i18n';
 import {
   AttachmentField,
@@ -45,7 +47,6 @@ import {
 export interface IFieldStatic {
   title: string;
   defaultOptions: unknown;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Icon: React.FC<any>;
 }
 
@@ -55,118 +56,124 @@ export const useFieldStaticGetter = () => {
   return useCallback(
     (
       type: FieldType,
-      isLookup: boolean | undefined
+      isLookup: boolean | undefined,
+      hasAiConfig: boolean | undefined
       // eslint-disable-next-line sonarjs/cognitive-complexity
     ): IFieldStatic => {
+      const getIcon = (icon: React.FC<any>) => {
+        if (hasAiConfig) return MagicAI;
+        return isLookup ? SearchIcon : icon;
+      };
+
       switch (type) {
         case FieldType.SingleLineText:
           return {
             title: t('field.title.singleLineText'),
             defaultOptions: SingleLineTextField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : TextIcon,
+            Icon: getIcon(TextIcon),
           };
         case FieldType.LongText:
           return {
             title: t('field.title.longText'),
             defaultOptions: LongTextField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : LongTextIcon,
+            Icon: getIcon(LongTextIcon),
           };
         case FieldType.SingleSelect:
           return {
             title: t('field.title.singleSelect'),
             defaultOptions: SingleSelectField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : SelectIcon,
+            Icon: getIcon(SelectIcon),
           };
         case FieldType.Number:
           return {
             title: t('field.title.number'),
             defaultOptions: NumberField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : NumberIcon,
+            Icon: getIcon(NumberIcon),
           };
         case FieldType.MultipleSelect:
           return {
             title: t('field.title.multipleSelect'),
             defaultOptions: MultipleSelectField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : MenuIcon,
+            Icon: getIcon(MenuIcon),
           };
         case FieldType.Link:
           return {
             title: t('field.title.link'),
             defaultOptions: LinkField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : LinkIcon,
+            Icon: getIcon(LinkIcon),
           };
         case FieldType.Formula:
           return {
             title: t('field.title.formula'),
             defaultOptions: {},
-            Icon: isLookup ? SearchIcon : FormulaIcon,
+            Icon: getIcon(FormulaIcon),
           };
         case FieldType.Date:
           return {
             title: t('field.title.date'),
             defaultOptions: DateField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : CalendarIcon,
+            Icon: getIcon(CalendarIcon),
           };
         case FieldType.CreatedTime:
           return {
             title: t('field.title.createdTime'),
             defaultOptions: CreatedTimeField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : CreatedTimeIcon,
+            Icon: getIcon(CreatedTimeIcon),
           };
         case FieldType.LastModifiedTime:
           return {
             title: t('field.title.lastModifiedTime'),
             defaultOptions: LastModifiedTimeField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : LastModifiedTimeIcon,
+            Icon: getIcon(LastModifiedTimeIcon),
           };
         case FieldType.Attachment:
           return {
             title: t('field.title.attachment'),
             defaultOptions: AttachmentField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : AttachmentIcon,
+            Icon: getIcon(AttachmentIcon),
           };
         case FieldType.Checkbox:
           return {
             title: t('field.title.checkbox'),
             defaultOptions: CheckboxField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : CheckboxIcon,
+            Icon: getIcon(CheckboxIcon),
           };
         case FieldType.Rollup:
           return {
             title: t('field.title.rollup'),
             defaultOptions: {},
-            Icon: isLookup ? SearchIcon : RollupIcon,
+            Icon: getIcon(RollupIcon),
           };
         case FieldType.User: {
           return {
             title: t('field.title.user'),
             defaultOptions: UserField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : UserIcon,
+            Icon: getIcon(UserIcon),
           };
         }
         case FieldType.Rating:
           return {
             title: t('field.title.rating'),
             defaultOptions: RatingField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : RatingIcon,
+            Icon: getIcon(RatingIcon),
           };
         case FieldType.AutoNumber:
           return {
             title: t('field.title.autoNumber'),
             defaultOptions: AutoNumberField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : AutoNumberIcon,
+            Icon: getIcon(AutoNumberIcon),
           };
         case FieldType.CreatedBy:
           return {
             title: t('field.title.createdBy'),
             defaultOptions: {},
-            Icon: isLookup ? SearchIcon : CreatedByIcon,
+            Icon: getIcon(CreatedByIcon),
           };
         case FieldType.LastModifiedBy:
           return {
             title: t('field.title.lastModifiedBy'),
             defaultOptions: {},
-            Icon: isLookup ? SearchIcon : LastModifiedByIcon,
+            Icon: getIcon(LastModifiedByIcon),
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

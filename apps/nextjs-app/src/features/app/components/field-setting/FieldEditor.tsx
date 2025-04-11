@@ -65,7 +65,7 @@ export const FieldEditor = (props: {
       });
     }
 
-    let options: IFieldOptionsRo | undefined = getFieldStatic(type, false)
+    let options: IFieldOptionsRo | undefined = getFieldStatic(type, false, false)
       .defaultOptions as IFieldOptionsRo;
 
     if (

@@ -146,7 +146,8 @@ export const TableTrash = () => {
                       resourceType === ResourceType.Field
                         ? getFieldStatic(
                             (resource as IFieldSnapshotItemVo).type,
-                            Boolean((resource as IFieldSnapshotItemVo).isLookup)
+                            Boolean((resource as IFieldSnapshotItemVo).isLookup),
+                            false
                           ).Icon
                         : resourceType === ResourceType.View
                           ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]

@@ -27,7 +27,7 @@ export const SelectFieldByTableId: React.FC<{
         onChange(fields.find((f) => f.id === id) as IFieldInstance);
       }}
       candidates={fields.map((f) => {
-        const Icon = getFieldStatic(f.type, f.isLookup).Icon;
+        const Icon = getFieldStatic(f.type, f.isLookup, Boolean(f.aiConfig)).Icon;
         return {
           id: f.id,
           name: f.name,

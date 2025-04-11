@@ -115,8 +115,8 @@ export const Card = (props: IKanbanCardProps) => {
               {titleComponent}
             </div>
             {displayFields.map((field) => {
-              const { id: fieldId, name, type, isLookup } = field;
-              const { Icon } = getFieldStatic(type, isLookup);
+              const { id: fieldId, name, type, isLookup, aiConfig } = field;
+              const { Icon } = getFieldStatic(type, isLookup, Boolean(aiConfig));
               const cellValue = card.getCellValue(fieldId);
 
               if (cellValue == null) return null;
@@ -125,7 +125,7 @@ export const Card = (props: IKanbanCardProps) => {
                 <div key={fieldId} className="mb-2">
                   {!isFieldNameHidden && (
                     <div className="mb-1 flex items-center space-x-1 text-slate-500 dark:text-slate-400">
-                      <Icon className="text-sm" />
+                      <Icon className="size-4 text-sm" />
                       <span className="text-xs">{name}</span>
                     </div>
                   )}

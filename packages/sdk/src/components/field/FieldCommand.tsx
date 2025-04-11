@@ -41,7 +41,7 @@ export function FieldCommand(props: IFieldCommand) {
         <CommandEmpty>{emptyHolder || t('common.search.empty')}</CommandEmpty>
         <CommandGroup>
           {mergeFields?.map((field) => {
-            const { Icon } = fieldStaticGetter(field.type, field.isLookup);
+            const { Icon } = fieldStaticGetter(field.type, field.isLookup, Boolean(field.aiConfig));
             return (
               <CommandItem
                 key={field.id}
@@ -50,7 +50,7 @@ export function FieldCommand(props: IFieldCommand) {
                 }}
                 className="flex"
               >
-                <Icon className="shrink-0"></Icon>
+                <Icon className="size-4 shrink-0" />
                 <span className="truncate pl-3">{field.name}</span>
               </CommandItem>
             );

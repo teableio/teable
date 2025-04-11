@@ -121,8 +121,8 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
           <DndKitContext onDragEnd={dragEndHandler}>
             <Droppable items={innerFields.map(({ id }) => ({ id }))}>
               {innerFields.map((field) => {
-                const { id, name, type, isLookup, isPrimary } = field;
-                const { Icon } = fieldStaticGetter(type, isLookup);
+                const { id, name, type, isLookup, isPrimary, aiConfig } = field;
+                const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
                 return (
                   <Draggable key={id} id={id} disabled={!dragEnabled}>
                     {({ setNodeRef, listeners, attributes, style, isDragging }) => (
@@ -155,7 +155,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                         }}
                                         disabled={isPrimary}
                                       />
-                                      <Icon className="ml-2 shrink-0" />
+                                      <Icon className="ml-2 size-4 shrink-0" />
                                       <span className="h-full flex-1 cursor-pointer truncate pl-1 text-sm">
                                         {name}
                                       </span>

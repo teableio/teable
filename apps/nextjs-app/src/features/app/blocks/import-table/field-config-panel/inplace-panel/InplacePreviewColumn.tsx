@@ -36,6 +36,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     name: col.name,
     id: col.id,
     isComputed: col.isComputed,
+    aiConfig: col.aiConfig,
   }));
 
   const sourceColumnMap = workSheets?.[insertConfig.sourceWorkSheetKey] || {};
@@ -44,7 +45,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     sourceColumnMap?.columns?.map((col) => ({
       label: col.name,
       value: col.name,
-      icon: fieldStaticGetter(col.type, false).Icon,
+      icon: fieldStaticGetter(col.type, false, false).Icon,
     })) || [];
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
       </TableHeader>
       <TableBody className="w-96 overflow-hidden">
         {columns.map((column, index) => {
-          const { Icon } = fieldStaticGetter(column.type, false);
+          const { Icon } = fieldStaticGetter(column.type, false, Boolean(column.aiConfig));
           const selectIndex = insertConfig.sourceColumnMap[column.id] ?? null;
           const value = typeof selectIndex === 'number' ? options[selectIndex].value : null;
 
@@ -86,7 +87,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
             <TableRow key={index} className="items-center overflow-hidden">
               <TableCell className="w-48 truncate">
                 <div className="flex w-48 items-center truncate">
-                  <Icon className="shrink-0" />
+                  <Icon className="size-4 shrink-0" />
                   <div className="flex-1 truncate pl-2">
                     <div className="truncate">{column.name}</div>
                     <span className="truncate text-gray-500">

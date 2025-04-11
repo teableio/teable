@@ -13,7 +13,7 @@ export const RecordEditorItem = (props: {
   const { field, record, vertical, onChange, readonly } = props;
   const { type, isLookup } = field;
   const fieldStaticGetter = useFieldStaticGetter();
-  const { Icon } = fieldStaticGetter(type, isLookup);
+  const { Icon } = fieldStaticGetter(type, isLookup, Boolean(field.aiConfig));
 
   const cellValue = record?.getCellValue(field.id);
   const onChangeInner = (value: unknown) => {
@@ -25,7 +25,7 @@ export const RecordEditorItem = (props: {
     <div className={vertical ? 'flex space-x-2' : 'space-y-2'}>
       <div className={cn('w-36 flex items-top space-x-1', vertical ? 'pt-1' : 'w-full')}>
         <div className="flex size-5 items-center">
-          <Icon />
+          <Icon className="size-4" />
         </div>
         <div className={cn('text-sm flex-1 truncate', vertical && 'break-words whitespace-normal')}>
           {field.name}

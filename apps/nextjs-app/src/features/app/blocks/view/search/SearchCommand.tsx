@@ -154,8 +154,8 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
           <CommandList className="my-2 max-h-64">
             {<CommandEmpty>{t('listEmptyTips')}</CommandEmpty>}
             {fields.map((field) => {
-              const { id, name, type, isLookup } = field;
-              const { Icon } = fieldStaticGetter(type, isLookup);
+              const { id, name, type, isLookup, aiConfig } = field;
+              const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
               return (
                 <CommandItem
                   className="flex flex-1 truncate p-0"
@@ -180,7 +180,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
                               }}
                               disabled={selectedFields.includes(id) && selectedFields.length === 1}
                             />
-                            <Icon className="ml-2 shrink-0" />
+                            <Icon className="ml-2 size-4 shrink-0" />
                             <span
                               className="h-full flex-1 cursor-pointer truncate pl-1 text-sm"
                               title={name}
