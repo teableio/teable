@@ -222,60 +222,75 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       dbTableName: string;
     }[];
 
-    // delete foreign keys if(exist) then duplicate table data
-    const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(targetFkHostTableName);
-    const foreignKeysInfo = await this.prismaService.txClient().$queryRawUnsafe<
-      {
-        constraint_name: string;
-        column_name: string;
-        referenced_table_schema: string;
-        referenced_table_name: string;
-        referenced_column_name: string;
-      }[]
-    >(foreignKeysInfoSql);
-    const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
-      ...info,
-      dbTableName: targetFkHostTableName,
-    }));
-    allForeignKeyInfos.push(...newForeignKeyInfos);
+    await this.prismaService.$tx(async (prisma) => {
+      // delete foreign keys if(exist) then duplicate table data
+      const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(targetFkHostTableName);
+      const foreignKeysInfo = await prisma.$queryRawUnsafe<
+        {
+          constraint_name: string;
+          column_name: string;
+          referenced_table_schema: string;
+          referenced_table_name: string;
+          referenced_column_name: string;
+        }[]
+      >(foreignKeysInfoSql);
+      const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
+        ...info,
+        dbTableName: targetFkHostTableName,
+      }));
+      allForeignKeyInfos.push(...newForeignKeyInfos);
 
-    for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-      const dropForeignKeyQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table.dropForeign(column_name, constraint_name);
-        })
-        .toQuery();
+      for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
+        const dropForeignKeyQuery = this.knex.schema
+          .alterTable(dbTableName, (table) => {
+            table.dropForeign(column_name, constraint_name);
+          })
+          .toQuery();
 
-      await this.prismaService.$executeRawUnsafe(dropForeignKeyQuery);
-    }
-
-    const sql = this.knex.table(targetFkHostTableName).insert(results).toQuery();
-    try {
-      await this.prismaService.$executeRawUnsafe(sql);
-    } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError) {
-        this.logger.error(
-          `exc junction import task known error: (${error.code}): ${error.message}`,
-          error.stack
-        );
-      } else if (error instanceof PrismaClientUnknownRequestError) {
-        this.logger.error(`exc junction import task unknown error: ${error.message}`, error.stack);
-      } else {
-        this.logger.error(
-          `exc junction import task error: ${(error as Error)?.message}`,
-          (error as Error)?.stack
-        );
+        await prisma.$executeRawUnsafe(dropForeignKeyQuery);
       }
-    }
 
-    // add foreign keys
-    for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-      const addForeignKeyQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table.foreign(column_name, constraint_name);
-        })
-        .toQuery();
-      await this.prismaService.$executeRawUnsafe(addForeignKeyQuery);
-    }
+      const sql = this.knex.table(targetFkHostTableName).insert(results).toQuery();
+      try {
+        await prisma.$executeRawUnsafe(sql);
+      } catch (error) {
+        if (error instanceof PrismaClientKnownRequestError) {
+          this.logger.error(
+            `exc junction import task known error: (${error.code}): ${error.message}`,
+            error.stack
+          );
+        } else if (error instanceof PrismaClientUnknownRequestError) {
+          this.logger.error(
+            `exc junction import task unknown error: ${error.message}`,
+            error.stack
+          );
+        } else {
+          this.logger.error(
+            `exc junction import task error: ${(error as Error)?.message}`,
+            (error as Error)?.stack
+          );
+        }
+      }
+
+      // add foreign keys
+      for (const {
+        constraint_name,
+        column_name,
+        dbTableName,
+        referenced_table_schema: referencedTableSchema,
+        referenced_table_name: referencedTableName,
+        referenced_column_name: referencedColumnName,
+      } of allForeignKeyInfos) {
+        const addForeignKeyQuery = this.knex.schema
+          .alterTable(dbTableName, (table) => {
+            table
+              .foreign(column_name, constraint_name)
+              .references(referencedColumnName)
+              .inTable(`${referencedTableSchema}.${referencedTableName}`);
+          })
+          .toQuery();
+        await prisma.$executeRawUnsafe(addForeignKeyQuery);
+      }
+    });
   }
 }

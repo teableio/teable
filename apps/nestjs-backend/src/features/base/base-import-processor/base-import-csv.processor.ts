@@ -168,128 +168,139 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       },
     });
 
-    const allForeignKeyInfos = [] as {
-      constraint_name: string;
-      column_name: string;
-      referenced_table_schema: string;
-      referenced_table_name: string;
-      referenced_column_name: string;
-      dbTableName: string;
-    }[];
-
-    // delete foreign keys if(exist) then duplicate table data
-    const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
-    const foreignKeysInfo = await this.prismaService.txClient().$queryRawUnsafe<
-      {
+    await this.prismaService.$tx(async (prisma) => {
+      const allForeignKeyInfos = [] as {
         constraint_name: string;
         column_name: string;
         referenced_table_schema: string;
         referenced_table_name: string;
         referenced_column_name: string;
-      }[]
-    >(foreignKeysInfoSql);
-    const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
-      ...info,
-      dbTableName,
-    }));
-    allForeignKeyInfos.push(...newForeignKeyInfos);
+        dbTableName: string;
+      }[];
 
-    for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-      const dropForeignKeyQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table.dropForeign(column_name, constraint_name);
-        })
-        .toQuery();
+      // delete foreign keys if(exist) then duplicate table data
+      const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
+      const foreignKeysInfo = await prisma.$queryRawUnsafe<
+        {
+          constraint_name: string;
+          column_name: string;
+          referenced_table_schema: string;
+          referenced_table_name: string;
+          referenced_column_name: string;
+        }[]
+      >(foreignKeysInfoSql);
+      const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
+        ...info,
+        dbTableName,
+      }));
+      allForeignKeyInfos.push(...newForeignKeyInfos);
 
-      await this.prismaService.$executeRawUnsafe(dropForeignKeyQuery);
-    }
-
-    const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
-    const columnInfo =
-      await this.prismaService.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
-
-    const attachmentsTableData = [] as {
-      attachmentId: string;
-      name: string;
-      token: string;
-      tableId: string;
-      recordId: string;
-      fieldId: string;
-    }[];
-
-    const newResult = [...results].map((res) => {
-      const newRes = { ...res };
-
-      EXCLUDE_SYSTEM_FIELDS.forEach((header) => {
-        delete newRes[header];
-      });
-
-      return newRes;
-    });
-
-    const attachmentsDbFieldNames = attachmentsFields.map(({ dbFieldName }) => dbFieldName);
-
-    const recordsToInsert = newResult.map((result) => {
-      const res = { ...result };
-      Object.entries(res).forEach(([key, value]) => {
-        if (res[key] === '') {
-          res[key] = null;
-        }
-
-        // attachment field should add info to attachments table
-        if (attachmentsDbFieldNames.includes(key) && value) {
-          const attValues = JSON.parse(value as string) as IAttachmentCellValue;
-          const fieldId = attachmentsFields.find(({ dbFieldName }) => dbFieldName === key)?.id;
-          attValues.forEach((att) => {
-            const attachmentId = generateAttachmentId();
-            attachmentsTableData.push({
-              attachmentId,
-              name: att.name,
-              token: att.token,
-              tableId: tableId,
-              recordId: res['__id'] as string,
-              fieldId: fieldIdMap[fieldId!],
-            });
-          });
-        }
-      });
-
-      // default value set
-      res['__created_by'] = userId;
-      res['__version'] = 1;
-      return res;
-    });
-
-    // add lacking view order field
-    if (recordsToInsert.length) {
-      const sourceColumns = Object.keys(recordsToInsert[0]);
-      const lackingColumns = sourceColumns
-        .filter((column) => !columnInfo.map(({ name }) => name).includes(column))
-        .filter((name) => name.startsWith('__row_'));
-
-      for (const name of lackingColumns) {
-        const sql = this.knex.schema
+      for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
+        const dropForeignKeyQuery = this.knex.schema
           .alterTable(dbTableName, (table) => {
-            table.double(name);
+            table.dropForeign(column_name, constraint_name);
           })
           .toQuery();
-        await this.prismaService.$executeRawUnsafe(sql);
+
+        await prisma.$executeRawUnsafe(dropForeignKeyQuery);
       }
-    }
 
-    const sql = this.knex.table(dbTableName).insert(recordsToInsert).toQuery();
-    await this.prismaService.$executeRawUnsafe(sql);
-    await this.updateAttachmentTable(userId, attachmentsTableData);
+      const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
+      const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
-    // add foreign keys
-    for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-      const addForeignKeyQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table.foreign(column_name, constraint_name);
-        })
-        .toQuery();
-      await this.prismaService.$executeRawUnsafe(addForeignKeyQuery);
-    }
+      const attachmentsTableData = [] as {
+        attachmentId: string;
+        name: string;
+        token: string;
+        tableId: string;
+        recordId: string;
+        fieldId: string;
+      }[];
+
+      const newResult = [...results].map((res) => {
+        const newRes = { ...res };
+
+        EXCLUDE_SYSTEM_FIELDS.forEach((header) => {
+          delete newRes[header];
+        });
+
+        return newRes;
+      });
+
+      const attachmentsDbFieldNames = attachmentsFields.map(({ dbFieldName }) => dbFieldName);
+
+      const recordsToInsert = newResult.map((result) => {
+        const res = { ...result };
+        Object.entries(res).forEach(([key, value]) => {
+          if (res[key] === '') {
+            res[key] = null;
+          }
+
+          // attachment field should add info to attachments table
+          if (attachmentsDbFieldNames.includes(key) && value) {
+            const attValues = JSON.parse(value as string) as IAttachmentCellValue;
+            const fieldId = attachmentsFields.find(({ dbFieldName }) => dbFieldName === key)?.id;
+            attValues.forEach((att) => {
+              const attachmentId = generateAttachmentId();
+              attachmentsTableData.push({
+                attachmentId,
+                name: att.name,
+                token: att.token,
+                tableId: tableId,
+                recordId: res['__id'] as string,
+                fieldId: fieldIdMap[fieldId!],
+              });
+            });
+          }
+        });
+
+        // default value set
+        res['__created_by'] = userId;
+        res['__version'] = 1;
+        return res;
+      });
+
+      // add lacking view order field
+      if (recordsToInsert.length) {
+        const sourceColumns = Object.keys(recordsToInsert[0]);
+        const lackingColumns = sourceColumns
+          .filter((column) => !columnInfo.map(({ name }) => name).includes(column))
+          .filter((name) => name.startsWith('__row_'));
+
+        for (const name of lackingColumns) {
+          const sql = this.knex.schema
+            .alterTable(dbTableName, (table) => {
+              table.double(name);
+            })
+            .toQuery();
+          await prisma.$executeRawUnsafe(sql);
+        }
+      }
+
+      const sql = this.knex.table(dbTableName).insert(recordsToInsert).toQuery();
+      await prisma.$executeRawUnsafe(sql);
+      await this.updateAttachmentTable(userId, attachmentsTableData);
+
+      // add foreign keys
+      for (const {
+        constraint_name,
+        column_name,
+        dbTableName,
+        referenced_table_schema: referencedTableSchema,
+        referenced_table_name: referencedTableName,
+        referenced_column_name: referencedColumnName,
+      } of allForeignKeyInfos) {
+        const addForeignKeyQuery = this.knex.schema
+          .alterTable(dbTableName, (table) => {
+            table
+              .foreign(column_name, constraint_name)
+              .references(referencedColumnName)
+              .inTable(`${referencedTableSchema}.${referencedTableName}`);
+          })
+          .toQuery();
+        await prisma.$executeRawUnsafe(addForeignKeyQuery);
+      }
+    });
   }
 
   // when insert table data relative to attachment, we need to update the attachment table
@@ -304,7 +315,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       fieldId: string;
     }[]
   ) {
-    await this.prismaService.attachmentsTable.createMany({
+    await this.prismaService.txClient().attachmentsTable.createMany({
       data: attachmentsTableData.map((a) => ({
         ...a,
         createdBy: userId,
