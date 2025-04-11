@@ -45,6 +45,10 @@ export const fieldJsonSchema = fieldVoSchema
     order: true,
     isLookup: true,
     lookupOptions: true,
+    dbFieldType: true,
+    aiConfig: true,
+    cellValueType: true,
+    isMultipleCellValue: true,
   })
   .extend({
     createTime: z.string().datetime().openapi({

@@ -17,6 +17,7 @@ import {
   getDashboardInstallPlugin,
   getDashboardList,
   getField,
+  getFields,
   getPluginPanel,
   getPluginPanelPlugin,
   getTableList,
@@ -26,7 +27,14 @@ import {
   installViewPlugin,
   listPluginPanels,
 } from '@teable/openapi';
-import { createRecords, createTable, getRecords, initApp, updateRecord } from './utils/init-app';
+import {
+  convertField,
+  createRecords,
+  createTable,
+  getRecords,
+  initApp,
+  updateRecord,
+} from './utils/init-app';
 
 describe('OpenAPI Base Duplicate (e2e)', () => {
   let app: INestApplication;
@@ -96,6 +104,58 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(records.records.length).toBe(3);
 
     await deleteBase(dupResult.data.id);
+  });
+
+  it('duplicate base with tables which have primary formula field, expression with link field', async () => {
+    const table1 = await createTable(base.id, {
+      name: 'table1',
+    });
+    const table2 = await createTable(base.id, { name: 'table2' });
+
+    const fields = (await getFields(table1.id)).data;
+
+    const primaryField = fields.find(({ isPrimary }) => isPrimary)!;
+    // const numberField = fields.find(({ type }) => type === FieldType.Number)!;
+
+    const formulaRelyLinkField = (
+      await createField(table1.id, {
+        name: 'link field1',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: table2.id },
+      })
+    ).data;
+
+    const formulaPrimaryField = await convertField(table1.id, primaryField.id, {
+      name: 'formula field',
+      type: FieldType.Formula,
+      options: { expression: `{${formulaRelyLinkField.id}}`, timeZone: 'Asia/Shanghai' },
+    });
+
+    await createField(table2.id, {
+      name: 'link field',
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyMany, foreignTableId: table1.id },
+    });
+
+    const dupResult = await duplicateBase({
+      fromBaseId: base.id,
+      spaceId: spaceId,
+      name: 'test base copy',
+      withRecords: true,
+    });
+
+    const { id: baseId } = dupResult.data;
+    const tables = await getTableList(baseId);
+
+    const duplicateTable1 = tables.data.find(({ name }) => name === table1.name);
+    const duplicateTable1Fields = (await getFields(duplicateTable1!.id)).data;
+    const duplicateTable1FormulaField = duplicateTable1Fields.find(
+      ({ type }) => type === FieldType.Formula
+    );
+    expect(duplicateTable1FormulaField?.cellValueType).toBe(formulaPrimaryField.cellValueType);
+    expect(duplicateTable1FormulaField?.dbFieldType).toBe(formulaPrimaryField.dbFieldType);
+
+    expect(dupResult.status).toBe(201);
   });
 
   it('duplicate base with link field', async () => {

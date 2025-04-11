@@ -35,10 +35,12 @@ import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import { dbType2knexFormat } from '../field/util';
 import { TableService } from '../table/table.service';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-processor/base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-processor/base-import-csv.processor';
+import { DEFAULT_EXPRESSION } from './constant';
 import { replaceStringByMap } from './utils';
 
 @Injectable()
@@ -276,22 +278,139 @@ export class BaseImportService {
       ({ type, isLookup }) => !nonCommonFieldTypes.includes(type) && !isLookup
     );
 
+    // the primary formula which rely on other fields
+    const primaryFormulaFields = allFields.filter(
+      ({ type, isLookup, isPrimary }) => type === FieldType.Formula && !isLookup && isPrimary
+    );
+
     const linkFields = allFields.filter(
       ({ type, isLookup }) => type === FieldType.Link && !isLookup
     );
 
-    // formula, rollup, lookup fields
+    // rest fields, like formula, rollup, lookup fields
     const dependencyFields = allFields.filter(
-      ({ type, isLookup }) => [FieldType.Formula, FieldType.Rollup].includes(type) || isLookup
+      ({ id }) =>
+        ![...primaryFormulaFields, ...linkFields, ...commonFields].map(({ id }) => id).includes(id)
     );
 
     await this.createCommonFields(commonFields, fieldMap);
+
+    await this.createTmpPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
     await this.createLinkFields(linkFields, tableIdMap, fieldMap);
 
     await this.createDependencyFields(dependencyFields, tableIdMap, fieldMap);
 
+    await this.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
+
     return fieldMap;
+  }
+
+  private async createTmpPrimaryFormulaFields(
+    primaryFormulaFields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    for (const field of primaryFormulaFields) {
+      const {
+        type,
+        dbFieldName,
+        name,
+        options,
+        id,
+        notNull,
+        unique,
+        description,
+        isPrimary,
+        targetTableId,
+        order,
+        hasError,
+      } = field;
+      const newField = await this.fieldOpenApiService.createField(targetTableId, {
+        type,
+        dbFieldName,
+        description,
+        options: {
+          ...options,
+          expression: DEFAULT_EXPRESSION,
+        },
+        name,
+      });
+      await this.replenishmentConstraint(newField.id, targetTableId, order, {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      });
+      fieldMap[id] = newField.id;
+
+      if (hasError) {
+        await this.prismaService.txClient().field.update({
+          where: {
+            id: newField.id,
+          },
+          data: {
+            hasError,
+          },
+        });
+      }
+    }
+  }
+
+  private async repairPrimaryFormulaFields(
+    primaryFormulaFields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    for (const field of primaryFormulaFields) {
+      const {
+        id,
+        options,
+        dbFieldType,
+        targetTableId,
+        dbFieldName,
+        cellValueType,
+        isMultipleCellValue,
+      } = field;
+      const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+        where: {
+          id: targetTableId,
+        },
+        select: {
+          dbTableName: true,
+        },
+      });
+      const newOptions = replaceStringByMap(options, { fieldMap });
+      const { dbFieldType: currentDbFieldType } = await this.prismaService.txClient().field.update({
+        where: {
+          id: fieldMap[id],
+        },
+        data: {
+          options: newOptions,
+          cellValueType,
+        },
+      });
+      if (currentDbFieldType !== dbFieldType) {
+        const schemaType = dbType2knexFormat(this.knex, dbFieldType);
+        const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+          dbTableName,
+          dbFieldName,
+          schemaType
+        );
+
+        for (const alterTableQuery of modifyColumnSql) {
+          await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+        }
+        await this.prismaService.txClient().field.update({
+          where: {
+            id: fieldMap[id],
+          },
+          data: {
+            cellValueType,
+            dbFieldType,
+            isMultipleCellValue,
+          },
+        });
+      }
+    }
   }
 
   private async createCommonFields(
@@ -814,7 +933,7 @@ export class BaseImportService {
   private async duplicateSingleDependField(
     sourceTableId: string,
     targetTableId: string,
-    field: IBaseJson['tables'][number]['fields'][number],
+    field: IFieldWithTableIdJson,
     tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>,
     hasError = false
@@ -843,7 +962,7 @@ export class BaseImportService {
   private async duplicateLookupField(
     sourceTableId: string,
     targetTableId: string,
-    field: IBaseJson['tables'][number]['fields'][number],
+    field: IFieldWithTableIdJson,
     tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>
   ) {
@@ -920,7 +1039,7 @@ export class BaseImportService {
   private async duplicateRollupField(
     sourceTableId: string,
     targetTableId: string,
-    fieldInstance: IBaseJson['tables'][number]['fields'][number],
+    fieldInstance: IFieldWithTableIdJson,
     tableIdMap: Record<string, string>,
     sourceToTargetFieldMap: Record<string, string>
   ) {
@@ -987,15 +1106,26 @@ export class BaseImportService {
 
   private async duplicateFormulaField(
     targetTableId: string,
-    fieldInstance: IBaseJson['tables'][number]['fields'][number],
+    fieldInstance: IFieldWithTableIdJson,
     sourceToTargetFieldMap: Record<string, string>,
     hasError: boolean = false
   ) {
-    const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
-      fieldInstance;
+    const {
+      type,
+      dbFieldName,
+      name,
+      options,
+      id,
+      notNull,
+      unique,
+      description,
+      isPrimary,
+      dbFieldType,
+      cellValueType,
+      isMultipleCellValue,
+    } = fieldInstance;
     const { expression } = options as IFormulaFieldOptions;
     const newExpression = replaceStringByMap(expression, { sourceToTargetFieldMap });
-    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
     const newField = await this.fieldOpenApiService.createField(targetTableId, {
       type,
       dbFieldName: dbFieldName,
@@ -1003,7 +1133,7 @@ export class BaseImportService {
       options: {
         ...options,
         expression: hasError
-          ? `{${mockFieldId}}`
+          ? DEFAULT_EXPRESSION
           : newExpression
             ? JSON.parse(newExpression)
             : undefined,
@@ -1029,6 +1159,38 @@ export class BaseImportService {
             ...options,
             expression: newExpression ? JSON.parse(newExpression) : undefined,
           }),
+        },
+      });
+    }
+
+    if (dbFieldType !== newField.dbFieldType) {
+      const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+        where: {
+          id: targetTableId,
+        },
+        select: {
+          dbTableName: true,
+        },
+      });
+      const schemaType = dbType2knexFormat(this.knex, dbFieldType);
+      const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+        dbTableName,
+        dbFieldName,
+        schemaType
+      );
+
+      for (const alterTableQuery of modifyColumnSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      }
+
+      await this.prismaService.txClient().field.update({
+        where: {
+          id: newField.id,
+        },
+        data: {
+          dbFieldType,
+          cellValueType,
+          isMultipleCellValue,
         },
       });
     }

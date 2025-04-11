@@ -43,6 +43,10 @@ export class BaseExportService {
     'order',
     'lookupOptions',
     'isLookup',
+    // for formula field
+    'dbFieldType',
+    'cellValueType',
+    'isMultipleCellValue',
   ];
   private logger = new Logger(BaseExportService.name);
 

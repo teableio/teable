@@ -6,3 +6,5 @@ export const EXCLUDE_SYSTEM_FIELDS = [
   '__created_by',
   '__version',
 ];
+
+export const DEFAULT_EXPRESSION = `SUM(1)`;
