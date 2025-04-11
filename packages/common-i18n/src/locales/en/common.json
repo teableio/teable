@@ -81,7 +81,7 @@
         "category": "Category",
         "isSystem": "System",
         "source": "Source",
-        "status": "Status",
+        "status": "Published",
         "publishSnapshot": "Publish Snapshot",
         "snapshotTime": "Snapshot Time",
         "actions": "Actions"

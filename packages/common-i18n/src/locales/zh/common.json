@@ -62,9 +62,9 @@
       "usageCount": "应用次数：{{count}}",
       "tips": {
         "errorCategoryName": "分类不存在或已删除",
-        "needSnapshot": "上架前，请先创建快照，并且模版名和描述不能为空",
-        "needBaseSource": "创建快照前，请先选择模版来源",
-        "forbiddenUpdateSystemTemplate": "系统模版禁止修改",
+        "needSnapshot": "上架前，请先创建快照，并且模板名和描述不能为空",
+        "needBaseSource": "创建快照前，请先选择模板来源",
+        "forbiddenUpdateSystemTemplate": "系统模板禁止修改",
         "addCategoryTips": "请先在搜索框中输入分类名称。"
       },
       "category": {
@@ -79,9 +79,9 @@
         "name": "名称",
         "description": "描述",
         "category": "分类",
-        "isSystem": "系统模版",
+        "isSystem": "系统模板",
         "source": "来源",
-        "status": "已上架",
+        "status": "上架",
         "publishSnapshot": "发布快照",
         "snapshotTime": "快照时间",
         "actions": "操作"
