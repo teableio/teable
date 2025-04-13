@@ -125,7 +125,7 @@ More features coming soon, see our <a target="_blank" href="https://app.teable.i
 
 ```
 .
-├── apps (AGPL 3.0) 
+├── apps (AGPL 3.0)
 │   ├── nextjs-app          (front-end)
 │   └── nestjs-backend      (backend)
 ├── packages (MIT)
@@ -156,9 +156,9 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/wada5e?referralCode=rE4BjB)
 
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/QF8695)
+[![Deploy on Sealos](https://sealos.io/Deploy-on-Sealos.svg)](https://template.sealos.io/deploy?templateName=teable)
 
-[![Deploy on Sealos](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://cloud.sealos.io/?openapp=system-template%3FtemplateName%3Dteable)
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/QF8695)
 
 [![Deploy to RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/?app_id=273)
 
