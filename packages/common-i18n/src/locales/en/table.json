@@ -375,10 +375,13 @@
       "repair": "repair",
       "repairTip": "Index anomalies detected, which may cause search performance degradation. It is recommended to click the repair button to fix the index",
       "enableIndexTip": "You are creating an index. The time required depends on the table size. During this process, the table's read and write performance may be affected. Please be patient.",
-      "globalSearchTip": "Search all fields except date and checkbox field",
+      "globalSearchTip": "Search all fields except date and checkbox field, maximum 20 fields",
       "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexing to improve search performance. Please note that indexing may slightly reduce write speed. During index creation, table read/write performance might be temporarily affected. Please be patient.",
       "enableIndex": "enable",
       "keepAsIs": "keep as it"
+    },
+    "searchTips": {
+      "maxFieldTips": "Exceeded the maximum number of fields, extra fields will be ignored"
     }
   },
   "import": {

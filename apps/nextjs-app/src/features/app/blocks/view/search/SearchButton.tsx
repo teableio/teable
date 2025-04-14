@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { Search, X } from '@teable/icons';
+import { AlertCircle, Search, X } from '@teable/icons';
 import { getTableActivatedIndex, TableIndex, RecommendedIndexRow } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
@@ -19,6 +19,11 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
   Checkbox,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipPortal,
+  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
@@ -252,6 +257,14 @@ export const SearchButton = (props: ISearchButtonProps) => {
     }
   }, [fieldId, fields, t]);
 
+  const showAlert = useMemo(() => {
+    if (fieldId === 'all_fields') {
+      return fields.length > 20;
+    }
+    const fieldIds = fieldId?.split(',') || [];
+    return fieldIds.length > 20;
+  }, [fieldId, fields]);
+
   return active ? (
     <div
       className={cn(
@@ -261,35 +274,58 @@ export const SearchButton = (props: ISearchButtonProps) => {
         }
       )}
     >
-      <Popover modal>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size={'xs'}
-            className="flex w-[64px] shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-r px-px"
-            ref={commandTrigger}
-          >
-            <span className="truncate" title={searchHeader}>
-              {searchHeader}
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="max-w-96 p-1">
-          {fieldId && tableId && (
-            <SearchCommand
-              value={fieldId}
-              hideNotMatchRow={hideNotMatchRow}
-              onChange={onFieldChangeHandler}
-              shareView={shareView}
-              ref={searchCommandRef}
-              onHideSwitchChange={(checked) => {
-                setLsHideNotMatchRow(checked);
-                setHideNotMatchRow(checked);
-              }}
-            />
-          )}
-        </PopoverContent>
-      </Popover>
+      <TooltipProvider>
+        <Tooltip>
+          <Popover modal>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size={'xs'}
+                className="flex w-[64px] shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-r px-px"
+                ref={commandTrigger}
+              >
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1">
+                    {showAlert && <AlertCircle className="size-3 shrink-0 text-destructive" />}
+
+                    <span
+                      className={cn('truncate', {
+                        'text-destructive': showAlert,
+                      })}
+                      title={searchHeader}
+                    >
+                      {searchHeader}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                {showAlert && (
+                  <TooltipPortal>
+                    <TooltipContent>
+                      <p>{t('table:table.searchTips.maxFieldTips')}</p>
+                    </TooltipContent>
+                  </TooltipPortal>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="max-w-96 p-1">
+              {fieldId && tableId && (
+                <SearchCommand
+                  value={fieldId}
+                  hideNotMatchRow={hideNotMatchRow}
+                  onChange={onFieldChangeHandler}
+                  shareView={shareView}
+                  ref={searchCommandRef}
+                  onHideSwitchChange={(checked) => {
+                    setLsHideNotMatchRow(checked);
+                    setHideNotMatchRow(checked);
+                  }}
+                />
+              )}
+            </PopoverContent>
+          </Popover>
+        </Tooltip>
+      </TooltipProvider>
+
       <div className="flex flex-1 justify-between overflow-hidden">
         <input
           ref={ref}

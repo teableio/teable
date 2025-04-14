@@ -1440,7 +1440,7 @@ export class RecordService {
         ['order', 'createTime']
       ),
       'id'
-    ) as unknown as IFieldInstance[];
+    ).slice(0, 20) as unknown as IFieldInstance[];
   }
 
   private async getSearchHitIndex(
