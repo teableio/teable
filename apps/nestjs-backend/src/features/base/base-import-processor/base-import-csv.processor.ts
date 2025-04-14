@@ -24,6 +24,7 @@ interface IBaseImportCsvJob {
   tableIdMap: Record<string, string>;
   fieldIdMap: Record<string, string>;
   viewIdMap: Record<string, string>;
+  fkMap: Record<string, string>;
   structure: IBaseJson;
 }
 
@@ -68,7 +69,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   }
 
   private async handleBaseImportCsv(job: Job<IBaseImportCsvJob>) {
-    const { path, userId, tableIdMap, fieldIdMap, viewIdMap, structure } = job.data;
+    const { path, userId, tableIdMap, fieldIdMap, viewIdMap, structure, fkMap } = job.data;
     const csvStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
       path
@@ -100,6 +101,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
               userId,
               fieldIdMap,
               viewIdMap,
+              fkMap,
               attachmentsFields,
             })
           );
@@ -117,9 +119,12 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                   }
 
                   // special case for cross base link fields, there is no map causing the old error link config
-                  if (header.startsWith('__fk_') && fieldIdMap[header.slice(5)]) {
-                    return `__fk_${fieldIdMap[header.slice(5)]}`;
+                  if (header.startsWith('__fk_')) {
+                    return fieldIdMap[header.slice(5)]
+                      ? `__fk_${fieldIdMap[header.slice(5)]}`
+                      : fkMap[header] || header;
                   }
+
                   return header;
                 },
               })
@@ -157,10 +162,11 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       userId: string;
       fieldIdMap: Record<string, string>;
       viewIdMap: Record<string, string>;
+      fkMap: Record<string, string>;
       attachmentsFields: { dbFieldName: string; id: string }[];
     }
   ) {
-    const { tableId, userId, fieldIdMap, attachmentsFields } = config;
+    const { tableId, userId, fieldIdMap, attachmentsFields, fkMap } = config;
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: {
@@ -168,16 +174,16 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       },
     });
 
-    await this.prismaService.$tx(async (prisma) => {
-      const allForeignKeyInfos = [] as {
-        constraint_name: string;
-        column_name: string;
-        referenced_table_schema: string;
-        referenced_table_name: string;
-        referenced_column_name: string;
-        dbTableName: string;
-      }[];
+    const allForeignKeyInfos = [] as {
+      constraint_name: string;
+      column_name: string;
+      referenced_table_schema: string;
+      referenced_table_name: string;
+      referenced_column_name: string;
+      dbTableName: string;
+    }[];
 
+    await this.prismaService.$tx(async (prisma) => {
       // delete foreign keys if(exist) then duplicate table data
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
       const foreignKeysInfo = await prisma.$queryRawUnsafe<
@@ -229,11 +235,24 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
       const attachmentsDbFieldNames = attachmentsFields.map(({ dbFieldName }) => dbFieldName);
 
+      const fkColumns = columnInfo
+        .filter(({ name }) => name.startsWith('__fk_'))
+        .map(({ name }) => {
+          return fieldIdMap[name.slice(5)]
+            ? `__fk_${fieldIdMap[name.slice(5)]}`
+            : fkMap[name] || name;
+        });
+
       const recordsToInsert = newResult.map((result) => {
         const res = { ...result };
         Object.entries(res).forEach(([key, value]) => {
           if (res[key] === '') {
             res[key] = null;
+          }
+
+          // filter unnecessary columns
+          if (key.startsWith('__fk_') && !fkColumns.includes(key)) {
+            delete res[key];
           }
 
           // attachment field should add info to attachments table
@@ -280,27 +299,27 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       const sql = this.knex.table(dbTableName).insert(recordsToInsert).toQuery();
       await prisma.$executeRawUnsafe(sql);
       await this.updateAttachmentTable(userId, attachmentsTableData);
-
-      // add foreign keys
-      for (const {
-        constraint_name,
-        column_name,
-        dbTableName,
-        referenced_table_schema: referencedTableSchema,
-        referenced_table_name: referencedTableName,
-        referenced_column_name: referencedColumnName,
-      } of allForeignKeyInfos) {
-        const addForeignKeyQuery = this.knex.schema
-          .alterTable(dbTableName, (table) => {
-            table
-              .foreign(column_name, constraint_name)
-              .references(referencedColumnName)
-              .inTable(`${referencedTableSchema}.${referencedTableName}`);
-          })
-          .toQuery();
-        await prisma.$executeRawUnsafe(addForeignKeyQuery);
-      }
     });
+
+    // add foreign keys, do not in one transaction with deleting foreign keys
+    for (const {
+      constraint_name,
+      column_name,
+      dbTableName,
+      referenced_table_schema: referencedTableSchema,
+      referenced_table_name: referencedTableName,
+      referenced_column_name: referencedColumnName,
+    } of allForeignKeyInfos) {
+      const addForeignKeyQuery = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          table
+            .foreign(column_name, constraint_name)
+            .references(referencedColumnName)
+            .inTable(`${referencedTableSchema}.${referencedTableName}`);
+        })
+        .toQuery();
+      await this.prismaService.$executeRawUnsafe(addForeignKeyQuery);
+    }
   }
 
   // when insert table data relative to attachment, we need to update the attachment table

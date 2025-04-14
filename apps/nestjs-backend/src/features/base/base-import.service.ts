@@ -28,6 +28,7 @@ import { ClsService } from 'nestjs-cls';
 import streamJson from 'stream-json';
 import streamValues from 'stream-json/streamers/StreamValues';
 import * as unzipper from 'unzipper';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -57,7 +58,8 @@ export class BaseImportService {
     private readonly baseImportCsvQueueProcessor: BaseImportCsvQueueProcessor,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private async getMaxOrder(spaceId: string) {
@@ -111,15 +113,26 @@ export class BaseImportService {
       importBaseRo.notify.path
     );
 
-    const { base, tableIdMap, viewIdMap, fieldIdMap, structure } = await this.prismaService.$tx(
-      async () => {
-        return await this.processStructure(structureStream, importBaseRo);
-      }
-    );
+    const { base, tableIdMap, viewIdMap, fieldIdMap, structure, fkMap } =
+      await this.prismaService.$tx(
+        async () => {
+          return await this.processStructure(structureStream, importBaseRo);
+        },
+        {
+          timeout: this.thresholdConfig.bigTransactionTimeout,
+        }
+      );
 
     this.uploadAttachments(importBaseRo.notify.path);
 
-    this.appendTableData(importBaseRo.notify.path, tableIdMap, fieldIdMap, viewIdMap, structure);
+    this.appendTableData(
+      importBaseRo.notify.path,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      fkMap,
+      structure
+    );
 
     return {
       base,
@@ -137,6 +150,7 @@ export class BaseImportService {
     tableIdMap: Record<string, string>;
     fieldIdMap: Record<string, string>;
     viewIdMap: Record<string, string>;
+    fkMap: Record<string, string>;
     structure: IBaseJson;
   }> {
     const { spaceId } = importBaseRo;
@@ -196,6 +210,7 @@ export class BaseImportService {
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>,
+    fkMap: Record<string, string>,
     structure: IBaseJson
   ) {
     const userId = this.cls.get('user.id');
@@ -207,6 +222,7 @@ export class BaseImportService {
         tableIdMap,
         fieldIdMap,
         viewIdMap,
+        fkMap,
         structure,
       },
       {
@@ -222,7 +238,10 @@ export class BaseImportService {
     const newBase = await this.createBase(spaceId, name, icon || undefined);
 
     // create table
-    const { tableIdMap, fieldIdMap, viewIdMap } = await this.createTables(newBase.id, tables);
+    const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
+      newBase.id,
+      tables
+    );
 
     // create plugins
     await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
@@ -233,6 +252,7 @@ export class BaseImportService {
       fieldIdMap,
       viewIdMap,
       structure,
+      fkMap,
     };
   }
 
@@ -249,17 +269,18 @@ export class BaseImportService {
       tableIdMap[tableId] = newTableVo.id;
     }
 
-    const fieldIdMap = await this.createFields(tables, tableIdMap);
+    const { fieldMap: fieldIdMap, fkMap } = await this.createFields(tables, tableIdMap);
 
     const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap);
 
     await this.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
 
-    return { tableIdMap, fieldIdMap, viewIdMap };
+    return { tableIdMap, fieldIdMap, viewIdMap, fkMap };
   }
 
   private async createFields(tables: IBaseJson['tables'], tableIdMap: Record<string, string>) {
     const fieldMap: Record<string, string> = {};
+    const fkMap: Record<string, string> = {};
 
     const allFields = tables
       .reduce((acc, cur) => {
@@ -280,9 +301,10 @@ export class BaseImportService {
 
     // the primary formula which rely on other fields
     const primaryFormulaFields = allFields.filter(
-      ({ type, isLookup, isPrimary }) => type === FieldType.Formula && !isLookup && isPrimary
+      ({ type, isLookup }) => type === FieldType.Formula && !isLookup
     );
 
+    // link fields
     const linkFields = allFields.filter(
       ({ type, isLookup }) => type === FieldType.Link && !isLookup
     );
@@ -297,13 +319,15 @@ export class BaseImportService {
 
     await this.createTmpPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
-    await this.createLinkFields(linkFields, tableIdMap, fieldMap);
+    await this.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
+
+    await this.createLinkFields(linkFields, tableIdMap, fieldMap, fkMap);
 
     await this.createDependencyFields(dependencyFields, tableIdMap, fieldMap);
 
     await this.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
-    return fieldMap;
+    return { fieldMap, fkMap };
   }
 
   private async createTmpPrimaryFormulaFields(
@@ -458,7 +482,8 @@ export class BaseImportService {
     // filter lookup fields
     linkFields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    fkMap: Record<string, string>
   ) {
     const selfLinkFields = linkFields.filter(
       ({ options, sourceTableId }) =>
@@ -487,17 +512,18 @@ export class BaseImportService {
       ({ id }) => ![...selfLinkFields, ...crossBaseLinkFields].map(({ id }) => id).includes(id)
     );
 
-    await this.createSelfLinkFields(selfLinkFields, fieldMap);
+    await this.createSelfLinkFields(selfLinkFields, fieldMap, fkMap);
 
     // deal with cross base link fields
-    await this.createCommonLinkFields(crossBaseLinkFields, tableIdMap, fieldMap, true);
+    await this.createCommonLinkFields(crossBaseLinkFields, tableIdMap, fieldMap, fkMap, true);
 
-    await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap);
+    await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap, fkMap);
   }
 
   private async createSelfLinkFields(
     fields: IFieldWithTableIdJson[],
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    fkMap: Record<string, string>
   ) {
     const twoWaySelfLinkFields = fields.filter(
       ({ options }) => !(options as ILinkFieldOptions).isOneWay
@@ -550,11 +576,20 @@ export class BaseImportService {
         isPrimary,
       });
       fieldMap[field.id] = newFieldVo.id;
+      if ((field.options as ILinkFieldOptions).selfKeyName.startsWith('__fk_')) {
+        fkMap[(field.options as ILinkFieldOptions).selfKeyName] = (
+          newFieldVo.options as ILinkFieldOptions
+        ).selfKeyName;
+      }
     }
 
     for (const field of mergedTwoWaySelfLinkFields) {
-      const f = field[0];
-      const groupField = field[1];
+      const passiveIndex = field.findIndex(
+        (f) => (f.options as ILinkFieldOptions).isOneWay === undefined
+      )!;
+      const driverIndex = passiveIndex === 0 ? 1 : 0;
+
+      const groupField = field[passiveIndex];
       const {
         name,
         type,
@@ -565,8 +600,9 @@ export class BaseImportService {
         unique,
         dbFieldName,
         isPrimary,
-      } = f;
-      const options = f.options as ILinkFieldOptions;
+        order,
+      } = field[driverIndex];
+      const options = field[driverIndex].options as ILinkFieldOptions;
       const newField = await this.fieldOpenApiService.createField(targetTableId, {
         type: type as FieldType,
         dbFieldName,
@@ -583,13 +619,18 @@ export class BaseImportService {
           foreignTableId: targetTableId,
         },
       });
-      await this.replenishmentConstraint(newField.id, targetTableId, f.order, {
+      await this.replenishmentConstraint(newField.id, targetTableId, order, {
         notNull,
         unique,
         dbFieldName,
         isPrimary,
       });
       fieldMap[id] = newField.id;
+      if ((options as ILinkFieldOptions).selfKeyName.startsWith('__fk_')) {
+        fkMap[(options as ILinkFieldOptions).selfKeyName] = (
+          newField.options as ILinkFieldOptions
+        ).selfKeyName;
+      }
       fieldMap[groupField.id] = (newField.options as ILinkFieldOptions).symmetricFieldId!;
 
       // self link should updated the opposite field dbFieldName and name
@@ -645,6 +686,7 @@ export class BaseImportService {
     fields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>,
+    fkMap: Record<string, string>,
     allowCrossBase: boolean = false
   ) {
     const oneWayFields = fields.filter(({ options }) => (options as ILinkFieldOptions).isOneWay);
@@ -674,6 +716,11 @@ export class BaseImportService {
         },
       });
       fieldMap[field.id] = newFieldVo.id;
+      if ((field.options as ILinkFieldOptions).selfKeyName.startsWith('__fk_')) {
+        fkMap[(field.options as ILinkFieldOptions).selfKeyName] = (
+          newFieldVo.options as ILinkFieldOptions
+        ).selfKeyName;
+      }
       await this.replenishmentConstraint(newFieldVo.id, targetTableId, field.order, {
         notNull,
         unique,
@@ -695,6 +742,11 @@ export class BaseImportService {
     });
 
     for (const field of groupedTwoWayFields) {
+      // fk would like in this table
+      const passiveIndex = field.findIndex(
+        (f) => (f.options as ILinkFieldOptions).isOneWay === undefined
+      )!;
+      const driverIndex = passiveIndex === 0 ? 1 : 0;
       const {
         name,
         type,
@@ -707,8 +759,8 @@ export class BaseImportService {
         dbFieldName,
         isPrimary,
         order,
-      } = field[0];
-      const symmetricField = field[1];
+      } = field[passiveIndex];
+      const symmetricField = field[driverIndex];
       const { foreignTableId, relationship } = options as ILinkFieldOptions;
       const newFieldVo = await this.fieldOpenApiService.createField(targetTableId, {
         name,
@@ -723,6 +775,11 @@ export class BaseImportService {
       });
       fieldMap[fieldId] = newFieldVo.id;
       fieldMap[symmetricField.id] = (newFieldVo.options as ILinkFieldOptions).symmetricFieldId!;
+      if ((field[passiveIndex].options as ILinkFieldOptions).selfKeyName.startsWith('__fk_')) {
+        fkMap[(field[passiveIndex].options as ILinkFieldOptions).selfKeyName] = (
+          newFieldVo.options as ILinkFieldOptions
+        ).selfKeyName;
+      }
       await this.replenishmentConstraint(newFieldVo.id, targetTableId, order, {
         notNull,
         unique,
@@ -880,14 +937,19 @@ export class BaseImportService {
     }
   }
 
+  /* eslint-disable sonarjs/cognitive-complexity */
   private async createDependencyFields(
     dependFields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>
-  ) {
+  ): Promise<void> {
     if (!dependFields.length) return;
 
+    const maxCount = dependFields.length * 10;
+
     const checkedField = [] as IFieldJson[];
+
+    const countMap = {} as Record<string, number>;
 
     while (dependFields.length) {
       const curField = dependFields.shift();
@@ -920,6 +982,10 @@ export class BaseImportService {
             fieldMap,
             true
           );
+        } else if (!countMap[curField.id] || countMap[curField.id] < maxCount) {
+          dependFields.push(curField);
+          checkedField.push(curField);
+          countMap[curField.id] = (countMap[curField.id] || 0) + 1;
         } else {
           throw new BadGatewayException('Create circular field');
         }
@@ -1254,14 +1320,15 @@ export class BaseImportService {
   }
 
   private isInDegreeReady(field: IFieldWithTableIdJson, fieldMap: Record<string, string>) {
-    if (field.type === FieldType.Formula) {
+    const { isLookup, type } = field;
+    if (type === FieldType.Formula && !isLookup) {
       const formulaOptions = field.options as IFormulaFieldOptions;
       const referencedFields = this.extractFieldIds(formulaOptions.expression);
       const keys = Object.keys(fieldMap);
       return referencedFields.every((field) => keys.includes(field));
     }
 
-    if (field.isLookup || field.type === FieldType.Rollup) {
+    if (isLookup || type === FieldType.Rollup) {
       const { lookupOptions } = field;
       const { linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
       // const isSelfLink = foreignTableId === sourceTableId;
