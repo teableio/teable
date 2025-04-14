@@ -6,9 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldCellEditable, useFields, useRecord, useTableId, useViewId } from '../../../hooks';
 import type { Record as IRecord } from '../../../model';
 import type { IGridRef } from '../../grid/Grid';
-import type { ICell, ICellItem, IGridColumn, IInnerCell } from '../../grid/interface';
+import type { ICell, ICellItem, IGridColumn, IInnerCell, IRange } from '../../grid/interface';
 import { CellType, SelectionRegionType } from '../../grid/interface';
-import { emptySelection, type CombinedSelection } from '../../grid/managers';
+import { CombinedSelection, emptySelection } from '../../grid/managers';
 import { useGridViewStore } from '../store/useGridViewStore';
 import { useCreateCellValue2GridDisplay } from './use-grid-columns';
 
@@ -61,10 +61,22 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
       const { isDeleted, isVisible } = data.data;
 
       if (!isDeleted && !isVisible) {
-        setPresortRecordData({
-          rowIndex: activeCell.rowIndex,
-          recordId: activeCell.recordId,
-        });
+        const { recordId, fieldId } = activeCell;
+        const recordEntry = Object.entries(recordMap).find(([_, record]) => record.id === recordId);
+
+        if (!recordEntry) {
+          setPresortRecordData({ recordId, rowIndex: activeCell.rowIndex });
+          return gridRef.current?.setSelection(emptySelection);
+        }
+
+        const rowIndex = parseInt(recordEntry[0]);
+        const columnIndex = columns.findIndex((column) => column.id === fieldId);
+        const range = [columnIndex, rowIndex] as IRange;
+
+        setPresortRecordData({ rowIndex, recordId });
+        gridRef.current?.setSelection(
+          new CombinedSelection(SelectionRegionType.Cells, [range, range])
+        );
       }
 
       if (isDeleted) {
