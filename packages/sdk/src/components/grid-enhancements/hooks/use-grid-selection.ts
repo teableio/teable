@@ -64,19 +64,19 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
         const { recordId, fieldId } = activeCell;
         const recordEntry = Object.entries(recordMap).find(([_, record]) => record.id === recordId);
 
-        if (!recordEntry) {
-          setPresortRecordData({ recordId, rowIndex: activeCell.rowIndex });
-          return gridRef.current?.setSelection(emptySelection);
-        }
+        setPresortRecordData({ rowIndex: activeCell.rowIndex, recordId });
+
+        if (!recordEntry) return gridRef.current?.setSelection(emptySelection);
 
         const rowIndex = parseInt(recordEntry[0]);
         const columnIndex = columns.findIndex((column) => column.id === fieldId);
         const range = [columnIndex, rowIndex] as IRange;
 
-        setPresortRecordData({ rowIndex, recordId });
-        gridRef.current?.setSelection(
-          new CombinedSelection(SelectionRegionType.Cells, [range, range])
-        );
+        if (gridRef.current?.isEditing()) {
+          return gridRef.current?.setSelection(
+            new CombinedSelection(SelectionRegionType.Cells, [range, range])
+          );
+        }
       }
 
       if (isDeleted) {

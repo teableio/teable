@@ -150,6 +150,7 @@ export interface IGridRef {
   getCellBounds: (cell: ICellItem) => IRectangle | null;
   setCellLoading: (cells: ICellItem[]) => void;
   setColumnLoadings: (columnLoadings: IColumnLoading[]) => void;
+  isEditing: () => boolean | undefined;
 }
 
 const {
@@ -280,6 +281,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         width: columnWidth,
         height: rowHeight,
       };
+    },
+    isEditing: () => {
+      return interactionLayerRef.current?.isEditing();
     },
   }));
 

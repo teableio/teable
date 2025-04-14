@@ -20,6 +20,7 @@ import type {
   GridView,
   IGroupPoint,
   IUseTablePermissionAction,
+  IRange,
 } from '@teable/sdk';
 import {
   Grid,
@@ -827,11 +828,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, []);
 
   const prefillingRowStyle = useMemo(() => {
-    const defaultTop = rowHeight / 2;
+    const defaultTop = rowHeight;
     const height = rowHeight + 5;
 
     if (gridRef.current == null || prefillingRowIndex == null) {
-      return { top: defaultTop, height };
+      return { top: 0, height };
     }
 
     return {
@@ -844,17 +845,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [rowHeight, prefillingRowIndex]);
 
   const presortRowStyle = useMemo(() => {
-    const defaultTop = rowHeight / 2;
     const height = rowHeight + 5;
     const rowIndex = presortRecordData?.rowIndex;
 
     if (gridRef.current == null || rowIndex == null) {
-      return { top: defaultTop, height };
+      return { top: 0, height };
     }
 
     return {
       top: Math.max(
-        gridRef.current.getRowOffset(rowIndex) + defaultTop,
+        gridRef.current.getRowOffset(rowIndex),
         GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short]
       ),
       height,
@@ -919,6 +919,18 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     });
     gridRef.current?.setColumnLoadings(loadingColumnIndexs);
   }, [tableId, fields, taskStatusFieldMap]);
+
+  const onPresortContainerInit = () => {
+    if (gridRef.current?.isEditing()) return;
+
+    const { columnIndex } = activeCell ?? {};
+    if (columnIndex == null) return;
+    const range = [columnIndex, 0] as IRange;
+    presortGridRef.current?.setSelection(
+      new CombinedSelection(SelectionRegionType.Cells, [range, range])
+    );
+    gridRef.current?.setSelection(emptySelection);
+  };
 
   return (
     <div ref={containerRef} className="relative size-full">
@@ -1017,6 +1029,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       {presortRecord && (
         <PresortRowContainer
           style={presortRowStyle}
+          onInit={onPresortContainerInit}
           onClickOutside={async () => setPresortRecordData(undefined)}
         >
           <Grid
@@ -1069,7 +1082,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       <ConfirmDialog
         open={Boolean(autoFillFieldId)}
         onOpenChange={(val) => {
-          console.log('onOpenChange', val);
           if (!val) setAutoFillFieldId(undefined);
         }}
         closeable={false}

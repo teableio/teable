@@ -85,6 +85,7 @@ export interface IInteractionLayerProps
 }
 
 export interface IInteractionLayerRef {
+  isEditing: () => boolean;
   resetState: () => void;
   setSelection: (selection: CombinedSelection) => void;
 }
@@ -152,6 +153,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   } = props;
 
   useImperativeHandle(ref, () => ({
+    isEditing: () => isEditing,
     resetState,
     setSelection: (selection: CombinedSelection) => {
       const { type, ranges } = selection;

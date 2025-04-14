@@ -1,22 +1,26 @@
 import { ArrowUpDown } from '@teable/icons';
 import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
-import { useClickAway } from 'react-use';
+import { useClickAway, useMount } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
-
 interface IRowStatusContainerProps {
   children: React.ReactNode;
   style?: React.CSSProperties;
+  onInit?: () => void;
   onClickOutside?: () => void;
 }
 
 export const PresortRowContainer = (props: IRowStatusContainerProps) => {
-  const { style, children, onClickOutside } = props;
+  const { style, children, onClickOutside, onInit } = props;
   const prefillingGridContainerRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   useClickAway(prefillingGridContainerRef, () => {
     onClickOutside?.();
+  });
+
+  useMount(() => {
+    onInit?.();
   });
 
   return (
