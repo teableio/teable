@@ -379,7 +379,8 @@
       "globalSearchTip_infinity": "Search all fields except date and checkbox field",
       "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexing to improve search performance. Please note that indexing may slightly reduce write speed. During index creation, table read/write performance might be temporarily affected. Please be patient.",
       "enableIndex": "enable",
-      "keepAsIs": "keep as it"
+      "keepAsIs": "keep as it",
+      "ignoreIndexError": "ignore"
     },
     "searchTips": {
       "maxFieldTips_limited": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored"

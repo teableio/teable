@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { AlertCircle, Search, X } from '@teable/icons';
 import {
@@ -6,9 +6,11 @@ import {
   TableIndex,
   RecommendedIndexRow,
   getTableAbnormalIndex,
+  repairTableIndex,
 } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
+import { Spin } from '@teable/ui-lib/base';
 import {
   cn,
   Popover,
@@ -65,6 +67,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const [shouldTips, setShouldTips] = useState(true);
   const [noPrompt, setNoPrompt] = useState(false);
   const baseId = useBaseId();
+  const queryClient = useQueryClient();
 
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
@@ -104,6 +107,13 @@ export const SearchButton = (props: ISearchButtonProps) => {
     queryFn: () =>
       getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
     enabled: Boolean(enabledSearchIndex && !shareView),
+  });
+
+  const { mutateAsync: repairIndexFn, isLoading: repairIndexLoading } = useMutation({
+    mutationFn: (type: TableIndex) => repairTableIndex(baseId!, tableId!, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['table-abnormal-index', baseId, tableId, TableIndex.search]);
+    },
   });
 
   useHotkeys(
@@ -448,10 +458,19 @@ export const SearchButton = (props: ISearchButtonProps) => {
                 setShouldTips(false);
               }}
             >
-              {t('table:table.index.keepAsIs')}
+              {searchAbnormalIndex?.length
+                ? t('table:table.index.ignoreIndexError')
+                : t('table:table.index.keepAsIs')}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={async (e) => {
+                if (searchAbnormalIndex?.length) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  tableId && baseId && (await repairIndexFn(TableIndex.search));
+                  setAlertVisible(false);
+                  return;
+                }
                 commandTrigger?.current?.click();
                 setTimeout(() => {
                   searchCommandRef?.current?.toggleSearchIndex();
@@ -459,7 +478,10 @@ export const SearchButton = (props: ISearchButtonProps) => {
                 }, 0);
               }}
             >
-              {t('table:table.index.enableIndex')}
+              {searchAbnormalIndex?.length
+                ? t('table:table.index.repair')
+                : t('table:table.index.enableIndex')}
+              {repairIndexLoading && <Spin className="size-3" />}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
