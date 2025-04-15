@@ -118,6 +118,7 @@ export class LinkIntegrityService {
 
       if (!foreignTable) {
         issues.push({
+          fieldId: field.id,
           type: IntegrityIssueType.ForeignTableNotFound,
           message: `Foreign table with ID ${options.foreignTableId} not found for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
         });
@@ -129,6 +130,7 @@ export class LinkIntegrityService {
 
       if (!tableExists[0].exists) {
         issues.push({
+          fieldId: field.id,
           type: IntegrityIssueType.ForeignKeyHostTableNotFound,
           message: `Foreign key host table ${options.fkHostTableName} not found for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
         });
@@ -147,6 +149,7 @@ export class LinkIntegrityService {
 
         if (!selfKeyExists) {
           issues.push({
+            fieldId: field.id,
             type: IntegrityIssueType.ForeignKeyNotFound,
             message: `Self key name "${options.selfKeyName}" is missing for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
           });
@@ -154,6 +157,7 @@ export class LinkIntegrityService {
 
         if (!foreignKeyExists) {
           issues.push({
+            fieldId: field.id,
             type: IntegrityIssueType.ForeignKeyNotFound,
             message: `Foreign key name "${options.foreignKeyName}" is missing for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
           });
@@ -167,6 +171,7 @@ export class LinkIntegrityService {
 
         if (!symmetricField) {
           issues.push({
+            fieldId: field.id,
             type: IntegrityIssueType.SymmetricFieldNotFound,
             message: `Symmetric field ID ${options.symmetricFieldId} not found for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
           });
@@ -175,6 +180,7 @@ export class LinkIntegrityService {
 
       if (!options.isOneWay && !options.symmetricFieldId) {
         issues.push({
+          fieldId: field.id,
           type: IntegrityIssueType.SymmetricFieldNotFound,
           message: `Symmetric is missing for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
         });
@@ -203,21 +209,22 @@ export class LinkIntegrityService {
   async linkIntegrityFix(baseId: string): Promise<IIntegrityIssue[]> {
     const checkResult = await this.linkIntegrityCheck(baseId);
     const fixResults: IIntegrityIssue[] = [];
-
     for (const issues of checkResult.linkFieldIssues) {
       for (const issue of issues.issues) {
-        // eslint-disable-next-line sonarjs/no-small-switch
         switch (issue.type) {
           case IntegrityIssueType.MissingRecordReference: {
             const result = await this.foreignKeyIntegrityService.fix(
               issues.tableId,
-              issues.fieldId
+              issue.fieldId || issues.fieldId
             );
             result && fixResults.push(result);
             break;
           }
           case IntegrityIssueType.InvalidLinkReference: {
-            const result = await this.linkFieldIntegrityService.fix(issues.tableId, issues.fieldId);
+            const result = await this.linkFieldIntegrityService.fix(
+              issues.tableId,
+              issue.fieldId || issues.fieldId
+            );
             result && fixResults.push(result);
             break;
           }

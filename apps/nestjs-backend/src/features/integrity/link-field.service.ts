@@ -35,6 +35,7 @@ export class LinkFieldIntegrityService {
       return [
         {
           type: IntegrityIssueType.InvalidLinkReference,
+          fieldId: field.id,
           message: `Found ${inconsistentRecords.length} inconsistent links in fkHostTableName ${fkHostTableName} (TableName: ${table.name}, Field Name: ${field.name}, Field ID: ${field.id})`,
         },
       ];

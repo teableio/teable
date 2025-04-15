@@ -93,9 +93,9 @@ export class ForeignKeyIntegrityService {
         const message = isSelfReference
           ? `Found ${refCount} invalid self references in table ${referencedTableName}`
           : `Found ${refCount} invalid foreign references to table ${referencedTableName}`;
-
         issues.push({
           type: IntegrityIssueType.MissingRecordReference,
+          fieldId: field.id,
           message: `${message} (Field Name: ${field.name}, Field ID: ${field.id})`,
         });
       }
@@ -165,6 +165,10 @@ export class ForeignKeyIntegrityService {
     targetTableName: string;
     keyName: string;
   }) {
+    if (!fkHostTableName.split('.')[1].startsWith('junction_')) {
+      throw new Error(`fkHostTableName: ${fkHostTableName} is not a junction table`);
+    }
+
     const deleteQuery = this.knex(fkHostTableName)
       .whereNotExists(
         this.knex

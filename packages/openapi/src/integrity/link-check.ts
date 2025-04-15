@@ -20,6 +20,7 @@ export enum IntegrityIssueType {
 export const integrityIssueSchema = z.object({
   type: z.nativeEnum(IntegrityIssueType),
   message: z.string(),
+  fieldId: z.string().optional(),
 });
 
 // Define the schema for a link field check item
