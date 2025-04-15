@@ -85,7 +85,7 @@ export class LinkService {
 
   private async getRelatedFieldMap(fieldIds: string[]): Promise<IFieldMapByTableId> {
     const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: fieldIds } },
+      where: { id: { in: fieldIds }, isLookup: null },
     });
     const fields = fieldRaws.map(createFieldInstanceByRaw) as LinkFieldDto[];
 
@@ -1041,12 +1041,23 @@ export class LinkService {
    * 4. check and generate op to update foreign table by cached recordIds
    */
   async getDerivateByLink(tableId: string, cellContexts: ICellContext[], fromReset?: boolean) {
-    const linkContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
-    if (!linkContexts.length) {
+    const linkLikeContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
+    if (!linkLikeContexts.length) {
       return;
     }
-    const fieldIds = linkContexts.map((ctx) => ctx.fieldId);
+    const fieldIds = linkLikeContexts.map((ctx) => ctx.fieldId);
     const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMap = fieldMapByTableId[tableId];
+    const linkContexts = linkLikeContexts.filter((ctx) => {
+      if (!fieldMap[ctx.fieldId]) {
+        return false;
+      }
+      if (fieldMap[ctx.fieldId].type !== FieldType.Link || fieldMap[ctx.fieldId].isLookup) {
+        return false;
+      }
+      return true;
+    });
+
     const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
 
     return this.getDerivateByCellContexts(

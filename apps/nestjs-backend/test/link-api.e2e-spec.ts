@@ -4,7 +4,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  ILinkFieldOptions,
+  ILookupOptionsVo,
+  LinkFieldCore,
+} from '@teable/core';
 import { Colors, FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -2864,6 +2870,43 @@ describe('OpenAPI link (e2e)', () => {
           title: 'table2_1',
         },
       ]);
+    });
+
+    it('should delete a record when have a lookup field with link field', async () => {
+      // create link field
+      const table1LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const table1LinkField = (await createField(table1.id, table1LinkFieldRo)) as LinkFieldCore;
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table1LinkField.options.symmetricFieldId as string,
+          linkFieldId: table1LinkField.id,
+        },
+      };
+
+      await createField(table1.id, lookupFieldRo);
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table1LinkField.id]: { id: table2.records[0].id },
+          },
+        },
+      });
+
+      await deleteRecord(table1.id, table1.records[0].id);
     });
   });
 
