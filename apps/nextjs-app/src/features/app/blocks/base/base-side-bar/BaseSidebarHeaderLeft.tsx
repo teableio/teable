@@ -54,7 +54,6 @@ export const BaseSidebarHeaderLeft = () => {
     setTimeout(() => inputRef.current?.focus(), 200);
   };
 
-  const hasReadPermission = hasPermission(base.role, 'base|read');
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
 
@@ -117,9 +116,9 @@ export const BaseSidebarHeaderLeft = () => {
         <BaseActionTrigger
           base={base}
           showRename={hasUpdatePermission}
-          showDuplicate={hasReadPermission}
+          showDuplicate={hasUpdatePermission}
           showDelete={hasDeletePermission}
-          showExport={hasReadPermission}
+          showExport={hasUpdatePermission}
           onDelete={() => deleteBaseMutator(base.id)}
           onRename={onRename}
           align="start"

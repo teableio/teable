@@ -295,8 +295,8 @@ export class BaseService {
   }
 
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
-    // permission check, base read permission
-    await this.checkBaseReadPermission(duplicateBaseRo.fromBaseId);
+    // permission check, base update permission
+    await this.checkBaseUpdatePermission(duplicateBaseRo.fromBaseId);
     return await this.prismaService.$tx(
       async () => {
         return await this.baseDuplicateService.duplicateBase(duplicateBaseRo);
@@ -310,14 +310,14 @@ export class BaseService {
     return await this.baseDuplicateService.duplicateBase(duplicateBaseRo, false);
   }
 
-  private async checkBaseReadPermission(baseId: string) {
+  private async checkBaseUpdatePermission(baseId: string) {
     // First check if the user has the base read permission
-    await this.permissionService.validPermissions(baseId, ['base|read']);
+    await this.permissionService.validPermissions(baseId, ['base|update']);
 
     // Then check the token permissions if the request was made with a token
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId) {
-      await this.permissionService.validPermissions(baseId, ['base|read'], accessTokenId);
+      await this.permissionService.validPermissions(baseId, ['base|update'], accessTokenId);
     }
   }
 
