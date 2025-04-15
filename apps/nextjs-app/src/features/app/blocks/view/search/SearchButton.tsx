@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { AlertCircle, Search, X } from '@teable/icons';
-import { getTableActivatedIndex, TableIndex, RecommendedIndexRow } from '@teable/openapi';
+import {
+  getTableActivatedIndex,
+  TableIndex,
+  RecommendedIndexRow,
+  getTableAbnormalIndex,
+} from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
 import {
@@ -90,6 +95,15 @@ export const SearchButton = (props: ISearchButtonProps) => {
     queryKey: ['table-index', tableId],
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
     enabled: !shareView,
+  });
+
+  const enabledSearchIndex = tableActivatedIndex?.includes(TableIndex.search);
+
+  const { data: searchAbnormalIndex = [] } = useQuery({
+    queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
+    queryFn: () =>
+      getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
+    enabled: Boolean(enabledSearchIndex && !shareView),
   });
 
   useHotkeys(
@@ -362,6 +376,10 @@ export const SearchButton = (props: ISearchButtonProps) => {
               setAlertVisible(true);
               return;
             }
+            if (searchAbnormalIndex.length) {
+              setAlertVisible(true);
+              return;
+            }
             setInputValue(e.target.value);
             if (e.target.value === '') {
               setSearchCursor(null);
@@ -403,7 +421,9 @@ export const SearchButton = (props: ISearchButtonProps) => {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('table:table.index.autoIndexTip', { rowCount: RecommendedIndexRow })}
+              {searchAbnormalIndex.length
+                ? t('table:table.index.repairTip')
+                : t('table:table.index.autoIndexTip', { rowCount: RecommendedIndexRow })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-center">
