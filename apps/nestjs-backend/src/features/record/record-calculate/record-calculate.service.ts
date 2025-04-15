@@ -93,13 +93,25 @@ export class RecordCalculateService {
     return cellContexts;
   }
 
-  private async calculate(tableId: string, opsMapOrigin: IOpsMap, opContexts: ICellContext[]) {
+  private async calculate(
+    tableId: string,
+    opsMapOrigin: IOpsMap,
+    opContexts: ICellContext[],
+    recordIdsForDelete?: string[]
+  ) {
     const derivate = await this.linkService.getDerivateByLink(tableId, opContexts);
 
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
     const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
+
+    // ops in current table should not be apply or calculated for delete
+    if (recordIdsForDelete) {
+      for (const recordId of recordIdsForDelete) {
+        delete manualOpsMap[tableId][recordId];
+      }
+    }
 
     await this.batchService.updateRecords(manualOpsMap);
 
@@ -126,7 +138,12 @@ export class RecordCalculateService {
         })
       );
 
-      await this.calculate(effectedTableId, opsMapOrigin, cellContexts);
+      await this.calculate(
+        effectedTableId,
+        opsMapOrigin,
+        cellContexts,
+        records.map((r) => r.id)
+      );
     }
   }
 

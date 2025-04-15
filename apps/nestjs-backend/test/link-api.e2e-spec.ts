@@ -11,7 +11,14 @@ import type {
   ILookupOptionsVo,
   LinkFieldCore,
 } from '@teable/core';
-import { Colors, FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import {
+  Colors,
+  DriverClient,
+  FieldKeyType,
+  FieldType,
+  NumberFormattingType,
+  Relationship,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   convertField,
@@ -2908,6 +2915,53 @@ describe('OpenAPI link (e2e)', () => {
 
       await deleteRecord(table1.id, table1.records[0].id);
     });
+
+    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+      'should delete a record with link field not null constraint',
+      async () => {
+        // create link field
+        const table1LinkFieldRo: IFieldRo = {
+          name: 'link field',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        };
+
+        const table1LinkField = (await createField(table1.id, table1LinkFieldRo)) as LinkFieldCore;
+
+        const lookupFieldRo: IFieldRo = {
+          type: FieldType.Link,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table1LinkField.options.symmetricFieldId as string,
+            linkFieldId: table1LinkField.id,
+          },
+        };
+
+        await createField(table1.id, lookupFieldRo);
+
+        await updateRecord(table1.id, table1.records[0].id, {
+          fieldKeyType: FieldKeyType.Id,
+          record: {
+            fields: {
+              [table1LinkField.id]: { id: table2.records[0].id },
+            },
+          },
+        });
+        await deleteRecord(table1.id, table1.records[1].id);
+        await deleteRecord(table1.id, table1.records[2].id);
+
+        await convertField(table1.id, table1LinkField.id, {
+          ...table1LinkFieldRo,
+          notNull: true,
+        });
+
+        await deleteRecord(table1.id, table1.records[0].id);
+      }
+    );
   });
 
   describe('update multi cell when contains link field', () => {
