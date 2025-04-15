@@ -375,7 +375,8 @@
       "repair": "ripara",
       "repairTip": "Rilevate anomalie nell'indice, che possono causare un degrado delle prestazioni di ricerca. Si consiglia di cliccare sul pulsante di riparazione per correggere l'indice",
       "enableIndexTip": "Stai creando un indice. Il tempo richiesto dipende dalla dimensione della tabella. Durante questo processo, le prestazioni di lettura e scrittura della tabella potrebbero essere influenzate. Si prega di essere pazienti.",
-      "globalSearchTip": "Cerca in tutti i campi tranne il campo data e casella di controllo",
+      "globalSearchTip_infinity": "Cerca in tutti i campi tranne il campo data e casella di controllo",
+      "globalSearchTip_limited": "Cerca in tutti i campi tranne il campo data e casella di controllo, massimo {{count}} campi",
       "autoIndexTip": "La tua tabella ha superato {{rowCount}} righe. Si consiglia di abilitare l'indicizzazione per migliorare le prestazioni di ricerca. Si prega di notare che l'indicizzazione può ridurre leggermente la velocità di scrittura. Durante la creazione dell'indice, le prestazioni di lettura/scrittura della tabella potrebbero essere temporaneamente influenzate. Si prega di essere pazienti.",
       "enableIndex": "abilita",
       "keepAsIs": "mantieni così com'è"

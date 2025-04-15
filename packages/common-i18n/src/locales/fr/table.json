@@ -363,7 +363,8 @@
       "repair": "réparer",
       "repairTip": "Des anomalies d'index ont été détectées, ce qui peut entraîner une dégradation des performances de recherche. Il est recommandé de cliquer sur le bouton réparer pour corriger l'index",
       "enableIndexTip": "Vous créez un index. Le temps nécessaire dépend de la taille de la table. Pendant ce processus, les performances de lecture et d'écriture de la table peuvent être affectées. Veuillez patienter.",
-      "globalSearchTip": "Rechercher dans tous les champs sauf les champs de date et de case à cocher",
+      "globalSearchTip_infinity": "Rechercher dans tous les champs sauf les champs de date et de case à cocher",
+      "globalSearchTip_limited": "Rechercher dans tous les champs sauf les champs de date et de case à cocher, maximum {{count}} champs",
       "autoIndexTip": "Votre table a dépassé {{rowCount}} lignes. Nous vous recommandons d'activer l'indexation pour améliorer les performances de recherche. Veuillez noter que l'indexation peut légèrement réduire la vitesse d'écriture. Pendant la création de l'index, les performances de lecture/écriture de la table peuvent être temporairement affectées. Veuillez patienter.",
       "enableIndex": "activer",
       "keepAsIs": "laisser tel quel"

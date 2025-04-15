@@ -375,7 +375,8 @@
       "repair": "reparar",
       "repairTip": "Anomalías de índice detectados, lo que puede causar la degradación del rendimiento de la búsqueda. ",
       "enableIndexTip": "Estás creando un índice. ",
-      "globalSearchTip": "Busque todos los campos, excepto la fecha y el campo de la casilla de verificación",
+      "globalSearchTip_infinity": "Busque todos los campos, excepto la fecha y el campo de la casilla de verificación",
+      "globalSearchTip_limited": "Busque todos los campos, excepto la fecha y el campo de la casilla de verificación, máximo {{count}} campos",
       "autoIndexTip": "Su mesa ha excedido las filas __var_0__. ",
       "enableIndex": "permitir",
       "keepAsIs": "guarda"

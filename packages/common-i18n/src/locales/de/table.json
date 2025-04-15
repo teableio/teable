@@ -375,7 +375,8 @@
       "repair": "Reparieren",
       "repairTip": "Es wurden Indexanomalien entdeckt, die zu einer Verschlechterung der Suchleistung führen können. Es wird empfohlen, auf die Reparieren-Schaltfläche zu klicken, um den Index zu reparieren.",
       "enableIndexTip": "Sie erstellen einen Index. Die benötigte Zeit hängt von der Größe der Tabelle ab. Während dieses Vorgangs kann die Lese- und Schreibleistung der Tabelle beeinträchtigt werden. Bitte haben Sie Geduld.",
-      "globalSearchTip": "Alle Felder durchsuchen außer Datum Feld und Checkbox Feld",
+      "globalSearchTip_limited": "Alle Felder durchsuchen außer Datum Feld und Checkbox Feld, maximal {{count}} Felder",
+      "globalSearchTip_infinity": "Alle Felder durchsuchen außer Datum Feld und Checkbox Feld",
       "autoIndexTip": "Ihre Tabelle hat {{rowCount}} Zeilen überschritten. Wir empfehlen, die Indizierung zu aktivieren, um die Suchleistung zu verbessern. Bitte beachten Sie, dass die Indizierung die Schreibgeschwindigkeit leicht verringern kann. Während der Indexerstellung kann die Lese-/Schreibleistung der Tabelle vorübergehend beeinträchtigt sein. Bitte haben Sie etwas Geduld.",
       "enableIndex": "aktivieren",
       "keepAsIs": "beibehalten"

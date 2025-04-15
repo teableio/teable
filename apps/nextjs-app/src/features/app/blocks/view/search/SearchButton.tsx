@@ -30,6 +30,7 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
 import type { ISearchCommandRef } from './SearchCommand';
@@ -45,6 +46,8 @@ export interface ISearchButtonProps {
 
 export const SearchButton = (props: ISearchButtonProps) => {
   const { className, textClassName, shareView = false } = props;
+  const env = useEnv();
+  const { maxSearchFieldCount = Infinity } = env;
   const [active, setActive] = useState(false);
   const fields = useFields();
   const tableId = useTableId();
@@ -259,11 +262,11 @@ export const SearchButton = (props: ISearchButtonProps) => {
 
   const showAlert = useMemo(() => {
     if (fieldId === 'all_fields') {
-      return fields.length > 20;
+      return fields.length > maxSearchFieldCount;
     }
     const fieldIds = fieldId?.split(',') || [];
-    return fieldIds.length > 20;
-  }, [fieldId, fields]);
+    return fieldIds.length > maxSearchFieldCount;
+  }, [fieldId, fields, maxSearchFieldCount]);
 
   return active ? (
     <div
@@ -301,7 +304,11 @@ export const SearchButton = (props: ISearchButtonProps) => {
                 {showAlert && (
                   <TooltipPortal>
                     <TooltipContent>
-                      <p>{t('table:table.searchTips.maxFieldTips')}</p>
+                      <p>
+                        {t('table:table.searchTips.maxFieldTips_limited', {
+                          count: maxSearchFieldCount,
+                        })}
+                      </p>
                     </TooltipContent>
                   </TooltipPortal>
                 )}

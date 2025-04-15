@@ -39,6 +39,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import { useLocalStorage } from 'react-use';
+import { useEnv } from '@/features/app/hooks/useEnv';
 
 interface ISearchCommand {
   value: string;
@@ -59,6 +60,8 @@ enum ActionType {
 
 export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((props, ref) => {
   const { onChange, value, hideNotMatchRow, onHideSwitchChange, shareView } = props;
+  const env = useEnv();
+  const { maxSearchFieldCount = Infinity } = env;
   const { t } = useTranslation(['common', 'table']);
   const fields = useFields();
   const view = useView();
@@ -230,7 +233,13 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
                 </TooltipTrigger>
               </Toggle>
 
-              <TooltipContent>{t('table:table.index.globalSearchTip')}</TooltipContent>
+              <TooltipContent>
+                {maxSearchFieldCount !== Infinity
+                  ? t('table:table.index.globalSearchTip_limited', {
+                      count: maxSearchFieldCount,
+                    })
+                  : t('table:table.index.globalSearchTip_infinity')}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
 

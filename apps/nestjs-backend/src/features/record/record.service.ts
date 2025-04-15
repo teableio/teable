@@ -49,7 +49,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, difference, keyBy, orderBy, uniqBy } from 'lodash';
+import { get, difference, keyBy, orderBy, uniqBy, toNumber } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -1357,6 +1357,9 @@ export class RecordService {
     viewId?: string,
     projection?: string[]
   ) {
+    const maxSearchFieldCount = process.env.MAX_SEARCH_FIELD_COUNT
+      ? toNumber(process.env.MAX_SEARCH_FIELD_COUNT)
+      : 20;
     let viewColumnMeta: IGridColumnMeta | null = null;
     const fieldInstanceMap = { ...originFieldInstanceMap };
 
@@ -1440,7 +1443,7 @@ export class RecordService {
         ['order', 'createTime']
       ),
       'id'
-    ).slice(0, 20) as unknown as IFieldInstance[];
+    ).slice(0, maxSearchFieldCount) as unknown as IFieldInstance[];
   }
 
   private async getSearchHitIndex(

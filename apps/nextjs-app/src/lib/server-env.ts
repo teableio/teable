@@ -23,6 +23,7 @@ export interface IServerEnv {
     };
   };
   enableDomainEmail?: boolean;
+  maxSearchFieldCount?: number;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});
