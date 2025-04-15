@@ -1,9 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
-import { DriverClient, FieldType, Relationship, ViewType } from '@teable/core';
+import { DriverClient, FieldType, Relationship, Role, ViewType } from '@teable/core';
 import type { ICreateBaseVo, ICreateSpaceVo } from '@teable/openapi';
 import {
+  CREATE_SPACE,
   createBase,
   createDashboard,
   createField,
@@ -12,6 +13,7 @@ import {
   deleteBase,
   deleteSpace,
   duplicateBase,
+  EMAIL_SPACE_INVITATION,
   getBaseList,
   getDashboard,
   getDashboardInstallPlugin,
@@ -26,7 +28,10 @@ import {
   installPluginPanel,
   installViewPlugin,
   listPluginPanels,
+  urlBuilder,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   convertField,
   createRecords,
@@ -39,11 +44,25 @@ import {
 describe('OpenAPI Base Duplicate (e2e)', () => {
   let app: INestApplication;
   let base: ICreateBaseVo;
-  const spaceId = globalThis.testConfig.spaceId;
-
+  let spaceId: string;
+  let newUserAxios: AxiosInstance;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+
+    newUserAxios = await createNewUserAxios({
+      email: 'test@gmail.com',
+      password: '12345678',
+    });
+
+    const space = await newUserAxios.post<ICreateSpaceVo>(CREATE_SPACE, {
+      name: 'test space',
+    });
+    spaceId = space.data.id;
+    await newUserAxios.post(urlBuilder(EMAIL_SPACE_INVITATION, { spaceId }), {
+      role: Role.Owner,
+      emails: [globalThis.testConfig.email],
+    });
   });
 
   afterAll(async () => {
