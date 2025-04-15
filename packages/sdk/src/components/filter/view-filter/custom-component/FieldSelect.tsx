@@ -16,7 +16,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
   props: IFieldSelectProps<T>
 ) => {
   const fields = useFields();
-  const { path, value } = props;
+  const { path, value, modal } = props;
   const { onChange } = useCrud();
   const options = useMemo(() => {
     return fields.map((field) => ({
@@ -42,6 +42,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
   return (
     <BaseSingleSelect
       options={options}
+      modal={modal}
       onSelect={(value) => {
         const newPath = path.slice(0, -1);
         const field = fields.find((f) => f.id === value);

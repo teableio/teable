@@ -4,6 +4,7 @@ export type IFilterPath = (string | number)[];
 export interface IBaseFilterComponentProps<V = unknown> {
   path: IFilterPath;
   value: V;
+  modal?: boolean;
 }
 export interface IBaseFilterCustomComponentProps<
   T extends IConditionItemProperty = IConditionItemProperty,

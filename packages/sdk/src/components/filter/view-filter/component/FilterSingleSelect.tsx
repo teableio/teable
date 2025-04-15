@@ -13,10 +13,11 @@ interface ISingleSelect {
   field: SingleSelectField;
   className?: string;
   popoverClassName?: string;
+  modal?: boolean;
 }
 
 function FilterSingleSelect(props: ISingleSelect) {
-  const { onSelect, field, value, className, popoverClassName } = props;
+  const { onSelect, field, value, className, popoverClassName, modal } = props;
 
   const options = useMemo<IColorOption[]>(() => {
     return field?.options?.choices.map((choice) => ({
@@ -53,6 +54,7 @@ function FilterSingleSelect(props: ISingleSelect) {
       displayRender={optionRender}
       defaultLabel={<DefaultErrorLabel />}
       placeholderClassName="text-xs"
+      modal={modal}
     />
   );
 }

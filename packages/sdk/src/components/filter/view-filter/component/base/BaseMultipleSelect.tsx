@@ -34,6 +34,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     notFoundText = t('common.noRecords'),
     displayRender,
     onSearch,
+    modal,
   } = props;
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -92,7 +93,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
   }, [searchValue, isComposing, onSearch, setApplySearchDebounced]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

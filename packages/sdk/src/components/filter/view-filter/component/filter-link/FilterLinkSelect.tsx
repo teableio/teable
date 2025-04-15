@@ -10,10 +10,11 @@ interface FilterLinkSelectProps extends IFilterLinkProps {
     Trigger?: (props: IFilterLinkProps) => JSX.Element;
     List?: (value: IFilterLinkSelectListProps) => JSX.Element;
   };
+  modal?: boolean;
 }
 
 export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
-  const { value, operator, onSelect, components, className } = props;
+  const { value, operator, onSelect, components, className, modal } = props;
   const { Trigger, List } = components || {};
   const [open, setOpen] = useState(false);
 
@@ -35,7 +36,7 @@ export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
 
   return (
     <div className="space-y-3">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={modal}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"

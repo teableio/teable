@@ -25,10 +25,11 @@ interface IBaseFieldValue {
   field?: IFieldInstance;
   components?: IFilterComponents;
   linkContext?: ILinkContext;
+  modal?: boolean;
 }
 
 export function BaseFieldValue(props: IBaseFieldValue) {
-  const { onSelect, components, field, operator, value, linkContext } = props;
+  const { onSelect, components, field, operator, value, linkContext, modal } = props;
   const { t } = useTranslation();
 
   const showEmptyComponent = useMemo(() => {
@@ -95,6 +96,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       return ARRAY_OPERATORS.includes(operator) ? (
         <FilterMultipleSelect
           field={field}
+          modal={modal}
           value={value as string[]}
           onSelect={(value) => onSelect(value as IFilterItem['value'])}
           className="min-w-28 max-w-64"
@@ -103,6 +105,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       ) : (
         <FilterSingleSelect
           field={field}
+          modal={modal}
           value={value as string}
           onSelect={onSelect}
           operator={operator}
@@ -114,6 +117,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       return (
         <FilterMultipleSelect
           field={field}
+          modal={modal}
           value={value as string[]}
           onSelect={(value) => onSelect(value as IFilterItem['value'])}
           className="min-w-28 max-w-64"
@@ -146,7 +150,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         const LinkComponents = components[FieldType.Link];
         return <LinkComponents {...linkProps} />;
       }
-      return <FilterLink {...linkProps} />;
+      return <FilterLink {...linkProps} modal={modal} />;
     }
     case FieldType.Attachment:
       return <FileTypeSelect value={value as string} onSelect={onSelect} />;
@@ -174,7 +178,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         const UserComponents = components[FieldType.User];
         return <UserComponents {...props} />;
       }
-      return <FilterUserSelect {...props} />;
+      return <FilterUserSelect {...props} modal={modal} />;
     }
     case FieldType.Formula: {
       return getFormulaValueComponent(field.cellValueType);

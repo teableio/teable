@@ -13,10 +13,11 @@ interface IMultipleSelect {
   field: MultipleSelectField | SingleSelectField;
   className?: string;
   popoverClassName?: string;
+  modal?: boolean;
 }
 
 const FilterMultipleSelect = (props: IMultipleSelect) => {
-  const { field, value, onSelect, className, popoverClassName } = props;
+  const { field, value, onSelect, className, popoverClassName, modal } = props;
   const values = useMemo(() => {
     if (Array.isArray(value) && value.length) {
       return value;
@@ -72,6 +73,7 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
       popoverClassName={popoverClassName}
       defaultLabel={<DefaultErrorLabel />}
       placeholderClassName="text-xs"
+      modal={modal}
     />
   );
 };

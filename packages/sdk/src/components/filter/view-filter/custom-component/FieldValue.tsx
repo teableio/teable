@@ -15,7 +15,7 @@ interface IFieldValue<T extends IConditionItemProperty = IViewFilterConditionIte
 export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IFieldValue<T>
 ) => {
-  const { path, components, value, item } = props;
+  const { path, components, value, item, modal } = props;
   const fields = useFields();
   const { onChange } = useCrud();
   const linkContext = useViewFilterContext();
@@ -25,6 +25,7 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
     <BaseFieldValue
       value={value}
       field={field}
+      modal={modal}
       components={components}
       operator={item.operator as IFilterItem['operator']}
       onSelect={(newValue) => {

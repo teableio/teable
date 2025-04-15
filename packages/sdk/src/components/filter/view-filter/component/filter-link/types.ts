@@ -8,6 +8,7 @@ export interface IFilterLinkProps<T = string[] | string> {
   onSelect: (value: T | null) => void;
   className?: string;
   context?: ILinkContext;
+  modal?: boolean;
 }
 
 export interface IFilterLinkSelectListProps {

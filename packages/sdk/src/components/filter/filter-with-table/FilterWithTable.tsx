@@ -21,13 +21,14 @@ const CustomValueComponent = (props: ICustomerValueComponentProps) => {
   const components = {
     [FieldType.Link]: FilterLink,
   };
-  return <FieldValue {...props} components={components} />;
+  return <FieldValue {...props} components={components} modal={true} />;
 };
 
 const FilterLinkSelectCom = (props: IFilterLinkProps) => {
   return (
     <FilterLinkSelect
       {...props}
+      modal={true}
       components={{
         List: StandDefaultList,
       }}
@@ -53,6 +54,7 @@ export const FilterWithTable = (props: IFilterWithTableProps) => {
 
   return (
     <BaseViewFilter
+      modal={true}
       value={value}
       fields={fields}
       onChange={onChange}

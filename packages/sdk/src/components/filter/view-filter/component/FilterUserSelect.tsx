@@ -19,6 +19,7 @@ interface IFilterUserProps {
   value: string[] | string | null;
   onSearch?: (value: string) => void;
   onSelect: (value: string[] | string | null) => void;
+  modal?: boolean;
 }
 
 interface IFilterUserBaseProps extends IFilterUserProps {
@@ -33,7 +34,7 @@ interface IFilterUserBaseProps extends IFilterUserProps {
 const SINGLE_SELECT_OPERATORS = ['is', 'isNot'];
 
 const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
-  const { value, onSelect, operator, data, disableMe, onSearch } = props;
+  const { value, onSelect, operator, data, disableMe, onSearch, modal } = props;
   const { user: currentUser } = useSession();
   const { t } = useTranslation();
   const values = useMemo<string | string[] | null>(() => value, [value]);
@@ -117,6 +118,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
       {!isMultiple ? (
         <BaseSingleSelect
           options={options}
+          modal={modal}
           onSelect={onSelect}
           value={values as string}
           displayRender={displayRender}
@@ -129,6 +131,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
       ) : (
         <BaseMultipleSelect
           options={options}
+          modal={modal}
           onSelect={onSelect}
           value={values as string[]}
           displayRender={displayRender}
