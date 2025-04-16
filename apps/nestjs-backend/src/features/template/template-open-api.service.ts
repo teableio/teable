@@ -276,4 +276,34 @@ export class TemplateOpenApiService {
       data: { ...updateTemplateCategoryRo },
     });
   }
+
+  async getTemplateDetailById(templateId: string) {
+    const template = await this.prismaService.template.findUniqueOrThrow({
+      where: { id: templateId },
+    });
+
+    const cover = template.cover ? JSON.parse(template.cover) : undefined;
+
+    const newCover = {
+      ...cover,
+      presignedUrl: undefined,
+    };
+
+    if (cover) {
+      const { bucket, path, token } = cover;
+      newCover.presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
+        bucket,
+        path,
+        token
+      );
+    }
+
+    return {
+      ...template,
+      cover: {
+        ...newCover,
+      },
+      snapshot: template.snapshot ? JSON.parse(template.snapshot) : undefined,
+    };
+  }
 }

@@ -9,8 +9,8 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CategoryMenu } from './CategoryMenu';
-import { TemplateList } from './TemplateList';
+import { TemplateDetail } from './TemplateDetail';
+import { TemplateMain } from './TemplateMain';
 interface TemplateModalProps {
   children: React.ReactNode;
   spaceId: string;
@@ -23,6 +23,8 @@ export const TemplateModal = (props: TemplateModalProps) => {
   const [currentCategoryId, setCurrentCategoryId] = useState<string>('all');
 
   const [search, setSearch] = useState<string>('');
+
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
   return (
     <Dialog>
@@ -42,13 +44,22 @@ export const TemplateModal = (props: TemplateModalProps) => {
             />
           </div>
         </DialogHeader>
-        <div className="flex flex-1 overflow-hidden">
-          <CategoryMenu
-            currentCategoryId={currentCategoryId}
-            onCategoryChange={(value) => setCurrentCategoryId(value)}
+
+        {currentTemplateId ? (
+          <TemplateDetail
+            templateId={currentTemplateId}
+            onBackToTemplateList={() => setCurrentTemplateId(null)}
           />
-          <TemplateList currentCategoryId={currentCategoryId} search={search} />
-        </div>
+        ) : (
+          <TemplateMain
+            currentCategoryId={currentCategoryId}
+            search={search}
+            onCategoryChange={(value) => setCurrentCategoryId(value)}
+            templateListClassName="overflow-y-auto p-2"
+            className="w-full"
+            onClickTemplateCardHandler={(templateId) => setCurrentTemplateId(templateId)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

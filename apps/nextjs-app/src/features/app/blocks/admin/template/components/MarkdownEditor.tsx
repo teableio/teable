@@ -35,7 +35,7 @@ export const MarkdownEditor = ({ value, onChange }: MarkdownEditorProps) => {
         />
       ) : (
         <div className="flex-1 overflow-auto">
-          <MarkdownPreview>{value}</MarkdownPreview>
+          <MarkdownPreview className="max-h-40 overflow-auto">{value}</MarkdownPreview>
         </div>
       )}
 

@@ -6,3 +6,4 @@ export * from './update';
 export * from './create-snapshot';
 export * from './category';
 export * from './pin-top';
+export * from './get-template-detail';

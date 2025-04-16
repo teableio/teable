@@ -60,6 +60,9 @@
       "noData": "No data",
       "importing": "Importing...",
       "usageCount": "Use count: {{count}}",
+      "useTemplate": "Use this template",
+      "createdBy": "by {{user}}",
+      "backToTemplateList": "Back to template list",
       "tips": {
         "errorCategoryName": "Category does not exist or has been deleted",
         "needSnapshot": "Please create a snapshot before publishing, and the template name and description cannot be empty",
@@ -233,6 +236,7 @@
     "enterprise": "Enterprise"
   },
   "noResult": "No Result.",
+  "noDescription": "No description",
   "untitled": "Untitled",
   "name": "Name",
   "description": "Description",

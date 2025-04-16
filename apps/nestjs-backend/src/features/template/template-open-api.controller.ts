@@ -94,4 +94,10 @@ export class TemplateOpenApiController {
       updateTemplateCategoryRo
     );
   }
+
+  @Public()
+  @Get('/:templateId')
+  async getTemplateById(@Param('templateId') templateId: string) {
+    return this.templateOpenApiService.getTemplateDetailById(templateId);
+  }
 }

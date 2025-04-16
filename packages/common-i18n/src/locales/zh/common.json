@@ -60,6 +60,9 @@
       "noData": "暂无数据",
       "importing": "导入中...",
       "usageCount": "应用次数：{{count}}",
+      "useTemplate": "使用此模板",
+      "createdBy": "创建者：{{user}}",
+      "backToTemplateList": "返回模板列表",
       "tips": {
         "errorCategoryName": "分类不存在或已删除",
         "needSnapshot": "上架前，请先创建快照，并且模板名和描述不能为空",
@@ -234,6 +237,7 @@
     "enterprise": "企业版"
   },
   "noResult": "无结果",
+  "noDescription": "暂无描述",
   "untitled": "未命名",
   "name": "名称",
   "description": "描述",

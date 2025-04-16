@@ -1,17 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPublishedTemplateList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TemplateCard } from './TemplateCard';
+import type { ITemplateBaseProps } from './TemplateMain';
 
-interface ITemplateListProps {
+interface ITemplateListProps extends ITemplateBaseProps {
   currentCategoryId: string;
   search: string;
+  className?: string;
 }
 
 export const TemplateList = (props: ITemplateListProps) => {
-  const { currentCategoryId, search } = props;
+  const {
+    currentCategoryId,
+    search,
+    onClickUseTemplateHandler,
+    onClickTemplateCardHandler,
+    className,
+  } = props;
   const { t } = useTranslation(['common']);
   const { data: publishedTemplateList } = useQuery({
     queryKey: ReactQueryKeys.templateList(),
@@ -34,9 +43,19 @@ export const TemplateList = (props: ITemplateListProps) => {
   }, [currentCategoryId, publishedTemplateList, search]);
 
   return (
-    <div className="flex flex-1 flex-wrap gap-3 overflow-y-auto p-2">
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-4 text-left sm:grid-cols-2 lg:grid-cols-3 flex-1',
+        className
+      )}
+    >
       {currentTemplateList?.map((template) => (
-        <TemplateCard key={template.id} template={template} />
+        <TemplateCard
+          key={template.id}
+          template={template}
+          onClickUseTemplateHandler={onClickUseTemplateHandler}
+          onClickTemplateCardHandler={onClickTemplateCardHandler}
+        />
       ))}
 
       {currentTemplateList?.length === 0 && (

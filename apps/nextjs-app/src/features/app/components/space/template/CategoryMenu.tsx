@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { getTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
 import { CategoryMenuItem } from './CategoryMenuItem';
 
 const CategoryGroupLabel = ({ label }: { label: string }) => {
@@ -12,10 +12,12 @@ const CategoryGroupLabel = ({ label }: { label: string }) => {
 interface ICategoryMenuProps {
   currentCategoryId: string;
   onCategoryChange: (category: string) => void;
+  className?: string;
+  categoryHeaderRender?: () => React.ReactNode;
 }
 
 export const CategoryMenu = (props: ICategoryMenuProps) => {
-  const { currentCategoryId, onCategoryChange } = props;
+  const { currentCategoryId, onCategoryChange, className, categoryHeaderRender } = props;
   const { t } = useTranslation('common');
   const { data: categoryList } = useQuery({
     queryKey: ReactQueryKeys.templateCategoryList(),
@@ -23,8 +25,9 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
   });
 
   return (
-    <div className="flex max-w-48 flex-1 flex-col gap-3 overflow-hidden p-2">
+    <div className={cn('flex flex-col gap-3 overflow-hidden p-2 shrink-0 w-64', className)}>
       <div className="flex flex-col gap-1">
+        {categoryHeaderRender && categoryHeaderRender()}
         <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.getStarted')} />
         <CategoryMenuItem
           key={'all'}
