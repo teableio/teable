@@ -54,7 +54,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
     ]);
   };
 
-  const required = view.columnMeta[fieldId]?.required;
+  const required = field.notNull || view.columnMeta[fieldId]?.required;
 
   return (
     <div className="relative w-full px-8 py-5">
@@ -73,6 +73,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
                 id="form-field-required"
                 className="ml-1 mr-2"
                 checked={required}
+                disabled={field.notNull}
                 onCheckedChange={onRequiredChange}
               />
             </div>

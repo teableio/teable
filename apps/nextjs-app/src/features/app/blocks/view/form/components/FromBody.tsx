@@ -76,7 +76,7 @@ export const FormBody = (props: IFormBodyProps) => {
     resetErrors();
 
     const requiredFieldIds = visibleFields.reduce((acc, field) => {
-      if (columnMeta[field.id].required) acc.push(field.id);
+      if (field.notNull || columnMeta[field.id].required) acc.push(field.id);
       return acc;
     }, [] as string[]);
 
