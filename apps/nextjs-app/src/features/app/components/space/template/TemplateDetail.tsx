@@ -57,7 +57,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
       <div className="relative grid w-full grid-cols-8">
         <div className="sticky top-0 col-span-8 flex flex-col self-start pb-12 pr-8 sm:col-span-2 sm:pb-0">
           <div
-            className="flex cursor-pointer items-center gap-1 pb-4 text-sm text-gray-500 transition-colors hover:text-black"
+            className="flex cursor-pointer items-center gap-1 pb-4 text-sm text-foreground transition-colors hover:text-foreground/80"
             role="button"
             tabIndex={0}
             onClick={() => onBackToTemplateList()}
@@ -82,12 +82,12 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         </div>
 
         <div className="col-span-8 border-t pt-12 sm:col-span-5 sm:border-l sm:border-t-0 sm:pl-12">
-          <div className="relative mb-8 max-w-screen-md overflow-hidden rounded-md shadow-xl shadow-stone-300 sm:mb-14">
+          <div className="relative mb-8 max-w-screen-md overflow-hidden rounded-md shadow-xl sm:mb-14">
             {cover?.presignedUrl && (
               <img
                 src={cover?.presignedUrl}
                 alt={name}
-                className="relative w-full max-w-screen-md object-cover dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
+                className="relative w-full max-w-screen-md object-cover dark:drop-shadow-[0_0_0.3rem_#ffffff70]"
               />
             )}
           </div>

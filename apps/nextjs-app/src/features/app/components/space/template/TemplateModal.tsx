@@ -1,4 +1,5 @@
 import {
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -39,7 +40,9 @@ export const TemplateModal = (props: TemplateModalProps) => {
             <Input
               placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
               value={search}
-              className="h-8 w-72"
+              className={cn('h-8 w-72', {
+                'opacity-0': currentTemplateId,
+              })}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
