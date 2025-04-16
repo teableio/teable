@@ -6,8 +6,7 @@ import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
-import { useBaseId, useTableId, useTablePermission } from '../../hooks';
-import { Record } from '../../model';
+import { useBaseId, useRecordOperations, useTableId, useTablePermission } from '../../hooks';
 import { syncCopy } from '../../utils';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
@@ -54,6 +53,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   } = props;
   const { t } = useTranslation();
   const permission = useTablePermission();
+  const { duplicateRecord } = useRecordOperations();
   const editable = Boolean(permission['record|update']);
   const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
@@ -76,7 +76,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   }
 
   const onDuplicate = async () => {
-    await Record.duplicateRecord(tableId, recordId, {
+    await duplicateRecord(tableId, recordId, {
       viewId: viewId || '',
       anchorId: recordId,
       position: 'after',

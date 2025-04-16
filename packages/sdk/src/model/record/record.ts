@@ -1,54 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IRecord } from '@teable/core';
 import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/core';
-import type {
-  ICreateRecordsRo,
-  IGetRecordsRo,
-  IRecordInsertOrderRo,
-  IUpdateRecordRo,
-  IUpdateRecordsRo,
-} from '@teable/openapi';
-import {
-  createRecords,
-  duplicateRecord,
-  getRecords,
-  updateRecord,
-  updateRecordOrders,
-  updateRecords,
-} from '@teable/openapi';
+import { updateRecord } from '@teable/openapi';
 import { isEqual } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
-import { requestWrap } from '../../utils/requestWrap';
 import type { IFieldInstance } from '../field/factory';
 
 export class Record extends RecordCore {
   private _title?: {
     value?: string;
   };
-
-  static createRecords = requestWrap((tableId: string, recordsRo: ICreateRecordsRo) =>
-    createRecords(tableId, recordsRo)
-  );
-
-  static getRecords = requestWrap((tableId: string, query?: IGetRecordsRo) =>
-    getRecords(tableId, query)
-  );
-
-  static updateRecord = requestWrap(
-    (tableId: string, recordId: string, recordRo: IUpdateRecordRo) =>
-      updateRecord(tableId, recordId, recordRo)
-  );
-
-  static updateRecords = requestWrap((tableId: string, recordsRo: IUpdateRecordsRo) =>
-    updateRecords(tableId, recordsRo)
-  );
-
-  static duplicateRecord = requestWrap(
-    (tableId: string, recordId: string, order: IRecordInsertOrderRo) =>
-      duplicateRecord(tableId, recordId, order)
-  );
-
-  static updateRecordOrders = requestWrap(updateRecordOrders);
 
   constructor(
     protected doc: Doc<IRecord>,
@@ -108,7 +69,7 @@ export class Record extends RecordCore {
       this.onCommitLocal(fieldId, cellValue);
       this.fields[fieldId] = cellValue;
       const [, tableId] = this.doc.collection.split('_');
-      const res = await Record.updateRecord(tableId, this.doc.id, {
+      const res = await updateRecord(tableId, this.doc.id, {
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: {

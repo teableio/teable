@@ -1,5 +1,6 @@
 import { FieldKeyType } from '@teable/core';
-import { Field, Record, Table, View } from '@teable/sdk/model';
+import { createRecords, getRecords } from '@teable/openapi';
+import { Field, Table, View } from '@teable/sdk/model';
 import router from 'next/router';
 import { createChart } from '../Chart/createChart';
 import { ChartType } from '../Chart/type';
@@ -54,7 +55,7 @@ export function createAISyntaxParser() {
         if (!tableId) {
           throw new Error("Can't create record without table");
         }
-        await Record.createRecords(tableId, { records: [{ fields: {} }] });
+        await createRecords(tableId, { records: [{ fields: {} }] });
         return;
       }
       case 'set-record': {
@@ -70,7 +71,7 @@ export function createAISyntaxParser() {
         const chartTypeArray = Object.values(ChartType);
         const { tableId, viewId } = router.query;
         const result = (
-          await Record.getRecords(tableId as string, {
+          await getRecords(tableId as string, {
             viewId: viewId as string,
             fieldKeyType: FieldKeyType.Name,
           })

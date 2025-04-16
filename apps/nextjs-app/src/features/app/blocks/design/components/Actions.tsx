@@ -1,5 +1,5 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons';
-import { useTable } from '@teable/sdk/hooks';
+import { useTableId, useFieldOperations } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -13,8 +13,10 @@ import { useFieldSettingStore } from '../../view/field/useFieldSettingStore';
 
 export const Actions = ({ fieldId }: { fieldId: string }) => {
   const { openSetting } = useFieldSettingStore();
-  const table = useTable();
+  const tableId = useTableId() as string;
   const { t } = useTranslation(['common']);
+  const { deleteField } = useFieldOperations();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -29,7 +31,7 @@ export const Actions = ({ fieldId }: { fieldId: string }) => {
         <DropdownMenuItem
           className="text-destructive"
           onClick={() => {
-            table?.deleteField(fieldId);
+            deleteField(tableId, fieldId);
           }}
         >
           {t('actions.delete')}

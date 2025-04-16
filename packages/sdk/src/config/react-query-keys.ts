@@ -20,6 +20,11 @@ import type {
   IGetDepartmentListRo,
   IGetDepartmentUserRo,
   IShareViewCollaboratorsRo,
+  ICreateRecordsRo,
+  IUpdateRecordRo,
+  IUpdateRecordsRo,
+  IRecordInsertOrderRo,
+  IUpdateRecordOrdersRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -98,6 +103,13 @@ export const ReactQueryKeys = {
   shareViewAggregations: (shareId: string, query: IShareViewAggregationsRo) =>
     ['share-view-aggregations', shareId, query] as const,
 
+  createField: (tableId: string, fieldRo: IFieldRo) => ['create-field', tableId, fieldRo] as const,
+
+  deleteField: (tableId: string, fieldId: string) => ['delete-field', tableId, fieldId] as const,
+
+  convertField: (tableId: string, fieldId: string, fieldRo: IConvertFieldRo) =>
+    ['convert-field', tableId, fieldId, fieldRo] as const,
+
   planFieldCreate: (tableId: string, fieldRo: IFieldRo) =>
     ['create-field-plan', tableId, fieldRo] as const,
 
@@ -105,6 +117,21 @@ export const ReactQueryKeys = {
     ['create-field-plan', tableId, fieldId, fieldRo] as const,
 
   planField: (tableId: string, fieldId: string) => ['field-plan', tableId, fieldId] as const,
+
+  createRecords: (tableId: string, recordsRo: ICreateRecordsRo) =>
+    ['create-records', tableId, recordsRo] as const,
+
+  updateRecord: (tableId: string, recordId: string, recordRo: IUpdateRecordRo) =>
+    ['update-record', tableId, recordId, recordRo] as const,
+
+  updateRecords: (tableId: string, recordsRo: IUpdateRecordsRo) =>
+    ['update-records', tableId, recordsRo] as const,
+
+  duplicateRecord: (tableId: string, recordId: string, order: IRecordInsertOrderRo) =>
+    ['duplicate-record', tableId, recordId, order] as const,
+
+  updateRecordOrders: (tableId: string, viewId: string, order: IUpdateRecordOrdersRo) =>
+    ['update-record-orders', tableId, viewId, order] as const,
 
   personAccessTokenList: () => ['person-access-token-list'],
 

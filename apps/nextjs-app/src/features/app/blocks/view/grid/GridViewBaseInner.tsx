@@ -21,6 +21,7 @@ import type {
   IGroupPoint,
   IUseTablePermissionAction,
   IRange,
+  Record,
 } from '@teable/sdk';
 import {
   Grid,
@@ -51,7 +52,6 @@ import {
   ExpandRecorder,
   useGridViewStore,
   useGridSelection,
-  Record,
   DragRegionType,
   useGridFileEvent,
   extractDefaultFieldsFromFilters,
@@ -74,6 +74,7 @@ import {
   useUndoRedo,
   useView,
   useViewId,
+  useRecordOperations,
 } from '@teable/sdk/hooks';
 import { ConfirmDialog, useToast } from '@teable/ui-lib';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
@@ -110,6 +111,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 ) => {
   const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { updateRecord, duplicateRecord } = useRecordOperations();
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
@@ -415,7 +417,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           },
           duplicateRecord: async () => {
             if (!record || !activeViewId) return;
-            await Record.duplicateRecord(tableId, record.id, {
+            await duplicateRecord(tableId, record.id, {
               viewId: activeViewId,
               anchorId: record.id,
               position: 'after',
@@ -671,7 +673,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return toast({ title: 'Unable to paste' });
     }
     paste(e, selection, { 0: presortRecord }, (records) => {
-      Record.updateRecord(tableId, presortRecord.id, {
+      updateRecord(tableId, presortRecord.id, {
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: { ...presortRecord.fields, ...records[0].fields },

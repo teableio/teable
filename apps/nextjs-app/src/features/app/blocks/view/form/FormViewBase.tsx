@@ -1,6 +1,11 @@
 import { FieldKeyType } from '@teable/core';
-import { useIsMobile, useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
-import { Record as RecordSdk } from '@teable/sdk/model';
+import {
+  useViewId,
+  useTableId,
+  useIsMobile,
+  useTablePermission,
+  useRecordOperations,
+} from '@teable/sdk/hooks';
 import { FormMode, useFormModeStore } from '../tool-bar/store';
 import { FormEditor, FormPreviewer } from './components';
 import { generateUniqLocalKey } from './util';
@@ -11,6 +16,7 @@ export const FormViewBase = () => {
   const { modeMap } = useFormModeStore();
   const isMobile = useIsMobile();
   const permission = useTablePermission();
+  const { createRecords } = useRecordOperations();
 
   const modeKey = generateUniqLocalKey(tableId, activeViewId);
   const mode = modeMap[modeKey] ?? FormMode.Edit;
@@ -18,7 +24,7 @@ export const FormViewBase = () => {
 
   const submitForm = async (fields: Record<string, unknown>) => {
     if (!tableId) return;
-    await RecordSdk.createRecords(tableId, {
+    await createRecords(tableId, {
       fieldKeyType: FieldKeyType.Id,
       records: [
         {

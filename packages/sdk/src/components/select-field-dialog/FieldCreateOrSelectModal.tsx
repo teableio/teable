@@ -20,9 +20,8 @@ import {
 import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
-import { useFieldStaticGetter, useFields, useTableId } from '../../hooks';
+import { useFieldOperations, useFieldStaticGetter, useFields, useTableId } from '../../hooks';
 import type { IFieldInstance } from '../../model';
-import { Field } from '../../model';
 import { FieldCreator } from './FieldCreator';
 
 interface IFieldCreateOrSelectModalProps {
@@ -55,6 +54,7 @@ export const FieldCreateOrSelectModal = forwardRef<
   } = props;
   const tableId = useTableId();
   const totalFields = useFields({ withHidden: true, withDenied: true });
+  const { createField } = useFieldOperations();
   const getFieldStatic = useFieldStaticGetter();
   const [newField, setNewField] = useState<IFieldRo>();
   const { t } = useTranslation();
@@ -79,7 +79,7 @@ export const FieldCreateOrSelectModal = forwardRef<
       if (tableId == null) return setNewField(undefined);
       const result = createFieldRoSchema.safeParse(newField);
       if (result.success) {
-        const field = (await Field.createField(tableId, newField)).data;
+        const field = (await createField(tableId, newField)).data;
         setNewField(undefined);
         return onConfirm?.(field);
       }

@@ -13,8 +13,8 @@ import { FieldKeyType } from '@teable/core';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2 } from '@teable/icons';
 import { updateRecord } from '@teable/openapi';
 import { AppContext, CalendarDailyCollectionContext } from '@teable/sdk/context';
-import { useTableId } from '@teable/sdk/hooks';
-import { Record } from '@teable/sdk/model';
+import { useTableId, useRecordOperations } from '@teable/sdk/hooks';
+import type { Record } from '@teable/sdk/model';
 import {
   Button,
   Dialog,
@@ -79,6 +79,7 @@ export const Calendar = (props: ICalendarProps) => {
   const { lang = 'en' } = useContext(AppContext);
   const calendarDailyCollection = useContext(CalendarDailyCollectionContext);
   const { openEventMenu } = useEventMenuStore();
+  const { createRecords } = useRecordOperations();
   const [positionDate, setPositionDate] = useState<Date>();
   const [moreLinkDate, setMoreLinkDate] = useState<Date>();
   const [title, setTitle] = useState<string>('');
@@ -136,7 +137,7 @@ export const Calendar = (props: ICalendarProps) => {
         const newDate = set(date, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
         const newDateStr = fromZonedTime(newDate, timeZone).toISOString();
 
-        const { data } = await Record.createRecords(tableId, {
+        const { data } = await createRecords(tableId, {
           fieldKeyType: FieldKeyType.Id,
           records: [
             {
@@ -190,6 +191,7 @@ export const Calendar = (props: ICalendarProps) => {
         .querySelectorAll(`.${ADD_EVENT_BUTTON_CLASS_NAME}`)
         .forEach((button) => button.remove());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableId, endDateField, startDateField, eventCreatable, dateRange, setExpandRecordId]);
 
   const onDatesChanged = (data: { start: Date; end: Date }) => {

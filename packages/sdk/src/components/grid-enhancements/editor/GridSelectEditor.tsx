@@ -8,9 +8,8 @@ import { FieldType, ColorUtils } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import colors from 'tailwindcss/colors';
-import { useTableId } from '../../../hooks';
+import { useFieldOperations, useTableId } from '../../../hooks';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
-import { Field } from '../../../model';
 import { SelectEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
@@ -23,6 +22,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 > = (props, ref) => {
   const { field, record, rect, style, isEditing, setEditing } = props;
   const tableId = useTableId();
+  const { convertField } = useFieldOperations();
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
   const {
@@ -81,11 +81,12 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 
       const newChoices = [...choices, choice];
 
-      await Field.convertField(tableId, fieldId, {
+      await convertField(tableId, fieldId, {
         type: fieldType,
         options: { ...options, choices: newChoices },
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [tableId, fieldType, fieldId, options]
   );
 

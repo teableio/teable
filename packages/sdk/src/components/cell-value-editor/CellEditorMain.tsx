@@ -18,8 +18,7 @@ import type {
 } from '@teable/core';
 import { ColorUtils, FieldType } from '@teable/core';
 import { useCallback, useEffect, useRef } from 'react';
-import { useTableId } from '../../hooks';
-import { Field } from '../../model';
+import { useFieldOperations, useTableId } from '../../hooks';
 import { transformSelectOptions } from '../cell-value';
 import {
   AttachmentEditor,
@@ -39,6 +38,7 @@ import type { ICellValueEditor } from './type';
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
   const { field, recordId, cellValue, onChange, readonly, className, context } = props;
   const tableId = useTableId();
+  const { convertField } = useFieldOperations();
   const { id: fieldId, type, options } = field;
   const editorRef = useRef<IEditorRef<unknown>>(null);
 
@@ -60,11 +60,12 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
 
       const newChoices = [...choices, choice];
 
-      await Field.convertField(tableId, fieldId, {
+      await convertField(tableId, fieldId, {
         type,
         options: { ...options, choices: newChoices },
       });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [tableId, type, fieldId, options]
   );
 

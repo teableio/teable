@@ -11,11 +11,8 @@ import type {
 import { ViewCore } from '@teable/core';
 import type { IUpdateOrderRo } from '@teable/openapi';
 import {
-  createView,
-  deleteView,
   disableShareView,
   enableShareView,
-  getViewList,
   updateViewColumnMeta,
   manualSortView,
   updateViewFilter,
@@ -36,12 +33,6 @@ export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
   tableId!: string;
-
-  static getViews = requestWrap(getViewList);
-
-  static createView = requestWrap(createView);
-
-  static deleteView = requestWrap(deleteView);
 
   abstract updateOption(
     option: object // eslint-disable-next-line @typescript-eslint/no-explicit-any

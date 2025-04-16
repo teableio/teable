@@ -10,8 +10,7 @@ import {
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FieldKeyType } from '@teable/core';
-import { useRowCount, useTableId, useViewId } from '@teable/sdk/hooks';
-import { Record as RecordModel } from '@teable/sdk/model';
+import { useRowCount, useTableId, useViewId, useRecordOperations } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card } from './components/Card';
@@ -24,6 +23,7 @@ export const GalleryViewBase = () => {
   const tableId = useTableId() as string;
   const viewId = useViewId() as string;
   const rowCount = useRowCount() ?? 0;
+  const { updateRecord } = useRecordOperations();
   const { cardDraggable } = permission;
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export const GalleryViewBase = () => {
 
     updateRecordOrder(actualOldIndex, actualNewIndex);
 
-    RecordModel.updateRecord(tableId, activeId as string, {
+    updateRecord(tableId, activeId as string, {
       fieldKeyType: FieldKeyType.Id,
       record: { fields: {} },
       order: {

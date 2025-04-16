@@ -3,8 +3,7 @@ import type { DropResult } from '@hello-pangea/dnd';
 import { FieldKeyType, FieldType } from '@teable/core';
 import type { IUpdateRecordRo } from '@teable/openapi';
 import { generateLocalId } from '@teable/sdk/components';
-import { useTableId, useViewId } from '@teable/sdk/hooks';
-import { Record } from '@teable/sdk/model';
+import { useTableId, useViewId, useRecordOperations } from '@teable/sdk/hooks';
 import { keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
@@ -21,6 +20,7 @@ const EMPTY_LIST: never[] = [];
 export const KanbanContainer = () => {
   const tableId = useTableId();
   const viewId = useViewId();
+  const { updateRecord, updateRecordOrders } = useRecordOperations();
   const { collapsedStackMap } = useKanbanStackCollapsedStore();
   const { permission, stackField, stackCollection } = useKanban() as Required<IKanbanContext>;
 
@@ -89,7 +89,7 @@ export const KanbanContainer = () => {
 
       if (sourceIndex < cardCount && targetIndex < cardCount) {
         if (tableId && viewId) {
-          Record.updateRecordOrders(tableId, viewId, {
+          updateRecordOrders(tableId, viewId, {
             anchorId: cards[targetIndex].id,
             position: targetIndex > sourceIndex ? 'after' : 'before',
             recordIds: [cards[sourceIndex].id],
@@ -144,7 +144,7 @@ export const KanbanContainer = () => {
         };
       }
 
-      Record.updateRecord(tableId, sourceCardId, recordRo);
+      updateRecord(tableId, sourceCardId, recordRo);
     }
 
     const { sourceList, targetList } = moveTo({
