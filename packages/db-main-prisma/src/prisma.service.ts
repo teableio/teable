@@ -1,10 +1,9 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
-import { PostgresErrorCode, SqliteErrorCode } from './db.error';
 
 interface ITx {
   client?: Prisma.TransactionClient;
@@ -12,31 +11,6 @@ interface ITx {
   id?: string;
   rawOpMaps?: unknown;
 }
-
-export const wrapWithValidationErrorHandler = async (fn: () => Promise<unknown>) => {
-  try {
-    await fn();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (e: any) {
-    const code = e.meta?.code ?? e.code;
-    if (code === PostgresErrorCode.UNIQUE_VIOLATION || code === SqliteErrorCode.UNIQUE_VIOLATION) {
-      throw new HttpException(
-        'Duplicate detected! Please ensure that all fields with unique value validation are indeed unique.',
-        HttpStatus.BAD_REQUEST
-      );
-    }
-    if (
-      code === PostgresErrorCode.NOT_NULL_VIOLATION ||
-      code === SqliteErrorCode.NOT_NULL_VIOLATION
-    ) {
-      throw new HttpException(
-        'One or more required fields were not provided! Please ensure all mandatory fields are filled.',
-        HttpStatus.BAD_REQUEST
-      );
-    }
-    throw new HttpException(`An error occurred: ${e.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
-  }
-};
 
 @Injectable()
 export class PrismaService

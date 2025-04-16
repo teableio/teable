@@ -19,7 +19,7 @@ import {
   checkFieldValidationEnabled,
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
-import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { keyBy, sortBy } from 'lodash';
@@ -31,6 +31,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
@@ -655,7 +656,7 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'dbFieldType') {
-      await wrapWithValidationErrorHandler(() =>
+      await handleDBValidationErrors(() =>
         this.alterTableModifyFieldType(fieldId, newValue as DbFieldType)
       );
     }
@@ -665,7 +666,7 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'unique' || key === 'notNull') {
-      await wrapWithValidationErrorHandler(() =>
+      await handleDBValidationErrors(() =>
         this.alterTableModifyFieldValidation(fieldId, key, newValue as boolean | undefined)
       );
     }

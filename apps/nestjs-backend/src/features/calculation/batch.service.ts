@@ -2,7 +2,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable/core';
 import { IdPrefix, RecordOpBuilder } from '@teable/core';
-import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
@@ -15,6 +15,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -252,7 +253,7 @@ export class BatchService {
       // 2.initialize temporary table data
       await tx.$executeRawUnsafe(insertTempTableSql);
       // 3.update data
-      await wrapWithValidationErrorHandler(() => tx.$executeRawUnsafe(updateRecordSql));
+      await handleDBValidationErrors(() => tx.$executeRawUnsafe(updateRecordSql));
       // 4.delete temporary table
       await tx.$executeRawUnsafe(dropTempTableSql);
     });

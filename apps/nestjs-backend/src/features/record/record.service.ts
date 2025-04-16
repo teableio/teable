@@ -36,7 +36,7 @@ import {
   Relationship,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   IGetRecordQuery,
@@ -59,6 +59,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
+import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { generateFilterItem } from '../../utils/filter';
 import {
   generateTableThumbnailPath,
@@ -1026,9 +1027,7 @@ export class RecordService {
       })
     );
 
-    await wrapWithValidationErrorHandler(() =>
-      this.prismaService.txClient().$executeRawUnsafe(sql)
-    );
+    await handleDBValidationErrors(() => this.prismaService.txClient().$executeRawUnsafe(sql));
 
     return snapshots;
   }

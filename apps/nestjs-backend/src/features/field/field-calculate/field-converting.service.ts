@@ -22,10 +22,11 @@ import {
   PRIMARY_SUPPORTED_TYPES,
   RecordOpBuilder,
 } from '@teable/core';
-import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
   majorOptionsKeyChanged,
@@ -1123,7 +1124,7 @@ export class FieldConvertingService {
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();
-    await wrapWithValidationErrorHandler(() =>
+    await handleDBValidationErrors(() =>
       this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery)
     );
   }
