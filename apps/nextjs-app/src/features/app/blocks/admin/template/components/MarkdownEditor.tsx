@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { MarkdownPreview } from '@/features/app/components/mark-down-preview';
 
 interface MarkdownEditorProps {
-  value: string;
+  value?: string;
   onChange: (value: string) => void;
 }
 
