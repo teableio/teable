@@ -194,6 +194,22 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
     });
   }, [activeCell, gridRef, recordMap, tableId, mutateGetRecordStatus]);
 
+  useEffect(() => {
+    if (!gridRef.current?.isEditing()) return;
+
+    const { columnIndex, rowIndex, fieldId } = activeCell ?? {};
+
+    if (columnIndex == null || rowIndex == null || fieldId == null) return;
+
+    const realColumnIndex = columns.findIndex((column) => column.id === fieldId);
+
+    if (columnIndex === realColumnIndex) return;
+
+    const range = [realColumnIndex, rowIndex] as IRange;
+    gridRef.current?.setSelection(new CombinedSelection(SelectionRegionType.Cells, [range, range]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns]);
+
   return useMemo(
     () => ({
       activeCell,
