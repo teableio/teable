@@ -171,12 +171,12 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   );
 
   useHotkeys(
-    ['del', 'backspace', 'f2'],
+    ['delete', 'backspace', 'f2'],
     () => {
       if (isHotkeyPressed('f2')) {
         return setEditing(true);
       }
-      if (isHotkeyPressed('backspace') || isHotkeyPressed('del')) {
+      if (isHotkeyPressed('backspace') || isHotkeyPressed('delete')) {
         return onDelete?.(selection);
       }
     },
