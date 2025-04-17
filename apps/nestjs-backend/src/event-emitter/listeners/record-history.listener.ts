@@ -6,7 +6,7 @@ import { FieldType, generateRecordHistoryId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Field } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { isString } from 'lodash';
+import { isObject, isString } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../event-emitter.service';
@@ -86,11 +86,16 @@ export class RecordHistoryListener {
 
       batch.forEach((record) => {
         const { id: recordId, fields } = record;
-
         Object.entries(fields).forEach(([fieldId, changeValue]) => {
           const field = fieldMap.get(fieldId);
 
-          if (!field) return null;
+          if (!field || !changeValue || !isObject(changeValue)) {
+            return null;
+          }
+
+          if (!('oldValue' in changeValue) || !('newValue' in changeValue)) {
+            return null;
+          }
 
           const oldField = _oldField ?? field;
           const { type, name, cellValueType, isComputed } = field;

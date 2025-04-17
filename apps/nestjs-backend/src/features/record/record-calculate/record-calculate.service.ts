@@ -109,7 +109,7 @@ export class RecordCalculateService {
     // ops in current table should not be apply or calculated for delete
     if (recordIdsForDelete) {
       for (const recordId of recordIdsForDelete) {
-        delete manualOpsMap[tableId][recordId];
+        delete manualOpsMap?.[tableId]?.[recordId];
       }
     }
 
