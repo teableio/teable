@@ -44,7 +44,7 @@ export const MarkdownEditor = ({ value, onChange }: MarkdownEditorProps) => {
           {value || value === '0' ? (
             <MarkdownPreview className="max-h-40 overflow-auto">{value}</MarkdownPreview>
           ) : (
-            t('noDescription')
+            <span className="px-3 py-2 text-sm text-gray-500">{t('noDescription')}</span>
           )}
         </div>
       )}

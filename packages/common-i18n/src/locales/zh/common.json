@@ -108,7 +108,8 @@
         "search": "搜索...",
         "cancel": "取消",
         "selectBase": "选择数据库",
-        "createTemplate": "新建模板"
+        "createTemplate": "新建模板",
+        "abnormalBase": "数据库不存在或已删除"
       }
     },
     "back": "返回主页",

@@ -59,7 +59,7 @@
       "title": "Template Admin",
       "noData": "No data",
       "importing": "Importing...",
-      "usageCount": "Use count: {{count}}",
+      "usageCount": "Usage count: {{count}}",
       "useTemplate": "Use this template",
       "createdBy": "by {{user}}",
       "backToTemplateList": "Back to template list",
@@ -108,7 +108,8 @@
         "search": "Search...",
         "cancel": "Cancel",
         "selectBase": "Select base",
-        "createTemplate": "Create template"
+        "createTemplate": "Create template",
+        "abnormalBase": "Base does not exist or has been deleted"
       }
     },
     "back": "Back to home",

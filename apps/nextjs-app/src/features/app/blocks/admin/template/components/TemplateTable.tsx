@@ -239,9 +239,11 @@ export const TemplateTable = () => {
                 </TemplateTooltips>
               </TableCell>
               <TableCell>
-                {row.snapshot?.snapshotTime
-                  ? dayjs(row.snapshot.snapshotTime).format('YYYY-MM-DD HH:mm:ss')
-                  : t('settings.templateAdmin.noData')}
+                {row.snapshot?.snapshotTime ? (
+                  dayjs(row.snapshot.snapshotTime).format('YYYY-MM-DD HH:mm:ss')
+                ) : (
+                  <span className="text-gray-500">{t('settings.templateAdmin.noData')}</span>
+                )}
               </TableCell>
               <TableCell className="text-center">
                 <TemplateTooltips

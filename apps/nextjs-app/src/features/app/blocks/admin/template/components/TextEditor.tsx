@@ -1,6 +1,6 @@
 import { Edit } from '@teable/icons';
 import { DividerRegion } from '@teable/sdk/components/grid/renderers/layout-renderer/interface';
-import { Input } from '@teable/ui-lib/shadcn';
+import { cn, Input } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 interface ITextEditorProps {
@@ -38,7 +38,12 @@ export const TextEditor = (props: ITextEditorProps) => {
           ref={inputRef}
         />
       ) : (
-        <span className="line-clamp-6 break-words" title={value}>
+        <span
+          className={cn('line-clamp-6 break-words', {
+            'text-gray-500': !value && value !== '0',
+          })}
+          title={value}
+        >
           {value || defaultPlaceholder || t('untitled')}
         </span>
       )}
