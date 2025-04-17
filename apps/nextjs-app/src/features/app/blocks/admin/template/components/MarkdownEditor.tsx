@@ -1,5 +1,6 @@
 import { Edit } from '@teable/icons';
-import { Textarea } from '@teable/ui-lib/shadcn';
+import { cn, Textarea } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { MarkdownPreview } from '@/features/app/components/mark-down-preview';
 
@@ -11,6 +12,7 @@ interface MarkdownEditorProps {
 export const MarkdownEditor = ({ value, onChange }: MarkdownEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useTranslation('common');
   return (
     <div className="flex w-full items-center gap-2 overflow-hidden">
       {isEditing ? (
@@ -34,8 +36,16 @@ export const MarkdownEditor = ({ value, onChange }: MarkdownEditorProps) => {
           ref={inputRef}
         />
       ) : (
-        <div className="flex-1 overflow-auto">
-          <MarkdownPreview className="max-h-40 overflow-auto">{value}</MarkdownPreview>
+        <div
+          className={cn('overflow-auto', {
+            'flex-1': value || value === '0',
+          })}
+        >
+          {value || value === '0' ? (
+            <MarkdownPreview className="max-h-40 overflow-auto">{value}</MarkdownPreview>
+          ) : (
+            t('noDescription')
+          )}
         </div>
       )}
 
