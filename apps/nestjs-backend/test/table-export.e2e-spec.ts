@@ -79,7 +79,7 @@ const mainFields = [
     options: {
       formatting: {
         timeZone: 'Asia/Shanghai',
-        date: 'YYYY-MM-DD',
+        date: 'MMMM D, YYYY',
         time: 'None',
       },
     },
@@ -274,7 +274,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
       expect(contentType).toBe('text/csv; charset=utf-8');
       expect(csvData).toBe(
-        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,"November 28, 2022",test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,"November 28, 2022",,test,,,,,\r\n,,true,z,,,,,,,,`
       );
     });
 
@@ -292,7 +292,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
       expect(contentType).toBe('text/csv; charset=utf-8');
       expect(csvData).toBe(
-        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,"November 28, 2022",test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,"November 28, 2022",,test,,,,,\r\n,,true,z,,,,,,,,`
       );
     });
 
@@ -322,7 +322,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       await apiDeleteTable(baseId, subTable.id);
 
       expect(csvData).toBe(
-        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,"November 28, 2022",test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,"November 28, 2022",,test,,,,,\r\n,,true,z,,,,,,,,`
       );
     });
 
@@ -352,7 +352,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       await apiDeleteTable(baseId, subTable.id);
 
       expect(csvData).toBe(
-        `Text field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,y,2022-11-28,,test,,,,,\r\n,true,z,,,,,,,,`
+        `Text field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,true,x,"November 28, 2022",test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,y,"November 28, 2022",,test,,,,,\r\n,true,z,,,,,,,,`
       );
     });
   }
