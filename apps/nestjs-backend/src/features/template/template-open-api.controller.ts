@@ -18,7 +18,6 @@ import { TemplateOpenApiService } from './template-open-api.service';
 export class TemplateOpenApiController {
   constructor(private readonly templateOpenApiService: TemplateOpenApiService) {}
 
-  @Public()
   @Get()
   async getTemplateList() {
     return this.templateOpenApiService.getAllTemplateList();
@@ -74,6 +73,12 @@ export class TemplateOpenApiController {
   @Get('/category/list')
   async getTemplateCategoryList() {
     return this.templateOpenApiService.getTemplateCategoryList();
+  }
+
+  @Public()
+  @Get('/category/list/published')
+  async getPublishedTemplateCategoryList() {
+    return this.templateOpenApiService.getPublishedTemplateCategoryList();
   }
 
   @Delete('/category/:templateCategoryId')

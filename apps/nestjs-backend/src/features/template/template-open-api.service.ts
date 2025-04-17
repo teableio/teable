@@ -2,12 +2,13 @@ import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { generateTemplateCategoryId, generateTemplateId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
-import {
-  UploadType,
-  type ICreateTemplateCategoryRo,
-  type ICreateTemplateRo,
-  type IUpdateTemplateCategoryRo,
-  type IUpdateTemplateRo,
+import { UploadType } from '@teable/openapi';
+import type {
+  ITemplateCategoryListVo,
+  ICreateTemplateCategoryRo,
+  ICreateTemplateRo,
+  IUpdateTemplateCategoryRo,
+  IUpdateTemplateRo,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -238,6 +239,36 @@ export class TemplateOpenApiService {
 
   async getTemplateCategoryList() {
     return await this.prismaService.templateCategory.findMany({
+      orderBy: {
+        order: 'asc',
+      },
+    });
+  }
+
+  async getPublishedTemplateCategoryList() {
+    const publishedTemplateCategoryIdsRaw = await this.prismaService.template.findMany({
+      where: {
+        isPublished: true,
+      },
+      select: {
+        categoryId: true,
+      },
+    });
+
+    const publishedTemplateCategoryIds = publishedTemplateCategoryIdsRaw
+      .filter((item) => item.categoryId)
+      .map((item) => item.categoryId) as string[];
+
+    if (!publishedTemplateCategoryIds.length) {
+      return [] as ITemplateCategoryListVo[];
+    }
+
+    return await this.prismaService.templateCategory.findMany({
+      where: {
+        id: {
+          in: publishedTemplateCategoryIds,
+        },
+      },
       orderBy: {
         order: 'asc',
       },

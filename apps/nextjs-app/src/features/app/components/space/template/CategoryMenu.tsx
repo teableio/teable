@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getTemplateCategoryList } from '@teable/openapi';
+import { getPublishedTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -20,8 +20,8 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
   const { currentCategoryId, onCategoryChange, className, categoryHeaderRender } = props;
   const { t } = useTranslation('common');
   const { data: categoryList } = useQuery({
-    queryKey: ReactQueryKeys.templateCategoryList(),
-    queryFn: () => getTemplateCategoryList().then((data) => data.data),
+    queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
+    queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
   });
 
   return (

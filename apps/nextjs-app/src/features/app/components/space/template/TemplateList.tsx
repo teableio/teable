@@ -23,7 +23,7 @@ export const TemplateList = (props: ITemplateListProps) => {
   } = props;
   const { t } = useTranslation(['common']);
   const { data: publishedTemplateList } = useQuery({
-    queryKey: ReactQueryKeys.templateList(),
+    queryKey: ReactQueryKeys.publishedTemplateList(),
     queryFn: () => getPublishedTemplateList().then((data) => data.data),
   });
 

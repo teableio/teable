@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from '@teable/icons';
 import {
   createBaseFromTemplate,
-  getTemplateCategoryList,
+  getPublishedTemplateCategoryList,
   getTemplateDetail,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
@@ -21,15 +21,15 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   const { templateId, onBackToTemplateList } = props;
   const { t } = useTranslation(['common']);
   const { data: templateDetail } = useQuery({
-    queryKey: ['template-detail', templateId],
+    queryKey: ReactQueryKeys.templateDetail(templateId),
     queryFn: () => getTemplateDetail(templateId).then((res) => res.data),
   });
 
   const { cover, name, description, categoryId, markdownDescription } = templateDetail || {};
 
   const { data: categoryList } = useQuery({
-    queryKey: ReactQueryKeys.templateCategoryList(),
-    queryFn: () => getTemplateCategoryList().then((data) => data.data),
+    queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
+    queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
   });
 
   const categoryName = useMemo(() => {
@@ -81,7 +81,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           {categoryName && <span className="py-1 text-sm text-gray-500"># {categoryName}</span>}
         </div>
 
-        <div className="col-span-8 border-t pt-12 sm:col-span-5 sm:border-l sm:border-t-0 sm:pl-12">
+        <div className="col-span-8 border-t pt-4 sm:col-span-5 sm:border-l sm:border-t-0 sm:pl-6">
           <div className="relative mb-8 max-w-screen-md overflow-hidden rounded-md shadow-xl sm:mb-14">
             {cover?.presignedUrl && (
               <img

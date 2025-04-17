@@ -105,7 +105,7 @@
         "title": "Select template source",
         "description": "Select a base to be the template",
         "confirm": "Confirm",
-        "search": "Search base",
+        "search": "Search...",
         "cancel": "Cancel",
         "selectBase": "Select base",
         "createTemplate": "Create template"
