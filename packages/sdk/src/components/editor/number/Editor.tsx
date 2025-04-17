@@ -1,5 +1,6 @@
 import { parseStringToNumber } from '@teable/core';
 import { Input, cn } from '@teable/ui-lib';
+import { isNumber } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -19,7 +20,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<
     placeholder,
   } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [str, setStr] = useState<string | null>(value ? value.toString() : '');
+  const [str, setStr] = useState<string | null>(isNumber(value) ? value.toString() : '');
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
