@@ -133,9 +133,11 @@ export class RecordHistoryListener {
         });
       });
 
-      const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
+      if (recordHistoryList.length) {
+        const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
 
-      await this.prismaService.$executeRawUnsafe(query);
+        await this.prismaService.$executeRawUnsafe(query);
+      }
     }
 
     this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
