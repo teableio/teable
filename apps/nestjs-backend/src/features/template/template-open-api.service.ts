@@ -101,9 +101,9 @@ export class TemplateOpenApiService {
         continue;
       }
 
-      const { bucket, path, token } = cover;
+      const { path, token } = cover;
       const previewUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-        bucket,
+        StorageAdapter.getBucket(UploadType.Template),
         path,
         token
       );
@@ -321,9 +321,9 @@ export class TemplateOpenApiService {
     };
 
     if (cover) {
-      const { bucket, path, token } = cover;
+      const { path, token } = cover;
       newCover.presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-        bucket,
+        StorageAdapter.getBucket(UploadType.Template),
         path,
         token
       );
