@@ -26,6 +26,7 @@ export interface IRectProps extends IRectangle {
   fill?: string;
   stroke?: string;
   radius?: number | ICornerRadius;
+  opacity?: number;
 }
 
 export interface IRoundPolyProps {

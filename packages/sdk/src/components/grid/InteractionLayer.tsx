@@ -136,6 +136,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onRowExpand,
     onRowOrdered,
     onCellEdited,
+    onCellDblClick,
     onSelectionChanged,
     onColumnFreeze,
     onColumnAppend,
@@ -512,7 +513,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       isEqual(selectionRanges[0], [columnIndex, realIndex])
     ) {
       const cell = getCellContent([columnIndex, realIndex]) as IInnerCell;
-      if (cell.readonly) return;
+      if (cell.readonly) return onCellDblClick?.([columnIndex, realIndex]);
       editorContainerRef.current?.focus?.();
       return setEditing(true);
     }

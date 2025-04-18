@@ -332,13 +332,12 @@ export class RecordOpenApiService {
       });
     }
 
-    const snapshots = await this.recordService.getSnapshotBulk(
+    const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       tableId,
       recordIds,
       undefined,
-      updateRecordsRo.fieldKeyType
+      fieldKeyType
     );
-
     return {
       records: snapshots.map((snapshot) => snapshot.data),
       cellContexts,
@@ -384,11 +383,11 @@ export class RecordOpenApiService {
       windowId
     );
 
-    const snapshots = await this.recordService.getSnapshotBulk(
+    const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       tableId,
       [recordId],
       undefined,
-      updateRecordRo.fieldKeyType
+      updateRecordRo.fieldKeyType || FieldKeyType.Name
     );
 
     if (snapshots.length !== 1) {
@@ -405,7 +404,7 @@ export class RecordOpenApiService {
 
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
     const { records, orders } = await this.prismaService.$tx(async () => {
-      const records = await this.recordService.getRecordsById(tableId, recordIds);
+      const records = await this.recordService.getRecordsById(tableId, recordIds, false);
       await this.recordCalculateService.calculateDeletedRecord(tableId, records.records);
       const orders = windowId
         ? await this.recordService.getRecordIndexes(tableId, recordIds)
@@ -432,7 +431,7 @@ export class RecordOpenApiService {
     tableId: string,
     recordId: string | undefined,
     query: IGetRecordHistoryQuery,
-    excludeFieldIds?: string[]
+    projectionIds?: string[]
   ): Promise<IRecordHistoryVo> {
     const { cursor, startDate, endDate } = query;
     const limit = 20;
@@ -450,7 +449,7 @@ export class RecordOpenApiService {
         tableId,
         ...(recordId ? { recordId } : {}),
         ...(Object.keys(dateFilter).length > 0 ? { createdTime: dateFilter } : {}),
-        ...(excludeFieldIds?.length ? { fieldId: { notIn: excludeFieldIds } } : {}),
+        ...(projectionIds?.length ? { fieldId: { in: projectionIds } } : {}),
       },
       select: {
         id: true,
@@ -606,8 +605,13 @@ export class RecordOpenApiService {
     return await this.updateRecord(tableId, recordId, updateRecordRo);
   }
 
-  async duplicateRecord(tableId: string, recordId: string, order: IRecordInsertOrderRo) {
-    const query = { fieldKeyType: FieldKeyType.Id };
+  async duplicateRecord(
+    tableId: string,
+    recordId: string,
+    order: IRecordInsertOrderRo,
+    projection?: string[]
+  ) {
+    const query = { fieldKeyType: FieldKeyType.Id, projection };
     const result = await this.recordService.getRecord(tableId, recordId, query);
     const records = { fields: result.fields };
     const createRecordsRo = {
@@ -615,6 +619,10 @@ export class RecordOpenApiService {
       order,
       records: [records],
     };
-    return await this.prismaService.$tx(async () => this.createRecords(tableId, createRecordsRo));
+    return await this.prismaService
+      .$tx(async () => this.createRecords(tableId, createRecordsRo))
+      .then((res) => {
+        return res.records[0];
+      });
   }
 }

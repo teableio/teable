@@ -205,7 +205,7 @@ export const RecordMenu = () => {
           ? t('table:menu.deleteAllSelectedRecords')
           : t('table:menu.deleteRecord'),
         icon: <Trash2 className={iconClassName} />,
-        hidden: !permission['record|delete'],
+        hidden: !permission['record|delete'] || record?.undeletable,
         className: 'text-red-500 aria-selected:text-red-500',
         onClick: async () => {
           if (recordMenu && tableId && recordMenu.deleteRecords) {

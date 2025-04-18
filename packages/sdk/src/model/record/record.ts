@@ -3,7 +3,7 @@ import type { IRecord } from '@teable/core';
 import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/core';
 import { updateRecord } from '@teable/openapi';
 import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
-import { isEqual } from 'lodash';
+import { isEqual, isEmpty } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
 import { getHttpErrorMessage } from '../../context';
 import type { ILocaleFunction } from '../../context/app/i18n';
@@ -36,6 +36,20 @@ export class Record extends RecordCore {
       };
     }
     return this._title.value;
+  }
+
+  isLocked(fieldId: string) {
+    if (!isEmpty(this.permissions)) {
+      return !this.permissions?.update?.[fieldId];
+    }
+    return false;
+  }
+
+  isHidden(fieldId: string) {
+    if (!isEmpty(this.permissions)) {
+      return !this.permissions?.read?.[fieldId];
+    }
+    return false;
   }
 
   private onCommitLocal(fieldId: string, cellValue: unknown, undo?: boolean) {

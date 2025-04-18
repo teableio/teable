@@ -13,7 +13,6 @@ export class KnexModule {
         useFactory: (config: ConfigService) => {
           const databaseUrl = config.getOrThrow<string>('PRISMA_DATABASE_URL');
           const { driver } = parseDsn(databaseUrl);
-
           return {
             config: {
               client: driver,

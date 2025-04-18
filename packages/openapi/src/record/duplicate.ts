@@ -1,10 +1,11 @@
+import type { IRecord } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import type { ICreateRecordsVo, IRecordInsertOrderRo } from './create';
+import type { IRecordInsertOrderRo } from './create';
 import { createRecordsVoSchema, recordInsertOrderRoSchema } from './create';
 
-export const DUPLICATE_URL = '/table/{tableId}/record/{recordId}';
+export const DUPLICATE_URL = '/table/{tableId}/record/{recordId}/duplicate';
 
 export const duplicateRoute = registerRoute({
   method: 'post',
@@ -42,5 +43,5 @@ export const duplicateRecord = async (
   recordId: string,
   order: IRecordInsertOrderRo
 ) => {
-  return axios.post<ICreateRecordsVo>(urlBuilder(DUPLICATE_URL, { tableId, recordId }), order);
+  return axios.post<IRecord>(urlBuilder(DUPLICATE_URL, { tableId, recordId }), order);
 };

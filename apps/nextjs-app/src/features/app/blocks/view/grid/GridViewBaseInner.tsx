@@ -62,7 +62,6 @@ import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {
   useBaseId,
-  useFieldCellEditable,
   useFields,
   useIsTouchDevice,
   usePersonalView,
@@ -78,6 +77,7 @@ import {
   useRecordOperations,
 } from '@teable/sdk/hooks';
 import { ConfirmDialog, useToast } from '@teable/ui-lib';
+import { toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -145,7 +145,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const permission = useTablePermission();
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
-  const fieldEditable = useFieldCellEditable();
+  const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
   const { setGridRef, searchCursor, setRecordMap } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
@@ -471,14 +471,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     (colIndex: number) => {
       if (!columns[colIndex]) return;
       const fieldId = columns[colIndex].id;
-      const selectedFields = fields.find((field) => field.id === fieldId);
-      if (!selectedFields || !fieldEditable(selectedFields)) {
+      if (!fieldEditable) {
         return;
       }
       gridRef.current?.setSelection(emptySelection);
       openSetting({ fieldId, operator: FieldOperator.Edit });
     },
-    [columns, fields, fieldEditable, openSetting]
+    [columns, fieldEditable, openSetting]
   );
 
   const onColumnHeaderClick = useCallback(
@@ -942,6 +941,20 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }, 100);
   };
 
+  const onCellDblClick = (cell: ICellItem) => {
+    const [columnIndex, rowIndex] = cell;
+    const record = recordMap[rowIndex];
+    if (record == null) return;
+    const field = columns[columnIndex];
+    if (field == null) return;
+    if (record.isHidden(field.id)) {
+      return sonnerToast.warning(t('table:permission.cell.deniedRead'));
+    }
+    if (record.isLocked(field.id)) {
+      return sonnerToast.warning(t('table:permission.cell.deniedUpdate'));
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative size-full">
       <Grid
@@ -973,6 +986,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           isTouchDevice ? undefined : getAuthorizedFunction(onRowAppend, 'record|create')
         }
         onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
+        onCellDblClick={onCellDblClick}
         onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
         onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
         onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}

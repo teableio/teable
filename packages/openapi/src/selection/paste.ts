@@ -60,7 +60,7 @@ export const PasteRoute: RouteConfig = registerRoute({
 });
 
 export const paste = async (tableId: string, pasteRo: IPasteRo) => {
-  return axios.patch<null>(
+  return axios.patch<IPasteVo>(
     urlBuilder(PASTE_URL, {
       tableId,
     }),

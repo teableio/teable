@@ -93,6 +93,7 @@ export interface IGridExternalProps {
   onPaste?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onDelete?: (selection: CombinedSelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
+  onCellDblClick?: (cell: ICellItem) => void;
   onSelectionChanged?: (selection: CombinedSelection) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCollapsedGroupChanged?: (collapsedGroupIds: Set<string>) => void;
@@ -204,6 +205,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onRowExpand,
     onRowOrdered,
     onCellEdited,
+    onCellDblClick,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -673,6 +675,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onRowExpand={onRowExpand}
             onRowOrdered={onRowOrdered}
             onCellEdited={onCellEdited}
+            onCellDblClick={onCellDblClick}
             onContextMenu={onContextMenu}
             onColumnAppend={onColumnAppend}
             onColumnResize={onColumnResize}

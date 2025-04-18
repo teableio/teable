@@ -33,6 +33,8 @@ export interface IBaseCell {
   contentAlign?: 'left' | 'right' | 'center';
   lastUpdated?: string;
   customTheme?: Partial<IGridTheme>;
+  locked?: boolean;
+  hidden?: boolean;
 }
 
 export interface IEditableCell extends IBaseCell {

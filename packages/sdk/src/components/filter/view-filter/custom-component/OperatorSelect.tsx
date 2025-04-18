@@ -17,12 +17,14 @@ interface IOperatorOptions {
 }
 
 interface IBaseOperatorSelectProps<T extends IConditionItemProperty = IViewFilterConditionItem>
-  extends IBaseFilterCustomComponentProps<T, IFilterItem['operator']> {}
+  extends IBaseFilterCustomComponentProps<T, IFilterItem['operator']> {
+  disabledOperators?: IFilterOperator[];
+}
 
 export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IBaseOperatorSelectProps<T>
 ) => {
-  const { value, item, path } = props;
+  const { value, item, path, disabledOperators } = props;
   const { field: fieldId } = item;
   const { onChange } = useCrud();
   const fields = useFields();
@@ -30,13 +32,15 @@ export const OperatorSelect = <T extends IConditionItemProperty = IViewFilterCon
   const labelMapping = useOperatorI18nMap(field?.cellValueType);
   const operators = useOperators(field);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
-    return operators.map((operator) => {
-      return {
-        label: labelMapping[operator],
-        value: operator,
-      };
-    });
-  }, [labelMapping, operators]);
+    return operators
+      .filter((operator) => !disabledOperators?.includes(operator))
+      .map((operator) => {
+        return {
+          label: labelMapping[operator],
+          value: operator,
+        };
+      });
+  }, [labelMapping, operators, disabledOperators]);
 
   const shouldDisabled = useMemo(() => shouldFilterByDefaultValue(field), [field]);
 

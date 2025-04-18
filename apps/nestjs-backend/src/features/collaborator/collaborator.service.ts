@@ -141,7 +141,7 @@ export class CollaboratorService {
     baseId: string,
     options?: { includeSystem?: boolean; search?: string; type?: PrincipalType }
   ) {
-    const builder = this.knex();
+    const builder = this.knex.queryBuilder();
     await this.getBaseCollaboratorBuilder(builder, baseId, options);
     const res = await this.prismaService
       .txClient()
@@ -188,7 +188,7 @@ export class CollaboratorService {
       type?: PrincipalType;
     }
   ): Promise<CollaboratorItem[]> {
-    const builder = this.knex();
+    const builder = this.knex.queryBuilder();
     builder.whereNotNull('users.id');
     await this.getBaseCollaboratorBuilder(builder, baseId, options);
     await this.getListByBaseBuilder(builder, options);
@@ -235,7 +235,7 @@ export class CollaboratorService {
       where: { id: tableId },
     });
 
-    const builder = this.knex();
+    const builder = this.knex.queryBuilder();
     await this.getBaseCollaboratorBuilder(builder, baseId, {
       includeSystem: true,
     });
@@ -336,7 +336,7 @@ export class CollaboratorService {
       type?: PrincipalType;
     }
   ) {
-    const builder = this.knex();
+    const builder = this.knex.queryBuilder();
     await this.getSpaceCollaboratorBuilder(builder, spaceId, options);
     const res = await this.prismaService
       .txClient()
@@ -384,7 +384,7 @@ export class CollaboratorService {
       type?: PrincipalType;
     }
   ): Promise<CollaboratorItem[]> {
-    const builder = this.knex();
+    const builder = this.knex.queryBuilder();
     builder.whereNotNull('users.id');
     const { baseMap } = await this.getSpaceCollaboratorBuilder(builder, spaceId, options);
     await this.getListBySpaceBuilder(builder, options);
@@ -840,7 +840,7 @@ export class CollaboratorService {
 
   async getUserCollaborators(baseId: string, options?: IListBaseCollaboratorUserRo) {
     const { skip = 0, take = 50 } = options ?? {};
-    const builder = this.knex();
+    const builder = this.knex.queryBuilder();
     await this.getBaseCollaboratorBuilder(builder, baseId, options);
     builder.whereNotNull('users.id');
     builder.orderBy('collaborator.created_time', 'asc');

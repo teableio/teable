@@ -4,7 +4,6 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-  Logger,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
@@ -38,7 +37,6 @@ import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, isString, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -47,6 +45,7 @@ import { convertValueToStringify, string2Hash } from '../../utils';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
+import { RecordPermissionService } from '../record/record-permission.service';
 import { RecordService } from '../record/record.service';
 import { TableIndexService } from '../table/table-index.service';
 
@@ -70,8 +69,6 @@ type IStatisticsData = {
 
 @Injectable()
 export class AggregationService {
-  private logger = new Logger(AggregationService.name);
-
   constructor(
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,
@@ -79,7 +76,7 @@ export class AggregationService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly cls: ClsService<IClsStore>,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    private readonly recordPermissionService: RecordPermissionService
   ) {}
 
   async performAggregation(params: {
@@ -464,9 +461,14 @@ export class AggregationService {
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
     const tableAlias = 'main_table';
-    const queryBuilder = this.knex
+    const { viewCte, builder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder()
+    );
+
+    const queryBuilder = builder
       .with(tableAlias, (qb) => {
-        qb.select('*').from(dbTableName);
+        qb.select('*').from(viewCte ?? dbTableName);
         if (filter) {
           this.dbProvider
             .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
@@ -521,8 +523,14 @@ export class AggregationService {
       withUserId,
       viewId,
     } = params;
-
-    const queryBuilder = this.knex(dbTableName);
+    const { viewCte, builder: queryBuilder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        keepPrimaryKey: Boolean(filterLinkCellSelected),
+      }
+    );
+    queryBuilder.from(viewCte ?? dbTableName);
 
     if (filter) {
       this.dbProvider
@@ -552,7 +560,6 @@ export class AggregationService {
       await this.recordService.buildLinkCandidateQuery(
         queryBuilder,
         tableId,
-        dbTableName,
         filterLinkCellCandidate
       );
     }
@@ -627,7 +634,6 @@ export class AggregationService {
       .clear('limit')
       .clear('offset');
     const rowCountSql = queryBuilder.count({ count: '*' });
-
     return prisma.$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
   }
 
@@ -701,11 +707,6 @@ export class AggregationService {
       return null;
     }
 
-    const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
-      tableId,
-      queryRo
-    );
-
     const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
 
     const filterQuery = (qb: Knex.QueryBuilder) => {
@@ -724,9 +725,17 @@ export class AggregationService {
 
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
-    const queryBuilder = this.dbProvider.searchIndexQuery(
+    const { viewCte, builder } = await this.recordPermissionService.wrapView(
+      tableId,
       this.knex.queryBuilder(),
-      dbTableName,
+      {
+        keepPrimaryKey: Boolean(queryRo.filterLinkCellSelected),
+      }
+    );
+
+    const queryBuilder = this.dbProvider.searchIndexQuery(
+      builder,
+      viewCte || dbTableName,
       searchFields,
       queryRo,
       tableIndex,
@@ -763,20 +772,25 @@ export class AggregationService {
           });
         }
 
+        const { queryBuilder: viewRecordsQB } = await this.recordService.buildFilterSortQuery(
+          tableId,
+          queryRo
+        );
         // step 2. find the index in current view
         const indexQueryBuilder = this.knex
+          .with(
+            't1',
+            viewRecordsQB
+              .select('__id')
+              .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
+          )
           .select('row_num')
           .select('__id')
-          .from((qb: Knex.QueryBuilder) => {
-            qb.select('__id')
-              .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
-              .from(viewRecordsQB.as('t'))
-              .as('t1');
-          })
+          .from('t1')
           .whereIn('__id', [...new Set(recordIds.map((record) => record.__id))]);
 
         // eslint-disable-next-line
-        const indexResult = await prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
+        const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
           indexQueryBuilder.toQuery()
         );
 
@@ -806,7 +820,6 @@ export class AggregationService {
           },
         });
       }
-
       throw error;
     }
   }
@@ -829,7 +842,6 @@ export class AggregationService {
       throw new InternalServerErrorException('query collection must be table id');
     }
 
-    const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const fields = await this.recordService.getFieldsByProjection(tableId);
     const fieldMap = fields.reduce(
       (map, field) => {
@@ -840,7 +852,6 @@ export class AggregationService {
     );
 
     const startField = fieldMap[startDateFieldId];
-
     if (
       !startField ||
       startField.cellValueType !== CellValueType.DateTime ||
@@ -860,7 +871,12 @@ export class AggregationService {
     }
 
     const viewId = ignoreViewQuery ? undefined : query.viewId;
-    const queryBuilder = this.knex(dbTableName);
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    const { viewCte, builder: queryBuilder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder()
+    );
+    queryBuilder.from(viewCte || dbTableName);
     const viewRaw = await this.findView(tableId, { viewId });
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
@@ -883,7 +899,6 @@ export class AggregationService {
         this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
-
     this.dbProvider.calendarDailyCollectionQuery(queryBuilder, {
       startDate,
       endDate,

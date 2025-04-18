@@ -52,7 +52,9 @@ export class SelectionController {
     @Body(new ZodValidationPipe(pasteRoSchema), TqlPipe) pasteRo: IPasteRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<IPasteVo> {
-    const ranges = await this.selectionService.paste(tableId, pasteRo, undefined, windowId);
+    const ranges = await this.selectionService.paste(tableId, pasteRo, {
+      windowId,
+    });
     return { ranges };
   }
 
@@ -73,7 +75,9 @@ export class SelectionController {
     @Body(new ZodValidationPipe(rangesRoSchema), TqlPipe) rangesRo: IRangesRo,
     @Headers('x-window-id') windowId?: string
   ) {
-    await this.selectionService.clear(tableId, rangesRo, windowId);
+    await this.selectionService.clear(tableId, rangesRo, {
+      windowId,
+    });
     return null;
   }
 
@@ -84,6 +88,8 @@ export class SelectionController {
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<IDeleteVo> {
-    return this.selectionService.delete(tableId, rangesRo, windowId);
+    return this.selectionService.delete(tableId, rangesRo, {
+      windowId,
+    });
   }
 }

@@ -1,6 +1,5 @@
 import type { ILinkCellValue } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { useToast } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
@@ -83,7 +82,6 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   rowCountRef.current = rowCount;
   const isSelectedType = type === LinkListType.Selected;
   const isExpandEnable = Boolean(onExpand);
-  const { toast } = useToast();
   const { t } = useTranslation();
 
   const { recordMap, onReset, onForceUpdate, onVisibleRegionChanged } = useGridAsyncRecords(
@@ -201,10 +199,6 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   const onExpandInner = (rowIndex: number) => {
     const record = recordMap[rowIndex];
     if (record == null) return;
-    if (record.isDenied) {
-      toast({ description: t('editor.link.expandRecordError') });
-      return;
-    }
     onExpand?.(record.id);
   };
 

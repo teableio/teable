@@ -1,14 +1,7 @@
 import type { IUpdateOrderRo } from '@teable/openapi';
 import { isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  useBaseId,
-  useFieldCellEditable,
-  useFields,
-  useSession,
-  useTableId,
-  useView,
-} from '../../../hooks';
+import { useBaseId, useFields, useSession, useTableId, useView } from '../../../hooks';
 import { createRecordInstance } from '../../../model';
 import { extractDefaultFieldsFromFilters } from '../../../utils';
 import { CellType } from '../../grid/interface';
@@ -21,7 +14,6 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
   const tableId = useTableId();
   const fields = useFields();
   const allFields = useFields({ withHidden: true });
-  const fieldEditable = useFieldCellEditable();
   const { user } = useSession();
   const filter = view?.filter;
   const userId = user.id;
@@ -59,7 +51,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
   const getPrefillingCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
       const [columnIndex] = cell;
-      const cellValue2GridDisplay = createCellValue2GridDisplay(fields, fieldEditable);
+      const cellValue2GridDisplay = createCellValue2GridDisplay(fields);
       if (localRecord != null) {
         const fieldId = columns[columnIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
@@ -67,7 +59,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       }
       return { type: CellType.Loading };
     },
-    [columns, createCellValue2GridDisplay, fieldEditable, fields, localRecord]
+    [columns, createCellValue2GridDisplay, fields, localRecord]
   );
 
   useEffect(() => {

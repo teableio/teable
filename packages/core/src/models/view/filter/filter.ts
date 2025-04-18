@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { conjunctionSchema } from './conjunction';
+import type { IConjunction } from './conjunction';
+import { and, conjunctionSchema } from './conjunction';
 import type { IFilterItem } from './filter-item';
 import { filterItemSchema } from './filter-item';
 
@@ -70,7 +71,11 @@ export function mergeWithDefaultFilter(
   return mergeFilter;
 }
 
-export const mergeFilter = (filter1?: IFilter, filter2?: IFilter) => {
+export const mergeFilter = (
+  filter1?: IFilter,
+  filter2?: IFilter,
+  conjunction: IConjunction = and.value
+) => {
   const parsedFilter1 = filterSchema.safeParse(filter1);
   const finalFilter1 = parsedFilter1.success ? parsedFilter1.data : undefined;
   const parsedFilter2 = filterSchema.safeParse(filter2);
@@ -83,8 +88,8 @@ export const mergeFilter = (filter1?: IFilter, filter2?: IFilter) => {
   if (!finalFilter2) return finalFilter1;
 
   return {
-    filterSet: [{ filterSet: [finalFilter1, finalFilter2], conjunction: 'and' }],
-    conjunction: 'and',
+    filterSet: [{ filterSet: [finalFilter1, finalFilter2], conjunction }],
+    conjunction,
   } as IFilter;
 };
 

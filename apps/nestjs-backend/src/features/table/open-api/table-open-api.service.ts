@@ -680,36 +680,17 @@ export class TableOpenApiService {
       {} as Record<RecordAction, boolean>
     );
 
-    const fields = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
-
-    const excludeFieldCreate = actionPrefixMap[ActionPrefix.Field].filter(
-      (action) => action !== 'field|create'
-    );
-    const fieldPermission = fields.reduce(
-      (acc, field) => {
-        acc[field.id] = excludeFieldCreate.reduce(
-          (acc, action) => {
-            acc[action] = permissionMap[action];
-            return acc;
-          },
-          {} as Record<FieldAction, boolean>
-        );
+    const fieldPermission = actionPrefixMap[ActionPrefix.Field].reduce(
+      (acc, action) => {
+        acc[action] = permissionMap[action];
         return acc;
       },
-      {} as Record<string, Record<FieldAction, boolean>>
+      {} as Record<FieldAction, boolean>
     );
 
     return {
       table: tablePermission,
-      field: {
-        fields: fieldPermission,
-        create: permissionMap['field|create'],
-      },
+      field: fieldPermission,
       record: recordPermission,
       view: viewPermission,
     };

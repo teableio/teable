@@ -95,6 +95,25 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     hoverCellPosition,
     isActive,
   });
+  if (cell.hidden) {
+    spriteManager.drawSprite(ctx, {
+      sprite: GridInnerIcon.EyeClosed,
+      x: x + width - 14,
+      y: y - 1,
+      size: 12,
+      theme,
+      colors: [theme.cellLineColorActived, theme.cellBg],
+    });
+  } else if (isActive && cell.locked) {
+    spriteManager.drawSprite(ctx, {
+      sprite: GridInnerIcon.Lock,
+      x: x + width - 13,
+      y: y + 1,
+      size: 12,
+      theme,
+      colors: [theme.cellLineColorActived, theme.cellBg],
+    });
+  }
 };
 
 // eslint-disable-next-line sonarjs/cognitive-complexity

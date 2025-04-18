@@ -26,9 +26,11 @@ export class RecordCore {
 
   isDeleted = false;
 
-  isDenied = false;
-
   fields!: Record<string, unknown>;
+
+  permissions?: Record<'read' | 'update', Record<string, boolean>>;
+
+  undeletable?: boolean;
 
   getCellValue(fieldId: string): unknown {
     return this.fields[fieldId];

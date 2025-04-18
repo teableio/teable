@@ -613,5 +613,11 @@
     "noPlugin": "No Context menu plugins",
     "delete": "Delete",
     "deleteDescription": "Are you sure you want to delete this plugin?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "You don't have permission to view this cell",
+      "deniedUpdate": "You don't have permission to update this cell"
+    }
   }
 }

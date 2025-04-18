@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import type {
   IDateFieldOptions,
   IFieldOptionsRo,
@@ -34,9 +34,10 @@ import type {
   IRangesRo,
   IDeleteVo,
   ITemporaryPasteVo,
+  ICreateRecordsRo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
-import { pick } from 'lodash';
+import { difference, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -219,9 +220,7 @@ export class SelectionService {
       filterHidden: true,
       projection,
     });
-
     const selectedFields = fields.slice(start[0], end[0] + 1);
-
     const records = await this.recordService.getRecordsFields(tableId, {
       ...queryRo,
       skip: start[1],
@@ -428,7 +427,6 @@ export class SelectionService {
 
     const numRowsToExpand = Math.max(0, endRow - numRows);
     const numColsToExpand = Math.max(0, endCol - numCols);
-
     const hasFieldCreatePermission = permissions.includes('field|create');
     const hasRecordCreatePermission = permissions.includes('record|create');
     return [
@@ -602,7 +600,19 @@ export class SelectionService {
   }
 
   // For pasting to add new lines
-  async temporaryPaste(tableId: string, pasteRo: IPasteRo) {
+  async temporaryPaste(
+    tableId: string,
+    pasteRo: IPasteRo,
+    {
+      permissionFilter,
+    }: {
+      permissionFilter?: (data: { fields: IRecord['fields'] }[]) => Promise<
+        {
+          fields: IRecord['fields'];
+        }[]
+      >;
+    } = {}
+  ) {
     const { content, header, viewId, ranges, projection } = pasteRo;
     const pasteContent = typeof content === 'string' ? this.parseCopyContent(content) : content;
     const pasteContentSize = pasteContent.length * pasteContent[0].length;
@@ -636,10 +646,11 @@ export class SelectionService {
             tableData: tableData as string[][],
             fields: effectFields,
           });
+      const filteredNewRecords = permissionFilter ? await permissionFilter(newRecords) : newRecords;
 
       result = await this.recordOpenApiService.validateFieldsAndTypecast(
         tableId,
-        newRecords,
+        filteredNewRecords,
         FieldKeyType.Id,
         true
       );
@@ -651,8 +662,19 @@ export class SelectionService {
   async paste(
     tableId: string,
     pasteRo: IPasteRo,
-    expansionChecker?: (col: number, row: number) => Promise<void>,
-    windowId?: string
+    {
+      expansionChecker,
+      permissionFilter,
+      windowId,
+    }: {
+      expansionChecker?: (col: number, row: number) => Promise<void>;
+      permissionFilter?: (
+        type: 'create' | 'update',
+        data: ICreateRecordsRo | IUpdateRecordsRo,
+        newFields?: { id: string; name: string; dbFieldName: string }[]
+      ) => Promise<ICreateRecordsRo | IUpdateRecordsRo>;
+      windowId?: string;
+    }
   ) {
     const { content, header, ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
@@ -706,7 +728,6 @@ export class SelectionService {
       take: tableData.length,
       fieldKeyType: FieldKeyType.Id,
     });
-
     const [numColsToExpand, numRowsToExpand] = this.calculateExpansion(tableSize, cell, [
       tableColCount,
       tableRowCount,
@@ -743,11 +764,13 @@ export class SelectionService {
       // Fill cells
       const toUpdateRecords = recordsFromClipboard.slice(0, existingRecords.length);
       const updateRecordsRo = this.fillCells(existingRecords, toUpdateRecords);
+      const filteredUpdateRecordsRo = permissionFilter
+        ? await permissionFilter('update', updateRecordsRo, newFields)
+        : updateRecordsRo;
       const { cellContexts } = await this.recordOpenApiService.updateRecords(
         tableId,
-        updateRecordsRo
+        filteredUpdateRecordsRo as IUpdateRecordsRo
       );
-
       let newRecords: IRecord[] | undefined;
       // create record
       if (numRowsToExpand) {
@@ -757,12 +780,15 @@ export class SelectionService {
           typecast: true,
           records: createNewRecords,
         };
-        newRecords = (await this.recordOpenApiService.createRecords(tableId, createRecordsRo))
-          .records;
+        const filteredCreateRecordsRo = permissionFilter
+          ? await permissionFilter('create', createRecordsRo, newFields)
+          : createRecordsRo;
+        newRecords = (
+          await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo)
+        ).records;
       }
 
       updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
-
       return {
         updateRecords: {
           cellContexts,
@@ -787,7 +813,17 @@ export class SelectionService {
     return updateRange;
   }
 
-  async clear(tableId: string, rangesRo: IRangesRo, windowId?: string) {
+  async clear(
+    tableId: string,
+    rangesRo: IRangesRo,
+    {
+      windowId,
+      permissionFilter,
+    }: {
+      windowId?: string;
+      permissionFilter?: (data: IUpdateRecordsRo) => Promise<IUpdateRecordsRo>;
+    }
+  ) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const updateRecords = this.tableDataToRecords({
@@ -795,13 +831,31 @@ export class SelectionService {
       fields: fieldInstances,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId);
+    const filteredUpdateRecordsRo = permissionFilter
+      ? await permissionFilter(updateRecordsRo)
+      : updateRecordsRo;
+    await this.recordOpenApiService.updateRecords(tableId, filteredUpdateRecordsRo, windowId);
   }
 
-  async delete(tableId: string, rangesRo: IRangesRo, windowId?: string): Promise<IDeleteVo> {
+  async delete(
+    tableId: string,
+    rangesRo: IRangesRo,
+    {
+      windowId,
+      permissionFilter,
+    }: {
+      windowId?: string;
+      permissionFilter?: (recordIds: string[]) => Promise<string[]>;
+    }
+  ): Promise<IDeleteVo> {
     const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const recordIds = records.map(({ id }) => id);
-    await this.recordOpenApiService.deleteRecords(tableId, recordIds, windowId);
-    return { ids: recordIds };
+    const filteredRecordIds = permissionFilter ? await permissionFilter(recordIds) : recordIds;
+    const diffRecordIds = difference(recordIds, filteredRecordIds);
+    if (diffRecordIds.length) {
+      throw new ForbiddenException(`You don't have permission to delete records: ${diffRecordIds}`);
+    }
+    await this.recordOpenApiService.deleteRecords(tableId, filteredRecordIds, windowId);
+    return { ids: filteredRecordIds };
   }
 }

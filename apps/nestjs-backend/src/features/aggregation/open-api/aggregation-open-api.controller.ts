@@ -61,7 +61,7 @@ export class AggregationOpenApiController {
 
   @Get('/search-index')
   @Permissions('table|read')
-  async getRecordIndexBySearchOrder(
+  async getSearchIndex(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(searchIndexByQueryRoSchema), TqlPipe) query: ISearchIndexByQueryRo
   ): Promise<ISearchIndexVo> {

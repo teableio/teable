@@ -190,6 +190,9 @@ export const fieldVoSchema = z.object({
       description:
         'Field(column) name in backend database. Limitation: 1-63 characters, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing db field name in the table.',
     }),
+  recordRead: z.boolean().optional().openapi({
+    description: 'Whether this field is full read record denied.',
+  }),
 });
 
 export type IFieldVo = z.infer<typeof fieldVoSchema>;
@@ -224,6 +227,7 @@ export const FIELD_VO_PROPERTIES = [
   'isMultipleCellValue',
   'dbFieldType',
   'dbFieldName',
+  'recordRead',
 ] as const;
 
 /**

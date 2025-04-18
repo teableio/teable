@@ -45,7 +45,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
-  const fieldPermission = useFieldPermission(stackFieldId);
+  const fieldPermission = useFieldPermission();
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const groupPoints = useGroupPoint();
 

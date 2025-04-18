@@ -1,3 +1,4 @@
+import { EyeClosedIcon } from '@radix-ui/react-icons';
 import {
   AlertCircle,
   DraggableHandle,
@@ -55,6 +56,11 @@ const lock = (props: ISpriteProps) => {
   return renderToString(<Lock style={{ color: fgColor }} />);
 };
 
+export const eyeClosed = (props: ISpriteProps) => {
+  const { fgColor } = props;
+  return renderToString(<EyeClosedIcon style={{ color: fgColor }} />);
+};
+
 export const sprites = {
   add,
   drag,
@@ -64,6 +70,7 @@ export const sprites = {
   expand,
   collapse,
   lock,
+  eyeClosed,
 };
 
 export enum GridInnerIcon {
@@ -75,4 +82,5 @@ export enum GridInnerIcon {
   Expand = 'expand',
   Collapse = 'collapse',
   Lock = 'lock',
+  EyeClosed = 'eyeClosed',
 }

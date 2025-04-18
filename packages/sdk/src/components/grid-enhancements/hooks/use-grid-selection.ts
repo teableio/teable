@@ -3,7 +3,7 @@ import type { IGetRecordsRo } from '@teable/openapi';
 import { getRecordStatus } from '@teable/openapi';
 import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useFieldCellEditable, useFields, useRecord, useTableId, useViewId } from '../../../hooks';
+import { useFields, useRecord, useTableId, useViewId } from '../../../hooks';
 import type { Record as IRecord } from '../../../model';
 import type { IGridRef } from '../../grid/Grid';
 import type { ICell, ICellItem, IGridColumn, IInnerCell, IRange } from '../../grid/interface';
@@ -39,7 +39,6 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
   const prevActiveCellRef = useRef<IActiveCell | undefined>(activeCell);
 
   const fields = useFields();
-  const fieldEditable = useFieldCellEditable();
   const presortRecord = useRecord(presortRecordData?.recordId);
 
   const viewId = useViewId() as string;
@@ -95,7 +94,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
   const getPresortCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
       const [columnIndex] = cell;
-      const cellValue2GridDisplay = createCellValue2GridDisplay(fields, fieldEditable);
+      const cellValue2GridDisplay = createCellValue2GridDisplay(fields);
       if (presortRecord != null) {
         const fieldId = columns[columnIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
@@ -103,7 +102,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
       }
       return { type: CellType.Loading };
     },
-    [columns, createCellValue2GridDisplay, fieldEditable, fields, presortRecord]
+    [columns, createCellValue2GridDisplay, fields, presortRecord]
   );
 
   const onPresortCellEdited = useCallback(

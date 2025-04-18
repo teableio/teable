@@ -613,5 +613,11 @@
     "noPlugin": "没有上下文菜单插件",
     "delete": "删除",
     "deleteDescription": "你确定要删除这个插件吗？"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "你无权限查看单元格",
+      "deniedUpdate": "你无权限更新单元格"
+    }
   }
 }

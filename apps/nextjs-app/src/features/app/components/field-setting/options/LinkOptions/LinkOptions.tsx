@@ -42,10 +42,10 @@ export const LinkOptions = (props: {
     queryFn: ({ queryKey }) =>
       getTablePermission(queryKey[1], queryKey[2])
         .then((res) => res.data)
-        .catch(() => ({ field: { create: false } })),
+        .catch(() => undefined),
   });
 
-  const canCreateField = tablePermission?.field.create;
+  const canCreateField = tablePermission?.field?.['field|create'];
 
   const translation = {
     [Relationship.OneOne]: t('table:field.editor.oneToOne'),
