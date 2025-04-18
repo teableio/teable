@@ -752,5 +752,29 @@
     "noSelected": "Unausgewählt",
     "empty": "Keine Mitglieder",
     "emptyDepartment": "Keine Abteilungen"
+  },
+  "httpErrors": {
+    "validationError": "Datenvalidierungsfehler",
+    "invalidCaptcha": "Ungültige Captcha",
+    "invalidCredentials": "Ungültige Anmeldeinformationen",
+    "unauthorized": "Nicht autorisiert",
+    "unauthorizedShare": "Nicht autorisierte Freigabe",
+    "paymentRequired": "Zahlung erforderlich",
+    "restrictedResource": "Eingeschränkte Ressource",
+    "notFound": "Nicht gefunden",
+    "conflict": "Konflikt",
+    "unprocessableEntity": "Nicht verarbeitbare Entität",
+    "userLimitExceeded": "Benutzerlimit überschritten",
+    "tooManyRequests": "Zu viele Anfragen",
+    "internalServerError": "Interner Serverfehler",
+    "databaseConnectionUnavailable": "Datenbankverbindung nicht verfügbar",
+    "gatewayTimeout": "Gateway Timeout",
+    "unknownErrorCode": "Unbekannter Fehlercode",
+    "viewNotFound": "Ansicht nicht gefunden",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
+      "fieldValueDuplicate": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" Feld darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen."
+    }
   }
 }

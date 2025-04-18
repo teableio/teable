@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable/core';
-import { IdPrefix, RecordOpBuilder } from '@teable/core';
+import { HttpErrorCode, IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
@@ -10,6 +10,7 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { bufferCount, concatMap, from, lastValueFrom } from 'rxjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
@@ -247,13 +248,73 @@ export class BatchService {
     });
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
 
+    const validDbFieldNames = schemas.map((s) => s.dbFieldName).filter((f) => !f.startsWith('__'));
+
     await this.prismaService.$tx(async (tx) => {
       // temp table should in one transaction
       await tx.$executeRawUnsafe(createTempTableSql);
       // 2.initialize temporary table data
       await tx.$executeRawUnsafe(insertTempTableSql);
       // 3.update data
-      await handleDBValidationErrors(() => tx.$executeRawUnsafe(updateRecordSql));
+      await handleDBValidationErrors({
+        fn: async () => {
+          await tx.$executeRawUnsafe(updateRecordSql);
+        },
+        handleUniqueError: async () => {
+          const tableNames = await this.prismaService.tableMeta.findMany({
+            where: { dbTableName },
+            select: { name: true },
+          });
+          const fieldRaws = await this.prismaService.field.findMany({
+            where: {
+              dbFieldName: { in: validDbFieldNames },
+              unique: true,
+            },
+            select: { id: true, name: true },
+          });
+
+          throw new CustomHttpException(
+            `Fields ${fieldRaws.map((f) => f.id).join(', ')} unique validation failed`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.custom.fieldValueDuplicate',
+                context: {
+                  tableName: tableNames[0].name,
+                  fieldName: fieldRaws.map((f) => f.name).join(', '),
+                },
+              },
+            }
+          );
+        },
+        handleNotNullError: async () => {
+          const tableNames = await this.prismaService.tableMeta.findMany({
+            where: { dbTableName },
+            select: { name: true },
+          });
+          const fieldRaws = await this.prismaService.field.findMany({
+            where: {
+              dbFieldName: { in: validDbFieldNames },
+              notNull: true,
+            },
+            select: { id: true, name: true },
+          });
+
+          throw new CustomHttpException(
+            `Fields ${fieldRaws.map((f) => f.id).join(', ')} not null validation failed`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.custom.fieldValueNotNull',
+                context: {
+                  tableName: tableNames[0].name,
+                  fieldName: fieldRaws.map((f) => f.name).join(', '),
+                },
+              },
+            }
+          );
+        },
+      });
       // 4.delete temporary table
       await tx.$executeRawUnsafe(dropTempTableSql);
     });

@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { IFieldVo } from '@teable/core';
+import type { HttpError, IFieldVo } from '@teable/core';
 import type {
   ICopyVo,
   IPasteRo,
@@ -19,6 +19,7 @@ import {
   useView,
   useViewId,
   usePersonalView,
+  getHttpErrorMessage,
 } from '@teable/sdk';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
@@ -37,6 +38,9 @@ import {
 } from '../utils/copyAndPaste';
 import { getSyncCopyData } from '../utils/getSyncCopyData';
 import { useSyncSelectionStore } from './useSelectionStore';
+
+const clearToastId = 'clearToastId';
+const deleteToastId = 'deleteToastId';
 
 export const useSelectionOperation = (props?: {
   collapsedGroupIds?: string[];
@@ -108,6 +112,9 @@ export const useSelectionOperation = (props?: {
         collapsedGroupIds,
         search,
       }),
+    onError: () => {
+      toast.dismiss(clearToastId);
+    },
   });
 
   const { mutateAsync: deleteReq } = useMutation({
@@ -120,6 +127,9 @@ export const useSelectionOperation = (props?: {
         collapsedGroupIds,
         search,
       }),
+    onError: () => {
+      toast.dismiss(deleteToastId);
+    },
   });
 
   const copyRequest = copyReq || defaultCopyReq;
@@ -227,9 +237,10 @@ export const useSelectionOperation = (props?: {
         }
         toast.success(t('table:table.actionTips.pasteSuccessful'), { id: toastId });
       } catch (e) {
-        const error = e as Error;
+        const error = e as HttpError;
+        const description = getHttpErrorMessage(error, t, 'sdk');
         toast.error(t('table:table.actionTips.pasteFailed'), {
-          description: error.message,
+          description,
           id: toastId,
         });
         console.error('Paste error: ', error);
@@ -242,7 +253,7 @@ export const useSelectionOperation = (props?: {
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
 
-      const toastId = toast.loading(t('table:table.actionTips.clearing'));
+      const toastId = toast.loading(t('table:table.actionTips.clearing'), { id: clearToastId });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
 
@@ -253,14 +264,14 @@ export const useSelectionOperation = (props?: {
 
       toast.success(t('table:table.actionTips.clearSuccessful'), { id: toastId });
     },
-    [tableId, viewId, clearReq, t]
+    [tableId, viewId, t, clearReq]
   );
 
   const doDelete = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
 
-      const toastId = toast.loading(t('table:table.actionTips.deleting'));
+      const toastId = toast.loading(t('table:table.actionTips.deleting'), { id: deleteToastId });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
 

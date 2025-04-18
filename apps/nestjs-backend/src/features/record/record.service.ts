@@ -26,6 +26,7 @@ import {
   FieldKeyType,
   FieldType,
   generateRecordId,
+  HttpErrorCode,
   identify,
   IdPrefix,
   mergeFilter,
@@ -54,6 +55,7 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { RawOpType } from '../../share-db/interface';
@@ -956,7 +958,16 @@ export class RecordService {
   ) {
     const userId = this.cls.get('user.id');
     await this.creditCheck(tableId);
-    const dbTableName = await this.getDbTableName(tableId);
+
+    const { dbTableName, name: tableName } = await this.prismaService
+      .txClient()
+      .tableMeta.findUniqueOrThrow({
+        where: { id: tableId },
+        select: { dbTableName: true, name: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Table ${tableId} not found`);
+      });
 
     const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
 
@@ -1027,7 +1038,39 @@ export class RecordService {
       })
     );
 
-    await handleDBValidationErrors(() => this.prismaService.txClient().$executeRawUnsafe(sql));
+    await handleDBValidationErrors({
+      fn: () => this.prismaService.txClient().$executeRawUnsafe(sql),
+      handleUniqueError: () => {
+        throw new CustomHttpException(
+          `Fields ${validationFields.map((f) => f.id).join(', ')} unique validation failed`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.fieldValueDuplicate',
+              context: {
+                tableName,
+                fieldName: validationFields.map((f) => f.name).join(', '),
+              },
+            },
+          }
+        );
+      },
+      handleNotNullError: () => {
+        throw new CustomHttpException(
+          `Fields ${validationFields.map((f) => f.id).join(', ')} not null validation failed`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.fieldValueNotNull',
+              context: {
+                tableName,
+                fieldName: validationFields.map((f) => f.name).join(', '),
+              },
+            },
+          }
+        );
+      },
+    });
 
     return snapshots;
   }

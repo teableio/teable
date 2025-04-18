@@ -1,12 +1,11 @@
-import { Hydrate, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@teable/next-themes';
 import { isObject, merge } from 'lodash';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AppContext } from '../app/AppContext';
 import { ConnectionProvider } from './ConnectionProvider';
 import type { ILocalePartial } from './i18n';
 import { defaultLocale } from './i18n';
-import { createQueryClient } from './queryClient';
+import { QueryClientProvider } from './QueryClientProvider';
 
 interface IAppProviderProps {
   forcedTheme?: string;
@@ -19,8 +18,7 @@ interface IAppProviderProps {
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { forcedTheme, children, wsPath, lang, locale, dehydratedState, disabledWs } = props;
-  const [queryClient] = useState(() => createQueryClient());
+  const { forcedTheme, children, wsPath, lang, locale, disabledWs } = props;
   const value = useMemo(() => {
     return {
       lang,
@@ -29,13 +27,13 @@ export const AppProvider = (props: IAppProviderProps) => {
   }, [lang, locale]);
 
   if (disabledWs) {
-    <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
-      <AppContext.Provider value={value}>
-        <QueryClientProvider client={queryClient}>
-          <Hydrate state={dehydratedState}>{children}</Hydrate>
-        </QueryClientProvider>
-      </AppContext.Provider>
-    </ThemeProvider>;
+    return (
+      <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
+        <AppContext.Provider value={value}>
+          <QueryClientProvider>{children}</QueryClientProvider>
+        </AppContext.Provider>
+      </ThemeProvider>
+    );
   }
 
   // forcedTheme is not work as expected https://github.com/pacocoursey/next-themes/issues/252
@@ -43,9 +41,7 @@ export const AppProvider = (props: IAppProviderProps) => {
     <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
       <AppContext.Provider value={value}>
         <ConnectionProvider wsPath={wsPath}>
-          <QueryClientProvider client={queryClient}>
-            <Hydrate state={dehydratedState}>{children}</Hydrate>
-          </QueryClientProvider>
+          <QueryClientProvider>{children}</QueryClientProvider>
         </ConnectionProvider>
       </AppContext.Provider>
     </ThemeProvider>

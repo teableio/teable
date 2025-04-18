@@ -752,5 +752,29 @@
     "noSelected": "Не вибрано",
     "empty": "Немає учасників",
     "emptyDepartment": "Немає відділів"
+  },
+  "httpErrors": {
+    "validationError": "Помилка валідації",
+    "invalidCaptcha": "Неправильний Captcha",
+    "invalidCredentials": "Неправильні облікові дані",
+    "unauthorized": "Не авторизовано",
+    "unauthorizedShare": "Не авторизована доступ",
+    "paymentRequired": "Потрібна оплата",
+    "restrictedResource": "Обмежений ресурс",
+    "notFound": "Не знайдено",
+    "conflict": "Конфлікт",
+    "unprocessableEntity": "Необроблюваний ресурс",
+    "userLimitExceeded": "Перевищений ліміт користувача",
+    "tooManyRequests": "Забагато запитів",
+    "internalServerError": "Внутрішня помилка сервера",
+    "databaseConnectionUnavailable": "Недоступна база даних",
+    "gatewayTimeout": "Таймаут шлюза",
+    "unknownErrorCode": "Невідомий код помилки",
+    "viewNotFound": "Не знайдено вид",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає пусті значення, будь ласка, заповніть його повністю перед відправкою.",
+      "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає дублікатів значень, будь ласка, заповніть унікальне значення перед відправкою.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускає дублікатів зв'язків з одним і тим самим запису"
+    }
   }
 }

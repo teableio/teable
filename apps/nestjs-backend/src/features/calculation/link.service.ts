@@ -1,11 +1,13 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { ILinkCellValue, ILinkFieldOptions, IRecord } from '@teable/core';
-import { FieldType, Relationship } from '@teable/core';
+import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { CustomHttpException } from '../../custom.exception';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -501,8 +503,15 @@ export class LinkService {
       if (Array.isArray(cellValue)) {
         cellValue.forEach((item) => {
           if (checkSet.has(item.id)) {
-            throw new BadRequestException(
-              `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${item.id}) more than once`
+            throw new CustomHttpException(
+              `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${item.id}) more than once`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.custom.linkFieldValueDuplicate',
+                  context: { fieldName: field.name },
+                },
+              }
             );
           }
           checkSet.add(item.id);
@@ -510,8 +519,15 @@ export class LinkService {
         return;
       }
       if (checkSet.has(cellValue.id)) {
-        throw new BadRequestException(
-          `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${cellValue.id}) more than once`
+        throw new CustomHttpException(
+          `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${cellValue.id}) more than once`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.linkFieldValueDuplicate',
+              context: { fieldName: field.name },
+            },
+          }
         );
       }
       checkSet.add(cellValue.id);
@@ -559,8 +575,15 @@ export class LinkService {
         }
 
         if (newKey && foreignKeysReverseIndexed?.[newKey]) {
-          throw new BadRequestException(
-            `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${newKey}) more than once`
+          throw new CustomHttpException(
+            `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${newKey}) more than once`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.custom.linkFieldValueDuplicate',
+                context: { fieldName: field.name },
+              },
+            }
           );
         }
 
@@ -583,8 +606,15 @@ export class LinkService {
 
         extraKey.forEach((key) => {
           if (foreignKeysReverseIndexed?.[key]) {
-            throw new BadRequestException(
-              `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${key}) more than once`
+            throw new CustomHttpException(
+              `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${key}) more than once`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.custom.linkFieldValueDuplicate',
+                  context: { fieldName: field.name },
+                },
+              }
             );
           }
         });

@@ -710,5 +710,29 @@
       "linkText": "リンクテキスト",
       "enterUrl": "URLを入力"
     }
+  },
+  "httpErrors": {
+    "validationError": "バリデーションエラー",
+    "invalidCaptcha": "キャプチャが無効です",
+    "invalidCredentials": "無効な資格情報",
+    "unauthorized": "承認されていません",
+    "unauthorizedShare": "共有が承認されていません",
+    "paymentRequired": "支払いが必要です",
+    "restrictedResource": "制限されたリソース",
+    "notFound": "見つかりません",
+    "conflict": "競合",
+    "unprocessableEntity": "処理不可",
+    "userLimitExceeded": "ユーザーの制限超過",
+    "tooManyRequests": "要求が多すぎます",
+    "internalServerError": "内部サーバーエラー",
+    "databaseConnectionUnavailable": "データベース接続不可",
+    "gatewayTimeout": "ゲートウェイタイムアウト",
+    "unknownErrorCode": "不明なエラーコード",
+    "viewNotFound": "ビューが見つかりません",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
+      "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" フィールドは同じレコードに複数の関連付けを許可しません。"
+    }
   }
 }

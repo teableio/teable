@@ -11,27 +11,30 @@ export enum SqliteErrorCode {
   UNIQUE_VIOLATION = '2067',
 }
 
-export const handleDBValidationErrors = async (fn: () => Promise<unknown>) => {
+export const handleDBValidationErrors = async ({
+  fn,
+  handleUniqueError,
+  handleNotNullError,
+}: {
+  fn: () => Promise<unknown>;
+  handleUniqueError: () => Promise<void>;
+  handleNotNullError: () => Promise<void>;
+}) => {
   try {
     await fn();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (e: any) {
     const code = e.meta?.code ?? e.code;
     if (code === PostgresErrorCode.UNIQUE_VIOLATION || code === SqliteErrorCode.UNIQUE_VIOLATION) {
-      throw new HttpException(
-        'Duplicate detected! Please ensure that all fields with unique value validation are indeed unique.',
-        HttpStatus.BAD_REQUEST
-      );
+      return handleUniqueError();
     }
     if (
       code === PostgresErrorCode.NOT_NULL_VIOLATION ||
       code === SqliteErrorCode.NOT_NULL_VIOLATION
     ) {
-      throw new HttpException(
-        'One or more required fields were not provided! Please ensure all mandatory fields are filled.',
-        HttpStatus.BAD_REQUEST
-      );
+      return handleNotNullError();
     }
+    console.log('handleDBValidationErrorssss', e);
     throw new HttpException(`An error occurred: ${e.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 };

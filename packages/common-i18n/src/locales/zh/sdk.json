@@ -752,5 +752,29 @@
     "noSelected": "未选择",
     "empty": "暂无成员",
     "emptyDepartment": "暂无部门"
+  },
+  "httpErrors": {
+    "validationError": "数据校验错误",
+    "invalidCaptcha": "验证码无效",
+    "invalidCredentials": "凭证无效",
+    "unauthorized": "令牌无效",
+    "unauthorizedShare": "无权限执行此操作",
+    "paymentRequired": "需要支付才能完成此操作",
+    "restrictedResource": "此资源受限",
+    "notFound": "请求的资源不存在或未共享",
+    "conflict": "请求因与当前资源状态冲突而无法完成",
+    "unprocessableEntity": "请求体与预期参数不匹配",
+    "userLimitExceeded": "已达到在当前实例中创建用户的限制",
+    "tooManyRequests": "已超出当前实例的请求限制",
+    "internalServerError": "发生意外错误",
+    "databaseConnectionUnavailable": "数据库当前不可用",
+    "gatewayTimeout": "服务器未及时收到上游服务器的响应",
+    "unknownErrorCode": "发生未知错误",
+    "viewNotFound": "请求的视图不存在",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交。",
+      "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交。",
+      "linkFieldDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录"
+    }
   }
 }

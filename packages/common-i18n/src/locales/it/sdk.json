@@ -752,5 +752,29 @@
     "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
+  },
+  "httpErrors": {
+    "validationError": "Errore di validazione",
+    "invalidCaptcha": "Captcha non valido",
+    "invalidCredentials": "Credenziali non valide",
+    "unauthorized": "Non autorizzato",
+    "unauthorizedShare": "Non autorizzato condivisione",
+    "paymentRequired": "Pagamento richiesto",
+    "restrictedResource": "Risorsa limitata",
+    "notFound": "Non trovato",
+    "conflict": "Conflitto",
+    "unprocessableEntity": "Entità non processabile",
+    "userLimitExceeded": "Limite utente superato",
+    "tooManyRequests": "Troppi richieste",
+    "internalServerError": "Errore interno del server",
+    "databaseConnectionUnavailable": "Connessione al database non disponibile",
+    "gatewayTimeout": "Timeout del gateway",
+    "unknownErrorCode": "Codice errore sconosciuto",
+    "viewNotFound": "Vista non trovata",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori vuoti, per favore riempilo completamente prima di inviare.",
+      "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori duplicati, per favore riempilo con un valore unico prima di inviare.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" campo non consente associazioni duplicate con lo stesso record"
+    }
   }
 }

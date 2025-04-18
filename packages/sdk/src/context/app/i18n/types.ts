@@ -29,4 +29,6 @@ type DeepPartial<T> = {
 
 type ILocalePartial = DeepPartial<ILocale>;
 
-export type { ILocale, ILocalePartial, TKey, TValue };
+type ILocaleFunction = (key: TKey, options?: Record<string, unknown>) => TValue;
+
+export type { ILocale, ILocalePartial, TKey, TValue, ILocaleFunction };

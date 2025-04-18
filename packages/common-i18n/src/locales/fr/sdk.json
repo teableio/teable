@@ -723,5 +723,29 @@
       "linkText": "Texte du lien",
       "enterUrl": "Entrez l'URL"
     }
+  },
+  "httpErrors": {
+    "validationError": "Erreur de validation",
+    "invalidCaptcha": "Captcha invalide",
+    "invalidCredentials": "Identifiants invalides",
+    "unauthorized": "Non autorisé",
+    "unauthorizedShare": "Partage non autorisé",
+    "paymentRequired": "Paiement requis",
+    "restrictedResource": "Ressource restreinte",
+    "notFound": "Non trouvé",
+    "conflict": "Conflit",
+    "unprocessableEntity": "Entité non traitable",
+    "userLimitExceeded": "Limite de l'utilisateur dépassée",
+    "tooManyRequests": "Trop de requêtes",
+    "internalServerError": "Erreur interne du serveur",
+    "databaseConnectionUnavailable": "Connexion à la base de données non disponible",
+    "gatewayTimeout": "Temps d'attente de la passerelle",
+    "unknownErrorCode": "Code d'erreur inconnu",
+    "viewNotFound": "Vue non trouvée",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
+      "fieldValueDuplicate": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" champ ne permet pas les associations dupliquées avec le même enregistrement"
+    }
   }
 }

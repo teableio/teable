@@ -725,5 +725,29 @@
       "linkText": "Текст ссылки",
       "enterUrl": "Введите URL"
     }
+  },
+  "httpErrors": {
+    "validationError": "Ошибка валидации",
+    "invalidCaptcha": "Неверный Captcha",
+    "invalidCredentials": "Неверные учетные данные",
+    "unauthorized": "Неавторизован",
+    "unauthorizedShare": "Неавторизованная доступ",
+    "paymentRequired": "Требуется оплата",
+    "restrictedResource": "Ограниченный ресурс",
+    "notFound": "Не найдено",
+    "conflict": "Конфликт",
+    "unprocessableEntity": "Необрабатываемый ресурс",
+    "userLimitExceeded": "Превышен лимит пользователя",
+    "tooManyRequests": "Слишком много запросов",
+    "internalServerError": "Внутренняя ошибка сервера",
+    "databaseConnectionUnavailable": "Недоступная база данных",
+    "gatewayTimeout": "Таймаут шлюза",
+    "unknownErrorCode": "Неизвестный код ошибки",
+    "viewNotFound": "Не найден вид",
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускает пустые значения, пожалуйста, заполните его полностью перед отправкой.",
+      "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускает дубликаты значений, пожалуйста, заполните уникальное значение перед отправкой.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускает дубликаты связей с одним и тем же записью"
+    }
   }
 }

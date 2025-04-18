@@ -47,3 +47,12 @@ export enum HttpErrorCode {
   /** view */
   VIEW_NOT_FOUND = 'view_not_found',
 }
+
+export type ICustomHttpExceptionLocalization<T = string> = {
+  i18nKey: T;
+  context?: Record<string, unknown>;
+};
+
+export type ICustomHttpExceptionData<T = string> = Record<string, unknown> & {
+  localization?: ICustomHttpExceptionLocalization<T>;
+};
