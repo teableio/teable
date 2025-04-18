@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPublishedTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useIsMobile } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { CategoryMenuItem } from './CategoryMenuItem';
@@ -24,11 +25,20 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
   });
 
+  const isMobile = useIsMobile();
+
   return (
-    <div className={cn('flex flex-col gap-3 overflow-hidden p-2 shrink-0 w-64', className)}>
+    <div
+      className={cn('flex flex-col gap-3 overflow-hidden p-2 shrink-0 w-64', className, {
+        'flex-row w-full': isMobile,
+      })}
+    >
+      {isMobile && categoryHeaderRender && categoryHeaderRender()}
       <div className="flex flex-col gap-1">
-        {categoryHeaderRender && categoryHeaderRender()}
-        <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.getStarted')} />
+        {!isMobile && categoryHeaderRender && categoryHeaderRender()}
+        {!isMobile && (
+          <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.getStarted')} />
+        )}
         <CategoryMenuItem
           key={'all'}
           id={'all'}
@@ -39,10 +49,22 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
       </div>
 
       {categoryList && categoryList.length > 0 && (
-        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-          <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.browseByCategory')} />
+        <div
+          className={cn('flex flex-1 flex-col gap-1 overflow-hidden', {
+            'flex-row overflow-x-auto': isMobile,
+          })}
+        >
+          {!isMobile && (
+            <CategoryGroupLabel
+              label={t('settings.templateAdmin.category.menu.browseByCategory')}
+            />
+          )}
 
-          <div className="flex flex-1 flex-col gap-y-1 overflow-auto">
+          <div
+            className={cn('flex flex-1 flex-col gap-y-1 overflow-auto', {
+              'flex-row gap-x-0.5': isMobile,
+            })}
+          >
             {categoryList?.map(({ name, id }) => (
               <CategoryMenuItem
                 key={id}

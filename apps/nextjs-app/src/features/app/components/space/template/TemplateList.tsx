@@ -46,10 +46,10 @@ export const TemplateList = (props: ITemplateListProps) => {
     <div
       className={cn(
         'grid grid-cols-1 gap-4 text-left sm:grid-cols-2 lg:grid-cols-3 flex-1',
-        className,
         {
           'grid-cols-1 sm:grid-cols-1 lg:grid-cols-1': currentTemplateList?.length === 0,
-        }
+        },
+        className
       )}
     >
       {currentTemplateList?.map((template) => (

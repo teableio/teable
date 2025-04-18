@@ -16,7 +16,7 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
 
   return (
     <div
-      className="group relative flex h-[318px] w-full cursor-pointer flex-col overflow-hidden rounded-lg border p-0 transition-shadow hover:shadow-lg"
+      className="group relative flex h-[318px] w-full shrink-0 cursor-pointer flex-col overflow-hidden rounded-lg border p-0 transition-shadow hover:shadow-lg"
       role="button"
       tabIndex={0}
       onClick={(e) => {

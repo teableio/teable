@@ -1,3 +1,4 @@
+import { useIsMobile } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { CategoryMenu } from './CategoryMenu';
 import { TemplateList } from './TemplateList';
@@ -18,6 +19,7 @@ interface ITemplateMainProps extends ITemplateBaseProps {
 }
 
 export const TemplateMain = (props: ITemplateMainProps) => {
+  const isMobile = useIsMobile();
   const {
     currentCategoryId,
     search,
@@ -30,7 +32,11 @@ export const TemplateMain = (props: ITemplateMainProps) => {
     templateListClassName,
   } = props;
   return (
-    <div className={cn('flex flex-1 overflow-hidden', className)}>
+    <div
+      className={cn('flex flex-1 overflow-hidden', className, {
+        'flex-col': isMobile,
+      })}
+    >
       <CategoryMenu
         currentCategoryId={currentCategoryId}
         onCategoryChange={onCategoryChange}
