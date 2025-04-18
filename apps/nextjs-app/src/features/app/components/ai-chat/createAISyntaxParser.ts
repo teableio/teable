@@ -1,6 +1,5 @@
 import { FieldKeyType } from '@teable/core';
-import { createRecords, getRecords } from '@teable/openapi';
-import { Field, Table, View } from '@teable/sdk/model';
+import { createField, createRecords, createTable, getRecords, getViewList } from '@teable/openapi';
 import router from 'next/router';
 import { createChart } from '../Chart/createChart';
 import { ChartType } from '../Chart/type';
@@ -27,7 +26,7 @@ export function createAISyntaxParser() {
       case 'create-table': {
         const { name, description, icon } = parsedLine.value;
         const tableData = (
-          await Table.createTable(baseId, {
+          await createTable(baseId, {
             name,
             description,
             icon: icon,
@@ -35,7 +34,7 @@ export function createAISyntaxParser() {
           })
         ).data;
         tableId = tableData.id;
-        const views = (await View.getViews(tableId)).data;
+        const views = (await getViewList(tableId)).data;
         viewId = views[0].id;
         router.push({
           pathname: '/base/[baseId]/[tableId]/[viewId]',
@@ -48,7 +47,7 @@ export function createAISyntaxParser() {
           throw new Error("Can't create field without tableId");
         }
         const { name, type, options } = parsedLine.value;
-        await Field.createField(tableId, { name, type, options });
+        await createField(tableId, { name, type, options });
         return;
       }
       case 'create-record': {
