@@ -18,7 +18,7 @@ interface IAppProviderProps {
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { forcedTheme, children, wsPath, lang, locale, disabledWs } = props;
+  const { forcedTheme, children, wsPath, lang, locale, disabledWs, dehydratedState } = props;
   const value = useMemo(() => {
     return {
       lang,
@@ -30,7 +30,7 @@ export const AppProvider = (props: IAppProviderProps) => {
     return (
       <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
         <AppContext.Provider value={value}>
-          <QueryClientProvider>{children}</QueryClientProvider>
+          <QueryClientProvider dehydratedState={dehydratedState}>{children}</QueryClientProvider>
         </AppContext.Provider>
       </ThemeProvider>
     );
@@ -41,7 +41,7 @@ export const AppProvider = (props: IAppProviderProps) => {
     <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
       <AppContext.Provider value={value}>
         <ConnectionProvider wsPath={wsPath}>
-          <QueryClientProvider>{children}</QueryClientProvider>
+          <QueryClientProvider dehydratedState={dehydratedState}>{children}</QueryClientProvider>
         </ConnectionProvider>
       </AppContext.Provider>
     </ThemeProvider>
