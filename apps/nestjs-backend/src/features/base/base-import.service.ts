@@ -319,12 +319,14 @@ export class BaseImportService {
 
     await this.createTmpPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
+    // main fix formula dbField type
     await this.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
     await this.createLinkFields(linkFields, tableIdMap, fieldMap, fkMap);
 
     await this.createDependencyFields(dependencyFields, tableIdMap, fieldMap);
 
+    // fix formula expression' field map
     await this.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
     return { fieldMap, fkMap };
@@ -354,8 +356,9 @@ export class BaseImportService {
         dbFieldName,
         description,
         options: {
-          ...options,
+          // ...options,
           expression: DEFAULT_EXPRESSION,
+          timeZone: (options as IFormulaFieldOptions).timeZone,
         },
         name,
       });
