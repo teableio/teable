@@ -191,7 +191,9 @@ export class TypeCastAndValidate {
     if (!choicesNames.length) {
       return;
     }
-    const { id, type, options } = this.field as SingleSelectFieldDto | MultipleSelectFieldDto;
+    const { id, type, options, aiConfig } = this.field as
+      | SingleSelectFieldDto
+      | MultipleSelectFieldDto;
     const existsChoicesNameMap = this.cache.choicesMap as Record<string, ISelectFieldChoice>;
     const notExists = choicesNames.filter((name) => !existsChoicesNameMap[name]);
     const colors = ColorUtils.randomColor(map(options.choices, 'color'), notExists.length);
@@ -207,6 +209,7 @@ export class TypeCastAndValidate {
       id,
       {
         type,
+        aiConfig,
         options: {
           ...options,
           choices: options.choices.concat(newChoices),
