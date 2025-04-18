@@ -32,7 +32,11 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
     >
       <div className="h-[180px] w-auto shrink-0 bg-secondary">
         {presignedUrl && (
-          <img src={presignedUrl} className="size-full object-cover" alt="preview" />
+          <img
+            src={presignedUrl}
+            className="size-full object-cover transition-all duration-300 group-hover:scale-105"
+            alt="preview"
+          />
         )}
       </div>
 

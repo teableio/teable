@@ -17,7 +17,7 @@ export const CategoryMenuItem = (props: CategoryMenuItemProps) => {
       variant="ghost"
       onClick={() => onClickHandler(id)}
     >
-      <span className="truncate text-sm font-light" title={category}>
+      <span className="truncate text-nowrap text-sm font-medium" title={category}>
         {category}
       </span>
     </Button>
