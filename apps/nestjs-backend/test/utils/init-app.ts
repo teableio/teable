@@ -337,7 +337,7 @@ export async function duplicateRecord(
     if ((e as HttpError).status !== expectStatus) {
       throw e;
     }
-    return {} as ICreateRecordsVo;
+    return {} as IRecord;
   }
 }
 
