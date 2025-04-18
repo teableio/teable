@@ -674,7 +674,7 @@ export class SelectionService {
         newFields?: { id: string; name: string; dbFieldName: string }[]
       ) => Promise<ICreateRecordsRo | IUpdateRecordsRo>;
       windowId?: string;
-    }
+    } = {}
   ) {
     const { content, header, ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
@@ -822,7 +822,7 @@ export class SelectionService {
     }: {
       windowId?: string;
       permissionFilter?: (data: IUpdateRecordsRo) => Promise<IUpdateRecordsRo>;
-    }
+    } = {}
   ) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
