@@ -261,12 +261,14 @@ export class BatchService {
           await tx.$executeRawUnsafe(updateRecordSql);
         },
         handleUniqueError: async () => {
-          const tableNames = await this.prismaService.tableMeta.findMany({
+          const tables = await this.prismaService.tableMeta.findMany({
             where: { dbTableName },
-            select: { name: true },
+            select: { id: true, name: true },
           });
+          const table = tables[0];
           const fieldRaws = await this.prismaService.field.findMany({
             where: {
+              tableId: table.id,
               dbFieldName: { in: validDbFieldNames },
               unique: true,
             },
@@ -280,7 +282,7 @@ export class BatchService {
               localization: {
                 i18nKey: 'httpErrors.custom.fieldValueDuplicate',
                 context: {
-                  tableName: tableNames[0].name,
+                  tableName: table.name,
                   fieldName: fieldRaws.map((f) => f.name).join(', '),
                 },
               },
@@ -288,12 +290,14 @@ export class BatchService {
           );
         },
         handleNotNullError: async () => {
-          const tableNames = await this.prismaService.tableMeta.findMany({
+          const tables = await this.prismaService.tableMeta.findMany({
             where: { dbTableName },
-            select: { name: true },
+            select: { id: true, name: true },
           });
+          const table = tables[0];
           const fieldRaws = await this.prismaService.field.findMany({
             where: {
+              tableId: table.id,
               dbFieldName: { in: validDbFieldNames },
               notNull: true,
             },
@@ -307,7 +311,7 @@ export class BatchService {
               localization: {
                 i18nKey: 'httpErrors.custom.fieldValueNotNull',
                 context: {
-                  tableName: tableNames[0].name,
+                  tableName: table.name,
                   fieldName: fieldRaws.map((f) => f.name).join(', '),
                 },
               },
