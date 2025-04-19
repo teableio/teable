@@ -387,7 +387,7 @@ export class FieldService implements IReadonlyAdapterService {
 
     const dbTableName = table.dbTableName;
 
-    const fieldValidationQuery = this.knex.schema
+    const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (key === 'unique') {
           newValue ? table.unique(dbFieldName) : table.dropUnique([dbFieldName]);
@@ -397,10 +397,16 @@ export class FieldService implements IReadonlyAdapterService {
           newValue ? table.dropNullable(dbFieldName) : table.setNullable(dbFieldName);
         }
       })
-      .toQuery();
+      .toSQL();
 
     await handleDBValidationErrors({
-      fn: () => this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery),
+      fn: () => {
+        return Promise.all(
+          fieldValidationSqls
+            .filter((s) => !s.sql.startsWith('PRAGMA'))
+            .map((sql) => this.prismaService.txClient().$executeRawUnsafe(sql.sql))
+        );
+      },
       handleUniqueError: () => {
         throw new CustomHttpException(
           `Field ${fieldId} unique validation failed`,
