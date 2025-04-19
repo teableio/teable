@@ -3,7 +3,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IFilterRo, ILinkFieldOptions, IViewGroupRo, IViewVo } from '@teable/core';
-import { FieldType, ViewType, RowHeightLevel, SortFunc } from '@teable/core';
+import { FieldType, ViewType, RowHeightLevel, SortFunc, FieldKeyType } from '@teable/core';
 import type { IDuplicateTableVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -14,6 +14,7 @@ import {
   updateViewSort,
   updateViewGroup,
   updateViewOptions,
+  updateRecord,
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { x_20 } from './data-helpers/20x';
@@ -27,6 +28,7 @@ import {
   deleteField,
   createView,
   updateViewFilter,
+  convertField,
 } from './utils/init-app';
 
 describe('OpenAPI TableController for duplicate (e2e)', () => {
@@ -51,6 +53,36 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         name: 'record_query_x_20',
         fields: x_20.fields,
         records: x_20.records,
+      });
+
+      const singleTextField = table.fields.find((f) => f.name === 'text field')!;
+
+      await updateRecord(table.id, table.records[22].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [singleTextField.id]: 'Text Field 21',
+          },
+        },
+      });
+
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [singleTextField.id]: 'Text Field -1',
+          },
+        },
+      });
+
+      // convert field to notNull and unique, need to test constraint field duplicate
+      await convertField(table.id, singleTextField.id, {
+        dbFieldName: singleTextField.dbFieldName,
+        name: singleTextField.name,
+        options: singleTextField.options,
+        type: FieldType.SingleLineText,
+        notNull: true,
+        unique: true,
       });
 
       const x20Link = x_20_link(table);

@@ -1,10 +1,5 @@
 import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
-import type {
-  IFieldVo,
-  IFormulaFieldOptions,
-  ILinkFieldOptions,
-  ILookupOptionsRo,
-} from '@teable/core';
+import type { ILinkFieldOptions } from '@teable/core';
 import {
   generateViewId,
   generateShareId,
@@ -14,7 +9,7 @@ import {
 } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IDuplicateTableRo, IDuplicateTableVo } from '@teable/openapi';
+import type { IDuplicateTableRo, IDuplicateTableVo, IFieldWithTableIdJson } from '@teable/openapi';
 import { Knex } from 'knex';
 import { get, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -23,14 +18,12 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
-import { extractFieldReferences } from '../../utils';
-import type { IFieldInstance } from '../field/model/factory';
+import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
 import { createFieldInstanceByRaw, rawField2FieldObj } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
-import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
 import { TableService } from './table.service';
 
 @Injectable()
@@ -42,7 +35,7 @@ export class TableDuplicateService {
     private readonly prismaService: PrismaService,
     private readonly tableService: TableService,
     private readonly fieldOpenService: FieldOpenApiService,
-    private readonly viewOpenService: ViewOpenApiService,
+    private readonly fieldDuplicateService: FieldDuplicateService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -278,41 +271,60 @@ export class TableDuplicateService {
         createdTime: 'asc',
       },
     });
-    const fieldsInstances = fieldsRaw.map((f) => createFieldInstanceByRaw(f));
+    const fieldsInstances = fieldsRaw
+      .map((f) => ({
+        ...createFieldInstanceByRaw(f),
+        order: f.order,
+        createdTime: f.createdTime.toISOString(),
+      }))
+      .map((f) => {
+        return {
+          ...f,
+          sourceTableId,
+          targetTableId,
+        } as IFieldWithTableIdJson;
+      });
     const sourceToTargetFieldMap: Record<string, string> = {};
+    const tableIdMap: Record<string, string> = {
+      [sourceTableId]: targetTableId,
+    };
+    const nonCommonFieldTypes = [FieldType.Link, FieldType.Rollup, FieldType.Formula];
 
     const commonFields = fieldsInstances.filter(
-      (f) =>
-        !f.isLookup &&
-        ![FieldType.Formula, FieldType.Link, FieldType.Rollup].includes(f.type as FieldType) &&
-        !f.aiConfig
+      ({ type, isLookup, aiConfig }) =>
+        !nonCommonFieldTypes.includes(type) && !isLookup && !aiConfig
     );
 
-    for (let i = 0; i < commonFields.length; i++) {
-      const { type, dbFieldName, name, options, isPrimary, id, unique, notNull, description } =
-        commonFields[i];
-      const newField = await this.fieldOpenService.createField(targetTableId, {
-        type,
-        dbFieldName: dbFieldName,
-        name,
-        options,
-        description,
-      });
-
-      await this.replenishmentConstraint(newField.id, targetTableId, {
-        notNull,
-        unique,
-        dbFieldName,
-        isPrimary,
-      });
-
-      sourceToTargetFieldMap[id] = newField.id;
-    }
+    // the primary formula which rely on other fields
+    const primaryFormulaFields = fieldsInstances.filter(
+      ({ type, isLookup }) => type === FieldType.Formula && !isLookup
+    );
 
     // these field require other field, we need to merge them and ensure a specific order
-    const linkFields = fieldsInstances.filter((f) => f.type === FieldType.Link && !f.isLookup);
+    const linkFields = fieldsInstances.filter(
+      ({ type, isLookup }) => type === FieldType.Link && !isLookup
+    );
 
-    // duplicate link fields
+    // rest fields, like formula, rollup, lookup fields
+    const dependencyFields = fieldsInstances.filter(
+      ({ id }) =>
+        ![...primaryFormulaFields, ...linkFields, ...commonFields].map(({ id }) => id).includes(id)
+    );
+
+    await this.fieldDuplicateService.createCommonFields(commonFields, sourceToTargetFieldMap);
+
+    await this.fieldDuplicateService.createTmpPrimaryFormulaFields(
+      primaryFormulaFields,
+      sourceToTargetFieldMap
+    );
+
+    // main fix formula dbField type
+    await this.fieldDuplicateService.repairPrimaryFormulaFields(
+      primaryFormulaFields,
+      sourceToTargetFieldMap
+    );
+
+    // duplicate link fields different from duplicate base link field
     await this.duplicateLinkFields(
       sourceTableId,
       targetTableId,
@@ -320,69 +332,25 @@ export class TableDuplicateService {
       sourceToTargetFieldMap
     );
 
-    // duplicate link fields such as formula、lookup field
-    await this.duplicateDependFields(
-      sourceTableId,
-      targetTableId,
-      fieldsInstances,
+    await this.fieldDuplicateService.createDependencyFields(
+      dependencyFields,
+      tableIdMap,
+      sourceToTargetFieldMap
+    );
+
+    // fix formula expression' field map
+    await this.fieldDuplicateService.repairPrimaryFormulaFields(
+      primaryFormulaFields,
       sourceToTargetFieldMap
     );
 
     return sourceToTargetFieldMap;
   }
 
-  // field could not set constraint when create
-  private async replenishmentConstraint(
-    fId: string,
-    targetTableId: string,
-    {
-      notNull,
-      unique,
-      dbFieldName,
-      isPrimary,
-    }: { notNull?: boolean; unique?: boolean; dbFieldName: string; isPrimary?: boolean }
-  ) {
-    if (!notNull && !unique && !isPrimary) {
-      return;
-    }
-
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: {
-        id: targetTableId,
-        deletedTime: null,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
-
-    await this.prismaService.txClient().field.update({
-      where: {
-        id: fId,
-      },
-      data: {
-        notNull: notNull ?? null,
-        unique: unique ?? null,
-        isPrimary: isPrimary ?? null,
-      },
-    });
-
-    if (notNull || unique) {
-      const fieldValidationQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          if (unique) table.dropUnique([dbFieldName]);
-          if (notNull) table.setNullable(dbFieldName);
-        })
-        .toQuery();
-
-      await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
-    }
-  }
-
   private async duplicateLinkFields(
     sourceTableId: string,
     targetTableId: string,
-    linkFields: IFieldInstance[],
+    linkFields: IFieldWithTableIdJson[],
     sourceToTargetFieldMap: Record<string, string>
   ) {
     const twoWaySelfLinkFields = linkFields.filter((f) => {
@@ -390,7 +358,7 @@ export class TableDuplicateService {
       return options.foreignTableId === sourceTableId;
     });
 
-    const mergedTwoWaySelfLinkFields = [] as [IFieldInstance, IFieldInstance][];
+    const mergedTwoWaySelfLinkFields = [] as [IFieldWithTableIdJson, IFieldWithTableIdJson][];
 
     twoWaySelfLinkFields.forEach((f) => {
       // two-way self link field should only create one of it
@@ -410,8 +378,8 @@ export class TableDuplicateService {
     for (let i = 0; i < mergedTwoWaySelfLinkFields.length; i++) {
       const f = mergedTwoWaySelfLinkFields[i][0];
       const { notNull, unique, description } = f;
-      const groupField = mergedTwoWaySelfLinkFields[i][1] as LinkFieldDto;
-      const { name, type, dbFieldName, id } = f;
+      const groupField = mergedTwoWaySelfLinkFields[i][1] as unknown as LinkFieldDto;
+      const { name, type, dbFieldName, id, order } = f;
       const options = f.options as ILinkFieldOptions;
       const newField = await this.fieldOpenService.createField(targetTableId, {
         type: type as FieldType,
@@ -429,7 +397,7 @@ export class TableDuplicateService {
           foreignTableId: targetTableId,
         },
       });
-      await this.replenishmentConstraint(newField.id, targetTableId, {
+      await this.fieldDuplicateService.replenishmentConstraint(newField.id, targetTableId, order, {
         notNull,
         unique,
         dbFieldName,
@@ -487,7 +455,7 @@ export class TableDuplicateService {
     // other common link field
     for (let i = 0; i < otherLinkFields.length; i++) {
       const f = otherLinkFields[i];
-      const { type, description, name, notNull, unique, options, dbFieldName } = f;
+      const { type, description, name, notNull, unique, options, dbFieldName, order } = f;
       const newField = await this.fieldOpenService.createField(targetTableId, {
         type: type as FieldType,
         description,
@@ -506,359 +474,13 @@ export class TableDuplicateService {
           isOneWay: true,
         },
       });
-      await this.replenishmentConstraint(newField.id, targetTableId, {
+      await this.fieldDuplicateService.replenishmentConstraint(newField.id, targetTableId, order, {
         notNull,
         unique,
         dbFieldName,
       });
       sourceToTargetFieldMap[f.id] = newField.id;
     }
-  }
-
-  /**
-   * Duplicate fields that depend on other fields like formula、lookup field
-   */
-  private async duplicateDependFields(
-    sourceTableId: string,
-    targetTableId: string,
-    fieldsInstances: IFieldInstance[],
-    sourceToTargetFieldMap: Record<string, string>
-  ) {
-    const dependFields = fieldsInstances.filter(
-      (f) => f.isLookup || f.type === FieldType.Formula || f.type === FieldType.Rollup || f.aiConfig
-    );
-    if (!dependFields.length) return;
-
-    const checkedField = [] as IFieldInstance[];
-
-    while (dependFields.length) {
-      const curField = dependFields.shift();
-      if (!curField) continue;
-
-      const isChecked = checkedField.some((f) => f.id === curField.id);
-      // InDegree all ready
-      const isInDegreeReady = this.isInDegreeReady(curField, sourceTableId, sourceToTargetFieldMap);
-
-      if (isInDegreeReady) {
-        await this.duplicateSingleDependField(
-          sourceTableId,
-          targetTableId,
-          curField,
-          sourceToTargetFieldMap
-        );
-        continue;
-      }
-
-      if (isChecked) {
-        if (curField.hasError) {
-          await this.duplicateSingleDependField(
-            sourceTableId,
-            targetTableId,
-            curField,
-            sourceToTargetFieldMap,
-            true
-          );
-        } else {
-          throw new BadGatewayException('Create circular field');
-        }
-      } else {
-        dependFields.push(curField);
-        checkedField.push(curField);
-      }
-    }
-  }
-
-  private isInDegreeReady(
-    field: IFieldInstance,
-    sourceTableId: string,
-    sourceToTargetFieldMap: Record<string, string>
-  ) {
-    if (field.aiConfig) {
-      const { aiConfig } = field;
-
-      if ('sourceFieldId' in aiConfig) {
-        return Boolean(sourceToTargetFieldMap[aiConfig.sourceFieldId]);
-      }
-
-      if ('prompt' in aiConfig) {
-        const { prompt, attachmentFieldIds = [] } = aiConfig;
-        const fieldIds = extractFieldReferences(prompt);
-        const keys = Object.keys(sourceToTargetFieldMap);
-        return [...fieldIds, ...attachmentFieldIds].every((field) => keys.includes(field));
-      }
-    }
-
-    if (field.type === FieldType.Formula) {
-      const formulaOptions = field.options as IFormulaFieldOptions;
-      const referencedFields = this.extractFieldIds(formulaOptions.expression);
-      const keys = Object.keys(sourceToTargetFieldMap);
-      return referencedFields.every((field) => keys.includes(field));
-    }
-
-    if (field.isLookup || field.type === FieldType.Rollup) {
-      const { lookupOptions } = field;
-      const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
-      const isSelfLink = foreignTableId === sourceTableId;
-      return isSelfLink
-        ? Boolean(sourceToTargetFieldMap[lookupFieldId] && sourceToTargetFieldMap[linkFieldId])
-        : true;
-    }
-
-    return false;
-  }
-
-  private async duplicateSingleDependField(
-    sourceTableId: string,
-    targetTableId: string,
-    field: IFieldInstance,
-    sourceToTargetFieldMap: Record<string, string>,
-    hasError = false
-  ) {
-    if (field.aiConfig) {
-      await this.duplicateFieldAiConfig(targetTableId, field, sourceToTargetFieldMap);
-    }
-
-    if (field.type === FieldType.Formula) {
-      await this.duplicateFormulaField(targetTableId, field, sourceToTargetFieldMap, hasError);
-    } else if (field.isLookup) {
-      await this.duplicateLookupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
-    } else if (field.type === FieldType.Rollup) {
-      await this.duplicateRollupField(sourceTableId, targetTableId, field, sourceToTargetFieldMap);
-    }
-  }
-
-  private async duplicateLookupField(
-    sourceTableId: string,
-    targetTableId: string,
-    fieldInstance: IFieldInstance,
-    sourceToTargetFieldMap: Record<string, string>
-  ) {
-    const {
-      dbFieldName,
-      name,
-      lookupOptions,
-      id,
-      hasError,
-      options,
-      notNull,
-      unique,
-      description,
-      isPrimary,
-      type: lookupFieldType,
-    } = fieldInstance;
-    const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
-    const isSelfLink = foreignTableId === sourceTableId;
-
-    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
-    const { type: mockType } = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: {
-        id: mockFieldId,
-        deletedTime: null,
-      },
-      select: {
-        type: true,
-      },
-    });
-    const newField = await this.fieldOpenService.createField(targetTableId, {
-      type: (hasError ? mockType : lookupFieldType) as FieldType,
-      dbFieldName,
-      description,
-      isLookup: true,
-      lookupOptions: {
-        // if lookup link field is self link, foreignTableId is targetTableId, otherwise it is the foreignTableId
-        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
-        linkFieldId: sourceToTargetFieldMap[linkFieldId],
-        lookupFieldId: isSelfLink
-          ? hasError
-            ? mockFieldId
-            : sourceToTargetFieldMap[lookupFieldId]
-          : hasError
-            ? mockFieldId
-            : lookupFieldId,
-      },
-      name,
-    });
-    await this.replenishmentConstraint(newField.id, targetTableId, {
-      notNull,
-      unique,
-      dbFieldName,
-      isPrimary,
-    });
-    sourceToTargetFieldMap[id] = newField.id;
-    if (hasError) {
-      await this.prismaService.txClient().field.update({
-        where: {
-          id: newField.id,
-        },
-        data: {
-          hasError,
-          type: lookupFieldType,
-          lookupOptions: JSON.stringify({
-            ...newField.lookupOptions,
-            lookupFieldId: lookupFieldId,
-          }),
-          options: JSON.stringify(options),
-        },
-      });
-    }
-  }
-
-  private async duplicateRollupField(
-    sourceTableId: string,
-    targetTableId: string,
-    fieldInstance: IFieldInstance,
-    sourceToTargetFieldMap: Record<string, string>
-  ) {
-    const {
-      dbFieldName,
-      name,
-      lookupOptions,
-      id,
-      hasError,
-      options,
-      notNull,
-      unique,
-      description,
-      isPrimary,
-      type: lookupFieldType,
-    } = fieldInstance;
-    const { foreignTableId, linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
-    const isSelfLink = foreignTableId === sourceTableId;
-
-    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
-    const newField = await this.fieldOpenService.createField(targetTableId, {
-      type: FieldType.Rollup,
-      dbFieldName,
-      description,
-      lookupOptions: {
-        foreignTableId: isSelfLink ? targetTableId : foreignTableId,
-        linkFieldId: sourceToTargetFieldMap[linkFieldId],
-        lookupFieldId: isSelfLink
-          ? hasError
-            ? mockFieldId
-            : sourceToTargetFieldMap[lookupFieldId]
-          : hasError
-            ? mockFieldId
-            : lookupFieldId,
-      },
-      options,
-      name,
-    });
-    await this.replenishmentConstraint(newField.id, targetTableId, {
-      notNull,
-      unique,
-      dbFieldName,
-      isPrimary,
-    });
-    sourceToTargetFieldMap[id] = newField.id;
-    if (hasError) {
-      await this.prismaService.txClient().field.update({
-        where: {
-          id: newField.id,
-        },
-        data: {
-          hasError,
-          type: lookupFieldType,
-          lookupOptions: JSON.stringify({
-            ...newField.lookupOptions,
-            lookupFieldId: lookupFieldId,
-          }),
-          options: JSON.stringify(options),
-        },
-      });
-    }
-  }
-
-  private async duplicateFormulaField(
-    targetTableId: string,
-    fieldInstance: IFieldInstance,
-    sourceToTargetFieldMap: Record<string, string>,
-    hasError: boolean = false
-  ) {
-    const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
-      fieldInstance;
-    const { expression } = options as IFormulaFieldOptions;
-    let newExpression = expression;
-    Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
-      newExpression = newExpression.replaceAll(key, value);
-    });
-    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
-    const newField = await this.fieldOpenService.createField(targetTableId, {
-      type,
-      dbFieldName: dbFieldName,
-      description,
-      options: {
-        ...options,
-        expression: hasError ? `{${mockFieldId}}` : newExpression,
-      },
-      name,
-    });
-    await this.replenishmentConstraint(newField.id, targetTableId, {
-      notNull,
-      unique,
-      dbFieldName,
-      isPrimary,
-    });
-    sourceToTargetFieldMap[id] = newField.id;
-
-    if (hasError) {
-      await this.prismaService.txClient().field.update({
-        where: {
-          id: newField.id,
-        },
-        data: {
-          hasError,
-          options: JSON.stringify({
-            ...options,
-            expression: newExpression,
-          }),
-        },
-      });
-    }
-  }
-
-  private async duplicateFieldAiConfig(
-    targetTableId: string,
-    fieldInstance: IFieldInstance,
-    sourceToTargetFieldMap: Record<string, string>
-  ) {
-    if (!fieldInstance.aiConfig) return;
-
-    const { type, dbFieldName, name, options, id, notNull, unique, description, isPrimary } =
-      fieldInstance;
-
-    const aiConfig: IFieldVo['aiConfig'] = { ...fieldInstance.aiConfig };
-
-    if ('sourceFieldId' in aiConfig) {
-      aiConfig.sourceFieldId = sourceToTargetFieldMap[aiConfig.sourceFieldId as string];
-    }
-
-    if ('prompt' in aiConfig) {
-      const { prompt, attachmentFieldIds = [] } = aiConfig;
-      Object.entries(sourceToTargetFieldMap).forEach(([key, value]) => {
-        aiConfig.prompt = prompt.replaceAll(key, value);
-      });
-      aiConfig.attachmentFieldIds = attachmentFieldIds?.map(
-        (fieldId) => sourceToTargetFieldMap[fieldId]
-      );
-    }
-
-    const newField = await this.fieldOpenService.createField(targetTableId, {
-      type,
-      dbFieldName,
-      description,
-      options,
-      aiConfig,
-      name,
-    });
-
-    await this.replenishmentConstraint(newField.id, targetTableId, {
-      notNull,
-      unique,
-      dbFieldName,
-      isPrimary,
-    });
-    sourceToTargetFieldMap[id] = newField.id;
   }
 
   private async duplicateViews(

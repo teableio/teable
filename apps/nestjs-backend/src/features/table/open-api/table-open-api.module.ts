@@ -3,6 +3,7 @@ import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
+import { FieldDuplicateModule } from '../../field/field-duplicate/field-duplicate.module';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { GraphModule } from '../../graph/graph.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
@@ -21,6 +22,7 @@ import { TableOpenApiService } from './table-open-api.service';
     RecordOpenApiModule,
     ViewOpenApiModule,
     FieldOpenApiModule,
+    FieldDuplicateModule,
     TableModule,
     ShareDbModule,
     CalculationModule,

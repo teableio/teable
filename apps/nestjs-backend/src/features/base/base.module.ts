@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
 import { StorageModule } from '../attachments/plugins/storage.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
+import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
 import { FieldModule } from '../field/field.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { InvitationModule } from '../invitation/invitation.module';
@@ -28,6 +29,7 @@ import { DbConnectionService } from './db-connection.service';
     CollaboratorModule,
     FieldModule,
     FieldOpenApiModule,
+    FieldDuplicateModule,
     TableModule,
     ViewOpenApiModule,
     InvitationModule,
@@ -48,8 +50,6 @@ import { DbConnectionService } from './db-connection.service';
     BaseDuplicateService,
     BaseQueryService,
     TableDuplicateService,
-    BaseImportService,
-    BaseExportService,
   ],
   exports: [
     BaseService,

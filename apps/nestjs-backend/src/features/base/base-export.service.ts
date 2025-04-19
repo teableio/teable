@@ -665,7 +665,7 @@ export class BaseExportService {
   // cross base link field and relative fields should convert to text as well
   private generateFieldConfig(fieldRaws: Field[], allowCrossBase = false) {
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-    const createTimeMap = fieldRaws.reduce(
+    const createdTimeMap = fieldRaws.reduce(
       (acc, field) => {
         acc[field.id] = field.createdTime.toISOString();
         return acc;
@@ -679,7 +679,7 @@ export class BaseExportService {
       .filter(({ id }) => !crossBaseRelativeFields.map(({ id }) => id).includes(id))
       .map((field, index) => ({
         ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
-        createTime: createTimeMap[field.id],
+        createdTime: createdTimeMap[field.id],
         order: fieldRaws[index].order,
       }));
 
@@ -688,7 +688,7 @@ export class BaseExportService {
 
   private getCrossBaseFields(fieldRaws: Field[], allowCrossBase = false) {
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-    const createTimeMap = fieldRaws.reduce(
+    const createdTimeMap = fieldRaws.reduce(
       (acc, field) => {
         acc[field.id] = field.createdTime.toISOString();
         return acc;
@@ -702,7 +702,7 @@ export class BaseExportService {
         const res = {
           ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
           type: allowCrossBase ? field.type : FieldType.SingleLineText,
-          createTime: createTimeMap[field.id],
+          createdTime: createdTimeMap[field.id],
           order: fieldRaws[index].order,
         };
 
