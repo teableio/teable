@@ -783,12 +783,16 @@ export class SelectionService {
         const filteredCreateRecordsRo = permissionFilter
           ? await permissionFilter('create', createRecordsRo, newFields)
           : createRecordsRo;
+        console.log('filteredCreateRecordsRo', filteredCreateRecordsRo, createRecordsRo);
         newRecords = (
           await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo)
         ).records;
       }
 
-      updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
+      updateRange[1] = [
+        col + updateFields.length - 1 + newFields.length,
+        row + updateFields.length - 1 + (newRecords?.length ?? 0),
+      ];
       return {
         updateRecords: {
           cellContexts,
