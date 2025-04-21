@@ -24,10 +24,16 @@ export const FieldSetting = () => {
     return <></>;
   }
 
+  const fieldVo = fieldVoSchema.safeParse(field);
+  if (!fieldVo.success) {
+    console.log('errorField:', field);
+    console.error(fieldVo.error);
+  }
+
   return (
     <FieldSettingInner
       visible={visible}
-      field={field && fieldVoSchema.parse(field)}
+      field={fieldVo.success ? fieldVo.data : undefined}
       order={order}
       operator={setting?.operator || FieldOperator.Add}
       onCancel={onCancel}

@@ -742,10 +742,12 @@
     "gatewayTimeout": "Ağ Geçidi Zaman Aşımı",
     "unknownErrorCode": "Bilinmeyen Hata Kodu",
     "viewNotFound": "Görünüm Bulunamadı",
+    "requestTimeout": "İstek Zaman Aşımı",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" alanı \"{{fieldName}}\" boş değerlere izin vermiyor, lütfen tamamlayınız ve gönderimden önce doldurun.",
       "fieldValueDuplicate": "\"{{tableName}}\" alanı \"{{fieldName}}\" tekrarlayan değerlere izin vermiyor, lütfen benzersiz bir değer doldurun ve gönderimden önce doldurun.",
-      "linkFieldValueDuplicate": "\"{{fieldName}}\" alanı aynı kayıtla tekrarlayan değerlere izin vermiyor."
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" alanı aynı kayıtla tekrarlayan değerlere izin vermiyor.",
+      "requestTimeout": "İşlem kapsamı çok büyük, lütfen kapsamı daraltıp tekrar deneyin."
     }
   }
 }

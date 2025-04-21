@@ -770,11 +770,13 @@
     "databaseConnectionUnavailable": "数据库当前不可用",
     "gatewayTimeout": "服务器未及时收到上游服务器的响应",
     "unknownErrorCode": "发生未知错误",
+    "requestTimeout": "请求超时",
     "viewNotFound": "请求的视图不存在",
     "custom": {
-      "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交。",
-      "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交。",
-      "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录"
+      "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
+      "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
+      "requestTimeout": "当前操作范围过大，请缩小范围重新尝试"
     }
   }
 }

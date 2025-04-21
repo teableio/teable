@@ -31,6 +31,8 @@ export const getDefaultCodeByStatus = (status: HttpStatus) => {
       return HttpErrorCode.INTERNAL_SERVER_ERROR;
     case HttpStatus.SERVICE_UNAVAILABLE:
       return HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE;
+    case HttpStatus.REQUEST_TIMEOUT:
+      return HttpErrorCode.REQUEST_TIMEOUT;
     default:
       return HttpErrorCode.UNKNOWN_ERROR_CODE;
   }

@@ -1,7 +1,6 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
 
@@ -10,6 +9,42 @@ interface ITx {
   timeStr?: string;
   id?: string;
   rawOpMaps?: unknown;
+}
+
+class TimeoutHttpException extends HttpException {
+  code: string;
+  data?: { localization?: { i18nKey: string; context?: Record<string, unknown> } };
+
+  constructor() {
+    super('Request timeout', HttpStatus.REQUEST_TIMEOUT);
+    this.code = 'request_timeout';
+    this.data = {
+      localization: {
+        i18nKey: 'httpErrors.custom.requestTimeout',
+        context: {},
+      },
+    };
+  }
+}
+
+function proxyClient(tx: Prisma.TransactionClient) {
+  return new Proxy(tx, {
+    get(target, p) {
+      if (p === '$queryRawUnsafe' || p === '$executeRawUnsafe') {
+        return async function (query: string, ...args: unknown[]) {
+          try {
+            return await target[p](query, ...args);
+          } catch (e: unknown) {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2028') {
+              throw new TimeoutHttpException();
+            }
+            throw e;
+          }
+        };
+      }
+      return target[p as keyof typeof target];
+    },
+  });
 }
 
 @Injectable()
@@ -75,6 +110,7 @@ export class PrismaService
 
     await this.cls.runWith(this.cls.get(), async () => {
       result = await super.$transaction<R>(async (prisma) => {
+        prisma = proxyClient(prisma);
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
         this.cls.set('tx.timeStr', new Date().toISOString());

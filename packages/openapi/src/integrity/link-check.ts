@@ -14,13 +14,14 @@ export enum IntegrityIssueType {
   MissingRecordReference = 'MissingRecordReference',
   InvalidLinkReference = 'InvalidLinkReference',
   ForeignKeyHostTableNotFound = 'ForeignKeyHostTableNotFound',
+  ReferenceFieldNotFound = 'ReferenceFieldNotFound',
 }
 
 // Define the schema for a single issue
 export const integrityIssueSchema = z.object({
   type: z.nativeEnum(IntegrityIssueType),
   message: z.string(),
-  fieldId: z.string().optional(),
+  fieldId: z.string(),
 });
 
 // Define the schema for a link field check item
@@ -30,10 +31,6 @@ export const linkFieldCheckItemSchema = z.object({
     .optional()
     .openapi({ description: 'The base id of the link field with is cross-base' }),
   baseName: z.string().optional(),
-  fieldId: z.string(),
-  fieldName: z.string(),
-  tableId: z.string(),
-  tableName: z.string(),
   issues: z.array(integrityIssueSchema),
 });
 

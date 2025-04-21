@@ -28,6 +28,8 @@ export enum HttpErrorCode {
   RESTRICTED_RESOURCE = 'restricted_resource',
   // 404 - Given the bearer token used, the resource does not exist. This error can also indicate that the resource has not been shared with owner of the bearer token.
   NOT_FOUND = 'not_found',
+  // 408 - Requset timeout
+  REQUEST_TIMEOUT = 'request_timeout',
   // 409 - The request could not be completed due to a conflict with the current state of the resource.
   CONFLICT = 'conflict',
   // 422 - The request body does not match the schema for the expected parameters

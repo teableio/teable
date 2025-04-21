@@ -771,10 +771,12 @@
     "gatewayTimeout": "Tiempo de espera de puerta de enlace",
     "unknownErrorCode": "Código de error desconocido",
     "viewNotFound": "Vista no encontrada",
+    "requestTimeout": "El tiempo de espera de la solicitud ha excedido",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" no permite valores vacíos, por favor complete antes de enviar.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" no permite valores duplicados, por favor complete un valor único antes de enviar.",
-      "linkFieldValueDuplicate": "\"{{fieldName}}\" campo no permite asociaciones duplicadas con el mismo registro"
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" campo no permite asociaciones duplicadas con el mismo registro",
+      "requestTimeout": "El ámbito de la operación actual es demasiado grande, por favor intente con un ámbito más pequeño."
     }
   }
 }
