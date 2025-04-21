@@ -1296,13 +1296,14 @@ export class RecordService {
     const nativeQuery = builder
       .from(viewQueryDbTableName)
       .select(fieldNames)
-      .whereIn('__id', recordIds);
+      .whereIn('__id', recordIds)
+      .toQuery();
 
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<
         ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
-      >(nativeQuery.toQuery());
+      >(nativeQuery);
 
     const recordIdsMap = recordIds.reduce(
       (acc, recordId, currentIndex) => {
