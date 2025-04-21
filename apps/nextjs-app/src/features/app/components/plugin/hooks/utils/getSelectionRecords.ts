@@ -1,3 +1,4 @@
+import { FieldKeyType } from '@teable/core';
 import type { IRecordsVo } from '@teable/openapi';
 import { getRecords } from '@teable/openapi';
 import { SelectionRegionType } from '@teable/sdk/components';
@@ -44,6 +45,7 @@ export const getSelectionRecords = async (
       projection,
       skip,
       take,
+      fieldKeyType: FieldKeyType.Id,
     }).then((res) => res.data.records);
   };
   switch (type) {
