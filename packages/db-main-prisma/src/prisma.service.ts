@@ -1,30 +1,15 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
+import { TimeoutHttpException } from './utils';
 
 interface ITx {
   client?: Prisma.TransactionClient;
   timeStr?: string;
   id?: string;
   rawOpMaps?: unknown;
-}
-
-class TimeoutHttpException extends HttpException {
-  code: string;
-  data?: { localization?: { i18nKey: string; context?: Record<string, unknown> } };
-
-  constructor() {
-    super('Request timeout', HttpStatus.REQUEST_TIMEOUT);
-    this.code = 'request_timeout';
-    this.data = {
-      localization: {
-        i18nKey: 'httpErrors.custom.requestTimeout',
-        context: {},
-      },
-    };
-  }
 }
 
 function proxyClient(tx: Prisma.TransactionClient) {

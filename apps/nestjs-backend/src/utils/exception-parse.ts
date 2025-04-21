@@ -8,7 +8,8 @@ export const exceptionParse = (
   if (exception instanceof HttpError) {
     return new CustomHttpException(exception.message, exception.code);
   }
-  if ('code' in exception) {
+
+  if ('code' in exception && 'getStatus' in exception) {
     return exception;
   }
 
