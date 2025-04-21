@@ -159,7 +159,7 @@ export class BaseExportService {
     archive.pipe(passThrough);
 
     // 2. generate base structure json
-    const structure = await this.generateBaseStructJson({
+    const structure = await this.generateBaseStructConfig({
       baseRaw,
       tableRaws,
       fieldRaws,
@@ -231,7 +231,7 @@ export class BaseExportService {
     };
   }
 
-  async generateBaseStructJson({
+  async generateBaseStructConfig({
     baseRaw,
     tableRaws,
     fieldRaws,
@@ -262,7 +262,7 @@ export class BaseExportService {
       tables.push(tableObject);
     }
 
-    const plugins = await this.generatePluginJson(baseId);
+    const plugins = await this.generatePluginConfig(baseId);
 
     return {
       name: baseName,
@@ -753,7 +753,7 @@ export class BaseExportService {
     );
   }
 
-  async generatePluginJson(baseId: string) {
+  async generatePluginConfig(baseId: string) {
     const pluginJson = {} as IBaseJson['plugins'];
 
     pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(baseId);
