@@ -571,7 +571,8 @@ export class FieldOpenApiService {
 
       const getterFieldViewOrders = Object.values(columnMeta)
         .filter(({ order }) => order > fieldViewOrder)
-        .map(({ order }) => order);
+        .map(({ order }) => order)
+        .sort();
 
       const targetFieldViewOrder = getterFieldViewOrders?.length
         ? (getterFieldViewOrders[0] + fieldViewOrder) / 2
@@ -671,25 +672,26 @@ export class FieldOpenApiService {
         chunkSize
       );
 
-      await this.recordOpenApiService.updateRecords(sourceTableId, {
-        fieldKeyType: FieldKeyType.Id,
-        typecast: true,
-        records: sourceRecords.map((record) => ({
-          id: record.id,
-          fields: {
-            [targetFieldId]: record.value,
-          },
-        })),
-      });
-
-      // last page should update field constraint
-      if (i === page - 1 && (fieldInstance.notNull || fieldInstance.unique)) {
-        await this.convertField(sourceTableId, targetFieldId, {
-          ...fieldInstance,
-          notNull: fieldInstance.notNull,
-          unique: fieldInstance.unique,
+      await this.prismaService.$tx(async () => {
+        await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: sourceRecords.map((record) => ({
+            id: record.id,
+            fields: {
+              [targetFieldId]: record.value,
+            },
+          })),
         });
-      }
+      });
+    }
+
+    if (fieldInstance.notNull || fieldInstance.unique) {
+      await this.convertField(sourceTableId, targetFieldId, {
+        ...fieldInstance,
+        notNull: fieldInstance.notNull,
+        unique: fieldInstance.unique,
+      });
     }
   }
 

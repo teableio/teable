@@ -345,6 +345,30 @@ export class RecordOpenApiService {
     };
   }
 
+  async simpleUpdateRecords(
+    tableId: string,
+    updateRecordsRo: IUpdateRecordsRo & {
+      records: {
+        id: string;
+        fields: Record<string, unknown>;
+        order?: Record<string, number>;
+      }[];
+    }
+  ) {
+    const { fieldKeyType = FieldKeyType.Name, records } = updateRecordsRo;
+    const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
+      tableId,
+      fieldKeyType,
+      records
+    );
+
+    return await this.recordCalculateService.calculateUpdatedRecord(
+      tableId,
+      fieldKeyType,
+      preparedRecords
+    );
+  }
+
   async updateRecord(
     tableId: string,
     recordId: string,
