@@ -62,7 +62,9 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
 
       if (!isDeleted && !isVisible) {
         const { recordId, fieldId } = activeCell;
-        const recordEntry = Object.entries(recordMap).find(([_, record]) => record.id === recordId);
+        const recordEntry = Object.entries(recordMap).find(
+          ([_, record]) => record?.id === recordId
+        );
 
         setPresortRecordData({ rowIndex: activeCell.rowIndex, recordId });
 
