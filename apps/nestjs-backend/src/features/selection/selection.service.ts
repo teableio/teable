@@ -783,7 +783,6 @@ export class SelectionService {
         const filteredCreateRecordsRo = permissionFilter
           ? await permissionFilter('create', createRecordsRo, newFields)
           : createRecordsRo;
-        console.log('filteredCreateRecordsRo', filteredCreateRecordsRo, createRecordsRo);
         newRecords = (
           await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo)
         ).records;
