@@ -6,9 +6,11 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import {
   CellValueType,
+  HttpErrorCode,
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
@@ -37,6 +39,7 @@ import { groupBy, isDate, isEmpty, isString, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -734,64 +737,78 @@ export class AggregationService {
 
     const sql = queryBuilder.toQuery();
 
-    const result = await this.prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
+    try {
+      return await this.prisma.$tx(async (prisma) => {
+        const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
 
-    // no result found
-    if (result?.length === 0) {
-      return null;
-    }
-
-    const recordIds = result;
-
-    if (search[2]) {
-      const baseSkip = skip ?? 0;
-      const accRecord: string[] = [];
-      return recordIds.map((rec) => {
-        if (!accRecord?.includes(rec.__id)) {
-          accRecord.push(rec.__id);
+        // no result found
+        if (result?.length === 0) {
+          return null;
         }
-        return {
-          index: baseSkip + accRecord?.length,
-          fieldId: rec.fieldId,
-          recordId: rec.__id,
-        };
+
+        const recordIds = result;
+
+        if (search[2]) {
+          const baseSkip = skip ?? 0;
+          const accRecord: string[] = [];
+          return recordIds.map((rec) => {
+            if (!accRecord?.includes(rec.__id)) {
+              accRecord.push(rec.__id);
+            }
+            return {
+              index: baseSkip + accRecord?.length,
+              fieldId: rec.fieldId,
+              recordId: rec.__id,
+            };
+          });
+        }
+
+        // step 2. find the index in current view
+        const indexQueryBuilder = this.knex
+          .select('row_num')
+          .select('__id')
+          .from((qb: Knex.QueryBuilder) => {
+            qb.select('__id')
+              .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
+              .from(viewRecordsQB.as('t'))
+              .as('t1');
+          })
+          .whereIn('__id', [...new Set(recordIds.map((record) => record.__id))]);
+
+        // eslint-disable-next-line
+        const indexResult = await prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
+          indexQueryBuilder.toQuery()
+        );
+
+        if (indexResult?.length === 0) {
+          return null;
+        }
+
+        const indexResultMap = keyBy(indexResult, '__id');
+
+        return result.map((item) => {
+          const index = Number(indexResultMap[item.__id]?.row_num);
+          if (isNaN(index)) {
+            throw new Error('Index not found');
+          }
+          return {
+            index,
+            fieldId: item.fieldId,
+            recordId: item.__id,
+          };
+        });
       });
-    }
-
-    // step 2. find the index in current view
-    const indexQueryBuilder = this.knex
-      .select('row_num')
-      .select('__id')
-      .from((qb: Knex.QueryBuilder) => {
-        qb.select('__id')
-          .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
-          .from(viewRecordsQB.as('t'))
-          .as('t1');
-      })
-      .whereIn('__id', [...new Set(recordIds.map((record) => record.__id))]);
-
-    // eslint-disable-next-line
-    const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
-      indexQueryBuilder.toQuery()
-    );
-
-    if (indexResult?.length === 0) {
-      return null;
-    }
-
-    const indexResultMap = keyBy(indexResult, '__id');
-
-    return result.map((item) => {
-      const index = Number(indexResultMap[item.__id]?.row_num);
-      if (isNaN(index)) {
-        throw new Error('Index not found');
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2028') {
+        throw new CustomHttpException(`${error.message}`, HttpErrorCode.REQUEST_TIMEOUT, {
+          localization: {
+            i18nKey: 'httpErrors.custom.searchTimeOut',
+          },
+        });
       }
-      return {
-        index,
-        fieldId: item.fieldId,
-        recordId: item.__id,
-      };
-    });
+
+      throw error;
+    }
   }
 
   public async getCalendarDailyCollection(

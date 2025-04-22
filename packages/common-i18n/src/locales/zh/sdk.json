@@ -776,7 +776,8 @@
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
-      "requestTimeout": "当前操作范围过大，请缩小范围重新尝试"
+      "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
+      "searchTimeOut": "搜索超时，请尝试减少搜索范围重试"
     }
   }
 }

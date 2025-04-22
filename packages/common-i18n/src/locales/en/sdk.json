@@ -776,7 +776,8 @@
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
-      "requestTimeout": "This action is too large, please try with a smaller scope."
+      "requestTimeout": "This action is too large, please try with a smaller scope.",
+      "searchTimeOut": "search timeout, please decrease the search scope and try again"
     }
   }
 }

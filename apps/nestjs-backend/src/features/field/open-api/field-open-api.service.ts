@@ -619,7 +619,7 @@ export class FieldOpenApiService {
     });
 
     if (!fieldInstance.isComputed) {
-      // di not async duplicate records
+      // do not async duplicate records
       this.duplicateFieldData(
         sourceTableId,
         newField.id,

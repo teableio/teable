@@ -776,7 +776,8 @@
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori vuoti, per favore riempilo completamente prima di inviare.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori duplicati, per favore riempilo con un valore unico prima di inviare.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" campo non consente associazioni duplicate con lo stesso record",
-      "requestTimeout": "L'azione corrente è troppo grande, per favore riprova con un ambito più piccolo."
+      "requestTimeout": "L'azione corrente è troppo grande, per favore riprova con un ambito più piccolo.",
+      "searchTimeOut": "La ricerca ha scaduto, per favore ridurre l'ambito di ricerca e riprova."
     }
   }
 }
