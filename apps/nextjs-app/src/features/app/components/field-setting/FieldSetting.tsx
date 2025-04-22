@@ -115,7 +115,7 @@ export const FieldSetting = (props: IFieldSetting) => {
     <>
       <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />
       <ConfirmDialog
-        contentClassName="max-w-4xl"
+        contentClassName="max-w-6xl"
         title={t('table:field.editor.previewDependenciesGraph')}
         open={graphVisible}
         onOpenChange={setGraphVisible}
@@ -270,7 +270,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                         <Share2 className="size-4" /> {t('table:field.editor.graph')}
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl">
+                    <DialogContent className="max-w-6xl">
                       <DynamicFieldGraph
                         tableId={table?.id as string}
                         fieldId={props.field?.id}

@@ -451,17 +451,11 @@ export class FieldOpenApiService {
     // 3. stage apply record changes and calculate field
     await this.prismaService.$tx(
       async () => {
-        await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField);
         await this.fieldConvertingService.stageCalculate(tableId, newField, oldField, modifiedOps);
 
         if (supplementChange) {
           const { tableId, newField, oldField } = supplementChange;
           await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
-        }
-
-        // index do not support date cell value type
-        if (newField.cellValueType !== CellValueType.DateTime) {
-          await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
         }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }

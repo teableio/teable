@@ -26,6 +26,7 @@ import {
   type IFieldInstance,
   type IFieldMap,
 } from '../field/model/factory';
+import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 
 interface ITinyField {
   id: string;
@@ -51,6 +52,7 @@ export class GraphService {
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
+    private readonly fieldConvertingService: FieldConvertingService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -168,9 +170,57 @@ export class GraphService {
     return { oldField, newField };
   }
 
+  private async getFullTopoOrdersContext(field: IFieldInstance, directedGraph?: IGraphItem[]) {
+    const oldRefernce: string[] = [field.id];
+    const lookupGraph: IGraphItem[] = [];
+    const selfLookupReference = await this.prismaService.field.findMany({
+      where: {
+        lookupLinkedFieldId: field.id,
+        deletedTime: null,
+      },
+      select: { id: true },
+    });
+    oldRefernce.push(...selfLookupReference.map((f) => f.id));
+    lookupGraph.push(
+      ...selfLookupReference.map((f) => ({ fromFieldId: field.id, toFieldId: f.id }))
+    );
+
+    if (field.type === FieldType.Link && !field.isLookup && field.options.symmetricFieldId) {
+      const suplimentLookupRefernce = await this.prismaService.field.findMany({
+        where: {
+          lookupLinkedFieldId: field.options.symmetricFieldId,
+          deletedTime: null,
+        },
+        select: { id: true },
+      });
+      oldRefernce.push(
+        ...suplimentLookupRefernce.map((field) => field.id),
+        field.options.symmetricFieldId
+      );
+      lookupGraph.push(
+        ...suplimentLookupRefernce.map((f) => ({ fromFieldId: field.id, toFieldId: f.id }))
+      );
+      lookupGraph.push({ fromFieldId: field.id, toFieldId: field.options.symmetricFieldId });
+    }
+
+    const context = await this.fieldCalculationService.getTopoOrdersContext(
+      oldRefernce,
+      directedGraph
+    );
+    return {
+      ...context,
+      allFieldIds: uniq([...context.allFieldIds, ...lookupGraph.map((item) => item.toFieldId)]),
+      directedGraph: context.directedGraph.concat(lookupGraph),
+      fieldMap: {
+        ...context.fieldMap,
+      },
+    };
+  }
+
   @Timing()
   private async getUpdateCalculationContext(newField: IFieldInstance) {
     const fieldId = newField.id;
+
     const newReference = this.fieldSupplementService.getFieldReferenceIds(newField);
 
     const incomingGraph = await this.referenceService.getFieldGraphItems(newReference);
@@ -185,10 +235,7 @@ export class GraphService {
 
     const newDirectedGraph = pruneGraph(fieldId, tempGraph);
 
-    const context = await this.fieldCalculationService.getTopoOrdersContext(
-      [fieldId],
-      newDirectedGraph
-    );
+    const context = await this.getFullTopoOrdersContext(newField, newDirectedGraph);
     const fieldMap = {
       ...context.fieldMap,
       [newField.id]: newField,
@@ -333,7 +380,8 @@ export class GraphService {
 
   @Timing()
   async planField(tableId: string, fieldId: string): Promise<IPlanFieldVo> {
-    const context = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
+    const field = await this.fieldService.getField(tableId, fieldId);
+    const context = await this.getFullTopoOrdersContext(createFieldInstanceByVo(field));
 
     const {
       directedGraph,
@@ -343,7 +391,6 @@ export class GraphService {
       tableId2DbTableName,
       fieldId2TableId,
     } = context;
-    const topoFieldIds = topoOrderWithStart(fieldId, directedGraph);
 
     const graph = await this.generateGraph({
       fieldId,
@@ -356,7 +403,7 @@ export class GraphService {
 
     const updateCellCount = await this.affectedCellCount(
       fieldId,
-      topoFieldIds,
+      allFieldIds,
       fieldMap,
       fieldId2DbTableName
     );

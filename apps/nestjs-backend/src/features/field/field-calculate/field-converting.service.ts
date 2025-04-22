@@ -12,6 +12,7 @@ import type {
   IConvertFieldRo,
 } from '@teable/core';
 import {
+  CellValueType,
   ColorUtils,
   DbFieldType,
   FIELD_VO_PROPERTIES,
@@ -28,8 +29,6 @@ import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
-import { InjectDbProvider } from '../../../db-provider/db.provider';
-import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
@@ -45,6 +44,7 @@ import { formatChangesToOps } from '../../calculation/utils/changes';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
+import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
@@ -72,7 +72,7 @@ export class FieldConvertingService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly collaboratorService: CollaboratorService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly tableIndexService: TableIndexService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -1125,6 +1125,11 @@ export class FieldConvertingService {
         select: { dbTableName: true, name: true },
       });
 
+    // index do not support date cell value type
+    if (newField.cellValueType !== CellValueType.DateTime) {
+      await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
+    }
+
     if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
       return;
     }
@@ -1177,6 +1182,8 @@ export class FieldConvertingService {
       where: { id: tableId },
       select: { dbTableName: true },
     });
+
+    await this.tableIndexService.deleteSearchFieldIndex(tableId, oldField);
 
     const { unique, notNull, dbFieldName } = oldField;
 

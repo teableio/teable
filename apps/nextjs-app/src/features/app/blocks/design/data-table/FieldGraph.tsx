@@ -19,7 +19,7 @@ export const FieldGraph = ({ fieldId }: { fieldId: string }) => {
           {t('table:field.editor.graph')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl">
         <DynamicFieldGraph tableId={table?.id as string} fieldId={fieldId} />
         <DialogFooter>
           <DialogClose asChild>
