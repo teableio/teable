@@ -41,7 +41,7 @@ function getAttachmentService(app: INestApplication) {
   return app.get<AttachmentsService>(AttachmentsService);
 }
 
-describe('OpenAPI BaseController for base import and export (e2e)', () => {
+describe('OpenAPI BaseController for base import (e2e)', () => {
   let app: INestApplication;
   let sourceBaseId: string;
   const spaceId = globalThis.testConfig.spaceId;
