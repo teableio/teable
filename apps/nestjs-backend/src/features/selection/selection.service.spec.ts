@@ -16,10 +16,7 @@ import {
   TIME_ZONE_LIST,
   defaultUserFieldOptions,
   getPermissions,
-  nullsToUndefined,
   Role,
-  DateFormattingPreset,
-  TimeFormatting,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { RangeType } from '@teable/openapi';
@@ -33,7 +30,6 @@ import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
-import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
@@ -198,78 +194,6 @@ describe('selectionService', () => {
 
       // Verify the result
       expect(result.length).toEqual(2);
-    });
-  });
-
-  describe('collectionAttachment', () => {
-    it('should return attachments based on tokens', async () => {
-      const fields: IFieldInstance[] = [
-        createFieldInstanceByVo({
-          id: '1',
-          name: 'attachments',
-          type: FieldType.Attachment,
-          options: {},
-          dbFieldName: 'attachments',
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Json,
-        }),
-      ];
-      const tableData: string[][] = [
-        ['file1.png (token1),file2.png (token2)'],
-        ['file3.png (token3)'],
-      ];
-
-      const mockAttachment: any[] = [
-        {
-          token: 'token1',
-          path: '',
-          size: 1,
-          mimetype: 'image/png',
-          width: null,
-          height: null,
-        },
-        {
-          token: 'token2',
-          path: '',
-          size: 1,
-          mimetype: 'image/png',
-          width: 10,
-          height: 10,
-        },
-        {
-          token: 'token3',
-          path: '',
-          size: 1,
-          mimetype: 'image/png',
-          width: 10,
-          height: 10,
-        },
-      ];
-
-      prismaService.attachments.findMany.mockResolvedValue(mockAttachment);
-
-      const result = await selectionService['collectionAttachment']({
-        tableData,
-        fields,
-      });
-
-      expect(prismaService.attachments.findMany).toHaveBeenCalledWith({
-        where: {
-          token: {
-            in: ['token1', 'token2', 'token3'],
-          },
-        },
-        select: {
-          token: true,
-          size: true,
-          mimetype: true,
-          width: true,
-          height: true,
-          path: true,
-        },
-      });
-      // Assert the result based on the mocked attachments
-      expect(result).toEqual(nullsToUndefined(mockAttachment));
     });
   });
 
@@ -599,7 +523,7 @@ describe('selectionService', () => {
 
       // Mock the required methods from the service
       selectionService['getSelectionCtxByRange'] = vi.fn().mockResolvedValue({ fields, records });
-      selectionService['tableDataToRecords'] = vi.fn().mockResolvedValue([{ fields: {} }]);
+      selectionService['tableDataToRecords'] = vi.fn().mockReturnValue([{ fields: {} }]);
       selectionService['fillCells'] = vi.fn().mockReturnValue(updateRecordsRo);
       recordOpenApiService.updateRecords = vi.fn().mockResolvedValue(null);
 
@@ -976,10 +900,8 @@ describe('selectionService', () => {
       ].map(createFieldInstanceByVo);
 
       // Execute the method
-      const updateRecordsRo = await selectionService['tableDataToRecords']({
-        tableId,
+      const updateRecordsRo = selectionService['tableDataToRecords']({
         tableData,
-        headerFields: undefined,
         fields,
       });
 
@@ -992,60 +914,6 @@ describe('selectionService', () => {
         },
         {
           fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
-        },
-      ]);
-    });
-
-    it('date field with European and US', async () => {
-      const europeanField = {
-        id: 'europeanField',
-        name: 'European Field',
-        type: FieldType.Date,
-        options: {
-          formatting: {
-            date: DateFormattingPreset.European,
-            time: TimeFormatting.Hour24,
-            timeZone: 'utc',
-          },
-        },
-        dbFieldName: 'European Field',
-        cellValueType: CellValueType.DateTime,
-        dbFieldType: DbFieldType.DateTime,
-        columnMeta: {},
-      };
-      const usField = {
-        id: 'usField',
-        name: 'US Field',
-        type: FieldType.Date,
-        options: {
-          formatting: {
-            date: DateFormattingPreset.US,
-            time: TimeFormatting.Hour24,
-            timeZone: 'utc',
-          },
-        },
-        dbFieldName: 'US Field',
-        cellValueType: CellValueType.DateTime,
-        dbFieldType: DbFieldType.DateTime,
-        columnMeta: {},
-      };
-
-      const tableData = [['5/1/2024', '1/5/2024']];
-      const fields = [europeanField, usField].map(createFieldInstanceByVo);
-
-      const updateRecordsRo = await selectionService['tableDataToRecords']({
-        tableId,
-        tableData,
-        headerFields: fields,
-        fields,
-      });
-
-      expect(updateRecordsRo).toEqual([
-        {
-          fields: {
-            europeanField: '2024-01-05T00:00:00.000Z',
-            usField: '2024-01-05T00:00:00.000Z',
-          },
         },
       ]);
     });

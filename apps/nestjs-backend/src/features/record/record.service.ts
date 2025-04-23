@@ -23,6 +23,7 @@ import {
   and,
   CellFormat,
   CellValueType,
+  DbFieldType,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -1631,6 +1632,11 @@ export class RecordService {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
 
+    // only text field support type cast to title
+    if (field.dbFieldType !== DbFieldType.Text) {
+      return [];
+    }
+
     const queryBuilder = this.knex(dbTableName)
       .select({ title: field.dbFieldName, id: '__id' })
       .whereIn(field.dbFieldName, titles);
@@ -1642,20 +1648,29 @@ export class RecordService {
 
   async getRecordsHeadWithIds(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
-    const field = await this.prismaService.txClient().field.findFirst({
+    const fieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { tableId, isPrimary: true, deletedTime: null },
     });
-    if (!field) {
+    if (!fieldRaw) {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
 
+    const field = createFieldInstanceByRaw(fieldRaw);
+
     const queryBuilder = this.knex(dbTableName)
-      .select({ title: field.dbFieldName, id: '__id' })
+      .select({ title: fieldRaw.dbFieldName, id: '__id' })
       .whereIn('__id', recordIds);
 
     const querySql = queryBuilder.toQuery();
 
-    return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; title: unknown }[]>(querySql);
+
+    return result.map((r) => ({
+      id: r.id,
+      title: field.cellValue2String(r.title),
+    }));
   }
 
   async filterRecordIdsByFilter(

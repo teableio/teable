@@ -1,11 +1,14 @@
 import type { IAttachmentCellValue } from '@teable/core';
-import { AttachmentFieldCore } from '@teable/core';
 import type { ICopyVo, IPasteRo } from '@teable/openapi';
 import { RangeType, UploadType } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk/components';
 import { SelectionRegionType } from '@teable/sdk/components';
 import type { Field } from '@teable/sdk/model';
-import { extractTableHeader, serializerHtml } from '@/features/app/utils/clipboard';
+import {
+  extractTableContent,
+  extractHtmlHeader,
+  serializerHtml,
+} from '@/features/app/utils/clipboard';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { getSelectionCell } from './selection';
 
@@ -72,7 +75,7 @@ export const filePasteHandler = async ({
   files: FileList;
   baseId?: string;
   requestPaste: (
-    content: string,
+    content: unknown[][],
     type: RangeType | undefined,
     ranges: IPasteRo['ranges']
   ) => Promise<unknown>;
@@ -87,12 +90,7 @@ export const filePasteHandler = async ({
     const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
     await record.updateCell(field.id, [...oldCellValue, ...attachments]);
   } else {
-    const attachmentsStrings = attachments
-      .map(({ name, token }) => {
-        return AttachmentFieldCore.itemString(name, token);
-      })
-      .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
-    await requestPaste(attachmentsStrings, rangeTypes[selection.type], selection.serialize());
+    await requestPaste([[attachments]], rangeTypes[selection.type], selection.serialize());
   }
 };
 
@@ -100,25 +98,27 @@ export const textPasteHandler = async (
   e: React.ClipboardEvent,
   selection: CombinedSelection,
   requestPaste: (
-    content: string,
+    content: string | unknown[][] | undefined,
     type: RangeType | undefined,
     ranges: IPasteRo['ranges'],
     header: IPasteRo['header']
   ) => Promise<void>
 ) => {
   const hasHtml = e.clipboardData.types.includes(ClipboardTypes.html);
+  const html = hasHtml ? e.clipboardData.getData(ClipboardTypes.html) : '';
+  const header = extractHtmlHeader(html);
   const text = e.clipboardData.types.includes(ClipboardTypes.text)
     ? e.clipboardData.getData(ClipboardTypes.text)
     : '';
-  const html = hasHtml ? e.clipboardData.getData(ClipboardTypes.html) : undefined;
-  const header = extractTableHeader(html);
+
+  const cellValues = extractTableContent(html);
 
   if (header.error) {
     throw new Error(header.error);
   }
 
   await requestPaste(
-    hasHtml ? text : text.trim(),
+    hasHtml ? cellValues : text.trim(),
     rangeTypes[selection.type],
     selection.serialize(),
     header.result

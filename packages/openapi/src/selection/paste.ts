@@ -8,10 +8,13 @@ import { cellSchema, rangesRoSchema } from './range';
 export const PASTE_URL = '/table/{tableId}/selection/paste';
 
 export const pasteRoSchema = rangesRoSchema.extend({
-  content: z.string().openapi({
-    description: 'Content to paste',
-    example: 'John\tDoe\tjohn.doe@example.com',
-  }),
+  content: z
+    .string()
+    .or(z.array(z.array(z.unknown())))
+    .openapi({
+      description: 'Content to paste',
+      example: 'John\tDoe\tjohn.doe@example.com',
+    }),
   header: z.array(fieldVoSchema).optional().openapi({
     description: 'Table header for paste operation',
     example: [],
