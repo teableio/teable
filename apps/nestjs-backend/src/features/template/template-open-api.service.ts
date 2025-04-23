@@ -16,14 +16,14 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
-import { BaseService } from '../base/base.service';
+import { BaseDuplicateService } from '../base/base-duplicate.service';
 
 @Injectable()
 export class TemplateOpenApiService {
   private logger = new Logger(TemplateOpenApiService.name);
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly baseService: BaseService,
+    private readonly baseDuplicateService: BaseDuplicateService,
     private readonly cls: ClsService<IClsStore>,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -180,12 +180,16 @@ export class TemplateOpenApiService {
 
     return await this.prismaService.$tx(
       async (prisma) => {
-        const res = await this.baseService.duplicateBaseForTemplate({
-          fromBaseId: templateRaw.baseId!,
-          spaceId: templateSpaceId.id,
-          withRecords: true,
-          name: templateRaw?.name || 'template snapshot',
-        });
+        // duplicate a base for template snapshot, not allow cross base field relative, all cross base link field will be duplicated as single text fields
+        const { id, spaceId, name } = await this.baseDuplicateService.duplicateBase(
+          {
+            fromBaseId: templateRaw.baseId!,
+            spaceId: templateSpaceId.id,
+            withRecords: true,
+            name: templateRaw?.name || 'template snapshot',
+          },
+          false
+        );
 
         if (templateRaw.snapshot) {
           // delete previous base
@@ -202,10 +206,10 @@ export class TemplateOpenApiService {
           where: { id: templateId },
           data: {
             snapshot: JSON.stringify({
-              baseId: res.id,
+              baseId: id,
               snapshotTime: new Date().toISOString(),
-              spaceId: res.spaceId,
-              name: res.name,
+              spaceId,
+              name,
             }),
           },
         });

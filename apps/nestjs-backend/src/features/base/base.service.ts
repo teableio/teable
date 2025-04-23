@@ -306,11 +306,6 @@ export class BaseService {
     );
   }
 
-  // duplicate a base for template snapshot, not allow cross base field relative, all cross base link field will be duplicated as single text fields
-  async duplicateBaseForTemplate(duplicateBaseRo: IDuplicateBaseRo) {
-    return await this.baseDuplicateService.duplicateBase(duplicateBaseRo, false);
-  }
-
   private async checkBaseUpdatePermission(baseId: string) {
     // First check if the user has the base read permission
     await this.permissionService.validPermissions(baseId, ['base|update']);
