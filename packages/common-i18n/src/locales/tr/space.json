@@ -41,7 +41,8 @@
     "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
   },
   "tip": {
-    "delete": "<0/> silmek istediğinizden emin misiniz?"
+    "delete": "<0/> silmek istediğinizden emin misiniz?",
+    "exportTips": "Veritabanı dışa aktarıldığında, tüm veriler, kayıtlar ve ekler dahil olmak üzere dışa aktarılır. Dışa aktarma işlemi arka planda gerçekleşecek ve sonucu bildirim çubuğunda göreceksiniz. Not:\n1. Tüm veritabanları arası bağlantı alanları tek satırlık metin alanlarına dönüştürülecek.\n2. Gelişmiş izinlere sahip personel ayarları temizlenecek, ancak yapılandırmalar silinmeyecek."
   },
   "sharedBase": {
     "title": "Paylaşılan veritabanları",

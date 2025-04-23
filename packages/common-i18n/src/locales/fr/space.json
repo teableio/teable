@@ -41,7 +41,8 @@
     "empty": "Vos bases et espaces favoris apparaîtront ici"
   },
   "tip": {
-    "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?"
+    "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?",
+    "exportTips": "L’exportation de la base de données exportera toutes les données, y compris tous les enregistrements et pièces jointes. Le processus d’exportation s’effectuera en arrière-plan et le résultat sera notifié dans la barre de notifications. Remarque :\n1. Tous les champs liés entre bases de données seront convertis en champs de texte sur une seule ligne.\n2. Les paramètres de personnel ayant des autorisations avancées seront effacés, mais les configurations resteront."
   },
   "integration": {
     "title": "Intégrations",
