@@ -51,6 +51,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
         closeable={closeable}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
         {(title || description) && (
