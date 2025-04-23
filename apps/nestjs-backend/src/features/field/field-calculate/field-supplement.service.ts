@@ -484,8 +484,8 @@ export class FieldSupplementService {
 
     return {
       ...sourceOptions,
-      ...(formatting ? { formatting } : {}),
-      ...(showAs ? { showAs } : {}),
+      formatting,
+      showAs,
     };
   }
 
