@@ -232,7 +232,7 @@
       "calculating": "Berechne...",
       "doSaveChanges": "Möchten Sie die vorgenommenen Änderungen speichern?",
       "linkFieldToLookup": "Verknüpftes Datensatzfeld, das für die Suche verwendet werden soll",
-      "lookupToTable": "{{tableName}} Feld, das Sie nachschlagen möchten",
+      "lookupToTable": "Feld aus {{tableName}} nachschlagen",
       "selectField": "Feld auswählen...",
       "linkTable": "Tabelle verlinken",
       "linkBase": "Base verlinken",

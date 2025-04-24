@@ -55,7 +55,6 @@
       "guideSyntax": "Sintaxis",
       "guideExample": "Ejemplo",
       "helperExample": "Ejemplo:",
-      "fieldValue": "Devuelve el valor a las celdas del campo __var_0__.",
       "placeholder": "Ingrese una expresión",
       "placeholderForAI": "Ingrese una expresión o presione // para generar con AI"
     },
@@ -74,9 +73,7 @@
       "searchPlaceholder": "Encuentra usuarios por nombre",
       "notify": "Notifique a los usuarios una vez que sean seleccionados"
     },
-    "select": {
-      "addOption": "Agregue una opción '__var_0__'"
-    }
+    "select": {}
   },
   "filter": {
     "label": "Filtro",
@@ -84,7 +81,6 @@
     "displayLabel_other": "Filtrar por {{fieldName}} y {{count}} otros campos",
     "addCondition": "Agregar condición",
     "addConditionGroup": "Agregar grupo de condición",
-    "nestedLimitTip": "Las condiciones del filtro solo pueden estar anidadas __var_0__ niveles de profundidad",
     "linkInputPlaceholder": "Ingrese un valor",
     "groupDescription": "Cualquiera de los siguientes es cierto ...",
     "currentUser": "Yo (usuario actual)",
@@ -537,9 +533,6 @@
   },
   "hidden": {
     "label": "Campos ocultos",
-    "configLabel_one": "__Var_0__ campo oculto",
-    "configLabel_other": "__Var_0__ Campos ocultos",
-    "configLabel_other_visible": "__Var_0__ campos visibles",
     "showAll": "Mostrar todo",
     "hideAll": "Esconderse",
     "primaryKey": "Campo primario: identifica registros\n"
@@ -557,14 +550,10 @@
       "before": "Antes",
       "after": "Después",
       "viewRecord": "Ver registro"
-    },
-    "showHiddenFields": "Mostrar __var_0__ campos ocultos",
-    "hideHiddenFields": "Ocultar __var_0__ campos ocultos"
+    }
   },
   "sort": {
     "label": "Clasificar",
-    "displayLabel_one": "Ordenar por __var_0__ campo",
-    "displayLabel_other": "Ordenar por __var_0__ campos",
     "setTips": "Ordenar por",
     "addButton": "Agregar otro tipo",
     "autoSort": "Ordenar los registros automáticamente",
@@ -573,8 +562,6 @@
   },
   "group": {
     "label": "Grupo",
-    "displayLabel_one": "Grupo por __var_0__ campos",
-    "displayLabel_other": "Grupo por __var_0__ campos",
     "setTips": "Agrupar",
     "addButton": "Agregar subgrupo"
   },
@@ -675,7 +662,6 @@
     "add": "Agregar",
     "error": {
       "invalidCol": "Columna no válida, vuelva a seleccionar",
-      "invalidCols": "Columnas no válidas: __var_0__",
       "invalidTable": "Mesa no válida, vuelva a seleccionar",
       "requiredSelect": "Debes seleccionar uno"
     },
@@ -722,13 +708,11 @@
     "placeholder": "Deja un comentario ...",
     "emptyComment": "Comience una conversación",
     "deletedComment": "Comentario eliminado",
-    "imageSizeLimit": "El tamaño de la imagen no podría ser mayor que __var_0__",
     "tip": {
       "editing": "Edición...",
       "edited": "(Editado)",
       "onNotify": "Solo ser notificado comentario en relación con usted si apagas",
       "offNotify": "Todos activos serán notificados si se enciende",
-      "reactionUserSuffix": "reaccionó con __var_0__ emoji",
       "me": "Tú",
       "connection": "y"
     },

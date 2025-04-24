@@ -232,7 +232,7 @@
       "calculating": "Calculating...",
       "doSaveChanges": "Do you want to save the changes you made?",
       "linkFieldToLookup": "Linked record field to use for lookup",
-      "lookupToTable": "{{tableName}} field you want to look up",
+      "lookupToTable": "Field from {{tableName}} you want to look up",
       "selectField": "Select a field...",
       "linkTable": "Link table",
       "linkBase": "Link base",

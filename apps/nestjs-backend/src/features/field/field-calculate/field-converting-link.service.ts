@@ -287,6 +287,9 @@ export class FieldConvertingLinkService {
     ) {
       return this.oneWayToTwoWay(newField);
     }
+    if (newField.options.foreignTableId === oldField.options.foreignTableId) {
+      return this.convertLinkOnlyRelationship(tableId, newField, oldField);
+    }
     return this.convertLink(tableId, newField, oldField);
   }
 
@@ -314,10 +317,11 @@ export class FieldConvertingLinkService {
     }, {});
 
     const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
-    const checkSet = new Set<string>();
+    const globalCheckSet = new Set<string>();
     // eslint-disable-next-line sonarjs/cognitive-complexity
     records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
+      const recordCheckSet = new Set<string>();
       if (oldCellValue == null) {
         return;
       }
@@ -334,21 +338,98 @@ export class FieldConvertingLinkService {
 
       const newCellValue: ILinkCellValue[] = [];
       function pushNewCellValue(linkCell: ILinkCellValue) {
+        // not allow link to same recordId in one record
+        if (recordCheckSet.has(linkCell.id)) return;
+
         // OneMany and OneOne relationship only allow link to one same recordId
         if (
           newField.options.relationship === Relationship.OneMany ||
           newField.options.relationship === Relationship.OneOne
         ) {
-          if (checkSet.has(linkCell.id)) return;
-          checkSet.add(linkCell.id);
+          if (globalCheckSet.has(linkCell.id)) return;
+          globalCheckSet.add(linkCell.id);
+          recordCheckSet.add(linkCell.id);
           return newCellValue.push(linkCell);
         }
+        recordCheckSet.add(linkCell.id);
         return newCellValue.push(linkCell);
       }
 
       newCellValueTitle.forEach((title) => {
         if (primaryNameToIdMap[title]) {
           pushNewCellValue({ id: primaryNameToIdMap[title], title });
+        }
+      });
+
+      if (!recordOpsMap[tableId][record.id]) {
+        recordOpsMap[tableId][record.id] = [];
+      }
+      recordOpsMap[tableId][record.id].push(
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId,
+          newCellValue: newField.isMultipleCellValue ? newCellValue : newCellValue[0],
+          oldCellValue,
+        })
+      );
+    });
+
+    return recordOpsMap;
+  }
+
+  async convertLinkOnlyRelationship(
+    tableId: string,
+    newField: LinkFieldDto,
+    oldField: LinkFieldDto
+  ) {
+    const fieldId = newField.id;
+    const foreignTableId = newField.options.foreignTableId;
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: newField.options.lookupFieldId, deletedTime: null },
+    });
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
+
+    const records = await this.getRecords(tableId, oldField);
+    // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
+    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
+
+    const idToTitleMap = foreignRecords.reduce<{ [id: string]: string }>((pre, record) => {
+      const str = lookupField.cellValue2String(record.fields[lookupField.id]);
+      pre[record.id] = str;
+      return pre;
+    }, {});
+
+    const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
+    const globalCheckSet = new Set<string>();
+    records.forEach((record) => {
+      const recordCheckSet = new Set<string>();
+      const oldCellValue = record.fields[fieldId];
+      if (oldCellValue == null) {
+        return;
+      }
+      const oldLinkLinks = [oldCellValue].flat() as ILinkCellValue[];
+      const newCellValue: ILinkCellValue[] = [];
+      // eslint-disable-next-line sonarjs/no-identical-functions
+      function pushNewCellValue(linkCell: ILinkCellValue) {
+        // not allow link to same recordId in one record
+        if (recordCheckSet.has(linkCell.id)) return;
+
+        // OneMany and OneOne relationship only allow link to one same recordId
+        if (
+          newField.options.relationship === Relationship.OneMany ||
+          newField.options.relationship === Relationship.OneOne
+        ) {
+          if (globalCheckSet.has(linkCell.id)) return;
+          globalCheckSet.add(linkCell.id);
+          recordCheckSet.add(linkCell.id);
+          return newCellValue.push(linkCell);
+        }
+        recordCheckSet.add(linkCell.id);
+        return newCellValue.push(linkCell);
+      }
+
+      oldLinkLinks.forEach((link) => {
+        if (idToTitleMap[link.id]) {
+          pushNewCellValue(link);
         }
       });
 

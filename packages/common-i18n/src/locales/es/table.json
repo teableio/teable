@@ -137,11 +137,8 @@
         "title": "Cálculo",
         "formula": "Fórmula"
       },
-      "lookup": {
-        "title": "__Var_0__ (de __var_1__)"
-      },
+      "lookup": {},
       "rollup": {
-        "title": "__Var_0__ Rollup (de __var_1__)",
         "rollup": "Acurrucado",
         "selectAnRollupFunction": "Seleccione una función enrollable",
         "func": {
@@ -222,7 +219,6 @@
       "linkFromExternalBase": "Enlace desde la base externa",
       "inSelfLink": "en retroceso",
       "betweenTwoTables": "Entre dos mesas",
-      "linkTipMessage": "Consejos: esta configuración representa un <br> </br> <b> __ var_0 __ </b> relación <span> __ var_1 __ </span>",
       "style": "Estilo",
       "maximum": "Máximo",
       "addOption": "Añadir opción",
@@ -232,7 +228,7 @@
       "calculating": "Calculador...",
       "doSaveChanges": "¿Quieres guardar los cambios que hiciste?",
       "linkFieldToLookup": "Campo de registro vinculado para usar para la búsqueda",
-      "lookupToTable": "__Var_0__ campo que desea buscar",
+      "lookupToTable": "Campo de {{tableName}} que desea buscar",
       "selectField": "Seleccione un campo ...",
       "linkTable": "Tabla de enlace",
       "linkBase": "Base de enlace",
@@ -328,7 +324,6 @@
     "rename": "Renombrar",
     "design": "Diseñar",
     "tableRecordHistory": "Historial de registros de tabla",
-    "deleteConfirm": "¿Estás seguro de que quieres eliminar \"__var_0__\"?",
     "dbTableName": "Nombre de la tabla en la base de datos física",
     "schemaName": "Nombre del esquema en la base de datos física",
     "baseInfo": "Información base",
@@ -371,13 +366,11 @@
       "fixIssues": "Solucionar problemas"
     },
     "index": {
-      "description": "Los índices pueden mejorar significativamente el rendimiento de la búsqueda, especialmente cuando se trata de grandes cantidades de datos (más de __var_0__ filas). ",
       "repair": "reparar",
       "repairTip": "Anomalías de índice detectados, lo que puede causar la degradación del rendimiento de la búsqueda. ",
       "enableIndexTip": "Estás creando un índice. ",
       "globalSearchTip_infinity": "Busque todos los campos, excepto la fecha y el campo de la casilla de verificación",
       "globalSearchTip_limited": "Busque todos los campos, excepto la fecha y el campo de la casilla de verificación, máximo {{count}} campos",
-      "autoIndexTip": "Su mesa ha excedido las filas __var_0__. ",
       "enableIndex": "permitir",
       "keepAsIs": "guarda"
     }
@@ -512,8 +505,7 @@
       "notAdd": "No agregar",
       "addDateField": "Agregar campos de fecha",
       "content": "Cree un horario de vista de calendario, y la tabla debe tener dos campos de fecha: fecha de inicio y fecha de finalización"
-    },
-    "moreLinkText": "Mostrar todos los registros __var_0__"
+    }
   },
   "menu": {
     "insertRecordAbove": "Insertar <input /> registro arriba",
@@ -537,7 +529,6 @@
     "title": "Conexiones",
     "description": "Puede acceder a la base de datos directamente a través de la conexión de la base de datos, incluidas todas las tablas bajo la base actual",
     "noPermission": "No tiene permiso para acceder a la base de datos",
-    "connectionCountTip": "El número máximo de conexiones de bases de datos es <b> __ var_0 __ </b> y las conexiones actuales son <b> __ var_1 __ </b>",
     "createFailed": "Asegúrese de que la variable de entorno public_database_proxy esté configurada correctamente",
     "helpLink": "https://help.table.io/en/deploy/database-connection"
   },
@@ -566,10 +557,7 @@
       "description": "Esta vista está rota. "
     },
     "addPluginView": "Agregar vista de complemento",
-    "search": {
-      "field_one": "__Var_0__",
-      "field_other": "Campos (__ var_0__)"
-    },
+    "search": {},
     "locked": {
       "tip": "Esta vista está bloqueada. "
     }
@@ -577,8 +565,7 @@
   "lastModifiedTime": "Último tiempo modificado",
   "lastModify": "Última modificación:",
   "pasteNewRecords": {
-    "title": "¿Quieres agregar múltiples registros?",
-    "description": "Los registros __var_0__ se agregarán a la tabla."
+    "title": "¿Quieres agregar múltiples registros?"
   },
   "tableTrash": {
     "title": "Papelera de tablas",

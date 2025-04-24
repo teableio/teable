@@ -132,12 +132,8 @@
     },
     "integration": {
       "title": "Integración",
-      "description": "Ha otorgado el acceso a su cuenta __var_0__ a su cuenta.",
-      "lastUsed": "La última vez que se usa en __var_0__",
       "revoke": "Revocar",
-      "owner": "Propietario de __var_0__",
       "revokeTitle": "¿Estás seguro de que quieres revocar la autorización?",
-      "revokeDesc": "__Var_0__ ya no podrá acceder a la API de la tábora. ",
       "scopeTitle": "Permisos",
       "scopeDesc": "Esta aplicación podrá obtener los siguientes ámbitos:"
     }
@@ -173,7 +169,6 @@
   "name": "Nombre",
   "description": "Descripción",
   "required": "Requerido",
-  "atLeastOne": "Al menos reserva un __var_0__",
   "guide": {
     "prev": "Anterior",
     "next": "Siguiente",
@@ -200,9 +195,6 @@
   "poweredBy": "Alimentado por <0> </0>",
   "invite": {
     "dialog": {
-      "title": "__Var_0__ compartir espacios",
-      "desc_one": "Este espacio tiene <b> __ var_0__ colaborador </b>. ",
-      "desc_other": "Este espacio tiene <b> __ var_0__ colaboradores </b>. ",
       "tabEmail": "Invitar por correo electrónico",
       "emailPlaceholder": "Invitar a más colaboradores por correo electrónico",
       "tabLink": "Invitar por enlace",
@@ -211,17 +203,12 @@
       "linkSend": "Crear enlace",
       "spaceTitle": "Colaboradores espaciales",
       "collaboratorSearchPlaceholder": "Encuentra un colaborador espacial por nombre o correo electrónico",
-      "collaboratorJoin": "unido __var_0__",
       "collaboratorRemove": "Eliminar el colaborador",
       "linkTitle": "Invitar enlaces",
-      "linkCreatedTime": "creado __var_0__",
       "linkCopySuccess": "Enlace copiado",
       "linkRemove": "Eliminar enlace"
     },
     "base": {
-      "title": "Compartir __var_0__",
-      "desc_one": "Esta base se comparte con el colaborador __var_0__.",
-      "desc_other": "Esta base se comparte con los colaboradores __var_0__.",
       "baseTitle": "Colaboradores base",
       "collaboratorSearchPlaceholder": "Encuentre un colaborador base por nombre o correo electrónico"
     },
@@ -241,7 +228,6 @@
     "overLimitsDescription": "Tu suscripción actual ha excedido su límite de uso. Por favor, actualiza tu plan para continuar usando esta función sin interrupciones.",
     "userLimitExceededDescription": "La instancia actual ha alcanzado el número máximo de usuarios permitidos por tu licencia. Por favor, desactiva algunos usuarios o actualiza la licencia.",
     "unavailableInPlanTips": "El plan de suscripción actual no admite esta función",
-    "levelTips": "Este espacio está actualmente en el plan __var_0__",
     "spaceSubscriptionModal": {
       "title": "Plan de suscripción de actualización de Space",
       "description": "Solo puede actualizar los espacios de trabajo donde es un propietario"
@@ -312,11 +298,8 @@
     "title": "Notificaciones",
     "unread": "No leído",
     "read": "Leer",
-    "markAs": "Marque esta notificación como __var_0__",
     "markAllAsRead": "Marcar todo como leído",
-    "noUnread": "No __var_0__ notificaciones",
     "changeSetting": "Cambiar la configuración de notificación de página",
-    "new": "nuevo __var_0__",
     "showMore": "Mostrar más"
   },
   "role": {

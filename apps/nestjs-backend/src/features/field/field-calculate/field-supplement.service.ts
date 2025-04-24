@@ -1018,11 +1018,11 @@ export class FieldSupplementService {
     }
   }
 
-  private zodParse(schema: z.Schema, value: unknown) {
+  private zodParse(name: string, schema: z.Schema, value: unknown) {
     const result = (schema as z.Schema).safeParse(value);
 
     if (!result.success) {
-      throw new BadRequestException(fromZodError(result.error));
+      throw new BadRequestException(`${name} is invalid: ${fromZodError(result.error)}`);
     }
   }
 
@@ -1034,12 +1034,12 @@ export class FieldSupplementService {
     const formatting = 'formatting' in field.options ? field.options.formatting : undefined;
 
     if (showAs) {
-      this.zodParse(showAsSchema, showAs);
+      this.zodParse('showAs', showAsSchema, showAs);
     }
 
     if (formatting) {
       const formattingSchema = getFormattingSchema(cellValueType);
-      this.zodParse(formattingSchema, formatting);
+      this.zodParse('formatting', formattingSchema, formatting);
     }
   }
 
@@ -1049,7 +1049,7 @@ export class FieldSupplementService {
     const aiConfigSchema = getAiConfigSchema(type);
 
     if (aiConfig) {
-      this.zodParse(aiConfigSchema, aiConfig);
+      this.zodParse('aiConfig', aiConfigSchema, aiConfig);
     }
   }
 

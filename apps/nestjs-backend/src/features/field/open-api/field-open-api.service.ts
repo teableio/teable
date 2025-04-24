@@ -27,7 +27,6 @@ import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
-import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -69,7 +68,6 @@ export class FieldOpenApiService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     private readonly tableIndexService: TableIndexService,
-    private readonly shareDbService: ShareDbService,
     private readonly recordOpenApiService: RecordOpenApiService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
