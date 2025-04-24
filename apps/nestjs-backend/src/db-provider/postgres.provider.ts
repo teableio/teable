@@ -137,12 +137,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       .map((item) => item.sql);
   }
 
-  dropUnique(dbTableName: string, constraintName: string): string {
-    return this.knex
-      .raw('ALTER TABLE ?? DROP CONSTRAINT IF EXISTS ??', [dbTableName, constraintName])
-      .toQuery();
-  }
-
   // postgres drop index with column automatically
   dropColumnAndIndex(tableName: string, columnName: string, _indexName: string): string[] {
     return this.dropColumn(tableName, columnName);

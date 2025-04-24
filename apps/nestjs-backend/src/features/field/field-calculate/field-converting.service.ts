@@ -1186,7 +1186,8 @@ export class FieldConvertingService {
 
     const matchedIndexes = await this.fieldService.findUniqueIndexesForField(
       dbTableName,
-      dbFieldName
+      dbFieldName,
+      oldField.id
     );
 
     const fieldValidationQuery = this.knex.schema
@@ -1203,7 +1204,7 @@ export class FieldConvertingService {
       .map(({ sql }) => sql);
 
     for (const sql of executeSqls) {
-      await this.prismaService.$executeRawUnsafe(sql);
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
   }
 

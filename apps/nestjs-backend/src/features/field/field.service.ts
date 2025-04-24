@@ -373,13 +373,17 @@ export class FieldService implements IReadonlyAdapterService {
     });
   }
 
-  async findUniqueIndexesForField(dbTableName: string, dbFieldName: string) {
+  async findUniqueIndexesForField(dbTableName: string, dbFieldName: string, fieldId: string) {
     const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
     const indexes = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ name: string }[]>(indexesQuery);
     return indexes
-      .filter((index) => index.name.includes(`${dbFieldName.toLowerCase()}_unique`))
+      .filter(
+        (index) =>
+          index.name.includes(`${dbFieldName.toLowerCase()}_unique`) ||
+          index.name.includes(`${fieldId.toLowerCase()}_unique`)
+      )
       .map((index) => index.name);
   }
 
@@ -406,13 +410,13 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     const dbTableName = table.dbTableName;
-    const matchedIndexes = await this.findUniqueIndexesForField(dbTableName, dbFieldName);
+    const matchedIndexes = await this.findUniqueIndexesForField(dbTableName, dbFieldName, fieldId);
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (key === 'unique') {
           newValue
-            ? table.unique(dbFieldName, {
+            ? table.unique([dbFieldName], {
                 indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
               })
             : matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
@@ -829,10 +833,5 @@ export class FieldService implements IReadonlyAdapterService {
     const uniqueKeySuffix = `___${fieldId}_unique`;
     const uniqueKeyPrefix = `${schema}_${tableName}`.slice(0, 63 - uniqueKeySuffix.length);
     return `${uniqueKeyPrefix.toLowerCase()}${uniqueKeySuffix.toLowerCase()}`;
-  }
-
-  getOldFieldUniqueKeyName(dbTableName: string, dbFieldName: string) {
-    const [schema, tableName] = this.dbProvider.splitTableName(dbTableName);
-    return `${schema}_${tableName}___${dbFieldName}_unique`.toLowerCase();
   }
 }

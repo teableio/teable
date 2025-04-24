@@ -120,11 +120,6 @@ export class SqliteProvider implements IDbProvider {
     return [this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()];
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  dropUnique(dbTableName: string, constraintName: string): string {
-    return `/* no operation */`;
-  }
-
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[] {
     return [
       this.knex.raw(`DROP INDEX IF EXISTS ??`, [indexName]).toQuery(),
