@@ -92,6 +92,7 @@
   },
   "dependencies": {
     "@antv/g6": "4.8.24",
+    "@ai-sdk/react": "1.2.5",
     "@asteasolutions/zod-to-openapi": "6.4.0",
     "@belgattitude/http-exception": "1.5.0",
     "@codemirror/autocomplete": "6.15.0",

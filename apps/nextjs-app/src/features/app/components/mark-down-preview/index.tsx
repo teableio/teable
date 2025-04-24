@@ -1,17 +1,20 @@
 import { cn } from '@teable/ui-lib/shadcn';
+import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 
-export const MarkdownPreview = (props: { children?: string; className?: string }) => {
+export const MarkdownPreview = (props: {
+  children?: string;
+  className?: string;
+  components?: Components;
+}) => {
   return (
     <Markdown
-      className={cn(
-        'markdown-body !bg-background px-3 py-2 !text-sm !text-foreground',
-        props.className
-      )}
+      className={cn('markdown-body px-3 py-2', props.className)}
       rehypePlugins={[rehypeRaw]}
       remarkPlugins={[remarkGfm]}
+      components={props.components}
     >
       {props.children}
     </Markdown>

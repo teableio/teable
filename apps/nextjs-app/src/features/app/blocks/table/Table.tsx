@@ -22,6 +22,7 @@ import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { ChatPanel } from '../../components/ai-chat/panel/ChatPanel';
 import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
 import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
 import { useBrand } from '../../hooks/useBrand';
@@ -118,6 +119,7 @@ export const Table: React.FC<ITableProps> = ({
               </div>
               <PluginPanel tableId={tableId} />
               <PluginContextMenu tableId={tableId} baseId={baseId} />
+              <ChatPanel />
             </div>
           </PersonalViewProxy>
         </ViewProvider>

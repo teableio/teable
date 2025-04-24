@@ -639,5 +639,12 @@
       "deniedRead": "You don't have permission to view this cell",
       "deniedUpdate": "You don't have permission to update this cell"
     }
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Get table fields",
+      "getTablesMeta": "Get tables meta",
+      "sqlQuery": "Execute SQL query"
+    }
   }
 }

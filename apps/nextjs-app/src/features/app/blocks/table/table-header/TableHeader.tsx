@@ -30,10 +30,12 @@ import {
   SheetHeader,
   SheetTrigger,
 } from '@teable/ui-lib/shadcn';
+import { BotIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
+import { useChatPanelStore } from '@/features/app/components/ai-chat/panel/useChatPanelStore';
 import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
 import { tableConfig } from '@/features/i18n/table.config';
 import { usePluginPanelStorage } from '../../../components/plugin-panel/hooks/usePluginPanelStorage';
@@ -41,7 +43,6 @@ import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
-
 import { useLockedViewTipStore } from '../store';
 import { AddView } from './AddView';
 import { Collaborators } from './Collaborators';
@@ -66,7 +67,8 @@ const RightList = ({
 
   const [isHistoryDialogOpen, setHistoryDialogOpen] = useState(false);
   const [isTrashDialogOpen, setTrashDialogOpen] = useState(false);
-  const { toggleVisible } = usePluginPanelStorage(tableId!);
+  const { toggleVisible: togglePluginPanel } = usePluginPanelStorage(tableId!);
+  const { toggleVisible: toggleChatPanel } = useChatPanelStore();
 
   const onRecordClick = (recordId: string) => {
     router.push(
@@ -124,9 +126,17 @@ const RightList = ({
           variant="ghost"
           size="xs"
           className={cn('flex', buttonClassName)}
-          onClick={toggleVisible}
+          onClick={togglePluginPanel}
         >
           <Puzzle className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          className={cn('flex', buttonClassName)}
+          onClick={toggleChatPanel}
+        >
+          <BotIcon className="size-4" />
         </Button>
         <Button asChild variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
           <a href={t('help.mainLink')} title={t('help.title')} target="_blank" rel="noreferrer">

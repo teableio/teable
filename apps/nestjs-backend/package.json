@@ -211,6 +211,7 @@
     "pause": "0.1.0",
     "pino-http": "9.0.0",
     "pino-pretty": "11.0.0",
+    "pg": "8.11.5",
     "qwen-ai-provider": "0.1.0",
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",

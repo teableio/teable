@@ -639,5 +639,12 @@
       "deniedRead": "你无权限查看单元格",
       "deniedUpdate": "你无权限更新单元格"
     }
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "获取表格字段",
+      "getTablesMeta": "获取表格元数据",
+      "sqlQuery": "执行 SQL 查询"
+    }
   }
 }
