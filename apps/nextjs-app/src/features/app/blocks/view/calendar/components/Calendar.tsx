@@ -260,21 +260,40 @@ export const Calendar = (props: ICalendarProps) => {
         const dayEl = element.closest('.fc-day') as HTMLElement;
         const date = dayEl?.dataset.date;
         if (date && countMap[date]) {
-          element.textContent = t('table:calendar.moreLinkText', { count: countMap[date] });
+          const newText = t('table:calendar.moreLinkText', { count: countMap[date] });
+          if (element.textContent !== newText) {
+            element.textContent = newText;
+          }
         }
       });
     };
 
-    updateMoreLinkText();
+    const calendarContainer = containerRef.current;
 
-    const observer = new MutationObserver(updateMoreLinkText);
-    observer.observe(document.body, {
+    if (!calendarContainer) return;
+
+    const observer = new MutationObserver((mutations) => {
+      const relevantMutations = mutations.filter((mutation) =>
+        Array.from(mutation.addedNodes).some(
+          (node) =>
+            node instanceof HTMLElement &&
+            (node.classList.contains(MORE_LINK_TEXT_CLASS_NAME) ||
+              node.querySelector(`.${MORE_LINK_TEXT_CLASS_NAME}`))
+        )
+      );
+
+      if (relevantMutations.length > 0) {
+        updateMoreLinkText();
+      }
+    });
+
+    observer.observe(calendarContainer, {
       subtree: true,
       childList: true,
     });
 
     return () => observer.disconnect();
-  }, [countMap, t]);
+  }, [countMap, t, containerRef]);
 
   const onEventDidMount = (info: EventMountArg) => {
     const element = info.el as HTMLElement;
