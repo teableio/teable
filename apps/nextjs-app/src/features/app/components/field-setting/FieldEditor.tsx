@@ -65,8 +65,10 @@ export const FieldEditor = (props: {
       });
     }
 
-    let options: IFieldOptionsRo | undefined = getFieldStatic(type, false, false)
-      .defaultOptions as IFieldOptionsRo;
+    let options: IFieldOptionsRo | undefined = getFieldStatic(type, {
+      isLookup: false,
+      hasAiConfig: false,
+    }).defaultOptions as IFieldOptionsRo;
 
     if (
       [field.type, type].every((t) =>

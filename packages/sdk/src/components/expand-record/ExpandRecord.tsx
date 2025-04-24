@@ -63,7 +63,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const defaultViewId = views?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
   const baseId = useBaseId();
-  const allFields = useFields({ withHidden: true, withDenied: true });
+  const allFields = useFields({ withHidden: true });
   const showFields = useFields();
   const record = useRecord(recordId, serverData);
   const isTouchDevice = useIsTouchDevice();

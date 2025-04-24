@@ -9,6 +9,14 @@ export abstract class Field extends FieldCore {
 
   protected doc!: Doc<IFieldVo>;
 
+  get canReadFieldRecord() {
+    return this.recordRead !== false;
+  }
+
+  get canCreateFieldRecord() {
+    return this.recordCreate !== false;
+  }
+
   async create(fieldRo: IFieldRo) {
     return createField(this.tableId, fieldRo);
   }

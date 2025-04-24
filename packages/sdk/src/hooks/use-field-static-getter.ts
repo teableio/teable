@@ -22,6 +22,7 @@ import {
   User as UserIcon,
   UserPlus as CreatedByIcon,
   UserEdit as LastModifiedByIcon,
+  EyeOff,
 } from '@teable/icons';
 
 import { useCallback } from 'react';
@@ -56,11 +57,22 @@ export const useFieldStaticGetter = () => {
   return useCallback(
     (
       type: FieldType,
-      isLookup: boolean | undefined,
-      hasAiConfig: boolean | undefined
+      config: {
+        isLookup: boolean | undefined;
+        hasAiConfig: boolean | undefined;
+        deniedReadRecord?: boolean;
+      } = {
+        isLookup: undefined,
+        hasAiConfig: undefined,
+      }
       // eslint-disable-next-line sonarjs/cognitive-complexity
     ): IFieldStatic => {
+      const { isLookup, hasAiConfig, deniedReadRecord } = config;
+
       const getIcon = (icon: React.FC<any>) => {
+        if (deniedReadRecord)
+          return (props: React.SVGProps<SVGSVGElement>) =>
+            EyeOff({ ...props, color: 'hsl(var(--destructive))' });
         if (hasAiConfig) return MagicAI;
         return isLookup ? SearchIcon : icon;
       };

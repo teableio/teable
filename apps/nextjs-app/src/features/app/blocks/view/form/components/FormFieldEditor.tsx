@@ -29,7 +29,10 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   if (!view || !tableId) return null;
 
   const { type, name, description, isComputed, isLookup, id: fieldId, aiConfig } = field;
-  const Icon = getFieldStatic(type, isLookup, Boolean(aiConfig)).Icon;
+  const Icon = getFieldStatic(type, {
+    isLookup,
+    hasAiConfig: Boolean(aiConfig),
+  }).Icon;
 
   const onHidden = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     event.stopPropagation();

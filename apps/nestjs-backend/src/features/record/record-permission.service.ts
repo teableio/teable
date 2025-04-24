@@ -3,6 +3,7 @@ import type { Knex } from 'knex';
 
 export type IWrapViewQuery = {
   keepPrimaryKey?: boolean;
+  viewId?: string;
 };
 
 @Injectable()

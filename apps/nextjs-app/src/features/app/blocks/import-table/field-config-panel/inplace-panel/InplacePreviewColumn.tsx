@@ -45,7 +45,10 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     sourceColumnMap?.columns?.map((col) => ({
       label: col.name,
       value: col.name,
-      icon: fieldStaticGetter(col.type, false, false).Icon,
+      icon: fieldStaticGetter(col.type, {
+        isLookup: false,
+        hasAiConfig: false,
+      }).Icon,
     })) || [];
 
   useEffect(() => {
@@ -79,7 +82,10 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
       </TableHeader>
       <TableBody className="w-96 overflow-hidden">
         {columns.map((column, index) => {
-          const { Icon } = fieldStaticGetter(column.type, false, Boolean(column.aiConfig));
+          const { Icon } = fieldStaticGetter(column.type, {
+            isLookup: false,
+            hasAiConfig: Boolean(column.aiConfig),
+          });
           const selectIndex = insertConfig.sourceColumnMap[column.id] ?? null;
           const value = typeof selectIndex === 'number' ? options[selectIndex].value : null;
 

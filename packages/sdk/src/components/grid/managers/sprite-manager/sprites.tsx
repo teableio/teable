@@ -1,4 +1,3 @@
-import { EyeClosedIcon } from '@radix-ui/react-icons';
 import {
   AlertCircle,
   DraggableHandle,
@@ -8,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Lock,
+  EyeOff,
 } from '@teable/icons';
 import { renderToString } from 'react-dom/server';
 
@@ -56,9 +56,9 @@ const lock = (props: ISpriteProps) => {
   return renderToString(<Lock style={{ color: fgColor }} />);
 };
 
-export const eyeClosed = (props: ISpriteProps) => {
+export const eyeOff = (props: ISpriteProps) => {
   const { fgColor } = props;
-  return renderToString(<EyeClosedIcon style={{ color: fgColor }} />);
+  return renderToString(<EyeOff style={{ color: fgColor }} />);
 };
 
 export const sprites = {
@@ -70,7 +70,7 @@ export const sprites = {
   expand,
   collapse,
   lock,
-  eyeClosed,
+  eyeOff,
 };
 
 export enum GridInnerIcon {
@@ -82,5 +82,5 @@ export enum GridInnerIcon {
   Expand = 'expand',
   Collapse = 'collapse',
   Lock = 'lock',
-  EyeClosed = 'eyeClosed',
+  EyeOff = 'eyeOff',
 }

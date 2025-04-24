@@ -18,7 +18,7 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
       return sortedFields;
     }
 
-    return sortedFields.filter(({ id, recordRead }) => {
+    return sortedFields.filter(({ id, canReadFieldRecord }) => {
       const isHidden = () => {
         if (withHidden) {
           return true;
@@ -37,7 +37,7 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
         if (withDenied) {
           return true;
         }
-        return recordRead;
+        return canReadFieldRecord;
       };
       return isHidden() && hasPermission();
     });

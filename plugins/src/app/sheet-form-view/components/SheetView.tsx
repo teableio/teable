@@ -188,11 +188,11 @@ export const SheetView = () => {
                     className="flex size-full flex-col items-start justify-start"
                   >
                     {fields.map((field) => {
-                      const Icon = fieldStaticGetter(
-                        field.type,
-                        false,
-                        Boolean(field.aiConfig)
-                      ).Icon;
+                      const Icon = fieldStaticGetter(field.type, {
+                        isLookup: false,
+                        hasAiConfig: Boolean(field.aiConfig),
+                        deniedReadRecord: !field.canReadFieldRecord,
+                      }).Icon;
                       return (
                         <TooltipProvider key={field.id}>
                           <Tooltip>

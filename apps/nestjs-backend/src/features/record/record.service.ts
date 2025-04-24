@@ -453,6 +453,7 @@ export class RecordService {
       tableId,
       this.knex.queryBuilder(),
       {
+        viewId,
         keepPrimaryKey: Boolean(query.filterLinkCellSelected),
       }
     );
@@ -1442,6 +1443,7 @@ export class RecordService {
       enabledFieldIds,
     } = await this.recordPermissionService.wrapView(tableId, this.knex.queryBuilder(), {
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
+      viewId,
     });
     // this search step should not abort the query
     const searchBuilder = searchViewCte
@@ -1984,6 +1986,7 @@ export class RecordService {
       this.knex.queryBuilder(),
       {
         keepPrimaryKey: Boolean(query?.filterLinkCellSelected),
+        viewId,
       }
     );
     const queryBuilder = builder.from(viewCte ?? dbTableName);

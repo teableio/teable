@@ -21,7 +21,10 @@ export const SelectFieldType = (props: {
       : FIELD_TYPE_ORDER;
     const result = fieldTypes.map<{ id: FieldType | 'lookup'; name: string; icon: JSX.Element }>(
       (type) => {
-        const { title, Icon } = getFieldStatic(type, false, false);
+        const { title, Icon } = getFieldStatic(type, {
+          isLookup: false,
+          hasAiConfig: false,
+        });
         return {
           id: type,
           name: title,

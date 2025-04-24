@@ -13,7 +13,10 @@ export const RecordEditorItem = (props: {
   const { field, record, vertical, onChange, readonly } = props;
   const { type, isLookup } = field;
   const fieldStaticGetter = useFieldStaticGetter();
-  const { Icon } = fieldStaticGetter(type, isLookup, Boolean(field.aiConfig));
+  const { Icon } = fieldStaticGetter(type, {
+    isLookup,
+    hasAiConfig: Boolean(field.aiConfig),
+  });
 
   const cellValue = record?.getCellValue(field.id);
   const onChangeInner = (value: unknown) => {

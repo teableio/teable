@@ -97,7 +97,7 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
   });
   if (cell.hidden) {
     spriteManager.drawSprite(ctx, {
-      sprite: GridInnerIcon.EyeClosed,
+      sprite: GridInnerIcon.EyeOff,
       x: x + width - 14,
       y: y - 1,
       size: 12,

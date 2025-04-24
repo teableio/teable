@@ -116,8 +116,12 @@ export const KanbanCard = (props: IKanbanCardProps) => {
             )}
             <div className="text-base font-semibold">{titleComponent}</div>
             {displayFields.map((field) => {
-              const { id: fieldId, name, type, isLookup, aiConfig } = field;
-              const { Icon } = getFieldStatic(type, isLookup, Boolean(aiConfig));
+              const { id: fieldId, name, type, isLookup, aiConfig, canReadFieldRecord } = field;
+              const { Icon } = getFieldStatic(type, {
+                isLookup,
+                hasAiConfig: Boolean(aiConfig),
+                deniedReadRecord: !canReadFieldRecord,
+              });
               const cellValue = card.getCellValue(fieldId);
 
               if (cellValue == null) return null;
@@ -159,7 +163,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
           <Maximize2 className="mr-2 size-4" />
           {t('table:kanban.cardMenu.expandCard')}
         </ContextMenuItem>
-        {cardDeletable && (
+        {cardDeletable && !card.undeletable && (
           <>
             <ContextMenuSeparator />
             <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>

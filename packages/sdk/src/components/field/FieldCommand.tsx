@@ -41,7 +41,11 @@ export function FieldCommand(props: IFieldCommand) {
         <CommandEmpty>{emptyHolder || t('common.search.empty')}</CommandEmpty>
         <CommandGroup>
           {mergeFields?.map((field) => {
-            const { Icon } = fieldStaticGetter(field.type, field.isLookup, Boolean(field.aiConfig));
+            const { Icon } = fieldStaticGetter(field.type, {
+              isLookup: field.isLookup,
+              hasAiConfig: Boolean(field.aiConfig),
+              deniedReadRecord: !field.canReadFieldRecord,
+            });
             return (
               <CommandItem
                 key={field.id}
