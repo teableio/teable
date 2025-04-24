@@ -207,6 +207,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
   describe('past link records', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
+    let table3: ITableFullVo;
     beforeEach(async () => {
       // create tables
       const textFieldRo: IFieldRo = {
@@ -231,6 +232,16 @@ describe('OpenAPI SelectionController (e2e)', () => {
           { fields: { 'text field': 'table2_1' } },
           { fields: { 'text field': 'table2_2' } },
           { fields: { 'text field': 'table2_3' } },
+        ],
+      });
+
+      table3 = await createTable(baseId, {
+        name: 'table3',
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table3' } },
+          { fields: { 'text field': 'table3' } },
+          { fields: { 'text field': 'table3' } },
         ],
       });
     });
@@ -261,7 +272,6 @@ describe('OpenAPI SelectionController (e2e)', () => {
           [1, 0],
           [1, 0],
         ],
-        header: [linkField1, linkField2],
       });
 
       const record = await getRecord(table1.id, table1.records[0].id);
@@ -297,7 +307,6 @@ describe('OpenAPI SelectionController (e2e)', () => {
           [1, 0],
           [1, 0],
         ],
-        header: [linkField1, linkField2],
       });
 
       const record = await getRecord(table1.id, table1.records[0].id);
@@ -312,6 +321,46 @@ describe('OpenAPI SelectionController (e2e)', () => {
         {
           id: table2.records[1].id,
           title: 'table2_2',
+        },
+      ]);
+    });
+
+    it('should paste 2 oneMany link field with same value in same time', async () => {
+      // create link field
+      const table1LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table3.id,
+        },
+      };
+
+      const linkField1 = await createField(table1.id, table1LinkFieldRo);
+      const linkField2 = await createField(table1.id, table1LinkFieldRo);
+
+      await apiPaste(table1.id, {
+        viewId: table1.views[0].id,
+        content: [[{ id: table3.records[0].id }, { id: table3.records[1].id }]],
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        header: [linkField1, linkField2],
+      });
+
+      const record = await getRecord(table1.id, table1.records[0].id);
+
+      expect(record.fields[linkField1.id]).toEqual([
+        {
+          id: table3.records[0].id,
+          title: 'table3',
+        },
+      ]);
+      expect(record.fields[linkField2.id]).toEqual([
+        {
+          id: table3.records[1].id,
+          title: 'table3',
         },
       ]);
     });
