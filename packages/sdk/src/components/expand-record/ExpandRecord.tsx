@@ -2,6 +2,7 @@ import type { IRecord } from '@teable/core';
 import { Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from '../../context/app/i18n';
 import {
   useFieldCellEditable,
   useFields,
@@ -68,6 +69,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const record = useRecord(recordId, serverData);
   const isTouchDevice = useIsTouchDevice();
   const fieldCellEditable = useFieldCellEditable();
+  const { t } = useTranslation();
 
   const fieldCellReadonly = useCallback(
     (field: IFieldInstance) => {
@@ -102,11 +104,11 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
         return;
       }
       if (Array.isArray(newValue) && newValue.length === 0) {
-        return record?.updateCell(fieldId, null);
+        return record?.updateCell(fieldId, null, { t });
       }
-      record?.updateCell(fieldId, newValue);
+      record?.updateCell(fieldId, newValue, { t });
     },
-    [record]
+    [record, t]
   );
 
   const onPrevInner = () => {

@@ -359,10 +359,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       }
       const oldCellValue = record.getCellValue(fieldId) ?? null;
       if (isEqual(newCellValue, oldCellValue)) return;
-      record.updateCell(fieldId, newCellValue);
+      record.updateCell(fieldId, newCellValue, { t, prefix: 'sdk' });
       return record;
     },
-    [recordMap, columns]
+    [recordMap, columns, t]
   );
 
   // eslint-disable-next-line sonarjs/cognitive-complexity

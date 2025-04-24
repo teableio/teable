@@ -2,6 +2,7 @@ import type { IAttachmentCellValue } from '@teable/core';
 import type { IFilePreviewDialogRef } from '@teable/ui-lib';
 import { cn, Dialog, DialogContent, FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import { AttachmentEditorMain } from '../../editor';
 import type { IEditorProps } from '../../grid/components';
 import { useAttachmentPreviewI18Map } from '../../hooks';
@@ -20,6 +21,7 @@ export const GridAttachmentEditor = forwardRef<
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const imagePreviewDialogRef = useRef<IFilePreviewDialogRef>(null);
   const i18nMap = useAttachmentPreviewI18Map();
+  const { t } = useTranslation();
   const previewFiles = useMemo(() => {
     return attachments
       ? attachments.map((item) => ({
@@ -41,7 +43,7 @@ export const GridAttachmentEditor = forwardRef<
   }));
 
   const setAttachments = (attachments?: IAttachmentCellValue) => {
-    record.updateCell(field.id, attachments);
+    record.updateCell(field.id, attachments, { t });
   };
 
   return (

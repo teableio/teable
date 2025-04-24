@@ -2,6 +2,7 @@ import type { ILinkCellValue } from '@teable/core';
 import { Dialog, DialogContent } from '@teable/ui-lib';
 import type { FC } from 'react';
 import { useRef } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import { type LinkField } from '../../../model';
 import type { ILinkEditorMainRef } from '../../editor';
 import { LinkEditorMain } from '../../editor';
@@ -13,6 +14,8 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
   const { id: fieldId, options } = field as LinkField;
   const cellValue = record.getCellValue(fieldId) as ILinkCellValue | ILinkCellValue[] | undefined;
 
+  const { t } = useTranslation();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
 
@@ -22,7 +25,7 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
   };
 
   const onChange = (value: ILinkCellValue | ILinkCellValue[] | null) => {
-    record.updateCell(fieldId, value);
+    record.updateCell(fieldId, value, { t });
   };
 
   return (

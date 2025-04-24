@@ -8,6 +8,7 @@ import { FieldType, ColorUtils } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import colors from 'tailwindcss/colors';
+import { useTranslation } from '../../../context/app/i18n';
 import { useFieldOperations, useTableId } from '../../../hooks';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
 import { SelectEditorMain } from '../../editor';
@@ -21,6 +22,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
   const { field, record, rect, style, isEditing, setEditing } = props;
+  const { t } = useTranslation();
   const tableId = useTableId();
   const { convertField } = useFieldOperations();
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
@@ -64,7 +66,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   }, [options, displayChoiceMap]);
 
   const onChange = (value?: string[] | string) => {
-    record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value);
+    record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value, { t });
     if (!isMultiple) setTimeout(() => setEditing?.(false));
   };
 

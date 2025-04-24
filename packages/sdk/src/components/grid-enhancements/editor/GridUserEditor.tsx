@@ -1,6 +1,7 @@
 import type { IUserCellValue } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { useRef, useImperativeHandle, forwardRef } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import type { UserField } from '../../../model';
 import type { IEditorRef } from '../../editor/type';
 import { UserEditorMain } from '../../editor/user';
@@ -13,6 +14,7 @@ const GridUserEditorBase: ForwardRefRenderFunction<
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
   const { field, record, rect, style, isEditing } = props;
+  const { t } = useTranslation();
   const { id: fieldId, options } = field as UserField;
   const cellValue = record.getCellValue(field.id) as IUserCellValue | IUserCellValue[];
 
@@ -25,7 +27,7 @@ const GridUserEditorBase: ForwardRefRenderFunction<
 
   const attachStyle = useGridPopupPosition(rect, 340);
   const onChange = (value?: IUserCellValue | IUserCellValue[]) => {
-    record.updateCell(fieldId, value);
+    record.updateCell(fieldId, value, { t });
   };
 
   return (
