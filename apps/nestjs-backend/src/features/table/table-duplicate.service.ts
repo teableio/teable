@@ -335,7 +335,8 @@ export class TableDuplicateService {
     await this.fieldDuplicateService.createDependencyFields(
       dependencyFields,
       tableIdMap,
-      sourceToTargetFieldMap
+      sourceToTargetFieldMap,
+      'table'
     );
 
     // fix formula expression' field map

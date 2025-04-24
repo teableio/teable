@@ -1131,7 +1131,14 @@ export class FieldConvertingService {
     const { unique, notNull, dbFieldName } = newField;
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (unique) table.unique(dbFieldName);
+        if (unique)
+          table.unique(dbFieldName, {
+            indexName: this.fieldService.getFieldUniqueKeyName(
+              dbTableName,
+              dbFieldName,
+              newField.id
+            ),
+          });
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();

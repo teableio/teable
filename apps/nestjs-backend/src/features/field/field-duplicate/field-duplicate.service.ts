@@ -409,6 +409,7 @@ export class FieldDuplicateService {
         name,
         type,
         description,
+        dbFieldName,
         options: {
           foreignTableId: allowCrossBase ? foreignTableId : tableIdMap[foreignTableId],
           relationship,
@@ -641,7 +642,8 @@ export class FieldDuplicateService {
   async createDependencyFields(
     dependFields: IFieldWithTableIdJson[],
     tableIdMap: Record<string, string>,
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    scope: 'base' | 'table' = 'base'
   ): Promise<void> {
     if (!dependFields.length) return;
 
@@ -659,7 +661,7 @@ export class FieldDuplicateService {
 
       const isChecked = checkedField.some((f) => f.id === curField.id);
       // InDegree all ready
-      const isInDegreeReady = this.isInDegreeReady(curField, fieldMap);
+      const isInDegreeReady = this.isInDegreeReady(curField, fieldMap, scope);
 
       if (isInDegreeReady) {
         await this.duplicateSingleDependField(
@@ -909,7 +911,7 @@ export class FieldDuplicateService {
     const newExpression = replaceStringByMap(expression, { sourceToTargetFieldMap });
     const newField = await this.fieldOpenApiService.createField(targetTableId, {
       type,
-      dbFieldName: dbFieldName,
+      dbFieldName,
       description,
       options: {
         ...options,
@@ -1069,7 +1071,14 @@ export class FieldDuplicateService {
     if (notNull || unique) {
       const fieldValidationSqls = this.knex.schema
         .alterTable(dbTableName, (table) => {
-          if (unique) table.unique(dbFieldName);
+          if (unique)
+            table.unique(dbFieldName, {
+              indexName: this.fieldOpenApiService.getFieldUniqueKeyName(
+                dbTableName,
+                dbFieldName,
+                fId
+              ),
+            });
           if (notNull) table.dropNullable(dbFieldName);
         })
         .toSQL();
@@ -1084,7 +1093,11 @@ export class FieldDuplicateService {
     }
   }
 
-  private isInDegreeReady(field: IFieldWithTableIdJson, fieldMap: Record<string, string>) {
+  private isInDegreeReady(
+    field: IFieldWithTableIdJson,
+    fieldMap: Record<string, string>,
+    scope: 'base' | 'table' = 'base'
+  ) {
     const { isLookup, type } = field;
     if (field.aiConfig) {
       const { aiConfig } = field;
@@ -1109,11 +1122,13 @@ export class FieldDuplicateService {
     }
 
     if (isLookup || type === FieldType.Rollup) {
-      const { lookupOptions } = field;
-      const { linkFieldId, lookupFieldId } = lookupOptions as ILookupOptionsRo;
-      // const isSelfLink = foreignTableId === sourceTableId;
-      return Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId]);
-      // return isSelfLink ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId]) : true;
+      const { lookupOptions, sourceTableId } = field;
+      const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions as ILookupOptionsRo;
+      const isSelfLink = foreignTableId === sourceTableId;
+      // duplicate table should not consider lookupFieldId when link field is not self link
+      return scope === 'base' || isSelfLink
+        ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId])
+        : fieldMap[linkFieldId];
     }
 
     return false;

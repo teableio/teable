@@ -232,7 +232,15 @@ export class FieldService implements IReadonlyAdapterService {
 
   private async alterTableAddField(dbTableName: string, fieldInstances: IFieldInstance[]) {
     for (let i = 0; i < fieldInstances.length; i++) {
-      const { dbFieldType, dbFieldName, type, isLookup, unique, notNull } = fieldInstances[i];
+      const {
+        dbFieldType,
+        dbFieldName,
+        type,
+        isLookup,
+        unique,
+        notNull,
+        id: fieldId,
+      } = fieldInstances[i];
 
       const alterTableQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
@@ -251,7 +259,9 @@ export class FieldService implements IReadonlyAdapterService {
 
         const fieldValidationQuery = this.knex.schema
           .alterTable(dbTableName, (table) => {
-            table.unique(dbFieldName);
+            table.unique(dbFieldName, {
+              indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
+            });
           })
           .toQuery();
         await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
@@ -402,7 +412,9 @@ export class FieldService implements IReadonlyAdapterService {
       .alterTable(dbTableName, (table) => {
         if (key === 'unique') {
           newValue
-            ? table.unique(dbFieldName)
+            ? table.unique(dbFieldName, {
+                indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
+              })
             : matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
         }
 
@@ -807,5 +819,16 @@ export class FieldService implements IReadonlyAdapterService {
     return {
       ids: result.map((field) => field.id),
     };
+  }
+
+  getFieldUniqueKeyName(dbTableName: string, dbFieldName: string, fieldId: string) {
+    const [schema, tableName] = this.dbProvider.splitTableName(dbTableName);
+    // unique key suffix
+    const uniqueKeySuffix = `___${fieldId}_unique`;
+    const uniqueKeyPrefix = `${schema}_${tableName}___${dbFieldName}`.slice(
+      0,
+      63 - uniqueKeySuffix.length
+    );
+    return `${uniqueKeyPrefix}___${fieldId}_unique`;
   }
 }

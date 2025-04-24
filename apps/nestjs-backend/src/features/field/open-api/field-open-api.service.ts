@@ -715,4 +715,8 @@ export class FieldOpenApiService {
     const result = await this.prismaService.$queryRawUnsafe<{ id: string; value: string }[]>(query);
     return result.map((item) => item);
   }
+
+  getFieldUniqueKeyName(dbTableName: string, dbFieldName: string, fieldId: string) {
+    return this.fieldService.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId);
+  }
 }

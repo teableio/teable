@@ -50,7 +50,8 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
     let duplicateTableData: IDuplicateTableVo;
     beforeAll(async () => {
       table = await createTable(baseId, {
-        name: 'record_query_x_20',
+        // over 63 characters
+        name: 'record_query_long_long_long_long_long_long_long_long_long_long_long_long',
         fields: x_20.fields,
         records: x_20.records,
       });
@@ -90,6 +91,38 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         name: 'lookup_filter_x_20',
         fields: x20Link.fields,
         records: x20Link.records,
+      });
+
+      const subTableLinkField = subTable.fields.find((f) => f.type === FieldType.Link)!;
+
+      const linkField = (
+        await createField(table.id, {
+          name: 'link field',
+          type: FieldType.Link,
+          options: {
+            foreignTableId: subTable.id,
+            relationship: 'manyMany',
+          },
+        })
+      ).data;
+
+      // test changed link field
+      await convertField(table.id, linkField.id, {
+        dbFieldName: `${linkField.dbFieldName}_converted`,
+        name: linkField.name,
+        options: linkField.options,
+        type: FieldType.Link,
+      });
+
+      await createField(table.id, {
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: subTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: subTableLinkField.id,
+        },
+        name: 'lookup link field',
+        type: FieldType.Link,
       });
 
       const x20LinkFromLookups = x_20_link_from_lookups(table, subTable.fields[2].id);
@@ -136,7 +169,7 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
       const assertViews = JSON.parse(sourceViewsString) as IViewVo[];
 
       const assertLinkField = assertField
-        .filter(({ type }) => type === FieldType.Link)
+        .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
         .map((f) => ({
           ...f,
           options: omit(
@@ -149,7 +182,7 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
           ),
         }));
       const duplicatedLinkField = targetFields
-        .filter(({ type }) => type === FieldType.Link)
+        .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
         .map((f) => ({
           ...f,
           options: omit(
