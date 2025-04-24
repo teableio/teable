@@ -10,6 +10,7 @@ import type { ICell, ICellItem, IGridColumn, IInnerCell, IRange } from '../../gr
 import { CellType, SelectionRegionType } from '../../grid/interface';
 import { CombinedSelection, emptySelection } from '../../grid/managers';
 import { useGridViewStore } from '../store/useGridViewStore';
+import { isNeedPersistEditing } from '../utils/persist-editing';
 import { useCreateCellValue2GridDisplay } from './use-grid-columns';
 
 interface IUseGridSelectionProps {
@@ -74,7 +75,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
         const columnIndex = columns.findIndex((column) => column.id === fieldId);
         const range = [columnIndex, rowIndex] as IRange;
 
-        if (gridRef.current?.isEditing()) {
+        if (gridRef.current?.isEditing() && isNeedPersistEditing(fields, fieldId)) {
           return gridRef.current?.setSelection(
             new CombinedSelection(SelectionRegionType.Cells, [range, range])
           );

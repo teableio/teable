@@ -56,6 +56,7 @@ import {
   useGridFileEvent,
   extractDefaultFieldsFromFilters,
   TaskStatusCollectionContext,
+  isNeedPersistEditing,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
@@ -209,6 +210,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
 
+  const inPresorting = presortRecord != null;
   const inPrefilling = prefillingRowIndex != null;
 
   const onValidation = useCallback(
@@ -864,11 +866,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [rowHeight, presortRecordData]);
 
   useEffect(() => {
-    if (!inPrefilling) return;
+    if (!inPrefilling && !inPresorting) return;
     const scrollState = gridRef.current?.getScrollState();
     if (scrollState == null) return;
+    presortGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
-  }, [inPrefilling]);
+  }, [inPrefilling, inPresorting]);
 
   useClickAway(containerRef, () => {
     gridRef.current?.resetState();
@@ -923,15 +926,20 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [tableId, fields, taskStatusFieldMap]);
 
   const onPresortContainerInit = () => {
-    if (gridRef.current?.isEditing()) return;
+    if (!activeCell) return;
 
-    const { columnIndex } = activeCell ?? {};
+    const { columnIndex, fieldId } = activeCell;
+
+    if (gridRef.current?.isEditing() && isNeedPersistEditing(allFields, fieldId)) return;
     if (columnIndex == null) return;
+
     const range = [columnIndex, 0] as IRange;
-    presortGridRef.current?.setSelection(
-      new CombinedSelection(SelectionRegionType.Cells, [range, range])
-    );
-    gridRef.current?.setSelection(emptySelection);
+    setTimeout(() => {
+      gridRef.current?.setSelection(emptySelection);
+      presortGridRef.current?.setSelection(
+        new CombinedSelection(SelectionRegionType.Cells, [range, range])
+      );
+    }, 100);
   };
 
   return (
@@ -939,7 +947,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       <Grid
         ref={gridRef}
         theme={theme}
-        style={{ pointerEvents: inPrefilling ? 'none' : 'auto' }}
+        style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
         draggable={draggable}
         isTouchDevice={isTouchDevice}
         rowCount={realRowCount}
