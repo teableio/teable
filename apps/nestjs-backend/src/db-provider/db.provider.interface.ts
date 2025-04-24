@@ -53,6 +53,8 @@ export interface IDbProvider {
 
   dropColumn(tableName: string, columnName: string): string[];
 
+  dropUnique(dbTableName: string, constraintName: string): string;
+
   updateJsonColumn(
     tableName: string,
     columnName: string,

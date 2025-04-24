@@ -1072,7 +1072,7 @@ export class FieldDuplicateService {
       const fieldValidationSqls = this.knex.schema
         .alterTable(dbTableName, (table) => {
           if (unique)
-            table.unique(dbFieldName, {
+            table.unique([dbFieldName], {
               indexName: this.fieldOpenApiService.getFieldUniqueKeyName(
                 dbTableName,
                 dbFieldName,

@@ -259,7 +259,7 @@ export class FieldService implements IReadonlyAdapterService {
 
         const fieldValidationQuery = this.knex.schema
           .alterTable(dbTableName, (table) => {
-            table.unique(dbFieldName, {
+            table.unique([dbFieldName], {
               indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
             });
           })
@@ -424,12 +424,14 @@ export class FieldService implements IReadonlyAdapterService {
       })
       .toSQL();
 
+    const executeSqls = fieldValidationSqls
+      .filter((s) => !s.sql.startsWith('PRAGMA'))
+      .map(({ sql }) => sql);
+
     await handleDBValidationErrors({
       fn: () => {
         return Promise.all(
-          fieldValidationSqls
-            .filter((s) => !s.sql.startsWith('PRAGMA'))
-            .map((sql) => this.prismaService.txClient().$executeRawUnsafe(sql.sql))
+          executeSqls.map((sql) => this.prismaService.txClient().$executeRawUnsafe(sql))
         );
       },
       handleUniqueError: () => {
@@ -825,10 +827,12 @@ export class FieldService implements IReadonlyAdapterService {
     const [schema, tableName] = this.dbProvider.splitTableName(dbTableName);
     // unique key suffix
     const uniqueKeySuffix = `___${fieldId}_unique`;
-    const uniqueKeyPrefix = `${schema}_${tableName}___${dbFieldName}`.slice(
-      0,
-      63 - uniqueKeySuffix.length
-    );
-    return `${uniqueKeyPrefix}___${fieldId}_unique`;
+    const uniqueKeyPrefix = `${schema}_${tableName}`.slice(0, 63 - uniqueKeySuffix.length);
+    return `${uniqueKeyPrefix.toLowerCase()}${uniqueKeySuffix.toLowerCase()}`;
+  }
+
+  getOldFieldUniqueKeyName(dbTableName: string, dbFieldName: string) {
+    const [schema, tableName] = this.dbProvider.splitTableName(dbTableName);
+    return `${schema}_${tableName}___${dbFieldName}_unique`.toLowerCase();
   }
 }

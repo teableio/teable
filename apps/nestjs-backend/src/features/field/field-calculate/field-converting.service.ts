@@ -1132,7 +1132,7 @@ export class FieldConvertingService {
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (unique)
-          table.unique(dbFieldName, {
+          table.unique([dbFieldName], {
             indexName: this.fieldService.getFieldUniqueKeyName(
               dbTableName,
               dbFieldName,
@@ -1196,9 +1196,15 @@ export class FieldConvertingService {
         }
         if (notNull) table.setNullable(dbFieldName);
       })
-      .toQuery();
+      .toSQL();
 
-    await this.prismaService.$executeRawUnsafe(fieldValidationQuery);
+    const executeSqls = fieldValidationQuery
+      .filter((s) => !s.sql.startsWith('PRAGMA'))
+      .map(({ sql }) => sql);
+
+    for (const sql of executeSqls) {
+      await this.prismaService.$executeRawUnsafe(sql);
+    }
   }
 
   async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
