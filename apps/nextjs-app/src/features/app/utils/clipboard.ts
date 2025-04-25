@@ -36,7 +36,7 @@ export const serializerCellValueHtml = (data: unknown[][], headers: IFieldVo[]) 
             return `<td>${field.cellValue2String(cell).replaceAll('\n', '<br style="mso-data-placement:same-cell;"/>')}</td>`;
           }
           if (field.type != FieldType.SingleLineText && field.type != FieldType.SingleSelect) {
-            return `<td data-teable-cell-value="${cell != null ? encodeURIComponent(JSON.stringify(cell)) : ''}">${field.cellValue2String(cell)}</td>`;
+            return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${field.cellValue2String(cell)}</td>`;
           }
           return `<td>${field.cellValue2String(cell)}</td>`;
         })

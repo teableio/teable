@@ -60,7 +60,7 @@ export const getSelectionRecords = async (
         throw new Error('Invalid selection range');
       }
       const projectionFields = fields.slice(startColIndex, endColIndex + 1);
-      const projection = projectionFields.map((item) => item.name);
+      const projection = projectionFields.map((item) => item.id);
       const records = await getRecordsByQuery({
         projection,
         skip: skip + startRowIndex,
@@ -75,7 +75,7 @@ export const getSelectionRecords = async (
       const allRecords: IRecordsVo['records'] = [];
       let totalSkip = skip;
       let totalTake = take;
-      const projection = fields.map((item) => item.name);
+      const projection = fields.map((item) => item.id);
       for (let i = 0; i < range.length; i++) {
         const [startRowIndex, endRowIndex] = range[i];
         const currentRowCount = endRowIndex - startRowIndex + 1;
@@ -106,7 +106,7 @@ export const getSelectionRecords = async (
       const projections: string[] = [];
       for (let i = 0; i < fields.length; i++) {
         const [startColIndex, endColIndex] = range[i];
-        projections.push(...fields.slice(startColIndex, endColIndex).map((item) => item.name));
+        projections.push(...fields.slice(startColIndex, endColIndex).map((item) => item.id));
       }
       const records = await getRecordsByQuery({
         projection: projections,
