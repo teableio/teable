@@ -542,4 +542,18 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       });
     });
   }
+
+  getTableIndexes(dbTableName: string): string {
+    const [, tableName] = this.splitTableName(dbTableName);
+    return this.knex
+      .raw(
+        `
+        SELECT indexname as name
+        FROM pg_indexes
+        WHERE tablename = ?
+      `,
+        [tableName]
+      )
+      .toQuery();
+  }
 }

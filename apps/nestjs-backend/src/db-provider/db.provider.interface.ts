@@ -189,4 +189,6 @@ export interface IDbProvider {
   optionsQuery(type: FieldType, optionsKey: string, value: string): string;
 
   searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder;
+
+  getTableIndexes(dbTableName: string): string;
 }

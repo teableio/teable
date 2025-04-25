@@ -363,6 +363,16 @@ export class FieldService implements IReadonlyAdapterService {
     });
   }
 
+  async findUniqueIndexesForField(dbTableName: string, dbFieldName: string) {
+    const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
+    const indexes = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ name: string }[]>(indexesQuery);
+    return indexes
+      .filter((index) => index.name.includes(`${dbFieldName.toLowerCase()}_unique`))
+      .map((index) => index.name);
+  }
+
   private async alterTableModifyFieldValidation(
     fieldId: string,
     key: 'unique' | 'notNull',
@@ -386,11 +396,14 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     const dbTableName = table.dbTableName;
+    const matchedIndexs = await this.findUniqueIndexesForField(dbTableName, dbFieldName);
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (key === 'unique') {
-          newValue ? table.unique(dbFieldName) : table.dropUnique([dbFieldName]);
+          newValue
+            ? table.unique(dbFieldName)
+            : matchedIndexs.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
         }
 
         if (key === 'notNull') {
