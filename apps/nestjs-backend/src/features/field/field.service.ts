@@ -396,14 +396,14 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     const dbTableName = table.dbTableName;
-    const matchedIndexs = await this.findUniqueIndexesForField(dbTableName, dbFieldName);
+    const matchedIndexes = await this.findUniqueIndexesForField(dbTableName, dbFieldName);
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (key === 'unique') {
           newValue
             ? table.unique(dbFieldName)
-            : matchedIndexs.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
+            : matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
         }
 
         if (key === 'notNull') {
