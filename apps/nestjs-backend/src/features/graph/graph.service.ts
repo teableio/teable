@@ -19,6 +19,7 @@ import { FieldCalculationService } from '../calculation/field-calculation.servic
 import type { IGraphItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
 import { pruneGraph, topoOrderWithStart } from '../calculation/utils/dfs';
+import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import {
