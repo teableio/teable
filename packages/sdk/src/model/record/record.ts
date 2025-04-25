@@ -38,18 +38,26 @@ export class Record extends RecordCore {
     return this._title.value;
   }
 
-  isLocked(fieldId: string) {
-    if (!isEmpty(this.permissions)) {
-      return !this.permissions?.update?.[fieldId];
+  static isLocked(permissions: Record['permissions'], fieldId: string) {
+    if (!isEmpty(permissions)) {
+      return !permissions?.update?.[fieldId];
     }
     return false;
   }
 
-  isHidden(fieldId: string) {
-    if (!isEmpty(this.permissions)) {
-      return !this.permissions?.read?.[fieldId];
+  static isHidden(permissions: Record['permissions'], fieldId: string) {
+    if (!isEmpty(permissions)) {
+      return !permissions?.read?.[fieldId];
     }
     return false;
+  }
+
+  isLocked(fieldId: string) {
+    return Record.isLocked(this.permissions, fieldId);
+  }
+
+  isHidden(fieldId: string) {
+    return Record.isHidden(this.permissions, fieldId);
   }
 
   private onCommitLocal(fieldId: string, cellValue: unknown, undo?: boolean) {

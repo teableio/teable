@@ -1,19 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, RefreshCcw } from '@teable/icons';
 import { autoFillCell } from '@teable/openapi';
-import { useFields, useTableId, useTablePermission } from '@teable/sdk';
-import type { IActiveCell, IGridRef } from '@teable/sdk';
+import { Record, useFields, useTableId, useTablePermission } from '@teable/sdk';
+import type { IActiveCell, IGridRef, IRecordIndexMap } from '@teable/sdk';
 import { Button } from '@teable/ui-lib';
 import React, { useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 
 interface IAIButtonProps {
   gridRef: React.RefObject<IGridRef>;
   activeCell?: IActiveCell;
+  recordMap: IRecordIndexMap;
 }
 
 export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIButtonProps>(
   (props, ref) => {
-    const { gridRef, activeCell } = props;
+    const { gridRef, activeCell, recordMap } = props;
     const tableId = useTableId() as string;
     const fields = useFields();
     const permission = useTablePermission();
@@ -60,6 +61,8 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
       },
     }));
 
+    const record = activeCell?.rowIndex ? recordMap[activeCell.rowIndex] : undefined;
+
     const onPositionChanged = useCallback(() => {
       if (!activeCell || !permission['record|update']) {
         return setStyle(null);
@@ -68,6 +71,13 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
       const { fieldId, columnIndex, rowIndex } = activeCell;
 
       const field = fields.find((f) => f.id === fieldId);
+
+      if (
+        Record.isLocked(record?.permissions, fieldId) ||
+        Record.isHidden(record?.permissions, fieldId)
+      ) {
+        return setStyle(null);
+      }
 
       if (!field?.aiConfig?.type) {
         return setStyle(null);
@@ -81,7 +91,7 @@ export const AiGenerateButton = forwardRef<{ onScrollHandler: () => void }, IAIB
           top: y + (height - 32) / 2,
         });
       }
-    }, [activeCell, fields, gridRef, permission]);
+    }, [activeCell, fields, gridRef, permission, record]);
 
     useEffect(() => {
       onPositionChanged();

@@ -1008,7 +1008,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onItemHovered={onItemHovered}
       />
       {fieldAIEnable && (
-        <AiGenerateButton ref={aiGenerateButtonRef} gridRef={gridRef} activeCell={activeCell} />
+        <AiGenerateButton
+          ref={aiGenerateButtonRef}
+          gridRef={gridRef}
+          activeCell={activeCell}
+          recordMap={recordMap}
+        />
       )}
       {inPrefilling && (
         <PrefillingRowContainer

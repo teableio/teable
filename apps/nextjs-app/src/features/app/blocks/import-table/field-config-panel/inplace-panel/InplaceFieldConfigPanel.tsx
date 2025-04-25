@@ -45,7 +45,7 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
     queryFn: () => apiGetFields(tableId).then((data) => data.data),
   });
 
-  const fieldWithPermission = fields?.filter(({ recordRead }) => recordRead);
+  const fieldWithPermission = fields?.filter(({ recordRead }) => recordRead !== false);
 
   const optionHandler = (value: IInplaceOption, propertyName: keyof IInplaceOption) => {
     const newInsertConfig = {

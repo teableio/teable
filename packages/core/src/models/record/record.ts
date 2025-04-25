@@ -64,6 +64,12 @@ export const recordSchema = z.object({
   lastModifiedBy: z.string().optional().openapi({
     description: 'Last modified by, user name',
   }),
+  permissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional().openapi({
+    description: 'Permissions for the record',
+  }),
+  undeletable: z.boolean().optional().openapi({
+    description: 'Whether the record is undeletable',
+  }),
 });
 
 export type IRecord = z.infer<typeof recordSchema>;
