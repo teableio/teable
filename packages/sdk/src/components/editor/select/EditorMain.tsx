@@ -15,7 +15,7 @@ export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelec
   isMultiple?: T;
   style?: React.CSSProperties;
   className?: string;
-  onOptionAdd?: (name: string) => Promise<void>;
+  onOptionAdd?: (curValue: string | string[] | undefined, name: string) => Promise<void>;
 }
 
 const getValue = (value?: string | string[]) => {
@@ -82,7 +82,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   const onOptionAddInner = async () => {
     if (!searchValue || preventAutoNewOptions) return;
     setSearchValue('');
-    await onOptionAdd?.(searchValue);
+    await onOptionAdd?.(originValue, searchValue);
     if (isMultiple) {
       const newValue = value.concat(searchValue);
       setValue(newValue);
@@ -108,19 +108,22 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
         }}
       />
       <OptionList options={filteredOptions} onSelect={onSelect} checkIsActive={checkIsActive} />
-      {filteredOptions.length === 0 &&
-        (onOptionAdd && !preventAutoNewOptions ? (
+      {searchValue &&
+        !filteredOptions.find((v) => v.label === searchValue) &&
+        onOptionAdd &&
+        !preventAutoNewOptions && (
           <CommandItem className="items-center justify-center" onSelect={onOptionAddInner}>
             <Plus className="size-4 shrink-0" />
             <span className="ml-2 truncate text-[13px]">
               {t('editor.select.addOption', { option: searchValue })}
             </span>
           </CommandItem>
-        ) : (
-          <CommandItem className="items-center justify-center">
-            <span className="ml-2 truncate text-[13px]">{t('common.empty')}</span>
-          </CommandItem>
-        ))}
+        )}
+      {preventAutoNewOptions && filteredOptions.length === 0 && (
+        <CommandItem className="items-center justify-center">
+          <span className="ml-2 truncate text-[13px]">{t('common.empty')}</span>
+        </CommandItem>
+      )}
     </Command>
   );
 };

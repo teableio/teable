@@ -10,7 +10,9 @@ import { SelectEditorMain } from './EditorMain';
 
 const SelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<string | string[] | undefined>,
-  ISelectEditorMain<boolean> & { onOptionAdd?: (name: string) => Promise<void> }
+  ISelectEditorMain<boolean> & {
+    onOptionAdd?: (curValue: string | string[] | undefined, name: string) => Promise<void>;
+  }
 > = (props, ref) => {
   const { value, options = [], isMultiple, onChange, className, style, readonly } = props;
   const [open, setOpen] = useState(false);

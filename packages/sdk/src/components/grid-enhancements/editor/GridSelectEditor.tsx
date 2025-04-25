@@ -2,13 +2,13 @@ import type {
   ISelectFieldOptions,
   ISingleSelectCellValue,
   IMultipleSelectCellValue,
-  ISelectFieldChoice,
 } from '@teable/core';
-import { FieldType, ColorUtils } from '@teable/core';
+import { FieldType, ColorUtils, FieldKeyType } from '@teable/core';
+import { updateRecord } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import colors from 'tailwindcss/colors';
-import { useFieldOperations, useTableId } from '../../../hooks';
+import { useTableId } from '../../../hooks';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
 import { SelectEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
@@ -22,7 +22,6 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 > = (props, ref) => {
   const { field, record, rect, style, isEditing, setEditing } = props;
   const tableId = useTableId();
-  const { convertField } = useFieldOperations();
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
   const {
@@ -69,25 +68,28 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   };
 
   const onOptionAdd = useCallback(
-    async (name: string) => {
-      if (!tableId) return;
+    async (curValue: string | string[] | undefined, name: string) => {
+      const recordId = record.id;
+      if (!tableId || !recordId) return;
+      if (fieldType !== FieldType.SingleSelect && fieldType !== FieldType.MultipleSelect) return;
+      const appendValue =
+        fieldType === FieldType.SingleSelect
+          ? name
+          : curValue
+            ? [...(curValue as string[]), name]
+            : [name];
 
-      const { choices = [] } = options as ISelectFieldOptions;
-      const existColors = choices.map((v) => v.color);
-      const choice = {
-        name,
-        color: ColorUtils.randomColor(existColors)[0],
-      } as ISelectFieldChoice;
-
-      const newChoices = [...choices, choice];
-
-      await convertField(tableId, fieldId, {
-        type: fieldType,
-        options: { ...options, choices: newChoices },
+      await updateRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        record: {
+          fields: {
+            [fieldId]: appendValue,
+          },
+        },
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tableId, fieldType, fieldId, options]
+    [record.id, tableId, fieldType, fieldId]
   );
 
   return (
