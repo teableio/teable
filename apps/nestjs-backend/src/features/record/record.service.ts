@@ -1480,7 +1480,7 @@ export class RecordService {
       ? toNumber(process.env.MAX_SEARCH_FIELD_COUNT)
       : 20;
     let viewColumnMeta: IGridColumnMeta | null = null;
-    const fieldInstanceMap = { ...originFieldInstanceMap };
+    const fieldInstanceMap = projection?.length ? { ...originFieldInstanceMap } : {};
 
     if (!search) {
       return [] as IFieldInstance[];
