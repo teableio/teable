@@ -778,16 +778,14 @@ export class AggregationService {
         );
         // step 2. find the index in current view
         const indexQueryBuilder = this.knex
-          .with(
-            't1',
-            viewRecordsQB
-              .select('__id')
-              .select(this.knex.client.raw('ROW_NUMBER() OVER () as row_num'))
-          )
-          .select('row_num')
-          .select('__id')
+          .with('t', viewRecordsQB.select('__id').from(viewCte || dbTableName))
+          .with('t1', (db) => {
+            db.select('__id').select(this.knex.raw('ROW_NUMBER() OVER () as row_num')).from('t');
+          })
+          .select('t1.row_num')
+          .select('t1.__id')
           .from('t1')
-          .whereIn('__id', [...new Set(recordIds.map((record) => record.__id))]);
+          .whereIn('t1.__id', [...new Set(recordIds.map((record) => record.__id))]);
 
         // eslint-disable-next-line
         const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(

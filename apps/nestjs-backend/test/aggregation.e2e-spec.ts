@@ -8,7 +8,6 @@ import {
   getCalendarDailyCollection,
   getGroupPoints,
   getRowCount,
-  getSearchCount,
   getSearchIndex,
   GroupPointType,
 } from '@teable/openapi';
