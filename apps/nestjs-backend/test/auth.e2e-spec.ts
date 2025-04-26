@@ -189,7 +189,7 @@ describe('Auth Controller (e2e)', () => {
     });
     const res = await sendSignupVerificationCode(inviteEmail);
     expect(res.status).toBe(200);
-    await prismaService.user.findUnique({
+    await prismaService.user.delete({
       where: { email: inviteEmail },
     });
   });

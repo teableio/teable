@@ -235,8 +235,12 @@ describe('Computed user field (e2e)', () => {
         email: 'renameUser@example.com',
         password: '12345678',
       });
+      eventEmitterService = app.get(EventEmitterService);
+      awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.TABLE_USER_RENAME_COMPLETE);
 
-      user2Request.patch<void>(urlBuilder(UPDATE_USER_NAME), { name: 'default' });
+      await awaitWithEvent(() =>
+        user2Request.patch<void>(urlBuilder(UPDATE_USER_NAME), { name: 'default' })
+      );
       user2 = (await user2Request.get<IUserMeVo>(USER_ME)).data;
 
       await emailSpaceInvitation({
@@ -248,9 +252,6 @@ describe('Computed user field (e2e)', () => {
           name: 'table1',
         })
       ).data;
-
-      eventEmitterService = app.get(EventEmitterService);
-      awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.TABLE_USER_RENAME_COMPLETE);
     });
 
     afterAll(async () => {
@@ -273,8 +274,10 @@ describe('Computed user field (e2e)', () => {
         .post<IFieldVo>(urlBuilder(CREATE_FIELD, { tableId: table1.id }), fieldRo)
         .then((res) => res.data);
 
+      console.log('user2user2', user2);
       await awaitWithEvent(() => user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' }));
 
+      console.log('user2user2 res', (await user2Request.get<IUserMeVo>(USER_ME)).data);
       const getRecordsResponse = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
       getRecordsResponse.data.records.forEach((record) => {
