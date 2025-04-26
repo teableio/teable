@@ -3,15 +3,19 @@ import { UserAvatar } from '@teable/sdk/components';
 import { useSession } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { BotIcon } from 'lucide-react';
+import { LoadingDot } from './LoadingDot';
 import { ReasonMessagePart } from './message-part/ReasonMessagePart';
 import { TextMessagePart } from './message-part/TextMessagePart';
 import { ToolMessagePart } from './message-part/ToolMessagePart';
 
+export const THINKING_MESSAGE_ID = 'thinking';
+
 interface IMessage {
+  isLoading?: boolean;
   message: UseChatHelpers['messages'][number];
 }
 
-export const Message = ({ message }: IMessage) => {
+export const Message = ({ message, isLoading }: IMessage) => {
   return (
     <MessageWrapper message={message}>
       {message.parts.map((part, index) => {
@@ -32,6 +36,7 @@ export const Message = ({ message }: IMessage) => {
             return;
         }
       })}
+      {isLoading && <LoadingDot />}
     </MessageWrapper>
   );
 };
@@ -50,8 +55,8 @@ export const MessageWrapper = ({
           </div>
         )}
         <div
-          className={cn('flex w-fit overflow-hidden flex-col gap-4', {
-            'ml-auto overflow-hidden rounded-xl !bg-muted px-3 py-2': message.role === 'user',
+          className={cn('flex w-full overflow-hidden flex-col gap-4', {
+            'w-fit ml-auto overflow-hidden rounded-xl !bg-muted px-3 py-2': message.role === 'user',
           })}
         >
           {children}

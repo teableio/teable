@@ -1,6 +1,8 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
-export function useScrollToBottom<T extends HTMLElement>(): [RefObject<T>, RefObject<T>] {
+export function useScrollToBottom<T extends HTMLElement>(
+  disabled?: boolean
+): [RefObject<T>, RefObject<T>] {
   const containerRef = useRef<T>(null);
   const endRef = useRef<T>(null);
 
@@ -8,7 +10,7 @@ export function useScrollToBottom<T extends HTMLElement>(): [RefObject<T>, RefOb
     const container = containerRef.current;
     const end = endRef.current;
 
-    if (container && end) {
+    if (container && end && !disabled) {
       const observer = new MutationObserver(() => {
         end.scrollIntoView({ behavior: 'instant', block: 'end' });
       });
@@ -22,7 +24,7 @@ export function useScrollToBottom<T extends HTMLElement>(): [RefObject<T>, RefOb
 
       return () => observer.disconnect();
     }
-  }, []);
+  }, [disabled]);
 
   return [containerRef, endRef];
 }

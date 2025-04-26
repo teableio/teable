@@ -16,7 +16,7 @@ const NonMemoizedMarkdown = ({
 }) => {
   return (
     <MarkdownPreview
-      className={cn('px-0 py-0', className)}
+      className={cn('px-0 py-0 !text-[13px]', className)}
       components={{
         code(props) {
           const { children, className, node, ...rest } = props;
@@ -35,6 +35,13 @@ const NonMemoizedMarkdown = ({
             <code {...rest} className={className}>
               {children}
             </code>
+          );
+        },
+        p(props) {
+          const { children } = props;
+          return (
+            // eslint-disable-next-line tailwindcss/enforces-shorthand
+            <p className="!mb-2 !mt-2">{children}</p>
           );
         },
         ...components,
