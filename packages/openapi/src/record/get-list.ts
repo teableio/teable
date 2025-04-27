@@ -23,10 +23,21 @@ export const queryBaseSchema = z.object({
     description:
       'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
   }),
-  ignoreViewQuery: z.string().or(z.boolean()).transform(Boolean).optional().openapi({
-    description:
-      "When a viewId is specified, configure this to true will ignore the view's filter, sort, etc",
-  }),
+  ignoreViewQuery: z
+    .string()
+    .or(z.boolean())
+    .transform((value: string | boolean) => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string' && value.toLowerCase() !== 'false') {
+        return true;
+      }
+      return false;
+    })
+    .optional()
+    .openapi({
+      description:
+        "When a viewId is specified, configure this to true will ignore the view's filter, sort, etc",
+    }),
   filterByTql: z.string().optional().openapi({
     example: "{field} = 'Completed' AND {field} > 5",
     deprecated: true,
