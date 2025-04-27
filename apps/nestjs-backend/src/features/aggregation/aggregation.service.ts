@@ -889,6 +889,7 @@ export class AggregationService {
       endDate,
       startField: startField as DateFieldDto,
       endField: endField as DateFieldDto,
+      dbTableName,
     });
 
     const result = await this.prisma

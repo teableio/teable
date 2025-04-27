@@ -32,6 +32,7 @@ export type ICalendarDailyCollectionQueryProps = {
   endDate: string;
   startField: DateFieldDto;
   endField: DateFieldDto;
+  dbTableName: string;
 };
 
 export interface IDbProvider {

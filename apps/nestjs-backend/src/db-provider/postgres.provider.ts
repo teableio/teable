@@ -444,45 +444,52 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     qb: Knex.QueryBuilder,
     props: ICalendarDailyCollectionQueryProps
   ): Knex.QueryBuilder {
-    const { startDate, endDate, startField, endField } = props;
+    const { startDate, endDate, startField, endField, dbTableName } = props;
     const timezone = startField.options.formatting.timeZone;
 
     return qb
       .select([
         this.knex.raw('dates.date'),
         this.knex.raw('COUNT(*) as count'),
-        this.knex.raw(`(array_agg(?? ORDER BY ??))[1:10] as ids`, ['__id', startField.dbFieldName]),
+        this.knex.raw(`(array_agg(?? ORDER BY ??.??))[1:10] as ids`, [
+          '__id',
+          dbTableName,
+          startField.dbFieldName,
+        ]),
       ])
       .crossJoin(
         this.knex.raw(
           `(SELECT date::date as date
-      FROM generate_series(
-        (?::timestamptz AT TIME ZONE ?)::date,
-        (?::timestamptz AT TIME ZONE ?)::date,
-        '1 day'::interval
-      ) AS date) as dates`,
+    FROM generate_series(
+      (?::timestamptz AT TIME ZONE ?)::date,
+      (?::timestamptz AT TIME ZONE ?)::date,
+      '1 day'::interval
+    ) AS date) as dates`,
           [startDate, timezone, endDate, timezone]
         )
       )
       .where((builder) => {
         builder
-          .where(startField.dbFieldName, '<', endDate)
+          .where(`${dbTableName}.${startField.dbFieldName}`, '<', endDate)
           .andWhere(
-            this.knex.raw(`COALESCE(??::timestamptz, ??)::timestamptz >= ?::timestamptz`, [
+            this.knex.raw(`COALESCE(??.??::timestamptz, ??.??)::timestamptz >= ?::timestamptz`, [
+              dbTableName,
               endField.dbFieldName,
+              dbTableName,
               startField.dbFieldName,
               startDate,
             ])
           )
           .andWhere((subBuilder) => {
             subBuilder
-              .whereRaw(`(??::timestamptz AT TIME ZONE ?)::date <= dates.date`, [
+              .whereRaw(`(??.??::timestamptz AT TIME ZONE ?)::date <= dates.date`, [
+                dbTableName,
                 startField.dbFieldName,
                 timezone,
               ])
               .andWhereRaw(
-                `(COALESCE(??::timestamptz, ??)::timestamptz AT TIME ZONE ?)::date >= dates.date`,
-                [endField.dbFieldName, startField.dbFieldName, timezone]
+                `(COALESCE(??.??::timestamptz, ??.??)::timestamptz AT TIME ZONE ?)::date >= dates.date`,
+                [dbTableName, endField.dbFieldName, dbTableName, startField.dbFieldName, timezone]
               );
           });
       })
