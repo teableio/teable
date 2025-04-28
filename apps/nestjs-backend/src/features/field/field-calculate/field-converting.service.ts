@@ -45,7 +45,6 @@ import { formatChangesToOps } from '../../calculation/utils/changes';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
-import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
