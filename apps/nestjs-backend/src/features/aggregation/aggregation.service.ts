@@ -463,7 +463,10 @@ export class AggregationService {
     const tableAlias = 'main_table';
     const { viewCte, builder } = await this.recordPermissionService.wrapView(
       tableId,
-      this.knex.queryBuilder()
+      this.knex.queryBuilder(),
+      {
+        viewId,
+      }
     );
 
     const queryBuilder = builder
@@ -528,6 +531,7 @@ export class AggregationService {
       this.knex.queryBuilder(),
       {
         keepPrimaryKey: Boolean(filterLinkCellSelected),
+        viewId,
       }
     );
     queryBuilder.from(viewCte ?? dbTableName);
@@ -729,6 +733,7 @@ export class AggregationService {
       tableId,
       this.knex.queryBuilder(),
       {
+        viewId,
         keepPrimaryKey: Boolean(queryRo.filterLinkCellSelected),
       }
     );
@@ -745,7 +750,6 @@ export class AggregationService {
     );
 
     const sql = queryBuilder.toQuery();
-
     try {
       return await this.prisma.$tx(async (prisma) => {
         const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
@@ -786,7 +790,6 @@ export class AggregationService {
           .select('t1.__id')
           .from('t1')
           .whereIn('t1.__id', [...new Set(recordIds.map((record) => record.__id))]);
-
         // eslint-disable-next-line
         const indexResult = await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(
           indexQueryBuilder.toQuery()
@@ -872,7 +875,10 @@ export class AggregationService {
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { viewCte, builder: queryBuilder } = await this.recordPermissionService.wrapView(
       tableId,
-      this.knex.queryBuilder()
+      this.knex.queryBuilder(),
+      {
+        viewId,
+      }
     );
     queryBuilder.from(viewCte || dbTableName);
     const viewRaw = await this.findView(tableId, { viewId });
