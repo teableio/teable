@@ -902,9 +902,8 @@ export class AggregationService {
       endDate,
       startField: startField as DateFieldDto,
       endField: endField as DateFieldDto,
-      dbTableName,
+      dbTableName: viewCte || dbTableName,
     });
-
     const result = await this.prisma
       .txClient()
       .$queryRawUnsafe<
