@@ -2,6 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+
 export const MOVE_BASE = '/base/{baseId}/move';
 
 export const moveBaseRoSchema = z.object({
