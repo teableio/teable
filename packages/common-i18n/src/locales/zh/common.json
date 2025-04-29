@@ -44,7 +44,8 @@
     "hideNotMatchRow": "仅显示匹配行",
     "more": "更多",
     "expand": "展开",
-    "deleteTip": "确定要删除 \"{{name}}\" 吗？"
+    "deleteTip": "确定要删除 \"{{name}}\" 吗？",
+    "move": "移动至"
   },
   "quickAction": {
     "title": "快捷搜索...",

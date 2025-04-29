@@ -34,7 +34,8 @@
     "collapseSidebar": "Réduire la barre latérale",
     "restore": "Récupérer",
     "permanentDelete": "Suppression permanente",
-    "more": "Plus"
+    "more": "Plus",
+    "move": "Déplacer vers"
   },
   "quickAction": {
     "title": "Actions rapides...",

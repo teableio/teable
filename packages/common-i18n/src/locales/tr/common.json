@@ -37,7 +37,8 @@
     "globalSearch": "Genel Arama",
     "fieldSearch": "Alan Ara",
     "showAllRow": "Tüm satırları göster",
-    "hideNotMatchRow": "Eşleşmeyen satırları gizle"
+    "hideNotMatchRow": "Eşleşmeyen satırları gizle",
+    "move": "Taşı"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",

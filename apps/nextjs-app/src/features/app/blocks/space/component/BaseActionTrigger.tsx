@@ -1,7 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
-import { Copy, Export, Pencil, Trash2 } from '@teable/icons';
-import { exportBase } from '@teable/openapi';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Copy, Export, Pencil, Trash2, ArrowRight } from '@teable/icons';
+import { exportBase, getSpaceList, moveBase } from '@teable/openapi';
 import type { IGetBaseVo } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   DropdownMenu,
@@ -9,10 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  useToast,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
+import { EditableSpaceSelect } from './EditableSpaceSelect';
 
 interface IBaseActionTrigger {
   base: IGetBaseVo;
@@ -32,7 +35,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showRename,
     showDelete,
     showDuplicate,
-    showExport,
+    showExport: baseOwner,
     onDelete,
     onRename,
     align = 'end',
@@ -40,10 +43,35 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const { t } = useTranslation(['common', 'space']);
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const [exportConfirm, setExportConfirm] = React.useState(false);
+  const [moveConfirm, setMoveConfirm] = React.useState(false);
+  const [spaceId, setSpaceId] = React.useState<string | null>(null);
   const baseStore = useDuplicateBaseStore();
-
+  const queryClient = useQueryClient();
   const { mutateAsync: exportBaseFn } = useMutation({
     mutationFn: (baseId: string) => exportBase(baseId),
+  });
+
+  const { toast } = useToast();
+
+  const { data: spaceList } = useQuery({
+    queryKey: ReactQueryKeys.spaceList(),
+    queryFn: () => getSpaceList().then((data) => data.data),
+  });
+
+  const { mutateAsync: moveBaseFn, isLoading: moveBaseLoading } = useMutation({
+    mutationFn: (baseId: string) => moveBase(baseId, spaceId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId!) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
+      const newSpace = spaceList?.find((space) => space.id === spaceId)?.name;
+      toast({
+        title: t('space:tip.moveBaseSuccessTitle'),
+        description: t('space:tip.moveBaseSuccessDescription', {
+          baseName: base.name,
+          spaceName: newSpace,
+        }),
+      });
+    },
   });
 
   if (!showDelete && !showRename && !showDuplicate) {
@@ -60,6 +88,20 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const exportTips = (
     <pre className="text-wrap text-sm leading-relaxed">{t('space:tip.exportTips')}</pre>
   );
+
+  const moveBaseContent = (
+    <div className="flex flex-col justify-start gap-2">
+      <span className="text-sm text-gray-400">{t('space:baseModal.chooseSpace')}</span>
+      <EditableSpaceSelect
+        spaceId={base.spaceId}
+        value={spaceId}
+        onChange={(spaceId) => {
+          setSpaceId(spaceId);
+        }}
+      />
+    </div>
+  );
+
   return (
     <>
       <DropdownMenu modal>
@@ -81,7 +123,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
-          {showExport && (
+          {baseOwner && (
             <DropdownMenuItem
               onClick={() => {
                 setExportConfirm(true);
@@ -89,6 +131,16 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             >
               <Export className="mr-2" />
               {t('actions.export')}
+            </DropdownMenuItem>
+          )}
+          {baseOwner && (
+            <DropdownMenuItem
+              onClick={() => {
+                setMoveConfirm(true);
+              }}
+            >
+              <ArrowRight className="mr-2" />
+              {t('actions.move')}
             </DropdownMenuItem>
           )}
           {showDelete && (
@@ -123,6 +175,21 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         onConfirm={() => {
           exportBaseFn(base.id);
           setExportConfirm(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={moveConfirm}
+        onOpenChange={setMoveConfirm}
+        content={moveBaseContent}
+        title={t('space:baseModal.moveBaseToAnotherSpace', { baseName: base.name })}
+        cancelText={t('actions.cancel')}
+        confirmText={t('actions.confirm')}
+        onCancel={() => setMoveConfirm(false)}
+        confirmLoading={moveBaseLoading}
+        onConfirm={() => {
+          base.id && spaceId && moveBaseFn(base.id);
+          setMoveConfirm(false);
         }}
       />
     </>

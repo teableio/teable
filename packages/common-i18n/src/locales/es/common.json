@@ -41,7 +41,8 @@
     "tableIndex": "Índice",
     "showAllRow": "Mostrar todas las filas",
     "hideNotMatchRow": "Ocultar filas sin coincidencia",
-    "more": "Más"
+    "more": "Más",
+    "move": "Mover a"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
