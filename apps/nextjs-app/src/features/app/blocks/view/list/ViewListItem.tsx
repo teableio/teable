@@ -16,7 +16,7 @@ import { Unlock } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, Fragment, useEffect } from 'react';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
@@ -40,11 +40,21 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const permission = useTablePermission();
   const { t } = useTranslation('table');
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const viewItemRef = useRef<HTMLDivElement>(null);
   const { trigger } = useDownload({
     downloadUrl: `/api/export/${tableId}?viewId=${view.id}`,
     key: 'view',
   });
   const { resetSearchHandler } = useGridSearchStore();
+
+  useEffect(() => {
+    isActive &&
+      setTimeout(() => {
+        viewItemRef.current?.scrollIntoView({
+          behavior: 'smooth',
+        });
+      }, 0);
+  }, [isActive]);
 
   const navigateHandler = () => {
     resetSearchHandler?.();
@@ -110,6 +120,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
 
   return (
     <div
+      ref={viewItemRef}
       role="button"
       tabIndex={0}
       className={cn(
