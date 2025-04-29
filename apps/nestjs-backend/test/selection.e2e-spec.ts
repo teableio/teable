@@ -6,11 +6,12 @@ import {
   FieldType,
   MultiNumberDisplayType,
   Relationship,
+  Role,
   SortFunc,
   defaultNumberFormatting,
 } from '@teable/core';
-import type { IFieldRo } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import type { IFieldRo, IUserCellValue } from '@teable/core';
+import type { ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
   RangeType,
   IdReturnType,
@@ -20,13 +21,22 @@ import {
   getFields,
   deleteSelection,
   updateViewFilter,
+  USER_ME,
+  UPDATE_USER_NAME,
+  createSpace,
+  createBase,
+  emailSpaceInvitation,
+  permanentDeleteBase,
+  getRecords,
 } from '@teable/openapi';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   createField,
   getRecord,
   initApp,
   createTable,
   permanentDeleteTable,
+  permanentDeleteSpace,
 } from './utils/init-app';
 
 describe('OpenAPI SelectionController (e2e)', () => {
@@ -546,6 +556,142 @@ describe('OpenAPI SelectionController (e2e)', () => {
         ],
       });
       expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
+    });
+  });
+
+  describe('paste user', () => {
+    let spaceId: string;
+    let baseId: string;
+    let tableData: ITableFullVo;
+    let user1Info: IUserMeVo;
+    let user2Info: IUserMeVo;
+    beforeAll(async () => {
+      spaceId = await createSpace({
+        name: 'paste-same-name-user',
+      }).then((res) => res.data.id);
+      baseId = await createBase({
+        name: 'paste-same-name-user',
+        spaceId,
+      }).then((res) => res.data.id);
+
+      const user1 = await createNewUserAxios({
+        email: 'paste-same-name-user@test.com',
+        password: '12345678',
+      });
+      user1Info = await user1.get<IUserMeVo>(USER_ME).then((res) => res.data);
+      const user2 = await createNewUserAxios({
+        email: 'paste-same-name-user2@test.com',
+        password: '12345678',
+      });
+      await user2.patch(UPDATE_USER_NAME, {
+        name: 'paste-same-name-user',
+      });
+      user2Info = await user2.get<IUserMeVo>(USER_ME).then((res) => res.data);
+
+      await emailSpaceInvitation({
+        spaceId,
+        emailSpaceInvitationRo: {
+          emails: [user1Info.email, user2Info.email],
+          role: Role.Editor,
+        },
+      });
+    });
+
+    beforeEach(async () => {
+      tableData = await createTable(baseId, {
+        name: 'table3',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+          { name: 'user', type: FieldType.User },
+        ],
+        records: [
+          {
+            fields: {
+              name: '1',
+              number: 1,
+              user: { id: user1Info.id, title: user1Info.name, email: user1Info.email },
+            },
+          },
+          {
+            fields: {
+              name: '2',
+              number: 2,
+              user: { id: user2Info.id, title: user2Info.name, email: user2Info.email },
+            },
+          },
+          {
+            fields: {
+              name: '3',
+              number: 1,
+            },
+          },
+          {
+            fields: {
+              name: '4',
+              number: 2,
+            },
+          },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, tableData.id);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteBase(baseId);
+      await permanentDeleteSpace(spaceId);
+    });
+
+    it('api/table/:tableId/selection/paste (POST) - exist same name user', async () => {
+      await apiPaste(tableData.id, {
+        viewId: tableData.defaultViewId!,
+        content: 'paste-same-name-user',
+        ranges: [
+          [2, 2],
+          [2, 2],
+        ],
+      });
+      const record = await getRecord(tableData.id, tableData.records[2].id);
+      expect((record.fields[tableData.fields[2].id] as IUserCellValue)?.title).toBe(
+        'paste-same-name-user'
+      );
+    });
+
+    it('api/table/:tableId/selection/paste (POST) - exist same name user with cell value', async () => {
+      await apiPaste(tableData.id, {
+        viewId: tableData.defaultViewId!,
+        content: [
+          [
+            {
+              id: user2Info.id,
+              title: user2Info.name,
+              email: user2Info.email,
+            },
+          ],
+          [
+            {
+              id: user1Info.id,
+              title: user1Info.name,
+              email: user1Info.email,
+            },
+          ],
+        ],
+        ranges: [
+          [2, 2],
+          [2, 2],
+        ],
+      });
+      const recordsData = await getRecords(tableData.id, {
+        viewId: tableData.defaultViewId!,
+        skip: 2,
+        take: 2,
+      }).then((res) => res.data);
+      expect(
+        recordsData.records.map((r) => (r.fields[tableData.fields[2].name] as IUserCellValue)?.id)
+      ).toEqual([user2Info.id, user1Info.id]);
     });
   });
 });

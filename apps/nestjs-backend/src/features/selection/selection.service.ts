@@ -469,6 +469,7 @@ export class SelectionService {
       if (field.isComputed) {
         return;
       }
+      // eslint-disable-next-line sonarjs/cognitive-complexity
       tableData.forEach((cellCols, row) => {
         const cellValue = cellCols?.[col] ?? null;
         const recordField = records[row].fields;
@@ -479,8 +480,17 @@ export class SelectionService {
         }
 
         switch (field.type) {
+          case FieldType.User:
           case FieldType.Attachment:
-            recordField[field.id] = sourceField.type === FieldType.Attachment ? cellValue : null;
+            {
+              const cvs = [cellValue].flat();
+              recordField[field.id] =
+                sourceField.type === field.type
+                  ? field.isMultipleCellValue
+                    ? cvs
+                    : cvs?.[0]
+                  : field.cellValue2String(cellValue);
+            }
             break;
           case FieldType.Date:
             recordField[field.id] =
