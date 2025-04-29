@@ -1954,7 +1954,6 @@ export class RecordService {
       search,
       collapsedGroupIds,
       ignoreViewQuery,
-      projection,
     } = query || {};
     let groupPoints: IGroupPoint[] = [];
 
@@ -1969,21 +1968,7 @@ export class RecordService {
 
     const viewId = ignoreViewQuery ? undefined : query?.viewId;
     const viewRaw = await this.getTinyView(tableId, viewId);
-    const fieldInstanceMap = (await this.getNecessaryFieldMap(
-      tableId,
-      filter,
-      undefined,
-      groupBy,
-      search,
-      projection
-    ))!;
-    const dbTableName = await this.getDbTableName(tableId);
-
-    const filterStr = viewRaw?.filter;
-    const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
-    const groupFieldIds = groupBy.map((item) => item.fieldId);
-
-    const { viewCte, builder } = await this.recordPermissionService.wrapView(
+    const { viewCte, builder, enabledFieldIds } = await this.recordPermissionService.wrapView(
       tableId,
       this.knex.queryBuilder(),
       {
@@ -1991,6 +1976,20 @@ export class RecordService {
         viewId,
       }
     );
+    const fieldInstanceMap = (await this.getNecessaryFieldMap(
+      tableId,
+      filter,
+      undefined,
+      groupBy,
+      search,
+      enabledFieldIds
+    ))!;
+    const dbTableName = await this.getDbTableName(tableId);
+
+    const filterStr = viewRaw?.filter;
+    const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
+    const groupFieldIds = groupBy.map((item) => item.fieldId);
+
     const queryBuilder = builder.from(viewCte ?? dbTableName);
 
     if (mergedFilter) {
