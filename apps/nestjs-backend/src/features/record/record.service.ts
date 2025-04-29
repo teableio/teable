@@ -438,11 +438,17 @@ export class RecordService {
     tableId: string,
     query: Pick<
       IGetRecordsRo,
-      'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'search' | 'filterLinkCellSelected'
+      | 'viewId'
+      | 'orderBy'
+      | 'groupBy'
+      | 'filter'
+      | 'search'
+      | 'filterLinkCellSelected'
+      | 'ignoreViewQuery'
     >
   ) {
+    const viewId = query.ignoreViewQuery ? undefined : query.viewId;
     const {
-      viewId,
       orderBy: extraOrderBy,
       groupBy: extraGroupBy,
       filter: extraFilter,
@@ -453,7 +459,7 @@ export class RecordService {
       tableId,
       this.knex.queryBuilder(),
       {
-        viewId,
+        viewId: query.viewId,
         keepPrimaryKey: Boolean(query.filterLinkCellSelected),
       }
     );
@@ -531,10 +537,7 @@ export class RecordService {
   ) {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
     const { dbTableName, queryBuilder, viewCte, filter, search, orderBy, groupBy, fieldMap } =
-      await this.prepareQuery(tableId, {
-        ...query,
-        viewId: query.ignoreViewQuery ? undefined : query.viewId,
-      });
+      await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
