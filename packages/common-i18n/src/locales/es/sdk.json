@@ -523,7 +523,12 @@
     "short": "corto",
     "medium": "medio",
     "tall": "alto",
-    "extraTall": "extratall"
+    "extraTall": "extratall",
+    "title": "Configuración de altura de fila"
+  },
+  "fieldNameConfig": {
+    "title": "Configuración de nombre de campo",
+    "displayLines": "{{count}} líneas"
   },
   "share": {
     "title": "compartir"

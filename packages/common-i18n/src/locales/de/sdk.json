@@ -172,7 +172,12 @@
     "short": "kurz",
     "medium": "mittel",
     "tall": "groß",
-    "extraTall": "extra groß"
+    "extraTall": "extra groß",
+    "title": "Zeilenhöhenkonfiguration"
+  },
+  "fieldNameConfig": {
+    "title": "Feldname-Konfiguration",
+    "displayLines": "{{count}} Zeilen"
   },
   "share": {
     "title": "teilen"

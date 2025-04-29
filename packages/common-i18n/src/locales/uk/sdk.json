@@ -172,7 +172,12 @@
     "short": "низький",
     "medium": "середній",
     "tall": "високий",
-    "extraTall": "дуже високий"
+    "extraTall": "дуже високий",
+    "title": "Настройка высоты строки"
+  },
+  "fieldNameConfig": {
+    "title": "Настройка имени поля",
+    "displayLines": "{{count}} строк"
   },
   "share": {
     "title": "поділитися"

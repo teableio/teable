@@ -94,7 +94,7 @@ import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
-import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
+import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
@@ -142,6 +142,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const isAutoSort = sort && !sort?.manualSort;
   const frozenColumnCount = isTouchDevice ? 0 : view?.options?.frozenColumnCount ?? 1;
   const { cells: taskStatusCells, fieldMap: taskStatusFieldMap } = taskStatusCollection ?? {};
+  const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[view?.options?.rowHeight ?? RowHeightLevel.Short];
+  const columnHeaderHeight =
+    GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
@@ -579,11 +582,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const customIcons = useGridIcons();
 
-  const rowHeight = useMemo(() => {
-    if (view == null) return GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short];
-    return GIRD_ROW_HEIGHT_DEFINITIONS[view.options?.rowHeight || RowHeightLevel.Short];
-  }, [view]);
-
   const rowControls = useMemo(() => {
     if (isTouchDevice) return [];
     const drag = permission['view|update']
@@ -965,6 +963,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         isTouchDevice={isTouchDevice}
         rowCount={realRowCount}
         rowHeight={rowHeight}
+        columnHeaderHeight={columnHeaderHeight}
         freezeColumnCount={frozenColumnCount}
         columnStatistics={columnStatistics}
         columns={columns}
@@ -1044,7 +1043,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             selectable={SelectableType.Cell}
             columns={columns}
             commentCountMap={commentCountMap}
-            columnHeaderVisible={false}
+            columnHeaderHeight={0}
             freezeColumnCount={frozenColumnCount}
             customIcons={customIcons}
             getCellContent={getPrefillingCellContent}
@@ -1076,7 +1075,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             draggable={DraggableType.None}
             selectable={SelectableType.Cell}
             columns={columns}
-            columnHeaderVisible={false}
+            columnHeaderHeight={0}
             commentCountMap={commentCountMap}
             freezeColumnCount={frozenColumnCount}
             customIcons={customIcons}

@@ -51,7 +51,10 @@ import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
-import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
+import {
+  GIRD_FIELD_NAME_HEIGHT_DEFINITIONS,
+  GIRD_ROW_HEIGHT_DEFINITIONS,
+} from '../../../../view/grid/const';
 import { useSelectionOperation } from '../../../../view/grid/hooks';
 
 interface IGridViewProps {
@@ -87,6 +90,14 @@ export const GridViewBase = (props: IGridViewProps) => {
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
+  const rowHeight =
+    GIRD_ROW_HEIGHT_DEFINITIONS[
+      (view?.options as IGridViewOptions)?.rowHeight ?? RowHeightLevel.Short
+    ];
+  const columnHeaderHeight =
+    GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[
+      (view?.options as IGridViewOptions)?.fieldNameDisplayLines ?? 1
+    ];
 
   const groupCollection = useGridGroupCollection();
 
@@ -160,11 +171,6 @@ export const GridViewBase = (props: IGridViewProps) => {
       }
     );
   };
-
-  const rowHeightLevel = useMemo(() => {
-    if (view == null) return RowHeightLevel.Short;
-    return (view.options as IGridViewOptions)?.rowHeight || RowHeightLevel.Short;
-  }, [view]);
 
   const onSelectionChanged = useCallback(
     (selection: CombinedSelection) => {
@@ -249,7 +255,8 @@ export const GridViewBase = (props: IGridViewProps) => {
             draggable={DraggableType.Column}
             isTouchDevice={isTouchDevice}
             rowCount={realRowCount}
-            rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+            rowHeight={rowHeight}
+            columnHeaderHeight={columnHeaderHeight}
             columnStatistics={columnStatistics}
             freezeColumnCount={isTouchDevice ? 0 : 1}
             columns={columns}

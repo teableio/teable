@@ -172,7 +172,12 @@
     "short": "short",
     "medium": "medium",
     "tall": "tall",
-    "extraTall": "extraTall"
+    "extraTall": "extraTall",
+    "title": "Row height configuration"
+  },
+  "fieldNameConfig": {
+    "title": "Field name configuration",
+    "displayLines": "{{count}} lines"
   },
   "share": {
     "title": "share"

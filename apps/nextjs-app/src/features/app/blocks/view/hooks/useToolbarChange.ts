@@ -22,6 +22,15 @@ export const useToolbarChange = () => {
     const onRowHeightChange = async (rowHeight: RowHeightLevel) => {
       await view?.updateOption({ rowHeight });
     };
-    return { onFilterChange, onSortChange, onGroupChange, onRowHeightChange };
+    const onFieldNameDisplayLinesChange = async (fieldNameDisplayLines: number) => {
+      await view?.updateOption({ fieldNameDisplayLines });
+    };
+    return {
+      onFilterChange,
+      onSortChange,
+      onGroupChange,
+      onRowHeightChange,
+      onFieldNameDisplayLinesChange,
+    };
   }, [setCollapsedGroupMap, tableId, view]);
 };

@@ -131,7 +131,7 @@ export interface IGridProps extends IGridExternalProps {
   rowHeight?: number;
   style?: CSSProperties;
   isTouchDevice?: boolean;
-  columnHeaderVisible?: boolean;
+  columnHeaderHeight?: number;
   columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
@@ -194,7 +194,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     searchCursor,
     searchHitIndex,
     groupPoints,
-    columnHeaderVisible = true,
+    columnHeaderHeight = defaultColumnHeaderHeight,
     getCellContent,
     onUndo,
     onRedo,
@@ -460,13 +460,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       freezeColumnCount,
       containerWidth: width,
       containerHeight,
-      rowInitSize: columnHeaderVisible ? defaultColumnHeaderHeight : 0,
+      rowInitSize: columnHeaderHeight,
       columnInitSize,
       rowHeightMap,
       columnWidthMap,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowHeight, pureRowCount, rowCount, rowHeightMap, columnHeaderVisible]);
+  }, [rowHeight, pureRowCount, rowCount, rowHeightMap, columnHeaderHeight]);
 
   const totalHeight = coordInstance.totalHeight + scrollBufferY;
 
@@ -610,7 +610,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             collapsedGroupIds={collapsedGroupIds}
-            columnHeaderVisible={columnHeaderVisible}
+            columnHeaderHeight={columnHeaderHeight}
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
             groupCollection={groupCollection}
@@ -649,7 +649,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             collapsedGroupIds={collapsedGroupIds}
-            columnHeaderVisible={columnHeaderVisible}
+            columnHeaderHeight={columnHeaderHeight}
             isMultiSelectionEnable={isMultiSelectionEnable}
             activeCell={activeCell}
             mouseState={mouseState}

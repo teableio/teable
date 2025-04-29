@@ -1,4 +1,4 @@
-import { type IGridViewOptions } from '@teable/core';
+import type { RowHeightLevel, IGridViewOptions } from '@teable/core';
 import { ArrowUpDown, Filter as FilterIcon, EyeOff, LayoutList, Share2 } from '@teable/icons';
 import { HideFields, RowHeight, Sort, Group, ViewFilter } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
@@ -14,7 +14,13 @@ import { useToolBarStore } from './useToolBarStore';
 export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView();
-  const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
+  const {
+    onFilterChange,
+    onRowHeightChange,
+    onFieldNameDisplayLinesChange,
+    onSortChange,
+    onGroupChange,
+  } = useToolbarChange();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
   const filterRef = useRef<HTMLButtonElement>(null);
@@ -146,8 +152,12 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       </TooltipProvider> */}
 
       <RowHeight
-        rowHeight={(view?.options as IGridViewOptions)?.rowHeight || null}
-        onChange={onRowHeightChange}
+        rowHeight={(view?.options as IGridViewOptions)?.rowHeight}
+        fieldNameDisplayLines={(view?.options as IGridViewOptions)?.fieldNameDisplayLines}
+        onChange={(type, value) => {
+          if (type === 'rowHeight') onRowHeightChange(value as RowHeightLevel);
+          if (type === 'fieldNameDisplayLines') onFieldNameDisplayLinesChange(value as number);
+        }}
       >
         {(_, isActive, Icon) => (
           <ToolBarButton disabled={disabled} isActive={isActive}>

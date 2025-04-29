@@ -160,7 +160,12 @@
     "short": "kısa",
     "medium": "orta",
     "tall": "uzun",
-    "extraTall": "çok uzun"
+    "extraTall": "çok uzun",
+    "title": "Satır yüksekliği yapılandırma"
+  },
+  "fieldNameConfig": {
+    "title": "Alan adı yapılandırma",
+    "displayLines": "{{count}} satır"
   },
   "share": {
     "title": "paylaş"

@@ -145,7 +145,12 @@
     "short": "低",
     "medium": "中",
     "tall": "高",
-    "extraTall": "超高"
+    "extraTall": "超高",
+    "title": "行高配置"
+  },
+  "fieldNameConfig": {
+    "title": "列名配置",
+    "displayLines": "{{count}} 行"
   },
   "share": {
     "title": "共有"

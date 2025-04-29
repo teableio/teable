@@ -143,7 +143,12 @@
     "short": "court",
     "medium": "moyen",
     "tall": "grand",
-    "extraTall": "très grand"
+    "extraTall": "très grand",
+    "title": "Configuration de la hauteur de ligne"
+  },
+  "fieldNameConfig": {
+    "title": "Configuration du nom de champ",
+    "displayLines": "{{count}} lignes"
   },
   "share": {
     "title": "partager"

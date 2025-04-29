@@ -36,7 +36,7 @@ export interface IRenderLayerProps
     | 'searchCursor'
     | 'searchHitIndex'
     | 'collaborators'
-    | 'columnHeaderVisible'
+    | 'columnHeaderHeight'
     | 'isMultiSelectionEnable'
     | 'getCellContent'
   > {
@@ -94,7 +94,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
-    columnHeaderVisible,
+    columnHeaderHeight,
     hoveredColumnResizeIndex,
     isColumnFreezable,
     isRowAppendEnable,
@@ -170,7 +170,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       rowIndexVisible,
       columnStatistics,
       columnResizeState,
-      columnHeaderVisible,
+      columnHeaderHeight,
       hoveredColumnResizeIndex,
       isColumnFreezable,
       isRowAppendEnable,
@@ -214,7 +214,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
-    columnHeaderVisible,
+    columnHeaderHeight,
     hoverCellPosition,
     hoveredColumnResizeIndex,
     isColumnFreezable,

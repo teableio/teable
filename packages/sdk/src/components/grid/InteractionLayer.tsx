@@ -114,7 +114,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     groupCollection,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
-    columnHeaderVisible,
+    columnHeaderHeight,
     collapsedGroupIds,
     collaborators,
     searchCursor,
@@ -738,7 +738,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           rowIndexVisible={rowIndexVisible}
           columnResizeState={columnResizeState}
           columnFreezeState={columnFreezeState}
-          columnHeaderVisible={columnHeaderVisible}
+          columnHeaderHeight={columnHeaderHeight}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
           isRowAppendEnable={isRowAppendEnable}

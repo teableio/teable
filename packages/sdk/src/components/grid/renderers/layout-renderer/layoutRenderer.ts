@@ -17,6 +17,7 @@ import type { ISingleLineTextProps } from '../base-renderer';
 import {
   drawCheckbox,
   drawLine,
+  drawMultiLineText,
   drawRect,
   drawRoundPoly,
   drawSingleLineText,
@@ -43,6 +44,7 @@ const spriteIconMap = {
 
 const {
   fillHandlerSize,
+  cellTextLineHeight,
   rowHeadIconPaddingTop,
   columnStatisticHeight,
   columnHeadHeight,
@@ -1246,7 +1248,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
     spriteManager.drawSprite(ctx, {
       sprite: GridInnerIcon.Lock,
       x: x + iconOffsetX,
-      y: y + (height - iconSizeXS) / 2,
+      y: y + (columnHeadHeight - iconSizeXS) / 2,
       size: iconSizeXS,
       theme,
     });
@@ -1258,7 +1260,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
     spriteManager.drawSprite(ctx, {
       sprite: icon,
       x: x + iconOffsetX,
-      y: y + (height - iconSizeXS) / 2,
+      y: y + (columnHeadHeight - iconSizeXS) / 2,
       size: iconSizeXS,
       theme,
     });
@@ -1271,15 +1273,15 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
       points: [
         {
           x: x + width - columnHeadPadding - columnHeadMenuSize,
-          y: y + height / 2 - columnHeadMenuSize / 4,
+          y: y + columnHeadHeight / 2 - columnHeadMenuSize / 4,
         },
         {
           x: x + width - columnHeadPadding,
-          y: y + height / 2 - columnHeadMenuSize / 4,
+          y: y + columnHeadHeight / 2 - columnHeadMenuSize / 4,
         },
         {
           x: x + width - columnHeadPadding - columnHeadMenuSize / 2,
-          y: y + height / 2 + columnHeadMenuSize / 4,
+          y: y + columnHeadHeight / 2 + columnHeadMenuSize / 4,
         },
       ],
       radiusAll: 1,
@@ -1293,7 +1295,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
       x: hasMenuInner
         ? x + width - 2 * iconSizeXS - columnHeadPadding
         : x + width - iconSizeXS - columnHeadPadding,
-      y: y + (height - iconSizeXS) / 2,
+      y: y + (columnHeadHeight - iconSizeXS) / 2,
       size: iconSizeXS,
       theme,
     });
@@ -1301,13 +1303,15 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
     maxTextWidth = maxTextWidth - iconSizeXS - columnHeadPadding;
   }
 
-  drawSingleLineText(ctx, {
+  drawMultiLineText(ctx, {
     x: x + iconOffsetX,
     y: y + cellVerticalPaddingMD,
     text: name,
-    fill: columnHeaderNameColor,
+    maxLines: Math.floor((height - cellVerticalPaddingMD) / cellTextLineHeight),
+    lineHeight: cellTextLineHeight,
     fontSize: fontSizeSM,
     maxWidth: maxTextWidth,
+    fill: columnHeaderNameColor,
   });
 };
 
@@ -1728,9 +1732,9 @@ export const drawColumnHeadersRegion = (
   ctx: CanvasRenderingContext2D,
   props: ILayoutDrawerProps
 ) => {
-  const { columnHeaderVisible } = props;
+  const { columnHeaderHeight } = props;
 
-  if (!columnHeaderVisible) return;
+  if (columnHeaderHeight === 0) return;
 
   [RenderRegion.Freeze, RenderRegion.Other].forEach((r) => drawColumnHeaders(ctx, props, r));
   drawAppendColumn(ctx, props);
