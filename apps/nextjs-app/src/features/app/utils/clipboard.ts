@@ -95,7 +95,7 @@ export const extractTableContent = (html: string) => {
     const rowData: unknown[] = [];
     const cells = row.querySelectorAll('td');
     cells.forEach((cell) => {
-      const cellText = cell.innerText || '';
+      const cellText = cell.textContent || '';
       const cellValue = cell.getAttribute('data-teable-cell-value');
       if (!cellValue) {
         rowData.push(cellText);
