@@ -1997,9 +1997,7 @@ export class RecordService {
 
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
-    const groupFieldIds = groupBy
-      .map((item) => item.fieldId)
-      .filter((id) => !enabledFieldIds || enabledFieldIds.includes(id));
+    const groupFieldIds = groupBy.map((item) => item.fieldId);
 
     const queryBuilder = builder.from(viewCte ?? dbTableName);
 
