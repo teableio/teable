@@ -523,7 +523,12 @@
     "filterField": "Filtrar por este campo",
     "sortField": "Ordenar por este campo",
     "groupField": "Grupo por este campo",
-    "autoFill": "Actualizar todos los registros"
+    "autoFill": "Actualizar todos los registros",
+    "groupMenuTitle": "Menú de grupo",
+    "expandGroup": "Expandir este grupo y sus subgrupos",
+    "collapseGroup": "Colapsar este grupo y sus subgrupos",
+    "expandAllGroups": "Expandir todos los grupos",
+    "collapseAllGroups": "Colapsar todos los grupos"
   },
   "connection": {
     "title": "Conexiones",

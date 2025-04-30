@@ -9,6 +9,7 @@ import type {
   ICellItem,
   IGridRef,
   IGroupPoint,
+  IPosition,
   IRectangle,
 } from '@teable/sdk/components';
 import {
@@ -76,7 +77,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { setSelection, openStatisticMenu } = useGridViewStore();
+  const { setSelection, openStatisticMenu, openGroupHeaderMenu } = useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -136,12 +137,8 @@ export const GridViewBase = (props: IGridViewProps) => {
     };
   }, [filter, sort?.sortObjs, viewQueryWithGroup]);
 
-  const { recordMap, groupPoints, onVisibleRegionChanged, searchHitIndex } = useGridAsyncRecords(
-    ssrRecords,
-    undefined,
-    viewQuery,
-    groupPointsServerData
-  );
+  const { recordMap, groupPoints, searchHitIndex, allGroupHeaderRefs, onVisibleRegionChanged } =
+    useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
 
   useClickAway(container, () => {
     gridRef.current?.resetState();
@@ -177,6 +174,13 @@ export const GridViewBase = (props: IGridViewProps) => {
       setSelection(selection);
     },
     [setSelection]
+  );
+
+  const onColumnFreeze = useCallback(
+    (count: number) => {
+      view?.updateOption({ frozenColumnCount: count });
+    },
+    [view]
   );
 
   const rowControls = useMemo(
@@ -245,6 +249,14 @@ export const GridViewBase = (props: IGridViewProps) => {
     }
   };
 
+  const onGroupHeaderContextMenu = (groupId: string, position: IPosition) => {
+    openGroupHeaderMenu({
+      groupId,
+      position,
+      allGroupHeaderRefs,
+    });
+  };
+
   return (
     <div ref={container} className="relative size-full overflow-hidden">
       {prepare ? (
@@ -258,7 +270,9 @@ export const GridViewBase = (props: IGridViewProps) => {
             rowHeight={rowHeight}
             columnHeaderHeight={columnHeaderHeight}
             columnStatistics={columnStatistics}
-            freezeColumnCount={isTouchDevice ? 0 : 1}
+            freezeColumnCount={
+              isTouchDevice ? 0 : (view?.options as IGridViewOptions)?.frozenColumnCount ?? 1
+            }
             columns={columns}
             searchCursor={searchCursor}
             searchHitIndex={searchHitIndex}
@@ -278,9 +292,11 @@ export const GridViewBase = (props: IGridViewProps) => {
             onItemHovered={onItemHovered}
             onRowExpand={onRowExpandInner}
             onColumnResize={onColumnResize}
+            onColumnFreeze={onColumnFreeze}
             onColumnOrdered={onColumnOrdered}
             onColumnStatisticClick={onColumnStatisticClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
+            onGroupHeaderContextMenu={onGroupHeaderContextMenu}
           />
           <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
         </>

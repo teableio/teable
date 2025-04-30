@@ -538,7 +538,12 @@
     "filterField": "Filter by this field",
     "sortField": "Sort by this field",
     "groupField": "Group by this field",
-    "autoFill": "Update all records"
+    "autoFill": "Update all records",
+    "groupMenuTitle": "Group Menu",
+    "expandGroup": "Expand this group and its sub-groups",
+    "collapseGroup": "Collapse this group and its sub-groups",
+    "expandAllGroups": "Expand all groups",
+    "collapseAllGroups": "Collapse all groups"
   },
   "connection": {
     "title": "Database Connection",

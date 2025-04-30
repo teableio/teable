@@ -131,8 +131,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
-  const { openRecordMenu, openHeaderMenu, openStatisticMenu, setSelection, selection } =
-    useGridViewStore();
+  const {
+    selection,
+    setSelection,
+    openRecordMenu,
+    openHeaderMenu,
+    openStatisticMenu,
+    openGroupHeaderMenu,
+  } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
@@ -176,8 +182,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     personalViewCommonQuery
   );
 
-  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery, searchHitIndex } =
-    useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
+  const {
+    onVisibleRegionChanged,
+    onReset,
+    recordMap,
+    groupPoints,
+    recordsQuery,
+    searchHitIndex,
+    allGroupHeaderRefs,
+  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
@@ -452,6 +465,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onAutoFill,
       });
     }
+  };
+
+  const onGroupHeaderContextMenu = (groupId: string, position: IPosition) => {
+    openGroupHeaderMenu({
+      groupId,
+      position,
+      allGroupHeaderRefs,
+    });
   };
 
   const onColumnHeaderMenuClick = useCallback(
@@ -991,6 +1012,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
         onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
         onContextMenu={onContextMenu}
+        onGroupHeaderContextMenu={onGroupHeaderContextMenu}
         onColumnHeaderClick={onColumnHeaderClick}
         onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
         onVisibleRegionChanged={onVisibleRegionChanged}

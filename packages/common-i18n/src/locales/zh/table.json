@@ -538,7 +538,12 @@
     "filterField": "按此字段筛选",
     "sortField": "按此字段排序",
     "groupField": "按此字段分组",
-    "autoFill": "更新整列记录"
+    "autoFill": "更新整列记录",
+    "groupMenuTitle": "分组菜单",
+    "expandGroup": "展开该组及子分组",
+    "collapseGroup": "收起该组及子分组",
+    "expandAllGroups": "展开所有分组",
+    "collapseAllGroups": "收起所有分组"
   },
   "connection": {
     "title": "数据库连接",

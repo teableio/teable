@@ -109,6 +109,7 @@ export interface IGridExternalProps {
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
+  onGroupHeaderContextMenu?: (groupId: string, position: IPosition) => void;
   onScrollChanged?: (scrollLeft: number, scrollTop: number) => void;
   onDragStart?: (type: DragRegionType, dragIndexs: number[]) => void;
 
@@ -219,6 +220,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
     onCollapsedGroupChanged,
+    onGroupHeaderContextMenu,
     onItemHovered,
     onItemClick,
     onScrollChanged,
@@ -685,6 +687,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
+            onGroupHeaderContextMenu={onGroupHeaderContextMenu}
             onSelectionChanged={onSelectionChanged}
             onColumnFreeze={onColumnFreeze}
             onItemHovered={onItemHovered}

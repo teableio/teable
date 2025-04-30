@@ -500,7 +500,12 @@
     "filterField": "Bu alana göre filtrele",
     "sortField": "Bu alana göre sırala",
     "groupField": "Bu alana göre grupla",
-    "autoFill": "Tüm kayıtları güncelle"
+    "autoFill": "Tüm kayıtları güncelle",
+    "groupMenuTitle": "Grup menüsü",
+    "expandGroup": "Bu grup ve alt gruplarını genişlet",
+    "collapseGroup": "Bu grup ve alt gruplarını daralt",
+    "expandAllGroups": "Tüm grupları genişlet",
+    "collapseAllGroups": "Tüm grupları daralt"
   },
   "connection": {
     "title": "Veritabanı Bağlantısı",

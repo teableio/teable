@@ -516,7 +516,12 @@
     "hideField": "Masquer le champ",
     "deleteField": "Supprimer le champ",
     "deleteAllSelectedFields": "Supprimer tous les champs sélectionnés",
-    "autoFill": "Mettre à jour tous les enregistrements"
+    "autoFill": "Mettre à jour tous les enregistrements",
+    "groupMenuTitle": "Menu de groupe",
+    "expandGroup": "Développer ce groupe et ses sous-groupes",
+    "collapseGroup": "Réduire ce groupe et ses sous-groupes",
+    "expandAllGroups": "Développer tous les groupes",
+    "collapseAllGroups": "Réduire tous les groupes"
   },
   "connection": {
     "title": "Connexion à la base de données",

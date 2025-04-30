@@ -531,7 +531,12 @@
     "filterField": "Filtern Sie nach diesem Feld",
     "sortField": "Sortieren nach diesem Feld",
     "groupField": "Gruppieren nach diesem Feld",
-    "autoFill": "Alle Datensätze aktualisieren"
+    "autoFill": "Alle Datensätze aktualisieren",
+    "groupMenuTitle": "Gruppenmenü",
+    "expandGroup": "Gruppe und Untergruppen erweitern",
+    "collapseGroup": "Gruppe und Untergruppen einklappen",
+    "expandAllGroups": "Alle Gruppen erweitern",
+    "collapseAllGroups": "Alle Gruppen einklappen"
   },
   "connection": {
     "title": "Datenbankverbindung",

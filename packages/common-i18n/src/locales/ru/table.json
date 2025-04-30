@@ -516,7 +516,12 @@
     "hideField": "Скрыть поле",
     "deleteField": "Удалить поле",
     "deleteAllSelectedFields": "Удалить все выбранные поля",
-    "autoFill": "Обновить все записи"
+    "autoFill": "Обновить все записи",
+    "groupMenuTitle": "Меню группы",
+    "expandGroup": "Развернуть эту группу и ее подгруппы",
+    "collapseGroup": "Свернуть эту группу и ее подгруппы",
+    "expandAllGroups": "Развернуть все группы",
+    "collapseAllGroups": "Свернуть все группы"
   },
   "connection": {
     "title": "Подключение к базе данных",

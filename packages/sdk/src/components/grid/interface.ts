@@ -49,6 +49,7 @@ export enum RegionType {
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
+  RowGroupControl = 'RowGroupControl',
   RowGroupHeader = 'RowGroupHeader',
   RowCountLabel = 'RowCountLabel',
   RowHeader = 'RowHeader',

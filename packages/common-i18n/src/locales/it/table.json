@@ -531,7 +531,12 @@
     "filterField": "Filtra per questo campo",
     "sortField": "Ordina per questo campo",
     "groupField": "Raggruppa per questo campo",
-    "autoFill": "Aggiorna tutti i record"
+    "autoFill": "Aggiorna tutti i record",
+    "groupMenuTitle": "Menu di raggruppamento",
+    "expandGroup": "Espandi questo gruppo e i suoi sottogruppi",
+    "collapseGroup": "Comprimi questo gruppo e i suoi sottogruppi",
+    "expandAllGroups": "Espandi tutti i gruppi",
+    "collapseAllGroups": "Comprimi tutti i gruppi"
   },
   "connection": {
     "title": "Connessione al Database",

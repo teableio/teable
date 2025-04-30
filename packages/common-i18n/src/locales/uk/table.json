@@ -531,7 +531,12 @@
     "deleteAllSelectedFields": "Видалити всі вибрані поля",
     "filterField": "Фільтрувати за цим полем",
     "sortField": "Сортувати за цим полем",
-    "groupField": "Групувати за цим полем"
+    "groupField": "Групувати за цим полем",
+    "groupMenuTitle": "Меню групи",
+    "expandGroup": "Розгорнути цю групу та її підгрупи",
+    "collapseGroup": "Згорнути цю групу та її підгрупи",
+    "expandAllGroups": "Розгорнути всі групи",
+    "collapseAllGroups": "Згорнути всі групи"
   },
   "connection": {
     "title": "Підключення до бази даних",

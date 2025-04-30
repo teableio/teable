@@ -515,7 +515,12 @@
     "hideField": "フィールドを非表示",
     "deleteField": "フィールドを削除",
     "deleteAllSelectedFields": "選択したすべてのフィールドを削除",
-    "autoFill": "すべてのレコードを更新"
+    "autoFill": "すべてのレコードを更新",
+    "groupMenuTitle": "グループメニュー",
+    "expandGroup": "このグループとそのサブグループを展開",
+    "collapseGroup": "このグループとそのサブグループを折りたたむ",
+    "expandAllGroups": "すべてのグループを展開",
+    "collapseAllGroups": "すべてのグループを折りたたむ"
   },
   "connection": {
     "title": "データベース接続",

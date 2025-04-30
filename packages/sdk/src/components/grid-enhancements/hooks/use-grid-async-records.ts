@@ -1,5 +1,5 @@
 import type { IRecord } from '@teable/core';
-import type { IGetRecordsRo, IGroupPointsVo } from '@teable/openapi';
+import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
 import { inRange, debounce, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
@@ -12,6 +12,7 @@ export const LOAD_PAGE_SIZE = 300;
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 
 type IRes = {
+  allGroupHeaderRefs: IGroupHeaderRef[];
   groupPoints: IGroupPointsVo | null;
   searchHitIndex?: { fieldId: string; recordId: string }[];
   recordMap: IRecordIndexMap;
@@ -228,6 +229,8 @@ export const useGridAsyncRecords = (
 
   return {
     groupPoints,
+    allGroupHeaderRefs:
+      (extra as { allGroupHeaderRefs: IGroupHeaderRef[] })?.allGroupHeaderRefs ?? null,
     recordMap: loadedRecordMap,
     onVisibleRegionChanged,
     recordsQuery,

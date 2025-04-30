@@ -44,6 +44,7 @@ import type {
   IGetRecordQuery,
   IGetRecordsRo,
   IGroupHeaderPoint,
+  IGroupHeaderRef,
   IGroupPoint,
   IGroupPointsVo,
   IRecordStatusVo,
@@ -1414,7 +1415,11 @@ export class RecordService {
     }
 
     const viewId = ignoreViewQuery ? undefined : query.viewId;
-    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, {
+    const {
+      groupPoints,
+      allGroupHeaderRefs,
+      filter: filterWithGroup,
+    } = await this.getGroupRelatedData(tableId, {
       ...query,
       viewId,
     });
@@ -1462,12 +1467,12 @@ export class RecordService {
         searchBuilder.whereIn('__id', ids),
         enabledFieldIds
       );
-      return { ids, extra: { groupPoints, searchHitIndex } };
+      return { ids, extra: { groupPoints, searchHitIndex, allGroupHeaderRefs } };
     } catch (e) {
       this.logger.error(`Get search index error: ${(e as Error).message}`, (e as Error)?.stack);
     }
 
-    return { ids, extra: { groupPoints } };
+    return { ids, extra: { groupPoints, allGroupHeaderRefs } };
   }
 
   async getSearchFields(
@@ -1778,6 +1783,8 @@ export class RecordService {
     rowCount: number
   ) {
     const groupPoints: IGroupPoint[] = [];
+    const allGroupHeaderRefs: IGroupHeaderRef[] = [];
+    const collapsedGroupIdsSet = new Set(collapsedGroupIds);
     let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
     let curRowCount = 0;
     let collapsedDepth = Number.MAX_SAFE_INTEGER;
@@ -1787,13 +1794,18 @@ export class RecordService {
       const { __c: count } = item;
 
       for (let index = 0; index < groupFields.length; index++) {
-        if (index > collapsedDepth) break;
-
         const field = groupFields[index];
         const { id, dbFieldName } = field;
         const fieldValue = convertValueToStringify(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) continue;
+
+        const flagString = `${id}_${[...fieldValues.slice(0, index), fieldValue].join('_')}`;
+        const groupId = String(string2Hash(flagString));
+
+        allGroupHeaderRefs.push({ id: groupId, depth: index });
+
+        if (index > collapsedDepth) break;
 
         // Reset the collapsedDepth when encountering the next peer grouping
         collapsedDepth = Number.MAX_SAFE_INTEGER;
@@ -1801,9 +1813,7 @@ export class RecordService {
         fieldValues[index] = fieldValue;
         fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
 
-        const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
-        const groupId = String(string2Hash(flagString));
-        const isCollapsedInner = collapsedGroupIds?.includes(groupId) ?? false;
+        const isCollapsedInner = collapsedGroupIdsSet.has(groupId) ?? false;
         let value = field.convertDBValue2CellValue(fieldValue);
 
         if (field.type === FieldType.Attachment) {
@@ -1841,7 +1851,10 @@ export class RecordService {
       );
     }
 
-    return groupPoints;
+    return {
+      groupPoints,
+      allGroupHeaderRefs,
+    };
   }
 
   private getFilterByCollapsedGroup({
@@ -1954,6 +1967,7 @@ export class RecordService {
       projection,
     } = query || {};
     let groupPoints: IGroupPoint[] = [];
+    let allGroupHeaderRefs: IGroupHeaderRef[] = [];
 
     const groupBy = parseGroup(extraGroupBy);
 
@@ -2026,13 +2040,14 @@ export class RecordService {
         await this.prismaService.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
           groupSql
         );
-
-      groupPoints = await this.groupDbCollection2GroupPoints(
+      const pointsResult = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
         collapsedGroupIds,
         rowCount
       );
+      groupPoints = pointsResult.groupPoints;
+      allGroupHeaderRefs = pointsResult.allGroupHeaderRefs;
     } catch (error) {
       console.log(`Get group points error in table ${tableId}: `, error);
     }
@@ -2044,7 +2059,7 @@ export class RecordService {
       collapsedGroupIds,
     });
 
-    return { groupPoints, filter: mergeFilter(filter, filterWithCollapsed) };
+    return { groupPoints, allGroupHeaderRefs, filter: mergeFilter(filter, filterWithCollapsed) };
   }
 
   async getRecordStatus(

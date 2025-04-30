@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import type { CombinedSelection } from '../../grid/managers';
-import type { IHeaderMenu, IRecordMenu, IStatisticMenu } from './type';
+import type { IGroupHeaderMenu, IHeaderMenu, IRecordMenu, IStatisticMenu } from './type';
 
 interface IGridViewState {
   selection?: CombinedSelection;
   headerMenu?: IHeaderMenu;
   recordMenu?: IRecordMenu;
   statisticMenu?: IStatisticMenu;
+  groupHeaderMenu?: IGroupHeaderMenu;
   openHeaderMenu: (props: IHeaderMenu) => void;
   closeHeaderMenu: () => void;
   openRecordMenu: (props: IRecordMenu) => void;
@@ -14,6 +15,8 @@ interface IGridViewState {
   openStatisticMenu: (props: IStatisticMenu) => void;
   closeStatisticMenu: () => void;
   setSelection: (props: CombinedSelection) => void;
+  openGroupHeaderMenu: (props: IGroupHeaderMenu) => void;
+  closeGroupHeaderMenu: () => void;
 }
 
 export const useGridViewStore = create<IGridViewState>((set) => ({
@@ -79,6 +82,22 @@ export const useGridViewStore = create<IGridViewState>((set) => ({
       return {
         ...state,
         selection: props,
+      };
+    });
+  },
+  openGroupHeaderMenu: (props) => {
+    set((state) => {
+      return {
+        ...state,
+        groupHeaderMenu: props,
+      };
+    });
+  },
+  closeGroupHeaderMenu: () => {
+    set((state) => {
+      return {
+        ...state,
+        groupHeaderMenu: undefined,
       };
     });
   },
