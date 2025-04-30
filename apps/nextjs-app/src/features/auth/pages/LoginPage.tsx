@@ -14,6 +14,7 @@ import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
 import { Terms } from '../components/Terms';
+import { useDisallowSignUp } from '../useDisallowSignUp';
 
 export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[] }) => {
   const { children } = props;
@@ -25,6 +26,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const redirect = decodeURIComponent((router.query.redirect as string) || '');
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
   const { passwordLoginDisabled } = useEnv();
+  const disallowSignUp = useDisallowSignUp();
 
   const onSuccess = useCallback(() => {
     if (redirect && redirect.startsWith('/')) {
@@ -53,9 +55,11 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
                 <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
                   <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
                 </Link>
-                <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
-                  <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
-                </Link>
+                {!disallowSignUp && (
+                  <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
+                    <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
+                  </Link>
+                )}
               </TabsList>
             </Tabs>
           </div>
