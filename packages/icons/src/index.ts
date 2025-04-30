@@ -49,6 +49,8 @@ export { default as DollarSign } from './components/DollarSign';
 export { default as Download } from './components/Download';
 export { default as DraggableHandle } from './components/DraggableHandle';
 export { default as Edit } from './components/Edit';
+export { default as Expand } from './components/Expand';
+export { default as ExpandAll } from './components/ExpandAll';
 export { default as Export } from './components/Export';
 export { default as Eye } from './components/Eye';
 export { default as EyeOff } from './components/EyeOff';
