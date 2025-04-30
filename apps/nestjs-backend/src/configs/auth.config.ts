@@ -3,6 +3,16 @@ import { Inject } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 
+const getCookieSecure = (value: string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+  if (value === 'auto') {
+    return 'auto' as const;
+  }
+  return value === 'true';
+};
+
 export const authConfig = registerAs('auth', () => ({
   jwt: {
     secret:
@@ -15,6 +25,9 @@ export const authConfig = registerAs('auth', () => ({
       process.env.SECRET_KEY ??
       'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
     expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
+    cookie: {
+      secure: getCookieSecure(process.env.BACKEND_SESSION_COOKIE_SECURE),
+    },
   },
   accessToken: {
     prefix: 'teable',
