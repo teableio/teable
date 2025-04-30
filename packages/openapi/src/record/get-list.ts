@@ -8,7 +8,7 @@ import {
   sortItemSchema,
 } from '@teable/core';
 import type { AxiosResponse } from 'axios';
-import { groupPointsVoSchema } from '../aggregation/type';
+import { groupHeaderRefSchema, groupPointsVoSchema } from '../aggregation/type';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -235,6 +235,9 @@ export const recordsVoSchema = z.object({
     .object({
       groupPoints: groupPointsVoSchema.optional().openapi({
         description: 'Group points for the view',
+      }),
+      allGroupHeaderRefs: z.array(groupHeaderRefSchema).optional().openapi({
+        description: 'All group header refs for the view, including collapsed group headers',
       }),
     })
     .optional(),

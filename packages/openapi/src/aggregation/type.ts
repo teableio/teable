@@ -18,7 +18,7 @@ const groupRowPointSchema = z.object({
   count: z.number(),
 });
 
-const groupHeaderRefSchema = z.object({
+export const groupHeaderRefSchema = z.object({
   id: z.string(),
   depth: z.number().max(2).min(0),
 });
