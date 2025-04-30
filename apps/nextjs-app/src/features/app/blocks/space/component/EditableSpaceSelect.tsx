@@ -3,6 +3,7 @@ import { hasPermission } from '@teable/core';
 import { getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Selector } from '@teable/ui-lib/base';
+import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 
 interface IEditableSpaceSelect {
@@ -15,6 +16,7 @@ export const EditableSpaceSelect: React.FC<React.PropsWithChildren<IEditableSpac
   props
 ) => {
   const { value, onChange, spaceId } = props;
+  const { t } = useTranslation(['sdk']);
   const [targetSpaceId, setTargetSpaceId] = useState<string>(value || '');
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
@@ -34,6 +36,7 @@ export const EditableSpaceSelect: React.FC<React.PropsWithChildren<IEditableSpac
       className="min-w-40"
       candidates={editableSpaceList}
       selectedId={targetSpaceId}
+      placeholder={t('sdk:common.selectPlaceHolder')}
       onChange={(id) => {
         setTargetSpaceId(id);
         onChange(id);

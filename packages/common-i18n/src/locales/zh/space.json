@@ -15,7 +15,7 @@
     "duplicateRecordsTip": "您的记录修改历史不会被复制",
     "toSpace": "选择空间",
     "copyToSpace": "复制到空间",
-    "duplicateBase": "复制数据库",
+    "duplicateBase": "复制",
     "missTargetTip": "请选择要复制到的空间",
     "copying": "复制中，请稍作等待...",
     "copyingTemplate": "从模板创建中，请稍作等待...",
@@ -23,7 +23,8 @@
     "fromScratch": "空白数据库",
     "fromTemplate": "从模板创建",
     "moveBaseToAnotherSpace": "移动{{baseName}}到另一个空间",
-    "chooseSpace": "选择空间"
+    "chooseSpace": "选择空间",
+    "duplicateBaseSucceedAndJump": "复制成功，点击前往"
   },
   "spaceSetting": {
     "title": "设置",

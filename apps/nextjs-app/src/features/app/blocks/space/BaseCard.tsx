@@ -133,7 +133,11 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               id={base.id}
               type={PinType.Base}
             />
-            <div className="shrink-0">
+            <div
+              className="shrink-0"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <BaseActionTrigger
                 base={base}
                 showRename={hasUpdatePermission}

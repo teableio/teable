@@ -23,7 +23,8 @@
     "fromScratch": "From scratch",
     "fromTemplate": "From template",
     "moveBaseToAnotherSpace": "Move {{baseName}} to another space",
-    "chooseSpace": "Choose space"
+    "chooseSpace": "Choose space",
+    "duplicateBaseSucceedAndJump": "Success, click to jump"
   },
   "spaceSetting": {
     "title": "Settings",

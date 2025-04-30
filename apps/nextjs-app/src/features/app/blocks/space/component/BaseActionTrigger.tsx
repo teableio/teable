@@ -156,6 +156,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
