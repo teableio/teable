@@ -281,7 +281,7 @@ export const SignForm: FC<ISignForm> = (props) => {
               {isLoading && <Spin />}
               {buttonText}
             </Button>
-            {!disallowSignUp && type === 'signin' && (
+            {!disallowSignUp && (
               <div className="flex justify-end py-2">
                 <Link
                   href={{
