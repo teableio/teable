@@ -438,6 +438,7 @@ describe('OpenAPI BaseController (e2e)', () => {
           })
         ).data;
 
+        // move base
         await userRequest.put(
           urlBuilder(MOVE_BASE, {
             baseId: newBase1.id,

@@ -346,7 +346,7 @@ export class BaseController {
   }
 
   @Put(':baseId/move')
-  @Permissions('space|create')
+  @Permissions('space|update')
   async moveBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(moveBaseRoSchema)) moveBaseRo: IMoveBaseRo

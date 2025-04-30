@@ -23,6 +23,7 @@ interface IBaseActionTrigger {
   showDelete: boolean;
   showDuplicate: boolean;
   showExport: boolean;
+  showMove: boolean;
   onRename?: () => void;
   onDelete?: () => void;
   align?: 'center' | 'end' | 'start';
@@ -35,7 +36,8 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showRename,
     showDelete,
     showDuplicate,
-    showExport: baseOwner,
+    showExport,
+    showMove,
     onDelete,
     onRename,
     align = 'end',
@@ -74,7 +76,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     },
   });
 
-  if (!showDelete && !showRename && !showDuplicate) {
+  if (!showDelete && !showRename && !showDuplicate && !showExport && !showMove) {
     return null;
   }
 
@@ -123,7 +125,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
-          {baseOwner && (
+          {showExport && (
             <DropdownMenuItem
               onClick={() => {
                 setExportConfirm(true);
@@ -133,7 +135,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {t('actions.export')}
             </DropdownMenuItem>
           )}
-          {baseOwner && (
+          {showMove && (
             <DropdownMenuItem
               onClick={() => {
                 setMoveConfirm(true);

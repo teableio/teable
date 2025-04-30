@@ -84,9 +84,10 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
-  const hasReadPermission = hasPermission(base.role, 'base|read');
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
+  const hasMovePermission = hasPermission(base.role, 'space|create');
+
   return (
     <Card
       className={cn('relative group cursor-pointer hover:shadow-md overflow-x-hidden', className)}
@@ -139,6 +140,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 showDuplicate={hasUpdatePermission}
                 showDelete={hasDeletePermission}
                 showExport={hasUpdatePermission}
+                showMove={hasMovePermission}
                 onDelete={() => deleteBaseMutator(base.id)}
                 onRename={onRename}
               >
