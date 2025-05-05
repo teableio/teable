@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { IGroup } from '@teable/core';
-import { is, isGreaterEqual, SortFunc, StatisticsFunc, ViewType } from '@teable/core';
+import { FieldKeyType, is, isGreaterEqual, SortFunc, StatisticsFunc, ViewType } from '@teable/core';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import {
   getAggregation,
@@ -27,6 +27,7 @@ import {
   initApp,
   createRecords,
   createView,
+  getRecords,
 } from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
@@ -514,6 +515,31 @@ describe('OpenAPI AggregationController (e2e)', () => {
       ).data!;
 
       expect(collapsedGroupPoints.length).toEqual(7);
+    });
+
+    it('should get group header refs with collapsed group IDs', async () => {
+      const singleSelectField = table.fields[2];
+      const groupBy = [
+        {
+          fieldId: singleSelectField.id,
+          order: SortFunc.Asc,
+        },
+      ];
+      const originalResult = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        groupBy,
+      });
+      expect(originalResult.extra?.allGroupHeaderRefs?.length).toEqual(4);
+
+      const firstGroupHeaderId = originalResult.extra!.allGroupHeaderRefs![0].id;
+
+      const result = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        groupBy,
+        collapsedGroupIds: [firstGroupHeaderId],
+      });
+
+      expect(result.extra?.allGroupHeaderRefs?.length).toEqual(4);
     });
 
     it('should get group points by user field', async () => {
