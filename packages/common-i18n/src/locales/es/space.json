@@ -21,7 +21,9 @@
     "copyingTemplate": "Creando base desde plantilla, esto puede tomar un momento...",
     "howToCreate": "¿Cómo quieres empezar?",
     "fromScratch": "Desde cero",
-    "fromTemplate": "Desde plantilla"
+    "fromTemplate": "Desde plantilla",
+    "moveBaseToAnotherSpace": "Mover {{baseName}} a otro espacio",
+    "chooseSpace": "Seleccionar espacio"
   },
   "spaceSetting": {
     "title": "Configuración del espacio",

@@ -21,7 +21,9 @@
     "copyingTemplate": "Şablondan veritabanı oluşturuluyor, bu biraz zaman alabilir...",
     "howToCreate": "Nasıl başlamak istersiniz?",
     "fromScratch": "Sıfırdan",
-    "fromTemplate": "Şablondan"
+    "fromTemplate": "Şablondan",
+    "moveBaseToAnotherSpace": "{{baseName}}'i başka bir alana taşı",
+    "chooseSpace": "Alan seç"
   },
   "spaceSetting": {
     "title": "Alan ayarları",

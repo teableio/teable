@@ -56,6 +56,7 @@ export const BaseSidebarHeaderLeft = () => {
 
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
+  const hasMovePermission = hasPermission(base.role, 'space|create');
 
   const backSpace = () => {
     if (base.collaboratorType === CollaboratorType.Base) {
@@ -119,6 +120,7 @@ export const BaseSidebarHeaderLeft = () => {
           showDuplicate={hasUpdatePermission}
           showDelete={hasDeletePermission}
           showExport={hasUpdatePermission}
+          showMove={hasMovePermission}
           onDelete={() => deleteBaseMutator(base.id)}
           onRename={onRename}
           align="start"

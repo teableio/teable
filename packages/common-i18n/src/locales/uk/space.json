@@ -21,7 +21,9 @@
     "copyingTemplate": "Створення бази з шаблону може зайняти деякий час...",
     "howToCreate": "Як ти хочеш почати?",
     "fromScratch": "З нуля",
-    "fromTemplate": "З шаблону"
+    "fromTemplate": "З шаблону",
+    "moveBaseToAnotherSpace": "Перемістити {{baseName}} в інший простір",
+    "chooseSpace": "Виберіть простір"
   },
   "spaceSetting": {
     "title": "Налаштування простору",

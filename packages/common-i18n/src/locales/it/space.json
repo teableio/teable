@@ -21,7 +21,9 @@
     "copyingTemplate": "Creazione della base da modello in corso, potrebbe richiedere del tempo...",
     "howToCreate": "Come vuoi iniziare?",
     "fromScratch": "Da zero",
-    "fromTemplate": "Da modello"
+    "fromTemplate": "Da modello",
+    "moveBaseToAnotherSpace": "Sposta {{baseName}} in un altro spazio",
+    "chooseSpace": "Scegli uno spazio"
   },
   "spaceSetting": {
     "title": "Impostazioni dello spazio",

@@ -6,6 +6,8 @@ import { fromZodError } from 'zod-validation-error';
 const teableHtmlMarker = 'data-teable-html-marker';
 const teableHeader = 'data-teable-html-header';
 
+const lineTag = '<br data-teable-line-tag="1" style="mso-data-placement:same-cell;">';
+
 export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   const tableData = parseClipboardText(data);
   const bodyContent = tableData
@@ -14,7 +16,7 @@ export const serializerHtml = (data: string, headers: IFieldVo[]) => {
         .map((cell, index) => {
           const header = headers[index];
           if (header.type === FieldType.LongText) {
-            return `<td>${cell.replaceAll('\n', '<br style="mso-data-placement:same-cell;"/>')}</td>`;
+            return `<td>${cell.replaceAll('\n', lineTag)}</td>`;
           }
           return `<td>${cell}</td>`;
         })
@@ -33,7 +35,7 @@ export const serializerCellValueHtml = (data: unknown[][], headers: IFieldVo[]) 
         .map((cell, index) => {
           const field = fields[index];
           if (field.type === FieldType.LongText) {
-            return `<td>${field.cellValue2String(cell).replaceAll('\n', '<br style="mso-data-placement:same-cell;"/>')}</td>`;
+            return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${field.cellValue2String(cell).replaceAll('\n', lineTag)}</td>`;
           }
           if (field.type != FieldType.SingleLineText && field.type != FieldType.SingleSelect) {
             return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${field.cellValue2String(cell)}</td>`;
@@ -108,6 +110,5 @@ export const extractTableContent = (html: string) => {
       content.push(rowData);
     }
   });
-
   return content;
 };

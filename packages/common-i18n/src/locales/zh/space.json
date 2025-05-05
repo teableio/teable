@@ -15,13 +15,16 @@
     "duplicateRecordsTip": "您的记录修改历史不会被复制",
     "toSpace": "选择空间",
     "copyToSpace": "复制到空间",
-    "duplicateBase": "复制数据库",
+    "duplicateBase": "复制",
     "missTargetTip": "请选择要复制到的空间",
     "copying": "复制中，请稍作等待...",
     "copyingTemplate": "从模板创建中，请稍作等待...",
     "howToCreate": "如何创建一个数据库?",
     "fromScratch": "空白数据库",
-    "fromTemplate": "从模板创建"
+    "fromTemplate": "从模板创建",
+    "moveBaseToAnotherSpace": "移动{{baseName}}到另一个空间",
+    "chooseSpace": "选择空间",
+    "duplicateBaseSucceedAndJump": "复制成功，点击前往"
   },
   "spaceSetting": {
     "title": "设置",
@@ -42,7 +45,9 @@
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？",
     "title": "提示",
-    "exportTips": "导出数据库将导出所有数据，包括所有记录和附件，导出过程将在后台进行，导出完成后，您可以在通知栏下载。注意：\n1. 所有跨数据库关联的字段将会转换成单行文本字段。"
+    "exportTips": "导出数据库将导出所有数据，包括所有记录和附件，导出过程将在后台进行，导出完成后，您可以在通知栏下载。注意：\n1. 所有跨数据库关联的字段将会转换成单行文本字段。",
+    "moveBaseSuccessTitle": "移动成功",
+    "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
   },
   "sharedBase": {
     "title": "共享数据库",

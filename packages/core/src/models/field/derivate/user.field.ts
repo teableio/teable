@@ -67,17 +67,10 @@ export class UserFieldCore extends UserAbstractCore {
   }
 
   private matchUser(value: string, userSets: IUser[] = []) {
-    let foundUser: IUser | null = null;
-    for (const user of userSets) {
+    const foundUser = userSets.find((user) => {
       const { id, name, email } = user;
-      if (value === id || value === name || value === email) {
-        if (foundUser) {
-          // Multiple collaborators are matched and the cell is cleared
-          return null;
-        }
-        foundUser = user;
-      }
-    }
+      return value === id || value === name || value === email;
+    });
     return foundUser ? { id: foundUser.id, title: foundUser.name, email: foundUser.email } : null;
   }
 

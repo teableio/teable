@@ -21,7 +21,9 @@
     "copyingTemplate": "テンプレートからベースを作成しています。時間がかかる場合があります...",
     "howToCreate": "どのように始めますか？",
     "fromScratch": "最初から",
-    "fromTemplate": "テンプレートから"
+    "fromTemplate": "テンプレートから",
+    "moveBaseToAnotherSpace": "{{baseName}} を別のスペースに移動する",
+    "chooseSpace": "スペースを選択"
   },
   "spaceSetting": {
     "title": "スペースの設定",

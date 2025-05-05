@@ -21,7 +21,10 @@
     "copyingTemplate": "Creating base from template, it may take a while...",
     "howToCreate": "How do you want to start?",
     "fromScratch": "From scratch",
-    "fromTemplate": "From template"
+    "fromTemplate": "From template",
+    "moveBaseToAnotherSpace": "Move {{baseName}} to another space",
+    "chooseSpace": "Choose space",
+    "duplicateBaseSucceedAndJump": "Success, click to jump"
   },
   "spaceSetting": {
     "title": "Settings",
@@ -42,7 +45,9 @@
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
     "title": "Tips",
-    "exportTips": "Exporting the database will export all data, including all records and attachments. The export process will be performed in the background, and you can download the exported file in the notification bar after completion. Note:\n1. All cross-base fields will be converted to single-line text fields."
+    "exportTips": "Exporting the database will export all data, including all records and attachments. The export process will be performed in the background, and you can download the exported file in the notification bar after completion. Note:\n1. All cross-base fields will be converted to single-line text fields.",
+    "moveBaseSuccessTitle": "Move base success",
+    "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },
   "sharedBase": {
     "title": "Shared bases",

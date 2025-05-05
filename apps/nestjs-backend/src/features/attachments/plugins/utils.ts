@@ -10,6 +10,9 @@ export const getFullStorageUrl = (bucket: string, path: string) => {
   if (provider === 'local') {
     return baseConfig().storagePrefix + join('/', LocalStorage.readPath, bucket, path);
   }
+  if (provider === 's3') {
+    return storagePrefix + join('/', path);
+  }
   return storagePrefix + join('/', bucket, path);
 };
 

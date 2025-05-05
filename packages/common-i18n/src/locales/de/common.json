@@ -41,7 +41,8 @@
     "tableIndex": "Index",
     "showAllRow": "Zeige alle Reihen",
     "hideNotMatchRow": "Nicht übereinstimmende Zeile ausblenden",
-    "more": "Mehr"
+    "more": "Mehr",
+    "move": "Verschieben nach"
   },
   "quickAction": {
     "title": "Schnelle Aktionen...",

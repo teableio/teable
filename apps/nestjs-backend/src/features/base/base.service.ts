@@ -7,6 +7,7 @@ import type {
   ICreateBaseRo,
   IDuplicateBaseRo,
   IGetBasePermissionVo,
+  IMoveBaseRo,
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
@@ -321,6 +322,15 @@ export class BaseService {
     }
   }
 
+  private async checkBaseCreatePermission(spaceId: string) {
+    await this.permissionService.validPermissions(spaceId, ['base|create']);
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      await this.permissionService.validPermissions(spaceId, ['base|create'], accessTokenId);
+    }
+  }
+
   async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
     const { spaceId, templateId, withRecords } = createBaseFromTemplateRo;
     const template = await this.prismaService.template.findUniqueOrThrow({
@@ -428,6 +438,16 @@ export class BaseService {
         resourceId: baseId,
         resourceType: ResourceType.Base,
       },
+    });
+  }
+
+  async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
+    const { spaceId } = moveBaseRo;
+    // check if has the permission to create base in the target space
+    await this.checkBaseCreatePermission(spaceId);
+    await this.prismaService.base.update({
+      where: { id: baseId },
+      data: { spaceId },
     });
   }
 }
