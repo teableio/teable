@@ -83,7 +83,7 @@ export const GroupHeaderMenu = () => {
             if (groupHeaderRef.id === groupId) {
               groupDepth = groupHeaderRef.depth;
             }
-            if (groupHeaderRef.depth > groupDepth) {
+            if (groupDepth !== -1 && groupHeaderRef.depth > groupDepth) {
               subGroupIdSet.add(groupHeaderRef.id);
             }
           }
@@ -91,11 +91,9 @@ export const GroupHeaderMenu = () => {
           const newCollapsedGroupIds = new Set(collapsedGroupIds);
           const needChangingGroupIds = [groupId, ...subGroupIdSet];
 
-          if (isGroupCollapsed) {
-            needChangingGroupIds.forEach((id) => newCollapsedGroupIds.delete(id));
-          } else {
-            needChangingGroupIds.forEach((id) => newCollapsedGroupIds.add(id));
-          }
+          needChangingGroupIds.forEach((id) =>
+            isGroupCollapsed ? newCollapsedGroupIds.delete(id) : newCollapsedGroupIds.add(id)
+          );
           onCollapsedGroupChanged?.(newCollapsedGroupIds);
         },
       },
