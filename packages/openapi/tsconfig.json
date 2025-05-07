@@ -21,7 +21,7 @@
     "paths": {
       "@teable/core": ["../core/src"]
     },
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "@ai-sdk/ui-utils"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": ["src", "../core/src"]
