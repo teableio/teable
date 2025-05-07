@@ -644,7 +644,20 @@
     "tool": {
       "getTableFields": "获取表格字段",
       "getTablesMeta": "获取表格元数据",
-      "sqlQuery": "执行 SQL 查询"
+      "sqlQuery": "执行 SQL 查询",
+      "args": "参数",
+      "result": "结果"
+    },
+    "newChat": "新对话",
+    "noModel": "暂无可用模型",
+    "noHistory": "暂无聊天记录",
+    "noFoundHistory": "没有找到匹配的聊天记录，请开始新的对话",
+    "timeGroup": {
+      "today": "今天",
+      "oneWeek": "一周内",
+      "twoWeek": "两周内",
+      "oneMonth": "一月内",
+      "other": "更早"
     }
   }
 }

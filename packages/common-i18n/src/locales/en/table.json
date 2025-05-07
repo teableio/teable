@@ -644,7 +644,20 @@
     "tool": {
       "getTableFields": "Get table fields",
       "getTablesMeta": "Get tables meta",
-      "sqlQuery": "Execute SQL query"
+      "sqlQuery": "Execute SQL query",
+      "args": "Arguments",
+      "result": "Result"
+    },
+    "newChat": "New Chat",
+    "noModel": "No available models",
+    "noHistory": "No chat history",
+    "noFoundHistory": "No chat history found, please start a new conversation",
+    "timeGroup": {
+      "today": "Today",
+      "oneWeek": "One week",
+      "twoWeek": "Two week",
+      "oneMonth": "One month",
+      "other": "Other"
     }
   }
 }

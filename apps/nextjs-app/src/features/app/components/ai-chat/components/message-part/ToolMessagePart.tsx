@@ -71,12 +71,12 @@ export const ToolMessagePart = ({ part }: IToolMessagePart) => {
         <AccordionContent>
           <div className="space-y-2 px-3 text-muted-foreground">
             <div className="space-y-1">
-              <div className="text-sm">Arguments: </div>
+              <div className="text-sm">{t('table:aiChat.tool.args')}: </div>
               <ContentRenderer content={JSON.stringify(toolInvocation.args, null, 2)} />
             </div>
             {isResult && (
               <div className="space-y-1">
-                <div className="text-sm">Result: </div>
+                <div className="text-sm">{t('table:aiChat.tool.result')}: </div>
                 <ToolsResultRenderer toolInvocation={toolInvocation} />
               </div>
             )}

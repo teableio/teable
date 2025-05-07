@@ -22,4 +22,5 @@ export enum LocalStorageKeys {
   PluginPanel = 'ls_plugin_panel',
   InteractionMode = 'ls_interaction_mode',
   ChatPanel = 'ls_chat_panel',
+  Chat = 'ls_chat',
 }

@@ -42,6 +42,7 @@ interface IAIModelSelectProps {
   disabled?: boolean;
   needGroup?: boolean;
   modelDefinationMap?: IModelDefinationMap;
+  children?: ReactNode;
 }
 
 export function AIModelSelect({
@@ -53,6 +54,7 @@ export function AIModelSelect({
   disabled,
   modelDefinationMap,
   needGroup,
+  children,
 }: IAIModelSelectProps) {
   const [open, setOpen] = useState(false);
   const isCloud = useIsCloud();
@@ -77,28 +79,30 @@ export function AIModelSelect({
   return (
     <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild disabled={disabled}>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          size={size}
-          className={cn('grow justify-between font-normal', className)}
-        >
-          <div className="flex max-w-[300px] items-center truncate sm:max-w-full">
-            {!currentModel ? (
-              t('admin.setting.ai.selectModel')
-            ) : (
-              <>
-                <div className="mr-1 max-w-[300px] truncate">{name}</div>
-                <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
-                  <Icon className="size-4 shrink-0 pr-1" />
-                  {model}
-                </div>
-              </>
-            )}
-          </div>
-          <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
-        </Button>
+        {children ?? (
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            size={size}
+            className={cn('grow justify-between font-normal', className)}
+          >
+            <div className="flex max-w-[300px] items-center truncate sm:max-w-full">
+              {!currentModel ? (
+                t('admin.setting.ai.selectModel')
+              ) : (
+                <>
+                  <div className="mr-1 max-w-[300px] truncate">{name}</div>
+                  <div className="flex items-center rounded-sm bg-foreground px-1 py-[2px] text-xs text-background">
+                    <Icon className="size-4 shrink-0 pr-1" />
+                    {model}
+                  </div>
+                </>
+              )}
+            </div>
+            <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
