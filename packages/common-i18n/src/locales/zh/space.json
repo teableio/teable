@@ -12,7 +12,7 @@
     "duplicate": "复制 \"{{baseName}}\"",
     "createBaseFromTemplate": "从模板创建数据库",
     "duplicateRecords": "复制记录",
-    "duplicateRecordsTip": "您的记录修改历史不会被复制",
+    "duplicateRecordsTip": "您的记录修改历史和协作者不会被复制",
     "toSpace": "选择空间",
     "copyToSpace": "复制到空间",
     "duplicateBase": "复制",
@@ -45,7 +45,7 @@
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？",
     "title": "提示",
-    "exportTips": "导出数据库将导出所有数据，包括所有记录和附件，导出过程将在后台进行，导出结果将会在通知栏通知。注意：\n1. 所有跨数据库关联的字段将会转换成单行文本字段。\n2. 清除高级权限的人员设置，但不会清除配置。",
+    "exportTips": "导出数据库将导出所有数据，包括所有记录和附件，导出过程将在后台进行，导出结果将会在通知栏通知。注意：\n1. 所有跨数据库关联的字段将会转换成单行文本字段。\n2. 清除高级权限的人员设置，但不会清除配置。\n3. 数据库协作人员设置将会被清除。",
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
   },

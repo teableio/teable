@@ -12,7 +12,7 @@
     "duplicate": "\"{{baseName}}\" çoğalt",
     "createBaseFromTemplate": "Şablondan veritabanı oluştur",
     "duplicateRecords": "Kayıtları çoğalt",
-    "duplicateRecordsTip": "Revizyon geçmişiniz çoğaltılmayacak.",
+    "duplicateRecordsTip": "Revizyon geçmişiniz ve işbirlikçileriniz çoğaltılmayacak.",
     "toSpace": "Alana",
     "copyToSpace": "Alana kopyala",
     "duplicateBase": "Veritabanını çoğalt",

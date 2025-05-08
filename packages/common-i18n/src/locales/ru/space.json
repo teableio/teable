@@ -12,7 +12,7 @@
     "duplicate": "Дублировать \"{{baseName}}\"",
     "createBaseFromTemplate": "Создать базу из шаблона",
     "duplicateRecords": "Дублировать записи",
-    "duplicateRecordsTip": "История изменений не будет дублирована.",
+    "duplicateRecordsTip": "История изменений и сотрудники не будут дублироваться.",
     "toSpace": "В пространство",
     "copyToSpace": "Скопировать в пространство",
     "duplicateBase": "Дублировать базу",

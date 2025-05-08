@@ -12,7 +12,7 @@
     "duplicate": "\"{{baseName}}\" の複製",
     "createBaseFromTemplate": "テンプレートからベースを作成する",
     "duplicateRecords": "レコードの複製",
-    "duplicateRecordsTip": "変更履歴は複製しません。",
+    "duplicateRecordsTip": "変更履歴と共同作業者は複製しません。",
     "toSpace": "スペースへ",
     "copyToSpace": "スペースにコピー",
     "duplicateBase": "ベースを複製",

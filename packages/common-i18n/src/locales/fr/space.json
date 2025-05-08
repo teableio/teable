@@ -12,7 +12,7 @@
     "duplicate": "Dupliquer \"{{baseName}}\"",
     "createBaseFromTemplate": "Créer une base à partir d'un modèle",
     "duplicateRecords": "Dupliquer les enregistrements",
-    "duplicateRecordsTip": "Votre historique des révisions ne sera pas dupliqué.",
+    "duplicateRecordsTip": "Votre historique des révisions et vos collaborateurs ne seront pas dupliqués.",
     "toSpace": "Vers l'espace",
     "copyToSpace": "Copier vers l'espace",
     "duplicateBase": "Dupliquer la base",
