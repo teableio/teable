@@ -688,7 +688,17 @@ export class AggregationService {
     queryRo: ISearchIndexByQueryRo,
     projection?: string[]
   ) {
-    const { search, take, skip, orderBy, filter, groupBy, viewId, ignoreViewQuery } = queryRo;
+    const {
+      search,
+      take,
+      skip,
+      orderBy,
+      filter,
+      groupBy,
+      viewId,
+      ignoreViewQuery,
+      projection: queryProjection,
+    } = queryRo;
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
@@ -700,11 +710,17 @@ export class AggregationService {
       throw new BadRequestException('Search query is required');
     }
 
+    const finalProjection = queryProjection
+      ? projection
+        ? projection.filter((fieldId) => queryProjection.includes(fieldId))
+        : queryProjection
+      : projection;
+
     const searchFields = await this.recordService.getSearchFields(
       fieldInstanceMap,
       search,
       ignoreViewQuery ? undefined : viewId,
-      projection
+      finalProjection
     );
 
     if (searchFields.length === 0) {
