@@ -1,15 +1,15 @@
 import { History, Plus, X } from '@teable/icons';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useChatContext } from '../context/useChatContext';
 import { useActiveChat } from '../hooks/useActiveChat';
 import { useChatPanelStore } from '../store/useChatPanelStore';
-import { useChatStore } from '../store/useChatStore';
 import { ChatHistory } from './ChatHistory';
 
 export const ChatPanelHeader = ({ baseId }: { baseId: string }) => {
   const activeChat = useActiveChat(baseId);
   const { close: closePanel } = useChatPanelStore();
-  const { clearActiveChatId } = useChatStore();
+  const { clearActiveChatId } = useChatContext();
   const { t } = useTranslation(['table']);
   const title = activeChat?.name ?? t('table:aiChat.newChat');
 

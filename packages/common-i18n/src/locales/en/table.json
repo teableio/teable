@@ -658,6 +658,13 @@
       "twoWeek": "Two week",
       "oneMonth": "One month",
       "other": "Other"
-    }
+    },
+    "context": {
+      "button": "Add context",
+      "search": "Add tables",
+      "searchEmpty": "No matching context found",
+      "emptyContext": "No context to add"
+    },
+    "inputPlaceholder": "Send message..."
   }
 }

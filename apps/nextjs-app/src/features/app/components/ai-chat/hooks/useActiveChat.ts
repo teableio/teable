@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { useChatStore } from '../store/useChatStore';
+import { useChatContext } from '../context/useChatContext';
 import { useChatHistory } from './useChatHistory';
 
 export const useActiveChat = (baseId: string) => {
-  const { activeChatId } = useChatStore();
+  const { activeChatId } = useChatContext();
   const chatHistory = useChatHistory(baseId);
 
   return useMemo(() => {

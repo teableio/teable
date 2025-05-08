@@ -17,8 +17,8 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { useChatContext } from '../context/useChatContext';
 import { useChatHistory } from '../hooks/useChatHistory';
-import { useChatStore } from '../store/useChatStore';
 
 export const ChatHistory = ({
   baseId,
@@ -28,7 +28,7 @@ export const ChatHistory = ({
   children: React.ReactNode;
 }) => {
   const chatHistory = useChatHistory(baseId);
-  const { setActiveChatId } = useChatStore();
+  const { setActiveChatId } = useChatContext();
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [searchValue, setSearchValue] = useState('');

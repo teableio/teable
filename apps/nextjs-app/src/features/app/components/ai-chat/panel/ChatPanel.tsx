@@ -1,4 +1,5 @@
 import { useBaseId } from '@teable/sdk/hooks';
+import { ChatProvider } from '../context/ChatProvider';
 import { useChatPanelStore } from '../store/useChatPanelStore';
 import { PanelContainer } from './PanelContainer';
 
@@ -7,5 +8,10 @@ export const ChatPanel = () => {
   const baseId = useBaseId();
 
   if (!isVisible || !baseId) return <></>;
-  return <PanelContainer baseId={baseId} />;
+
+  return (
+    <ChatProvider>
+      <PanelContainer baseId={baseId} />
+    </ChatProvider>
+  );
 };

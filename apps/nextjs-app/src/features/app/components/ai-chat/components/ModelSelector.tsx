@@ -15,7 +15,7 @@ export const ModelSelector = ({
   const { t } = useTranslation(['sdk']);
   return (
     <AIModelSelect needGroup options={models} value={value} onValueChange={onValueChange}>
-      <Button variant="ghost" size="xs" className="overflow-hidden text-muted-foreground">
+      <Button variant="ghost" size="xs" className="overflow-hidden px-0 text-muted-foreground">
         <span title={value} className="truncate">
           {value || t('sdk:common.selectPlaceHolder')}
         </span>

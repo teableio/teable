@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { getChatMessages } from '@teable/openapi';
-import { useChatStore } from '../store/useChatStore';
+import { useChatContext } from '../context/useChatContext';
 
 export const useChatMessages = (baseId: string) => {
-  const { activeChatId } = useChatStore();
+  const { activeChatId } = useChatContext();
 
   const { data: chatMessage } = useQuery({
     queryKey: ['chat-message', activeChatId!],

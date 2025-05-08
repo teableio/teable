@@ -4,13 +4,13 @@ import { Button, Textarea } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { PauseIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
 import { useChatStore } from '../store/useChatStore';
+import { MessageContext } from './MessageContext';
 import { ModelSelector } from './ModelSelector';
 
 export const MessageInput = ({
+  modelKey,
   models,
-  codingModel,
   input,
   setInput,
   status,
@@ -18,8 +18,8 @@ export const MessageInput = ({
   setMessages,
   handleSubmit,
 }: {
+  modelKey: string;
   models: { modelKey: string; isInstance?: boolean }[];
-  codingModel: string;
   status: UseChatHelpers['status'];
   input: UseChatHelpers['input'];
   setInput: UseChatHelpers['setInput'];
@@ -28,26 +28,19 @@ export const MessageInput = ({
   handleSubmit: UseChatHelpers['handleSubmit'];
 }) => {
   const { t } = useTranslation(['table']);
-  const { modelKey, setModelKey } = useChatStore();
-  const validModelKey = useMemo(() => {
-    return (
-      models.find((model) => model.modelKey === modelKey)?.modelKey ||
-      codingModel ||
-      models[0]?.modelKey
-    );
-  }, [modelKey, models, codingModel]);
+  const { setModelKey } = useChatStore();
 
   const hasModel = models.length > 0;
 
   return (
     <form className="px-2">
-      <div className="rounded-lg border bg-muted">
+      <div className="rounded-lg border bg-muted px-2 py-1">
+        <MessageContext />
         <Textarea
-          data-testid="multimodal-input"
-          placeholder="Send a message..."
+          placeholder={t('table:aiChat.inputPlaceholder')}
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          className="h-20 resize-none border-none bg-transparent text-sm shadow-none focus-visible:ring-0"
+          className="h-20 resize-none border-none bg-transparent text-[13px] shadow-none focus-visible:ring-0"
           rows={2}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -61,9 +54,9 @@ export const MessageInput = ({
             }
           }}
         />
-        <div className="flex items-center justify-between px-2 pb-1">
+        <div className="flex items-center justify-between gap-2 pb-1">
           {hasModel ? (
-            <ModelSelector models={models} value={validModelKey} onValueChange={setModelKey} />
+            <ModelSelector models={models} value={modelKey} onValueChange={setModelKey} />
           ) : (
             <div className="text-xs text-destructive">{t('table:aiChat.noModel')}</div>
           )}

@@ -658,6 +658,13 @@
       "twoWeek": "两周内",
       "oneMonth": "一月内",
       "other": "更早"
-    }
+    },
+    "context": {
+      "button": "添加上下文",
+      "search": "添加表格",
+      "searchEmpty": "暂无匹配的上下文",
+      "emptyContext": "暂无可添加的上下文"
+    },
+    "inputPlaceholder": "发送消息..."
   }
 }

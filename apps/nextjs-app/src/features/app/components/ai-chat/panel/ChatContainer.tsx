@@ -7,16 +7,18 @@ import { useMemo, useRef } from 'react';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
 import { MessageInput } from '../components/MessageInput';
 import { Messages } from '../components/Messages';
+import { useChatContext } from '../context/useChatContext';
 import { useActiveChat } from '../hooks/useActiveChat';
 import { useChatStore } from '../store/useChatStore';
 
 export const ChatContainer = ({ baseId }: { baseId: string }) => {
-  const { activeChatId, setActiveChatId } = useChatStore();
   const chatIdRef = useRef(generateChatId());
-  const chatId = activeChatId ?? chatIdRef.current;
   const { modelKey } = useChatStore();
   const activeChat = useActiveChat(baseId);
   const queryClient = useQueryClient();
+  const { context, setActiveChatId } = useChatContext();
+
+  const chatId = activeChat ? activeChat.id : chatIdRef.current;
 
   const { data: baseAiConfig } = useQuery({
     queryKey: ['ai-config', baseId],
@@ -41,12 +43,26 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
     );
   }, [chatMessage]);
 
+  const { llmProviders = [], codingModel } = baseAiConfig ?? {};
+  const models = useMemo(() => {
+    return generateModelKeyList(llmProviders);
+  }, [llmProviders]);
+
+  const validModelKey = useMemo(() => {
+    return (
+      models.find((model) => model.modelKey === modelKey)?.modelKey ||
+      codingModel ||
+      models[0]?.modelKey
+    );
+  }, [modelKey, models, codingModel]);
+
   const { messages, setMessages, handleSubmit, input, setInput, status, stop } = useChat({
     api: `/api/base/${baseId}/chat`,
     initialMessages: convertToUIMessages,
     body: {
       chatId,
-      model: modelKey,
+      model: validModelKey,
+      context,
     },
     onResponse: () => {
       setActiveChatId(chatId);
@@ -54,16 +70,11 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
     },
   });
 
-  const { llmProviders = [], codingModel } = baseAiConfig ?? {};
-  const models = useMemo(() => {
-    return generateModelKeyList(llmProviders);
-  }, [llmProviders]);
-
   return (
     <div className="flex flex-1 flex-col overflow-hidden pb-3">
       <Messages messages={messages} chatId={chatId} status={status} />
       <MessageInput
-        codingModel={codingModel ?? ''}
+        modelKey={validModelKey}
         models={models}
         input={input}
         setInput={setInput}
