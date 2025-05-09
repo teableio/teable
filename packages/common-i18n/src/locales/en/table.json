@@ -665,6 +665,7 @@
       "searchEmpty": "No matching context found",
       "emptyContext": "No context to add"
     },
-    "inputPlaceholder": "Send message..."
+    "inputPlaceholder": "Send message...",
+    "thought": "Thinking"
   }
 }

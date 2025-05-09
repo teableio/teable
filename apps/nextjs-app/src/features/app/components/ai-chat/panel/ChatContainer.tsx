@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateChatId } from '@teable/core';
 import { getAIConfig, getChatMessages } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useMemo, useRef } from 'react';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
 import { MessageInput } from '../components/MessageInput';
@@ -17,8 +18,8 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
   const activeChat = useActiveChat(baseId);
   const queryClient = useQueryClient();
   const { context, setActiveChatId } = useChatContext();
-
-  const chatId = activeChat ? activeChat.id : chatIdRef.current;
+  const isActiveChat = Boolean(activeChat);
+  const chatId = isActiveChat ? activeChat!.id : chatIdRef.current;
 
   const { data: baseAiConfig } = useQuery({
     queryKey: ['ai-config', baseId],
@@ -28,10 +29,13 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
   const { data: chatMessage } = useQuery({
     queryKey: ['chat-message', chatId],
     queryFn: ({ queryKey }) => getChatMessages(baseId, queryKey[1]).then((res) => res.data),
-    enabled: Boolean(activeChat),
+    enabled: isActiveChat,
   });
 
   const convertToUIMessages = useMemo<UseChatHelpers['messages']>(() => {
+    if (!isActiveChat) {
+      return [];
+    }
     return (
       chatMessage?.messages.map((message) => ({
         id: message.id,
@@ -41,7 +45,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
         createdAt: new Date(message.createdTime),
       })) ?? []
     );
-  }, [chatMessage]);
+  }, [chatMessage, isActiveChat]);
 
   const { llmProviders = [], codingModel } = baseAiConfig ?? {};
   const models = useMemo(() => {
@@ -57,6 +61,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
   }, [modelKey, models, codingModel]);
 
   const { messages, setMessages, handleSubmit, input, setInput, status, stop } = useChat({
+    id: chatId,
     api: `/api/base/${baseId}/chat`,
     initialMessages: convertToUIMessages,
     body: {
@@ -64,9 +69,14 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
       model: validModelKey,
       context,
     },
-    onResponse: () => {
-      setActiveChatId(chatId);
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) });
+    onFinish: () => {
+      queryClient.refetchQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) }).then(() => {
+        setActiveChatId(chatId);
+        chatIdRef.current = generateChatId();
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 

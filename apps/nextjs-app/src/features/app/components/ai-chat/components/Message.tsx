@@ -29,7 +29,7 @@ export const Message = ({ message, isLoading }: IMessage) => {
               />
             );
           case 'reasoning':
-            return <ReasonMessagePart key={index} part={part} />;
+            return <ReasonMessagePart key={index} part={part} isLoading={isLoading} />;
           case 'tool-invocation':
             return <ToolMessagePart key={index} part={part} />;
           default:
