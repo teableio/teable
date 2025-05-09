@@ -5,6 +5,8 @@ import { queryBaseSchema, contentQueryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
+export const DEFAULT_MAX_SEARCH_FIELD_COUNT = Infinity;
+
 export const searchIndexVoSchema = z
   .object({
     index: z.number(),

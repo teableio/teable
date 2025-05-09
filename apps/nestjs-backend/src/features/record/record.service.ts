@@ -50,7 +50,7 @@ import type {
   IRecordStatusVo,
   IRecordsVo,
 } from '@teable/openapi';
-import { GroupPointType, UploadType } from '@teable/openapi';
+import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { get, difference, keyBy, orderBy, uniqBy, toNumber } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -1486,7 +1486,7 @@ export class RecordService {
   ) {
     const maxSearchFieldCount = process.env.MAX_SEARCH_FIELD_COUNT
       ? toNumber(process.env.MAX_SEARCH_FIELD_COUNT)
-      : 20;
+      : DEFAULT_MAX_SEARCH_FIELD_COUNT;
     let viewColumnMeta: IGridColumnMeta | null = null;
     const fieldInstanceMap = projection?.length === 0 ? {} : { ...originFieldInstanceMap };
     if (!search) {
