@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { nullsToUndefined, type ViewType } from '@teable/core';
@@ -142,13 +143,13 @@ export class PinService {
           {
             id: string;
             name: string;
-            baseId: string;
-            tableId: string;
+            base_id: string;
+            table_id: string;
             type: ViewType;
             options: string;
           }[]
         >(Prisma.sql`
-      SELECT view.id, view.name, table_meta.base_id as baseId, table_meta.id as tableId, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
+      SELECT view.id, view.name, table_meta.base_id as base_id, table_meta.id as table_id, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
     `)
       : [];
     const spaceMap = keyBy(spaceList, 'id');
@@ -186,9 +187,9 @@ export class PinService {
           const pluginLogo = view.options ? JSON.parse(view.options)?.pluginLogo : undefined;
           return {
             name: view.name,
-            parentBaseId: view.baseId,
+            parentBaseId: view.base_id,
             viewMeta: {
-              tableId: view.tableId,
+              tableId: view.table_id,
               type: view.type,
               pluginLogo: pluginLogo
                 ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), pluginLogo)
