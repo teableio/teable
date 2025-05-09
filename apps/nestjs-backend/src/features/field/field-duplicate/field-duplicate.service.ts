@@ -661,7 +661,7 @@ export class FieldDuplicateService {
 
       const isChecked = checkedField.some((f) => f.id === curField.id);
       // InDegree all ready
-      const isInDegreeReady = this.isInDegreeReady(curField, fieldMap, scope);
+      const isInDegreeReady = await this.isInDegreeReady(curField, fieldMap, scope);
 
       if (isInDegreeReady) {
         await this.duplicateSingleDependField(
@@ -1093,7 +1093,7 @@ export class FieldDuplicateService {
     }
   }
 
-  private isInDegreeReady(
+  private async isInDegreeReady(
     field: IFieldWithTableIdJson,
     fieldMap: Record<string, string>,
     scope: 'base' | 'table' = 'base'
@@ -1125,6 +1125,24 @@ export class FieldDuplicateService {
       const { lookupOptions, sourceTableId } = field;
       const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions as ILookupOptionsRo;
       const isSelfLink = foreignTableId === sourceTableId;
+      const linkField = await this.prismaService.txClient().field.findUnique({
+        where: {
+          id: linkFieldId,
+        },
+        select: {
+          options: true,
+        },
+      });
+
+      // if the cross base relative field is existed, the lookup or rollup field should be ready to create
+      const linkFieldOptions = JSON.parse(
+        linkField?.options || ('{}' as string)
+      ) as ILinkFieldOptions;
+
+      if (linkFieldOptions.baseId) {
+        return true;
+      }
+
       // duplicate table should not consider lookupFieldId when link field is not self link
       return scope === 'base' || isSelfLink
         ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId])
