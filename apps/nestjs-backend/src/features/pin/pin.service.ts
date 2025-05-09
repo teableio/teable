@@ -3,7 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { nullsToUndefined, type ViewType } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type { IGetPinListVo, AddPinRo, DeletePinRo, UpdatePinOrderRo } from '@teable/openapi';
-import { PinType } from '@teable/openapi';
+import { PinType, UploadType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type {
@@ -15,6 +15,8 @@ import type {
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class PinService {
@@ -141,11 +143,12 @@ export class PinService {
             id: string;
             name: string;
             baseId: string;
+            tableId: string;
             type: ViewType;
             options: string;
           }[]
         >(Prisma.sql`
-      SELECT view.id, view.name, table_meta.base_id as baseId, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
+      SELECT view.id, view.name, table_meta.base_id as baseId, table_meta.id as tableId, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
     `)
       : [];
     const spaceMap = keyBy(spaceList, 'id');
@@ -180,12 +183,16 @@ export class PinService {
           if (!view) {
             return undefined;
           }
+          const pluginLogo = view.options ? JSON.parse(view.options)?.pluginLogo : undefined;
           return {
             name: view.name,
             parentBaseId: view.baseId,
             viewMeta: {
+              tableId: view.tableId,
               type: view.type,
-              pluginLogo: view.options ? JSON.parse(view.options)?.pluginLogo : undefined,
+              pluginLogo: pluginLogo
+                ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), pluginLogo)
+                : undefined,
             },
           };
         }

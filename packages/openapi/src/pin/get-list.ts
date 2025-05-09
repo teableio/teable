@@ -17,6 +17,7 @@ export const IGetPinListVoSchema = z.array(
     parentBaseId: z.string().optional(),
     viewMeta: z
       .object({
+        tableId: z.string(),
         type: z.nativeEnum(ViewType),
         pluginLogo: z.string().optional(),
       })

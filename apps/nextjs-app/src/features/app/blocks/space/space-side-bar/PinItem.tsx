@@ -2,11 +2,11 @@ import { ViewType } from '@teable/core';
 import { Component, Database, Table2 } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
-import { ViewIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { VIEW_ICON_MAP } from '../../view/constant';
 import { ItemButton } from './ItemButton';
 
 interface IPinItemProps {
@@ -71,7 +71,7 @@ export const PinItem = (props: IPinItemProps) => {
         <ItemButton className={className}>
           <Link
             href={{
-              pathname: '/base/[baseId]/table/[tableId]',
+              pathname: '/base/[baseId]/[tableId]',
               query: { baseId: pin.parentBaseId, tableId: pin.id },
             }}
             title={pin.name}
@@ -90,10 +90,19 @@ export const PinItem = (props: IPinItemProps) => {
       );
     }
     case PinType.View: {
+      if (!pin.viewMeta) {
+        return;
+      }
+      const ViewIcon = VIEW_ICON_MAP[pin.viewMeta.type];
       return (
         <ItemButton className={className}>
-          <Link href={{ pathname: '/view/[viewId]', query: { viewId: pin.id } }} title={pin.name}>
-            <ViewIcon className="size-4 shrink-0" />
+          <Link
+            href={{
+              pathname: '/base/[baseId]/[tableId]/[viewId]',
+              query: { baseId: pin.parentBaseId, tableId: pin.viewMeta.tableId, viewId: pin.id },
+            }}
+            title={pin.name}
+          >
             {pin.viewMeta?.type === ViewType.Plugin && pin.viewMeta?.pluginLogo ? (
               <Image
                 className="mr-1 size-4 shrink-0"

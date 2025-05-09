@@ -139,6 +139,7 @@ describe('OpenAPI PinController (e2e)', () => {
         parentBaseId: baseId,
         viewMeta: {
           type: ViewType.Grid,
+          tableId,
         },
       },
     ]);
