@@ -720,6 +720,7 @@ export class BaseExportService {
       .map((field, index) => ({
         ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
         type: allowCrossBase ? field.type : FieldType.SingleLineText,
+        createdTime: createdTimeMap[field.id],
         order: fieldRaws[index].order,
       }));
 
