@@ -3,6 +3,8 @@ import type { IGetTempTokenVo, IUserMeVo } from '@teable/openapi';
 import { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
+import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { AuthService } from './auth.service';
 import { TokenAccess } from './decorators/token.decorator';
@@ -18,6 +20,7 @@ export class AuthController {
 
   @Post('signout')
   @HttpCode(200)
+  @EmitControllerEvent(Events.USER_SIGNOUT)
   async signout(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
     await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);

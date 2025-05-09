@@ -49,6 +49,12 @@ describe('CollaboratorService', () => {
           user: mockUser,
           tx: {},
           permissions: getPermissions(Role.Owner),
+          origin: {
+            ip: '127.0.0.1',
+            byApi: false,
+            userAgent: 'test',
+            referer: 'test',
+          },
         },
         async () => {
           await collaboratorService.createSpaceCollaborator({

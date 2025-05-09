@@ -30,7 +30,16 @@ describe('InvitationService', () => {
   const mockUser = { id: 'usr1', name: 'John', email: 'john@example.com' };
   const mockSpace = { id: 'spcxxxxxxxx', name: 'Test Space' };
   const mockInvitedUser = { id: 'usr2', name: 'Bob', email: 'bob@example.com' };
-
+  const defaultCls = {
+    user: mockUser,
+    tx: {},
+    origin: {
+      ip: '127.0.0.1',
+      byApi: false,
+      userAgent: 'test',
+      referer: 'test',
+    },
+  };
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [InvitationModule, GlobalModule],
@@ -62,8 +71,7 @@ describe('InvitationService', () => {
   it('generateInvitation', async () => {
     await clsService.runWith(
       {
-        user: mockUser,
-        tx: {},
+        ...defaultCls,
         permissions: getPermissions(Role.Owner),
       },
       async () => {
@@ -114,8 +122,7 @@ describe('InvitationService', () => {
 
       const result = await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () =>
@@ -159,8 +166,7 @@ describe('InvitationService', () => {
 
       await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () => {
@@ -199,8 +205,7 @@ describe('InvitationService', () => {
 
       const result = await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Creator),
         },
         async () =>
@@ -242,9 +247,14 @@ describe('InvitationService', () => {
       vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
       await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
+          origin: {
+            ip: '127.0.0.1',
+            byApi: false,
+            userAgent: 'test',
+            referer: 'test',
+          },
         },
         async () => {
           await expect(
@@ -272,8 +282,7 @@ describe('InvitationService', () => {
 
       await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () =>
@@ -287,8 +296,7 @@ describe('InvitationService', () => {
 
       await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () =>
@@ -314,8 +322,7 @@ describe('InvitationService', () => {
       });
       await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () =>
@@ -342,8 +349,7 @@ describe('InvitationService', () => {
       prismaService.collaborator.count.mockImplementation(() => Promise.resolve(0) as any);
       await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
@@ -355,8 +361,7 @@ describe('InvitationService', () => {
       prismaService.collaborator.count.mockResolvedValue(1);
       const result = await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
@@ -383,8 +388,7 @@ describe('InvitationService', () => {
 
       const result = await clsService.runWith(
         {
-          user: mockUser,
-          tx: {},
+          ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)

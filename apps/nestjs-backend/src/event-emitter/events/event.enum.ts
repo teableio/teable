@@ -71,4 +71,6 @@ export enum Events {
   BASE_EXPORT_COMPLETE = 'base.export.complete',
 
   LAST_VISIT_CLEAR = 'last.visit.clear',
+
+  AUDIT_LOG_SAVED = 'audit-log.saved',
 }
