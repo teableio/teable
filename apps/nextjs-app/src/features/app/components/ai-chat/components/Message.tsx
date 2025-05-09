@@ -16,6 +16,8 @@ interface IMessage {
 }
 
 export const Message = ({ message, isLoading }: IMessage) => {
+  const partsLength = message.parts.length;
+
   return (
     <MessageWrapper message={message}>
       {message.parts.map((part, index) => {
@@ -29,7 +31,14 @@ export const Message = ({ message, isLoading }: IMessage) => {
               />
             );
           case 'reasoning':
-            return <ReasonMessagePart key={index} part={part} isLoading={isLoading} />;
+            return (
+              <ReasonMessagePart
+                key={index}
+                part={part}
+                isLoading={isLoading}
+                isLastPart={index === partsLength - 1}
+              />
+            );
           case 'tool-invocation':
             return <ToolMessagePart key={index} part={part} />;
           default:

@@ -12,19 +12,20 @@ import { useEffect, useState } from 'react';
 
 interface IReasonMessagePart {
   isLoading?: boolean;
+  isLastPart?: boolean;
   part: UseChatHelpers['messages'][number]['parts'][number] & {
     type: 'reasoning';
   };
 }
 
-export const ReasonMessagePart = ({ part, isLoading }: IReasonMessagePart) => {
+export const ReasonMessagePart = ({ part, isLoading, isLastPart }: IReasonMessagePart) => {
   const { t } = useTranslation(['table']);
   const [isExpanded, setIsExpanded] = useState<boolean>();
   const [defaultExpanded, setDefaultExpanded] = useState<boolean>(false);
   const reasoning = part.reasoning;
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
-    if (isLoading) {
+    if (isLoading && isLastPart) {
       setDefaultExpanded(true);
       timer = setTimeout(() => {
         setDefaultExpanded(false);
@@ -33,7 +34,7 @@ export const ReasonMessagePart = ({ part, isLoading }: IReasonMessagePart) => {
     return () => {
       timer && clearTimeout(timer);
     };
-  }, [isLoading, reasoning]);
+  }, [isLastPart, isLoading, reasoning]);
 
   const factIsExpanded = typeof isExpanded === 'boolean' ? isExpanded : defaultExpanded;
 
