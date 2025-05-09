@@ -183,21 +183,6 @@ importers:
       '@teamwork/websocket-json-stream':
         specifier: 2.0.0
         version: 2.0.0
-      '@types/archiver':
-        specifier: 6.0.3
-        version: 6.0.3
-      '@types/papaparse':
-        specifier: 5.3.14
-        version: 5.3.14
-      '@types/stream-json':
-        specifier: 1.7.8
-        version: 1.7.8
-      '@types/through2':
-        specifier: 2.0.41
-        version: 2.0.41
-      '@types/unzipper':
-        specifier: 0.10.11
-        version: 0.10.11
       ai:
         specifier: 4.1.46
         version: 4.1.46(react@18.3.1)(zod@3.22.4)
@@ -412,6 +397,9 @@ importers:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../packages/eslint-config-bases
+      '@types/archiver':
+        specifier: 6.0.3
+        version: 6.0.3
       '@types/bcrypt':
         specifier: 5.0.2
         version: 5.0.2
@@ -460,6 +448,9 @@ importers:
       '@types/oauth2orize':
         specifier: 1.11.5
         version: 1.11.5
+      '@types/papaparse':
+        specifier: 5.3.14
+        version: 5.3.14
       '@types/passport':
         specifier: 1.0.16
         version: 1.0.16
@@ -487,6 +478,15 @@ importers:
       '@types/sharedb':
         specifier: 3.3.10
         version: 3.3.10
+      '@types/stream-json':
+        specifier: 1.7.8
+        version: 1.7.8
+      '@types/through2':
+        specifier: 2.0.41
+        version: 2.0.41
+      '@types/unzipper':
+        specifier: 0.10.11
+        version: 0.10.11
       '@types/ws':
         specifier: 8.5.10
         version: 8.5.10
