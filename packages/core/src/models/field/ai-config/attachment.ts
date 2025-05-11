@@ -28,7 +28,7 @@ export type IAttachmentFieldGenerateImageAIConfig = z.infer<
 
 export const attachmentFieldCustomizeAIConfigSchema = attachmentFieldAIConfigBaseSchema.extend({
   type: z.literal(FieldAIActionType.Customization),
-  prompt: z.string().optional(),
+  prompt: z.string(),
   attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
 });
 
