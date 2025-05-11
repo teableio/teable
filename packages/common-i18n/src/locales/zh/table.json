@@ -309,7 +309,7 @@
         "extractInfo": "提取邮箱，电话，姓名，地址...",
         "improveText": "语气正式，友好，幽默...",
         "attachPromptForTag": "不允许超过三个标签",
-        "attachPromptForClassify": "将“正在进行中”的分类为“无风险”",
+        "attachPromptForClassify": "将\"正在进行中\"的分类为\"无风险\"",
         "attachPrompt": "请输入附加要求",
         "prompt": "请输入自定义的提示",
         "type": "选择 AI 动作",
@@ -647,6 +647,12 @@
       "sqlQuery": "执行 SQL 查询",
       "args": "参数",
       "result": "结果"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}}行已隐藏",
+      "collapseCode": "收起代码",
+      "code": "代码",
+      "preview": "预览"
     },
     "newChat": "新对话",
     "noModel": "暂无可用模型",

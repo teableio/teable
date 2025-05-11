@@ -310,7 +310,7 @@
         "extractInfo": "Extract email, phone, name, address...",
         "improveText": "Formal, friendly, humorous...",
         "attachPromptForTag": "Not allowed to exceed three tags",
-        "attachPromptForClassify": "Classify “In Progress” as “No Risk”",
+        "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
         "attachPrompt": "Please enter additional requirements",
         "prompt": "Please enter a custom prompt",
         "type": "Select AI Action",
@@ -647,6 +647,12 @@
       "sqlQuery": "Execute SQL query",
       "args": "Arguments",
       "result": "Result"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} lines hidden",
+      "collapseCode": "Collapse code",
+      "code": "Code",
+      "preview": "Preview"
     },
     "newChat": "New Chat",
     "noModel": "No available models",

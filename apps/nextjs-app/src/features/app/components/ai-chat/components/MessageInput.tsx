@@ -40,7 +40,7 @@ export const MessageInput = ({
           placeholder={t('table:aiChat.inputPlaceholder')}
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          className="h-20 resize-none border-none bg-transparent text-[13px] shadow-none focus-visible:ring-0"
+          className="h-20 resize-none border-none bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0"
           rows={2}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
