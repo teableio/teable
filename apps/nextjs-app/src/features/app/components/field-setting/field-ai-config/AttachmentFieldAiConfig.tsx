@@ -1,13 +1,17 @@
-import type { IAttachmentFieldAIConfig, IAttachmentFieldGenerateImageAIConfig } from '@teable/core';
+import type {
+  IAttachmentFieldAIConfig,
+  IAttachmentFieldCustomizeAIConfig,
+  IAttachmentFieldGenerateImageAIConfig,
+} from '@teable/core';
 import { FieldAIActionType, ImageQuality } from '@teable/core';
-import { ImageGeneration } from '@teable/icons';
+import { ImageGeneration, Pencil } from '@teable/icons';
 import { Selector } from '@teable/ui-lib/base';
 import { Slider, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
-import { FieldSelect } from './components';
+import { FieldSelect, PromptEditorContainer } from './components';
 
 interface IAttachmentFieldAiConfigProps {
   field: Partial<IFieldEditorRo>;
@@ -28,10 +32,18 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
         icon: <ImageGeneration className="size-4" />,
         name: t('table:field.aiConfig.type.imageGeneration'),
       },
+      {
+        id: FieldAIActionType.Customization,
+        icon: <Pencil className="size-4" />,
+        name: t('table:field.aiConfig.type.customization'),
+      },
     ];
   }, [t]);
 
-  const onConfigChange = (key: keyof IAttachmentFieldGenerateImageAIConfig, value: unknown) => {
+  const onConfigChange = (
+    key: keyof IAttachmentFieldGenerateImageAIConfig | keyof IAttachmentFieldCustomizeAIConfig,
+    value: unknown
+  ) => {
     switch (key) {
       case 'type':
         return onChange?.({ aiConfig: { type: value } as IAttachmentFieldAIConfig });
@@ -61,10 +73,10 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             quality: value as ImageQuality,
           } as IAttachmentFieldGenerateImageAIConfig,
         });
-      // case 'prompt':
-      //   return onChange?.({
-      //     aiConfig: { ...aiConfig, prompt: value as string } as IAttachmentFieldCustomizeAIConfig,
-      //   });
+      case 'prompt':
+        return onChange?.({
+          aiConfig: { ...aiConfig, prompt: value as string } as IAttachmentFieldCustomizeAIConfig,
+        });
       default:
         throw new Error(`Unsupported key: ${key}`);
     }
@@ -105,15 +117,26 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
         />
       </div>
 
-      {type && type !== FieldAIActionType.Customization && (
+      {Boolean(type) && (
         <Fragment>
-          <div className="flex flex-col gap-y-2">
-            <span>{t('table:field.aiConfig.label.sourceFieldForAttachment')}</span>
-            <FieldSelect
-              selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.sourceFieldId}
-              onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
-            />
-          </div>
+          {type === FieldAIActionType.Customization ? (
+            <div className="flex flex-col gap-y-2">
+              <PromptEditorContainer
+                value={(aiConfig as IAttachmentFieldCustomizeAIConfig)?.prompt || ''}
+                onChange={(value) => onConfigChange('prompt', value)}
+                label={t('table:field.aiConfig.label.prompt')}
+                placeholder={t('table:field.aiConfig.placeholder.prompt')}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-y-2">
+              <span>{t('table:field.aiConfig.label.sourceFieldForAttachment')}</span>
+              <FieldSelect
+                selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.sourceFieldId}
+                onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
+              />
+            </div>
+          )}
           <div className="flex flex-col gap-y-2">
             <span>{t('table:field.aiConfig.label.imageSize')}</span>
             <Selector
@@ -150,39 +173,21 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
               candidates={qualityCandidates}
             />
           </div>
-          <div className="flex flex-col gap-y-2">
-            <span>{t('table:field.aiConfig.label.attachPrompt')}</span>
-            <Textarea
-              placeholder={t('table:field.aiConfig.placeholder.attachPromptForImageGeneration')}
-              className="w-full"
-              value={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.attachPrompt || ''}
-              onChange={(e) => {
-                onConfigChange('attachPrompt', e.target.value);
-              }}
-            />
-          </div>
+          {type !== FieldAIActionType.Customization && (
+            <div className="flex flex-col gap-y-2">
+              <span>{t('table:field.aiConfig.label.attachPrompt')}</span>
+              <Textarea
+                placeholder={t('table:field.aiConfig.placeholder.attachPromptForImageGeneration')}
+                className="w-full"
+                value={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.attachPrompt || ''}
+                onChange={(e) => {
+                  onConfigChange('attachPrompt', e.target.value);
+                }}
+              />
+            </div>
+          )}
         </Fragment>
       )}
-
-      {/* {type === FieldAIActionType.Customization && (
-        <Fragment>
-          <div className="flex flex-col gap-y-2">
-            <PromptEditorContainer
-              value={(aiConfig as IAttachmentFieldCustomizeAIConfig)?.prompt || ''}
-              onChange={(value) => onConfigChange('prompt', value)}
-              label={t('table:field.aiConfig.label.prompt')}
-              placeholder={t('table:field.aiConfig.placeholder.prompt')}
-            />
-          </div>
-          <div className="flex flex-col gap-y-2">
-            <span>{t('table:field.default.attachment.title')}</span>
-            <AttachmentSelect
-              value={(aiConfig as IAttachmentFieldCustomizeAIConfig)?.attachmentFieldIds || []}
-              onChange={(value) => onConfigChange('attachmentFieldIds', value)}
-            />
-          </div>
-        </Fragment>
-      )} */}
     </Fragment>
   );
 };

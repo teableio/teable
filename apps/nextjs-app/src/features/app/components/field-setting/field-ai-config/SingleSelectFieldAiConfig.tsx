@@ -63,6 +63,13 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
         return onChange?.({
           aiConfig: { ...aiConfig, prompt: value as string } as ISingleSelectFieldCustomizeAIConfig,
         });
+      case 'attachmentFieldIds':
+        return onChange?.({
+          aiConfig: {
+            ...aiConfig,
+            attachmentFieldIds: value as string[],
+          } as ISingleSelectFieldCustomizeAIConfig,
+        });
       default:
         throw new Error(`Unsupported key: ${key}`);
     }

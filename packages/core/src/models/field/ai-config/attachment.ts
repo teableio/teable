@@ -8,9 +8,7 @@ export enum ImageQuality {
   High = 'high',
 }
 
-export const attachmentFieldGenerateImageAIConfigSchema = commonFieldAIConfig.extend({
-  type: z.literal(FieldAIActionType.ImageGeneration),
-  sourceFieldId: z.string().startsWith(IdPrefix.Field),
+export const attachmentFieldAIConfigBaseSchema = commonFieldAIConfig.extend({
   n: z.number().min(1).max(10).optional(),
   size: z
     .string()
@@ -19,10 +17,28 @@ export const attachmentFieldGenerateImageAIConfigSchema = commonFieldAIConfig.ex
   quality: z.nativeEnum(ImageQuality).optional(),
 });
 
+export const attachmentFieldGenerateImageAIConfigSchema = attachmentFieldAIConfigBaseSchema.extend({
+  type: z.literal(FieldAIActionType.ImageGeneration),
+  sourceFieldId: z.string().startsWith(IdPrefix.Field),
+});
+
 export type IAttachmentFieldGenerateImageAIConfig = z.infer<
   typeof attachmentFieldGenerateImageAIConfigSchema
 >;
 
-export const attachmentFieldAIConfigSchema = attachmentFieldGenerateImageAIConfigSchema;
+export const attachmentFieldCustomizeAIConfigSchema = attachmentFieldAIConfigBaseSchema.extend({
+  type: z.literal(FieldAIActionType.Customization),
+  prompt: z.string().optional(),
+  attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
+});
+
+export type IAttachmentFieldCustomizeAIConfig = z.infer<
+  typeof attachmentFieldCustomizeAIConfigSchema
+>;
+
+export const attachmentFieldAIConfigSchema = z.union([
+  attachmentFieldGenerateImageAIConfigSchema,
+  attachmentFieldCustomizeAIConfigSchema,
+]);
 
 export type IAttachmentFieldAIConfig = z.infer<typeof attachmentFieldAIConfigSchema>;

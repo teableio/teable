@@ -67,6 +67,13 @@ export const MultipleSelectFieldAiConfig = (props: IMultipleSelectFieldAiConfigP
             prompt: value as string,
           } as IMultipleSelectFieldCustomizeAIConfig,
         });
+      case 'attachmentFieldIds':
+        return onChange?.({
+          aiConfig: {
+            ...aiConfig,
+            attachmentFieldIds: value as string[],
+          } as IMultipleSelectFieldCustomizeAIConfig,
+        });
       default:
         throw new Error(`Unsupported key: ${key}`);
     }
