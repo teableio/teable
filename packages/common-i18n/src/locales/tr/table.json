@@ -275,7 +275,9 @@
         "improvement": "İyileştir",
         "tag": "Akıllı Etiket",
         "classification": "Akıllı Sınıflandırma",
-        "customization": "Özelleştir"
+        "customization": "Özelleştir",
+        "imageGeneration": "Görüntü Oluşturma",
+        "rating": "Görüntü Değerlendirme"
       },
       "label": {
         "type": "AI Eylem Türü",
@@ -285,7 +287,11 @@
         "sourceFieldForTag": "Bir alan seçin, oluşturulan etiketlerle eşleştirin",
         "sourceFieldForClassify": "Bir alan seçin, oluşturulan sınıflandırmalarla eşleştirin",
         "attachPrompt": "Gereksinimleri ekleyin",
-        "prompt": "Özel Prompt"
+        "prompt": "Özel Prompt",
+        "sourceFieldForAttachment": "Ek alanın kaynak alanı",
+        "imageSize": "Görüntü boyutu",
+        "imageQuality": "Görüntü kalitesi",
+        "imageCount": "Görüntü sayısı"
       },
       "placeholder": {
         "summarize": "İçerik özetini",
@@ -297,7 +303,16 @@
         "attachPrompt": "Ek gereksinimleri girin",
         "prompt": "Özel Prompt",
         "type": "AI Eylemi Seçin",
-        "targetLanguage": "İngilizce, Çince, Fransızca..."
+        "targetLanguage": "İngilizce, Çince, Fransızca...",
+        "imageSize": "Lütfen görüntü boyutunu girin",
+        "imageQuality": "Lütfen görüntü kalitesini girin",
+        "attachPromptForImageGeneration": "Görüntünün canlı ve doğal olması gerekiyor",
+        "attachPromptForRating": "Görüntü kalitesini değerlendirin"
+      },
+      "imageQuality": {
+        "low": "Düşük",
+        "medium": "Orta",
+        "high": "Yüksek"
       },
       "autoFill": {
         "title": "Otomatik Güncelle",

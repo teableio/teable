@@ -286,7 +286,9 @@
         "improvement": "Verbessern",
         "tag": "Smart-Tag",
         "classification": "Smart-Klassifizierung",
-        "customization": "Anpassen"
+        "customization": "Anpassen",
+        "imageGeneration": "Bildgenerierung",
+        "rating": "Bewertung"
       },
       "label": {
         "type": "AI Aktion Typ",
@@ -296,7 +298,11 @@
         "sourceFieldForTag": "Wählen Sie ein Feld, passen Sie es mit den erstellten Tags an",
         "sourceFieldForClassify": "Wählen Sie ein Feld, passen Sie es mit den erstellten Klassifizierungen an",
         "attachPrompt": "Anhängen von Anforderungen",
-        "prompt": "Anpassen von Prompt"
+        "prompt": "Anpassen von Prompt",
+        "sourceFieldForAttachment": "Quellfeld für Anhang",
+        "imageSize": "Bildgröße",
+        "imageQuality": "Bildqualität",
+        "imageCount": "Bildanzahl"
       },
       "placeholder": {
         "summarize": "Zusammenfassung des Inhalts",
@@ -308,7 +314,16 @@
         "attachPrompt": "Bitte geben Sie zusätzliche Anforderungen ein",
         "prompt": "Bitte geben Sie einen benutzerdefinierten Prompt ein",
         "type": "AI Aktion auswählen",
-        "targetLanguage": "Englisch, Chinesisch, Französisch..."
+        "targetLanguage": "Englisch, Chinesisch, Französisch...",
+        "imageSize": "Bitte geben Sie die Bildgröße ein",
+        "imageQuality": "Bitte geben Sie die Bildqualität ein",
+        "attachPromptForImageGeneration": "Das Bild sollte lebendig und natürlich sein",
+        "attachPromptForRating": "Bewerte die Bildqualität"
+      },
+      "imageQuality": {
+        "low": "Niedrig",
+        "medium": "Mittel",
+        "high": "Hoch"
       },
       "autoFill": {
         "title": "Automatisch aktualisieren",

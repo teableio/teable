@@ -285,7 +285,9 @@
         "improvement": "文案改写",
         "tag": "智能标签",
         "classification": "智能分类",
-        "customization": "自定义生成"
+        "customization": "自定义生成",
+        "imageGeneration": "图像生成",
+        "rating": "评分"
       },
       "label": {
         "type": "AI 动作类型",
@@ -295,7 +297,11 @@
         "sourceFieldForTag": "选择一个字段，为其匹配已创建的标签",
         "sourceFieldForClassify": "选择一个字段，为其匹配已创建的分类",
         "attachPrompt": "附加要求",
-        "prompt": "自定义提示"
+        "prompt": "自定义提示",
+        "sourceFieldForAttachment": "提示词来源字段",
+        "imageSize": "图片尺寸",
+        "imageQuality": "图片质量",
+        "imageCount": "图片数量"
       },
       "placeholder": {
         "summarize": "总结内容的关键点",
@@ -307,7 +313,16 @@
         "attachPrompt": "请输入附加要求",
         "prompt": "请输入自定义的提示",
         "type": "选择 AI 动作",
-        "targetLanguage": "英文，中文，法语..."
+        "targetLanguage": "英文，中文，法语...",
+        "imageSize": "请输入图片尺寸",
+        "imageQuality": "请输入图片质量",
+        "attachPromptForImageGeneration": "画风生动自然",
+        "attachPromptForRating": "对图像质量进行评分"
+      },
+      "imageQuality": {
+        "low": "低",
+        "medium": "中",
+        "high": "高"
       },
       "autoFill": {
         "title": "自动更新",

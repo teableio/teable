@@ -1,6 +1,6 @@
 'use client';
 
-import { Audio, ChevronDown, DeepThinking, Eye, HelpCircle } from '@teable/icons';
+import { ChevronDown } from '@teable/icons';
 import type { IModelDefinationMap } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
 import {
@@ -22,12 +22,11 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { Check } from 'lucide-react';
-import { Trans, useTranslation } from 'next-i18next';
-import type { ReactNode } from 'react';
+import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDER_ICONS } from './constant';
-import { decimalToRatio, parseModelKey } from './util';
+import { parseModelKey, processModelDefinition } from './utils';
 
 export interface IModelOption {
   isInstance?: boolean;
@@ -148,29 +147,7 @@ export function AIModelSelect({
                         <CommandSeparator />
                         <CommandGroup
                           heading={
-                            <div className="flex items-center">
-                              {t('settings.setting.system')}
-                              {isCloud && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="ml-1 cursor-pointer">
-                                        <HelpCircle className="size-4" />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p className="max-w-[320px]">
-                                        <Trans
-                                          ns="common"
-                                          i18nKey="admin.setting.ai.systemModelTips"
-                                          components={{ br: <br /> }}
-                                        />
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </div>
+                            <div className="flex items-center">{t('settings.setting.system')}</div>
                           }
                         >
                           {instanceOptions.map(({ modelKey }) => {
@@ -179,44 +156,10 @@ export function AIModelSelect({
                               LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
                             const checked = value.toLowerCase() === modelKey.toLowerCase();
                             const modelDefination = modelDefinationMap?.[model as string];
-                            const {
-                              inputRate,
-                              outputRate,
-                              visionEnable,
-                              audioEnable,
-                              deepThinkEnable,
-                            } = modelDefination ?? {};
-                            const featureList: { key: string; tooltip: string; icon: ReactNode }[] =
-                              [];
-
-                            if (visionEnable) {
-                              featureList.push({
-                                key: 'vision',
-                                tooltip: t('admin.setting.ai.supportVisionTip'),
-                                icon: <Eye className="size-4" />,
-                              });
-                            }
-                            if (audioEnable) {
-                              featureList.push({
-                                key: 'audio',
-                                tooltip: t('admin.setting.ai.supportAudioTip'),
-                                icon: <Audio className="size-4" />,
-                              });
-                            }
-                            // if (videoEnable) {
-                            //   featureList.push({
-                            //     key: 'video',
-                            //     tooltip: t('admin.setting.ai.supportVideoTip'),
-                            //     icon: <Video className="size-4" />,
-                            //   });
-                            // }
-                            if (deepThinkEnable) {
-                              featureList.push({
-                                key: 'deepThink',
-                                tooltip: t('admin.setting.ai.supportDeepThinkTip'),
-                                icon: <DeepThinking className="size-4" />,
-                              });
-                            }
+                            const { usageTags, featureTags } = processModelDefinition(
+                              modelDefination,
+                              t
+                            );
 
                             return (
                               <CommandItem
@@ -245,15 +188,21 @@ export function AIModelSelect({
                                   </div>
                                   {isCloud && modelDefination && (
                                     <div className="ml-6 flex items-center space-x-1 text-xs text-slate-500">
-                                      <span className="rounded-md border px-2.5 py-0.5">
-                                        {t('admin.setting.ai.input')}{' '}
-                                        {decimalToRatio(inputRate as number)}
-                                      </span>
-                                      <span className="rounded-md border px-2.5 py-0.5">
-                                        {t('admin.setting.ai.output')}{' '}
-                                        {decimalToRatio(outputRate as number)}
-                                      </span>
-                                      {featureList.map(({ key, tooltip, icon }) => (
+                                      {usageTags.map(({ key, text, tooltip }) => (
+                                        <TooltipProvider key={key}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="rounded-md border px-2.5 py-0.5">
+                                                {text}
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="max-w-[320px]">{tooltip}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ))}
+                                      {featureTags.map(({ key, tooltip, icon }) => (
                                         <TooltipProvider key={key}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>

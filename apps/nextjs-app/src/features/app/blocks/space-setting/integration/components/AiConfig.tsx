@@ -8,7 +8,7 @@ import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIModelPreferencesCard } from '../../../admin/setting/components/ai-config/AIModelPreferencesCard';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
-import { generateModelKeyList } from '../../../admin/setting/components/ai-config/util';
+import { generateModelKeyList } from '../../../admin/setting/components/ai-config/utils';
 
 interface IAIConfigProps {
   config: IAIIntegrationConfig;

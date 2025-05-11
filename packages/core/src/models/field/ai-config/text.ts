@@ -9,6 +9,8 @@ export enum FieldAIActionType {
   Classification = 'classification',
   Tag = 'tag',
   Customization = 'customization',
+  ImageGeneration = 'imageGeneration',
+  Rating = 'rating',
 }
 
 export const commonFieldAIConfig = z.object({

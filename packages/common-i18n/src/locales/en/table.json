@@ -286,7 +286,9 @@
         "improvement": "Improve",
         "tag": "Smart-Tag",
         "classification": "Smart-Classify",
-        "customization": "Customize"
+        "customization": "Customize",
+        "imageGeneration": "Image Generation",
+        "rating": "Rating"
       },
       "label": {
         "type": "AI Action Type",
@@ -296,7 +298,11 @@
         "sourceFieldForTag": "Select a field, match it with the created tags",
         "sourceFieldForClassify": "Select a field, match it with the created classifications",
         "attachPrompt": "Attach Requirements",
-        "prompt": "Customize Prompt"
+        "prompt": "Customize Prompt",
+        "sourceFieldForAttachment": "Source Field for Attachment",
+        "imageSize": "Image Size",
+        "imageQuality": "Image Quality",
+        "imageCount": "Image Count"
       },
       "placeholder": {
         "summarize": "Summary of the content",
@@ -308,7 +314,16 @@
         "attachPrompt": "Please enter additional requirements",
         "prompt": "Please enter a custom prompt",
         "type": "Select AI Action",
-        "targetLanguage": "English, Chinese, French..."
+        "targetLanguage": "English, Chinese, French...",
+        "imageSize": "Please enter the image size",
+        "imageQuality": "Please enter the image quality",
+        "attachPromptForImageGeneration": "The image should be vivid and natural",
+        "attachPromptForRating": "Rate the image quality"
+      },
+      "imageQuality": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
       },
       "autoFill": {
         "title": "Auto Update",

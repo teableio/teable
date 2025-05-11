@@ -25,6 +25,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.ZHIPU]: Zhipu,
   [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
   [LLMProviderType.XAI]: Xai,
+  [LLMProviderType.TOGETHERAI]: Openai,
 };
 
 export const LLM_PROVIDERS = [
@@ -104,5 +105,12 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://api.x.ai/v1',
     modelsPlaceholder: 'grok-2,grok-3,grok-3-reasoner',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.XAI],
+  },
+  {
+    value: LLMProviderType.TOGETHERAI,
+    label: 'TogetherAI',
+    baseUrlPlaceholder: 'https://api.together.xyz/v1',
+    modelsPlaceholder: 'deepseek-ai/DeepSeek-V3,mistralai/Mistral-7B-Instruct-v0.3',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.TOGETHERAI],
   },
 ] as const;

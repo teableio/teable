@@ -4,12 +4,15 @@ import { createCohere } from '@ai-sdk/cohere';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
+import type { OpenAIProvider } from '@ai-sdk/openai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createTogetherAI } from '@ai-sdk/togetherai';
 import { createXai } from '@ai-sdk/xai';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
 import { IntegrationType, LLMProviderType, Task } from '@teable/openapi';
+import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
 import { createQwen } from 'qwen-ai-provider';
 import { SettingService } from '../setting/setting.service';
@@ -34,6 +37,7 @@ export class AiService {
     [LLMProviderType.ZHIPU]: createOpenAI,
     [LLMProviderType.LINGYIWANWU]: createOpenAI,
     [LLMProviderType.XAI]: createXai,
+    [LLMProviderType.TOGETHERAI]: createTogetherAI,
   } as const;
 
   public parseModelKey(modelKey: string) {
@@ -66,10 +70,9 @@ export class AiService {
 
   async getModelInstance(
     modelKey: string,
-    llmProviders: LLMProvider[] = []
-  ): Promise<
-    ReturnType<ReturnType<(typeof this.modelProviders)[keyof typeof this.modelProviders]>>
-  > {
+    llmProviders: LLMProvider[] = [],
+    isImageGeneration = false
+  ): Promise<LanguageModelV1 | ReturnType<OpenAIProvider['image']>> {
     const { type, model, baseUrl, apiKey } = await this.getModelConfig(modelKey, llmProviders);
 
     if (!baseUrl || !apiKey) {
@@ -84,10 +87,14 @@ export class AiService {
       throw new Error(`Unsupported AI provider: ${type}`);
     }
 
-    return provider({
+    const modelProvider = provider({
       baseURL: baseUrl,
       apiKey,
-    })(model);
+    });
+
+    return isImageGeneration
+      ? ((modelProvider as OpenAIProvider).image(model) as ReturnType<OpenAIProvider['image']>)
+      : (modelProvider(model) as LanguageModelV1);
   }
 
   async getAIConfig(baseId: string) {
@@ -163,7 +170,7 @@ export class AiService {
     const modelInstance = await this.getGenerationModelInstance(baseId, aiGenerateRo);
 
     return await streamText({
-      model: modelInstance,
+      model: modelInstance as LanguageModelV1,
       prompt: prompt,
     });
   }
@@ -173,7 +180,7 @@ export class AiService {
     const modelInstance = await this.getGenerationModelInstance(baseId, aiGenerateRo);
 
     const { text } = await generateText({
-      model: modelInstance,
+      model: modelInstance as LanguageModelV1,
       prompt: prompt,
     });
     return text;

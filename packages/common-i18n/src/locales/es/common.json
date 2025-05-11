@@ -302,9 +302,16 @@
         "noModelFound": "No se encuentra ningún modelo.",
         "searchModel": "Modelo de búsqueda ...",
         "selectModel": "Seleccionar modelo ...",
-        "input": "Aporte",
-        "output": "Producción",
-        "systemModelTips": "La relación de entrada / salida representa el tipo de cambio entre créditos y tokens. "
+        "input": "Aporte {{ratio}}",
+        "output": "Producción {{ratio}}",
+        "inputOrOutputTip": "La proporción representa la tasa de cambio entre créditos y tokens, por ejemplo, \"1:1000\" significa que 1 crédito ≈ 1000 tokens.<br></br>Nota: Cada uso deducirá al menos 1 crédito. Incluso si el consumo real es menos de 1 crédito, se le cobrará como 1 crédito.",
+        "imageOutput": "Por imagen {{credits}}",
+        "imageOutputTip": "La generación de imágenes requiere créditos, cada imagen consume {{credits}} créditos",
+        "supportImageOutputTip": "Este modelo admite generación de imágenes",
+        "supportVisionTip": "Este modelo admite entrada de imagen",
+        "supportAudioTip": "Este modelo admite entrada de audio",
+        "supportVideoTip": "Este modelo admite entrada de video",
+        "supportDeepThinkTip": "Este modelo admite pensamiento profundo"
       }
     }
   },

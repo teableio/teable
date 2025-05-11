@@ -18,11 +18,13 @@ import {
 import { useTranslation } from 'next-i18next';
 import React, { Fragment, useState } from 'react';
 import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
-import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
+import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
+import { AttachmentFieldAiConfig } from './AttachmentFieldAiConfig';
 import { MultipleSelectFieldAiConfig } from './MultipleSelectFieldAiConfig';
+import { RatingFieldAiConfig } from './RatingFieldAiConfig';
 import { SingleSelectFieldAiConfig } from './SingleSelectFieldAiConfig';
 import { TextFieldAiConfig } from './TextFieldAiConfig';
 
@@ -36,6 +38,8 @@ const SUPPORTED_FIELD_TYPES = new Set([
   FieldType.LongText,
   FieldType.SingleSelect,
   FieldType.MultipleSelect,
+  FieldType.Attachment,
+  FieldType.Rating,
 ]);
 
 export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange }) => {
@@ -81,6 +85,10 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
         return <SingleSelectFieldAiConfig field={field} onChange={onChange} />;
       case FieldType.MultipleSelect:
         return <MultipleSelectFieldAiConfig field={field} onChange={onChange} />;
+      case FieldType.Attachment:
+        return <AttachmentFieldAiConfig field={field} onChange={onChange} />;
+      case FieldType.Rating:
+        return <RatingFieldAiConfig field={field} onChange={onChange} />;
       default:
         throw new Error(`Unsupported field type: ${fieldType}`);
     }

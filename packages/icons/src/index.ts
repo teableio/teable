@@ -85,6 +85,7 @@ export { default as History } from './components/History';
 export { default as Home } from './components/Home';
 export { default as HttpRequest } from './components/HttpRequest';
 export { default as Image } from './components/Image';
+export { default as ImageGeneration } from './components/ImageGeneration';
 export { default as Import } from './components/Import';
 export { default as Inbox } from './components/Inbox';
 export { default as Integration } from './components/Integration';

@@ -277,7 +277,9 @@
         "improvement": "改善",
         "tag": "スマートタグ",
         "classification": "スマート分類",
-        "customization": "カスタマイズ"
+        "customization": "カスタマイズ",
+        "imageGeneration": "画像生成",
+        "rating": "画像評価"
       },
       "label": {
         "type": "AI アクションタイプ",
@@ -287,7 +289,11 @@
         "sourceFieldForTag": "フィールドを選択し、作成されたタグと一致させます",
         "sourceFieldForClassify": "フィールドを選択し、作成された分類と一致させます",
         "attachPrompt": "要件を添付",
-        "prompt": "カスタマイズされたプロンプト"
+        "prompt": "カスタマイズされたプロンプト",
+        "sourceFieldForAttachment": "添付ファイルのソースフィールド",
+        "imageSize": "画像サイズ",
+        "imageQuality": "画像品質",
+        "imageCount": "画像数"
       },
       "placeholder": {
         "summarize": "コンテンツのサマリー",
@@ -299,7 +305,16 @@
         "attachPrompt": "追加の要件を入力してください",
         "prompt": "カスタマイズされたプロンプトを入力してください",
         "type": "AI アクションを選択",
-        "targetLanguage": "英語、中国語、フランス語..."
+        "targetLanguage": "英語、中国語、フランス語...",
+        "imageSize": "画像サイズを入力してください",
+        "imageQuality": "画像品質を入力してください",
+        "attachPromptForImageGeneration": "画像は鮮明で自然なものにしてください",
+        "attachPromptForRating": "画像の品質を評価してください"
+      },
+      "imageQuality": {
+        "low": "低",
+        "medium": "中",
+        "high": "高"
       },
       "autoFill": {
         "title": "自動更新",

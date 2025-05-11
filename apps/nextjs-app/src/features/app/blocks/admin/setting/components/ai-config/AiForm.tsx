@@ -17,7 +17,7 @@ import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIModelPreferencesCard } from './AIModelPreferencesCard';
 import { AIProviderCard } from './AIProviderCard';
-import { generateModelKeyList } from './util';
+import { generateModelKeyList } from './utils';
 
 export function AIConfigForm({
   aiConfig,

@@ -15,6 +15,7 @@ export enum LLMProviderType {
   ZHIPU = 'zhipu',
   LINGYIWANWU = 'lingyiwanwu',
   XAI = 'xai',
+  TOGETHERAI = 'togetherai',
 }
 
 export const llmProviderSchema = z.object({

@@ -6,7 +6,13 @@ import { registerRoute, urlBuilder } from '../utils';
 
 export const GET_AI_CONFIG = '/{baseId}/ai/config';
 
-export const modelDefinationSchema = z.object({
+export enum ModelOutputType {
+  Image = 'image',
+  Audio = 'audio',
+  Video = 'video',
+}
+
+export const textModelDefinationSchema = z.object({
   inputRate: z.number().openapi({
     example: 0.001,
     description: 'The number of credits spent using a prompt token',
@@ -21,7 +27,22 @@ export const modelDefinationSchema = z.object({
   deepThinkEnable: z.boolean().optional().openapi({ description: 'Whether to enable deep think' }),
 });
 
-export type IModelDefination = z.infer<typeof modelDefinationSchema>;
+export type ITextModelDefination = z.infer<typeof textModelDefinationSchema>;
+
+export const imageModelDefinationSchema = z.object({
+  usagePerUnit: z.number().openapi({
+    example: 100,
+    description: 'The number of credits spent for generating one image',
+  }),
+  outputType: z.nativeEnum(ModelOutputType),
+});
+
+export type IImageModelDefination = z.infer<typeof imageModelDefinationSchema>;
+
+export const modelDefinationSchema = z.union([
+  textModelDefinationSchema,
+  imageModelDefinationSchema,
+]);
 
 export const modelDefinationMapSchema = z.record(z.string(), modelDefinationSchema);
 

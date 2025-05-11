@@ -286,7 +286,9 @@
         "improvement": "Покращення",
         "tag": "Смарт-тег",
         "classification": "Смарт-класифікація",
-        "customization": "Налаштування"
+        "customization": "Налаштування",
+        "imageGeneration": "Генерація зображень",
+        "rating": "Оцінка зображень"
       },
       "label": {
         "type": "Тип дії AI",
@@ -296,7 +298,11 @@
         "sourceFieldForTag": "Виберіть поле, щоб збігти його зі створеними тегами",
         "sourceFieldForClassify": "Виберіть поле, щоб збігти його зі створеними класифікаціями",
         "attachPrompt": "Прикріпити вимоги",
-        "prompt": "Налаштувати Prompt"
+        "prompt": "Налаштувати Prompt",
+        "sourceFieldForAttachment": "Вихідне поле для вкладень",
+        "imageSize": "Розмір зображення",
+        "imageQuality": "Якість зображення",
+        "imageCount": "Кількість зображень"
       },
       "placeholder": {
         "summarize": "Сума змісту",
@@ -308,7 +314,16 @@
         "attachPrompt": "Будь ласка, введіть додаткові вимоги",
         "prompt": "Будь ласка, введіть власний prompt",
         "type": "Виберіть дію AI",
-        "targetLanguage": "Англійська, Китайська, Французька..."
+        "targetLanguage": "Англійська, Китайська, Французька...",
+        "imageSize": "Будь ласка, введіть розмір зображення",
+        "imageQuality": "Будь ласка, введіть якість зображення",
+        "attachPromptForImageGeneration": "Зображення повинно бути живим та природним",
+        "attachPromptForRating": "Оцінити якість зображення"
+      },
+      "imageQuality": {
+        "low": "Низька",
+        "medium": "Середня",
+        "high": "Висока"
       },
       "autoFill": {
         "title": "Автооновлення",

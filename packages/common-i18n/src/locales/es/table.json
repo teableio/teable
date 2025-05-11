@@ -286,7 +286,9 @@
         "improvement": "Mejorar",
         "tag": "Etiqueta inteligente",
         "classification": "Clasificar inteligente",
-        "customization": "Personalizar"
+        "customization": "Personalizar",
+        "imageGeneration": "Generación de imágenes",
+        "rating": "Clasificación de imágenes"
       },
       "label": {
         "type": "Tipo de acción de IA",
@@ -296,7 +298,11 @@
         "sourceFieldForTag": "Seleccione un campo, coincida con las etiquetas creadas",
         "sourceFieldForClassify": "Seleccione un campo, coincida con las clasificaciones creadas",
         "attachPrompt": "Adjuntar requisitos",
-        "prompt": "Personalizar prompt"
+        "prompt": "Personalizar prompt",
+        "sourceFieldForAttachment": "Campo de origen para el adjunto",
+        "imageSize": "Tamaño de la imagen",
+        "imageQuality": "Calidad de la imagen",
+        "imageCount": "Número de imágenes"
       },
       "placeholder": {
         "summarize": "Resumen del contenido",
@@ -308,7 +314,16 @@
         "attachPrompt": "Por favor, ingrese requisitos adicionales",
         "prompt": "Por favor, ingrese un prompt personalizado",
         "type": "Seleccione una acción de IA",
-        "targetLanguage": "Inglés, chino, francés..."
+        "targetLanguage": "Inglés, chino, francés...",
+        "imageSize": "Por favor, ingrese el tamaño de la imagen",
+        "imageQuality": "Por favor, ingrese la calidad de la imagen",
+        "attachPromptForImageGeneration": "La imagen debe ser viva y natural",
+        "attachPromptForRating": "Clasifique la calidad de la imagen"
+      },
+      "imageQuality": {
+        "low": "Bajo",
+        "medium": "Medio",
+        "high": "Alto"
       },
       "autoFill": {
         "title": "Actualizar automáticamente",
