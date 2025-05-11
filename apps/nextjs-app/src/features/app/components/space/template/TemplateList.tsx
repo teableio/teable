@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { ITemplateVo } from '@teable/openapi';
 import { getPublishedTemplateList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -11,6 +12,7 @@ interface ITemplateListProps extends ITemplateBaseProps {
   currentCategoryId: string;
   search: string;
   className?: string;
+  serverPublishedTemplateList?: ITemplateVo[];
 }
 
 export const TemplateList = (props: ITemplateListProps) => {
@@ -20,11 +22,13 @@ export const TemplateList = (props: ITemplateListProps) => {
     onClickUseTemplateHandler,
     onClickTemplateCardHandler,
     className,
+    serverPublishedTemplateList,
   } = props;
   const { t } = useTranslation(['common']);
   const { data: publishedTemplateList } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateList(),
     queryFn: () => getPublishedTemplateList().then((data) => data.data),
+    initialData: serverPublishedTemplateList,
   });
 
   const currentTemplateList = useMemo(() => {

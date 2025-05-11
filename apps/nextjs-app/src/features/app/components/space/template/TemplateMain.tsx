@@ -1,3 +1,4 @@
+import type { ITemplateCategoryListVo, ITemplateVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { CategoryMenu } from './CategoryMenu';
@@ -16,6 +17,10 @@ interface ITemplateMainProps extends ITemplateBaseProps {
   categoryHeaderRender?: () => React.ReactNode;
   className?: string;
   templateListClassName?: string;
+  serverData?: {
+    publishedTemplateList?: ITemplateVo[];
+    publishedTemplateCategoryList?: ITemplateCategoryListVo[];
+  };
 }
 
 export const TemplateMain = (props: ITemplateMainProps) => {
@@ -30,7 +35,9 @@ export const TemplateMain = (props: ITemplateMainProps) => {
     categoryHeaderRender,
     className,
     templateListClassName,
+    serverData,
   } = props;
+  const { publishedTemplateList, publishedTemplateCategoryList } = serverData || {};
   return (
     <div
       className={cn('flex flex-1 overflow-hidden', className, {
@@ -42,6 +49,7 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         onCategoryChange={onCategoryChange}
         className={categoryMenuClassName}
         categoryHeaderRender={categoryHeaderRender}
+        serverPublishedTemplateCategoryList={publishedTemplateCategoryList}
       />
       <TemplateList
         currentCategoryId={currentCategoryId}
@@ -49,6 +57,7 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         onClickUseTemplateHandler={onClickUseTemplateHandler}
         onClickTemplateCardHandler={onClickTemplateCardHandler}
         className={templateListClassName}
+        serverPublishedTemplateList={publishedTemplateList}
       />
     </div>
   );

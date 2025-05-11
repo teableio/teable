@@ -239,13 +239,13 @@ export class SpaceController {
     return this.collaboratorService.addSpaceCollaborators(spaceId, addSpaceCollaboratorRo);
   }
 
-  @Permissions('space|create')
+  @Permissions('space|update')
   @Get(':spaceId/integration')
   async getIntegrationList(@Param('spaceId') spaceId: string) {
     return this.spaceService.getIntegrationList(spaceId);
   }
 
-  @Permissions('space|create')
+  @Permissions('space|update')
   @Post(':spaceId/integration')
   async createIntegration(
     @Param('spaceId') spaceId: string,
@@ -255,7 +255,7 @@ export class SpaceController {
     return this.spaceService.createIntegration(spaceId, addIntegrationRo);
   }
 
-  @Permissions('space|create')
+  @Permissions('space|update')
   @Patch(':spaceId/integration/:integrationId')
   async updateIntegration(
     @Param('spaceId') spaceId: string,
@@ -266,7 +266,7 @@ export class SpaceController {
     return this.spaceService.updateIntegration(integrationId, updateIntegrationRo);
   }
 
-  @Permissions('space|create')
+  @Permissions('space|update')
   @Delete(':spaceId/integration/:integrationId')
   async deleteIntegration(
     @Param('spaceId') spaceId: string,

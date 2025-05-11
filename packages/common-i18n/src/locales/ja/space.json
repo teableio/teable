@@ -12,7 +12,7 @@
     "duplicate": "\"{{baseName}}\" の複製",
     "createBaseFromTemplate": "テンプレートからベースを作成する",
     "duplicateRecords": "レコードの複製",
-    "duplicateRecordsTip": "変更履歴は複製しません。",
+    "duplicateRecordsTip": "変更履歴と共同作業者は複製しません。",
     "toSpace": "スペースへ",
     "copyToSpace": "スペースにコピー",
     "duplicateBase": "ベースを複製",
@@ -21,7 +21,9 @@
     "copyingTemplate": "テンプレートからベースを作成しています。時間がかかる場合があります...",
     "howToCreate": "どのように始めますか？",
     "fromScratch": "最初から",
-    "fromTemplate": "テンプレートから"
+    "fromTemplate": "テンプレートから",
+    "moveBaseToAnotherSpace": "{{baseName}} を別のスペースに移動する",
+    "chooseSpace": "スペースを選択"
   },
   "spaceSetting": {
     "title": "スペースの設定",
@@ -39,7 +41,8 @@
     "empty": "ピン留めしたベースとスペースがここに表示されます"
   },
   "tip": {
-    "delete": "<0/> を削除してもよろしいですか?"
+    "delete": "<0/> を削除してもよろしいですか?",
+    "exportTips": "データベースをエクスポートすると、すべてのデータ（すべてのレコードと添付ファイルを含む）がエクスポートされます。エクスポート処理はバックグラウンドで行われ、結果は通知バーで通知されます。注意：\n1. データベース間のリンクフィールドはすべて1行テキストフィールドに変換されます。\n2. 高度な権限の担当者設定はクリアされますが、設定自体は削除されません。"
   },
   "sharedBase": {
     "title": "共有ベース",

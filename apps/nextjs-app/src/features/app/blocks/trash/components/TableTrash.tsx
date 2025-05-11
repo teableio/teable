@@ -144,11 +144,10 @@ export const TableTrash = () => {
                     const { id, name } = resource;
                     const Icon =
                       resourceType === ResourceType.Field
-                        ? getFieldStatic(
-                            (resource as IFieldSnapshotItemVo).type,
-                            Boolean((resource as IFieldSnapshotItemVo).isLookup),
-                            false
-                          ).Icon
+                        ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
+                            isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
+                            hasAiConfig: false,
+                          }).Icon
                         : resourceType === ResourceType.View
                           ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]
                           : null;

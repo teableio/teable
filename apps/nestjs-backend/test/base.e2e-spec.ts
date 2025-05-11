@@ -20,10 +20,12 @@ import {
   deleteBaseInvitationLink,
   EMAIL_BASE_INVITATION,
   emailBaseInvitation,
+  GET_BASE_LIST,
   getBaseCollaboratorList,
   getUserCollaborators,
   listBaseCollaboratorUserVoSchema,
   listBaseInvitationLink,
+  MOVE_BASE,
   PrincipalType,
   UPDATE_BASE_COLLABORATE,
   UPDATE_BASE_INVITATION_LINK,
@@ -407,6 +409,51 @@ describe('OpenAPI BaseController (e2e)', () => {
           params: { principalId: newUser3Id, principalType: PrincipalType.User },
         });
         expect(res.status).toBe(200);
+      });
+
+      it('/api/base/:baseId/move (PUT)', async () => {
+        const user1SpaceId = (
+          await userRequest.post<ICreateSpaceVo>(CREATE_SPACE, { name: 'new base' })
+        ).data.id;
+
+        const user1SpaceId2 = (
+          await userRequest.post<ICreateSpaceVo>(CREATE_SPACE, { name: 'new base2' })
+        ).data.id;
+
+        const spaceBaseList1 = (
+          await userRequest.get(urlBuilder(GET_BASE_LIST, { spaceId: user1SpaceId }))
+        ).data;
+
+        const spaceBaseList2 = (
+          await userRequest.get(urlBuilder(GET_BASE_LIST, { spaceId: user1SpaceId2 }))
+        ).data;
+
+        expect(spaceBaseList1.length).toBe(0);
+        expect(spaceBaseList2.length).toBe(0);
+
+        const newBase1 = (
+          await userRequest.post(urlBuilder(CREATE_BASE), {
+            name: 'base1',
+            spaceId: user1SpaceId,
+          })
+        ).data;
+
+        // move base
+        await userRequest.put(
+          urlBuilder(MOVE_BASE, {
+            baseId: newBase1.id,
+          }),
+          {
+            spaceId: user1SpaceId2,
+          }
+        );
+
+        const spaceBaseList1AfterMove = (
+          await userRequest.get(urlBuilder(GET_BASE_LIST, { spaceId: user1SpaceId2 }))
+        ).data;
+
+        expect(spaceBaseList1AfterMove.length).toBe(1);
+        expect(spaceBaseList1AfterMove[0].id).toBe(newBase1.id);
       });
     });
   });

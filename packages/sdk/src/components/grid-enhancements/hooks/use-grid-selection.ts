@@ -3,13 +3,14 @@ import type { IGetRecordsRo } from '@teable/openapi';
 import { getRecordStatus } from '@teable/openapi';
 import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useFieldCellEditable, useFields, useRecord, useTableId, useViewId } from '../../../hooks';
+import { useFields, useRecord, useTableId, useViewId } from '../../../hooks';
 import type { Record as IRecord } from '../../../model';
 import type { IGridRef } from '../../grid/Grid';
 import type { ICell, ICellItem, IGridColumn, IInnerCell, IRange } from '../../grid/interface';
 import { CellType, SelectionRegionType } from '../../grid/interface';
 import { CombinedSelection, emptySelection } from '../../grid/managers';
 import { useGridViewStore } from '../store/useGridViewStore';
+import { isNeedPersistEditing } from '../utils/persist-editing';
 import { useCreateCellValue2GridDisplay } from './use-grid-columns';
 
 interface IUseGridSelectionProps {
@@ -38,7 +39,6 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
   const prevActiveCellRef = useRef<IActiveCell | undefined>(activeCell);
 
   const fields = useFields();
-  const fieldEditable = useFieldCellEditable();
   const presortRecord = useRecord(presortRecordData?.recordId);
 
   const viewId = useViewId() as string;
@@ -62,7 +62,9 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
 
       if (!isDeleted && !isVisible) {
         const { recordId, fieldId } = activeCell;
-        const recordEntry = Object.entries(recordMap).find(([_, record]) => record.id === recordId);
+        const recordEntry = Object.entries(recordMap).find(
+          ([_, record]) => record?.id === recordId
+        );
 
         setPresortRecordData({ rowIndex: activeCell.rowIndex, recordId });
 
@@ -72,7 +74,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
         const columnIndex = columns.findIndex((column) => column.id === fieldId);
         const range = [columnIndex, rowIndex] as IRange;
 
-        if (gridRef.current?.isEditing()) {
+        if (gridRef.current?.isEditing() && isNeedPersistEditing(fields, fieldId)) {
           return gridRef.current?.setSelection(
             new CombinedSelection(SelectionRegionType.Cells, [range, range])
           );
@@ -92,7 +94,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
   const getPresortCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
       const [columnIndex] = cell;
-      const cellValue2GridDisplay = createCellValue2GridDisplay(fields, fieldEditable);
+      const cellValue2GridDisplay = createCellValue2GridDisplay(fields);
       if (presortRecord != null) {
         const fieldId = columns[columnIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
@@ -100,7 +102,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
       }
       return { type: CellType.Loading };
     },
-    [columns, createCellValue2GridDisplay, fieldEditable, fields, presortRecord]
+    [columns, createCellValue2GridDisplay, fields, presortRecord]
   );
 
   const onPresortCellEdited = useCallback(

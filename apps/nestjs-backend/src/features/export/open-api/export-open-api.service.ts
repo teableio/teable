@@ -83,7 +83,7 @@ export class ExportOpenApiService {
         filterHidden: viewRaw?.id ? true : undefined,
       })
     ).filter((field) => {
-      if (exportQuery?.projection?.length) {
+      if (exportQuery?.projection) {
         return exportQuery?.projection.includes(field.id);
       }
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DraggableHandle, Star } from '@teable/icons';
-import type { IGetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
-import { getPinList, getSpaceList, updatePinOrder } from '@teable/openapi';
+import type { IGetPinListVo } from '@teable/openapi';
+import { getPinList, updatePinOrder } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
 import type { DragEndEvent } from '@teable/ui-lib/base';
 import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base';
@@ -12,10 +12,8 @@ import {
   AccordionTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useBaseList } from '../useBaseList';
 import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
@@ -31,12 +29,6 @@ export const PinList = () => {
     queryFn: () => getPinList().then((data) => data.data),
   });
 
-  const { data: spaceList } = useQuery({
-    queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList().then((data) => data.data),
-  });
-  const baseList = useBaseList();
-
   const { mutate: updateOrder } = useMutation({
     mutationFn: updatePinOrder,
     onSuccess: () => {
@@ -46,22 +38,6 @@ export const PinList = () => {
       queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
   });
-
-  const spaceMap = useMemo(() => {
-    const map: { [key in string]: IGetSpaceVo } = {};
-    spaceList?.forEach((space) => {
-      map[space.id] = space;
-    });
-    return map;
-  }, [spaceList]);
-
-  const baseMap = useMemo(() => {
-    const map: { [key in string]: IGetBaseVo } = {};
-    baseList?.forEach((base) => {
-      map[base.id] = base;
-    });
-    return map;
-  }, [baseList]);
 
   const onDragEndHandler = async (event: DragEndEvent) => {
     const { over, active } = event;
@@ -132,8 +108,6 @@ export const PinList = () => {
                       <PinItem
                         className="group"
                         pin={activePin}
-                        baseMap={baseMap}
-                        spaceMap={spaceMap}
                         right={
                           <>
                             <StarButton
@@ -157,8 +131,6 @@ export const PinList = () => {
                           <PinItem
                             className="group"
                             pin={pin}
-                            baseMap={baseMap}
-                            spaceMap={spaceMap}
                             right={
                               <>
                                 <StarButton

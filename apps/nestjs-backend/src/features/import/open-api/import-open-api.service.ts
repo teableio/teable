@@ -161,9 +161,9 @@ export class ImportOpenApiService {
       },
     });
 
-    if (projection?.length) {
+    if (projection) {
       const inplaceFieldIds = Object.keys(sourceColumnMap);
-      const noUpdateFields = difference(projection, inplaceFieldIds);
+      const noUpdateFields = difference(inplaceFieldIds, projection);
       if (noUpdateFields.length !== 0) {
         const tips = noUpdateFields.join(',');
         throw new ForbiddenException(`There is no permission to update there field ${tips}`);

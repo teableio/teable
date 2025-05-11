@@ -1941,6 +1941,99 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
     });
 
+    it('should convert one-many to many-one link with same link title', async () => {
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'test');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'test');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'test');
+
+      const linkField = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      });
+
+      await updateRecordByApi(table2.id, table2.records[0].id, linkField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(table2.id, table2.records[1].id, linkField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(table2.id, table2.records[2].id, linkField.id, {
+        id: table1.records[1].id,
+      });
+
+      const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId!;
+
+      await convertField(table1.id, symmetricFieldId, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[symmetricFieldId]).toEqual([
+        { title: 'test', id: table2.records[0].id },
+        { title: 'test', id: table2.records[1].id },
+      ]);
+
+      const { records: records2 } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records2[1].fields[symmetricFieldId]).toEqual([
+        { title: 'test', id: table2.records[2].id },
+      ]);
+    });
+
+    it('should convert one-many to many-one link with same link title and cross table', async () => {
+      // set primary key in table2
+      const table3 = await createTable(baseId, { name: 'table3' });
+
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'test');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'test');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'test');
+
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'test');
+      await updateRecordByApi(table3.id, table3.records[1].id, table3.fields[0].id, 'test');
+      await updateRecordByApi(table3.id, table3.records[2].id, table3.fields[0].id, 'test');
+
+      const linkField = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      });
+
+      await updateRecordByApi(table2.id, table2.records[0].id, linkField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(table2.id, table2.records[1].id, linkField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(table2.id, table2.records[2].id, linkField.id, {
+        id: table1.records[1].id,
+      });
+
+      const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId!;
+
+      await convertField(table1.id, symmetricFieldId, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table3.id,
+        },
+      });
+
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[symmetricFieldId]).lengthOf(1);
+
+      const { records: records2 } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records2[1].fields[symmetricFieldId]).lengthOf(1);
+    });
+
     it('should convert one-many to many-one link with 2 lookup and 2 formula fields', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,

@@ -18,6 +18,7 @@ export const getSyncCopyData = ({
 }) => {
   const ranges = selection.serialize();
   const content: string[][] = [];
+  const rawContent: unknown[][] = [];
   let headers: IFieldVo[] = [];
 
   switch (selection.type) {
@@ -28,13 +29,16 @@ export const getSyncCopyData = ({
         .map((field) => fieldVoSchema.parse(field));
       for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
         const rowContent: string[] = [];
+        const rawRowContent: unknown[] = [];
         for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
           const record = recordMap[rowIndex];
           const field = fields[columnIndex];
           const fieldValue = field.cellValue2String(record?.fields[field.id]);
           rowContent.push(fieldValue);
+          rawRowContent.push(record?.fields[field.id]);
         }
         content.push(rowContent);
+        rawContent.push(rawRowContent);
       }
       break;
     }
@@ -48,7 +52,12 @@ export const getSyncCopyData = ({
             const record = recordMap[rowIndex];
             return field.cellValue2String(record?.fields[field.id]);
           });
+          const rawRowContent: unknown[] = fields.map((field) => {
+            const record = recordMap[rowIndex];
+            return record?.fields[field.id];
+          });
           content.push(rowContent);
+          rawContent.push(rawRowContent);
         }
       }
       break;
@@ -70,7 +79,9 @@ export const getSyncCopyData = ({
           const rowContent: string[] = selectedFields.map((field) =>
             field.cellValue2String(record.fields[field.id])
           );
+          const rawRowContent: unknown[] = selectedFields.map((field) => record.fields[field.id]);
           content.push(rowContent);
+          rawContent.push(rawRowContent);
         });
 
       headers = selectedFields.map((field) => fieldVoSchema.parse(field));
@@ -80,5 +91,5 @@ export const getSyncCopyData = ({
       throw new Error('Unsupported selection type');
   }
   const contentString = stringifyClipboardText(content);
-  return { content: contentString, header: headers };
+  return { content: contentString, headers, rawContent };
 };

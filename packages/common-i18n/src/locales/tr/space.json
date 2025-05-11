@@ -12,7 +12,7 @@
     "duplicate": "\"{{baseName}}\" çoğalt",
     "createBaseFromTemplate": "Şablondan veritabanı oluştur",
     "duplicateRecords": "Kayıtları çoğalt",
-    "duplicateRecordsTip": "Revizyon geçmişiniz çoğaltılmayacak.",
+    "duplicateRecordsTip": "Revizyon geçmişiniz ve işbirlikçileriniz çoğaltılmayacak.",
     "toSpace": "Alana",
     "copyToSpace": "Alana kopyala",
     "duplicateBase": "Veritabanını çoğalt",
@@ -21,7 +21,9 @@
     "copyingTemplate": "Şablondan veritabanı oluşturuluyor, bu biraz zaman alabilir...",
     "howToCreate": "Nasıl başlamak istersiniz?",
     "fromScratch": "Sıfırdan",
-    "fromTemplate": "Şablondan"
+    "fromTemplate": "Şablondan",
+    "moveBaseToAnotherSpace": "{{baseName}}'i başka bir alana taşı",
+    "chooseSpace": "Alan seç"
   },
   "spaceSetting": {
     "title": "Alan ayarları",
@@ -39,7 +41,8 @@
     "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
   },
   "tip": {
-    "delete": "<0/> silmek istediğinizden emin misiniz?"
+    "delete": "<0/> silmek istediğinizden emin misiniz?",
+    "exportTips": "Veritabanı dışa aktarıldığında, tüm veriler, kayıtlar ve ekler dahil olmak üzere dışa aktarılır. Dışa aktarma işlemi arka planda gerçekleşecek ve sonucu bildirim çubuğunda göreceksiniz. Not:\n1. Tüm veritabanları arası bağlantı alanları tek satırlık metin alanlarına dönüştürülecek.\n2. Gelişmiş izinlere sahip personel ayarları temizlenecek, ancak yapılandırmalar silinmeyecek."
   },
   "sharedBase": {
     "title": "Paylaşılan veritabanları",

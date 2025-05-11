@@ -232,7 +232,7 @@
       "calculating": "Berechne...",
       "doSaveChanges": "Möchten Sie die vorgenommenen Änderungen speichern?",
       "linkFieldToLookup": "Verknüpftes Datensatzfeld, das für die Suche verwendet werden soll",
-      "lookupToTable": "{{tableName}} Feld, das Sie nachschlagen möchten",
+      "lookupToTable": "Feld aus {{tableName}} nachschlagen",
       "selectField": "Feld auswählen...",
       "linkTable": "Tabelle verlinken",
       "linkBase": "Base verlinken",
@@ -546,7 +546,12 @@
     "filterField": "Filtern Sie nach diesem Feld",
     "sortField": "Sortieren nach diesem Feld",
     "groupField": "Gruppieren nach diesem Feld",
-    "autoFill": "Alle Datensätze aktualisieren"
+    "autoFill": "Alle Datensätze aktualisieren",
+    "groupMenuTitle": "Gruppenmenü",
+    "expandGroup": "Gruppe und Untergruppen erweitern",
+    "collapseGroup": "Gruppe und Untergruppen einklappen",
+    "expandAllGroups": "Alle Gruppen erweitern",
+    "collapseAllGroups": "Alle Gruppen einklappen"
   },
   "connection": {
     "title": "Datenbankverbindung",

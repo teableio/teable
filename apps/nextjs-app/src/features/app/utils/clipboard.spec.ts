@@ -4,7 +4,7 @@ import {
   DbFieldType,
   FieldType,
 } from '../../../../../../packages/core/src/models/field/constant';
-import { extractTableHeader, isTeableHTML, serializerHtml } from './clipboard';
+import { extractHtmlHeader, isTeableHTML, serializerHtml } from './clipboard';
 
 const stringData = 'John\t20\tlight\nTom\t30\tmedium\nBob\t40\theavy';
 const parseData = [
@@ -32,6 +32,12 @@ vi.mock('zod', () => {
         safeParse: (data: string) => ({ success: true, data }),
       }),
     },
+  };
+});
+
+vi.mock('@teable/sdk/model', () => {
+  return {
+    createFieldInstance: () => ({}),
   };
 });
 
@@ -107,12 +113,12 @@ describe('clipboard', () => {
     },
   ];
   it('extractTableHeader should extract table header from HTML', () => {
-    const { result } = extractTableHeader(html);
+    const { result: result } = extractHtmlHeader(html);
     expect(result).toEqual(expectedHeader);
   });
 
   it('extractTableHeader should return undefined from non-teable HTML', () => {
-    const { result } = extractTableHeader('<table></table>');
+    const { result: result } = extractHtmlHeader('<table></table>');
     expect(result).toEqual(undefined);
   });
 

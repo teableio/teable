@@ -1,3 +1,4 @@
+import type { IGroupHeaderRef } from '@teable/openapi';
 import type { IFieldInstance, Record } from '../../../model';
 import type { IPosition, IRectangle } from '../../grid/interface';
 
@@ -23,4 +24,10 @@ export interface IRecordMenu {
 export interface IStatisticMenu {
   fieldId: string;
   position: IRectangle;
+}
+
+export interface IGroupHeaderMenu {
+  groupId: string;
+  position: IPosition;
+  allGroupHeaderRefs: IGroupHeaderRef[] | null;
 }

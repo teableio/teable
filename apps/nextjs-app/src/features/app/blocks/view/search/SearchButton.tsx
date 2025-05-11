@@ -7,6 +7,7 @@ import {
   RecommendedIndexRow,
   getTableAbnormalIndex,
   repairTableIndex,
+  DEFAULT_MAX_SEARCH_FIELD_COUNT,
 } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useBaseId, useFields, useRowCount, useSearch, useTableId } from '@teable/sdk/hooks';
@@ -54,7 +55,7 @@ export interface ISearchButtonProps {
 export const SearchButton = (props: ISearchButtonProps) => {
   const { className, textClassName, shareView = false } = props;
   const env = useEnv();
-  const { maxSearchFieldCount = Infinity } = env;
+  const { maxSearchFieldCount = DEFAULT_MAX_SEARCH_FIELD_COUNT } = env;
   const [active, setActive] = useState(false);
   const fields = useFields();
   const tableId = useTableId();

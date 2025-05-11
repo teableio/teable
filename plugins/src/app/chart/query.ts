@@ -1,6 +1,12 @@
 import { Me, type CellFormat, type HttpError } from '@teable/core';
-import { BASE_QUERY, urlBuilder } from '@teable/openapi';
-import type { IBaseQuery, IBaseQueryVo } from '@teable/openapi';
+import { BASE_QUERY, BaseQueryColumnType, urlBuilder } from '@teable/openapi';
+import type {
+  IBaseQuery,
+  IBaseQueryFilterItem,
+  IBaseQueryFilterSet,
+  IBaseQueryVo,
+} from '@teable/openapi';
+import { cloneDeep } from 'lodash';
 import { fetchGetToken, GetTokenType } from '../../api';
 
 export const baseQueryKeys = (baseId: string, query: IBaseQuery, cellFormat?: CellFormat) =>
@@ -47,10 +53,10 @@ export const getBaseQueryData = async ({
   onQueryError?.(undefined);
   const [, baseId, query, cellFormat] = queryKeys;
   const url = urlBuilder(BASE_QUERY, { baseId });
-  let queryString = JSON.stringify(query);
-  if (options?.currentUserId) {
-    queryString = queryString.replaceAll(`"value":"${Me}"`, `"value":"${options.currentUserId}"`);
-  }
+  const queryString = JSON.stringify(
+    options?.currentUserId ? replaceQueryMe(query, options.currentUserId) : query
+  );
+
   const params = new URLSearchParams({
     query: queryString,
   });
@@ -83,4 +89,52 @@ export const getBaseQueryData = async ({
   }
 
   return res.json().then((res) => formatRes(res));
+};
+
+const replaceFilterMe = (
+  filter: IBaseQueryFilterSet,
+  currentUserId: string
+): IBaseQueryFilterSet => {
+  const traverse = (filterItem: IBaseQueryFilterItem | IBaseQueryFilterSet) => {
+    if (filterItem && 'column' in filterItem && filterItem.value) {
+      if (filterItem.type === BaseQueryColumnType.Aggregation) {
+        return;
+      }
+      if (typeof filterItem.value === 'string' && filterItem.value === Me) {
+        filterItem.value = currentUserId;
+      } else if (Array.isArray(filterItem.value)) {
+        filterItem.value = filterItem.value.map((value) => {
+          if (typeof value === 'string' && value === Me) {
+            return currentUserId;
+          }
+          return value;
+        }) as IBaseQueryFilterItem['value'];
+      }
+    } else if (filterItem && 'filterSet' in filterItem) {
+      // Recursively traverse nested filterSet
+      filterItem.filterSet.forEach((item) => traverse(item));
+    }
+  };
+
+  const transformedFilter = cloneDeep(filter);
+
+  traverse(transformedFilter);
+
+  return transformedFilter;
+};
+
+const replaceQueryMe = (query: IBaseQuery, currentUserId: string) => {
+  const traverse = (query: IBaseQuery) => {
+    if (typeof query.from === 'string') {
+      query.where = query.where ? replaceFilterMe(query.where, currentUserId) : query.where;
+    } else {
+      traverse(query.from);
+    }
+  };
+
+  const transformedQuery = cloneDeep(query);
+
+  traverse(transformedQuery);
+
+  return transformedQuery;
 };

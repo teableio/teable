@@ -145,7 +145,7 @@ export class BaseDuplicateService {
       },
     });
 
-    const structure = await this.baseExportService.generateBaseStructJson({
+    const structure = await this.baseExportService.generateBaseStructConfig({
       baseRaw,
       tableRaws,
       fieldRaws,

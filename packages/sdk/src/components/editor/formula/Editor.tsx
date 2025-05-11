@@ -415,7 +415,10 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                   </h3>
                   {filteredFields.map((result, index: number) => {
                     const { id, name, type, isLookup, aiConfig } = result.item;
-                    const { Icon } = getFieldStatic(type, isLookup, Boolean(aiConfig));
+                    const { Icon } = getFieldStatic(type, {
+                      isLookup,
+                      hasAiConfig: Boolean(aiConfig),
+                    });
                     const isSuggestionItem =
                       suggestionItemType === SuggestionItemType.Field && suggestionItemKey === id;
                     return (

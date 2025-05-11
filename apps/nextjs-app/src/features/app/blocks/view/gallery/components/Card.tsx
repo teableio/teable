@@ -115,8 +115,12 @@ export const Card = (props: IKanbanCardProps) => {
               {titleComponent}
             </div>
             {displayFields.map((field) => {
-              const { id: fieldId, name, type, isLookup, aiConfig } = field;
-              const { Icon } = getFieldStatic(type, isLookup, Boolean(aiConfig));
+              const { id: fieldId, name, type, isLookup, aiConfig, canReadFieldRecord } = field;
+              const { Icon } = getFieldStatic(type, {
+                isLookup,
+                hasAiConfig: Boolean(aiConfig),
+                deniedReadRecord: !canReadFieldRecord,
+              });
               const cellValue = card.getCellValue(fieldId);
 
               if (cellValue == null) return null;

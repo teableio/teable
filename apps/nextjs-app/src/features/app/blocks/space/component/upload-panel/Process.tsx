@@ -1,7 +1,7 @@
-import { X } from '@teable/icons';
-import { getFieldIconString } from '@teable/sdk';
+import { X, TeableNew } from '@teable/icons';
 import { cn, Progress } from '@teable/ui-lib';
 import { filesize } from 'filesize';
+import { renderToString } from 'react-dom/server';
 
 interface IFileItemProps {
   file: File;
@@ -11,14 +11,16 @@ interface IFileItemProps {
 
 export const Process = (props: IFileItemProps) => {
   const { file, onClose, process } = props;
-  const { name, size, type } = file;
+  const { name, size } = file;
+
+  const teaIcon = 'data:image/svg+xml,' + encodeURIComponent(renderToString(TeableNew({})));
 
   return (
     <>
       <div className="group relative rounded-sm text-sm">
         <img
           className="size-full rounded-sm bg-secondary object-contain p-2"
-          src={getFieldIconString(type)}
+          src={teaIcon}
           alt={name}
         />
         <div>{name}</div>

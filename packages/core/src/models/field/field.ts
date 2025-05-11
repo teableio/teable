@@ -44,6 +44,16 @@ export abstract class FieldCore implements IFieldVo {
   lookupOptions?: ILookupOptionsVo;
 
   /**
+   * Whether this field is full read record denied.
+   */
+  recordRead?: boolean;
+
+  /**
+   * Whether this field is full create record denied.
+   */
+  recordCreate?: boolean;
+
+  /**
    * some field may store a json type item, we need to know how to convert it to string
    * it has those difference between cellValue2String
    * item is the fundamental element of a cellValue, but cellValue may be a Array

@@ -27,7 +27,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const [open, setOpen] = useState(false);
   const [version, updateVersion] = useCounter(0);
   const { t } = useTranslation();
-  const allFields = useFields({ withHidden: true, withDenied: true });
+  const allFields = useFields({ withHidden: true });
   const { user } = useSession();
   const [record, setRecord] = useState<Record | undefined>(undefined);
   const filter = view?.filter;
@@ -119,15 +119,29 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
+  const showFieldsId = useMemo(
+    () =>
+      new Set(showFields.filter((field) => field.canCreateFieldRecord).map((field) => field.id)),
+    [showFields]
+  );
 
   const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : allFields),
+    () =>
+      viewId
+        ? allFields
+            .filter((field) => field.canCreateFieldRecord)
+            .filter((field) => showFieldsId.has(field.id))
+        : allFields,
     [allFields, showFieldsId, viewId]
   );
 
   const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => !showFieldsId.has(field.id)) : []),
+    () =>
+      viewId
+        ? allFields
+            .filter((field) => field.canCreateFieldRecord)
+            .filter((field) => !showFieldsId.has(field.id))
+        : [],
     [allFields, showFieldsId, viewId]
   );
 

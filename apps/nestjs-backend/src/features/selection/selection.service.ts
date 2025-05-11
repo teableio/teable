@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import type {
   IDateFieldOptions,
   IFieldOptionsRo,
@@ -18,7 +18,6 @@ import {
   defaultDatetimeFormatting,
   defaultNumberFormatting,
   defaultUserFieldOptions,
-  nullsToUndefined,
   numberFormattingSchema,
   parseClipboardText,
   singleLineTextShowAsSchema,
@@ -35,9 +34,10 @@ import type {
   IRangesRo,
   IDeleteVo,
   ITemporaryPasteVo,
+  ICreateRecordsRo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
-import { isNumber, isString, map, pick } from 'lodash';
+import { difference, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -49,7 +49,6 @@ import { FieldSupplementService } from '../field/field-calculate/field-supplemen
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
-import { AttachmentFieldDto } from '../field/model/field-dto/attachment-field.dto';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 
@@ -221,9 +220,7 @@ export class SelectionService {
       filterHidden: true,
       projection,
     });
-
     const selectedFields = fields.slice(start[0], end[0] + 1);
-
     const records = await this.recordService.getRecordsFields(tableId, {
       ...queryRo,
       skip: start[1],
@@ -388,11 +385,11 @@ export class SelectionService {
 
   private async expandColumns({
     tableId,
-    header,
+    header = [],
     numColsToExpand,
   }: {
     tableId: string;
-    header: IFieldVo[];
+    header?: IFieldVo[];
     numColsToExpand: number;
   }) {
     const colLen = header.length;
@@ -406,47 +403,6 @@ export class SelectionService {
       res.push(fieldVo);
     }
     return res;
-  }
-
-  private async collectionAttachment({
-    fields,
-    tableData,
-  }: {
-    tableData: string[][];
-    fields: IFieldInstance[];
-  }) {
-    const attachmentFieldsIndex = fields
-      .map((field, index) => (field.type === FieldType.Attachment ? index : null))
-      .filter(isNumber);
-
-    const tokens = tableData.reduce((acc, recordData) => {
-      const tokensInRecord = attachmentFieldsIndex.reduce((acc, index) => {
-        if (!recordData[index]) return acc;
-
-        const tokensAndNames = recordData[index]
-          .split(',')
-          .map(AttachmentFieldDto.getTokenAndNameByString);
-        return acc.concat(map(tokensAndNames, 'token').filter(isString));
-      }, [] as string[]);
-      return acc.concat(tokensInRecord);
-    }, [] as string[]);
-
-    const attachments = await this.prismaService.attachments.findMany({
-      where: {
-        token: {
-          in: tokens,
-        },
-      },
-      select: {
-        token: true,
-        size: true,
-        mimetype: true,
-        width: true,
-        height: true,
-        path: true,
-      },
-    });
-    return attachments.map(nullsToUndefined);
   }
 
   private parseCopyContent(content: string): string[][] {
@@ -471,7 +427,6 @@ export class SelectionService {
 
     const numRowsToExpand = Math.max(0, endRow - numRows);
     const numColsToExpand = Math.max(0, endCol - numCols);
-
     const hasFieldCreatePermission = permissions.includes('field|create');
     const hasRecordCreatePermission = permissions.includes('record|create');
     return [
@@ -480,54 +435,85 @@ export class SelectionService {
     ];
   }
 
-  private async tableDataToRecords({
-    tableId,
+  private tableDataToRecords({
     tableData,
     fields,
-    headerFields,
   }: {
-    tableId: string;
     tableData: string[][];
     fields: IFieldInstance[];
-    headerFields: IFieldInstance[] | undefined;
   }) {
-    const fieldConvertContext = await this.fieldConvertContext(tableId, tableData, fields);
-
-    const records: { fields: IRecord['fields'] }[] = [];
+    const records: { fields: IRecord['fields'] }[] = tableData.map(() => ({ fields: {} }));
     fields.forEach((field, col) => {
       if (field.isComputed) {
         return;
       }
       tableData.forEach((cellCols, row) => {
-        const stringValue = cellCols?.[col] ?? null;
-        const recordField = records[row]?.fields || {};
+        records[row].fields[field.id] = cellCols?.[col] ?? null;
+      });
+    });
+    return records;
+  }
 
-        if (stringValue === null) {
+  private cellValueToRecords({
+    tableData,
+    fields,
+    sourceFields,
+  }: {
+    tableData: unknown[][];
+    fields: IFieldInstance[];
+    sourceFields: IFieldInstance[];
+  }) {
+    const records: { fields: IRecord['fields'] }[] = tableData.map(() => ({ fields: {} }));
+    fields.forEach((field, col) => {
+      const sourceField = sourceFields[col];
+      if (field.isComputed) {
+        return;
+      }
+      // eslint-disable-next-line sonarjs/cognitive-complexity
+      tableData.forEach((cellCols, row) => {
+        const cellValue = cellCols?.[col] ?? null;
+        const recordField = records[row].fields;
+
+        if (cellValue == null) {
           recordField[field.id] = null;
-        } else {
-          switch (field.type) {
-            case FieldType.Attachment:
-              {
-                recordField[field.id] = field.convertStringToCellValue(
-                  stringValue,
-                  fieldConvertContext?.attachments
-                );
-              }
-              break;
-            case FieldType.Date:
-              // handle format
-              recordField[field.id] = (headerFields?.[col] || field).convertStringToCellValue(
-                stringValue
-              );
-              break;
-            default:
-              recordField[field.id] = stringValue || null;
-          }
+          return;
         }
 
-        records[row] = {
-          fields: recordField,
-        };
+        switch (field.type) {
+          case FieldType.User:
+          case FieldType.Attachment:
+            {
+              const cvs = [cellValue].flat();
+              recordField[field.id] =
+                sourceField.type === field.type
+                  ? field.isMultipleCellValue
+                    ? cvs
+                    : cvs?.[0]
+                  : field.cellValue2String(cellValue);
+            }
+            break;
+          case FieldType.Date:
+            recordField[field.id] =
+              sourceField.type === FieldType.Date
+                ? Array.isArray(cellValue)
+                  ? cellValue[0]
+                  : cellValue
+                : field.cellValue2String(cellValue);
+            break;
+          case FieldType.Link: {
+            recordField[field.id] = cellValue
+              ? sourceField.type === FieldType.Link
+                ? [cellValue as { id: string }]
+                    .flat()
+                    .map((v) => v.id)
+                    .join(',')
+                : null
+              : null;
+            break;
+          }
+          default:
+            recordField[field.id] = sourceField.cellValue2String(cellValue) ?? null;
+        }
       });
     });
     return records;
@@ -554,24 +540,6 @@ export class SelectionService {
     };
   }
 
-  private async fieldConvertContext(
-    tableId: string,
-    tableData: string[][],
-    fields: IFieldInstance[]
-  ) {
-    const hasFieldType = (type: FieldType) => fields.some((field) => field.type === type);
-
-    const loadAttachments = hasFieldType(FieldType.Attachment)
-      ? this.collectionAttachment({ fields, tableData })
-      : Promise.resolve(undefined);
-
-    const [attachments] = await Promise.all([loadAttachments]);
-
-    return {
-      attachments: attachments,
-    };
-  }
-
   async copy(tableId: string, rangesRo: IRangesRo) {
     const { cellCount } = await this.parseRange(tableId, rangesRo);
 
@@ -594,7 +562,7 @@ export class SelectionService {
 
   // If the pasted selection is twice the size of the content,
   // the content is automatically expanded to the selection size
-  private expandPasteContent(pasteData: string[][], range: [[number, number], [number, number]]) {
+  private expandPasteContent(pasteData: unknown[][], range: [[number, number], [number, number]]) {
     const [start, end] = range;
     const [startCol, startRow] = start;
     const [endCol, endRow] = end;
@@ -642,9 +610,21 @@ export class SelectionService {
   }
 
   // For pasting to add new lines
-  async temporaryPaste(tableId: string, pasteRo: IPasteRo) {
-    const { content, header = [], viewId, ranges, projection } = pasteRo;
-    const pasteContent = this.parseCopyContent(content);
+  async temporaryPaste(
+    tableId: string,
+    pasteRo: IPasteRo,
+    {
+      permissionFilter,
+    }: {
+      permissionFilter?: (data: { fields: IRecord['fields'] }[]) => Promise<
+        {
+          fields: IRecord['fields'];
+        }[]
+      >;
+    } = {}
+  ) {
+    const { content, header, viewId, ranges, projection } = pasteRo;
+    const pasteContent = typeof content === 'string' ? this.parseCopyContent(content) : content;
     const pasteContentSize = pasteContent.length * pasteContent[0].length;
     if (pasteContentSize > this.thresholdConfig.maxPasteCells) {
       throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
@@ -659,22 +639,28 @@ export class SelectionService {
     const rangeCell = ranges as [[number, number], [number, number]];
     const startColumnIndex = rangeCell[0][0];
 
-    const tableData = this.expandPasteContent(this.parseCopyContent(content), rangeCell);
+    const tableData = this.expandPasteContent(pasteContent, rangeCell);
     const tableColCount = tableData[0].length;
     const effectFields = fields.slice(startColumnIndex, startColumnIndex + tableColCount);
+    const sourceFields = header && header.map((f) => createFieldInstanceByVo(f));
     let result: ITemporaryPasteVo = [];
 
     await this.prismaService.$tx(async () => {
-      const newRecords = await this.tableDataToRecords({
-        tableId,
-        tableData,
-        headerFields: header.map(createFieldInstanceByVo),
-        fields: effectFields,
-      });
+      const newRecords = sourceFields
+        ? this.cellValueToRecords({
+            tableData,
+            fields: effectFields,
+            sourceFields,
+          })
+        : this.tableDataToRecords({
+            tableData: tableData as string[][],
+            fields: effectFields,
+          });
+      const filteredNewRecords = permissionFilter ? await permissionFilter(newRecords) : newRecords;
 
       result = await this.recordOpenApiService.validateFieldsAndTypecast(
         tableId,
-        newRecords,
+        filteredNewRecords,
         FieldKeyType.Id,
         true
       );
@@ -686,14 +672,25 @@ export class SelectionService {
   async paste(
     tableId: string,
     pasteRo: IPasteRo,
-    expansionChecker?: (col: number, row: number) => Promise<void>,
-    windowId?: string
+    {
+      expansionChecker,
+      permissionFilter,
+      windowId,
+    }: {
+      expansionChecker?: (col: number, row: number) => Promise<void>;
+      permissionFilter?: (
+        type: 'create' | 'update',
+        data: ICreateRecordsRo | IUpdateRecordsRo,
+        newFields?: { id: string; name: string; dbFieldName: string }[]
+      ) => Promise<ICreateRecordsRo | IUpdateRecordsRo>;
+      windowId?: string;
+    } = {}
   ) {
-    const { content, header = [], ...rangesRo } = pasteRo;
+    const { content, header, ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
     const { viewId } = queryRo;
     const { cellCount } = await this.parseRange(tableId, rangesRo);
-    const pasteContent = this.parseCopyContent(content);
+    const pasteContent = typeof content === 'string' ? this.parseCopyContent(content) : content;
     const pasteContentSize = pasteContent.length * pasteContent[0].length;
     if (
       cellCount > this.thresholdConfig.maxPasteCells ||
@@ -706,6 +703,7 @@ export class SelectionService {
       tableId,
       queryRo
     );
+    const sourceFields = header && header.map((f) => createFieldInstanceByVo(f));
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId,
       filterHidden: true,
@@ -740,7 +738,6 @@ export class SelectionService {
       take: tableData.length,
       fieldKeyType: FieldKeyType.Id,
     });
-
     const [numColsToExpand, numRowsToExpand] = this.calculateExpansion(tableSize, cell, [
       tableColCount,
       tableRowCount,
@@ -762,22 +759,28 @@ export class SelectionService {
       const updateFields = effectFields.concat(newFields.map(createFieldInstanceByVo));
 
       // get all effect records, contains update and need create record
-      const recordsFromClipboard = await this.tableDataToRecords({
-        tableId,
-        tableData,
-        headerFields: header.map(createFieldInstanceByVo),
-        fields: updateFields,
-      });
+      const recordsFromClipboard = sourceFields
+        ? this.cellValueToRecords({
+            tableData,
+            fields: updateFields,
+            sourceFields,
+          })
+        : this.tableDataToRecords({
+            tableData: tableData as string[][],
+            fields: updateFields,
+          });
 
       // Warning: Update before creating
       // Fill cells
       const toUpdateRecords = recordsFromClipboard.slice(0, existingRecords.length);
       const updateRecordsRo = this.fillCells(existingRecords, toUpdateRecords);
+      const filteredUpdateRecordsRo = permissionFilter
+        ? await permissionFilter('update', updateRecordsRo, newFields)
+        : updateRecordsRo;
       const { cellContexts } = await this.recordOpenApiService.updateRecords(
         tableId,
-        updateRecordsRo
+        filteredUpdateRecordsRo as IUpdateRecordsRo
       );
-
       let newRecords: IRecord[] | undefined;
       // create record
       if (numRowsToExpand) {
@@ -787,12 +790,18 @@ export class SelectionService {
           typecast: true,
           records: createNewRecords,
         };
-        newRecords = (await this.recordOpenApiService.createRecords(tableId, createRecordsRo))
-          .records;
+        const filteredCreateRecordsRo = permissionFilter
+          ? await permissionFilter('create', createRecordsRo, newFields)
+          : createRecordsRo;
+        newRecords = (
+          await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo)
+        ).records;
       }
 
-      updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
-
+      updateRange[1] = [
+        col + updateFields.length - 1 + newFields.length,
+        row + updateFields.length - 1 + (newRecords?.length ?? 0),
+      ];
       return {
         updateRecords: {
           cellContexts,
@@ -817,23 +826,49 @@ export class SelectionService {
     return updateRange;
   }
 
-  async clear(tableId: string, rangesRo: IRangesRo, windowId?: string) {
+  async clear(
+    tableId: string,
+    rangesRo: IRangesRo,
+    {
+      windowId,
+      permissionFilter,
+    }: {
+      windowId?: string;
+      permissionFilter?: (data: IUpdateRecordsRo) => Promise<IUpdateRecordsRo>;
+    } = {}
+  ) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
-    const updateRecords = await this.tableDataToRecords({
-      tableId,
+    const updateRecords = this.tableDataToRecords({
       tableData: Array.from({ length: records.length }, () => []),
       fields: fieldInstances,
-      headerFields: undefined,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId);
+    const filteredUpdateRecordsRo = permissionFilter
+      ? await permissionFilter(updateRecordsRo)
+      : updateRecordsRo;
+    await this.recordOpenApiService.updateRecords(tableId, filteredUpdateRecordsRo, windowId);
   }
 
-  async delete(tableId: string, rangesRo: IRangesRo, windowId?: string): Promise<IDeleteVo> {
+  async delete(
+    tableId: string,
+    rangesRo: IRangesRo,
+    {
+      windowId,
+      permissionFilter,
+    }: {
+      windowId?: string;
+      permissionFilter?: (recordIds: string[]) => Promise<string[]>;
+    }
+  ): Promise<IDeleteVo> {
     const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const recordIds = records.map(({ id }) => id);
-    await this.recordOpenApiService.deleteRecords(tableId, recordIds, windowId);
-    return { ids: recordIds };
+    const filteredRecordIds = permissionFilter ? await permissionFilter(recordIds) : recordIds;
+    const diffRecordIds = difference(recordIds, filteredRecordIds);
+    if (diffRecordIds.length) {
+      throw new ForbiddenException(`You don't have permission to delete records: ${diffRecordIds}`);
+    }
+    await this.recordOpenApiService.deleteRecords(tableId, filteredRecordIds, windowId);
+    return { ids: filteredRecordIds };
   }
 }

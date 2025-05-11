@@ -25,7 +25,11 @@ export const FieldSelect: React.FC<IFieldSelectProps> = (props) => {
       candidates={fields
         .filter((f) => !excludeTypes.includes(f.type))
         .map((f) => {
-          const Icon = getFieldStatic(f.type, f.isLookup, Boolean(f.aiConfig)).Icon;
+          const Icon = getFieldStatic(f.type, {
+            isLookup: f.isLookup,
+            hasAiConfig: Boolean(f.aiConfig),
+            deniedReadRecord: !f.canReadFieldRecord,
+          }).Icon;
           return {
             id: f.id,
             name: f.name,

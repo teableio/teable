@@ -33,6 +33,8 @@ import {
   IListBaseCollaboratorUserRo,
   ImportBaseRo,
   importBaseRoSchema,
+  moveBaseRoSchema,
+  IMoveBaseRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -341,5 +343,14 @@ export class BaseController {
   @Get(':baseId/export')
   async exportBase(@Param('baseId') baseId: string) {
     return await this.baseExportService.exportBaseZip(baseId);
+  }
+
+  @Put(':baseId/move')
+  @Permissions('space|update')
+  async moveBase(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(moveBaseRoSchema)) moveBaseRo: IMoveBaseRo
+  ) {
+    await this.baseService.moveBase(baseId, moveBaseRo);
   }
 }

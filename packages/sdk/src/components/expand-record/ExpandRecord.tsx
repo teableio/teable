@@ -2,8 +2,8 @@ import type { IRecord } from '@teable/core';
 import { Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from '../../context/app/i18n';
 import {
-  useFieldCellEditable,
   useFields,
   useIsTouchDevice,
   useRecord,
@@ -63,17 +63,17 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const defaultViewId = views?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
   const baseId = useBaseId();
-  const allFields = useFields({ withHidden: true, withDenied: true });
+  const allFields = useFields({ withHidden: true });
   const showFields = useFields();
   const record = useRecord(recordId, serverData);
   const isTouchDevice = useIsTouchDevice();
-  const fieldCellEditable = useFieldCellEditable();
+  const { t } = useTranslation();
 
   const fieldCellReadonly = useCallback(
     (field: IFieldInstance) => {
-      return !fieldCellEditable(field);
+      return Boolean(record?.isLocked(field.id));
     },
-    [fieldCellEditable]
+    [record]
   );
 
   const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
@@ -102,11 +102,11 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
         return;
       }
       if (Array.isArray(newValue) && newValue.length === 0) {
-        return record?.updateCell(fieldId, null);
+        return record?.updateCell(fieldId, null, { t });
       }
-      record?.updateCell(fieldId, newValue);
+      record?.updateCell(fieldId, newValue, { t });
     },
-    [record]
+    [record, t]
   );
 
   const onPrevInner = () => {

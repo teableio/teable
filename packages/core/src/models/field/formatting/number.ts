@@ -78,7 +78,7 @@ export const formatNumberToString = (value: number | undefined, formatting: INum
 };
 
 export const parseStringToNumber = (value: string | null, formatting?: INumberFormatting) => {
-  if (value == null) return null;
+  if (value == null || value === '') return null;
 
   const originStr = String(value);
   const isPercent = formatting?.type === NumberFormattingType.Percent || originStr.includes('%');

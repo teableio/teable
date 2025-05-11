@@ -17,8 +17,14 @@ export const useGridIcons = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { type: string; IconComponent: React.JSXElementConstructor<any> }[]
       >((pre, type) => {
-        const IconComponent = getFieldStatic(type, false, false)?.Icon;
-        const LookupIconComponent = getFieldStatic(type, true, false)?.Icon;
+        const IconComponent = getFieldStatic(type, {
+          isLookup: false,
+          hasAiConfig: false,
+        })?.Icon;
+        const LookupIconComponent = getFieldStatic(type, {
+          isLookup: true,
+          hasAiConfig: false,
+        })?.Icon;
         pre.push({ type: type, IconComponent });
         if (LookupIconComponent) {
           pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });

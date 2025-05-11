@@ -226,7 +226,7 @@
       "calculating": "Calcul en cours...",
       "doSaveChanges": "Voulez-vous enregistrer les modifications apportées ?",
       "linkFieldToLookup": "Champ de lien à utiliser pour la recherche",
-      "lookupToTable": "Champ {{tableName}} que vous souhaitez rechercher",
+      "lookupToTable": "Champ de {{tableName}} que vous souhaitez rechercher",
       "selectField": "Sélectionner un champ...",
       "linkTable": "Table de lien",
       "noLinkTip": "Aucun enregistrement lié à rechercher. Ajoutez un champ de lien vers un autre enregistrement, puis essayez de configurer votre recherche à nouveau.",
@@ -531,7 +531,12 @@
     "hideField": "Masquer le champ",
     "deleteField": "Supprimer le champ",
     "deleteAllSelectedFields": "Supprimer tous les champs sélectionnés",
-    "autoFill": "Mettre à jour tous les enregistrements"
+    "autoFill": "Mettre à jour tous les enregistrements",
+    "groupMenuTitle": "Menu de groupe",
+    "expandGroup": "Développer ce groupe et ses sous-groupes",
+    "collapseGroup": "Réduire ce groupe et ses sous-groupes",
+    "expandAllGroups": "Développer tous les groupes",
+    "collapseAllGroups": "Réduire tous les groupes"
   },
   "connection": {
     "title": "Connexion à la base de données",

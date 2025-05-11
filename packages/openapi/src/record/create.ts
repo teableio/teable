@@ -51,9 +51,7 @@ export const createRecordsRoSchema = z
 
 export type ICreateRecordsRo = z.infer<typeof createRecordsRoSchema>;
 
-export const createRecordsVoSchema = recordsVoSchema.omit({
-  offset: true,
-});
+export const createRecordsVoSchema = recordsVoSchema.pick({ records: true });
 
 export type ICreateRecordsVo = z.infer<typeof createRecordsVoSchema>;
 

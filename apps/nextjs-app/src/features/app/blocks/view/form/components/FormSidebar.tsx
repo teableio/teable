@@ -29,8 +29,11 @@ interface IDragItemProps {
   onClick?: () => void;
   getFieldStatic: (
     type: FieldType,
-    isLookup: boolean | undefined,
-    hasAiConfig: boolean | undefined
+    config: {
+      isLookup: boolean | undefined;
+      hasAiConfig: boolean | undefined;
+      deniedReadRecord?: boolean;
+    }
   ) => IFieldStatic;
 }
 
@@ -38,7 +41,10 @@ export const DragItem: FC<IDragItemProps> = (props) => {
   const { field, disabled, onClick, getFieldStatic } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { type, name, isLookup, aiConfig } = field;
-  const Icon = getFieldStatic(type, isLookup, Boolean(aiConfig)).Icon;
+  const Icon = getFieldStatic(type, {
+    isLookup,
+    hasAiConfig: Boolean(aiConfig),
+  }).Icon;
   const content = (
     <div
       className={cn(

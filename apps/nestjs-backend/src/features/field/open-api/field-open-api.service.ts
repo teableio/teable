@@ -27,7 +27,6 @@ import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
-import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -69,7 +68,6 @@ export class FieldOpenApiService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     private readonly tableIndexService: TableIndexService,
-    private readonly shareDbService: ShareDbService,
     private readonly recordOpenApiService: RecordOpenApiService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -571,7 +569,8 @@ export class FieldOpenApiService {
 
       const getterFieldViewOrders = Object.values(columnMeta)
         .filter(({ order }) => order > fieldViewOrder)
-        .map(({ order }) => order);
+        .map(({ order }) => order)
+        .sort();
 
       const targetFieldViewOrder = getterFieldViewOrders?.length
         ? (getterFieldViewOrders[0] + fieldViewOrder) / 2
@@ -618,7 +617,7 @@ export class FieldOpenApiService {
     });
 
     if (!fieldInstance.isComputed) {
-      // di not async duplicate records
+      // do not async duplicate records
       this.duplicateFieldData(
         sourceTableId,
         newField.id,
@@ -671,25 +670,26 @@ export class FieldOpenApiService {
         chunkSize
       );
 
-      await this.recordOpenApiService.updateRecords(sourceTableId, {
-        fieldKeyType: FieldKeyType.Id,
-        typecast: true,
-        records: sourceRecords.map((record) => ({
-          id: record.id,
-          fields: {
-            [targetFieldId]: record.value,
-          },
-        })),
-      });
-
-      // last page should update field constraint
-      if (i === page - 1 && (fieldInstance.notNull || fieldInstance.unique)) {
-        await this.convertField(sourceTableId, targetFieldId, {
-          ...fieldInstance,
-          notNull: fieldInstance.notNull,
-          unique: fieldInstance.unique,
+      await this.prismaService.$tx(async () => {
+        await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: sourceRecords.map((record) => ({
+            id: record.id,
+            fields: {
+              [targetFieldId]: record.value,
+            },
+          })),
         });
-      }
+      });
+    }
+
+    if (fieldInstance.notNull || fieldInstance.unique) {
+      await this.convertField(sourceTableId, targetFieldId, {
+        ...fieldInstance,
+        notNull: fieldInstance.notNull,
+        unique: fieldInstance.unique,
+      });
     }
   }
 
@@ -714,5 +714,9 @@ export class FieldOpenApiService {
       .toQuery();
     const result = await this.prismaService.$queryRawUnsafe<{ id: string; value: string }[]>(query);
     return result.map((item) => item);
+  }
+
+  getFieldUniqueKeyName(dbTableName: string, dbFieldName: string, fieldId: string) {
+    return this.fieldService.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId);
   }
 }

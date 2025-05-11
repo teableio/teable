@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ZodIssue } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { authConfig } from '../../i18n/auth.config';
+import { useDisallowSignUp } from '../useDisallowSignUp';
 import { SendVerificationButton } from './SendVerificationButton';
 
 export interface ISignForm {
@@ -32,6 +33,8 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [signupVerificationToken, setSignupVerificationToken] = useState<string>();
   const [signupVerificationCode, setSignupVerificationCode] = useState<string>();
   const router = useRouter();
+
+  const disallowSignUp = useDisallowSignUp();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
@@ -278,18 +281,20 @@ export const SignForm: FC<ISignForm> = (props) => {
               {isLoading && <Spin />}
               {buttonText}
             </Button>
-            <div className="flex justify-end py-2">
-              <Link
-                href={{
-                  pathname: type === 'signin' ? '/auth/signup' : '/auth/login',
-                  query: { ...router.query },
-                }}
-                shallow
-                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-              >
-                {type === 'signin' ? t('auth:button.signup') : t('auth:button.signin')}
-              </Link>
-            </div>
+            {!disallowSignUp && (
+              <div className="flex justify-end py-2">
+                <Link
+                  href={{
+                    pathname: type === 'signin' ? '/auth/signup' : '/auth/login',
+                    query: { ...router.query },
+                  }}
+                  shallow
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  {type === 'signin' ? t('auth:button.signup') : t('auth:button.signin')}
+                </Link>
+              </div>
+            )}
             <ErrorCom error={error} />
           </div>
         </div>

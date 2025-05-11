@@ -28,6 +28,8 @@ import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
@@ -70,6 +72,7 @@ export class FieldConvertingService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly collaboratorService: CollaboratorService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -1107,7 +1110,11 @@ export class FieldConvertingService {
   }
 
   private needTempleCloseFieldConstraint(newField: IFieldInstance, oldField: IFieldInstance) {
-    return majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull);
+    return (
+      (majorFieldKeysChanged(oldField, newField) ||
+        newField.dbFieldName !== oldField.dbFieldName) &&
+      (oldField.unique || oldField.notNull)
+    );
   }
 
   async alterFieldConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
@@ -1124,7 +1131,14 @@ export class FieldConvertingService {
     const { unique, notNull, dbFieldName } = newField;
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (unique) table.unique(dbFieldName);
+        if (unique)
+          table.unique([dbFieldName], {
+            indexName: this.fieldService.getFieldUniqueKeyName(
+              dbTableName,
+              dbFieldName,
+              newField.id
+            ),
+          });
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();
@@ -1170,14 +1184,28 @@ export class FieldConvertingService {
       return;
     }
 
+    const matchedIndexes = await this.fieldService.findUniqueIndexesForField(
+      dbTableName,
+      dbFieldName,
+      oldField.id
+    );
+
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (unique) table.dropUnique([dbFieldName]);
+        if (unique) {
+          matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
+        }
         if (notNull) table.setNullable(dbFieldName);
       })
-      .toQuery();
+      .toSQL();
 
-    await this.prismaService.$executeRawUnsafe(fieldValidationQuery);
+    const executeSqls = fieldValidationQuery
+      .filter((s) => !s.sql.startsWith('PRAGMA'))
+      .map(({ sql }) => sql);
+
+    for (const sql of executeSqls) {
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
   }
 
   async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {

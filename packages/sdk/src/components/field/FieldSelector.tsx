@@ -37,11 +37,11 @@ export function FieldSelector(props: IFieldSelector) {
 
   const fieldStaticGetter = useFieldStaticGetter();
 
-  const { Icon } = fieldStaticGetter(
-    selectedField?.type || FieldType.SingleLineText,
-    selectedField?.isLookup,
-    Boolean(selectedField?.aiConfig)
-  );
+  const { Icon } = fieldStaticGetter(selectedField?.type || FieldType.SingleLineText, {
+    isLookup: selectedField?.isLookup,
+    hasAiConfig: Boolean(selectedField?.aiConfig),
+    deniedReadRecord: !selectedField?.canReadFieldRecord,
+  });
 
   const selectHandler = (value: string) => {
     setOpen(false);

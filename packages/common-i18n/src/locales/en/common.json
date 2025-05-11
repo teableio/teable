@@ -44,7 +44,8 @@
     "hideNotMatchRow": "Hide not match row",
     "more": "More",
     "expand": "Expand",
-    "deleteTip": "Are you sure you want to delete \"{{name}}\"?"
+    "deleteTip": "Are you sure you want to delete \"{{name}}\"?",
+    "move": "Move to"
   },
   "quickAction": {
     "title": "Quick Actions...",

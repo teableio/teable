@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { ViewType } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
@@ -11,6 +12,16 @@ export const IGetPinListVoSchema = z.array(
     id: z.string(),
     type: z.nativeEnum(PinType),
     order: z.number(),
+    name: z.string(),
+    icon: z.string().optional(),
+    parentBaseId: z.string().optional(),
+    viewMeta: z
+      .object({
+        tableId: z.string(),
+        type: z.nativeEnum(ViewType),
+        pluginLogo: z.string().optional(),
+      })
+      .optional(),
   })
 );
 

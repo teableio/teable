@@ -82,6 +82,44 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     return;
   }
 
+  it('duplicate base with cross base link and lookup field', async () => {
+    const base2 = (await createBase({ spaceId, name: 'test base 2' })).data;
+    const base2Table = await createTable(base2.id, { name: 'table1' });
+
+    const table1 = await createTable(base.id, { name: 'table1' });
+
+    const crossBaseLinkField = (
+      await createField(table1.id, {
+        name: 'cross base link field',
+        type: FieldType.Link,
+        options: {
+          baseId: base2.id,
+          relationship: Relationship.ManyMany,
+          foreignTableId: base2Table.id,
+        },
+      })
+    ).data;
+
+    await createField(table1.id, {
+      name: 'cross base lookup field',
+      type: FieldType.SingleLineText,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: base2Table.id,
+        linkFieldId: crossBaseLinkField.id,
+        lookupFieldId: base2Table.fields[0].id,
+      },
+    });
+
+    const dupResult = await duplicateBase({
+      fromBaseId: base.id,
+      spaceId: spaceId,
+      name: 'test base copy',
+    });
+
+    expect(dupResult.status).toBe(201);
+  });
+
   it('duplicate within current space', async () => {
     const table1 = await createTable(base.id, { name: 'table1' });
     const dupResult = await duplicateBase({
@@ -306,7 +344,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       await deleteSpace(newSpace.id);
     });
 
-    it('duplicate cross space', async () => {
+    it('duplicate base to another space', async () => {
       await createTable(base.id, { name: 'table1' });
       const dupResult = await duplicateBase({
         fromBaseId: base.id,

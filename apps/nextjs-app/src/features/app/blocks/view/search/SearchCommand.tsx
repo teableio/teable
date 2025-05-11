@@ -157,8 +157,12 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
           <CommandList className="my-2 max-h-64">
             {<CommandEmpty>{t('listEmptyTips')}</CommandEmpty>}
             {fields.map((field) => {
-              const { id, name, type, isLookup, aiConfig } = field;
-              const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
+              const { id, name, type, isLookup, aiConfig, canReadFieldRecord } = field;
+              const { Icon } = fieldStaticGetter(type, {
+                isLookup,
+                hasAiConfig: Boolean(aiConfig),
+                deniedReadRecord: !canReadFieldRecord,
+              });
               return (
                 <CommandItem
                   className="flex flex-1 truncate p-0"

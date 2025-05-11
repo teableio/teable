@@ -110,7 +110,11 @@ describe('UserFieldCore', () => {
       name: 'anonymous',
       email: 'a2@teable.io',
     });
-    expect(field.convertStringToCellValue('anonymous', ctx)).toBeNull();
+    expect(field.convertStringToCellValue('anonymous', ctx)).toEqual({
+      id: 'usr1234567',
+      title: 'anonymous',
+      email: 'anonymous@teable.io',
+    });
     expect(field.convertStringToCellValue('name', ctx)).toBeNull();
   });
 

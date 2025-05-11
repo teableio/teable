@@ -50,7 +50,7 @@ export const fieldJsonSchema = fieldVoSchema
     isMultipleCellValue: true,
   })
   .extend({
-    createTime: z.string().datetime().openapi({
+    createdTime: z.string().datetime().openapi({
       description: 'The create time of the field.',
     }),
     order: z.number().openapi({

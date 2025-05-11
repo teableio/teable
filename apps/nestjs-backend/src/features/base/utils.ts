@@ -25,7 +25,17 @@ export function replaceJsonStringFieldIds(
 export function replaceStringByMap(
   config: unknown,
   maps: Record<string, Record<string, string>>
-): string | undefined {
+): string | undefined;
+export function replaceStringByMap(
+  config: unknown,
+  maps: Record<string, Record<string, string>>,
+  returnJSONString: false
+): unknown;
+export function replaceStringByMap(
+  config: unknown,
+  maps: Record<string, Record<string, string>>,
+  returnJSONString: boolean = true
+): string | undefined | unknown {
   if (!config) {
     return;
   }
@@ -40,5 +50,5 @@ export function replaceStringByMap(
     }
   }
 
-  return newConfigStr;
+  return returnJSONString ? newConfigStr : JSON.parse(newConfigStr);
 }

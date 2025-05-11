@@ -8,7 +8,7 @@ import {
   sortItemSchema,
 } from '@teable/core';
 import type { AxiosResponse } from 'axios';
-import { groupPointsVoSchema } from '../aggregation/type';
+import { groupHeaderRefSchema, groupPointsVoSchema } from '../aggregation/type';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -23,10 +23,21 @@ export const queryBaseSchema = z.object({
     description:
       'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
   }),
-  ignoreViewQuery: z.string().or(z.boolean()).transform(Boolean).optional().openapi({
-    description:
-      "When a viewId is specified, configure this to true will ignore the view's filter, sort, etc",
-  }),
+  ignoreViewQuery: z
+    .string()
+    .or(z.boolean())
+    .transform((value: string | boolean) => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string' && value.toLowerCase() !== 'false') {
+        return true;
+      }
+      return false;
+    })
+    .optional()
+    .openapi({
+      description:
+        "When a viewId is specified, configure this to true will ignore the view's filter, sort, etc",
+    }),
   filterByTql: z.string().optional().openapi({
     example: "{field} = 'Completed' AND {field} > 5",
     deprecated: true,
@@ -224,6 +235,9 @@ export const recordsVoSchema = z.object({
     .object({
       groupPoints: groupPointsVoSchema.optional().openapi({
         description: 'Group points for the view',
+      }),
+      allGroupHeaderRefs: z.array(groupHeaderRefSchema).optional().openapi({
+        description: 'All group header refs for the view, including collapsed group headers',
       }),
     })
     .optional(),

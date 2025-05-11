@@ -34,7 +34,8 @@
     "collapseSidebar": "Згорнути бічну панель",
     "restore": "Відновити",
     "permanentDelete": "Видалити назавжди",
-    "more": "Більше"
+    "more": "Більше",
+    "move": "Перемістити в"
   },
   "quickAction": {
     "title": "Швидкі дії...",

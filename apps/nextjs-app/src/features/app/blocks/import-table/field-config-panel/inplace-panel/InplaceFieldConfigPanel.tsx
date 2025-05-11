@@ -1,10 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
-import {
-  getTableById as apiGetTableById,
-  getFields as apiGetFields,
-  getTablePermission,
-} from '@teable/openapi';
+import { getTableById as apiGetTableById, getFields as apiGetFields } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
 import { isEqual } from 'lodash';
@@ -49,19 +45,7 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
     queryFn: () => apiGetFields(tableId).then((data) => data.data),
   });
 
-  const { data: tablePermission } = useQuery({
-    queryKey: ReactQueryKeys.getTablePermission(baseId!, tableId!),
-    queryFn: ({ queryKey }) => getTablePermission(queryKey[1], queryKey[2]).then((res) => res.data),
-    enabled: !!tableId,
-  });
-
-  const hasReadPermissionFields = Object.entries(tablePermission?.field?.fields || {})
-    .filter(([, value]) => {
-      return value['field|read'];
-    })
-    .map(([key]) => key);
-
-  const fieldWithPermission = fields?.filter(({ id }) => hasReadPermissionFields.includes(id));
+  const fieldWithPermission = fields?.filter(({ recordRead }) => recordRead !== false);
 
   const optionHandler = (value: IInplaceOption, propertyName: keyof IInplaceOption) => {
     const newInsertConfig = {

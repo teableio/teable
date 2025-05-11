@@ -22,6 +22,11 @@ export class LinkIntegrityService {
   ) {}
 
   async linkIntegrityCheck(baseId: string): Promise<IIntegrityCheckVo> {
+    const mainBase = await this.prismaService.base.findFirstOrThrow({
+      where: { id: baseId, deletedTime: null },
+      select: { id: true, name: true },
+    });
+
     const tables = await this.prismaService.tableMeta.findMany({
       where: { baseId, deletedTime: null },
       select: {
@@ -47,10 +52,8 @@ export class LinkIntegrityService {
       const tableIssues = await this.checkTableLinkFields(table);
       if (tableIssues.length > 0) {
         linkFieldIssues.push({
-          tableId: table.id,
-          tableName: table.name,
-          fieldName: table.fields[0].name,
-          fieldId: table.fields[0].id,
+          baseId: mainBase.id,
+          baseName: mainBase.name,
           issues: tableIssues,
         });
       }
@@ -85,19 +88,83 @@ export class LinkIntegrityService {
         linkFieldIssues.push({
           baseId: base.id,
           baseName: base.name,
-          tableId: field.tableId,
-          tableName: table.name,
-          fieldId: field.id,
-          fieldName: field.name,
           issues: tableIssues,
         });
       }
+    }
+
+    const referenceFieldIssues = await this.checkReferenceField(baseId);
+    if (referenceFieldIssues.length > 0) {
+      linkFieldIssues.push({
+        baseId: mainBase.id,
+        baseName: mainBase.name,
+        issues: referenceFieldIssues,
+      });
     }
 
     return {
       hasIssues: linkFieldIssues.length > 0,
       linkFieldIssues,
     };
+  }
+
+  private async checkReferenceField(baseId: string): Promise<IIntegrityIssue[]> {
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { baseId, deletedTime: null },
+      select: {
+        id: true,
+        name: true,
+        fields: {
+          where: { deletedTime: null },
+          select: { id: true },
+        },
+      },
+    });
+
+    const allFieldIds = tables.reduce<string[]>((acc, table) => {
+      return [...acc, ...table.fields.map((f) => f.id)];
+    }, []);
+
+    const references = await this.prismaService.reference.findMany({
+      where: {
+        OR: [{ fromFieldId: { in: allFieldIds } }, { toFieldId: { in: allFieldIds } }],
+      },
+    });
+
+    const fieldIds = new Set<string>();
+    for (const reference of references) {
+      fieldIds.add(reference.fromFieldId);
+      fieldIds.add(reference.toFieldId);
+    }
+
+    const fields = await this.prismaService.field.findMany({
+      where: { id: { in: Array.from(fieldIds) } },
+      select: { id: true, name: true, deletedTime: true },
+    });
+
+    const deletedFields = fields.filter((f) => f.deletedTime);
+
+    // exist in references but not in fields
+    const cannotFindFields = Array.from(fieldIds).filter((id) => !fields.find((f) => f.id === id));
+
+    const issues: IIntegrityIssue[] = [];
+    for (const field of deletedFields) {
+      issues.push({
+        fieldId: field.id,
+        type: IntegrityIssueType.ReferenceFieldNotFound,
+        message: `Reference field ${field.name} is deleted`,
+      });
+    }
+
+    for (const fieldId of cannotFindFields) {
+      issues.push({
+        fieldId,
+        type: IntegrityIssueType.ReferenceFieldNotFound,
+        message: `Reference field ${fieldId} not found`,
+      });
+    }
+
+    return issues;
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -213,23 +280,22 @@ export class LinkIntegrityService {
       for (const issue of issues.issues) {
         switch (issue.type) {
           case IntegrityIssueType.MissingRecordReference: {
-            const result = await this.foreignKeyIntegrityService.fix(
-              issues.tableId,
-              issue.fieldId || issues.fieldId
-            );
+            const result = await this.foreignKeyIntegrityService.fix(issue.fieldId);
             result && fixResults.push(result);
             break;
           }
           case IntegrityIssueType.InvalidLinkReference: {
-            const result = await this.linkFieldIntegrityService.fix(
-              issues.tableId,
-              issue.fieldId || issues.fieldId
-            );
+            const result = await this.linkFieldIntegrityService.fix(issue.fieldId);
             result && fixResults.push(result);
             break;
           }
           case IntegrityIssueType.SymmetricFieldNotFound: {
-            const result = await this.fixOneWayLinkField(issues.tableId, issues.fieldId);
+            const result = await this.fixOneWayLinkField(issue.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
+          case IntegrityIssueType.ReferenceFieldNotFound: {
+            const result = await this.fixReferenceField(issue.fieldId);
             result && fixResults.push(result);
             break;
           }
@@ -242,10 +308,25 @@ export class LinkIntegrityService {
     return fixResults;
   }
 
-  async fixOneWayLinkField(
-    _tableId: string,
-    fieldId: string
-  ): Promise<IIntegrityIssue | undefined> {
+  async fixReferenceField(fieldId: string): Promise<IIntegrityIssue | undefined> {
+    const deleted = await this.prismaService.reference.deleteMany({
+      where: {
+        OR: [{ fromFieldId: fieldId }, { toFieldId: fieldId }],
+      },
+    });
+
+    if (deleted.count <= 0) {
+      return;
+    }
+
+    return {
+      type: IntegrityIssueType.InvalidLinkReference,
+      fieldId,
+      message: 'InvalidLinkReference fixed',
+    };
+  }
+
+  async fixOneWayLinkField(fieldId: string): Promise<IIntegrityIssue | undefined> {
     const field = await this.prismaService.field.findFirstOrThrow({
       where: { id: fieldId, deletedTime: null },
     });
@@ -278,6 +359,7 @@ export class LinkIntegrityService {
 
     return {
       type: IntegrityIssueType.SymmetricFieldNotFound,
+      fieldId: field.id,
       message: `fixed one way link field (Field Name: ${field.name}, Field ID: ${field.id})`,
     };
   }

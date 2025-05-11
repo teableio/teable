@@ -32,6 +32,7 @@ export type ICalendarDailyCollectionQueryProps = {
   endDate: string;
   startField: DateFieldDto;
   endField: DateFieldDto;
+  dbTableName: string;
 };
 
 export interface IDbProvider {
@@ -189,4 +190,6 @@ export interface IDbProvider {
   optionsQuery(type: FieldType, optionsKey: string, value: string): string;
 
   searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder;
+
+  getTableIndexes(dbTableName: string): string;
 }

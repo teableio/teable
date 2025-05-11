@@ -228,11 +228,12 @@ export const drawLine = (ctx: CanvasRenderingContext2D, props: ILineProps) => {
 };
 
 export const drawRect = (ctx: CanvasRenderingContext2D, props: IRectProps) => {
-  const { x, y, width, height, fill, stroke, radius: _radius } = props;
+  const { x, y, width, height, fill, stroke, radius: _radius, opacity } = props;
 
   ctx.beginPath();
   if (fill) ctx.fillStyle = fill;
   if (stroke) ctx.strokeStyle = stroke;
+  if (opacity) ctx.globalAlpha = opacity;
 
   if (_radius == null) {
     ctx.rect(x, y, width, height);

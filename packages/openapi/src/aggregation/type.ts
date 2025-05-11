@@ -18,9 +18,16 @@ const groupRowPointSchema = z.object({
   count: z.number(),
 });
 
+export const groupHeaderRefSchema = z.object({
+  id: z.string(),
+  depth: z.number().max(2).min(0),
+});
+
 const groupPointSchema = z.union([groupHeaderPointSchema, groupRowPointSchema]);
 
 export type IGroupHeaderPoint = z.infer<typeof groupHeaderPointSchema>;
+
+export type IGroupHeaderRef = z.infer<typeof groupHeaderRefSchema>;
 
 export type IGroupPoint = z.infer<typeof groupPointSchema>;
 

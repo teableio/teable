@@ -100,14 +100,16 @@ export class LinkFieldIntegrityService {
     }
   }
 
-  async fix(tableId: string, fieldId: string): Promise<IIntegrityIssue | undefined> {
+  async fix(fieldId: string): Promise<IIntegrityIssue | undefined> {
+    const field = await this.prismaService.field.findFirstOrThrow({
+      where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
+    });
+
+    const tableId = field.tableId;
+
     const table = await this.prismaService.tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
-    });
-
-    const field = await this.prismaService.field.findFirstOrThrow({
-      where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
     });
 
     const linkField = createFieldInstanceByRaw(field) as LinkFieldDto;
@@ -144,6 +146,7 @@ export class LinkFieldIntegrityService {
     if (totalFixed > 0) {
       return {
         type: IntegrityIssueType.InvalidLinkReference,
+        fieldId,
         message: `Fixed ${totalFixed} inconsistent links for link field (Field Name: ${field.name}, Field ID: ${field.id})`,
       };
     }

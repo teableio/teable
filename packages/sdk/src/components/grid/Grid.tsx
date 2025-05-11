@@ -93,6 +93,7 @@ export interface IGridExternalProps {
   onPaste?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onDelete?: (selection: CombinedSelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
+  onCellDblClick?: (cell: ICellItem) => void;
   onSelectionChanged?: (selection: CombinedSelection) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCollapsedGroupChanged?: (collapsedGroupIds: Set<string>) => void;
@@ -108,6 +109,7 @@ export interface IGridExternalProps {
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
+  onGroupHeaderContextMenu?: (groupId: string, position: IPosition) => void;
   onScrollChanged?: (scrollLeft: number, scrollTop: number) => void;
   onDragStart?: (type: DragRegionType, dragIndexs: number[]) => void;
 
@@ -130,7 +132,7 @@ export interface IGridProps extends IGridExternalProps {
   rowHeight?: number;
   style?: CSSProperties;
   isTouchDevice?: boolean;
-  columnHeaderVisible?: boolean;
+  columnHeaderHeight?: number;
   columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
@@ -193,7 +195,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     searchCursor,
     searchHitIndex,
     groupPoints,
-    columnHeaderVisible = true,
+    columnHeaderHeight = defaultColumnHeaderHeight,
     getCellContent,
     onUndo,
     onRedo,
@@ -204,6 +206,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onRowExpand,
     onRowOrdered,
     onCellEdited,
+    onCellDblClick,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -217,6 +220,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
     onCollapsedGroupChanged,
+    onGroupHeaderContextMenu,
     onItemHovered,
     onItemClick,
     onScrollChanged,
@@ -458,13 +462,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       freezeColumnCount,
       containerWidth: width,
       containerHeight,
-      rowInitSize: columnHeaderVisible ? defaultColumnHeaderHeight : 0,
+      rowInitSize: columnHeaderHeight,
       columnInitSize,
       rowHeightMap,
       columnWidthMap,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowHeight, pureRowCount, rowCount, rowHeightMap, columnHeaderVisible]);
+  }, [rowHeight, pureRowCount, rowCount, rowHeightMap, columnHeaderHeight]);
 
   const totalHeight = coordInstance.totalHeight + scrollBufferY;
 
@@ -608,7 +612,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             collapsedGroupIds={collapsedGroupIds}
-            columnHeaderVisible={columnHeaderVisible}
+            columnHeaderHeight={columnHeaderHeight}
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
             groupCollection={groupCollection}
@@ -647,7 +651,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             collapsedGroupIds={collapsedGroupIds}
-            columnHeaderVisible={columnHeaderVisible}
+            columnHeaderHeight={columnHeaderHeight}
             isMultiSelectionEnable={isMultiSelectionEnable}
             activeCell={activeCell}
             mouseState={mouseState}
@@ -673,6 +677,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onRowExpand={onRowExpand}
             onRowOrdered={onRowOrdered}
             onCellEdited={onCellEdited}
+            onCellDblClick={onCellDblClick}
             onContextMenu={onContextMenu}
             onColumnAppend={onColumnAppend}
             onColumnResize={onColumnResize}
@@ -682,6 +687,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
+            onGroupHeaderContextMenu={onGroupHeaderContextMenu}
             onSelectionChanged={onSelectionChanged}
             onColumnFreeze={onColumnFreeze}
             onItemHovered={onItemHovered}

@@ -20,6 +20,7 @@ export default function ensureLogin<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>,
   isLoginPage?: boolean
 ): NextGetServerSideProps<P> {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   return async (context: GetServerSidePropsContext) => {
     const req = context.req;
     let props: { [key: string]: any } = {};
@@ -40,7 +41,8 @@ export default function ensureLogin<P extends { [key: string]: any }>(
         if (isLoginPage) {
           // User is not logged in, handle login page
           return redirectSocialAuth(req) || handler(context);
-        } else {
+        }
+        if (error.status < 500 && error.status >= 400) {
           // User is not logged in, redirect to login page
           const redirect = encodeURIComponent(req?.url || '');
           const query = redirect ? `redirect=${redirect}` : '';
@@ -53,6 +55,7 @@ export default function ensureLogin<P extends { [key: string]: any }>(
         }
       }
 
+      console.error('ensureLogin: ', error);
       // Workaround for https://github.com/zeit/next.js/issues/8592
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       props['err'] = (error as any)?.message;

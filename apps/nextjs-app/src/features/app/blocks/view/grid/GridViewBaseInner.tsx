@@ -56,12 +56,12 @@ import {
   useGridFileEvent,
   extractDefaultFieldsFromFilters,
   TaskStatusCollectionContext,
+  isNeedPersistEditing,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {
   useBaseId,
-  useFieldCellEditable,
   useFields,
   useIsTouchDevice,
   usePersonalView,
@@ -77,6 +77,7 @@ import {
   useRecordOperations,
 } from '@teable/sdk/hooks';
 import { ConfirmDialog, useToast } from '@teable/ui-lib';
+import { toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -93,7 +94,7 @@ import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
-import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
+import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
@@ -130,8 +131,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
-  const { openRecordMenu, openHeaderMenu, openStatisticMenu, setSelection, selection } =
-    useGridViewStore();
+  const {
+    selection,
+    setSelection,
+    openRecordMenu,
+    openHeaderMenu,
+    openStatisticMenu,
+    openGroupHeaderMenu,
+  } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
@@ -141,10 +148,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const isAutoSort = sort && !sort?.manualSort;
   const frozenColumnCount = isTouchDevice ? 0 : view?.options?.frozenColumnCount ?? 1;
   const { cells: taskStatusCells, fieldMap: taskStatusFieldMap } = taskStatusCollection ?? {};
+  const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[view?.options?.rowHeight ?? RowHeightLevel.Short];
+  const columnHeaderHeight =
+    GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
-  const fieldEditable = useFieldCellEditable();
+  const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
   const { setGridRef, searchCursor, setRecordMap } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
@@ -172,8 +182,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     personalViewCommonQuery
   );
 
-  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery, searchHitIndex } =
-    useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
+  const {
+    onVisibleRegionChanged,
+    onReset,
+    recordMap,
+    groupPoints,
+    recordsQuery,
+    searchHitIndex,
+    allGroupHeaderRefs,
+  } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
 
   const isSelectionLoaded = useIsSelectionLoaded();
 
@@ -209,6 +226,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
 
+  const inPresorting = presortRecord != null;
   const inPrefilling = prefillingRowIndex != null;
 
   const onValidation = useCallback(
@@ -357,10 +375,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       }
       const oldCellValue = record.getCellValue(fieldId) ?? null;
       if (isEqual(newCellValue, oldCellValue)) return;
-      record.updateCell(fieldId, newCellValue);
+      record.updateCell(fieldId, newCellValue, { t, prefix: 'sdk' });
       return record;
     },
-    [recordMap, columns]
+    [recordMap, columns, t]
   );
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -449,6 +467,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   };
 
+  const onGroupHeaderContextMenu = (groupId: string, position: IPosition) => {
+    openGroupHeaderMenu({
+      groupId,
+      position,
+      allGroupHeaderRefs,
+    });
+  };
+
   const onColumnHeaderMenuClick = useCallback(
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
@@ -469,14 +495,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     (colIndex: number) => {
       if (!columns[colIndex]) return;
       const fieldId = columns[colIndex].id;
-      const selectedFields = fields.find((field) => field.id === fieldId);
-      if (!selectedFields || !fieldEditable(selectedFields)) {
+      if (!fieldEditable) {
         return;
       }
       gridRef.current?.setSelection(emptySelection);
       openSetting({ fieldId, operator: FieldOperator.Edit });
     },
-    [columns, fields, fieldEditable, openSetting]
+    [columns, fieldEditable, openSetting]
   );
 
   const onColumnHeaderClick = useCallback(
@@ -577,11 +602,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const customIcons = useGridIcons();
-
-  const rowHeight = useMemo(() => {
-    if (view == null) return GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short];
-    return GIRD_ROW_HEIGHT_DEFINITIONS[view.options?.rowHeight || RowHeightLevel.Short];
-  }, [view]);
 
   const rowControls = useMemo(() => {
     if (isTouchDevice) return [];
@@ -864,11 +884,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [rowHeight, presortRecordData]);
 
   useEffect(() => {
-    if (!inPrefilling) return;
+    if (!inPrefilling && !inPresorting) return;
     const scrollState = gridRef.current?.getScrollState();
     if (scrollState == null) return;
+    presortGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
-  }, [inPrefilling]);
+  }, [inPrefilling, inPresorting]);
 
   useClickAway(containerRef, () => {
     gridRef.current?.resetState();
@@ -923,15 +944,34 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [tableId, fields, taskStatusFieldMap]);
 
   const onPresortContainerInit = () => {
-    if (gridRef.current?.isEditing()) return;
+    if (!activeCell) return;
 
-    const { columnIndex } = activeCell ?? {};
+    const { columnIndex, fieldId } = activeCell;
+
+    if (gridRef.current?.isEditing() && isNeedPersistEditing(allFields, fieldId)) return;
     if (columnIndex == null) return;
+
     const range = [columnIndex, 0] as IRange;
-    presortGridRef.current?.setSelection(
-      new CombinedSelection(SelectionRegionType.Cells, [range, range])
-    );
-    gridRef.current?.setSelection(emptySelection);
+    setTimeout(() => {
+      gridRef.current?.setSelection(emptySelection);
+      presortGridRef.current?.setSelection(
+        new CombinedSelection(SelectionRegionType.Cells, [range, range])
+      );
+    }, 100);
+  };
+
+  const onCellDblClick = (cell: ICellItem) => {
+    const [columnIndex, rowIndex] = cell;
+    const record = recordMap[rowIndex];
+    if (record == null) return;
+    const field = columns[columnIndex];
+    if (field == null) return;
+    if (record.isHidden(field.id)) {
+      return sonnerToast.warning(t('table:permission.cell.deniedRead'));
+    }
+    if (record.isLocked(field.id)) {
+      return sonnerToast.warning(t('table:permission.cell.deniedUpdate'));
+    }
   };
 
   return (
@@ -939,11 +979,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       <Grid
         ref={gridRef}
         theme={theme}
-        style={{ pointerEvents: inPrefilling ? 'none' : 'auto' }}
+        style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
         draggable={draggable}
         isTouchDevice={isTouchDevice}
         rowCount={realRowCount}
         rowHeight={rowHeight}
+        columnHeaderHeight={columnHeaderHeight}
         freezeColumnCount={frozenColumnCount}
         columnStatistics={columnStatistics}
         columns={columns}
@@ -965,11 +1006,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           isTouchDevice ? undefined : getAuthorizedFunction(onRowAppend, 'record|create')
         }
         onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
+        onCellDblClick={onCellDblClick}
         onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
         onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
         onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
         onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
         onContextMenu={onContextMenu}
+        onGroupHeaderContextMenu={onGroupHeaderContextMenu}
         onColumnHeaderClick={onColumnHeaderClick}
         onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
         onVisibleRegionChanged={onVisibleRegionChanged}
@@ -986,7 +1029,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onItemHovered={onItemHovered}
       />
       {fieldAIEnable && (
-        <AiGenerateButton ref={aiGenerateButtonRef} gridRef={gridRef} activeCell={activeCell} />
+        <AiGenerateButton
+          ref={aiGenerateButtonRef}
+          gridRef={gridRef}
+          activeCell={activeCell}
+          recordMap={recordMap}
+        />
       )}
       {inPrefilling && (
         <PrefillingRowContainer
@@ -1017,7 +1065,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             selectable={SelectableType.Cell}
             columns={columns}
             commentCountMap={commentCountMap}
-            columnHeaderVisible={false}
+            columnHeaderHeight={0}
             freezeColumnCount={frozenColumnCount}
             customIcons={customIcons}
             getCellContent={getPrefillingCellContent}
@@ -1049,7 +1097,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             draggable={DraggableType.None}
             selectable={SelectableType.Cell}
             columns={columns}
-            columnHeaderVisible={false}
+            columnHeaderHeight={0}
             commentCountMap={commentCountMap}
             freezeColumnCount={frozenColumnCount}
             customIcons={customIcons}

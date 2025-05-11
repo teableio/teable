@@ -63,6 +63,7 @@ export const BLANK_REGION_DATA = {
 };
 
 const {
+  groupHeaderHeight,
   columnHeadPadding,
   columnResizeHandlerWidth,
   rowHeadIconPaddingTop,
@@ -85,6 +86,7 @@ export const getRegionData = (props: ICheckRegionProps): IRegionData => {
     checkIsAllCheckbox(props) ||
     checkIsAppendRow(props) ||
     checkIsRowHeader(props) ||
+    checkIsRowGroupHeader(props) ||
     // checkIsFillHandler(props) ||
     checkIsCell(props) ||
     checkIsColumnHeader(props) ||
@@ -298,7 +300,7 @@ const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
   const linearRow = props.getLinearRow(rowIndex);
 
   if (linearRow.type === LinearRowType.Group) {
-    return { ...BLANK_REGION_DATA, type: RegionType.RowGroupHeader };
+    return { ...BLANK_REGION_DATA, type: RegionType.RowGroupControl };
   }
 
   if (linearRow.type !== LinearRowType.Row) return null;
@@ -332,6 +334,31 @@ const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
   }
 
   return { ...BLANK_REGION_DATA, type: RegionType.RowHeader };
+};
+
+const checkIsRowGroupHeader = (props: ICheckRegionProps): IRegionData | null => {
+  const { position, scrollState, coordInstance, getLinearRow } = props;
+  const { scrollLeft } = scrollState;
+  const { x, y, rowIndex, columnIndex } = position;
+  if (rowIndex <= -1 || columnIndex !== 0) return null;
+
+  const { type } = getLinearRow(rowIndex);
+
+  if (type !== LinearRowType.Group) return null;
+
+  const columnWidth = coordInstance.getColumnWidth(columnIndex);
+  const columnOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
+
+  if (inRange(x, columnOffsetX, columnOffsetX + columnWidth)) {
+    return {
+      type: RegionType.RowGroupHeader,
+      x: columnOffsetX,
+      y,
+      width: columnWidth,
+      height: groupHeaderHeight,
+    };
+  }
+  return null;
 };
 
 // const checkIsFillHandler = (props: ICheckRegionProps): IRegionData | null => {

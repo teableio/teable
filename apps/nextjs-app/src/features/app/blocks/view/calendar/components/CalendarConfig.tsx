@@ -112,17 +112,23 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                     <SelectValue placeholder={t('sdk:editor.date.placeholder')} />
                   </SelectTrigger>
                   <SelectContent className="w-full">
-                    {filteredDateFields.map(({ id, type, name, isLookup, aiConfig }) => {
-                      const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
-                      return (
-                        <SelectItem key={id} value={id}>
-                          <div className="flex flex-row items-center text-[13px]">
-                            <Icon className="size-5 shrink-0 pr-1" />
-                            {name}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
+                    {filteredDateFields.map(
+                      ({ id, type, name, isLookup, aiConfig, canReadFieldRecord }) => {
+                        const { Icon } = fieldStaticGetter(type, {
+                          isLookup,
+                          hasAiConfig: Boolean(aiConfig),
+                          deniedReadRecord: !canReadFieldRecord,
+                        });
+                        return (
+                          <SelectItem key={id} value={id}>
+                            <div className="flex flex-row items-center text-[13px]">
+                              <Icon className="size-5 shrink-0 pr-1" />
+                              {name}
+                            </div>
+                          </SelectItem>
+                        );
+                      }
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -140,7 +146,10 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                 </SelectTrigger>
                 <SelectContent className="w-full">
                   {fields.map(({ id, type, name, isLookup, aiConfig }) => {
-                    const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
+                    const { Icon } = fieldStaticGetter(type, {
+                      isLookup,
+                      hasAiConfig: Boolean(aiConfig),
+                    });
                     return (
                       <SelectItem key={id} value={id}>
                         <div className="flex flex-row items-center text-[13px]">
@@ -194,7 +203,10 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                   </SelectTrigger>
                   <SelectContent className="w-full">
                     {filteredSelectFields.map(({ id, type, name, isLookup, aiConfig }) => {
-                      const { Icon } = fieldStaticGetter(type, isLookup, Boolean(aiConfig));
+                      const { Icon } = fieldStaticGetter(type, {
+                        isLookup,
+                        hasAiConfig: Boolean(aiConfig),
+                      });
                       return (
                         <SelectItem key={id} value={id}>
                           <div className="flex flex-row items-center text-[13px]">

@@ -114,7 +114,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     groupCollection,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
-    columnHeaderVisible,
+    columnHeaderHeight,
     collapsedGroupIds,
     collaborators,
     searchCursor,
@@ -136,12 +136,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onRowExpand,
     onRowOrdered,
     onCellEdited,
+    onCellDblClick,
     onSelectionChanged,
     onColumnFreeze,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
     onContextMenu,
+    onGroupHeaderContextMenu,
     onItemHovered,
     onItemClick,
     onColumnHeaderClick,
@@ -364,7 +366,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
       case RegionType.ColumnPrimaryIcon:
-      case RegionType.RowGroupHeader:
+      case RegionType.RowGroupControl:
       case RegionType.RowHeaderExpandHandler:
         return setCursor('pointer');
       case RegionType.ColumnFreezeHandler:
@@ -480,7 +482,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         }
         return;
       }
-      case RegionType.RowGroupHeader: {
+      case RegionType.RowGroupControl: {
         const { rowIndex } = mouseState;
         const linearRow = getLinearRow(rowIndex);
         if (linearRow.type !== LinearRowType.Group) return;
@@ -512,7 +514,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       isEqual(selectionRanges[0], [columnIndex, realIndex])
     ) {
       const cell = getCellContent([columnIndex, realIndex]) as IInnerCell;
-      if (cell.readonly) return;
+      if (cell.readonly) return onCellDblClick?.([columnIndex, realIndex]);
       editorContainerRef.current?.focus?.();
       return setEditing(true);
     }
@@ -665,9 +667,23 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const onContextMenuInner = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (event.cancelable) event.preventDefault();
-    if (onContextMenu == null) return;
     const mouseState = getMouseState();
-    onSelectionContextMenu(mouseState, (selection, position) => onContextMenu(selection, position));
+    const { type, x, y, rowIndex } = mouseState;
+
+    if (type === RegionType.RowGroupHeader || type === RegionType.RowGroupControl) {
+      const linearRow = getLinearRow(rowIndex);
+
+      if (linearRow.type !== LinearRowType.Group) return;
+
+      const { id: groupId } = linearRow;
+      return onGroupHeaderContextMenu?.(groupId, { x, y });
+    }
+
+    if (onContextMenu) {
+      onSelectionContextMenu(mouseState, (selection, position) =>
+        onContextMenu(selection, position)
+      );
+    }
   };
 
   const resetState = () => {
@@ -737,7 +753,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           rowIndexVisible={rowIndexVisible}
           columnResizeState={columnResizeState}
           columnFreezeState={columnFreezeState}
-          columnHeaderVisible={columnHeaderVisible}
+          columnHeaderHeight={columnHeaderHeight}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
           isRowAppendEnable={isRowAppendEnable}

@@ -53,7 +53,7 @@ export class SqliteProvider implements IDbProvider {
   }
 
   // make no-sense
-  getForeignKeysInfo(tableName: string): string {
+  getForeignKeysInfo(_tableName: string): string {
     return this.knex
       .raw(
         'SELECT NULL as constraint_name, NULL as column_name, NULL as referenced_column_name, NULL as referenced_table_schema, NULL as referenced_table_name WHERE 1=0'
@@ -484,5 +484,9 @@ export class SqliteProvider implements IDbProvider {
         builder.orWhereRaw('LOWER(??) LIKE LOWER(?)', [field, `%${value}%`]);
       });
     });
+  }
+
+  getTableIndexes(dbTableName: string): string {
+    return this.knex.raw(`PRAGMA index_list(??)`, [dbTableName]).toQuery();
   }
 }

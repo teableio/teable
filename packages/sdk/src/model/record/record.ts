@@ -2,8 +2,11 @@
 import type { IRecord } from '@teable/core';
 import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/core';
 import { updateRecord } from '@teable/openapi';
-import { isEqual } from 'lodash';
+import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { isEqual, isEmpty } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
+import { getHttpErrorMessage } from '../../context';
+import type { ILocaleFunction } from '../../context/app/i18n';
 import type { IFieldInstance } from '../field/factory';
 
 export class Record extends RecordCore {
@@ -35,6 +38,28 @@ export class Record extends RecordCore {
     return this._title.value;
   }
 
+  static isLocked(permissions: Record['permissions'], fieldId: string) {
+    if (!isEmpty(permissions)) {
+      return !permissions?.update?.[fieldId];
+    }
+    return false;
+  }
+
+  static isHidden(permissions: Record['permissions'], fieldId: string) {
+    if (!isEmpty(permissions)) {
+      return !permissions?.read?.[fieldId];
+    }
+    return false;
+  }
+
+  isLocked(fieldId: string) {
+    return Record.isLocked(this.permissions, fieldId);
+  }
+
+  isHidden(fieldId: string) {
+    return Record.isHidden(this.permissions, fieldId);
+  }
+
   private onCommitLocal(fieldId: string, cellValue: unknown, undo?: boolean) {
     const oldCellValue = this.fields[fieldId];
     const operation = RecordOpBuilder.editor.setRecord.build({
@@ -63,7 +88,11 @@ export class Record extends RecordCore {
     this.doc.emit('op batch', [], false);
   };
 
-  async updateCell(fieldId: string, cellValue: unknown) {
+  async updateCell(
+    fieldId: string,
+    cellValue: unknown,
+    localization?: { t: ILocaleFunction; prefix?: string }
+  ) {
     const oldCellValue = this.fields[fieldId];
     try {
       this.onCommitLocal(fieldId, cellValue);
@@ -87,6 +116,11 @@ export class Record extends RecordCore {
       }
     } catch (error) {
       this.onCommitLocal(fieldId, oldCellValue, true);
+
+      if (error instanceof Error && localization) {
+        toast.error(getHttpErrorMessage(error, localization.t, localization.prefix));
+      }
+
       return error;
     }
   }

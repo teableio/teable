@@ -7,6 +7,7 @@ import type {
   ICreateBaseRo,
   IDuplicateBaseRo,
   IGetBasePermissionVo,
+  IMoveBaseRo,
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
@@ -305,11 +306,6 @@ export class BaseService {
     );
   }
 
-  // duplicate a base for template snapshot, not allow cross base field relative, all cross base link field will be duplicated as single text fields
-  async duplicateBaseForTemplate(duplicateBaseRo: IDuplicateBaseRo) {
-    return await this.baseDuplicateService.duplicateBase(duplicateBaseRo, false);
-  }
-
   private async checkBaseUpdatePermission(baseId: string) {
     // First check if the user has the base read permission
     await this.permissionService.validPermissions(baseId, ['base|update']);
@@ -318,6 +314,15 @@ export class BaseService {
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId) {
       await this.permissionService.validPermissions(baseId, ['base|update'], accessTokenId);
+    }
+  }
+
+  private async checkBaseCreatePermission(spaceId: string) {
+    await this.permissionService.validPermissions(spaceId, ['base|create']);
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      await this.permissionService.validPermissions(spaceId, ['base|create'], accessTokenId);
     }
   }
 
@@ -428,6 +433,16 @@ export class BaseService {
         resourceId: baseId,
         resourceType: ResourceType.Base,
       },
+    });
+  }
+
+  async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
+    const { spaceId } = moveBaseRo;
+    // check if has the permission to create base in the target space
+    await this.checkBaseCreatePermission(spaceId);
+    await this.prismaService.base.update({
+      where: { id: baseId },
+      data: { spaceId },
     });
   }
 }

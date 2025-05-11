@@ -11,7 +11,7 @@ import {
   FileExcel,
   Copy,
 } from '@teable/icons';
-import { duplicateTable, SUPPORTEDTYPE } from '@teable/openapi';
+import { duplicateTable, PinType, SUPPORTEDTYPE } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase, useBasePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
@@ -36,6 +36,7 @@ import React, { useMemo, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../hooks/useDownLoad';
 import { TableImport } from '../import-table';
+import { StarButton } from '../space/space-side-bar/StarButton';
 
 interface ITableOperationProps {
   className?: string;
@@ -131,7 +132,12 @@ export const TableOperation = (props: ITableOperationProps) => {
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div onMouseDown={(e) => e.stopPropagation()}>
+    <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+      <StarButton
+        className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200/80"
+        id={table.id}
+        type={PinType.Table}
+      />
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <div>

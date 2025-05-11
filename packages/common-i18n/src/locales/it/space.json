@@ -12,7 +12,7 @@
     "duplicate": "Duplica \"{{baseName}}\"",
     "createBaseFromTemplate": "Crea base da modello",
     "duplicateRecords": "Duplica record",
-    "duplicateRecordsTip": "La cronologia delle revisioni non sarà duplicata.",
+    "duplicateRecordsTip": "La cronologia delle revisioni e i collaboratori non saranno duplicati.",
     "toSpace": "Allo spazio",
     "copyToSpace": "Copia nello spazio",
     "duplicateBase": "Duplica base",
@@ -21,7 +21,9 @@
     "copyingTemplate": "Creazione della base da modello in corso, potrebbe richiedere del tempo...",
     "howToCreate": "Come vuoi iniziare?",
     "fromScratch": "Da zero",
-    "fromTemplate": "Da modello"
+    "fromTemplate": "Da modello",
+    "moveBaseToAnotherSpace": "Sposta {{baseName}} in un altro spazio",
+    "chooseSpace": "Scegli uno spazio"
   },
   "spaceSetting": {
     "title": "Impostazioni dello spazio",
@@ -39,7 +41,8 @@
     "empty": "Le tue basi e spazi preferiti appariranno qui"
   },
   "tip": {
-    "delete": "Sei sicuro di voler eliminare <0/>?"
+    "delete": "Sei sicuro di voler eliminare <0/>?",
+    "exportTips": "L’esportazione del database esporterà tutti i dati, inclusi tutti i record e gli allegati. Il processo di esportazione verrà eseguito in background e il risultato sarà notificato nella barra delle notifiche. Nota:\n1. Tutti i campi collegati tra database verranno convertiti in campi di testo su una sola riga.\n2. Le impostazioni del personale con autorizzazioni avanzate verranno cancellate, ma le configurazioni rimarranno."
   },
   "sharedBase": {
     "title": "Basi condivise",

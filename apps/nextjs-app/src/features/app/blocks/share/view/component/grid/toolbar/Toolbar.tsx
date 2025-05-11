@@ -1,4 +1,4 @@
-import { type IGridViewOptions } from '@teable/core';
+import type { RowHeightLevel, IGridViewOptions } from '@teable/core';
 import { ArrowUpDown, EyeOff, Filter as FilterIcon, LayoutList } from '@teable/icons';
 import { useView, RowHeight, Group, HideFields } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -11,7 +11,13 @@ import { Sort } from './Sort';
 export const Toolbar = () => {
   const view = useView();
 
-  const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
+  const {
+    onFilterChange,
+    onRowHeightChange,
+    onSortChange,
+    onGroupChange,
+    onFieldNameDisplayLinesChange,
+  } = useToolbarChange();
 
   if (!view) {
     return <></>;
@@ -75,8 +81,12 @@ export const Toolbar = () => {
         )}
       </Group>
       <RowHeight
-        rowHeight={(view?.options as IGridViewOptions)?.rowHeight || null}
-        onChange={onRowHeightChange}
+        rowHeight={(view?.options as IGridViewOptions)?.rowHeight}
+        fieldNameDisplayLines={(view?.options as IGridViewOptions)?.fieldNameDisplayLines}
+        onChange={(type, value) => {
+          if (type === 'rowHeight') onRowHeightChange(value as RowHeightLevel);
+          if (type === 'fieldNameDisplayLines') onFieldNameDisplayLinesChange(value as number);
+        }}
       >
         {(_, isActive, Icon) => (
           <ToolBarButton isActive={isActive}>

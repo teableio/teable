@@ -23,6 +23,7 @@ import {
   and,
   CellFormat,
   CellValueType,
+  DbFieldType,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -43,12 +44,13 @@ import type {
   IGetRecordQuery,
   IGetRecordsRo,
   IGroupHeaderPoint,
+  IGroupHeaderRef,
   IGroupPoint,
   IGroupPointsVo,
   IRecordStatusVo,
   IRecordsVo,
 } from '@teable/openapi';
-import { GroupPointType, UploadType } from '@teable/openapi';
+import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { get, difference, keyBy, orderBy, uniqBy, toNumber } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -77,6 +79,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { TableIndexService } from '../table/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
+import { RecordPermissionService } from './record-permission.service';
 import { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
@@ -106,6 +109,7 @@ export class RecordService {
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentStorageService: AttachmentsStorageService,
+    private readonly recordPermissionService: RecordPermissionService,
     private readonly tableIndexService: TableIndexService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -312,7 +316,6 @@ export class RecordService {
   async buildLinkCandidateQuery(
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
-    dbTableName: string,
     filterLinkCellCandidate: [string, string] | string
   ) {
     const prisma = this.prismaService.txClient();
@@ -373,11 +376,12 @@ export class RecordService {
     filter?: IFilter,
     orderBy?: ISortItem[],
     groupBy?: IGroup,
-    search?: [string, string?, boolean?]
+    search?: [string, string?, boolean?],
+    projection?: string[]
   ) {
     if (filter || orderBy?.length || groupBy?.length || search) {
       // The field Meta is needed to construct the filter if it exists
-      const fields = await this.getFieldsByProjection(tableId);
+      const fields = await this.getFieldsByProjection(tableId, this.convertProjection(projection));
       return fields.reduce(
         (map, field) => {
           map[field.id] = field;
@@ -433,19 +437,35 @@ export class RecordService {
 
   async prepareQuery(
     tableId: string,
-    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'search'>
+    query: Pick<
+      IGetRecordsRo,
+      | 'viewId'
+      | 'orderBy'
+      | 'groupBy'
+      | 'filter'
+      | 'search'
+      | 'filterLinkCellSelected'
+      | 'ignoreViewQuery'
+    >
   ) {
+    const viewId = query.ignoreViewQuery ? undefined : query.viewId;
     const {
-      viewId,
       orderBy: extraOrderBy,
       groupBy: extraGroupBy,
       filter: extraFilter,
       search: originSearch,
     } = query;
-
     const dbTableName = await this.getDbTableName(tableId);
+    const { viewCte, builder, enabledFieldIds } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        viewId: query.viewId,
+        keepPrimaryKey: Boolean(query.filterLinkCellSelected),
+      }
+    );
 
-    const queryBuilder = this.knex(dbTableName);
+    const queryBuilder = builder.from(viewCte ?? dbTableName);
 
     const view = await this.getTinyView(tableId, viewId);
 
@@ -457,7 +477,8 @@ export class RecordService {
       filter,
       orderBy,
       groupBy,
-      originSearch
+      originSearch,
+      enabledFieldIds
     );
 
     const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
@@ -465,6 +486,7 @@ export class RecordService {
     return {
       queryBuilder,
       dbTableName,
+      viewCte,
       filter,
       search,
       orderBy,
@@ -513,16 +535,15 @@ export class RecordService {
       | 'collapsedGroupIds'
       | 'selectedRecordIds'
     >
-  ): Promise<Knex.QueryBuilder> {
+  ) {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
-      await this.prepareQuery(tableId, {
-        ...query,
-        viewId: query.ignoreViewQuery ? undefined : query.viewId,
-      });
+    const { dbTableName, queryBuilder, viewCte, filter, search, orderBy, groupBy, fieldMap } =
+      await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
+
+    const viewQueryDbTableName = viewCte ?? dbTableName;
 
     if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
       throw new BadRequestException(
@@ -532,24 +553,19 @@ export class RecordService {
 
     if (query.selectedRecordIds) {
       query.filterLinkCellCandidate
-        ? queryBuilder.whereNotIn(`${dbTableName}.__id`, query.selectedRecordIds)
-        : queryBuilder.whereIn(`${dbTableName}.__id`, query.selectedRecordIds);
+        ? queryBuilder.whereNotIn(`${viewQueryDbTableName}.__id`, query.selectedRecordIds)
+        : queryBuilder.whereIn(`${viewQueryDbTableName}.__id`, query.selectedRecordIds);
     }
 
     if (query.filterLinkCellCandidate) {
-      await this.buildLinkCandidateQuery(
-        queryBuilder,
-        tableId,
-        dbTableName,
-        query.filterLinkCellCandidate
-      );
+      await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
     }
 
     if (query.filterLinkCellSelected) {
       await this.buildLinkSelectedQuery(
         queryBuilder,
         tableId,
-        dbTableName,
+        viewQueryDbTableName,
         query.filterLinkCellSelected
       );
     }
@@ -558,7 +574,6 @@ export class RecordService {
     this.dbProvider
       .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
       .appendQueryBuilder();
-
     // Add sorting rules to the query builder
     this.dbProvider
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
@@ -574,17 +589,21 @@ export class RecordService {
 
     // ignore sorting when filterLinkCellSelected is set
     if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
-      await this.buildLinkSelectedSort(queryBuilder, dbTableName, query.filterLinkCellSelected);
+      await this.buildLinkSelectedSort(
+        queryBuilder,
+        viewQueryDbTableName,
+        query.filterLinkCellSelected
+      );
     } else {
       const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
       // view sorting added by default
-      queryBuilder.orderBy(`${dbTableName}.${basicSortIndex}`, 'asc');
+      queryBuilder.orderBy(`${viewQueryDbTableName}.${basicSortIndex}`, 'asc');
     }
 
     this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
-    return { queryBuilder, dbTableName };
+    return { queryBuilder, dbTableName, viewCte };
   }
 
   convertProjection(fieldKeys?: string[]) {
@@ -594,13 +613,14 @@ export class RecordService {
     }, {});
   }
 
-  async getRecordsById(tableId: string, recordIds: string[]): Promise<IRecordsVo> {
-    const recordSnapshot = await this.getSnapshotBulk(
-      tableId,
-      recordIds,
-      undefined,
-      FieldKeyType.Id
-    );
+  async getRecordsById(
+    tableId: string,
+    recordIds: string[],
+    withPermission = true
+  ): Promise<IRecordsVo> {
+    const recordSnapshot = await this[
+      withPermission ? 'getSnapshotBulkWithPermission' : 'getSnapshotBulk'
+    ](tableId, recordIds, undefined, FieldKeyType.Id);
 
     if (!recordSnapshot.length) {
       throw new NotFoundException('Can not get records');
@@ -687,7 +707,7 @@ export class RecordService {
       ? this.convertProjection(query.projection)
       : await this.getViewProjection(tableId, query);
 
-    const recordSnapshot = await this.getSnapshotBulk(
+    const recordSnapshot = await this.getSnapshotBulkWithPermission(
       tableId,
       queryResult.ids,
       projection,
@@ -701,15 +721,16 @@ export class RecordService {
     };
   }
 
-  async getRecord(tableId: string, recordId: string, query: IGetRecordQuery): Promise<IRecord> {
+  async getRecord(
+    tableId: string,
+    recordId: string,
+    query: IGetRecordQuery,
+    withPermission = true
+  ): Promise<IRecord> {
     const { projection, fieldKeyType = FieldKeyType.Name, cellFormat } = query;
-    const recordSnapshot = await this.getSnapshotBulk(
-      tableId,
-      [recordId],
-      this.convertProjection(projection),
-      fieldKeyType,
-      cellFormat
-    );
+    const recordSnapshot = await this[
+      withPermission ? 'getSnapshotBulkWithPermission' : 'getSnapshotBulk'
+    ](tableId, [recordId], this.convertProjection(projection), fieldKeyType, cellFormat);
 
     if (!recordSnapshot.length) {
       throw new NotFoundException('Can not get record');
@@ -1079,7 +1100,6 @@ export class RecordService {
     const dbTableName = await this.getDbTableName(tableId);
 
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
-
     await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
@@ -1264,18 +1284,22 @@ export class RecordService {
     );
   }
 
-  async getSnapshotBulk(
-    tableId: string,
-    recordIds: string[],
-    projection?: { [fieldNameOrId: string]: boolean },
-    fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
-    cellFormat = CellFormat.Json
+  private async getSnapshotBulkInner(
+    builder: Knex.QueryBuilder,
+    viewQueryDbTableName: string,
+    query: {
+      tableId: string;
+      recordIds: string[];
+      projection?: { [fieldNameOrId: string]: boolean };
+      fieldKeyType: FieldKeyType;
+      cellFormat: CellFormat;
+    }
   ): Promise<ISnapshotBase<IRecord>[]> {
-    const dbTableName = await this.getDbTableName(tableId);
-
+    const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldNames = fields.map((f) => f.dbFieldName).concat(Array.from(preservedDbFieldNames));
-    const nativeQuery = this.knex(dbTableName)
+    const nativeQuery = builder
+      .from(viewQueryDbTableName)
       .select(fieldNames)
       .whereIn('__id', recordIds)
       .toQuery();
@@ -1337,6 +1361,48 @@ export class RecordService {
     return snapshots;
   }
 
+  async getSnapshotBulkWithPermission(
+    tableId: string,
+    recordIds: string[],
+    projection?: { [fieldNameOrId: string]: boolean },
+    fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
+    cellFormat = CellFormat.Json
+  ) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const { viewCte, builder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        keepPrimaryKey: true,
+      }
+    );
+    const viewQueryDbTableName = viewCte ?? dbTableName;
+    return this.getSnapshotBulkInner(builder, viewQueryDbTableName, {
+      tableId,
+      recordIds,
+      projection,
+      fieldKeyType,
+      cellFormat,
+    });
+  }
+
+  async getSnapshotBulk(
+    tableId: string,
+    recordIds: string[],
+    projection?: { [fieldNameOrId: string]: boolean },
+    fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
+    cellFormat = CellFormat.Json
+  ): Promise<ISnapshotBase<IRecord>[]> {
+    const dbTableName = await this.getDbTableName(tableId);
+    return this.getSnapshotBulkInner(this.knex.queryBuilder(), dbTableName, {
+      tableId,
+      recordIds,
+      projection,
+      fieldKeyType,
+      cellFormat,
+    });
+  }
+
   async getDocIdsByQuery(
     tableId: string,
     query: IGetRecordsRo
@@ -1352,18 +1418,23 @@ export class RecordService {
     }
 
     const viewId = ignoreViewQuery ? undefined : query.viewId;
-    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, {
+    const {
+      groupPoints,
+      allGroupHeaderRefs,
+      filter: filterWithGroup,
+    } = await this.getGroupRelatedData(tableId, {
       ...query,
       viewId,
     });
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
+    const { queryBuilder, dbTableName, viewCte } = await this.buildFilterSortQuery(tableId, {
       ...query,
       filter: filterWithGroup,
     });
+    const selectDbTableName = viewCte ?? dbTableName;
 
-    queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
+    queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
 
-    queryBuilder.offset(skip);
+    skip && queryBuilder.offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
@@ -1374,23 +1445,37 @@ export class RecordService {
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
 
+    const {
+      builder: searchWrapBuilder,
+      viewCte: searchViewCte,
+      enabledFieldIds,
+    } = await this.recordPermissionService.wrapView(tableId, this.knex.queryBuilder(), {
+      keepPrimaryKey: Boolean(query.filterLinkCellSelected),
+      viewId,
+    });
     // this search step should not abort the query
+    const searchBuilder = searchViewCte
+      ? searchWrapBuilder.from(searchViewCte)
+      : this.knex(dbTableName);
     try {
       const searchHitIndex = await this.getSearchHitIndex(
         tableId,
         {
           ...query,
+          projection: query.projection
+            ? query.projection.filter((id) => enabledFieldIds?.includes(id))
+            : enabledFieldIds,
           viewId,
         },
-        dbTableName,
-        ids
+        searchBuilder.whereIn('__id', ids),
+        enabledFieldIds
       );
-      return { ids, extra: { groupPoints, searchHitIndex } };
+      return { ids, extra: { groupPoints, searchHitIndex, allGroupHeaderRefs } };
     } catch (e) {
       this.logger.error(`Get search index error: ${(e as Error).message}`, (e as Error)?.stack);
     }
 
-    return { ids, extra: { groupPoints } };
+    return { ids, extra: { groupPoints, allGroupHeaderRefs } };
   }
 
   async getSearchFields(
@@ -1401,10 +1486,9 @@ export class RecordService {
   ) {
     const maxSearchFieldCount = process.env.MAX_SEARCH_FIELD_COUNT
       ? toNumber(process.env.MAX_SEARCH_FIELD_COUNT)
-      : 20;
+      : DEFAULT_MAX_SEARCH_FIELD_COUNT;
     let viewColumnMeta: IGridColumnMeta | null = null;
-    const fieldInstanceMap = { ...originFieldInstanceMap };
-
+    const fieldInstanceMap = projection?.length === 0 ? {} : { ...originFieldInstanceMap };
     if (!search) {
       return [] as IFieldInstance[];
     }
@@ -1491,8 +1575,8 @@ export class RecordService {
   private async getSearchHitIndex(
     tableId: string,
     query: IGetRecordsRo,
-    dbTableName: string,
-    Ids: string[]
+    builder: Knex.QueryBuilder,
+    enabledFieldIds?: string[]
   ) {
     const { search, viewId, projection, ignoreViewQuery } = query;
 
@@ -1501,7 +1585,11 @@ export class RecordService {
     }
 
     const fieldsRaw = await this.prismaService.field.findMany({
-      where: { tableId, deletedTime: null },
+      where: {
+        tableId,
+        deletedTime: null,
+        ...(enabledFieldIds ? { id: { in: enabledFieldIds } } : {}),
+      },
     });
     const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
     const fieldInstanceMap = fieldInstances.reduce(
@@ -1525,9 +1613,7 @@ export class RecordService {
     }
 
     const newQuery = this.knex
-      .with('current_page_records', (qb) => {
-        qb.select('*').from(dbTableName).whereIn('__id', Ids);
-      })
+      .with('current_page_records', builder)
       .with('search_index', (qb) => {
         this.dbProvider.searchIndexQuery(
           qb,
@@ -1543,7 +1629,6 @@ export class RecordService {
         );
       })
       .from('search_index');
-
     const result = await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(
       newQuery.toQuery()
     );
@@ -1603,10 +1688,8 @@ export class RecordService {
       filterLinkCellSelected,
     });
     queryBuilder.select(fieldNames.concat('__id'));
-    queryBuilder.offset(skip);
-    if (take !== -1) {
-      queryBuilder.limit(take);
-    }
+    skip && queryBuilder.offset(skip);
+    take !== -1 && take && queryBuilder.limit(take);
 
     const result = await this.prismaService
       .txClient()
@@ -1631,6 +1714,11 @@ export class RecordService {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
 
+    // only text field support type cast to title
+    if (field.dbFieldType !== DbFieldType.Text) {
+      return [];
+    }
+
     const queryBuilder = this.knex(dbTableName)
       .select({ title: field.dbFieldName, id: '__id' })
       .whereIn(field.dbFieldName, titles);
@@ -1642,20 +1730,29 @@ export class RecordService {
 
   async getRecordsHeadWithIds(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
-    const field = await this.prismaService.txClient().field.findFirst({
+    const fieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { tableId, isPrimary: true, deletedTime: null },
     });
-    if (!field) {
+    if (!fieldRaw) {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
 
+    const field = createFieldInstanceByRaw(fieldRaw);
+
     const queryBuilder = this.knex(dbTableName)
-      .select({ title: field.dbFieldName, id: '__id' })
+      .select({ title: fieldRaw.dbFieldName, id: '__id' })
       .whereIn('__id', recordIds);
 
     const querySql = queryBuilder.toQuery();
 
-    return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; title: unknown }[]>(querySql);
+
+    return result.map((r) => ({
+      id: r.id,
+      title: field.cellValue2String(r.title),
+    }));
   }
 
   async filterRecordIdsByFilter(
@@ -1663,12 +1760,12 @@ export class RecordService {
     recordIds: string[],
     filter?: IFilter | null
   ): Promise<string[]> {
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
+    const { queryBuilder, dbTableName, viewCte } = await this.buildFilterSortQuery(tableId, {
       filter,
     });
-
-    queryBuilder.whereIn(`${dbTableName}.__id`, recordIds);
-    queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
+    const dbName = viewCte ?? dbTableName;
+    queryBuilder.whereIn(`${dbName}.__id`, recordIds);
+    queryBuilder.select(this.knex.ref(`${dbName}.__id`));
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
@@ -1689,6 +1786,8 @@ export class RecordService {
     rowCount: number
   ) {
     const groupPoints: IGroupPoint[] = [];
+    const allGroupHeaderRefs: IGroupHeaderRef[] = [];
+    const collapsedGroupIdsSet = new Set(collapsedGroupIds);
     let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
     let curRowCount = 0;
     let collapsedDepth = Number.MAX_SAFE_INTEGER;
@@ -1698,13 +1797,18 @@ export class RecordService {
       const { __c: count } = item;
 
       for (let index = 0; index < groupFields.length; index++) {
-        if (index > collapsedDepth) break;
-
         const field = groupFields[index];
         const { id, dbFieldName } = field;
         const fieldValue = convertValueToStringify(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) continue;
+
+        const flagString = `${id}_${[...fieldValues.slice(0, index), fieldValue].join('_')}`;
+        const groupId = String(string2Hash(flagString));
+
+        allGroupHeaderRefs.push({ id: groupId, depth: index });
+
+        if (index > collapsedDepth) break;
 
         // Reset the collapsedDepth when encountering the next peer grouping
         collapsedDepth = Number.MAX_SAFE_INTEGER;
@@ -1712,9 +1816,7 @@ export class RecordService {
         fieldValues[index] = fieldValue;
         fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
 
-        const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
-        const groupId = String(string2Hash(flagString));
-        const isCollapsedInner = collapsedGroupIds?.includes(groupId) ?? false;
+        const isCollapsedInner = collapsedGroupIdsSet.has(groupId) ?? false;
         let value = field.convertDBValue2CellValue(fieldValue);
 
         if (field.type === FieldType.Attachment) {
@@ -1752,7 +1854,10 @@ export class RecordService {
       );
     }
 
-    return groupPoints;
+    return {
+      groupPoints,
+      allGroupHeaderRefs,
+    };
   }
 
   private getFilterByCollapsedGroup({
@@ -1864,10 +1969,11 @@ export class RecordService {
       ignoreViewQuery,
     } = query || {};
     let groupPoints: IGroupPoint[] = [];
+    let allGroupHeaderRefs: IGroupHeaderRef[] = [];
 
-    const groupBy = parseGroup(extraGroupBy);
+    const fullGroupBy = parseGroup(extraGroupBy);
 
-    if (!groupBy?.length) {
+    if (!fullGroupBy?.length) {
       return {
         groupPoints,
         filter,
@@ -1876,20 +1982,38 @@ export class RecordService {
 
     const viewId = ignoreViewQuery ? undefined : query?.viewId;
     const viewRaw = await this.getTinyView(tableId, viewId);
+    const { viewCte, builder, enabledFieldIds } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        keepPrimaryKey: Boolean(query?.filterLinkCellSelected),
+        viewId,
+      }
+    );
     const fieldInstanceMap = (await this.getNecessaryFieldMap(
       tableId,
       filter,
       undefined,
-      groupBy,
-      search
+      fullGroupBy,
+      search,
+      enabledFieldIds
     ))!;
+    const groupBy = fullGroupBy.filter((item) => fieldInstanceMap[item.fieldId]);
+
+    if (!groupBy?.length) {
+      return {
+        groupPoints,
+        filter,
+      };
+    }
+
     const dbTableName = await this.getDbTableName(tableId);
 
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
     const groupFieldIds = groupBy.map((item) => item.fieldId);
 
-    const queryBuilder = this.knex(dbTableName);
+    const queryBuilder = builder.from(viewCte ?? dbTableName);
 
     if (mergedFilter) {
       const withUserId = this.cls.get('user.id');
@@ -1912,7 +2036,7 @@ export class RecordService {
     queryBuilder.count({ __c: '*' }).limit(this.thresholdConfig.maxGroupPoints);
 
     const groupSql = queryBuilder.toQuery();
-    const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
+    const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]).filter(Boolean);
     const rowCount = await this.getRowCountByFilter(
       dbTableName,
       fieldInstanceMap,
@@ -1927,13 +2051,14 @@ export class RecordService {
         await this.prismaService.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
           groupSql
         );
-
-      groupPoints = await this.groupDbCollection2GroupPoints(
+      const pointsResult = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
         collapsedGroupIds,
         rowCount
       );
+      groupPoints = pointsResult.groupPoints;
+      allGroupHeaderRefs = pointsResult.allGroupHeaderRefs;
     } catch (error) {
       console.log(`Get group points error in table ${tableId}: `, error);
     }
@@ -1945,7 +2070,7 @@ export class RecordService {
       collapsedGroupIds,
     });
 
-    return { groupPoints, filter: mergeFilter(filter, filterWithCollapsed) };
+    return { groupPoints, allGroupHeaderRefs, filter: mergeFilter(filter, filterWithCollapsed) };
   }
 
   async getRecordStatus(

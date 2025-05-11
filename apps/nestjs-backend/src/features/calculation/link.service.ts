@@ -1197,7 +1197,6 @@ export class LinkService {
         }
       });
     });
-
     return cellContextsMap;
   }
 

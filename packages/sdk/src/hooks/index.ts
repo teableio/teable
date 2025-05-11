@@ -28,7 +28,6 @@ export * from './use-field-permission';
 export * from './use-notification';
 export * from './use-group-point';
 export * from './use-permission-actions-static';
-export * from './use-field-cell-editable';
 export * from './use-permission-update-listener';
 export * from './use-presence';
 export * from './use-table-listener';

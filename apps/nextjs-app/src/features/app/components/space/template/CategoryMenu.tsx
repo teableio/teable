@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { ITemplateCategoryListVo } from '@teable/openapi';
 import { getPublishedTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
@@ -15,14 +16,22 @@ interface ICategoryMenuProps {
   onCategoryChange: (category: string) => void;
   className?: string;
   categoryHeaderRender?: () => React.ReactNode;
+  serverPublishedTemplateCategoryList?: ITemplateCategoryListVo[];
 }
 
 export const CategoryMenu = (props: ICategoryMenuProps) => {
-  const { currentCategoryId, onCategoryChange, className, categoryHeaderRender } = props;
+  const {
+    currentCategoryId,
+    onCategoryChange,
+    className,
+    categoryHeaderRender,
+    serverPublishedTemplateCategoryList,
+  } = props;
   const { t } = useTranslation('common');
   const { data: categoryList } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
+    initialData: serverPublishedTemplateCategoryList,
   });
 
   const isMobile = useIsMobile();

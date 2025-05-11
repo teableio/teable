@@ -35,6 +35,7 @@ import {
   shareViewFormSubmit,
   deleteView,
   PrincipalType,
+  createBase,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -52,6 +53,7 @@ import {
   getField,
   deleteField,
   convertField,
+  permanentDeleteBase,
 } from './utils/init-app';
 
 const formViewRo: IViewRo = {
@@ -71,7 +73,8 @@ describe('OpenAPI ShareController (e2e)', () => {
   let tableId: string;
   let shareId: string;
   let viewId: string;
-  const baseId = globalThis.testConfig.baseId;
+  let baseId: string;
+  const spaceId = globalThis.testConfig.spaceId;
   const userId = globalThis.testConfig.userId;
   const userName = globalThis.testConfig.userName;
   const userEmail = globalThis.testConfig.email;
@@ -82,7 +85,10 @@ describe('OpenAPI ShareController (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     anonymousUser = createAnonymousUserAxios(appCtx.appUrl);
-
+    baseId = await createBase({
+      name: 'share-e2e',
+      spaceId,
+    }).then((res) => res.data.id);
     const table = await createTable(baseId, { name: 'table1' });
 
     tableId = table.id;
@@ -99,8 +105,8 @@ describe('OpenAPI ShareController (e2e)', () => {
   });
 
   afterAll(async () => {
+    await permanentDeleteBase(baseId);
     await permanentDeleteTable(baseId, tableId);
-
     await app.close();
   });
 

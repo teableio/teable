@@ -110,10 +110,12 @@ export class ForeignKeyIntegrityService {
     return issues;
   }
 
-  async fix(tableId: string, fieldId: string): Promise<IIntegrityIssue | undefined> {
+  async fix(fieldId: string): Promise<IIntegrityIssue | undefined> {
     const field = await this.prismaService.field.findFirstOrThrow({
       where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
     });
+
+    const tableId = field.tableId;
 
     const options = JSON.parse(field.options as string) as ILinkFieldOptions;
     const { foreignTableId, fkHostTableName, foreignKeyName, selfKeyName } = options;
@@ -151,6 +153,7 @@ export class ForeignKeyIntegrityService {
     if (totalFixed > 0) {
       return {
         type: IntegrityIssueType.MissingRecordReference,
+        fieldId,
         message: `Fixed ${totalFixed} invalid references and inconsistent links for link field (Field Name: ${field.name}, Field ID: ${field.id})`,
       };
     }

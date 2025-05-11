@@ -145,7 +145,12 @@
     "short": "低",
     "medium": "中",
     "tall": "高",
-    "extraTall": "超高"
+    "extraTall": "超高",
+    "title": "行高配置"
+  },
+  "fieldNameConfig": {
+    "title": "列名配置",
+    "displayLines": "{{count}} 行"
   },
   "share": {
     "title": "共有"
@@ -729,10 +734,13 @@
     "gatewayTimeout": "ゲートウェイタイムアウト",
     "unknownErrorCode": "不明なエラーコード",
     "viewNotFound": "ビューが見つかりません",
+    "requestTimeout": "要求タイムアウト",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
       "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
-      "linkFieldValueDuplicate": "\"{{fieldName}}\" フィールドは同じレコードに複数の関連付けを許可しません。"
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" フィールドは同じレコードに複数の関連付けを許可しません。",
+      "requestTimeout": "操作範囲が大きすぎます。範囲を縮小して再試行してください。",
+      "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。"
     }
   }
 }

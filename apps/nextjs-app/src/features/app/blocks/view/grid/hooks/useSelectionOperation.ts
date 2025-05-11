@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { HttpError, IFieldVo } from '@teable/core';
+import { FieldType, fieldVoSchema, type HttpError } from '@teable/core';
 import type {
   ICopyVo,
   IPasteRo,
@@ -26,7 +26,7 @@ import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
-import { serializerHtml } from '@/features/app/utils/clipboard';
+import { serializerCellValueHtml, serializerHtml } from '@/features/app/utils/clipboard';
 import { tableConfig } from '@/features/i18n/table.config';
 import { selectionCoverAttachments } from '../utils';
 import {
@@ -209,6 +209,7 @@ export const useSelectionOperation = (props?: {
           const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
           if (!isSelectionCoverAttachments) {
             toast.error(t('table:table.actionTips.pasteFileFailed'), { id: toastId });
+            return;
           }
           await filePasteHandler({
             files,
@@ -217,16 +218,26 @@ export const useSelectionOperation = (props?: {
             recordMap,
             baseId,
             requestPaste: async (content, type, ranges) => {
+              const header = [
+                fieldVoSchema.parse(fields.find((f) => f.type === FieldType.Attachment)),
+              ];
               if (updateTemporaryData) {
-                const res = await temporaryPasteReq({ content, ranges });
+                const res = await temporaryPasteReq({
+                  content,
+                  ranges,
+                  header,
+                });
                 updateTemporaryData(res.data);
               } else {
-                await pasteReq({ content, type, ranges });
+                await pasteReq({ content, type, ranges, header });
               }
             },
           });
         } else {
           await textPasteHandler(e, selection, async (content, type, ranges, header) => {
+            if (!content) {
+              return;
+            }
             if (updateTemporaryData) {
               const res = await temporaryPasteReq({ content, ranges, header });
               updateTemporaryData(res.data);
@@ -297,18 +308,21 @@ export const useSelectionOperation = (props?: {
     ) => {
       const toastId = toast.loading(t('table:table.actionTips.copying'));
       try {
-        let content: string;
-        let header: IFieldVo[];
         if ('getCopyData' in params) {
           const data = params.getCopyData();
-          content = data.content;
-          header = data.header;
+          const content = data.content;
+          const header = data.header;
+          e.clipboardData.setData(ClipboardTypes.text, content);
+          e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
         } else if ('recordMap' in params && 'selection' in params) {
           const recordMap = params.recordMap;
           const selection = params.selection;
           const res = getSyncCopyData({ recordMap, fields, selection });
-          content = res.content;
-          header = res.header;
+          e.clipboardData.setData(ClipboardTypes.text, res.content);
+          e.clipboardData.setData(
+            ClipboardTypes.html,
+            serializerCellValueHtml(res.rawContent, res.headers)
+          );
         } else {
           toast.error(t('table:table.actionTips.copyFailed'), {
             description: 'Unsupported selection type',
@@ -316,8 +330,6 @@ export const useSelectionOperation = (props?: {
           });
           return;
         }
-        e.clipboardData.setData(ClipboardTypes.text, content);
-        e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
         e.preventDefault();
         toast.success(t('table:table.actionTips.copySuccessful'), { id: toastId });
       } catch (e) {

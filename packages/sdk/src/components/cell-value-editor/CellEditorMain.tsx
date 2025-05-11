@@ -8,7 +8,6 @@ import type {
   IMultipleSelectCellValue,
   INumberCellValue,
   IRatingFieldOptions,
-  ISelectFieldChoice,
   ISelectFieldOptions,
   ISingleLineTextCellValue,
   ISingleLineTextFieldOptions,
@@ -16,9 +15,10 @@ import type {
   IUserCellValue,
   IUserFieldOptions,
 } from '@teable/core';
-import { ColorUtils, FieldType } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { updateRecord } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
-import { useFieldOperations, useTableId } from '../../hooks';
+import { useTableId } from '../../hooks';
 import { transformSelectOptions } from '../cell-value';
 import {
   AttachmentEditor,
@@ -38,7 +38,6 @@ import type { ICellValueEditor } from './type';
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
   const { field, recordId, cellValue, onChange, readonly, className, context } = props;
   const tableId = useTableId();
-  const { convertField } = useFieldOperations();
   const { id: fieldId, type, options } = field;
   const editorRef = useRef<IEditorRef<unknown>>(null);
 
@@ -47,26 +46,27 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
   }, [cellValue]);
 
   const onOptionAdd = useCallback(
-    async (name: string) => {
-      if (!tableId) return;
+    async (curValue: string | string[] | undefined, name: string) => {
+      if (!tableId || !recordId) return;
       if (type !== FieldType.SingleSelect && type !== FieldType.MultipleSelect) return;
+      const appendValue =
+        type === FieldType.SingleSelect
+          ? name
+          : curValue
+            ? [...(curValue as string[]), name]
+            : [name];
 
-      const { choices = [] } = options as ISelectFieldOptions;
-      const existColors = choices.map((v) => v.color);
-      const choice = {
-        name,
-        color: ColorUtils.randomColor(existColors)[0],
-      } as ISelectFieldChoice;
-
-      const newChoices = [...choices, choice];
-
-      await convertField(tableId, fieldId, {
-        type,
-        options: { ...options, choices: newChoices },
+      await updateRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        record: {
+          fields: {
+            [fieldId]: appendValue,
+          },
+        },
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tableId, type, fieldId, options]
+    [tableId, recordId, type, fieldId]
   );
 
   switch (type) {

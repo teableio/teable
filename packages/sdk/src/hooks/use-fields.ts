@@ -2,15 +2,11 @@ import { ViewType } from '@teable/core';
 import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
-import { TablePermissionContext } from '../context/table-permission';
 import { useView } from './use-view';
 
 export function useFields(options: { withHidden?: boolean; withDenied?: boolean } = {}) {
   const { withHidden, withDenied } = options;
   const { fields: originFields } = useContext(FieldContext);
-  const {
-    field: { fields: fieldsPermission },
-  } = useContext(TablePermissionContext);
 
   const view = useView();
   const { type: viewType, columnMeta } = view ?? {};
@@ -22,7 +18,7 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
       return sortedFields;
     }
 
-    return sortedFields.filter(({ id }) => {
+    return sortedFields.filter(({ id, canReadFieldRecord }) => {
       const isHidden = () => {
         if (withHidden) {
           return true;
@@ -38,13 +34,13 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
         return !columnMeta?.[id]?.hidden;
       };
       const hasPermission = () => {
-        if (withDenied || fieldsPermission[id]?.['field|read']) {
+        if (withDenied) {
           return true;
         }
-        return false;
+        return canReadFieldRecord;
       };
       return isHidden() && hasPermission();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originFields, withHidden, viewType, fieldsPermission, JSON.stringify(columnMeta)]);
+  }, [originFields, withHidden, viewType, JSON.stringify(columnMeta)]);
 }

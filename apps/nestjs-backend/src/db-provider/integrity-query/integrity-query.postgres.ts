@@ -160,11 +160,11 @@ export class IntegrityQueryPostgres extends IntegrityQueryAbstract {
               WHEN ?? IS NULL THEN NULL
               ELSE jsonb_build_object(
                 'id', ??,
-                'title', ??
+                'title', (SELECT ?? FROM ?? WHERE __id = ??)
               )
             END
           `,
-            [foreignKeyName, foreignKeyName, lookupDbFieldName]
+            [foreignKeyName, foreignKeyName, lookupDbFieldName, foreignDbTableName, foreignKeyName]
           ),
         })
         .whereIn('__id', recordIds)

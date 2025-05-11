@@ -11,10 +11,10 @@ export const selectionCoverAttachments = (selection: CombinedSelection, fields: 
       const [start, end] = ranges;
       return fields
         .slice(start[0], end[0] + 1)
-        .every((field) => field.type === FieldType.Attachment);
+        .every((field) => field.type === FieldType.Attachment && !field.isComputed);
     }
     case SelectionRegionType.Rows: {
-      return fields.every((field) => field.type === FieldType.Attachment);
+      return fields.every((field) => field.type === FieldType.Attachment && !field.isComputed);
     }
     case SelectionRegionType.Columns: {
       let allFieldsAreAttachments = true;
@@ -23,7 +23,7 @@ export const selectionCoverAttachments = (selection: CombinedSelection, fields: 
         const end = ranges[i][1];
         const fieldsInRange = fields.slice(start, end + 1);
         const areAllAttachments = fieldsInRange.every(
-          (field) => field.type === FieldType.Attachment
+          (field) => field.type === FieldType.Attachment && !field.isComputed
         );
         if (!areAllAttachments) {
           allFieldsAreAttachments = false;

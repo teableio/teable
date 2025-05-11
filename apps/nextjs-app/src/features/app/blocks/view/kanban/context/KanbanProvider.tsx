@@ -45,7 +45,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
-  const fieldPermission = useFieldPermission(stackFieldId);
+  const fieldPermission = useFieldPermission();
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const groupPoints = useGroupPoint();
 
@@ -102,6 +102,8 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     ? shareViewCollaborators
     : (baseCollaborators?.collaborators as UserCollaboratorItem[]);
 
+  const stackFieldRecordEditable = stackField?.canReadFieldRecord;
+
   const kanbanPermission = useMemo(() => {
     return {
       stackCreatable: Boolean(fieldPermission['field|update']),
@@ -111,9 +113,11 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       cardCreatable: Boolean(permission['record|create']),
       cardEditable: Boolean(permission['record|update']),
       cardDeletable: Boolean(permission['record|delete']),
-      cardDraggable: Boolean(permission['record|update'] && permission['view|update']),
+      cardDraggable: Boolean(
+        permission['record|update'] && permission['view|update'] && stackFieldRecordEditable
+      ),
     };
-  }, [permission, fieldPermission]);
+  }, [permission, fieldPermission, stackFieldRecordEditable]);
 
   const stackCollection = useMemo(() => {
     if (groupPoints == null || stackField == null) return;
@@ -122,6 +126,10 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     const isDisabledStackField = type === FieldType.Attachment;
 
     if (isDisabledStackField) return;
+
+    if (!stackFieldRecordEditable) {
+      return [UNCATEGORIZED_STACK_DATA];
+    }
 
     const stackList: { id: string; count: number; data: unknown }[] = [];
     const stackMap: Record<string, { id: string; count: number; data: unknown }> = {};
@@ -198,7 +206,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return stackList;
-  }, [groupPoints, isEmptyStackHidden, stackField, userList]);
+  }, [groupPoints, isEmptyStackHidden, stackField, userList, stackFieldRecordEditable]);
 
   const coverField = useMemo(() => {
     if (!coverFieldId) return;

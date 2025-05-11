@@ -16,8 +16,9 @@ import {
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
 import { deleteFields, duplicateField } from '@teable/openapi';
-import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
+import type { GridView } from '@teable/sdk';
 import {
+  useFieldPermission,
   useFields,
   useGridViewStore,
   useIsTouchDevice,
@@ -26,7 +27,6 @@ import {
   useView,
 } from '@teable/sdk';
 import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
-import { TablePermissionContext } from '@teable/sdk/context/table-permission';
 import { insertSingle } from '@teable/sdk/utils';
 
 import {
@@ -43,9 +43,8 @@ import {
   SheetContent,
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
-import { merge } from 'lodash';
 import { useTranslation } from 'next-i18next';
-import { Fragment, useContext, useMemo, useRef } from 'react';
+import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -77,28 +76,12 @@ export const FieldMenu = () => {
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const permission = useTablePermission();
-  const fieldsPermission = useContext(TablePermissionContext)?.field.fields;
+  const menuFieldPermission = useFieldPermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
-
-  const menuFieldPermission = useMemo(() => {
-    if (!fields?.length || !fieldsPermission) {
-      return {};
-    }
-    let permissions: Partial<Record<IUseFieldPermissionAction, boolean>> =
-      fieldsPermission[fields[0].id];
-    fields.slice(1).forEach((f) => {
-      permissions = merge(
-        permissions,
-        fieldsPermission[f.id],
-        (value1: boolean, value2: boolean) => value1 && value2
-      );
-    });
-    return permissions;
-  }, [fields, fieldsPermission]);
 
   const { mutateAsync: duplicateFieldFn } = useMutation({
     mutationFn: ({

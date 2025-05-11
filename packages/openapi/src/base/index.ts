@@ -22,3 +22,4 @@ export * from './collaborator-add';
 export * from './collaborator-get-list-user';
 export * from './export';
 export * from './import';
+export * from './move';

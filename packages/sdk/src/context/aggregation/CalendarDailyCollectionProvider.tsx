@@ -32,15 +32,8 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
   const isEnabled = Boolean(startDate && endDate && startDateFieldId && endDateFieldId);
 
   const calenderDailyCollectionQuery = useMemo(() => {
-    const {
-      startDate,
-      endDate,
-      startDateFieldId,
-      endDateFieldId,
-      viewId,
-      filter,
-      ignoreViewQuery,
-    } = query ?? {};
+    const { startDate, endDate, startDateFieldId, endDateFieldId, filter, ignoreViewQuery } =
+      query ?? {};
     return {
       viewId,
       search: searchQuery,
@@ -51,7 +44,7 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
       filter: shareId ? viewFilter : filter,
       ignoreViewQuery,
     };
-  }, [query, searchQuery, shareId, viewFilter]);
+  }, [query, viewId, searchQuery, shareId, viewFilter]);
 
   const queryKey = useMemo(
     () =>

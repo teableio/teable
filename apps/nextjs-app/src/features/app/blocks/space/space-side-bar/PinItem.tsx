@@ -1,53 +1,46 @@
-import { Component, Database } from '@teable/icons';
-import type { IGetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import { ViewType } from '@teable/core';
+import { Component, Database, Table2 } from '@teable/icons';
+import type { IGetPinListVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { VIEW_ICON_MAP } from '../../view/constant';
 import { ItemButton } from './ItemButton';
 
 interface IPinItemProps {
   className?: string;
   right?: React.ReactNode;
   pin: IGetPinListVo[number];
-  baseMap: { [key in string]: IGetBaseVo };
-  spaceMap: { [key in string]: IGetSpaceVo };
 }
 
 export const PinItem = (props: IPinItemProps) => {
-  const { className, pin, baseMap, spaceMap, right } = props;
+  const { className, pin, right } = props;
   const router = useRouter();
 
   switch (pin.type) {
     case PinType.Space: {
-      const space = spaceMap[pin.id];
-      if (!space) {
-        return <div />;
-      }
       return (
-        <ItemButton isActive={router.query.spaceId === space.id} className={className}>
+        <ItemButton isActive={router.query.spaceId === pin.id} className={className}>
           <Link
             className="gap-1"
             href={{
               pathname: '/space/[spaceId]',
               query: {
-                spaceId: space.id,
+                spaceId: pin.id,
               },
             }}
-            title={space.name}
+            title={pin.name}
           >
             <Component className="size-4 shrink-0" />
-            <p className="grow truncate">{space.name}</p>
+            <p className="grow truncate">{pin.name}</p>
             {right}
           </Link>
         </ItemButton>
       );
     }
     case PinType.Base: {
-      const base = baseMap[pin.id];
-      if (!base) {
-        return <div />;
-      }
       return (
         <ItemButton className={className}>
           <Link
@@ -55,24 +48,79 @@ export const PinItem = (props: IPinItemProps) => {
             href={{
               pathname: '/base/[baseId]',
               query: {
-                baseId: base.id,
+                baseId: pin.id,
               },
             }}
-            title={base.name}
+            title={pin.name}
           >
-            {base.icon ? (
+            {pin.icon ? (
               <div className="size-4 shrink-0 text-[3.5rem] leading-none">
-                <Emoji emoji={base.icon} size={16} />
+                <Emoji emoji={pin.icon} size={16} />
               </div>
             ) : (
               <Database className="size-4 shrink-0" />
             )}
-            <p className="grow truncate">{base.name}</p>
+            <p className="grow truncate">{pin.name}</p>
             {right}
           </Link>
         </ItemButton>
       );
     }
+    case PinType.Table: {
+      return (
+        <ItemButton className={className}>
+          <Link
+            href={{
+              pathname: '/base/[baseId]/[tableId]',
+              query: { baseId: pin.parentBaseId, tableId: pin.id },
+            }}
+            title={pin.name}
+          >
+            {pin.icon ? (
+              <div className="size-4 shrink-0 text-[3.5rem] leading-none">
+                <Emoji emoji={pin.icon} size={16} />
+              </div>
+            ) : (
+              <Table2 className="size-4 shrink-0" />
+            )}
+            <p className="grow truncate">{pin.name}</p>
+            {right}
+          </Link>
+        </ItemButton>
+      );
+    }
+    case PinType.View: {
+      if (!pin.viewMeta) {
+        return;
+      }
+      const ViewIcon = VIEW_ICON_MAP[pin.viewMeta.type];
+      return (
+        <ItemButton className={className}>
+          <Link
+            href={{
+              pathname: '/base/[baseId]/[tableId]/[viewId]',
+              query: { baseId: pin.parentBaseId, tableId: pin.viewMeta.tableId, viewId: pin.id },
+            }}
+            title={pin.name}
+          >
+            {pin.viewMeta?.type === ViewType.Plugin && pin.viewMeta?.pluginLogo ? (
+              <Image
+                className="mr-1 size-4 shrink-0"
+                width={16}
+                height={16}
+                src={pin.viewMeta?.pluginLogo}
+                alt={pin.name}
+              />
+            ) : (
+              <ViewIcon className="size-4 shrink-0" />
+            )}
+            <p className="grow truncate">{pin.name}</p>
+            {right}
+          </Link>
+        </ItemButton>
+      );
+    }
+
     default:
       return <div>unknown</div>;
   }

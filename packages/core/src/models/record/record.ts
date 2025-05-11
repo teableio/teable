@@ -26,9 +26,11 @@ export class RecordCore {
 
   isDeleted = false;
 
-  isDenied = false;
-
   fields!: Record<string, unknown>;
+
+  permissions?: Record<'read' | 'update', Record<string, boolean>>;
+
+  undeletable?: boolean;
 
   getCellValue(fieldId: string): unknown {
     return this.fields[fieldId];
@@ -61,6 +63,12 @@ export const recordSchema = z.object({
   }),
   lastModifiedBy: z.string().optional().openapi({
     description: 'Last modified by, user name',
+  }),
+  permissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional().openapi({
+    description: 'Permissions for the record',
+  }),
+  undeletable: z.boolean().optional().openapi({
+    description: 'Whether the record is undeletable',
   }),
 });
 

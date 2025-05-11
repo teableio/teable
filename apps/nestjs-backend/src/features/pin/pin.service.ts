@@ -1,16 +1,23 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  PinType,
-  IGetPinListVo,
-  AddPinRo,
-  DeletePinRo,
-  UpdatePinOrderRo,
-} from '@teable/openapi';
+import { OnEvent } from '@nestjs/event-emitter';
+import { nullsToUndefined, type ViewType } from '@teable/core';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import type { IGetPinListVo, AddPinRo, DeletePinRo, UpdatePinOrderRo } from '@teable/openapi';
+import { PinType, UploadType } from '@teable/openapi';
+import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import type {
+  BaseDeleteEvent,
+  SpaceDeleteEvent,
+  TableDeleteEvent,
+  ViewDeleteEvent,
+} from '../../event-emitter/events';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class PinService {
@@ -78,11 +85,137 @@ export class PinService {
         order: 'asc',
       },
     });
-    return list.map((item) => ({
-      id: item.resourceId,
-      type: item.type as PinType,
-      order: item.order,
-    }));
+    const baseIds: string[] = [];
+    const spaceIds: string[] = [];
+    const tableIds: string[] = [];
+    const viewIds: string[] = [];
+    list.forEach((item) => {
+      switch (item.type) {
+        case PinType.Base:
+          baseIds.push(item.resourceId);
+          break;
+        case PinType.Space:
+          spaceIds.push(item.resourceId);
+          break;
+        case PinType.Table:
+          tableIds.push(item.resourceId);
+          break;
+        case PinType.View:
+          viewIds.push(item.resourceId);
+          break;
+      }
+    });
+    const baseList = baseIds.length
+      ? await this.prismaService.base.findMany({
+          where: {
+            id: { in: baseIds },
+            deletedTime: null,
+          },
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+          },
+        })
+      : [];
+    const spaceList = spaceIds.length
+      ? await this.prismaService.space.findMany({
+          where: { id: { in: spaceIds }, deletedTime: null },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+      : [];
+    const tableList = tableIds.length
+      ? await this.prismaService.tableMeta.findMany({
+          where: { id: { in: tableIds }, deletedTime: null },
+          select: {
+            id: true,
+            name: true,
+            baseId: true,
+            icon: true,
+          },
+        })
+      : [];
+    const viewList = viewIds.length
+      ? await this.prismaService.$queryRaw<
+          {
+            id: string;
+            name: string;
+            base_id: string;
+            table_id: string;
+            type: ViewType;
+            options: string;
+          }[]
+        >(Prisma.sql`
+      SELECT view.id, view.name, table_meta.base_id as base_id, table_meta.id as table_id, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
+    `)
+      : [];
+    const spaceMap = keyBy(spaceList, 'id');
+    const baseMap = keyBy(baseList, 'id');
+    const tableMap = keyBy(tableList, 'id');
+    const viewMap = keyBy(viewList, 'id');
+    const getResource = (type: PinType, resourceId: string) => {
+      switch (type) {
+        case PinType.Base:
+          return baseMap[resourceId]
+            ? {
+                name: baseMap[resourceId].name,
+                icon: baseMap[resourceId].icon,
+              }
+            : undefined;
+        case PinType.Space:
+          return spaceMap[resourceId]
+            ? {
+                name: spaceMap[resourceId].name,
+              }
+            : undefined;
+        case PinType.Table:
+          return tableMap[resourceId]
+            ? {
+                name: tableMap[resourceId].name,
+                parentBaseId: tableMap[resourceId].baseId,
+                icon: tableMap[resourceId].icon,
+              }
+            : undefined;
+        case PinType.View: {
+          const view = viewMap[resourceId];
+          if (!view) {
+            return undefined;
+          }
+          const pluginLogo = view.options ? JSON.parse(view.options)?.pluginLogo : undefined;
+          return {
+            name: view.name,
+            parentBaseId: view.base_id,
+            viewMeta: {
+              tableId: view.table_id,
+              type: view.type,
+              pluginLogo: pluginLogo
+                ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), pluginLogo)
+                : undefined,
+            },
+          };
+        }
+        default:
+          return undefined;
+      }
+    };
+    return list
+      .map((item) => {
+        const { resourceId, type, order } = item;
+        const resource = getResource(type as PinType, resourceId);
+        if (!resource) {
+          return undefined;
+        }
+        return {
+          id: resourceId,
+          type: type as PinType,
+          order,
+          ...nullsToUndefined(resource),
+        };
+      })
+      .filter(Boolean) as IGetPinListVo;
   }
 
   async updateOrder(data: UpdatePinOrderRo) {
@@ -149,5 +282,28 @@ export class PinService {
         });
       },
     });
+  }
+
+  @OnEvent(Events.TABLE_VIEW_DELETE, { async: true })
+  @OnEvent(Events.TABLE_DELETE, { async: true })
+  @OnEvent(Events.BASE_DELETE, { async: true })
+  @OnEvent(Events.SPACE_DELETE, { async: true })
+  protected async resourceDeleteListener(
+    listenerEvent: ViewDeleteEvent | TableDeleteEvent | BaseDeleteEvent | SpaceDeleteEvent
+  ) {
+    switch (listenerEvent.name) {
+      case Events.TABLE_VIEW_DELETE:
+        await this.deletePin({ id: listenerEvent.payload.viewId, type: PinType.View });
+        break;
+      case Events.TABLE_DELETE:
+        await this.deletePin({ id: listenerEvent.payload.tableId, type: PinType.Table });
+        break;
+      case Events.BASE_DELETE:
+        await this.deletePin({ id: listenerEvent.payload.baseId, type: PinType.Base });
+        break;
+      case Events.SPACE_DELETE:
+        await this.deletePin({ id: listenerEvent.payload.spaceId, type: PinType.Space });
+        break;
+    }
   }
 }

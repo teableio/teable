@@ -2,6 +2,7 @@ import type { IDateFieldOptions } from '@teable/core';
 import { TimeFormatting } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import { DateEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
@@ -17,6 +18,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   const options = field.options as IDateFieldOptions;
   const timeFormatting = options?.formatting?.time;
   const editorRef = useRef<IEditorRef<string>>(null);
+  const { t } = useTranslation();
 
   const attachStyle = useGridPopupPosition(rect);
 
@@ -28,12 +30,12 @@ const GridDateEditorBase: ForwardRefRenderFunction<
 
   const setDateTime = useCallback(
     (selectedDayStr?: string | null) => {
-      record.updateCell(field.id, selectedDayStr ?? null);
+      record.updateCell(field.id, selectedDayStr ?? null, { t });
       if (timeFormatting === TimeFormatting.None) {
         setEditing?.(false);
       }
     },
-    [field.id, record, setEditing, timeFormatting]
+    [field.id, record, setEditing, timeFormatting, t]
   );
 
   return (

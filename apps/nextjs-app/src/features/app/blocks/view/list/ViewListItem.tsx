@@ -1,5 +1,5 @@
 import { ViewType } from '@teable/core';
-import { Pencil, Trash2, Export, Copy, Lock } from '@teable/icons';
+import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
 import { useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import {
@@ -16,10 +16,12 @@ import { Unlock } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, Fragment, useEffect } from 'react';
 import { useDownload } from '../../../hooks/useDownLoad';
+import { usePinMap } from '../../space/usePinMap';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
+import { PinViewItem } from './PinViewItem';
 import { useDeleteView } from './useDeleteView';
 import { useDuplicateView } from './useDuplicateView';
 
@@ -40,11 +42,21 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const permission = useTablePermission();
   const { t } = useTranslation('table');
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const viewItemRef = useRef<HTMLDivElement>(null);
   const { trigger } = useDownload({
     downloadUrl: `/api/export/${tableId}?viewId=${view.id}`,
     key: 'view',
   });
   const { resetSearchHandler } = useGridSearchStore();
+
+  useEffect(() => {
+    isActive &&
+      setTimeout(() => {
+        viewItemRef.current?.scrollIntoView({
+          behavior: 'smooth',
+        });
+      }, 0);
+  }, [isActive]);
 
   const navigateHandler = () => {
     resetSearchHandler?.();
@@ -58,6 +70,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
     );
   };
   const ViewIcon = VIEW_ICON_MAP[view.type];
+  const pinMap = usePinMap();
+  const isPin = pinMap?.[view.id];
 
   const showViewMenu = !isEditing && (permission['view|delete'] || permission['view|update']);
 
@@ -80,6 +94,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       <div className="flex flex-1 items-center justify-center overflow-hidden">
         <div className="truncate text-xs font-medium leading-5">{view.name}</div>
       </div>
+      {isPin && <Star className="ml-1 size-4 shrink-0 fill-yellow-400 text-yellow-400" />}
       {isEditing && (
         <Input
           type="text"
@@ -110,6 +125,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
 
   return (
     <div
+      ref={viewItemRef}
       role="button"
       tabIndex={0}
       className={cn(
@@ -218,6 +234,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                   </Button>
                 </>
               )}
+              <PinViewItem viewId={view.id} />
               {permission['view|delete'] && (
                 <>
                   <Separator className="my-0.5" />
