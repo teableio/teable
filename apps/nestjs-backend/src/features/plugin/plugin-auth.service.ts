@@ -14,7 +14,9 @@ import {
   type IPluginRefreshTokenRo,
   type IPluginRefreshTokenVo,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
+import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
 import { validateSecret } from './utils';
@@ -34,7 +36,8 @@ export class PluginAuthService {
     private readonly prismaService: PrismaService,
     private readonly cacheService: CacheService,
     private readonly accessTokenService: AccessTokenService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   private generateAccessToken({
@@ -75,7 +78,18 @@ export class PluginAuthService {
   private async validateSecret(secret: string, pluginId: string) {
     const plugin = await this.prismaService.plugin
       .findFirstOrThrow({
-        where: { id: pluginId, status: PluginStatus.Published },
+        where: {
+          id: pluginId,
+          OR: [
+            {
+              status: PluginStatus.Published,
+            },
+            {
+              status: { not: PluginStatus.Published },
+              createdBy: this.cls.get('user.id'),
+            },
+          ],
+        },
       })
       .catch(() => {
         throw new NotFoundException('Plugin not found');

@@ -171,7 +171,15 @@ export class DashboardService {
       .findFirstOrThrow({
         where: {
           id: pluginId,
-          status: PluginStatus.Published,
+          OR: [
+            {
+              status: PluginStatus.Published,
+            },
+            {
+              status: { not: PluginStatus.Published },
+              createdBy: this.cls.get('user.id'),
+            },
+          ],
         },
       })
       .catch(() => {
@@ -288,7 +296,15 @@ export class DashboardService {
             baseId,
             positionId: dashboardId,
             plugin: {
-              status: PluginStatus.Published,
+              OR: [
+                {
+                  status: PluginStatus.Published,
+                },
+                {
+                  status: { not: PluginStatus.Published },
+                  createdBy: this.cls.get('user.id'),
+                },
+              ],
             },
           },
         })
@@ -327,7 +343,15 @@ export class DashboardService {
         where: {
           id: pluginInstallId,
           plugin: {
-            status: PluginStatus.Published,
+            OR: [
+              {
+                status: PluginStatus.Published,
+              },
+              {
+                status: { not: PluginStatus.Published },
+                createdBy: this.cls.get('user.id'),
+              },
+            ],
           },
         },
       })

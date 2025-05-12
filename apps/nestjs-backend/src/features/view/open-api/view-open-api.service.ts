@@ -786,7 +786,18 @@ export class ViewOpenApiService {
     const userId = this.cls.get('user.id');
     const { name, pluginId } = ro;
     const plugin = await this.prismaService.txClient().plugin.findUnique({
-      where: { id: pluginId, status: PluginStatus.Published },
+      where: {
+        id: pluginId,
+        OR: [
+          {
+            status: PluginStatus.Published,
+          },
+          {
+            status: { not: PluginStatus.Published },
+            createdBy: this.cls.get('user.id'),
+          },
+        ],
+      },
       select: { id: true, name: true, logo: true, positions: true },
     });
     if (!plugin) {
