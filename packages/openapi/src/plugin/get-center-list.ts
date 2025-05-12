@@ -2,7 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
-import { PluginPosition, pluginCreatedBySchema, pluginI18nSchema } from './types';
+import { PluginPosition, PluginStatus, pluginCreatedBySchema, pluginI18nSchema } from './types';
 
 export const PLUGIN_CENTER_GET_LIST = '/plugin/center/list';
 
@@ -41,6 +41,7 @@ export const getPluginCenterListVoSchema = z.array(
     helpUrl: z.string().optional(),
     i18n: pluginI18nSchema.optional(),
     url: z.string().optional(),
+    status: z.nativeEnum(PluginStatus),
     createdTime: z.string(),
     lastModifiedTime: z.string().optional(),
     createdBy: pluginCreatedBySchema,

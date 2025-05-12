@@ -132,17 +132,15 @@ describe('PluginController', () => {
     expect(getRes.data.status).toBe(PluginStatus.Published);
   });
 
-  it('/api/admin/plugin/center/list (GET)', async () => {
-    const res = await createPlugin(mockPlugin);
+  it('/api/plugin/center/list (GET)', async () => {
     const preList = await getPluginCenterList();
-    await submitPlugin(res.data.id);
-    await publishPlugin(res.data.id);
-    const getRes = await getPluginCenterList();
+    const res = await createPlugin(mockPlugin);
+    const postList = await getPluginCenterList();
     await deletePlugin(res.data.id);
-
-    expect(getRes.data).toHaveLength(preList.data.length + 1);
-    const plugin = getRes.data.find((p) => p.id === res.data.id);
-    expect(plugin).not.toBeUndefined();
-    expect(getPluginCenterListVoSchema.safeParse(getRes.data).success).toBe(true);
+    expect(postList.data).toHaveLength(preList.data.length + 1);
+    expect(
+      postList.data.find((p) => p.status === PluginStatus.Developing && p.id === res.data.id)
+    ).not.toBeUndefined();
+    expect(getPluginCenterListVoSchema.safeParse(preList.data).success).toBe(true);
   });
 });

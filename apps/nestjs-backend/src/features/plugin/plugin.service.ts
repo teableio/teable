@@ -351,6 +351,7 @@ export class PluginService {
         description: true,
         detailDesc: true,
         logo: true,
+        status: true,
         url: true,
         helpUrl: true,
         i18n: true,
@@ -364,7 +365,15 @@ export class PluginService {
               id: { in: ids },
             }
           : {}),
-        status: PluginStatus.Published,
+        OR: [
+          {
+            status: PluginStatus.Published,
+          },
+          {
+            status: { not: PluginStatus.Published },
+            createdBy: this.cls.get('user.id'),
+          },
+        ],
         ...(positions?.length
           ? {
               OR: positions.map((position) => ({ positions: { contains: position } })),
@@ -377,6 +386,7 @@ export class PluginService {
     return res.map((r) =>
       nullsToUndefined({
         ...r,
+        status: r.status as PluginStatus,
         logo: this.logoToVoValue(r.logo),
         i18n: r.i18n ? (JSON.parse(r.i18n) as IPluginI18n) : undefined,
         createdBy: userMap[r.createdBy],
