@@ -43,6 +43,7 @@ export class BaseExportService {
     'order',
     'lookupOptions',
     'isLookup',
+    'aiConfig',
     // for formula field
     'dbFieldType',
     'cellValueType',

@@ -1,7 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
-import { DriverClient, FieldType, Relationship, Role, ViewType } from '@teable/core';
+import {
+  DriverClient,
+  FieldAIActionType,
+  FieldType,
+  Relationship,
+  Role,
+  ViewType,
+} from '@teable/core';
 import type { ICreateBaseVo, ICreateSpaceVo } from '@teable/openapi';
 import {
   CREATE_SPACE,
@@ -28,6 +35,8 @@ import {
   installPluginPanel,
   installViewPlugin,
   listPluginPanels,
+  LLMProviderType,
+  updateSetting,
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
@@ -331,6 +340,62 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     const records = await getRecords(newTable.id);
     expect(records.records[records.records.length - 1].autoNumber).toEqual(records.records.length);
     expect(records.records.length).toBe(4);
+    await deleteBase(dupResult.data.id);
+  });
+
+  it('should duplicate ai field relative config', async () => {
+    const tableWithAiField = await createTable(base.id, { name: 'table-ai-field' });
+
+    const aiSetting = (
+      await updateSetting({
+        aiConfig: {
+          enable: true,
+          llmProviders: [
+            {
+              apiKey: 'test-ai-config',
+              baseUrl: 'localhost:3000/api/test',
+              models: 'test-e2e',
+              name: 'test',
+              type: LLMProviderType.ANTHROPIC,
+            },
+          ],
+        },
+      })
+    ).data;
+
+    const codingModel = aiSetting.aiConfig?.llmProviders[0].models;
+
+    const aiField = (
+      await createField(tableWithAiField.id, {
+        name: 'ai field',
+        type: FieldType.SingleLineText,
+        aiConfig: {
+          attachPrompt: 'test-attach-prompt',
+          modelKey: codingModel,
+          sourceFieldId: tableWithAiField.fields[0].id,
+          type: FieldAIActionType.Summary,
+        },
+      })
+    ).data;
+
+    const dupResult = await duplicateBase({
+      fromBaseId: base.id,
+      spaceId: spaceId,
+      name: 'test base copy',
+      withRecords: true,
+    });
+
+    const tableList = await getTableList(dupResult.data.id);
+    const duplicatedTableWithAiField = tableList.data.find(
+      ({ name }) => name === tableWithAiField.name
+    );
+    const duplicatedFields = (await getFields(duplicatedTableWithAiField!.id)).data;
+    const duplicatedAiField = duplicatedFields.find((f) => f.aiConfig);
+    expect(duplicatedAiField?.aiConfig).toEqual({
+      ...aiField.aiConfig,
+      sourceFieldId: duplicatedFields[0].id,
+    });
+
     await deleteBase(dupResult.data.id);
   });
 
