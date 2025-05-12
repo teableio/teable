@@ -10,19 +10,22 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@teable/ui-lib/shadcn';
+import { isEqual } from 'lodash';
 import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Markdown } from './Markdown';
 
 interface IToolMessagePart {
+  id: string;
   part: UseChatHelpers['messages'][number]['parts'][number] & {
     type: 'tool-invocation';
   };
 }
 
-export const ToolMessagePart = ({ part }: IToolMessagePart) => {
+export const PureToolMessagePart = ({ id, part }: IToolMessagePart) => {
   const { toolInvocation } = part;
+
   const [isExpanded, setIsExpanded] = useState(false);
   const { t } = useTranslation(['table']);
 
@@ -72,12 +75,12 @@ export const ToolMessagePart = ({ part }: IToolMessagePart) => {
           <div className="space-y-2 px-3 text-muted-foreground">
             <div className="space-y-1">
               <div className="text-sm">{t('table:aiChat.tool.args')}: </div>
-              <ContentRenderer content={JSON.stringify(toolInvocation.args, null, 2)} />
+              <ContentRenderer id={id} content={JSON.stringify(toolInvocation.args, null, 2)} />
             </div>
             {isResult && (
               <div className="space-y-1">
                 <div className="text-sm">{t('table:aiChat.tool.result')}: </div>
-                <ToolsResultRenderer toolInvocation={toolInvocation} />
+                <ToolsResultRenderer id={id} toolInvocation={toolInvocation} />
               </div>
             )}
           </div>
@@ -88,8 +91,10 @@ export const ToolMessagePart = ({ part }: IToolMessagePart) => {
 };
 
 const ToolsResultRenderer = ({
+  id,
   toolInvocation,
 }: {
+  id: string;
   toolInvocation: IToolMessagePart['part']['toolInvocation'] & { state: 'result' };
 }) => {
   const result = toolInvocation.result?.['content']?.[0]?.text;
@@ -113,12 +118,13 @@ const ToolsResultRenderer = ({
     }
   }, [result, toolInvocation.result, toolInvocation.toolName]);
 
-  return <ContentRenderer content={content} />;
+  return <ContentRenderer id={id} content={content} />;
 };
 
-const ContentRenderer = ({ content }: { content: string }) => {
+const ContentRenderer = ({ id, content }: { id: string; content: string }) => {
   return (
     <Markdown
+      id={id}
       className="p-0"
       components={{
         pre(props) {
@@ -138,3 +144,7 @@ const ContentRenderer = ({ content }: { content: string }) => {
     >{`\`\`\`json\n${content}`}</Markdown>
   );
 };
+
+export const ToolMessagePart = memo(PureToolMessagePart, (prev, next) => {
+  return isEqual(prev.part, next.part);
+});

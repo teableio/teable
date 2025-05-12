@@ -1,4 +1,6 @@
 import { cn } from '@teable/ui-lib/shadcn';
+import { isEqual } from 'lodash';
+import { memo } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -20,3 +22,7 @@ export const MarkdownPreview = (props: {
     </Markdown>
   );
 };
+
+export const MemoizedContentMarkdownPreview = memo(MarkdownPreview, (prev, next) => {
+  return isEqual(prev.children, next.children);
+});

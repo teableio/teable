@@ -37,7 +37,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
       return [];
     }
     return (
-      chatMessage?.messages.map((message) => ({
+      chatMessage?.messages?.map((message) => ({
         id: message.id,
         role: message.role as UseChatHelpers['messages'][number]['role'],
         parts: message.parts as UseChatHelpers['messages'][number]['parts'],
@@ -45,7 +45,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
         createdAt: new Date(message.createdTime),
       })) ?? []
     );
-  }, [chatMessage, isActiveChat]);
+  }, [isActiveChat, chatMessage]);
 
   const { llmProviders = [], codingModel } = baseAiConfig ?? {};
   const models = useMemo(() => {
@@ -70,6 +70,9 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
       context,
     },
     onFinish: () => {
+      if (isActiveChat) {
+        return;
+      }
       queryClient.refetchQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) }).then(() => {
         setActiveChatId(chatId);
         chatIdRef.current = generateChatId();

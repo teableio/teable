@@ -26,6 +26,7 @@ export const Message = ({ message, isLoading }: IMessage) => {
             return (
               <TextMessagePart
                 key={index}
+                id={`${message.id}-text-${index}`}
                 part={part}
                 className="group-data-[role=user]/message:!bg-muted"
               />
@@ -40,7 +41,7 @@ export const Message = ({ message, isLoading }: IMessage) => {
               />
             );
           case 'tool-invocation':
-            return <ToolMessagePart key={index} part={part} />;
+            return <ToolMessagePart key={index} part={part} id={`${message.id}-tool-${index}`} />;
           default:
             return;
         }

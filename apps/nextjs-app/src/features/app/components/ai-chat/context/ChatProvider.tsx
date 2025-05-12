@@ -6,6 +6,13 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [context, setContext] = useState<IChatContext>({});
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
 
+  const updateContext = useCallback((context: IChatContext) => {
+    setContext({
+      ...context,
+      tableIds: context?.tableIds?.length ? context?.tableIds : undefined,
+    });
+  }, []);
+
   const clearActiveChatId = useCallback(() => {
     setActiveChatId(undefined);
   }, []);
@@ -17,7 +24,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         setActiveChatId,
         clearActiveChatId,
         context,
-        setContext,
+        setContext: updateContext,
       }}
     >
       {children}

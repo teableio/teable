@@ -1,23 +1,34 @@
 import { cn } from '@teable/ui-lib/shadcn';
 import { ExternalLink, ChevronDown } from 'lucide-react';
+import { marked } from 'marked';
 import { useTranslation } from 'next-i18next';
 import React, { memo, useState, useCallback, useEffect, useMemo } from 'react';
 import type { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import { MarkdownPreview } from '../../../mark-down-preview';
+import { MemoizedContentMarkdownPreview } from '../../../mark-down-preview';
+
+const parseMarkdownIntoBlocks = (markdown: string): string[] => {
+  const tokens = marked.lexer(markdown);
+  return tokens.map((token) => token.raw);
+};
 
 const NonMemoizedMarkdown = ({
+  id,
   children,
   className,
   components,
 }: {
+  id?: string;
   children: string;
   className?: string;
   components?: Components;
 }) => {
-  return (
-    <MarkdownPreview
+  const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children]);
+
+  return blocks.map((block, index) => (
+    <MemoizedContentMarkdownPreview
+      key={`${id || ''}-block_${index}`}
       className={cn('px-0 py-0 !text-[13px]', className)}
       components={{
         code(props) {
@@ -61,9 +72,9 @@ const NonMemoizedMarkdown = ({
         ...components,
       }}
     >
-      {children}
-    </MarkdownPreview>
-  );
+      {block}
+    </MemoizedContentMarkdownPreview>
+  ));
 };
 
 const MAX_VISIBLE_LINES = 25;
@@ -82,12 +93,6 @@ const HtmlCodeBlockInner = ({ code, className, ...rest }: { code: string; classN
   const [showAllCode, setShowAllCode] = useState(false);
   const [htmlComplete, setHtmlComplete] = useState(false);
   const { t } = useTranslation(['table']);
-
-  useEffect(() => {
-    if (htmlComplete) return;
-    const complete = isHtmlComplete(code);
-    setHtmlComplete(complete);
-  }, [code, htmlComplete]);
 
   const codeLines = useMemo(() => code.split('\n'), [code]);
   const isTruncated = codeLines.length > MAX_VISIBLE_LINES;
@@ -134,6 +139,13 @@ const HtmlCodeBlockInner = ({ code, className, ...rest }: { code: string; classN
   const toggleShowAllCode = useCallback(() => {
     setShowAllCode((prev) => !prev);
   }, []);
+
+  useEffect(() => {
+    if (htmlComplete) return;
+    const complete = isHtmlComplete(code);
+    setHtmlComplete(complete);
+    handleTabChange(complete ? 'preview' : 'code');
+  }, [code, handleTabChange, htmlComplete]);
 
   return (
     <div className="relative w-full overflow-hidden rounded-md">
