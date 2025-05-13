@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { RatingIcon } from '@teable/core';
-import { Check, DraggableHandle, Maximize2 } from '@teable/icons';
+import { Check, DraggableHandle, MagicAi, Maximize2 } from '@teable/icons';
 import { useMemo } from 'react';
 import { useFieldStaticGetter } from '../../../hooks/use-field-static-getter';
 import { FIELD_TYPE_ORDER, getSpriteMap } from '../../../utils';
 import { RATING_ICON_MAP } from '../../cell-value';
-import { MagicAI } from '../../comment/comment-editor/plate-ui/icons';
 import { RowControlType } from '../../grid/interface';
 
 export const useGridIcons = () => {
@@ -55,7 +54,7 @@ export const useGridIcons = () => {
     const aiIcons = getSpriteMap([
       {
         type: 'ai',
-        IconComponent: MagicAI,
+        IconComponent: MagicAi,
       },
     ]);
     return {

@@ -370,36 +370,6 @@ const LayoutIcon = (props: LucideProps) => (
   </svg>
 );
 
-export const MagicAI = (
-  props: LucideProps & {
-    active?: boolean;
-  }
-) => {
-  const { active = false, ...restProps } = props;
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      {...restProps}
-    >
-      <path
-        d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
-        fill={active ? '#FF7B72' : 'currentColor'}
-      />
-      <path
-        d="M19 2L20 4L22 5L20 6L19 8L18 6L16 5L18 4L19 2Z"
-        fill={active ? '#79C0FF' : 'currentColor'}
-      />
-      <path
-        d="M5 16L6 18L8 19L6 20L5 22L4 20L2 19L4 18L5 16Z"
-        fill={active ? '#7EE787' : 'currentColor'}
-      />
-    </svg>
-  );
-};
-
 export const Icons = {
   LayoutIcon,
   add: Plus,

@@ -2,9 +2,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IFieldAIConfig } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { ChevronDown, ChevronRight, HelpCircle } from '@teable/icons';
+import { ChevronDown, ChevronRight, HelpCircle, MagicAi } from '@teable/icons';
 import { getAIConfig } from '@teable/openapi';
-import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
 import { useBaseId } from '@teable/sdk/hooks';
 import {
   cn,
@@ -113,7 +112,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       onClick={() => setIsExpanded(!isExpanded)}
     >
       <div className="flex items-center gap-x-1">
-        <MagicAI className="size-4" active />
+        <MagicAi className="size-4 text-amber-500" />
         {t('table:field.aiConfig.title')}
       </div>
       {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
@@ -124,7 +123,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
         <TooltipTrigger asChild>
           <div className="group flex cursor-not-allowed select-none items-center justify-between rounded-sm bg-muted px-3 py-2">
             <div className="flex items-center gap-x-1">
-              <MagicAI className="size-4 text-gray-500" />
+              <MagicAi className="size-4 text-gray-500" />
               {t('table:field.aiConfig.title')}
             </div>
             {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}

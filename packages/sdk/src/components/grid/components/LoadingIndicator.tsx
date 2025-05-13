@@ -1,6 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { Square } from '@teable/icons';
-import { MagicAI } from '../../comment/comment-editor/plate-ui/icons';
+import { MagicAi, Square } from '@teable/icons';
 import type { ICellItem, IColumnLoading, IScrollState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
@@ -91,10 +90,10 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
             }}
           >
             <div className="absolute right-1 top-1 rounded-full bg-background">
-              <div className="absolute inset-1 animate-ping rounded-full bg-orange-500/30" />
-              <div className="absolute inset-0 animate-[spin_1.2s_linear_infinite] rounded-full border-2 border-dotted border-transparent border-t-orange-500" />
+              <div className="absolute inset-1 animate-ping rounded-full bg-amber-500/30" />
+              <div className="absolute inset-0 animate-[spin_1.2s_linear_infinite] rounded-full border-2 border-dotted border-transparent border-t-amber-500" />
               <div className="size-6 p-1">
-                <MagicAI className="size-4" active />
+                <MagicAi className="size-4 text-amber-500" />
               </div>
             </div>
           </div>

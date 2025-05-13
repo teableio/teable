@@ -5,6 +5,7 @@ import type { EditorSelection } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import type { FunctionName } from '@teable/core';
 import { FormulaLexer } from '@teable/core';
+import { MagicAi } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
 import { Button, cn } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
@@ -17,7 +18,6 @@ import { useTranslation } from '../../../context/app/i18n';
 import { useFieldStaticGetter, useFields } from '../../../hooks';
 import { useAIStream } from '../../../hooks/use-ai';
 import { FormulaField } from '../../../model';
-import { MagicAI } from '../../comment/comment-editor/plate-ui/icons';
 import type { ICodeEditorRef } from './components';
 import { CodeEditor, FunctionGuide, FunctionHelper } from './components';
 import {
@@ -365,9 +365,12 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                 onClick={handleGenerateFormula}
                 disabled={!isReadyToGenerate || loading}
               >
-                <MagicAI
-                  className={cn('size-4', loading && 'animate-[pulse_1s_ease-in-out_infinite]')}
-                  active={isReadyToGenerate || loading}
+                <MagicAi
+                  className={cn(
+                    'size-4',
+                    loading && 'animate-[pulse_1s_ease-in-out_infinite]',
+                    (isReadyToGenerate || loading) && 'text-amber-500'
+                  )}
                 />
               </Button>
               {error && (

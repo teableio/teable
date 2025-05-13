@@ -23,10 +23,10 @@ import {
   UserPlus as CreatedByIcon,
   UserEdit as LastModifiedByIcon,
   EyeOff,
+  MagicAi,
 } from '@teable/icons';
 
 import { useCallback } from 'react';
-import { MagicAI } from '../components/comment/comment-editor/plate-ui/icons';
 import { useTranslation } from '../context/app/i18n';
 import {
   AttachmentField,
@@ -73,7 +73,7 @@ export const useFieldStaticGetter = () => {
         if (deniedReadRecord)
           return (props: React.SVGProps<SVGSVGElement>) =>
             EyeOff({ ...props, color: 'hsl(var(--destructive))' });
-        if (hasAiConfig) return MagicAI;
+        if (hasAiConfig) return MagicAi;
         return isLookup ? SearchIcon : icon;
       };
 

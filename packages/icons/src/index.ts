@@ -1,5 +1,6 @@
 export { default as A } from './components/A';
 export { default as Admin } from './components/Admin';
+export { default as AiAction } from './components/AiAction';
 export { default as AlertCircle } from './components/AlertCircle';
 export { default as AlertTriangle } from './components/AlertTriangle';
 export { default as Anthropic } from './components/Anthropic';
@@ -105,6 +106,7 @@ export { default as ListOrdered } from './components/ListOrdered';
 export { default as Loader2 } from './components/Loader2';
 export { default as Lock } from './components/Lock';
 export { default as LongText } from './components/LongText';
+export { default as MagicAi } from './components/MagicAi';
 export { default as Mail } from './components/Mail';
 export { default as MarkUnread } from './components/MarkUnread';
 export { default as Maximize2 } from './components/Maximize2';

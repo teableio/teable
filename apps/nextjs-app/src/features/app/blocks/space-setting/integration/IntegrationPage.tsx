@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from '@teable/icons';
+import { MagicAi, Plus } from '@teable/icons';
 import type { IAIIntegrationConfig, ICreateIntegrationRo, LLMProvider } from '@teable/openapi';
 import {
   createIntegration,
@@ -8,7 +8,6 @@ import {
   IntegrationType,
   updateIntegration,
 } from '@teable/openapi';
-import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -65,7 +64,7 @@ export const IntegrationPage = () => {
       {
         type: IntegrationType.AI,
         name: t('space:integration.ai'),
-        Icon: MagicAI,
+        Icon: MagicAi,
       },
     ];
   }, [t]);
@@ -125,7 +124,7 @@ export const IntegrationPage = () => {
                           variant="ghost"
                           className="flex cursor-pointer items-center gap-2 p-2 hover:bg-gray-100"
                         >
-                          <Icon className="size-4" active />
+                          <Icon className="size-4 text-amber-500" />
                           {name}
                         </Button>
                       </NewLLMProviderForm>

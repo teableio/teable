@@ -3,7 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { IFieldVo } from '@teable/core';
 import { validateCellValue } from '@teable/core';
-import { ArrowRight, ChevronRight } from '@teable/icons';
+import { ArrowRight, ChevronRight, MagicAi } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
@@ -17,7 +17,6 @@ import type { IFieldInstance } from '../../model';
 import { CellValue } from '../cell-value';
 import { OverflowTooltip } from '../cell-value/components';
 import { CollaboratorWithHoverCard } from '../collaborator';
-import { MagicAI } from '../comment/comment-editor/plate-ui/icons';
 import { InfiniteTable } from '../table';
 
 interface IRecordHistoryProps {
@@ -97,7 +96,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                 avatar={
                   (id === 'aiRobot' ? (
                     <div className="flex size-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-orange-400">
-                      <MagicAI className="size-4" active />
+                      <MagicAi className="size-4 text-amber-500" />
                     </div>
                   ) : (
                     avatar

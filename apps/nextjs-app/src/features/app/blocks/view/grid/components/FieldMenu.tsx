@@ -13,6 +13,7 @@ import {
   LayoutList,
   ArrowUpDown,
   Copy,
+  MagicAi,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
 import { deleteFields, duplicateField } from '@teable/openapi';
@@ -26,7 +27,6 @@ import {
   useTablePermission,
   useView,
 } from '@teable/sdk';
-import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
 import { insertSingle } from '@teable/sdk/utils';
 
 import {
@@ -181,7 +181,7 @@ export const FieldMenu = () => {
       {
         type: MenuItemType.AutoFill,
         name: t('table:menu.autoFill'),
-        icon: <MagicAI className={iconClassName} />,
+        icon: <MagicAi className={iconClassName} />,
         hidden:
           !aiEnable || !fields[0].aiConfig || fieldIds.length !== 1 || !permission['record|update'],
         onClick: async () => {
