@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   createDashboard,
   createDashboardVoSchema,
@@ -29,10 +30,12 @@ describe('DashboardController', () => {
   let app: INestApplication;
   let dashboardId: string;
   const baseId = globalThis.testConfig.baseId;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    prisma = app.get(PrismaService);
   });
 
   beforeEach(async () => {
@@ -118,6 +121,14 @@ describe('DashboardController', () => {
         logo: 'https://logo.com',
         positions: [PluginPosition.Dashboard],
       });
+      const installRes = await installPlugin(baseId, dashboardId, {
+        name: 'dddd',
+        pluginId: res.data.id,
+      });
+      await prisma.plugin.update({
+        where: { id: res.data.id },
+        data: { createdBy: 'test-user' },
+      });
       const error = await getError(() =>
         installPlugin(baseId, dashboardId, {
           name: 'dddd',
@@ -126,6 +137,7 @@ describe('DashboardController', () => {
       );
       await deletePlugin(res.data.id);
       expect(error?.status).toBe(404);
+      expect(installRes.data.name).toBe('dddd');
     });
 
     it('/api/dashboard/:id/plugin/:pluginInstallId/rename (PATCH)', async () => {
