@@ -2,11 +2,11 @@ import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { IFieldVo } from '@teable/core';
-import { validateCellValue } from '@teable/core';
+import { FieldType, validateCellValue } from '@teable/core';
 import { ArrowRight, ChevronRight, MagicAi } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
-import { Button } from '@teable/ui-lib';
+import { Button, cn } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import type { ReactNode } from 'react';
 import { Fragment, useCallback, useMemo, useState } from 'react';
@@ -18,11 +18,14 @@ import { CellValue } from '../cell-value';
 import { OverflowTooltip } from '../cell-value/components';
 import { CollaboratorWithHoverCard } from '../collaborator';
 import { InfiniteTable } from '../table';
+import { CopyButton } from './components';
 
 interface IRecordHistoryProps {
   recordId?: string;
   onRecordClick?: (recordId: string) => void;
 }
+
+const SUPPORTED_COPY_FIELD_TYPES = [FieldType.SingleLineText, FieldType.LongText];
 
 export const RecordHistory = (props: IRecordHistoryProps) => {
   const { recordId, onRecordClick } = props;
@@ -95,7 +98,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                 name={name}
                 avatar={
                   (id === 'aiRobot' ? (
-                    <div className="flex size-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-orange-400">
+                    <div className="flex size-6 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-amber-500">
                       <MagicAi className="size-4 text-amber-500" />
                     </div>
                   ) : (
@@ -136,17 +139,27 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const validatedCellValue = validateCellValue(before.meta as IFieldVo, before.data);
           const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
           return (
-            <Fragment>
+            <div className={cn('group relative', actionVisible ? 'w-52' : 'w-[264px]')}>
               {cellValue != null ? (
-                <CellValue
-                  value={cellValue}
-                  field={before.meta as IFieldInstance}
-                  className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
-                />
+                <Fragment>
+                  <CellValue
+                    value={cellValue}
+                    field={before.meta as IFieldInstance}
+                    className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
+                  />
+                  {SUPPORTED_COPY_FIELD_TYPES.includes(before.meta.type) && (
+                    <CopyButton
+                      text={cellValue}
+                      size="xs"
+                      variant="outline"
+                      className="absolute right-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                    />
+                  )}
+                </Fragment>
               ) : (
                 <span className="text-gray-500">{t('common.empty')}</span>
               )}
-            </Fragment>
+            </div>
           );
         },
       },
@@ -171,17 +184,27 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const validatedCellValue = validateCellValue(after.meta as IFieldVo, after.data);
           const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
           return (
-            <Fragment>
+            <div className={cn('group relative', actionVisible ? 'w-52' : 'w-[264px]')}>
               {cellValue != null ? (
-                <CellValue
-                  value={cellValue}
-                  field={after.meta as IFieldInstance}
-                  className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
-                />
+                <Fragment>
+                  <CellValue
+                    value={cellValue}
+                    field={after.meta as IFieldInstance}
+                    className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
+                  />
+                  {SUPPORTED_COPY_FIELD_TYPES.includes(after.meta.type) && (
+                    <CopyButton
+                      text={cellValue}
+                      size="xs"
+                      variant="outline"
+                      className="absolute right-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                    />
+                  )}
+                </Fragment>
               ) : (
                 <span className="text-gray-500">{t('common.empty')}</span>
               )}
-            </Fragment>
+            </div>
           );
         },
       },
