@@ -33,6 +33,7 @@ export const getAiConfigSchema = (type: FieldType) => {
     case FieldType.Attachment:
       return attachmentFieldAIConfigSchema;
     case FieldType.Rating:
+    case FieldType.Number:
       return ratingFieldAIConfigSchema;
     default:
       return z.undefined();

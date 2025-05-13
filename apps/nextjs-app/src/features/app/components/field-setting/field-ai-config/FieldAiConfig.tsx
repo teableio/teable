@@ -39,6 +39,7 @@ const SUPPORTED_FIELD_TYPES = new Set([
   FieldType.MultipleSelect,
   FieldType.Attachment,
   FieldType.Rating,
+  FieldType.Number,
 ]);
 
 export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange }) => {
@@ -87,6 +88,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       case FieldType.Attachment:
         return <AttachmentFieldAiConfig field={field} onChange={onChange} />;
       case FieldType.Rating:
+      case FieldType.Number:
         return <RatingFieldAiConfig field={field} onChange={onChange} />;
       default:
         throw new Error(`Unsupported field type: ${fieldType}`);
