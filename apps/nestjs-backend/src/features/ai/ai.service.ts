@@ -14,7 +14,9 @@ import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
 import { IntegrationType, LLMProviderType, Task } from '@teable/openapi';
 import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
+import { createOllama } from 'ollama-ai-provider';
 import { createQwen } from 'qwen-ai-provider';
+import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { SettingService } from '../setting/setting.service';
 import { TASK_MODEL_MAP } from './constant';
 
@@ -22,7 +24,8 @@ import { TASK_MODEL_MAP } from './constant';
 export class AiService {
   constructor(
     private readonly settingService: SettingService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
 
   readonly modelProviders = {
@@ -38,6 +41,7 @@ export class AiService {
     [LLMProviderType.LINGYIWANWU]: createOpenAI,
     [LLMProviderType.XAI]: createXai,
     [LLMProviderType.TOGETHERAI]: createTogetherAI,
+    [LLMProviderType.OLLAMA]: createOllama,
   } as const;
 
   public parseModelKey(modelKey: string) {
@@ -87,10 +91,9 @@ export class AiService {
       throw new Error(`Unsupported AI provider: ${type}`);
     }
 
-    const modelProvider = provider({
-      baseURL: baseUrl,
-      apiKey,
-    });
+    const providerOptions =
+      type === LLMProviderType.OLLAMA ? { baseURL: baseUrl } : { baseURL: baseUrl, apiKey };
+    const modelProvider = provider(providerOptions);
 
     return isImageGeneration
       ? ((modelProvider as OpenAIProvider).image(model) as ReturnType<OpenAIProvider['image']>)
@@ -184,5 +187,24 @@ export class AiService {
       prompt: prompt,
     });
     return text;
+  }
+
+  async checkInstanceAIModel(modelKey: string): Promise<boolean> {
+    if (!this.baseConfig.isCloud) return false;
+
+    const { aiConfig } = await this.settingService.getSetting();
+
+    if (!aiConfig?.enable) return false;
+
+    const { llmProviders } = aiConfig;
+    const { type, model, name } = this.parseModelKey(modelKey);
+
+    const providerConfig = llmProviders.find(
+      (p) =>
+        p.name.toLowerCase() === name.toLowerCase() &&
+        p.type.toLowerCase() === type.toLowerCase() &&
+        p.models.includes(model)
+    );
+    return !!providerConfig;
   }
 }

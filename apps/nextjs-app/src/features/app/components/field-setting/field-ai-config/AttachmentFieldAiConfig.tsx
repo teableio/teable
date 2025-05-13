@@ -3,7 +3,7 @@ import type {
   IAttachmentFieldCustomizeAIConfig,
   IAttachmentFieldGenerateImageAIConfig,
 } from '@teable/core';
-import { FieldAIActionType, ImageQuality } from '@teable/core';
+import { FieldAIActionType, FieldType, ImageQuality } from '@teable/core';
 import { ImageGeneration, Pencil } from '@teable/icons';
 import { Selector } from '@teable/ui-lib/base';
 import { Slider, Textarea } from '@teable/ui-lib/shadcn';
@@ -132,6 +132,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             <div className="flex flex-col gap-y-2">
               <span>{t('table:field.aiConfig.label.sourceFieldForAttachment')}</span>
               <FieldSelect
+                excludeTypes={[FieldType.Attachment]}
                 selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.sourceFieldId}
                 onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
               />
@@ -142,7 +143,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             <Selector
               className="w-full"
               placeholder={t('table:field.aiConfig.placeholder.imageSize')}
-              selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.size}
+              selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.size || '1024x1024'}
               onChange={(id) => onConfigChange('size', id)}
               candidates={imageSizeCandidates}
             />

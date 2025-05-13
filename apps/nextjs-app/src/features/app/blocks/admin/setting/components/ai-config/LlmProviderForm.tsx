@@ -25,7 +25,6 @@ import {
   SelectValue,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import type { FC } from 'react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LLM_PROVIDERS } from './constant';
@@ -185,21 +184,23 @@ export const LLMProviderForm = ({ onAdd, value, onChange }: LLMProviderFormProps
               </FormItem>
             )}
           />
-          <FormField
-            name="apiKey"
-            render={({ field }) => (
-              <FormItem>
-                <div>
-                  <FormLabel>{t('admin.setting.ai.apiKey')}</FormLabel>
-                  <FormDescription>{t('admin.setting.ai.apiKeyDescription')}</FormDescription>
-                </div>
-                <FormControl>
-                  <Input {...field} type="password" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {type !== LLMProviderType.OLLAMA && (
+            <FormField
+              name="apiKey"
+              render={({ field }) => (
+                <FormItem>
+                  <div>
+                    <FormLabel>{t('admin.setting.ai.apiKey')}</FormLabel>
+                    <FormDescription>{t('admin.setting.ai.apiKeyDescription')}</FormDescription>
+                  </div>
+                  <FormControl>
+                    <Input {...field} type="password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <FormField
             name="models"
             render={({ field }) => (

@@ -10,6 +10,7 @@ import {
   Qwen,
   Zhipu,
   Xai,
+  Ollama,
 } from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
@@ -26,6 +27,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
   [LLMProviderType.XAI]: Xai,
   [LLMProviderType.TOGETHERAI]: Openai,
+  [LLMProviderType.OLLAMA]: Ollama,
 };
 
 export const LLM_PROVIDERS = [
@@ -112,5 +114,12 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://api.together.xyz/v1',
     modelsPlaceholder: 'deepseek-ai/DeepSeek-V3,mistralai/Mistral-7B-Instruct-v0.3',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.TOGETHERAI],
+  },
+  {
+    value: LLMProviderType.OLLAMA,
+    label: 'Ollama',
+    baseUrlPlaceholder: 'http://localhost:11434',
+    modelsPlaceholder: 'llama3.1:8b,llama3.1:70b',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.OLLAMA],
   },
 ] as const;
