@@ -40,11 +40,15 @@ function parse(raw: string, preferences: string[] | undefined, options: IOptions
   const parts = header.split(',');
   const selections: ISelection[] = [];
   const map = new Set<string>();
-
+  const fallbackLocales: string[] = [];
   for (let i = 0; i < parts.length; ++i) {
     const part = parts[i];
     if (!part) {
       continue;
+    }
+    const prefix = part.split('-')[0];
+    if (prefix && lowers.has(prefix)) {
+      fallbackLocales.push(prefix);
     }
 
     const params = part.split(';');
@@ -128,7 +132,7 @@ function parse(raw: string, preferences: string[] | undefined, options: IOptions
     }
   }
 
-  return preferred;
+  return preferred.length ? preferred : fallbackLocales;
 }
 
 export function acceptLanguage(header = '', preferences?: string[]) {
