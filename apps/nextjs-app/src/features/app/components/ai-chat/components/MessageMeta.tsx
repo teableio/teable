@@ -47,6 +47,13 @@ export function MessageMeta({ meta }: { meta?: IMessageMeta }) {
           </Tooltip>
         </TooltipProvider>
       )}
+
+      {!usage?.credit && usage?.promptTokens && (
+        <div className="flex items-center gap-1">
+          <Cpu className="size-3" />
+          <span>{usage.promptTokens + usage.completionTokens} token</span>
+        </div>
+      )}
     </div>
   );
 }
