@@ -229,7 +229,8 @@
     "pluginPanel": "Panel",
     "pluginContextMenu": "Context Menu",
     "plugin": "Plugins",
-    "copy": "Copy"
+    "copy": "Copy",
+    "credits": "Credits"
   },
   "level": {
     "free": "Free",

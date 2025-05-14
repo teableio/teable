@@ -672,6 +672,11 @@
       "emptyContext": "No context to add"
     },
     "inputPlaceholder": "Send message...",
-    "thought": "Thinking"
+    "thought": "Thinking",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Generation time: {{timeCost}}s",
+      "creditDescription": "{{credits}} credits consumed"
+    }
   }
 }

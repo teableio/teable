@@ -672,6 +672,11 @@
       "emptyContext": "暂无可添加的上下文"
     },
     "inputPlaceholder": "发送消息...",
-    "thought": "深度思考"
+    "thought": "深度思考",
+    "meta": {
+      "timeCostUnit": "秒",
+      "timeCostDescription": "生成耗时{{timeCost}}秒",
+      "creditDescription": "消耗{{credits}}算力"
+    }
   }
 }

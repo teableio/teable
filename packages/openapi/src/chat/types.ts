@@ -23,3 +23,9 @@ export const chatContextSchema = z.object({
 });
 
 export type IChatContext = z.infer<typeof chatContextSchema>;
+
+export type IChatMessageUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  credit?: number;
+};

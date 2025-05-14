@@ -7,15 +7,18 @@ import { LoadingDot } from './LoadingDot';
 import { ReasonMessagePart } from './message-part/ReasonMessagePart';
 import { TextMessagePart } from './message-part/TextMessagePart';
 import { ToolMessagePart } from './message-part/ToolMessagePart';
+import { MessageMeta } from './MessageMeta';
+import type { IMessageMeta } from './types';
 
 export const THINKING_MESSAGE_ID = 'thinking';
 
 interface IMessage {
   isLoading?: boolean;
   message: UseChatHelpers['messages'][number];
+  meta?: IMessageMeta;
 }
 
-export const Message = ({ message, isLoading }: IMessage) => {
+export const Message = ({ message, isLoading, meta }: IMessage) => {
   const partsLength = message.parts.length;
 
   return (
@@ -47,6 +50,7 @@ export const Message = ({ message, isLoading }: IMessage) => {
         }
       })}
       {isLoading && <LoadingDot />}
+      <MessageMeta meta={meta} />
     </MessageWrapper>
   );
 };

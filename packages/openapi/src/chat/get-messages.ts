@@ -2,6 +2,7 @@ import type { Message } from '@ai-sdk/ui-utils';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { IChatMessageUsage } from './types';
 
 export const GET_CHAT_MESSAGES = '/base/{baseId}/chat/{chatId}/messages';
 
@@ -13,6 +14,8 @@ export interface IChatMessage {
   parts: Message['parts'];
   createdTime: string;
   createdBy: string;
+  usage?: IChatMessageUsage;
+  timeCost?: number;
 }
 
 export interface IChatMessageVo {

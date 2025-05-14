@@ -8,6 +8,7 @@ import { useMemo, useRef } from 'react';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
 import { MessageInput } from '../components/MessageInput';
 import { Messages } from '../components/Messages';
+import type { IMessageMeta } from '../components/types';
 import { useChatContext } from '../context/useChatContext';
 import { useActiveChat } from '../hooks/useActiveChat';
 import { useChatStore } from '../store/useChatStore';
@@ -31,6 +32,19 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
     queryFn: ({ queryKey }) => getChatMessages(baseId, queryKey[1]).then((res) => res.data),
     enabled: isActiveChat,
   });
+
+  const messageMetaMap = useMemo(() => {
+    return chatMessage?.messages?.reduce(
+      (acc, message) => {
+        acc[message.id] = {
+          timeCost: message.timeCost,
+          usage: message.usage,
+        };
+        return acc;
+      },
+      {} as Record<string, IMessageMeta>
+    );
+  }, [chatMessage]);
 
   const convertToUIMessages = useMemo<UseChatHelpers['messages']>(() => {
     if (!isActiveChat) {
@@ -85,7 +99,12 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden pb-3">
-      <Messages messages={messages} chatId={chatId} status={status} />
+      <Messages
+        messages={messages}
+        messageMetaMap={messageMetaMap}
+        chatId={chatId}
+        status={status}
+      />
       <MessageInput
         modelKey={validModelKey}
         models={models}
