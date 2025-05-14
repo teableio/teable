@@ -5,7 +5,7 @@ import { getAIConfig, getChatMessages } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useMemo, useRef } from 'react';
-import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/util';
+import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { MessageInput } from '../components/MessageInput';
 import { Messages } from '../components/Messages';
 import type { IMessageMeta } from '../components/types';
