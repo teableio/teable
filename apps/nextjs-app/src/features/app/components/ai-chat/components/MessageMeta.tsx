@@ -6,9 +6,9 @@ import type { IMessageMeta } from './types';
 export function MessageMeta({ meta }: { meta?: IMessageMeta }) {
   const { timeCost, usage } = meta ?? {};
   const { t } = useTranslation(['table', 'common']);
-  if (!meta) return;
+  if (!meta || (!timeCost && !usage)) return;
 
-  const timeCostInSeconds = timeCost ? (timeCost / 1000).toFixed(1) : 0;
+  const timeCostInSeconds = timeCost ? (timeCost / 1000).toFixed(1) : undefined;
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
       {timeCostInSeconds && (
