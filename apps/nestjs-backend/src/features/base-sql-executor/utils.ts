@@ -63,6 +63,6 @@ export const checkTableAccess = (
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    // throw new BadRequestException(error?.message);
+    throw new BadRequestException(error?.message || 'An error occurred while checking table access.');
   }
 };
