@@ -1,4 +1,4 @@
-import { MagicAI } from '@teable/sdk/components/comment/comment-editor/plate-ui/icons';
+import { MagicAi } from '@teable/icons';
 import {
   Button,
   cn,
@@ -30,7 +30,7 @@ export const ChatTriggerButton = ({ buttonClassName }: ChatTriggerProps) => {
         onClick={toggleChatPanel}
         disabled={!chatEnabled}
       >
-        <MagicAI className="size-4" active />
+        <MagicAi className="size-4 text-orange-500" />
       </Button>
     </TooltipWrapper>
   );
