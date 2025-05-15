@@ -136,22 +136,26 @@ export class TableOpenApiService {
 
     const allFieldRos = simpleFields.concat(computeFields);
 
+    const fieldVoMap = new Map<IFieldRo, IFieldVo>();
+    simpleFields.forEach((f, i) => fieldVoMap.set(f, fields[i]));
+
     for (const fieldRo of computeFields) {
-      fields.push(
-        await this.fieldSupplementService.prepareCreateField(
-          tableId,
-          fieldRo,
-          allFieldRos.filter((ro) => ro !== fieldRo) as IFieldVo[]
-        )
+      const computedFieldVo = await this.fieldSupplementService.prepareCreateField(
+        tableId,
+        fieldRo,
+        allFieldRos.filter((ro) => ro !== fieldRo) as IFieldVo[]
       );
+      fieldVoMap.set(fieldRo, computedFieldVo);
     }
 
-    const repeatedDbFieldNames = fields
+    const orderedFields = fieldRos.map((ro) => fieldVoMap.get(ro)).filter(Boolean) as IFieldVo[];
+
+    const repeatedDbFieldNames = orderedFields
       .map((f) => f.dbFieldName)
       .filter((value, index, self) => self.indexOf(value) !== index);
 
     // generator dbFieldName may repeat, this is fix it.
-    return fields.map((f) => {
+    return orderedFields.map((f) => {
       const newField = { ...f };
       const { dbFieldName } = newField;
 
