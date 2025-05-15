@@ -20,6 +20,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const { tableId } = router.query;
   const { user: sessionUser } = useSession();
   const { resolvedTheme } = useTheme();
+
   const [presence, setPresence] = useState<Presence>();
   const user = useMemo(
     () => ({
@@ -84,7 +85,10 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   return (
     <div className={cn('gap-1 items-center flex', className)}>
       {boardUsers?.map(({ id, name, avatar, email }) => {
-        const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
+        const borderColor = contractColorForTheme(
+          ColorUtils.getRandomHexFromStr(`${tableId}_${id}`),
+          resolvedTheme
+        );
         return (
           <CollaboratorWithHoverCard
             key={id}
@@ -92,7 +96,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
             name={name}
             avatar={avatar}
             email={email}
-            borderColor={contractColorForTheme(borderColor, resolvedTheme)}
+            borderColor={borderColor}
           />
         );
       })}
@@ -107,7 +111,10 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
           </PopoverTrigger>
           <PopoverContent className="max-h-64 w-36 overflow-y-auto">
             {hiddenUser.map(({ id, name, avatar, email }) => {
-              const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
+              const borderColor = contractColorForTheme(
+                ColorUtils.getRandomHexFromStr(`${tableId}_${id}`),
+                resolvedTheme
+              );
               return (
                 <div key={id} className="flex items-center truncate p-1">
                   <CollaboratorWithHoverCard
@@ -115,7 +122,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
                     name={name}
                     avatar={avatar}
                     email={email}
-                    borderColor={contractColorForTheme(borderColor, resolvedTheme)}
+                    borderColor={borderColor}
                   />
                   <div className="flex-1 truncate pl-1">{name}</div>
                 </div>

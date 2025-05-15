@@ -8,7 +8,7 @@ import {
   UserPlus,
 } from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
-import { useBase, useBasePermission, useTableId, useView } from '@teable/sdk/hooks';
+import { useBase, useBasePermission, useIsHydrated, useTableId, useView } from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -60,6 +60,7 @@ const RightList = ({
   const tableId = useTableId();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
+  const isHydrated = useIsHydrated();
 
   const hasTableHistoryPermission = basePermission?.['table_record_history|read'];
   const hasTableTrashPermission = basePermission?.['table|trash_read'];
@@ -83,7 +84,7 @@ const RightList = ({
 
   return (
     <div className={cn('flex', className)}>
-      <Collaborators className="flex" />
+      {isHydrated && <Collaborators className="flex" />}
       <div className="flex">
         {(hasTableHistoryPermission || hasTableTrashPermission) && (
           <DropdownMenu>

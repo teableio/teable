@@ -35,7 +35,6 @@ class MyDocument extends Document<Props> {
           <link rel="shortcut icon" href="/images/favicon/favicon.svg" type="image/svg+xml" />
           <meta name="msapplication-TileColor" content="#da532c" />
           <meta name="msapplication-config" content="/images/favicon/browserconfig.xml" />
-          <meta name="theme-color" content="#ffffff" />
         </Head>
         <body>
           <Main />
