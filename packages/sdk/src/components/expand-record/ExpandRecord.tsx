@@ -11,6 +11,7 @@ import {
   useViews,
   useTableId,
   useBaseId,
+  useTablePermission,
 } from '../../hooks';
 import type { GridView, IFieldInstance } from '../../model';
 import { CommentPanel } from '../comment';
@@ -68,12 +69,17 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const record = useRecord(recordId, serverData);
   const isTouchDevice = useIsTouchDevice();
   const { t } = useTranslation();
+  const tablePermission = useTablePermission();
+  const canUpdateRecord = tablePermission['record|update'];
 
   const fieldCellReadonly = useCallback(
     (field: IFieldInstance) => {
+      if (!canUpdateRecord) {
+        return true;
+      }
       return Boolean(record?.isLocked(field.id));
     },
-    [record]
+    [record, canUpdateRecord]
   );
 
   const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
