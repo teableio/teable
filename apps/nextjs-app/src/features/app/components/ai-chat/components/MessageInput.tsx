@@ -5,12 +5,14 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { PauseIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useChatStore } from '../store/useChatStore';
+import { LoadingDot } from './LoadingDot';
 import { MessageContext } from './MessageContext';
 import { ModelSelector } from './ModelSelector';
 
 export const MessageInput = ({
   modelKey,
   models,
+  modelLoading,
   input,
   setInput,
   status,
@@ -20,6 +22,7 @@ export const MessageInput = ({
 }: {
   modelKey: string;
   models: { modelKey: string; isInstance?: boolean }[];
+  modelLoading?: boolean;
   status: UseChatHelpers['status'];
   input: UseChatHelpers['input'];
   setInput: UseChatHelpers['setInput'];
@@ -54,9 +57,11 @@ export const MessageInput = ({
             }
           }}
         />
-        <div className="flex items-center justify-between gap-2 pb-1">
+        <div className="flex h-8 items-center justify-between gap-2 pb-1">
           {hasModel ? (
             <ModelSelector models={models} value={modelKey} onValueChange={setModelKey} />
+          ) : modelLoading ? (
+            <LoadingDot dotClassName="size-0.5" />
           ) : (
             <div className="text-xs text-destructive">{t('table:aiChat.noModel')}</div>
           )}

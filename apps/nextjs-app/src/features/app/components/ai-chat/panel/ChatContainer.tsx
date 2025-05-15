@@ -22,7 +22,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
   const isActiveChat = Boolean(activeChat);
   const chatId = isActiveChat ? activeChat!.id : chatIdRef.current;
 
-  const { data: baseAiConfig } = useQuery({
+  const { data: baseAiConfig, isLoading: isBaseAiConfigLoading } = useQuery({
     queryKey: ['ai-config', baseId],
     queryFn: () => getAIConfig(baseId).then(({ data }) => data),
   });
@@ -85,6 +85,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
     },
     onFinish: () => {
       if (isActiveChat) {
+        queryClient.invalidateQueries({ queryKey: ['chat-message', chatId] });
         return;
       }
       queryClient.refetchQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) }).then(() => {
@@ -114,6 +115,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
         stop={stop}
         setMessages={setMessages}
         handleSubmit={handleSubmit}
+        modelLoading={isBaseAiConfigLoading}
       />
     </div>
   );
