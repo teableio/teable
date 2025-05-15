@@ -23,6 +23,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Check } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { Fragment, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDER_ICONS } from './constant';
