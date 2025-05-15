@@ -45,7 +45,7 @@
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
     "title": "Tips",
-    "exportTips": "Exporting the database will export all data, including all records and attachments. The export process will be performed in the background, and you will be notified in the notification bar when it is complete. Note:\n1. All cross-base linked fields will be converted to single-line text fields.\n2. Advanced permission personnel settings will be cleared, but the configurations will remain. \n3. Database collaboration personnel settings will be cleared.",
+    "exportTips": "Exporting the database will export all data, including all records and attachments. The export process will be performed in the background, and you will be notified in the notification bar when it is complete. Note:\n1. All cross-base linked fields will be converted to single-line text fields.\n2. Authority matrix personnel settings will be cleared, but the configurations will remain. \n3. Database collaboration personnel settings will be cleared.",
     "moveBaseSuccessTitle": "Move base success",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },
