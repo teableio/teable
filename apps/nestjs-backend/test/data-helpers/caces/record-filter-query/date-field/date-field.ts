@@ -42,11 +42,26 @@ export const DATE_LOOKUP_FIELD_CASES = [
     queryValue: null,
     expectResultLength: 14,
   },
-  ...LOOKUP_IS_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
-  ...LOOKUP_IS_NOT_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
-  ...LOOKUP_IS_WITH_IN_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
-  ...LOOKUP_IS_BEFORE_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
-  ...LOOKUP_IS_AFTER_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
-  ...LOOKUP_IS_ON_OR_BEFORE_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
-  ...LOOKUP_IS_ON_OR_AFTER_SETS.map((testCase) => ({ ...testCase, fieldIndex: 6 })),
+  ...LOOKUP_IS_SETS.map((testCase) => ({ ...testCase, fieldIndex: testCase.fieldIndex ?? 6 })),
+  ...LOOKUP_IS_NOT_SETS.map((testCase) => ({ ...testCase, fieldIndex: testCase.fieldIndex ?? 6 })),
+  ...LOOKUP_IS_WITH_IN_SETS.map((testCase) => ({
+    ...testCase,
+    fieldIndex: testCase.fieldIndex ?? 6,
+  })),
+  ...LOOKUP_IS_BEFORE_SETS.map((testCase) => ({
+    ...testCase,
+    fieldIndex: testCase.fieldIndex ?? 6,
+  })),
+  ...LOOKUP_IS_AFTER_SETS.map((testCase) => ({
+    ...testCase,
+    fieldIndex: testCase.fieldIndex ?? 6,
+  })),
+  ...LOOKUP_IS_ON_OR_BEFORE_SETS.map((testCase) => ({
+    ...testCase,
+    fieldIndex: testCase.fieldIndex ?? 6,
+  })),
+  ...LOOKUP_IS_ON_OR_AFTER_SETS.map((testCase) => ({
+    ...testCase,
+    fieldIndex: testCase.fieldIndex ?? 6,
+  })),
 ];

@@ -169,13 +169,13 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       test.each([
         {
           tableName: 'table',
-          fieldIndex: 9,
+          fieldIndex: x_20.fields.length,
           queryValue: 'B-18',
           expectResultLength: 6,
         },
         {
           tableName: 'table',
-          fieldIndex: 9,
+          fieldIndex: x_20.fields.length,
           queryValue: '"',
           expectResultLength: 0,
         },

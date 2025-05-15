@@ -6,6 +6,7 @@ import {
   daysAgo,
   daysFromNow,
   exactDate,
+  exactFormatDate,
   isOnOrBefore,
   lastMonth,
   lastWeek,
@@ -203,6 +204,16 @@ export const IS_ON_OR_BEFORE_SETS = [
     },
     expectResultLength: 1,
   },
+  {
+    fieldIndex: 9,
+    operator: isOnOrBefore.value,
+    queryValue: {
+      mode: exactFormatDate.value,
+      exactDate: '2020-01-10T16:00:00.000Z',
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 1,
+  },
 ];
 
 export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
@@ -231,7 +242,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     expectResultLength: 13,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: currentWeek.value,
@@ -242,7 +252,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: nextWeekPeriod.value,
@@ -253,7 +262,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: lastWeek.value,
@@ -263,7 +271,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       .length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: currentMonth.value,
@@ -274,7 +281,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: lastMonth.value,
@@ -284,7 +290,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       .length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: nextMonthPeriod.value,
@@ -295,7 +300,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: currentYear.value,
@@ -306,7 +310,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: lastYear.value,
@@ -316,7 +319,6 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
       .length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrBefore.value,
     queryValue: {
       mode: nextYearPeriod.value,
@@ -381,6 +383,16 @@ export const LOOKUP_IS_ON_OR_BEFORE_SETS = [
     queryValue: {
       mode: exactDate.value,
       exactDate: '2019-12-31T16:00:00.000Z',
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 5,
+  },
+  {
+    fieldIndex: 12,
+    operator: isOnOrBefore.value,
+    queryValue: {
+      mode: exactFormatDate.value,
+      exactDate: '2020-01-10T16:00:00.000Z',
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 5,

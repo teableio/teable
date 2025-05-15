@@ -221,6 +221,37 @@ describe('OpenAPI TableController (e2e)', () => {
     );
   });
 
+  it('should create table with ordered fields', async () => {
+    const table = await createTable(baseId, {
+      name: 'ordered fields table',
+      fields: [
+        {
+          name: 'Single line text',
+          type: FieldType.SingleLineText,
+        },
+        {
+          name: 'Formula',
+          options: {
+            expression: '1 + 1',
+          },
+          type: FieldType.Formula,
+        },
+        {
+          name: 'Long text',
+          type: FieldType.LongText,
+        },
+      ],
+    });
+
+    const tableResult = await getTable(baseId, table.id, { includeContent: true });
+    const fields = tableResult.fields!;
+
+    expect(fields.length).toEqual(3);
+    expect(fields[0].type).toEqual(FieldType.SingleLineText);
+    expect(fields[1].type).toEqual(FieldType.Formula);
+    expect(fields[2].type).toEqual(FieldType.LongText);
+  });
+
   it('should update table simple properties', async () => {
     const result = await createTable(baseId, {
       name: 'table',

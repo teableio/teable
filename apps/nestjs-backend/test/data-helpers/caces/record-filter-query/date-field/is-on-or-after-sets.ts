@@ -6,6 +6,7 @@ import {
   daysAgo,
   daysFromNow,
   exactDate,
+  exactFormatDate,
   isOnOrAfter,
   lastMonth,
   lastWeek,
@@ -203,6 +204,16 @@ export const IS_ON_OR_AFTER_SETS = [
     },
     expectResultLength: 17,
   },
+  {
+    fieldIndex: 9,
+    operator: isOnOrAfter.value,
+    queryValue: {
+      mode: exactFormatDate.value,
+      exactDate: '2020-01-10T16:00:00.000Z',
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 17,
+  },
 ];
 
 export const LOOKUP_IS_ON_OR_AFTER_SETS = [
@@ -231,7 +242,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     expectResultLength: 4,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: currentWeek.value,
@@ -242,7 +252,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: nextWeekPeriod.value,
@@ -252,7 +261,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
       .length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: lastWeek.value,
@@ -263,7 +271,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: currentMonth.value,
@@ -274,7 +281,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: lastMonth.value,
@@ -285,7 +291,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: nextMonthPeriod.value,
@@ -295,7 +300,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
       .length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: currentYear.value,
@@ -306,7 +310,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: lastYear.value,
@@ -317,7 +320,6 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     ).length,
   },
   {
-    fieldIndex: 3,
     operator: isOnOrAfter.value,
     queryValue: {
       mode: nextYearPeriod.value,
@@ -381,6 +383,16 @@ export const LOOKUP_IS_ON_OR_AFTER_SETS = [
     queryValue: {
       mode: exactDate.value,
       exactDate: '2019-12-31T16:00:00.000Z',
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 14,
+  },
+  {
+    fieldIndex: 12,
+    operator: isOnOrAfter.value,
+    queryValue: {
+      mode: exactFormatDate.value,
+      exactDate: '2020-01-10T16:00:00.000Z',
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 14,

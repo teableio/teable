@@ -6,6 +6,7 @@ import {
   daysAgo,
   daysFromNow,
   exactDate,
+  exactFormatDate,
   isNot,
   lastMonth,
   lastWeek,
@@ -204,6 +205,16 @@ export const IS_NOT_SETS = [
     },
     expectResultLength: 22,
   },
+  {
+    fieldIndex: 9,
+    operator: isNot.value,
+    queryValue: {
+      mode: exactFormatDate.value,
+      exactDate: '2020-01-10T16:00:00.000Z',
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 22,
+  },
 ];
 
 export const LOOKUP_IS_NOT_SETS = [
@@ -232,7 +243,6 @@ export const LOOKUP_IS_NOT_SETS = [
     expectResultLength: 19,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: currentWeek.value,
@@ -242,7 +252,6 @@ export const LOOKUP_IS_NOT_SETS = [
       21 - lookupDates.filter((dates) => dates.some((t) => t.isSame(now, 'week'))).length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: nextWeekPeriod.value,
@@ -253,7 +262,6 @@ export const LOOKUP_IS_NOT_SETS = [
       lookupDates.filter((dates) => dates.some((t) => t.isSame(now.add(1, 'week'), 'week'))).length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: lastWeek.value,
@@ -265,7 +273,6 @@ export const LOOKUP_IS_NOT_SETS = [
         .length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: currentMonth.value,
@@ -275,7 +282,6 @@ export const LOOKUP_IS_NOT_SETS = [
       21 - lookupDates.filter((dates) => dates.some((t) => t.isSame(now, 'month'))).length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: lastMonth.value,
@@ -287,7 +293,6 @@ export const LOOKUP_IS_NOT_SETS = [
         .length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: nextMonthPeriod.value,
@@ -299,7 +304,6 @@ export const LOOKUP_IS_NOT_SETS = [
         .length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: currentYear.value,
@@ -309,7 +313,6 @@ export const LOOKUP_IS_NOT_SETS = [
       21 - lookupDates.filter((dates) => dates.some((t) => t.isSame(now, 'year'))).length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: lastYear.value,
@@ -321,7 +324,6 @@ export const LOOKUP_IS_NOT_SETS = [
         .length,
   },
   {
-    fieldIndex: 3,
     operator: isNot.value,
     queryValue: {
       mode: nextYearPeriod.value,
@@ -386,6 +388,16 @@ export const LOOKUP_IS_NOT_SETS = [
     queryValue: {
       mode: exactDate.value,
       exactDate: '2019-12-31T16:00:00.000Z',
+      timeZone: 'Asia/Singapore',
+    },
+    expectResultLength: 16,
+  },
+  {
+    fieldIndex: 12,
+    operator: isNot.value,
+    queryValue: {
+      mode: exactFormatDate.value,
+      exactDate: '2020-01-10T16:00:00.000Z',
       timeZone: 'Asia/Singapore',
     },
     expectResultLength: 16,
