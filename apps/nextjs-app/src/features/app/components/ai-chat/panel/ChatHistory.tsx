@@ -33,6 +33,7 @@ export const ChatHistory = ({
   const [editValue, setEditValue] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
   const { t } = useTranslation(['table', 'common']);
 
   const { mutate: chatRenameMutation } = useMutation({
@@ -98,7 +99,7 @@ export const ChatHistory = ({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 p-0 py-0.5">
         <Input
@@ -127,7 +128,10 @@ export const ChatHistory = ({
                       setEditValue={setEditValue}
                       handleEditChat={handleEditChat}
                       handleSaveEdit={(chatId) => chatRenameMutation({ chatId, name: editValue })}
-                      setActiveChatId={setActiveChatId}
+                      setActiveChatId={(chatId) => {
+                        setIsOpen(false);
+                        setActiveChatId(chatId);
+                      }}
                       handleCancelEdit={handleCancelEdit}
                       handleDeleteChat={(chatId) => chatDeleteMutation(chatId)}
                     />
