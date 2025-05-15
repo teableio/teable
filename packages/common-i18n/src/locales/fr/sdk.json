@@ -125,6 +125,7 @@
         "daysAgo": "jours écoulés",
         "daysFromNow": "jours restants",
         "exactDate": "date exacte",
+        "exactFormatDate": "date exacte (formatée)",
         "pastWeek": "semaine passée",
         "pastMonth": "mois passé",
         "pastYear": "année passée",

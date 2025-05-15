@@ -24,6 +24,7 @@ export const useDateI18nMap = () => {
     daysAgo: t('filter.component.date.daysAgo'),
     daysFromNow: t('filter.component.date.daysFromNow'),
     exactDate: t('filter.component.date.exactDate'),
+    exactFormatDate: t('filter.component.date.exactFormatDate'),
 
     // within
     pastWeek: t('filter.component.date.pastWeek'),

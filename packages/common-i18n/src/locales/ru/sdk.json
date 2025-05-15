@@ -142,6 +142,7 @@
         "daysAgo": "дней назад",
         "daysFromNow": "дней вперед",
         "exactDate": "точная дата",
+        "exactFormatDate": "точная дата (форматированная)",
         "pastWeek": "прошлая неделя",
         "pastMonth": "прошлый месяц",
         "pastYear": "прошлый год",

@@ -21,6 +21,7 @@ import {
   tomorrow,
   yesterday,
   exactDate as exactDateConst,
+  exactFormatDate,
 } from '@teable/core';
 import { getRecords, getUserCollaborators } from '@teable/openapi';
 import { keyBy } from 'lodash';
@@ -84,10 +85,9 @@ export const generateValueByFilteredField = ({
         yesterday.setDate(now.getDate() - 1);
         return yesterday.toISOString();
       }
-      if (mode === exactDateConst.value) {
+      if (mode === exactDateConst.value || mode === exactFormatDate.value) {
         return exactDate;
       }
-
       return null;
     }
     case FieldType.User: {

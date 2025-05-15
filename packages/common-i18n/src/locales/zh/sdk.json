@@ -159,6 +159,7 @@
         "daysAgo": "几天前",
         "daysFromNow": "几天后",
         "exactDate": "具体日期",
+        "exactFormatDate": "具体日期（格式化）",
         "currentWeek": "本周",
         "currentMonth": "本月",
         "currentYear": "今年",

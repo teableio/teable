@@ -145,6 +145,7 @@
         "daysAgo": "giorni fa",
         "daysFromNow": "giorni da oggi",
         "exactDate": "data esatta",
+        "exactFormatDate": "data esatta (formato)",
         "currentWeek": "settimana corrente",
         "currentMonth": "mese corrente",
         "currentYear": "anno corrente",

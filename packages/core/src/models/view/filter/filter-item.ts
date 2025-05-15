@@ -36,18 +36,15 @@ export const dateFilterSchema = z
     timeZone: timeZoneStringSchema,
   })
   .superRefine((val, ctx) => {
-    if (val.mode === 'exactDate' && !val.exactDate) {
+    if (['exactDate', 'exactFormatDate'].includes(val.mode) && !val.exactDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `When the mode is set to '${val.mode}', an 'exactDate' must be provided`,
+        message: `When the mode is set to '${val.mode}', an '${val.mode}' must be provided`,
       });
-    } else if (
-      modesRequiringDays.includes(val.mode) &&
-      (val.numberOfDays === null || val.numberOfDays === undefined)
-    ) {
+    } else if (modesRequiringDays.includes(val.mode) && val.numberOfDays == null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `When the mode is '${val.mode}', a numerical value for 'numberOfDays' must be provided`,
+        message: `When the mode is '${val.mode}', a numerical value for '${val.mode}' must be provided`,
       });
     }
   });

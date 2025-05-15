@@ -145,6 +145,7 @@
         "daysAgo": "days ago",
         "daysFromNow": "days from now",
         "exactDate": "exact date",
+        "exactFormatDate": "exact date (formatted)",
         "currentWeek": "current week",
         "currentMonth": "current month",
         "currentYear": "current year",

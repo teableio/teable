@@ -1,4 +1,11 @@
-import { daysAgo, daysFromNow, exactDate, nextNumberOfDays, pastNumberOfDays } from '@teable/core';
+import {
+  daysAgo,
+  daysFromNow,
+  exactDate,
+  exactFormatDate,
+  nextNumberOfDays,
+  pastNumberOfDays,
+} from '@teable/core';
 import type { ITimeZoneString } from '@teable/core';
 
 const INPUTOPTIONS: string[] = [
@@ -8,7 +15,7 @@ const INPUTOPTIONS: string[] = [
   nextNumberOfDays.value,
 ];
 
-const DATEPICKEROPTIONS: string[] = [exactDate.value];
+const DATEPICKEROPTIONS: string[] = [exactDate.value, exactFormatDate.value];
 
 const defaultValue = {
   mode: exactDate.value,

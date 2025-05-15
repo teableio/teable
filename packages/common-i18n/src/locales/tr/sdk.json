@@ -142,6 +142,7 @@
         "daysAgo": "gün önce",
         "daysFromNow": "gün sonra",
         "exactDate": "tam tarih",
+        "exactFormatDate": "tam tarih (biçimlendirildi)",
         "pastWeek": "geçen hafta",
         "pastMonth": "geçen ay",
         "pastYear": "geçen yıl",

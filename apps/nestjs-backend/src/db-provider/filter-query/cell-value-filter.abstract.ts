@@ -8,6 +8,7 @@ import {
   CellValueType,
   contains,
   dateFilterSchema,
+  DateFormattingPreset,
   DateUtil,
   doesNotContain,
   hasAllOf,
@@ -230,7 +231,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     const { mode, numberOfDays, exactDate } = filterValueByDate;
     const {
-      formatting: { timeZone },
+      formatting: { timeZone, date: dateFormat },
     } = dateFieldOptions;
 
     const dateUtil = new DateUtil(timeZone);
@@ -266,7 +267,29 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       if (!exactDate) {
         throw new BadRequestException('Exact date must be entered');
       }
+
       return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
+    };
+
+    // Helper function to determine date range for a given exact formatted date.
+    const determineDateRangeForExactFormatDate = (): [Dayjs, Dayjs] => {
+      if (!exactDate) {
+        throw new BadRequestException('Exact date must be entered');
+      }
+
+      const parsedDate = dateUtil.date(exactDate);
+
+      switch (dateFormat) {
+        case DateFormattingPreset.Y:
+          return [parsedDate.startOf('year'), parsedDate.endOf('year')];
+        case DateFormattingPreset.YM:
+        case DateFormattingPreset.M:
+          return [parsedDate.startOf('month'), parsedDate.endOf('month')];
+        case DateFormattingPreset.MD:
+        case DateFormattingPreset.D:
+        default:
+          return [parsedDate.startOf('day'), parsedDate.endOf('day')];
+      }
     };
 
     // Helper function to generate offset date range for a given unit (day, week, month, year).
@@ -329,6 +352,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       daysAgo: () => calculateDateRangeForOffsetDays(true),
       daysFromNow: () => calculateDateRangeForOffsetDays(false),
       exactDate: () => determineDateRangeForExactDate(),
+      exactFormatDate: () => determineDateRangeForExactFormatDate(),
       currentWeek: () => generateRelativeDateFromCurrentDateRange('current', 'week'),
       currentMonth: () => generateRelativeDateFromCurrentDateRange('current', 'month'),
       currentYear: () => generateRelativeDateFromCurrentDateRange('current', 'year'),

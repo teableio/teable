@@ -1,4 +1,9 @@
-import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable/core';
+import type {
+  IDateTimeFieldOperator,
+  IDateFilter,
+  ITimeZoneString,
+  ISubOperator,
+} from '@teable/core';
 import { exactDate, FieldType, getValidFilterSubOperators, isWithIn } from '@teable/core';
 import { Input } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -68,10 +73,10 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   );
 
   const datePickerSelect = useCallback(
-    (val: string | null | undefined) => {
+    (val: string | null | undefined, mode?: ISubOperator) => {
       const mergedValue = val
         ? {
-            mode: exactDate.value,
+            mode: mode || exactDate.value,
             exactDate: val,
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
           }
@@ -100,7 +105,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         return (
           <DateEditor
             value={innerValue?.exactDate}
-            onChange={datePickerSelect}
+            onChange={(value) => datePickerSelect(value, innerValue?.mode)}
             options={field.options}
             disableTimePicker={true}
             className="h-8 w-40 text-xs sm:h-8"

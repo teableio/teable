@@ -5,9 +5,9 @@ import {
   isNot,
   is,
   isNotEmpty,
-  exactDate,
   hasNoneOf,
   CellValueType,
+  exactFormatDate,
 } from '@teable/core';
 import { fromZonedTime } from 'date-fns-tz';
 import type { IFieldInstance } from '../features/field/model/factory';
@@ -62,7 +62,7 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
     const dateStr = fromZonedTime(value as string, timeZone).toISOString();
     value = {
       exactDate: dateStr,
-      mode: exactDate.value,
+      mode: exactFormatDate.value,
       timeZone,
     };
   } else if (SPECIAL_OPERATOR_FIELD_TYPE_SET.has(type) && isMultipleCellValue) {
