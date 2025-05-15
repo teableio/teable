@@ -90,7 +90,7 @@ export const PureToolMessagePart = ({ id, part }: IToolMessagePart) => {
   );
 };
 
-const ToolsResultRenderer = ({
+const PureToolsResultRenderer = ({
   id,
   toolInvocation,
 }: {
@@ -120,6 +120,12 @@ const ToolsResultRenderer = ({
 
   return <ContentRenderer id={id} content={content} />;
 };
+
+const ToolsResultRenderer = memo(PureToolsResultRenderer, (prev, next) => {
+  if (prev.id !== next.id) return false;
+  if (isEqual(prev.toolInvocation, next.toolInvocation)) return true;
+  return false;
+});
 
 const ContentRenderer = ({ id, content }: { id: string; content: string }) => {
   return (

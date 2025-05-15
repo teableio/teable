@@ -676,7 +676,8 @@
     "meta": {
       "timeCostUnit": "秒",
       "timeCostDescription": "生成耗时{{timeCost}}秒",
-      "creditDescription": "消耗{{credits}}算力"
+      "creditDescription": "消耗{{credits}}算力",
+      "tokenDescription": "本次消耗：{{tokens}} tokens"
     }
   }
 }

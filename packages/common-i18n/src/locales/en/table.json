@@ -676,7 +676,8 @@
     "meta": {
       "timeCostUnit": "s",
       "timeCostDescription": "Generation time: {{timeCost}}s",
-      "creditDescription": "{{credits}} credits consumed"
+      "creditDescription": "{{credits}} credits consumed",
+      "tokenDescription": "Tokens used: {{tokens}}"
     }
   }
 }

@@ -49,10 +49,23 @@ export function MessageMeta({ meta }: { meta?: IMessageMeta }) {
       )}
 
       {!usage?.credit && usage?.promptTokens && (
-        <div className="flex items-center gap-1">
-          <Cpu className="size-3" />
-          <span>{usage.promptTokens + usage.completionTokens} token</span>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1">
+                <Cpu className="size-3" />
+                <span>{usage.promptTokens + usage.completionTokens} tokens</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {t('table:aiChat.meta.tokenDescription', {
+                  tokens: usage.promptTokens + usage.completionTokens,
+                })}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );

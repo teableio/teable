@@ -55,6 +55,9 @@ const NonMemoizedMarkdown = ({
               children={String(children).replace(/\n$/, '')}
               language={match[1]}
               style={oneDark}
+              customStyle={{
+                maxHeight: '500px',
+              }}
             />
           ) : (
             <code {...rest} className={className}>
