@@ -119,7 +119,7 @@ export const textPasteHandler = async (
   }
 
   await requestPaste(
-    isTeableHTML(html) ? cellValues : text.trim(),
+    isTeableHTML(html) ? cellValues : text,
     rangeTypes[selection.type],
     selection.serialize(),
     header.result
