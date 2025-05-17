@@ -10,7 +10,7 @@
     "cssVariables": true
   },
   "aliases": {
-    "components": "src/components/comment/comment-editor",
-    "utils": "@/lib/utils"
+    "components": "src/components/plate",
+    "utils": "@teable/ui-lib"
   }
 }
