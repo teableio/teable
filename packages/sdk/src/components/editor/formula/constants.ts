@@ -75,7 +75,10 @@ export const useFunctionsDisplayMap = (): IFunctionMap => {
   );
 };
 
-const funcDefine: [FunctionName, Omit<IFunctionSchema<FunctionName>, 'summary' | 'example'>][] = [
+export const funcDefine: [
+  FunctionName,
+  Omit<IFunctionSchema<FunctionName>, 'summary' | 'example'>,
+][] = [
   // Numeric
   [
     FunctionName.Sum,

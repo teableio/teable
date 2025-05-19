@@ -57,7 +57,18 @@
       "helperExample": "Beispiel: ",
       "fieldValue": "Gibt den Wert in den Zellen des Feldes {{fieldName}} zurück.",
       "placeholder": "Einen Ausdruck eingeben",
-      "placeholderForAI": "Geben Sie einen Ausdruck ein oder drücken Sie //, um mit AI zu generieren"
+      "placeholderForAIPrompt": "Beschreiben Sie die Formel, die Sie generieren möchten",
+      "editExpression": "Formel bearbeiten",
+      "generateExpressionByAI": "Formel mit AI generieren",
+      "inputPrompt": "Eingabeanweisung",
+      "generateExpression": "Generierte Formel",
+      "generatingByAI": "Formel mit AI generieren...",
+      "generatedExpressionTips": "Nach Generieren, klicken Sie auf Anwenden, um die Formel schnell einzufügen",
+      "action": {
+        "generating": "Generieren...",
+        "generate": "Generieren",
+        "apply": "Anwenden"
+      }
     },
     "link": {
       "placeholder": "Zu verknüpfende Datensätze auswählen",

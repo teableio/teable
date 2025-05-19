@@ -57,7 +57,18 @@
       "helperExample": "Example: ",
       "fieldValue": "Returns the value to the cells of the {{fieldName}} field.",
       "placeholder": "Enter an expression",
-      "placeholderForAI": "Enter an expression or press // to generate with AI"
+      "placeholderForAIPrompt": "Describe the formula you want to generate",
+      "editExpression": "Edit formula",
+      "generateExpressionByAI": "Generate formula by AI",
+      "inputPrompt": "Input instruction",
+      "generateExpression": "Generated formula",
+      "generatingByAI": "Generating formula by AI...",
+      "generatedExpressionTips": "After generating, click apply to quickly insert the formula",
+      "action": {
+        "generating": "Generating...",
+        "generate": "Generate",
+        "apply": "Apply"
+      }
     },
     "link": {
       "placeholder": "Select records to link",

@@ -56,7 +56,18 @@
       "guideExample": "Ejemplo",
       "helperExample": "Ejemplo:",
       "placeholder": "Ingrese una expresión",
-      "placeholderForAI": "Ingrese una expresión o presione // para generar con AI"
+      "placeholderForAIPrompt": "Describe la fórmula que quieres generar",
+      "editExpression": "Editar fórmula",
+      "generateExpressionByAI": "Generar fórmula con AI",
+      "inputPrompt": "Instrucción de entrada",
+      "generateExpression": "Fórmula generada",
+      "generatingByAI": "Generando fórmula con AI...",
+      "generatedExpressionTips": "Después de generar, haga clic en Aplicar para insertar la fórmula rápidamente",
+      "action": {
+        "generating": "Generando...",
+        "generate": "Generar",
+        "apply": "Aplicar"
+      }
     },
     "link": {
       "placeholder": "Seleccionar registros para vincular",

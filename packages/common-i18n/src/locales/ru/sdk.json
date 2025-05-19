@@ -55,7 +55,18 @@
       "helperExample": "Пример: ",
       "fieldValue": "Возвращает значение для поля {{fieldName}}.",
       "placeholder": "Введите формулу",
-      "placeholderForAI": "Введите формулу или введите // для генерации с помощью AI"
+      "placeholderForAIPrompt": "Опишите формулу, которую вы хотите сгенерировать",
+      "editExpression": "Редактировать формулу",
+      "generateExpressionByAI": "Сгенерировать формулу с помощью AI",
+      "inputPrompt": "Введите инструкцию",
+      "generateExpression": "Сгенерированная формула",
+      "generatingByAI": "Сгенерирование формулы с помощью AI...",
+      "generatedExpressionTips": "После генерации, нажмите на кнопку Применить, чтобы вставить формулу быстро",
+      "action": {
+        "generating": "Сгенерирование...",
+        "generate": "Сгенерировать",
+        "apply": "Применить"
+      }
     },
     "link": {
       "placeholder": "Выберите записи для ссылки",

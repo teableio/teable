@@ -57,7 +57,18 @@
       "helperExample": "Приклад: ",
       "fieldValue": "Повертає значення до клітинок поля {{fieldName}}.",
       "placeholder": "Введіть вираз",
-      "placeholderForAI": "Введіть вираз або натисніть // для створення за допомогою ШІ"
+      "placeholderForAIPrompt": "Опишіть формулу, яку ви хочете створити",
+      "editExpression": "Редагувати формулу",
+      "generateExpressionByAI": "Створіть формулу за допомогою ШІ",
+      "inputPrompt": "Введіть інструкцію",
+      "generateExpression": "Створена формула",
+      "generatingByAI": "Створюється формула за допомогою ШІ...",
+      "generatedExpressionTips": "Після створення, натисніть на кнопку Примінити, щоб вставити формулу швидко",
+      "action": {
+        "generating": "Створюється...",
+        "generate": "Створити",
+        "apply": "Примінити"
+      }
     },
     "link": {
       "placeholder": "Виберіть записи для зв'язування",

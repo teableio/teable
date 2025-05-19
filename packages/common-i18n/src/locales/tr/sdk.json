@@ -54,7 +54,20 @@
       "guideSyntax": "Sözdizimi",
       "guideExample": "Örnek",
       "helperExample": "Örnek: ",
-      "fieldValue": "{{fieldName}} alanındaki hücrelerin değerini döndürür."
+      "fieldValue": "{{fieldName}} alanındaki hücrelerin değerini döndürür.",
+      "placeholder": "Bir ifade girin",
+      "placeholderForAIPrompt": "Oluşturmak istediğiniz formülü açıklayın",
+      "editExpression": "Formülü düzenle",
+      "generateExpressionByAI": "AI ile formül oluştur",
+      "inputPrompt": "Giriş komutu",
+      "generateExpression": "Oluşturulan formül",
+      "generatingByAI": "AI ile formül oluşturuluyor...",
+      "generatedExpressionTips": "Oluşturulan formülü uygulamak için Uygula düğmesine tıklayın",
+      "action": {
+        "generating": "Oluşturuluyor...",
+        "generate": "Oluştur",
+        "apply": "Uygula"
+      }
     },
     "link": {
       "placeholder": "Bağlanacak kayıtları seçin",

@@ -57,7 +57,18 @@
       "helperExample": "Esempio: ",
       "fieldValue": "Restituisce il valore alle celle del campo {{fieldName}}.",
       "placeholder": "Inserisci un'espressione",
-      "placeholderForAI": "Inserisci un'espressione o premi // per generare con AI"
+      "placeholderForAIPrompt": "Descrivi la formula che vuoi generare",
+      "editExpression": "Modifica formula",
+      "generateExpressionByAI": "Genera formula con AI",
+      "inputPrompt": "Inserisci istruzione",
+      "generateExpression": "Formula generata",
+      "generatingByAI": "Generazione formula con AI...",
+      "generatedExpressionTips": "Dopo la generazione, clicca su Applica per inserire rapidamente la formula",
+      "action": {
+        "generating": "Generazione...",
+        "generate": "Genera",
+        "apply": "Applica"
+      }
     },
     "link": {
       "placeholder": "Seleziona record da collegare",

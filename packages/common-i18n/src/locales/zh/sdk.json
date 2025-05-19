@@ -71,7 +71,18 @@
       "helperExample": "示例：",
       "fieldValue": "返回 {{fieldName}} 字段的值.",
       "placeholder": "请输入公式",
-      "placeholderForAI": "请输入公式或输入以 // 开头的注释使用 AI 生成公式"
+      "placeholderForAIPrompt": "请描述你想生成的公式",
+      "editExpression": "编辑公式",
+      "generateExpressionByAI": "AI 生成公式",
+      "inputPrompt": "输入指令",
+      "generateExpression": "生成公式",
+      "generatingByAI": "AI 正在生成公式中...",
+      "generatedExpressionTips": "生成后，点击应用即可快速插入公式",
+      "action": {
+        "generating": "生成中...",
+        "generate": "生成",
+        "apply": "应用"
+      }
     },
     "link": {
       "placeholder": "选择要链接的记录",

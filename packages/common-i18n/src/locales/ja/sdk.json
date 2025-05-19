@@ -43,7 +43,18 @@
       "helperExample": "例: ",
       "fieldValue": "{{fieldName}}フィールドのセルに値を返します。",
       "placeholder": "数式を入力",
-      "placeholderForAI": "数式を入力するか、//を入力してAIで生成"
+      "placeholderForAIPrompt": "生成したい数式を記述してください",
+      "editExpression": "数式を編集",
+      "generateExpressionByAI": "AIで数式を生成",
+      "inputPrompt": "入力指示",
+      "generateExpression": "生成数式",
+      "generatingByAI": "AIで数式を生成中...",
+      "generatedExpressionTips": "生成後、適用ボタンをクリックして数式を挿入します",
+      "action": {
+        "generating": "生成中...",
+        "generate": "生成",
+        "apply": "適用"
+      }
     },
     "link": {
       "placeholder": "リンクするレコードを選択",

@@ -43,7 +43,18 @@
       "helperExample": "Exemple : ",
       "fieldValue": "Renvoie la valeur aux cellules du champ {{fieldName}}.",
       "placeholder": "Entrez une expression",
-      "placeholderForAI": "Entrez une expression ou entrez // pour générer avec AI"
+      "placeholderForAIPrompt": "Décrivez la formule que vous souhaitez générer",
+      "editExpression": "Modifier la formule",
+      "generateExpressionByAI": "Générer la formule avec AI",
+      "inputPrompt": "Entrez une instruction",
+      "generateExpression": "Formule générée",
+      "generatingByAI": "Génération de la formule avec AI...",
+      "generatedExpressionTips": "Après génération, cliquez sur Appliquer pour insérer rapidement la formule",
+      "action": {
+        "generating": "Génération...",
+        "generate": "Générer",
+        "apply": "Appliquer"
+      }
     },
     "link": {
       "placeholder": "Sélectionner des enregistrements à lier",
