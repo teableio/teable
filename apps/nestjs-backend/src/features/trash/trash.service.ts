@@ -580,6 +580,7 @@ export class TrashService {
               {
                 fieldKeyType: FieldKeyType.Id,
                 records,
+                typecast: true,
               },
               true
             );
