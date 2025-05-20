@@ -348,6 +348,7 @@ export class AttachmentsService {
           'Content-Type': contentType,
           'Content-Length': contentLength,
         },
+        maxRedirects: 5,
       });
     } catch (error) {
       stream.destroy();
