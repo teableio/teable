@@ -34,6 +34,8 @@ export enum HttpErrorCode {
   CONFLICT = 'conflict',
   // 422 - The request body does not match the schema for the expected parameters
   UNPROCESSABLE_ENTITY = 'unprocessable_entity',
+  // 424 - The request failed because it depended on another request and that request failed.
+  FAILED_DEPENDENCY = 'failed_dependency',
   // 460 - The user has reached the limit of the number of users that can be created in the current instance.
   USER_LIMIT_EXCEEDED = 'user_limit_exceeded',
   // 429 - The user has reached the limit of the number of requests that can be made in the current instance.

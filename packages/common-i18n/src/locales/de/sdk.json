@@ -789,12 +789,14 @@
     "unknownErrorCode": "Unbekannter Fehlercode",
     "viewNotFound": "Ansicht nicht gefunden",
     "requestTimeout": "Operationen außerhalb des Bereichs",
+    "failedDependency": "Abhängigkeitsfehler",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
       "fieldValueDuplicate": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" Feld darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
       "requestTimeout": "Der aktuelle Vorgangsbereich ist zu groß, bitte versuchen Sie es mit einem kleineren Bereich erneut.",
-      "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen."
+      "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
+      "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden"
     }
   }
 }

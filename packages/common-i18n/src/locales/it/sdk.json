@@ -789,12 +789,14 @@
     "unknownErrorCode": "Codice errore sconosciuto",
     "viewNotFound": "Vista non trovata",
     "requestTimeout": "Timeout della richiesta",
+    "failedDependency": "Errore di dipendenza",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori vuoti, per favore riempilo completamente prima di inviare.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori duplicati, per favore riempilo con un valore unico prima di inviare.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" campo non consente associazioni duplicate con lo stesso record",
       "requestTimeout": "L'azione corrente è troppo grande, per favore riprova con un ambito più piccolo.",
-      "searchTimeOut": "La ricerca ha scaduto, per favore ridurre l'ambito di ricerca e riprova."
+      "searchTimeOut": "La ricerca ha scaduto, per favore ridurre l'ambito di ricerca e riprova.",
+      "dependencyNodeRequire": "Il nodo dipendente non è stato testato, per favore controlla se tutti i nodi precedenti sono stati testati"
     }
   }
 }
