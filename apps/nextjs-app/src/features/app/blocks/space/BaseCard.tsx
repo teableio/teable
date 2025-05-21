@@ -90,9 +90,15 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
-  const hasUpdatePermission = !base.isRestricted && hasPermission(base.role, 'base|update');
-  const hasDeletePermission = !base.isRestricted && hasPermission(base.role, 'base|delete');
-  const hasMovePermission = !base.isRestricted && hasPermission(base.role, 'space|create');
+  const hasUpdatePermission = base.restrictedAuthority
+    ? false
+    : hasPermission(base.role, 'base|update');
+  const hasDeletePermission = base.restrictedAuthority
+    ? false
+    : hasPermission(base.role, 'base|delete');
+  const hasMovePermission = base.restrictedAuthority
+    ? false
+    : hasPermission(base.role, 'space|create');
 
   return (
     <Card

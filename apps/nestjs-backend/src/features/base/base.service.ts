@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ActionPrefix, actionPrefixMap, generateBaseId, isRestrictedRole } from '@teable/core';
+import { ActionPrefix, actionPrefixMap, generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
@@ -73,7 +73,6 @@ export class BaseService {
       ...base,
       role: role,
       collaboratorType: collaborator?.resourceType as CollaboratorType,
-      isRestricted: isRestrictedRole(role),
     };
   }
 
@@ -107,7 +106,7 @@ export class BaseService {
     });
     return baseList.map((base) => {
       const role = roleMap[base.id] || roleMap[base.spaceId];
-      return { ...base, role, isRestricted: isRestrictedRole(role) };
+      return { ...base, role };
     });
   }
 

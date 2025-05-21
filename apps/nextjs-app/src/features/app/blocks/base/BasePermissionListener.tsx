@@ -20,15 +20,15 @@ export const BasePermissionListener = () => {
     enabled: !!baseId,
   });
 
-  const isRestricted = base?.isRestricted;
+  const restrictedAuthority = base?.restrictedAuthority;
 
   const onPermissionUpdate = useCallback(async () => {
-    if (isRestricted) {
+    if (!restrictedAuthority) {
       return;
     }
     await refetch();
     setOpen(true);
-  }, [isRestricted, refetch]);
+  }, [restrictedAuthority, refetch]);
 
   usePermissionUpdateListener(baseId, onPermissionUpdate);
 

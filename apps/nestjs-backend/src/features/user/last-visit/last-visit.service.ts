@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { isRestrictedRole, type IRole } from '@teable/core';
+import { type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IGetUserLastVisitRo,
@@ -351,7 +351,6 @@ export class LastVisitService {
         icon: result.resourceIcon,
         role: result.resourceRole,
         spaceId: result.spaceId,
-        isRestricted: isRestrictedRole(result.resourceRole),
       },
     }));
 
