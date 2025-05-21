@@ -284,6 +284,26 @@ export class PinService {
     });
   }
 
+  async deletePinWithoutException(query: DeletePinRo) {
+    const { id, type } = query;
+    const existingPin = await this.prismaService.pinResource.findFirst({
+      where: {
+        resourceId: id,
+        type,
+      },
+    });
+    if (!existingPin) {
+      return;
+    }
+    return this.prismaService.pinResource.deleteMany({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        resourceId: id,
+        type,
+      },
+    });
+  }
+
   @OnEvent(Events.TABLE_VIEW_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })
   @OnEvent(Events.BASE_DELETE, { async: true })
@@ -293,16 +313,28 @@ export class PinService {
   ) {
     switch (listenerEvent.name) {
       case Events.TABLE_VIEW_DELETE:
-        await this.deletePin({ id: listenerEvent.payload.viewId, type: PinType.View });
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.viewId,
+          type: PinType.View,
+        });
         break;
       case Events.TABLE_DELETE:
-        await this.deletePin({ id: listenerEvent.payload.tableId, type: PinType.Table });
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.tableId,
+          type: PinType.Table,
+        });
         break;
       case Events.BASE_DELETE:
-        await this.deletePin({ id: listenerEvent.payload.baseId, type: PinType.Base });
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.baseId,
+          type: PinType.Base,
+        });
         break;
       case Events.SPACE_DELETE:
-        await this.deletePin({ id: listenerEvent.payload.spaceId, type: PinType.Space });
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.spaceId,
+          type: PinType.Space,
+        });
         break;
     }
   }

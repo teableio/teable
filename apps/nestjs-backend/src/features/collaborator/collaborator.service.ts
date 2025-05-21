@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { canManageRole, getRandomString, Role, type IBaseRole, type IRole } from '@teable/core';
+import {
+  canManageRole,
+  getRandomString,
+  isRestrictedRole,
+  Role,
+  type IBaseRole,
+  type IRole,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   AddBaseCollaboratorRo,
@@ -717,6 +724,7 @@ export class CollaboratorService {
       icon: base.icon,
       spaceId: base.spaceId,
       collaboratorType: CollaboratorType.Base,
+      isRestricted: isRestrictedRole(roleMap[base.id]),
     }));
   }
 

@@ -24,6 +24,6 @@ export const hasPermission = (role: IRole, action: Action) => {
   return checkPermissions(role, [action]);
 };
 
-export const isUnrestrictedRole = (role: IRole) => {
-  return role === Role.Owner;
+export const isRestrictedRole = (role: IRole) => {
+  return role !== Role.Owner;
 };

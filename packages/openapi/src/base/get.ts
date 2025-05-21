@@ -14,7 +14,7 @@ export const getBaseItemSchema = z.object({
   icon: z.string().nullable(),
   role: roleSchema,
   collaboratorType: z.nativeEnum(CollaboratorType).optional(),
-  isUnrestricted: z.boolean().optional(),
+  isRestricted: z.boolean(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;
@@ -36,7 +36,7 @@ export const GetBaseRoute: RouteConfig = registerRoute({
       content: {
         'application/json': {
           schema: getBaseVoSchema.omit({
-            isUnrestricted: true,
+            isRestricted: true,
             collaboratorType: true,
           }),
         },

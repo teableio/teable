@@ -13,6 +13,7 @@ import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { useSpaceSubscriptionMonitor } from '../billing/useSpaceSubscriptionMonitor';
+import { RecentlyBase } from './RecentlyBase';
 import { SpaceCard } from './SpaceCard';
 import { useBaseList } from './useBaseList';
 import { useSpaceListOrdered } from './useSpaceListOrdered';
@@ -74,6 +75,7 @@ export const SpacePage: FC = () => {
         )}
       </div>
       <div className="flex-1 space-y-8 overflow-y-auto px-8 pt-8 sm:px-12">
+        <RecentlyBase />
         {orderedSpaceList.map((space) => (
           <SpaceCard
             key={space.id}

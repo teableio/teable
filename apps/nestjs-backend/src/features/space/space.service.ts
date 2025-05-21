@@ -6,6 +6,7 @@ import {
   generateIntegrationId,
   generateSpaceId,
   getUniqName,
+  isRestrictedRole,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -220,7 +221,10 @@ export class SpaceService {
       },
     });
 
-    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
+    return baseList.map((base) => {
+      const role = roleMap[base.id] || roleMap[base.spaceId];
+      return { ...base, role, isRestricted: isRestrictedRole(role) };
+    });
   }
 
   async permanentDeleteSpace(spaceId: string) {

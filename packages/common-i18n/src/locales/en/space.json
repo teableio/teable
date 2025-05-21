@@ -69,5 +69,8 @@
   "template": {
     "title": "Template",
     "description": "Create a new base from a template quickly"
+  },
+  "recentlyBase": {
+    "title": "Recently Visited"
   }
 }

@@ -29,6 +29,7 @@ import type {
   LastVisitResourceType,
   IUserLastVisitVo,
   IUsageVo,
+  IUserLastVisitListBaseVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -61,6 +62,7 @@ import {
   GET_SUBSCRIPTION_SUMMARY_LIST,
   GET_USER_LAST_VISIT,
   GET_INSTANCE_USAGE,
+  GET_USER_LAST_VISIT_LIST_BASE,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -261,5 +263,11 @@ export class SsrApi {
 
   async getInstanceUsage() {
     return this.axios.get<IUsageVo>(GET_INSTANCE_USAGE).then(({ data }) => data);
+  }
+
+  async getRecentlyBase() {
+    return this.axios
+      .get<IUserLastVisitListBaseVo>(GET_USER_LAST_VISIT_LIST_BASE)
+      .then(({ data }) => data);
   }
 }

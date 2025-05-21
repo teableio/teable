@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { getBaseById, getBasePermission } from '@teable/openapi';
+import {
+  getBaseById,
+  getBasePermission,
+  LastVisitResourceType,
+  updateUserLastVisit,
+} from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
-import { useContext, useMemo } from 'react';
+import { useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { Base } from '../../model';
 import { AnchorContext } from '../anchor';
@@ -18,6 +23,16 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => 
     queryFn: ({ queryKey }) =>
       queryKey[1] ? getBaseById(queryKey[1]).then((res) => res.data) : undefined,
   });
+
+  useEffect(() => {
+    if (baseData) {
+      updateUserLastVisit({
+        resourceId: baseData.id,
+        resourceType: LastVisitResourceType.Base,
+        parentResourceId: baseData.spaceId,
+      });
+    }
+  }, [baseData]);
 
   const { data: basePermissionData } = useQuery({
     queryKey: ReactQueryKeys.getBasePermission(baseId as string),

@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IViewVo } from '@teable/core';
 import { ViewType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseVo, ITableFullVo } from '@teable/openapi';
 import {
   createBase,
@@ -9,12 +10,14 @@ import {
   deleteBase,
   deleteView,
   getUserLastVisit,
+  getUserLastVisitListBase,
   getUserLastVisitMap,
   LastVisitResourceType,
   permanentDeleteTable,
   updateUserLastVisit,
+  userLastVisitListBaseVoSchema,
 } from '@teable/openapi';
-import { getViews, initApp } from './utils/init-app';
+import { getViews, initApp, permanentDeleteBase } from './utils/init-app';
 
 describe('OpenAPI OAuthController (e2e)', () => {
   let app: INestApplication;
@@ -37,6 +40,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   afterAll(async () => {
+    console.log('base', base);
     await permanentDeleteTable(base.id, table1.id);
     await permanentDeleteTable(base.id, table2.id);
     await deleteBase(base.id);
@@ -171,5 +175,50 @@ describe('OpenAPI OAuthController (e2e)', () => {
       childResourceId: views[0].id,
       resourceType: LastVisitResourceType.Table,
     });
+  });
+
+  it('should get last visit list base', async () => {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const base_21: ICreateBaseVo[] = [];
+
+    for (let i = 0; i < 21; i++) {
+      const base = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: `base_${i}`,
+      }).then((res) => res.data);
+      base_21.push(base);
+    }
+
+    for (const base of base_21) {
+      await updateUserLastVisit({
+        resourceType: LastVisitResourceType.Base,
+        parentResourceId: base.spaceId,
+        resourceId: base.id,
+      });
+    }
+
+    const res = await getUserLastVisitListBase();
+
+    for (const base of base_21) {
+      await deleteBase(base.id);
+      await permanentDeleteBase(base.id);
+    }
+    expect(userLastVisitListBaseVoSchema.safeParse(res.data).success).toEqual(true);
+    expect(res.data.list.length).toEqual(20);
+    expect(res.data.total).toEqual(20);
+    expect(res.data.list[0].resource.id).toEqual(base_21[20].id);
+    expect(res.data.list[19].resource.id).toEqual(base_21[1].id);
+
+    const res2 = await getUserLastVisitListBase();
+
+    expect(res2.data.list.length).toEqual(0);
+
+    const prisma = app.get(PrismaService);
+    const userLastVisit = await prisma.userLastVisit.findMany({
+      where: {
+        parentResourceId: base_21[0].spaceId,
+      },
+    });
+    expect(userLastVisit.length).toEqual(0);
   });
 });

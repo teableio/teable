@@ -209,4 +209,6 @@ export const ReactQueryKeys = {
   getTaskStatusCollection: (tableId: string) => ['task-status-collection', tableId] as const,
 
   chatHistory: (baseId: string) => ['chat-history', baseId] as const,
+
+  recentlyBase: () => ['recently-base'] as const,
 };
