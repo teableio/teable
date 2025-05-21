@@ -12,6 +12,8 @@ export const RecentlyBase = () => {
     queryFn: () => getUserLastVisitListBase().then((res) => res.data),
   });
 
+  if (!recentlyBase?.list.length || recentlyBase?.list.length === 0) return;
+
   return (
     <Card className="w-full shadow-none">
       <CardHeader className="pt-5">
