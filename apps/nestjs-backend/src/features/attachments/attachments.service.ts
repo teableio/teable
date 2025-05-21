@@ -298,12 +298,18 @@ export class AttachmentsService {
       const tempFileName = `temp-${nanoid()}`;
       tempFilePath = join(tmpdir(), tempFileName);
 
-      await this.downloadFile(fileUrl, tempFilePath, maxFileSize);
+      const { contentType: contentTypeFromDownLoad } = await this.downloadFile(
+        fileUrl,
+        tempFilePath,
+        maxFileSize
+      );
+      // why do not get from downloadFile function causing mismatch size when call it in different environment.
       contentLength = fs.statSync(tempFilePath).size;
       this.logger.log(`File downloaded. Size: ${contentLength} bytes`);
 
       if (!contentType) {
-        contentType = mimeTypes.lookup(fileUrl) || 'application/octet-stream';
+        contentType =
+          mimeTypes.lookup(fileUrl) || contentTypeFromDownLoad || 'application/octet-stream';
       }
     }
 
@@ -348,7 +354,6 @@ export class AttachmentsService {
           'Content-Type': contentType,
           'Content-Length': contentLength,
         },
-        maxRedirects: 5,
       });
     } catch (error) {
       stream.destroy();
@@ -362,7 +367,13 @@ export class AttachmentsService {
     return pathParts[pathParts.length - 1] || 'downloaded_file';
   }
 
-  private async downloadFile(url: string, filePath: string, maxSize: number): Promise<void> {
+  private async downloadFile(
+    url: string,
+    filePath: string,
+    maxSize: number
+  ): Promise<{
+    contentType: string;
+  }> {
     let downloadedBytes = 0;
 
     const response = await axios({
@@ -398,7 +409,11 @@ export class AttachmentsService {
 
         response.data.pipe(writer);
 
-        writer.on('finish', resolve);
+        writer.on('finish', () => {
+          resolve({
+            contentType: response?.headers?.['content-type'],
+          });
+        });
         writer.on('error', (error: unknown) => {
           cleanup();
           reject(error);
