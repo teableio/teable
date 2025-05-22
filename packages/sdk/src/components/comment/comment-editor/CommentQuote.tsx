@@ -102,7 +102,7 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
     }
 
     if (displayLine.type === CommentNodeType.Img) {
-      return <BlockImageElement path={displayLine.path} width={20} />;
+      return <BlockImageElement path={displayLine.path} width={20} url={displayLine.url} />;
     }
 
     return null;
