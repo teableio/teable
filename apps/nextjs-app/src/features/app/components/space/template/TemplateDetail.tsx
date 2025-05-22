@@ -5,13 +5,13 @@ import {
   getPublishedTemplateCategoryList,
   getTemplateDetail,
 } from '@teable/openapi';
+import { MarkdownPreview } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { MarkdownPreview } from '../../mark-down-preview';
 import { useSpaceId } from './hooks/use-space-id';
 interface ITemplateDetailProps {
   templateId: string;

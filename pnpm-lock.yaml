@@ -1615,6 +1615,9 @@ importers:
       react-hotkeys-hook:
         specifier: 4.5.0
         version: 4.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-markdown:
+        specifier: 9.0.1
+        version: 9.0.1(@types/react@18.2.69)(react@18.3.1)
       react-textarea-autosize:
         specifier: 8.5.3
         version: 8.5.3(@types/react@18.2.69)(react@18.3.1)
@@ -1624,6 +1627,12 @@ importers:
       reconnecting-websocket:
         specifier: 4.4.0
         version: 4.4.0
+      rehype-raw:
+        specifier: 7.0.0
+        version: 7.0.0
+      remark-gfm:
+        specifier: 4.0.0
+        version: 4.0.0
       scroller:
         specifier: 0.0.3
         version: 0.0.3

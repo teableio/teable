@@ -1,10 +1,12 @@
-import { cn } from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { memo } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+
+export type { Components } from 'react-markdown';
 
 export const MarkdownPreview = (props: {
   children?: string;
