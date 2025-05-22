@@ -150,6 +150,9 @@ export const CommentEditor = (props: ICommentEditorProps) => {
     };
     setEditorRef(editorRef.current);
   }, [editor, setEditorRef]);
+  useEffect(() => {
+    editor.tf.focus();
+  }, [editor]);
   const { mutateAsync: createCommentFn } = useMutation({
     mutationFn: ({
       tableId,
