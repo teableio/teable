@@ -1,5 +1,6 @@
 'use client';
 
+import { CommentNodeType } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
 import type { PlateElementProps } from '@udecode/plate/react';
 import { PlateElement, useEditorPlugin, withHOC } from '@udecode/plate/react';
@@ -94,6 +95,8 @@ export const MediaPlaceholderElement = withHOC(
 
       const path = editor.api.findPath(element);
 
+      const previousNode = editor.api.previous({ at: path });
+
       if (!path) return;
 
       editor.tf.withoutSaving(() => {
@@ -111,7 +114,11 @@ export const MediaPlaceholderElement = withHOC(
           path: uploadedFile.path,
         };
 
-        editor.tf.insertNodes(node, { at: path });
+        if (previousNode?.[0]?.type === CommentNodeType.Img || !previousNode) {
+          editor.tf.insertNodes(node, { at: path, nextBlock: true });
+        } else {
+          editor.tf.insertNodes(node, { at: path });
+        }
 
         editor.tf.focus();
 
