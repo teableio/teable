@@ -374,6 +374,38 @@ describe('OpenAPI SelectionController (e2e)', () => {
         },
       ]);
     });
+
+    it('paste link field with same value', async () => {
+      const table1LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField1 = await createField(table1.id, table1LinkFieldRo);
+
+      await apiPaste(table1.id, {
+        viewId: table1.views[0].id,
+        content: [['table2_1']],
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        header: [table1.fields[0]],
+      });
+
+      const record = await getRecord(table1.id, table1.records[0].id);
+
+      expect(record.fields[linkField1.id]).toEqual([
+        {
+          id: table2.records[0].id,
+          title: 'table2_1',
+        },
+      ]);
+    });
   });
 
   describe('past expand col formula', () => {

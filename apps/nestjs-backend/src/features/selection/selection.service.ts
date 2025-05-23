@@ -505,9 +505,9 @@ export class SelectionService {
               ? sourceField.type === FieldType.Link
                 ? [cellValue as { id: string }]
                     .flat()
-                    .map((v) => v.id)
+                    .map((v) => (typeof v === 'string' ? v : v.id))
                     .join(',')
-                : null
+                : sourceField.cellValue2String(cellValue)
               : null;
             break;
           }
@@ -516,6 +516,7 @@ export class SelectionService {
         }
       });
     });
+    console.log('records', records);
     return records;
   }
 
