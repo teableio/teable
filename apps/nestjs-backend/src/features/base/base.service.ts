@@ -300,6 +300,9 @@ export class BaseService {
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
     // permission check, base update permission
     await this.checkBaseUpdatePermission(duplicateBaseRo.fromBaseId);
+    this.logger.log(
+      `base-duplicate-service: Start to duplicating base: ${duplicateBaseRo.fromBaseId}`
+    );
     return await this.prismaService.$tx(
       async () => {
         return await this.baseDuplicateService.duplicateBase(duplicateBaseRo);

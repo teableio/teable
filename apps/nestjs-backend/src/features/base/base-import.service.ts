@@ -230,15 +230,18 @@ export class BaseImportService {
 
     // create base
     const newBase = await this.createBase(spaceId, name, icon || undefined);
+    this.logger.log(`base-duplicate-service: Duplicate base successfully`);
 
     // create table
     const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
       newBase.id,
       tables
     );
+    this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
     // create plugins
     await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
+    this.logger.log(`base-duplicate-service: Duplicate base plugins successfully`);
 
     return {
       base: newBase,
@@ -261,11 +264,14 @@ export class BaseImportService {
         description,
       });
       tableIdMap[tableId] = newTableVo.id;
+      this.logger.log(`base-duplicate-service: duplicate table item successfully`);
     }
 
     const { fieldMap: fieldIdMap, fkMap } = await this.createFields(tables, tableIdMap);
+    this.logger.log(`base-duplicate-service: Duplicate table fields successfully`);
 
     const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap);
+    this.logger.log(`base-duplicate-service: Duplicate table views successfully`);
 
     await this.fieldDuplicateService.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
 

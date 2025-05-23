@@ -153,6 +153,8 @@ export class BaseDuplicateService {
       allowCrossBase,
     });
 
+    this.logger.log(`base-duplicate-service: Start to getting base structure config successfully`);
+
     const {
       base: newBase,
       tableIdMap,
