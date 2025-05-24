@@ -330,6 +330,13 @@ export class BaseImportService {
     // fix formula expression' field map
     await this.fieldDuplicateService.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 
+    const formulaFields = allFields.filter(
+      ({ type, isLookup }) => type === FieldType.Formula && !isLookup
+    );
+
+    // fix formula reference
+    await this.fieldDuplicateService.repairFormulaReference(formulaFields, fieldMap);
+
     return { fieldMap, fkMap };
   }
 
