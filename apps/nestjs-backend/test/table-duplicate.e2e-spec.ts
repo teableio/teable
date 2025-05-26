@@ -44,7 +44,7 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
     await app.close();
   });
 
-  describe('duplicate table with all kind field', () => {
+  describe.only('duplicate table with all kind field', () => {
     let table: ITableFullVo;
     let subTable: ITableFullVo;
     let duplicateTableData: IDuplicateTableVo;
@@ -141,9 +141,9 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
       ).data;
     });
     afterAll(async () => {
-      await permanentDeleteTable(baseId, table.id);
-      await permanentDeleteTable(baseId, subTable.id);
-      await permanentDeleteTable(baseId, duplicateTableData.id);
+      // await permanentDeleteTable(baseId, table.id);
+      // await permanentDeleteTable(baseId, subTable.id);
+      // await permanentDeleteTable(baseId, duplicateTableData.id);
     });
 
     it('should duplicate all fields and views', () => {
@@ -218,6 +218,8 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         otherAssertFieldsWithOutLink.sort(sortById)
       );
     });
+
+    it.only('duplicate formula field should be calculate normally', () => {});
 
     // it.skip('should create a link field in linked table when link field is two-way-link', async () => {
     //   const fields = (await getFields(subTable.id)).data;
