@@ -1,5 +1,5 @@
 import { DragHandleDots2Icon } from '@radix-ui/react-icons';
-import { Edit, Maximize2, MoreHorizontal, X } from '@teable/icons';
+import { Copy, Edit, Maximize2, MoreHorizontal, X } from '@teable/icons';
 import {
   Button,
   cn,
@@ -23,6 +23,7 @@ export const PluginHeader = (props: {
   onClose: () => void;
   onDelete: () => void;
   onExpand: () => void;
+  onCopy: () => void;
   onNameChange: (name: string) => void;
 }) => {
   const {
@@ -34,6 +35,7 @@ export const PluginHeader = (props: {
     onClose,
     onDelete,
     onExpand,
+    onCopy,
     onNameChange,
   } = props;
   const [rename, setRename] = useState<string | null>(null);
@@ -124,6 +126,10 @@ export const PluginHeader = (props: {
             <DropdownMenuItem onSelect={onExpand}>
               <Maximize2 className="mr-1.5" />
               {t('common:actions.expand')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onCopy}>
+              <Copy className="mr-1.5" />
+              {t('common:actions.duplicate')}
             </DropdownMenuItem>
             {canManage && (
               <>

@@ -413,11 +413,12 @@ export class BaseImportService {
     );
   }
 
-  private async createDashboard(
+  async createDashboard(
     baseId: string,
     plugins: IBaseJson['plugins'][PluginPosition.Dashboard],
     tableMap: Record<string, string>,
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    inSameBase: boolean = false
   ) {
     const dashboardMap: Record<string, string> = {};
     const pluginInstallMap: Record<string, string> = {};
@@ -470,20 +471,26 @@ export class BaseImportService {
       });
     }
 
-    // create char user to collaborator
-    await prisma.collaborator.create({
-      data: {
-        roleName: Role.Owner,
-        createdBy: userId,
-        resourceId: baseId,
-        resourceType: ResourceType.Base,
-        principalType: PrincipalType.User,
-        principalId: 'pluchartuser',
-      },
-    });
+    if (!inSameBase) {
+      // create char user to collaborator
+      await prisma.collaborator.create({
+        data: {
+          roleName: Role.Owner,
+          createdBy: userId,
+          resourceId: baseId,
+          resourceType: ResourceType.Base,
+          principalType: PrincipalType.User,
+          principalId: 'pluchartuser',
+        },
+      });
+    }
+
+    return {
+      dashboardMap,
+    };
   }
 
-  private async createPanel(
+  async createPanel(
     baseId: string,
     plugins: IBaseJson['plugins'][PluginPosition.Panel],
     tableMap: Record<string, string>,
@@ -539,6 +546,10 @@ export class BaseImportService {
         },
       });
     }
+
+    return {
+      panelMap,
+    };
   }
 
   private async createPluginViews(

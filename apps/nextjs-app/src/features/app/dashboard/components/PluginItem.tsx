@@ -1,11 +1,17 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PluginPosition, removePlugin, renamePlugin } from '@teable/openapi';
+import {
+  duplicateDashboardInstalledPlugin,
+  PluginPosition,
+  removePlugin,
+  renamePlugin,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { PluginContent } from '../../components/plugin/PluginContent';
 import { PluginHeader } from '../../components/plugin/PluginHeader';
@@ -20,6 +26,7 @@ export const PluginItem = (props: {
   pluginInstallId: string;
 }) => {
   const baseId = useBaseId()!;
+  const { t } = useTranslation(['common']);
   const { pluginInstallId, dashboardId, dragging, pluginId, name, pluginUrl } = props;
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -41,6 +48,16 @@ export const PluginItem = (props: {
     },
   });
 
+  const { mutate: duplicateDashboardInstalledPluginFn } = useMutation({
+    mutationFn: () =>
+      duplicateDashboardInstalledPlugin(baseId, dashboardId, pluginInstallId, {
+        name: `${name} ${t('common:noun.copy')}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
+    },
+  });
+
   const onExpand = useCallback(() => {
     const query = { ...router.query, expandPluginId: pluginInstallId };
     router.push(
@@ -52,6 +69,10 @@ export const PluginItem = (props: {
       { shallow: true }
     );
   }, [pluginInstallId, router]);
+
+  const onCopy = useCallback(() => {
+    duplicateDashboardInstalledPluginFn();
+  }, [duplicateDashboardInstalledPluginFn]);
 
   const onClose = () => {
     const query = { ...router.query };
@@ -96,6 +117,7 @@ export const PluginItem = (props: {
           onClose={onClose}
           isExpanded={isExpanded}
           canManage={canManage}
+          onCopy={onCopy}
         />
         <PluginContent
           baseId={baseId}
