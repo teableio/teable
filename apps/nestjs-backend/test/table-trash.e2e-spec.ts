@@ -22,6 +22,7 @@ import {
   getViews,
   getFields,
   getRecords,
+  createField,
 } from './utils/init-app';
 
 const tableVo = {
@@ -164,6 +165,23 @@ describe('Trash (e2e)', () => {
       const deletedFieldIds = fields.filter((f) => !f.isPrimary).map((f) => f.id);
 
       await awaitWithFieldEvent(async () => deleteFields(tableId, deletedFieldIds));
+
+      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      const restored = await restoreTrash(result.data.trashItems[0].id);
+
+      expect(restored.status).toEqual(201);
+    });
+
+    it('should restore formula fields successfully', async () => {
+      const formulaField = await createField(tableId, {
+        name: 'Formula',
+        type: FieldType.Formula,
+        options: {
+          expression: '1 + 1',
+        },
+      });
+
+      await awaitWithFieldEvent(async () => deleteFields(tableId, [formulaField.id]));
 
       const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
       const restored = await restoreTrash(result.data.trashItems[0].id);

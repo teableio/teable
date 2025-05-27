@@ -152,7 +152,7 @@ export class FieldCalculationService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    const result = await this.prismaService.$queryRawUnsafe<{ id: string }[]>(query);
+    const result = await this.prismaService.txClient().$queryRawUnsafe<{ id: string }[]>(query);
     return result.map((item) => item.id);
   }
 

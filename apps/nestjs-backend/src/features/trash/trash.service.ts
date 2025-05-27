@@ -556,10 +556,6 @@ export class TrashService {
           }
           case ResourceType.Field: {
             const { fields, records } = snapshot as ICreateFieldsOperation['result'];
-            await prisma.field.updateMany({
-              where: { id: { in: fields.map((f) => f.id) } },
-              data: { deletedTime: null },
-            });
             await this.fieldOpenApiService.createFields(tableId, fields);
             if (records) {
               await this.recordOpenApiService.updateRecords(tableId, {
