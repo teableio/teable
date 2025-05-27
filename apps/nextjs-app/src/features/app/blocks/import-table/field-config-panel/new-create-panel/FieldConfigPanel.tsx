@@ -1,4 +1,5 @@
 import { FieldType } from '@teable/core';
+import { X } from '@teable/icons';
 import type { IImportOption, IImportOptionRo, IImportSheetItem } from '@teable/openapi';
 import { Button, cn } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
@@ -91,25 +92,44 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
     }
   };
 
+  const removeSheet = (sheetKey: string) => {
+    const newSheets = { ...workSheets };
+    delete newSheets[sheetKey];
+    const newSheetsKeys = Object.keys(newSheets);
+    if (selectedSheetKey === sheetKey) {
+      setSelectedSheetKey(newSheetsKeys[0]);
+    }
+    onChange(newSheets);
+  };
+
   return (
     <div className="flex flex-col">
       <div>
         <p className="text-base font-bold">{t('table:import.title.importTitle')}</p>
       </div>
 
-      <div className="mt-2 flex w-full gap-1 overflow-x-auto">
+      <div className="relative mt-2 flex w-full gap-1 overflow-x-auto">
         {sheets.map((sheetKey) => (
           <Button
             variant={'outline'}
             key={sheetKey}
             size="xs"
             onClick={() => setSelectedSheetKey(sheetKey)}
-            className={cn('max-w-32 shrink-0 cursor-pointer truncate rounded-sm px-2', {
+            className={cn('group max-w-32 shrink-0 cursor-pointer truncate rounded-sm px-2', {
               'bg-secondary': sheetKey === selectedSheetKey,
             })}
             title={workSheets[sheetKey].name}
           >
             <span className="truncate">{workSheets[sheetKey].name}</span>
+            {sheets.length !== 1 && (
+              <X
+                className="size-3 shrink-0 rounded-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeSheet(sheetKey);
+                }}
+              />
+            )}
           </Button>
         ))}
       </div>
