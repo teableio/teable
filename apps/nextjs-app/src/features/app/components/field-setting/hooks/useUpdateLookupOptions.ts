@@ -18,6 +18,13 @@ export function useUpdateLookupOptions(
         ...field.lookupOptions,
         ...(lookupOptions || {}),
       } as ILookupOptionsRo;
+      if (!field.isLookup) {
+        setFieldFn({
+          ...field,
+          lookupOptions: newLookupOptions,
+        });
+        return;
+      }
 
       const optionsResult =
         lookupField?.type && safeParseOptions(lookupField.type, lookupField.options);
