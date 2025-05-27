@@ -1,40 +1,53 @@
-import * as os from 'os';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
-import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
-import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
-import { Resource } from '@opentelemetry/resources';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import {
-  SEMRESATTRS_HOST_NAME,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-} from '@opentelemetry/semantic-conventions';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import * as opentelemetry from '@opentelemetry/sdk-node';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
-const otelSDK = new NodeSDK({
-  traceExporter: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-    ? new OTLPTraceExporter({
-        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-        headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Type': 'application/x-protobuf',
-        },
-        timeoutMillis: 15000,
-      })
-    : undefined,
+const parseOtelHeaders = (headerStr?: string) => {
+  if (!headerStr) return {};
+  return headerStr.split(',').reduce(
+    (acc, curr) => {
+      const [key, value] = curr.split('=');
+      if (key && value) {
+        acc[key.trim()] = value.trim();
+      }
+      return acc;
+    },
+    {} as Record<string, string>
+  );
+};
+
+const headers = parseOtelHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
+
+const exporterOptions = {
+  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  headers: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    'Content-Type': 'application/x-protobuf',
+    ...headers,
+  },
+};
+
+const traceExporter = exporterOptions.url ? new OTLPTraceExporter(exporterOptions) : undefined;
+const otelSDK = new opentelemetry.NodeSDK({
+  traceExporter,
   instrumentations: [
-    new HttpInstrumentation(),
-    new ExpressInstrumentation(),
+    getNodeAutoInstrumentations({
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      '@opentelemetry/instrumentation-http': {
+        ignoreIncomingRequestHook: (request) => {
+          const ignorePaths = ['/favicon.ico', '/_next/', '/__nextjs', '/images/', '/.well-known/'];
+          return ignorePaths.some((path) => request.url?.startsWith(path));
+        },
+      },
+    }),
     new PrismaInstrumentation(),
-    new PinoInstrumentation(),
   ],
-  resource: new Resource({
-    [SEMRESATTRS_HOST_NAME]: os.hostname(),
-    [SEMRESATTRS_SERVICE_NAME]: 'teable',
-    [SEMRESATTRS_SERVICE_VERSION]: process.env.BUILD_VERSION,
-    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+  resource: resourceFromAttributes({
+    [ATTR_SERVICE_NAME]: 'teable',
+    [ATTR_SERVICE_VERSION]: process.env.BUILD_VERSION,
   }),
 });
 
