@@ -38,7 +38,14 @@ const otelSDK = new opentelemetry.NodeSDK({
       // eslint-disable-next-line @typescript-eslint/naming-convention
       '@opentelemetry/instrumentation-http': {
         ignoreIncomingRequestHook: (request) => {
-          const ignorePaths = ['/favicon.ico', '/_next/', '/__nextjs', '/images/', '/.well-known/'];
+          const ignorePaths = [
+            '/favicon.ico',
+            '/_next/',
+            '/__nextjs',
+            '/images/',
+            '/.well-known/',
+            '/health',
+          ];
           return ignorePaths.some((path) => request.url?.startsWith(path));
         },
       },
