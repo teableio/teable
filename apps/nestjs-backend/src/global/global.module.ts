@@ -14,6 +14,7 @@ import { EventEmitterModule } from '../event-emitter/event-emitter.module';
 import { AuthGuard } from '../features/auth/guard/auth.guard';
 import { PermissionGuard } from '../features/auth/guard/permission.guard';
 import { PermissionModule } from '../features/auth/permission.module';
+import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { KnexModule } from './knex';
 
 const globalModules = {
@@ -45,6 +46,7 @@ const globalModules = {
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,
+    RequestInfoMiddleware,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
@@ -61,7 +63,7 @@ const globalModules = {
 @Module(globalModules)
 export class GlobalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ClsMiddleware).forRoutes('*');
+    consumer.apply(ClsMiddleware).forRoutes('*').apply(RequestInfoMiddleware).forRoutes('*');
   }
 
   static register(moduleMetadata: ModuleMetadata): DynamicModule {

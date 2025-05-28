@@ -21,6 +21,10 @@ import {
   IPluginPanelInstallRo,
   pluginPanelUpdateStorageRoSchema,
   IPluginPanelUpdateStorageRo,
+  duplicatePluginPanelRoSchema,
+  IDuplicatePluginPanelRo,
+  duplicatePluginPanelInstalledPluginRoSchema,
+  IDuplicatePluginPanelInstalledPluginRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -157,5 +161,37 @@ export class PluginPanelController {
     @Param('pluginInstallId') pluginInstallId: string
   ): Promise<IPluginPanelPluginGetVo> {
     return this.pluginPanelService.getPluginPanelPlugin(tableId, pluginPanelId, pluginInstallId);
+  }
+
+  @Post(':pluginPanelId/duplicate')
+  @Permissions('table|update')
+  duplicatePluginPanel(
+    @Param('tableId') tableId: string,
+    @Param('pluginPanelId') pluginPanelId: string,
+    @Body(new ZodValidationPipe(duplicatePluginPanelRoSchema))
+    duplicatePluginPanelDto: IDuplicatePluginPanelRo
+  ): Promise<{ id: string; name: string }> {
+    return this.pluginPanelService.duplicatePluginPanel(
+      tableId,
+      pluginPanelId,
+      duplicatePluginPanelDto
+    );
+  }
+
+  @Post(':pluginPanelId/plugin/:pluginInstallId/duplicate')
+  @Permissions('table|update')
+  duplicatePluginPanelPlugin(
+    @Param('tableId') tableId: string,
+    @Param('pluginPanelId') pluginPanelId: string,
+    @Param('pluginInstallId') pluginInstallId: string,
+    @Body(new ZodValidationPipe(duplicatePluginPanelInstalledPluginRoSchema))
+    duplicatePluginPanelInstalledPluginDto: IDuplicatePluginPanelInstalledPluginRo
+  ): Promise<{ id: string; name: string }> {
+    return this.pluginPanelService.duplicatePluginPanelPlugin(
+      tableId,
+      pluginPanelId,
+      pluginInstallId,
+      duplicatePluginPanelInstalledPluginDto
+    );
   }
 }

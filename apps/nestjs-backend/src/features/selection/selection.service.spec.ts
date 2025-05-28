@@ -143,6 +143,12 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
+          origin: {
+            ip: '127.0.0.1',
+            byApi: false,
+            userAgent: 'test',
+            referer: 'test',
+          },
           permissions: getPermissions(Role.Owner),
         },
         async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
@@ -154,6 +160,12 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
+          origin: {
+            ip: '127.0.0.1',
+            byApi: false,
+            userAgent: 'test',
+            referer: 'test',
+          },
           permissions: getPermissions(Role.Editor),
         },
         async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
@@ -456,6 +468,12 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
+          origin: {
+            ip: '127.0.0.1',
+            byApi: false,
+            userAgent: 'test',
+            referer: 'test',
+          },
           permissions: getPermissions(Role.Owner),
         },
         async () => await selectionService.paste(tableId, { viewId, ...pasteRo })

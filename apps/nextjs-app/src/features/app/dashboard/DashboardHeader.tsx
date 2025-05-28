@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit, MoreHorizontal, Plus } from '@teable/icons';
-import { deleteDashboard, getDashboardList, renameDashboard } from '@teable/openapi';
+import { Copy, Edit, MoreHorizontal, Plus } from '@teable/icons';
+import {
+  deleteDashboard,
+  duplicateDashboard,
+  getDashboardList,
+  renameDashboard,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import {
@@ -12,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  useToast,
 } from '@teable/ui-lib/shadcn';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -35,6 +41,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
   const { brandName } = useBrand();
+  const { toast } = useToast();
 
   const { mutate: deleteDashboardMutate } = useMutation({
     mutationFn: () => deleteDashboard(baseId, dashboardId),
@@ -44,6 +51,19 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
       router.push({
         pathname: '/base/[baseId]/dashboard',
         query: { baseId },
+      });
+    },
+  });
+
+  const { mutate: duplicateDashboardMutate } = useMutation({
+    mutationFn: () =>
+      duplicateDashboard(baseId, dashboardId, {
+        name: `${selectedDashboard?.name} ${t('common:noun.copy')}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
+      toast({
+        title: t('table:table.actionTips.copySuccessful'),
       });
     },
   });
@@ -133,6 +153,10 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
               >
                 <Edit className="mr-1.5" />
                 {t('common:actions.rename')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => duplicateDashboardMutate()}>
+                <Copy className="mr-1.5" />
+                {t('common:actions.duplicate')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <MenuDeleteItem onConfirm={deleteDashboardMutate} />

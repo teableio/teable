@@ -1,6 +1,6 @@
+import { MarkdownPreview } from '@teable/sdk';
 import { Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { MarkdownPreview } from '@/features/app/components/mark-down-preview';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 
 export const MarkDownEditor = (props: {

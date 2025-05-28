@@ -1,50 +1,37 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { generateAttachmentId } from '@teable/core';
 import type { ICreateCommentRo, IUpdateCommentRo } from '@teable/openapi';
-import { createComment, getCommentDetail, updateComment, UploadType } from '@teable/openapi';
-import { Button, toast } from '@teable/ui-lib';
-import { AlignPlugin } from '@udecode/plate-alignment';
-import { insertNodes } from '@udecode/plate-common';
-import type { TElement } from '@udecode/plate-common';
-import {
-  Plate,
-  usePlateEditor,
-  ParagraphPlugin,
-  blurEditor,
-  focusEditor,
-} from '@udecode/plate-common/react';
+import { createComment, getCommentDetail, updateComment } from '@teable/openapi';
+import { Button, TooltipProvider } from '@teable/ui-lib';
+import type { TElement } from '@udecode/plate';
+import { usePlateEditor, Plate, ParagraphPlugin } from '@udecode/plate/react';
+import { AlignPlugin } from '@udecode/plate-alignment/react';
 import { LinkPlugin } from '@udecode/plate-link/react';
-import { MentionPlugin, MentionInputPlugin } from '@udecode/plate-mention/react';
-import { DeletePlugin, SelectOnBackspacePlugin } from '@udecode/plate-select';
-import { SlashPlugin } from '@udecode/plate-slash-command';
+import { ImagePlugin, PlaceholderPlugin } from '@udecode/plate-media/react';
+import { MentionInputPlugin, MentionPlugin } from '@udecode/plate-mention/react';
+import { SelectOnBackspacePlugin, DeletePlugin } from '@udecode/plate-select';
 import { TrailingBlockPlugin } from '@udecode/plate-trailing-block';
 import { noop } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useTablePermission } from '../../../hooks';
-import { AttachmentManager } from '../../editor';
 import { useModalRefElement } from '../../expand-record/useModalRefElement';
+import { ImageElement } from '../../plate/ui/image-element';
+import { ImagePreview } from '../../plate/ui/image-preview';
+import { LinkElement } from '../../plate/ui/link-element';
+import { LinkFloatingToolbar } from '../../plate/ui/link-floating-toolbar';
+import { LinkToolbarButton } from '../../plate/ui/link-toolbar-button';
+import { MediaPlaceholderElement } from '../../plate/ui/media-placeholder-element';
+import { MediaToolbarButton } from '../../plate/ui/media-toolbar-button';
+import { MediaUploadToast } from '../../plate/ui/media-upload-toast';
+import { MentionElement } from '../../plate/ui/mention-element';
+import { MentionInputElement } from '../../plate/ui/mention-input-element';
+import { ParagraphElement } from '../../plate/ui/paragraph-element';
+import { Toolbar } from '../../plate/ui/toolbar';
 import { MentionUser } from '../comment-list/node';
 import { useCommentStore } from '../useCommentStore';
 import { CommentQuote } from './CommentQuote';
 import { Editor } from './Editor';
-import {
-  MentionInputElement,
-  LinkElement,
-  LinkFloatingToolbar,
-  LinkToolbarButton,
-  MentionElement,
-  Toolbar,
-  TooltipProvider,
-  withPlaceholders,
-  ImageElement,
-  ImageToolbarButton,
-  ParagraphElement,
-  ImagePreview,
-} from './plate-ui';
-import type { TImageElement } from './plugin';
-import { ImagePlugin } from './plugin';
 import { EditorTransform } from './transform';
 
 interface ICommentEditorProps {
@@ -78,65 +65,19 @@ export const CommentEditor = (props: ICommentEditorProps) => {
   const permission = useTablePermission();
   const queryClient = useQueryClient();
   const modalElementRef = useModalRefElement();
+
   const editor = usePlateEditor({
     id: recordId,
     plugins: [
-      MentionPlugin.configure({
+      ImagePlugin.configure({
         options: {
-          triggerPreviousCharPattern: /^$|^[\s"']$/,
-        },
-      }),
-      LinkPlugin.extend({
-        render: { afterEditable: () => <LinkFloatingToolbar /> },
-      }),
-      DeletePlugin,
-      ImagePlugin.extend({
-        options: {
-          customUploadImage: (file: File) => {
-            if (file.size > 5 * 1024 * 1024) {
-              toast({
-                variant: 'destructive',
-                description: t('comment.imageSizeLimit', { size: `5MB` }),
-              });
-              return;
-            }
-            const attachmentManager = new AttachmentManager(1);
-            attachmentManager.upload(
-              [
-                {
-                  id: generateAttachmentId(),
-                  instance: file,
-                },
-              ],
-              UploadType.Comment,
-              {
-                successCallback: (_, result) => {
-                  const text = { text: '' };
-                  const image: TImageElement = {
-                    children: [text],
-                    type: editor.getType(ImagePlugin),
-                    url: result.presignedUrl,
-                    path: result.path,
-                  };
-                  insertNodes<TImageElement>(editor, image, {
-                    nextBlock: true,
-                  });
-                },
-              }
-            );
-          },
+          disableUploadInsert: false,
+          disableEmbedInsert: false,
         },
         render: { afterEditable: ImagePreview },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any),
-      SlashPlugin,
-      AlignPlugin.extend({
-        inject: {
-          targetPlugins: [ImagePlugin.key],
-        },
       }),
-      TrailingBlockPlugin.configure({
-        options: { type: ParagraphPlugin.key },
+      LinkPlugin.configure({
+        render: { afterEditable: () => <LinkFloatingToolbar /> },
       }),
       SelectOnBackspacePlugin.configure({
         options: {
@@ -145,21 +86,47 @@ export const CommentEditor = (props: ICommentEditorProps) => {
           },
         },
       }),
+      DeletePlugin,
+      ParagraphPlugin,
+      AlignPlugin.configure({
+        options: {
+          targetPlugins: [ParagraphPlugin.key, ImagePlugin.key, MentionPlugin.key],
+        },
+      }),
+      TrailingBlockPlugin,
+      PlaceholderPlugin.configure({
+        options: {
+          disableEmptyPlaceholder: true,
+          uploadConfig: {
+            image: {
+              mediaType: ImagePlugin.key,
+              maxFileCount: 3,
+              maxFileSize: '4MB',
+            },
+          },
+          multiple: false,
+        },
+        render: { afterEditable: MediaUploadToast },
+      }),
+      MentionPlugin.configure({
+        options: {
+          triggerPreviousCharPattern: /^$|^[\s"']$/,
+        },
+      }),
     ],
-    shouldNormalizeEditor: true,
     override: {
       components: {
-        ...withPlaceholders({
-          [LinkPlugin.key]: LinkElement,
-          [MentionPlugin.key]: (props: React.ComponentProps<typeof MentionElement>) => (
-            <MentionElement {...props} render={mentionUserRender} />
-          ),
-          [MentionInputPlugin.key]: MentionInputElement,
-          [ImagePlugin.key]: ImageElement,
-        }),
+        [LinkPlugin.key]: LinkElement,
+        [ImagePlugin.key]: ImageElement,
+        [PlaceholderPlugin.key]: MediaPlaceholderElement,
         [ParagraphPlugin.key]: ParagraphElement,
+        [MentionPlugin.key]: (props: React.ComponentProps<typeof MentionElement>) => (
+          <MentionElement {...props} render={mentionUserRender} />
+        ),
+        [MentionInputPlugin.key]: MentionInputElement,
       },
     },
+    shouldNormalizeEditor: true,
     value: value,
   });
   const { data: editingComment } = useQuery({
@@ -170,19 +137,22 @@ export const CommentEditor = (props: ICommentEditorProps) => {
   useEffect(() => {
     // todo replace Standard api to reset to value
     if (editingCommentId && editingComment) {
-      editor?.api?.reset();
-      editor.insertNodes(EditorTransform.commentValue2EditorValue(editingComment.content), {
+      editor.tf.reset();
+      editor.tf.insertNodes(EditorTransform.commentValue2EditorValue(editingComment.content), {
         at: [0],
       });
     }
   }, [editingCommentId, editor, editingComment, tableId, recordId]);
   useEffect(() => {
     editorRef.current = {
-      focus: () => focusEditor(editor),
-      blur: () => blurEditor(editor),
+      focus: () => editor.tf.focus(),
+      blur: () => editor.tf.blur(),
     };
     setEditorRef(editorRef.current);
   }, [editor, setEditorRef]);
+  useEffect(() => {
+    editor.tf.focus();
+  }, [editor]);
   const { mutateAsync: createCommentFn } = useMutation({
     mutationFn: ({
       tableId,
@@ -197,7 +167,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.recordCommentCount(tableId, recordId),
       });
-      editor?.api?.reset();
+      editor.tf.reset();
       setQuoteId(undefined);
     },
   });
@@ -214,7 +184,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
       updateCommentRo: IUpdateCommentRo;
     }) => updateComment(tableId, recordId, commentId, updateCommentRo),
     onSuccess: () => {
-      editor?.api?.reset();
+      editor.tf.reset();
       setQuoteId(undefined);
       setEditingCommentId(undefined);
     },
@@ -262,8 +232,8 @@ export const CommentEditor = (props: ICommentEditorProps) => {
                 variant={'default'}
                 onClick={() => {
                   setEditingCommentId(undefined);
-                  editor?.api?.reset();
-                  focusEditor(editor);
+                  editor.tf.reset();
+                  editor.tf.focus();
                 }}
               >
                 {t('common.cancel')}
@@ -276,8 +246,8 @@ export const CommentEditor = (props: ICommentEditorProps) => {
               setQuoteId(undefined);
             }}
           />
-          <Toolbar className="no-scrollbar border-y p-1">
-            <ImageToolbarButton />
+          <Toolbar className="no-scrollbar gap-x-1 border-y p-1">
+            <MediaToolbarButton nodeType={ImagePlugin.key} />
             <LinkToolbarButton />
           </Toolbar>
           <Editor
@@ -299,7 +269,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
                 submit();
               }
               if (event.key === 'Escape') {
-                blurEditor(editor);
+                editor.tf.blur();
                 event.stopPropagation();
                 modalElementRef?.current?.focus();
               }

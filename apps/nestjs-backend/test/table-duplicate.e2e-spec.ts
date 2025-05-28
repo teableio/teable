@@ -15,6 +15,7 @@ import {
   updateViewGroup,
   updateViewOptions,
   updateRecord,
+  getRecords,
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { x_20 } from './data-helpers/20x';
@@ -218,7 +219,6 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         otherAssertFieldsWithOutLink.sort(sortById)
       );
     });
-
     // it.skip('should create a link field in linked table when link field is two-way-link', async () => {
     //   const fields = (await getFields(subTable.id)).data;
     //   const { fields: targetFields } = duplicateTableData;
@@ -623,6 +623,69 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
             options: omit(v.options, ['pluginId', 'pluginInstallId']),
           }))
       );
+    });
+  });
+
+  describe('duplicate formula field relative', () => {
+    let table: ITableFullVo;
+    let duplicateTableData: IDuplicateTableVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'mainTable',
+      });
+
+      const numberField = table.fields.find((f) => f.type === FieldType.Number)!;
+
+      await createField(table.id, {
+        name: 'formulaField',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${numberField.id}}`,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      });
+
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [numberField.id]: 1,
+          },
+        },
+      });
+
+      duplicateTableData = (
+        await duplicateTable(baseId, table.id, {
+          name: 'duplicated_table',
+          includeRecords: true,
+        })
+      ).data;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, duplicateTableData.id);
+    });
+
+    it('should duplicate formula field calculate normally', async () => {
+      const { id, fields } = duplicateTableData;
+      const records = (await getRecords(id)).data.records;
+
+      const numberField = fields.find((f) => f.type === FieldType.Number)!;
+      const formulaField = fields.find((f) => f.type === FieldType.Formula)!;
+      expect(records[0].fields[formulaField.name]).toBe(1);
+      await updateRecord(id, records[2].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [numberField.id]: 3,
+          },
+        },
+      });
+
+      const newRecords = (await getRecords(id)).data.records;
+      expect(newRecords[0].fields[formulaField.name]).toBe(1);
+      expect(newRecords[2].fields[formulaField.name]).toBe(3);
     });
   });
 });

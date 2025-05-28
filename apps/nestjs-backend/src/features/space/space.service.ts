@@ -220,7 +220,10 @@ export class SpaceService {
       },
     });
 
-    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
+    return baseList.map((base) => {
+      const role = roleMap[base.id] || roleMap[base.spaceId];
+      return { ...base, role };
+    });
   }
 
   async permanentDeleteSpace(spaceId: string) {

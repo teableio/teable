@@ -1,12 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
-import { generateDashboardId, generatePluginInstallId, Role } from '@teable/core';
+import { generateDashboardId, generatePluginInstallId, getUniqName, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
 import type {
+  IBaseJson,
   ICreateDashboardRo,
   IDashboardInstallPluginRo,
+  IDuplicateDashboardInstalledPluginRo,
+  IDuplicateDashboardRo,
   IGetDashboardInstallPluginVo,
   IGetDashboardListVo,
   IGetDashboardVo,
@@ -15,6 +18,7 @@ import type {
 import type { IDashboardLayout, IDashboardPluginItem } from '@teable/openapi/src/dashboard/types';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -22,7 +26,8 @@ export class DashboardService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly collaboratorService: CollaboratorService
+    private readonly collaboratorService: CollaboratorService,
+    private readonly baseImportService: BaseImportService
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
@@ -420,5 +425,156 @@ export class DashboardService {
       pluginInstallId: plugin.id,
       storage: plugin.storage ? JSON.parse(plugin.storage) : undefined,
     };
+  }
+
+  async duplicateDashboard(
+    baseId: string,
+    dashboardId: string,
+    duplicateDashboardRo: IDuplicateDashboardRo
+  ) {
+    const { name } = duplicateDashboardRo;
+    const dashboard = (await this.prismaService.dashboard.findFirstOrThrow({
+      where: {
+        baseId,
+        id: dashboardId,
+      },
+      select: {
+        id: true,
+        name: true,
+        layout: true,
+      },
+    })) as IBaseJson['plugins'][PluginPosition.Dashboard][number];
+
+    const installedPlugins = await this.prismaService.pluginInstall.findMany({
+      where: {
+        baseId,
+        positionId: dashboardId,
+        position: PluginPosition.Dashboard,
+      },
+      select: {
+        id: true,
+        name: true,
+        pluginId: true,
+        storage: true,
+        position: true,
+        positionId: true,
+      },
+    });
+
+    dashboard.pluginInstall = installedPlugins.map((plugin) => ({
+      ...plugin,
+      position: PluginPosition.Dashboard,
+      storage: plugin.storage ? JSON.parse(plugin.storage) : {},
+    }));
+
+    dashboard.layout = dashboard.layout ? JSON.parse(dashboard.layout) : '[]';
+
+    const dashboardList = await this.prismaService.dashboard.findMany({
+      where: {
+        baseId,
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    const newName = getUniqName(
+      name ?? dashboard.name,
+      dashboardList.map((item) => item.name)
+    );
+
+    dashboard.name = newName;
+
+    const { dashboardMap } = await this.baseImportService.createDashboard(
+      baseId,
+      [dashboard],
+      {},
+      {},
+      true
+    );
+
+    const newDashboardId = dashboardMap[dashboardId];
+
+    return {
+      id: newDashboardId,
+      name: newName,
+    };
+  }
+
+  async duplicateDashboardInstalledPlugin(
+    baseId: string,
+    dashboardId: string,
+    pluginInstallId: string,
+    duplicateDashboardInstalledPluginRo: IDuplicateDashboardInstalledPluginRo
+  ) {
+    return this.prismaService.$tx(async () => {
+      const { name } = duplicateDashboardInstalledPluginRo;
+      const installedPlugins = await this.prismaService.pluginInstall.findFirstOrThrow({
+        where: {
+          baseId,
+          id: pluginInstallId,
+          position: PluginPosition.Dashboard,
+        },
+      });
+      const names = await this.prismaService.pluginInstall.findMany({
+        where: {
+          baseId,
+          positionId: dashboardId,
+          position: PluginPosition.Dashboard,
+        },
+        select: {
+          name: true,
+        },
+      });
+
+      const newName = getUniqName(
+        name ?? installedPlugins.name,
+        names.map((item) => item.name)
+      );
+
+      const newPluginInstallId = generatePluginInstallId();
+
+      await this.prismaService.pluginInstall.create({
+        data: {
+          ...installedPlugins,
+          id: newPluginInstallId,
+          name: newName,
+        },
+      });
+
+      const dashboard = await this.prismaService.dashboard.findFirstOrThrow({
+        where: {
+          baseId,
+          id: dashboardId,
+        },
+        select: {
+          layout: true,
+        },
+      });
+
+      const layout = dashboard.layout ? (JSON.parse(dashboard.layout) as IDashboardLayout) : [];
+      const sourceLayout = layout.find((item) => item.pluginInstallId === pluginInstallId);
+      layout.push({
+        pluginInstallId: newPluginInstallId,
+        x: (layout.length * 2) % 12,
+        y: Number.MAX_SAFE_INTEGER, // puts it at the bottom
+        w: sourceLayout?.w || 2,
+        h: sourceLayout?.h || 2,
+      });
+
+      await this.prismaService.dashboard.update({
+        where: {
+          id: dashboardId,
+        },
+        data: {
+          layout: JSON.stringify(layout),
+        },
+      });
+
+      return {
+        id: newPluginInstallId,
+        name: newName,
+      };
+    });
   }
 }

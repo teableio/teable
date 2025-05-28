@@ -69,5 +69,8 @@
   "template": {
     "title": "模板中心",
     "description": "快速从模板创建一个新数据库"
+  },
+  "recentlyBase": {
+    "title": "最近访问"
   }
 }

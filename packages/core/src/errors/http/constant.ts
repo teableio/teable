@@ -13,6 +13,7 @@ export const ErrorCodeToStatusMap: Record<HttpErrorCode, number> = {
   [HttpErrorCode.REQUEST_TIMEOUT]: 408,
   [HttpErrorCode.CONFLICT]: 409,
   [HttpErrorCode.UNPROCESSABLE_ENTITY]: 422,
+  [HttpErrorCode.FAILED_DEPENDENCY]: 424,
   [HttpErrorCode.USER_LIMIT_EXCEEDED]: 460,
   [HttpErrorCode.TOO_MANY_REQUESTS]: 429,
   [HttpErrorCode.INTERNAL_SERVER_ERROR]: 500,

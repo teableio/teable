@@ -1,9 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createPlugin,
   createPluginPanel,
   deletePlugin,
   deletePluginPanel,
+  duplicatePluginPanel,
+  duplicatePluginPanelInstalledPlugin,
   getPluginPanel,
   getPluginPanelPlugin,
   installPluginPanel,
@@ -15,6 +18,7 @@ import {
   renamePluginPanel,
   renamePluginPanelPlugin,
   submitPlugin,
+  updateDashboardPluginStorage,
   updatePluginPanelLayout,
   updatePluginPanelStorage,
 } from '@teable/openapi';
@@ -24,6 +28,7 @@ describe('plugin panel', () => {
   let app: INestApplication;
   let pluginPanelId: string;
   let tableId: string;
+  let table: ITableFullVo;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
@@ -36,10 +41,10 @@ describe('plugin panel', () => {
   });
 
   beforeEach(async () => {
-    const tableRes = await createTable(baseId, {
+    table = await createTable(baseId, {
       name: 'plugin-panel-table',
     });
-    tableId = tableRes.id;
+    tableId = table.id;
     const res = await createPluginPanel(tableId, {
       name: 'plugin panel',
     });
@@ -97,6 +102,114 @@ describe('plugin panel', () => {
       expect(pluginPanelGetVoSchema.strict().safeParse(pluginPanel.data).success).toBe(true);
       expect(pluginPanel.data.pluginMap?.[res.data.pluginInstallId].id).toBe(pluginId);
       expect(pluginPanel.data.layout).toBeDefined();
+    });
+
+    it('/api/table/:tableId/plugin-panel/:pluginPanelId/duplicate (POST)', async () => {
+      const installedPlugin = (
+        await installPluginPanel(tableId, pluginPanelId, {
+          name: 'plugin',
+          pluginId,
+        })
+      ).data;
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      await updatePluginPanelStorage(tableId, pluginPanelId, installedPlugin.pluginInstallId, {
+        storage: {
+          config: {
+            type: 'bar',
+            xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+            yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+          },
+          query: {
+            from: table.id,
+            select: [
+              { column: textField.id, alias: 'Name', type: 'field' },
+              { column: numberField.id, alias: 'Count', type: 'field' },
+            ],
+          },
+        },
+      });
+      const duplicatePanel = (
+        await duplicatePluginPanel(tableId, pluginPanelId, {
+          name: 'plugin-panel-copy',
+        })
+      ).data;
+      const duplicatedPluginPanel = (await getPluginPanel(tableId, duplicatePanel.id)).data;
+      const duplicateInstalledPlugin = await getPluginPanelPlugin(
+        tableId,
+        duplicatePanel.id,
+        duplicatedPluginPanel.layout![0].pluginInstallId!
+      );
+      expect(duplicateInstalledPlugin.data.storage).toEqual({
+        config: {
+          type: 'bar',
+          xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+          yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+        },
+        query: {
+          from: table.id,
+          select: [
+            { column: textField.id, alias: 'Name', type: 'field' },
+            { column: numberField.id, alias: 'Count', type: 'field' },
+          ],
+        },
+      });
+    });
+
+    it('/api/table/:tableId/plugin-panel/:pluginPanelId/plugin/:pluginInstallId/duplicate (POST)', async () => {
+      const installedPlugin = (
+        await installPluginPanel(tableId, pluginPanelId, {
+          name: 'plugin',
+          pluginId,
+        })
+      ).data;
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      await updatePluginPanelStorage(tableId, pluginPanelId, installedPlugin.pluginInstallId, {
+        storage: {
+          config: {
+            type: 'bar',
+            xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+            yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+          },
+          query: {
+            from: table.id,
+            select: [
+              { column: textField.id, alias: 'Name', type: 'field' },
+              { column: numberField.id, alias: 'Count', type: 'field' },
+            ],
+          },
+        },
+      });
+      const duplicatedInstalledPlugin = (
+        await duplicatePluginPanelInstalledPlugin(
+          tableId,
+          pluginPanelId,
+          installedPlugin.pluginInstallId,
+          {
+            name: 'plugin copy',
+          }
+        )
+      ).data;
+      const duplicatedInstallPluginInfo = await getPluginPanelPlugin(
+        tableId,
+        pluginPanelId,
+        duplicatedInstalledPlugin.id
+      );
+      expect(duplicatedInstallPluginInfo.data.storage).toEqual({
+        config: {
+          type: 'bar',
+          xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+          yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+        },
+        query: {
+          from: table.id,
+          select: [
+            { column: textField.id, alias: 'Name', type: 'field' },
+            { column: numberField.id, alias: 'Count', type: 'field' },
+          ],
+        },
+      });
     });
 
     it('/api/table/:tableId/plugin-panel/:pluginPanelId/plugin/:pluginInstallId/rename (PATCH)', async () => {

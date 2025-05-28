@@ -178,6 +178,38 @@ export class FieldDuplicateService {
     }
   }
 
+  async repairFormulaReference(
+    formulaFields: IFieldWithTableIdJson[],
+    fieldMap: Record<string, string>
+  ) {
+    // [toFieldId, [fromFieldId][]]
+    const referenceFields = [] as [string, string[]][];
+    for (const field of formulaFields) {
+      const formulaOptions = field.options as IFormulaFieldOptions;
+      const expressionFields = extractFieldReferences(formulaOptions.expression);
+      const existedFields = expressionFields
+        .filter((fieldId) => fieldMap[fieldId])
+        .map((fieldId) => fieldMap[fieldId]);
+      const currentFieldId = fieldMap[field.id];
+      if (currentFieldId && existedFields.length > 0) {
+        referenceFields.push([currentFieldId, existedFields]);
+      }
+    }
+
+    for (const [toFieldId, fromFieldIds] of referenceFields) {
+      for (const fromFieldId of fromFieldIds) {
+        await this.prismaService.txClient().reference.createMany({
+          data: [
+            {
+              fromFieldId,
+              toFieldId,
+            },
+          ],
+        });
+      }
+    }
+  }
+
   async createLinkFields(
     // filter lookup fields
     linkFields: IFieldWithTableIdJson[],

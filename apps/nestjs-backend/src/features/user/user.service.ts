@@ -330,6 +330,7 @@ export class UserService {
       where: { id: userId, deletedTime: null },
       data: { lastSignTime: new Date().toISOString() },
     });
+    this.eventEmitterService.emitAsync(Events.USER_SIGNIN, { userId });
   }
 
   async getUserInfoList(userIds: string[]) {

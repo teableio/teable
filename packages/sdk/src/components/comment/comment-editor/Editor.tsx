@@ -1,6 +1,6 @@
 import { cn } from '@teable/ui-lib';
-import type { PlateContentProps } from '@udecode/plate-common/react';
-import { PlateContent } from '@udecode/plate-common/react';
+import { PlateContent } from '@udecode/plate/react';
+import type { PlateContentProps } from '@udecode/plate/react';
 import { cva } from 'class-variance-authority';
 
 import type { VariantProps } from 'class-variance-authority';

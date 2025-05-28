@@ -11,6 +11,10 @@ import {
   IDashboardInstallPluginRo,
   dashboardPluginUpdateStorageRoSchema,
   IDashboardPluginUpdateStorageRo,
+  duplicateDashboardRoSchema,
+  IDuplicateDashboardRo,
+  duplicateDashboardInstalledPluginRoSchema,
+  IDuplicateDashboardInstalledPluginRo,
 } from '@teable/openapi';
 import type {
   ICreateDashboardVo,
@@ -78,6 +82,34 @@ export class DashboardController {
   @Permissions('base|update')
   deleteDashboard(@Param('baseId') baseId: string, @Param('id') id: string): Promise<void> {
     return this.dashboardService.deleteDashboard(baseId, id);
+  }
+
+  @Post(':id/duplicate')
+  @Permissions('base|update')
+  duplicateDashboard(
+    @Param('baseId') baseId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(duplicateDashboardRoSchema))
+    duplicateDashboardRo: IDuplicateDashboardRo
+  ): Promise<{ id: string; name: string }> {
+    return this.dashboardService.duplicateDashboard(baseId, id, duplicateDashboardRo);
+  }
+
+  @Post(':id/plugin/:pluginInstallId/duplicate')
+  @Permissions('base|update')
+  duplicateDashboardInstalledPlugin(
+    @Param('baseId') baseId: string,
+    @Param('id') id: string,
+    @Param('pluginInstallId') pluginInstallId: string,
+    @Body(new ZodValidationPipe(duplicateDashboardInstalledPluginRoSchema))
+    duplicateDashboardInstalledPluginRo: IDuplicateDashboardInstalledPluginRo
+  ): Promise<{ id: string; name: string }> {
+    return this.dashboardService.duplicateDashboardInstalledPlugin(
+      baseId,
+      id,
+      pluginInstallId,
+      duplicateDashboardInstalledPluginRo
+    );
   }
 
   @Post(':id/plugin')

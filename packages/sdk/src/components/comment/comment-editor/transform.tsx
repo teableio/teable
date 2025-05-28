@@ -1,13 +1,13 @@
 import { CommentNodeType } from '@teable/openapi';
 import type { ICommentContent } from '@teable/openapi';
-import type { TElement, TDescendant } from '@udecode/plate-common';
+import type { TElement, Descendant } from '@udecode/plate';
 import { size, has } from 'lodash';
 
 export const hasOnlyProperty = (obj: Record<string, unknown>, propertyName: string) => {
   return size(obj) === 1 && has(obj, propertyName);
 };
 
-export const isTextCommentNode = (element: TDescendant) => {
+export const isTextCommentNode = (element: Descendant) => {
   return hasOnlyProperty(element, 'text') && !!element.text;
 };
 
@@ -22,6 +22,7 @@ export class EditorTransform {
 
     return value.map((element) => {
       if (element.type === CommentNodeType.Img) {
+        console.log('element', element);
         return {
           type: CommentNodeType.Img,
           path: element.path,
@@ -42,6 +43,7 @@ export class EditorTransform {
                 };
               }
               if (child.type === CommentNodeType.Mention) {
+                console.log('childchildchildchildchild', child);
                 return {
                   type: CommentNodeType.Mention,
                   value: (child.value as { id: string }).id,

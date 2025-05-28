@@ -1,12 +1,11 @@
+import { MemoizedContentMarkdownPreview, type Components } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
 import { ExternalLink, ChevronDown } from 'lucide-react';
 import { marked } from 'marked';
 import { useTranslation } from 'next-i18next';
 import React, { memo, useState, useCallback, useEffect, useMemo } from 'react';
-import type { Components } from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import { MemoizedContentMarkdownPreview } from '../../../mark-down-preview';
 
 const parseMarkdownIntoBlocks = (markdown: string): string[] => {
   const tokens = marked.lexer(markdown);
@@ -32,7 +31,7 @@ const NonMemoizedMarkdown = ({
       className={cn('px-0 py-0 !text-[13px]', className)}
       components={{
         code(props) {
-          const { children, className, node, ...rest } = props;
+          const { children, className, ...rest } = props;
           const match = /language-(\w+)/.exec(className || '');
           const isHtml = match && match[1].toLowerCase() === 'html';
 
@@ -90,7 +89,7 @@ const isHtmlComplete = (html: string): boolean => {
   return hasHtmlTags && isEndNearby;
 };
 
-const HtmlCodeBlockInner = ({ code, className, ...rest }: { code: string; className?: string }) => {
+const HtmlCodeBlockInner = ({ code, ...rest }: { code: string; className?: string }) => {
   const [activeTab, setActiveTab] = useState<string>('code');
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [showAllCode, setShowAllCode] = useState(false);

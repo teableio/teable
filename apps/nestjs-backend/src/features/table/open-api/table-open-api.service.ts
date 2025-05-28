@@ -618,6 +618,21 @@ export class TableOpenApiService {
         throw new NotFoundException(`Anchor ${anchorId} not found`);
       });
 
+    const tablesOrder = await this.prismaService.txClient().tableMeta.findMany({
+      where: {
+        baseId,
+        deletedTime: null,
+      },
+      select: {
+        order: true,
+      },
+    });
+
+    const uniqOrder = [...new Set(tablesOrder.map((t) => t.order))];
+
+    // if the table order has the same order, should shuffle
+    const shouldShuffle = uniqOrder.length !== tablesOrder.length;
+
     await updateOrder({
       query: baseId,
       position,
@@ -644,6 +659,7 @@ export class TableOpenApiService {
         });
       },
       shuffle: this.shuffle.bind(this),
+      shouldShuffle,
     });
   }
 

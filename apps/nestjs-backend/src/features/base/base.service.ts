@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
+import { ActionPrefix, actionPrefixMap, generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
@@ -73,7 +73,6 @@ export class BaseService {
       ...base,
       role: role,
       collaboratorType: collaborator?.resourceType as CollaboratorType,
-      isUnrestricted: isUnrestrictedRole(role),
     };
   }
 
@@ -105,7 +104,10 @@ export class BaseService {
       },
       orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
     });
-    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
+    return baseList.map((base) => {
+      const role = roleMap[base.id] || roleMap[base.spaceId];
+      return { ...base, role };
+    });
   }
 
   async getAccessBaseList() {
@@ -298,6 +300,9 @@ export class BaseService {
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
     // permission check, base update permission
     await this.checkBaseUpdatePermission(duplicateBaseRo.fromBaseId);
+    this.logger.log(
+      `base-duplicate-service: Start to duplicating base: ${duplicateBaseRo.fromBaseId}`
+    );
     return await this.prismaService.$tx(
       async () => {
         return await this.baseDuplicateService.duplicateBase(duplicateBaseRo);

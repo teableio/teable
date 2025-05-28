@@ -6,9 +6,7 @@ import { getBaseItemSchema } from './get';
 
 export const GET_SHARED_BASE = '/base/shared-base';
 
-export const getSharedBaseItemSchema = getBaseItemSchema.omit({
-  isUnrestricted: true,
-});
+export const getSharedBaseItemSchema = getBaseItemSchema;
 
 export const getSharedBaseVoSchema = z.array(getSharedBaseItemSchema);
 

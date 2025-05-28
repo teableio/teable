@@ -34,6 +34,9 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.baseAll(),
       });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.recentlyBase(),
+      });
     },
   });
 
@@ -42,6 +45,9 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.baseAll(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.recentlyBase(),
       });
     },
   });
@@ -84,9 +90,15 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
-  const hasUpdatePermission = hasPermission(base.role, 'base|update');
-  const hasDeletePermission = hasPermission(base.role, 'base|delete');
-  const hasMovePermission = hasPermission(base.role, 'space|create');
+  const hasUpdatePermission = base.restrictedAuthority
+    ? false
+    : hasPermission(base.role, 'base|update');
+  const hasDeletePermission = base.restrictedAuthority
+    ? false
+    : hasPermission(base.role, 'base|delete');
+  const hasMovePermission = base.restrictedAuthority
+    ? false
+    : hasPermission(base.role, 'space|create');
 
   return (
     <Card

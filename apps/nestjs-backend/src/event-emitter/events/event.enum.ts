@@ -69,4 +69,8 @@ export enum Events {
 
   // following make no sense just for testing
   BASE_EXPORT_COMPLETE = 'base.export.complete',
+
+  LAST_VISIT_CLEAR = 'last.visit.clear',
+
+  AUDIT_LOG_SAVED = 'audit-log.saved',
 }

@@ -230,15 +230,18 @@ export class BaseImportService {
 
     // create base
     const newBase = await this.createBase(spaceId, name, icon || undefined);
+    this.logger.log(`base-duplicate-service: Duplicate base successfully`);
 
     // create table
     const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
       newBase.id,
       tables
     );
+    this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
     // create plugins
     await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
+    this.logger.log(`base-duplicate-service: Duplicate base plugins successfully`);
 
     return {
       base: newBase,
@@ -261,11 +264,14 @@ export class BaseImportService {
         description,
       });
       tableIdMap[tableId] = newTableVo.id;
+      this.logger.log(`base-duplicate-service: duplicate table item successfully`);
     }
 
     const { fieldMap: fieldIdMap, fkMap } = await this.createFields(tables, tableIdMap);
+    this.logger.log(`base-duplicate-service: Duplicate table fields successfully`);
 
     const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap);
+    this.logger.log(`base-duplicate-service: Duplicate table views successfully`);
 
     await this.fieldDuplicateService.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
 
@@ -323,6 +329,13 @@ export class BaseImportService {
 
     // fix formula expression' field map
     await this.fieldDuplicateService.repairPrimaryFormulaFields(primaryFormulaFields, fieldMap);
+
+    const formulaFields = allFields.filter(
+      ({ type, isLookup }) => type === FieldType.Formula && !isLookup
+    );
+
+    // fix formula reference
+    await this.fieldDuplicateService.repairFormulaReference(formulaFields, fieldMap);
 
     return { fieldMap, fkMap };
   }
@@ -407,11 +420,12 @@ export class BaseImportService {
     );
   }
 
-  private async createDashboard(
+  async createDashboard(
     baseId: string,
     plugins: IBaseJson['plugins'][PluginPosition.Dashboard],
     tableMap: Record<string, string>,
-    fieldMap: Record<string, string>
+    fieldMap: Record<string, string>,
+    inSameBase: boolean = false
   ) {
     const dashboardMap: Record<string, string> = {};
     const pluginInstallMap: Record<string, string> = {};
@@ -464,20 +478,26 @@ export class BaseImportService {
       });
     }
 
-    // create char user to collaborator
-    await prisma.collaborator.create({
-      data: {
-        roleName: Role.Owner,
-        createdBy: userId,
-        resourceId: baseId,
-        resourceType: ResourceType.Base,
-        principalType: PrincipalType.User,
-        principalId: 'pluchartuser',
-      },
-    });
+    if (!inSameBase) {
+      // create char user to collaborator
+      await prisma.collaborator.create({
+        data: {
+          roleName: Role.Owner,
+          createdBy: userId,
+          resourceId: baseId,
+          resourceType: ResourceType.Base,
+          principalType: PrincipalType.User,
+          principalId: 'pluchartuser',
+        },
+      });
+    }
+
+    return {
+      dashboardMap,
+    };
   }
 
-  private async createPanel(
+  async createPanel(
     baseId: string,
     plugins: IBaseJson['plugins'][PluginPosition.Panel],
     tableMap: Record<string, string>,
@@ -533,6 +553,10 @@ export class BaseImportService {
         },
       });
     }
+
+    return {
+      panelMap,
+    };
   }
 
   private async createPluginViews(

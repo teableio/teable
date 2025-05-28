@@ -1,13 +1,21 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createDashboard,
   createDashboardVoSchema,
   createPlugin,
+  createTable,
   dashboardInstallPluginVoSchema,
   deleteDashboard,
   deletePlugin,
+  deleteTable,
+  duplicateDashboard,
+  duplicateDashboardInstalledPlugin,
   getDashboard,
+  getDashboardInstallPlugin,
   getDashboardVoSchema,
   installPlugin,
   PluginPosition,
@@ -17,7 +25,10 @@ import {
   renameDashboardVoSchema,
   renamePlugin,
   submitPlugin,
+  updateDashboardPluginStorage,
   updateLayoutDashboard,
+  updateRecord,
+  updateRecords,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -31,6 +42,7 @@ describe('DashboardController', () => {
   let dashboardId: string;
   const baseId = globalThis.testConfig.baseId;
   let prisma: PrismaService;
+  let table: ITableFullVo;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -40,10 +52,16 @@ describe('DashboardController', () => {
 
   beforeEach(async () => {
     const res = await createDashboard(baseId, dashboardRo);
+    table = (
+      await createTable(baseId, {
+        name: 'table',
+      })
+    ).data;
     dashboardId = res.data.id;
   });
 
   afterEach(async () => {
+    await deleteTable(baseId, table.id);
     await deleteDashboard(baseId, dashboardId);
   });
 
@@ -113,6 +131,150 @@ describe('DashboardController', () => {
       expect(getDashboardVoSchema.safeParse(dashboard.data).success).toBe(true);
       expect(installRes.data.name).toBe('plugin1111');
       expect(dashboardInstallPluginVoSchema.safeParse(installRes.data).success).toBe(true);
+    });
+
+    it('api/base/:baseId/dashboard/:id/duplicate (POST) - duplicate dashboard', async () => {
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const res = (
+        await createDashboard(baseId, {
+          name: 'source-dashboard',
+        })
+      ).data;
+      const sourceDashboardId = res.id;
+      const installPluginRes = (
+        await installPlugin(baseId, sourceDashboardId, {
+          name: 'source-plugin-item',
+          pluginId: 'plgchart',
+        })
+      ).data;
+      await updateDashboardPluginStorage(
+        baseId,
+        sourceDashboardId,
+        installPluginRes.pluginInstallId,
+        {
+          config: {
+            type: 'bar',
+            xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+            yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+          },
+          query: {
+            from: table.id,
+            select: [
+              { column: textField.id, alias: 'Name', type: 'field' },
+              { column: numberField.id, alias: 'Count', type: 'field' },
+            ],
+          },
+        }
+      );
+      const duplicateRes = (
+        await duplicateDashboard(baseId, sourceDashboardId, {
+          name: 'source-plugin copy',
+        })
+      ).data;
+
+      const { id } = duplicateRes;
+
+      const duplicatedDashboard = (await getDashboard(baseId, id)).data;
+      const duplicatedInstallPlugin = await getDashboardInstallPlugin(
+        baseId,
+        duplicatedDashboard.id,
+        duplicatedDashboard.layout![0].pluginInstallId
+      );
+      expect(
+        duplicatedDashboard.pluginMap?.[duplicatedDashboard.layout![0].pluginInstallId]
+      ).toBeDefined();
+      expect(
+        duplicatedDashboard.pluginMap?.[duplicatedDashboard.layout![0].pluginInstallId]?.name
+      ).toBe('source-plugin-item');
+
+      expect(duplicatedInstallPlugin.data.storage).toEqual({
+        config: {
+          type: 'bar',
+          xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+          yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+        },
+        query: {
+          from: table.id,
+          select: [
+            { column: textField.id, alias: 'Name', type: 'field' },
+            { column: numberField.id, alias: 'Count', type: 'field' },
+          ],
+        },
+      });
+    });
+
+    it('api/base/:baseId/dashboard/:id/plugin/:pluginInstallId/duplicate (POST) - duplicate installed dashboard plugin', async () => {
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const res = (
+        await createDashboard(baseId, {
+          name: 'source-dashboard',
+        })
+      ).data;
+      const sourceDashboardId = res.id;
+      const installPluginRes = (
+        await installPlugin(baseId, sourceDashboardId, {
+          name: 'source-plugin-item',
+          pluginId: 'plgchart',
+        })
+      ).data;
+      await updateDashboardPluginStorage(
+        baseId,
+        sourceDashboardId,
+        installPluginRes.pluginInstallId,
+        {
+          config: {
+            type: 'bar',
+            xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+            yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+          },
+          query: {
+            from: table.id,
+            select: [
+              { column: textField.id, alias: 'Name', type: 'field' },
+              { column: numberField.id, alias: 'Count', type: 'field' },
+            ],
+          },
+        }
+      );
+      const duplicateInstalledPlugin = (
+        await duplicateDashboardInstalledPlugin(
+          baseId,
+          sourceDashboardId,
+          installPluginRes.pluginInstallId,
+          {
+            name: 'source-plugin-item copy',
+          }
+        )
+      ).data;
+
+      const { id } = duplicateInstalledPlugin;
+
+      const sourceDashboard = (await getDashboard(baseId, sourceDashboardId)).data;
+
+      const duplicatedInstallPlugin = await getDashboardInstallPlugin(
+        baseId,
+        sourceDashboard.id,
+        id
+      );
+      expect(sourceDashboard.pluginMap?.[sourceDashboard.layout![0].pluginInstallId]).toBeDefined();
+      expect(sourceDashboard.pluginMap?.[id]?.name).toBe('source-plugin-item copy');
+
+      expect(duplicatedInstallPlugin.data.storage).toEqual({
+        config: {
+          type: 'bar',
+          xAxis: [{ column: 'Name', display: { type: 'bar', position: 'auto' } }],
+          yAxis: [{ column: 'Count', display: { type: 'bar', position: 'auto' } }],
+        },
+        query: {
+          from: table.id,
+          select: [
+            { column: textField.id, alias: 'Name', type: 'field' },
+            { column: numberField.id, alias: 'Count', type: 'field' },
+          ],
+        },
+      });
     });
 
     it('/api/dashboard/:id/plugin (POST) - plugin not found', async () => {

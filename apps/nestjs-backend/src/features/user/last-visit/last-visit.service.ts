@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IGetUserLastVisitRo,
   IUpdateUserLastVisitRo,
+  IUserLastVisitListBaseVo,
   IUserLastVisitMapVo,
   IUserLastVisitVo,
 } from '@teable/openapi';
@@ -12,12 +15,19 @@ import { LastVisitResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import type { BaseDeleteEvent, SpaceDeleteEvent } from '../../../event-emitter/events';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
 
 @Injectable()
 export class LastVisitService {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService
   ) {}
 
   async tableVisit(userId: string, baseId: string): Promise<IUserLastVisitVo | undefined> {
@@ -283,6 +293,73 @@ export class LastVisitService {
     }
   }
 
+  async baseVisit(): Promise<IUserLastVisitListBaseVo> {
+    const userId = this.cls.get('user.id');
+    const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+    const query = this.knex
+      .distinct(['ulv.resource_id'])
+      .select({
+        resourceId: 'ulv.resource_id',
+        resourceType: 'ulv.resource_type',
+        lastVisitTime: 'ulv.last_visit_time',
+        resourceName: 'b.name',
+        resourceIcon: 'b.icon',
+        resourceRole: 'c.role_name',
+        spaceId: 's.id',
+      })
+      .from('user_last_visit as ulv')
+      .join('base as b', function () {
+        this.on('b.id', '=', 'ulv.resource_id').andOnNull('b.deleted_time');
+      })
+      .join('space as s', function () {
+        this.on('s.id', '=', 'ulv.parent_resource_id').andOnNull('s.deleted_time');
+      })
+      .join('collaborator as c', function () {
+        this.onIn('c.principal_id', [...(departmentIds ?? []), userId]).andOn(function () {
+          this.on('c.resource_id', '=', 'ulv.parent_resource_id').orOn(
+            'c.resource_id',
+            '=',
+            'ulv.resource_id'
+          );
+        });
+      })
+      .where('ulv.user_id', userId)
+      .where('ulv.resource_type', LastVisitResourceType.Base)
+      .whereNotNull('b.id')
+      .whereNotNull('c.id')
+      .orderBy('ulv.last_visit_time', 'desc');
+
+    const results = await this.prismaService.$queryRawUnsafe<
+      {
+        resourceId: string;
+        resourceType: LastVisitResourceType;
+        lastVisitTime: Date;
+        resourceName: string;
+        resourceIcon: string;
+        resourceRole: IRole;
+        spaceId: string;
+      }[]
+    >(query.toQuery());
+
+    const list = results.map((result) => ({
+      resourceId: result.resourceId,
+      resourceType: result.resourceType,
+      lastVisitTime: result.lastVisitTime.toISOString(),
+      resource: {
+        id: result.resourceId,
+        name: result.resourceName,
+        icon: result.resourceIcon,
+        role: result.resourceRole,
+        spaceId: result.spaceId,
+      },
+    }));
+
+    return {
+      total: results.length,
+      list,
+    };
+  }
+
   async getUserLastVisit(
     userId: string,
     params: IGetUserLastVisitRo
@@ -303,54 +380,94 @@ export class LastVisitService {
 
   async updateUserLastVisit(userId: string, updateData: IUpdateUserLastVisitRo) {
     const { resourceType, resourceId, parentResourceId, childResourceId } = updateData;
-    const now = new Date();
 
-    await this.prismaService.userLastVisit.upsert({
-      select: {
-        id: true,
-      },
-      where: {
-        userId_resourceType_parentResourceId: {
-          userId,
-          resourceType,
-          parentResourceId,
-        },
-      },
-      update: {
-        resourceId,
-        lastVisitTime: now,
-      },
-      create: {
+    if (resourceType === LastVisitResourceType.Base) {
+      await this.updateUserLastVisitRecord({
         userId,
-        resourceType,
+        resourceType: LastVisitResourceType.Base,
         resourceId,
         parentResourceId,
-        lastVisitTime: now,
-      },
+        maxRecords: 20,
+      });
+      return;
+    }
+
+    await this.updateUserLastVisitRecord({
+      userId,
+      resourceType,
+      resourceId,
+      parentResourceId,
+      maxRecords: 1,
     });
 
     if (childResourceId) {
-      await this.prismaService.userLastVisit.upsert({
+      await this.updateUserLastVisitRecord({
+        userId,
+        resourceType: LastVisitResourceType.View,
+        resourceId: childResourceId,
+        parentResourceId: resourceId,
+        maxRecords: 1,
+      });
+    }
+  }
+
+  async updateUserLastVisitRecord({
+    userId,
+    resourceType,
+    resourceId,
+    maxRecords = 10,
+    parentResourceId,
+  }: {
+    userId: string;
+    resourceType: string;
+    resourceId: string;
+    parentResourceId: string;
+    maxRecords?: number;
+  }) {
+    await this.prismaService.$transaction(async (prisma) => {
+      await prisma.userLastVisit.upsert({
         where: {
-          userId_resourceType_parentResourceId: {
+          userId_resourceType_resourceId: {
             userId,
-            resourceType: LastVisitResourceType.View,
-            parentResourceId: resourceId,
+            resourceType,
+            resourceId,
           },
         },
         update: {
-          resourceId: childResourceId,
-          lastVisitTime: now,
+          lastVisitTime: new Date().toISOString(),
         },
         create: {
           userId,
-          resourceType: LastVisitResourceType.View,
-          resourceId: childResourceId,
-          parentResourceId: resourceId,
-          lastVisitTime: now,
+          resourceType,
+          resourceId,
+          parentResourceId,
         },
       });
-    }
+
+      const oldRecords = await prisma.userLastVisit.findMany({
+        where: {
+          userId,
+          resourceType,
+        },
+        orderBy: {
+          lastVisitTime: 'desc',
+        },
+        skip: maxRecords,
+        select: {
+          id: true,
+        },
+      });
+
+      if (oldRecords.length > 0) {
+        await prisma.userLastVisit.deleteMany({
+          where: {
+            id: {
+              in: oldRecords.map((record) => record.id),
+            },
+          },
+        });
+      }
+    });
   }
 
   async getUserLastVisitMap(
@@ -423,5 +540,38 @@ export class LastVisitService {
     }
 
     return keyBy(results, 'parentResourceId');
+  }
+
+  @OnEvent(Events.BASE_DELETE, { async: true })
+  @OnEvent(Events.SPACE_DELETE, { async: true })
+  protected async resourceDeleteListener(listenerEvent: BaseDeleteEvent | SpaceDeleteEvent) {
+    switch (listenerEvent.name) {
+      case Events.BASE_DELETE:
+        await this.prismaService.userLastVisit.deleteMany({
+          where: {
+            OR: [
+              {
+                resourceId: listenerEvent.payload.baseId,
+                resourceType: LastVisitResourceType.Base,
+              },
+              {
+                parentResourceId: listenerEvent.payload.baseId,
+                resourceType: LastVisitResourceType.Table,
+              },
+            ],
+          },
+        });
+        break;
+      case Events.SPACE_DELETE:
+        await this.prismaService.userLastVisit.deleteMany({
+          where: {
+            parentResourceId: listenerEvent.payload.spaceId,
+            resourceType: LastVisitResourceType.Base,
+          },
+        });
+        break;
+    }
+
+    this.eventEmitterService.emitAsync(Events.LAST_VISIT_CLEAR, {});
   }
 }

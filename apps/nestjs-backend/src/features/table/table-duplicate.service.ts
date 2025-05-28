@@ -345,6 +345,13 @@ export class TableDuplicateService {
       sourceToTargetFieldMap
     );
 
+    const formulaFields = fieldsInstances.filter(
+      ({ type, isLookup }) => type === FieldType.Formula && !isLookup
+    );
+
+    // fix formula reference
+    await this.fieldDuplicateService.repairFormulaReference(formulaFields, sourceToTargetFieldMap);
+
     return sourceToTargetFieldMap;
   }
 

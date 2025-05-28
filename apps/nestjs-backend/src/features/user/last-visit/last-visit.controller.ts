@@ -1,5 +1,9 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import type { IUserLastVisitMapVo, IUserLastVisitVo } from '@teable/openapi';
+import type {
+  IUserLastVisitListBaseVo,
+  IUserLastVisitMapVo,
+  IUserLastVisitVo,
+} from '@teable/openapi';
 import {
   IGetUserLastVisitRo,
   IUpdateUserLastVisitRo,
@@ -41,5 +45,10 @@ export class LastVisitController {
   ): Promise<IUserLastVisitMapVo> {
     const userId = this.cls.get('user.id');
     return this.lastVisitService.getUserLastVisitMap(userId, params);
+  }
+
+  @Get('/list-base')
+  async getUserLastVisitListBase(): Promise<IUserLastVisitListBaseVo> {
+    return this.lastVisitService.baseVisit();
   }
 }
