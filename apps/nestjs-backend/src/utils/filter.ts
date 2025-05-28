@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IUserCellValue, ILinkCellValue, IOperator } from '@teable/core';
+import type { IUserCellValue, ILinkCellValue, IOperator, IDatetimeFormatting } from '@teable/core';
 import {
   FieldType,
   isNot,
@@ -49,16 +49,20 @@ export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance)
 
 export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
   let operator: IOperator = isNot.value;
-  const { id: fieldId, type, isMultipleCellValue, options } = field;
+  const { id: fieldId, type, isMultipleCellValue, options, cellValueType } = field;
 
   if (shouldFilterByDefaultValue(field)) {
     operator = is.value;
     value = !value || null;
   } else if (value == null) {
     operator = isNotEmpty.value;
-  } else if (type === FieldType.Date) {
+  } else if (
+    type === FieldType.Date ||
+    (type === FieldType.Formula && cellValueType === CellValueType.DateTime)
+  ) {
     const timeZone =
-      options?.formatting?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+      (options?.formatting as IDatetimeFormatting)?.timeZone ??
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
     const dateStr = fromZonedTime(value as string, timeZone).toISOString();
     value = {
       exactDate: dateStr,
