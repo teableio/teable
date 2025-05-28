@@ -433,7 +433,7 @@ export class DashboardService {
     duplicateDashboardRo: IDuplicateDashboardRo
   ) {
     const { name } = duplicateDashboardRo;
-    const dashboard = (await this.prismaService.dashboard.findFirstOrThrow({
+    const dashboard = (await this.prismaService.txClient().dashboard.findFirstOrThrow({
       where: {
         baseId,
         id: dashboardId,
@@ -445,7 +445,7 @@ export class DashboardService {
       },
     })) as IBaseJson['plugins'][PluginPosition.Dashboard][number];
 
-    const installedPlugins = await this.prismaService.pluginInstall.findMany({
+    const installedPlugins = await this.prismaService.txClient().pluginInstall.findMany({
       where: {
         baseId,
         positionId: dashboardId,
@@ -467,9 +467,9 @@ export class DashboardService {
       storage: plugin.storage ? JSON.parse(plugin.storage) : {},
     }));
 
-    dashboard.layout = dashboard.layout ? JSON.parse(dashboard.layout) : '[]';
+    dashboard.layout = dashboard.layout ? JSON.parse(dashboard.layout) : undefined;
 
-    const dashboardList = await this.prismaService.dashboard.findMany({
+    const dashboardList = await this.prismaService.txClient().dashboard.findMany({
       where: {
         baseId,
       },
@@ -485,20 +485,22 @@ export class DashboardService {
 
     dashboard.name = newName;
 
-    const { dashboardMap } = await this.baseImportService.createDashboard(
-      baseId,
-      [dashboard],
-      {},
-      {},
-      true
-    );
+    return this.prismaService.$tx(async () => {
+      const { dashboardMap } = await this.baseImportService.createDashboard(
+        baseId,
+        [dashboard],
+        {},
+        {},
+        true
+      );
 
-    const newDashboardId = dashboardMap[dashboardId];
+      const newDashboardId = dashboardMap[dashboardId];
 
-    return {
-      id: newDashboardId,
-      name: newName,
-    };
+      return {
+        id: newDashboardId,
+        name: newName,
+      };
+    });
   }
 
   async duplicateDashboardInstalledPlugin(
@@ -509,14 +511,14 @@ export class DashboardService {
   ) {
     return this.prismaService.$tx(async () => {
       const { name } = duplicateDashboardInstalledPluginRo;
-      const installedPlugins = await this.prismaService.pluginInstall.findFirstOrThrow({
+      const installedPlugins = await this.prismaService.txClient().pluginInstall.findFirstOrThrow({
         where: {
           baseId,
           id: pluginInstallId,
           position: PluginPosition.Dashboard,
         },
       });
-      const names = await this.prismaService.pluginInstall.findMany({
+      const names = await this.prismaService.txClient().pluginInstall.findMany({
         where: {
           baseId,
           positionId: dashboardId,
@@ -534,7 +536,7 @@ export class DashboardService {
 
       const newPluginInstallId = generatePluginInstallId();
 
-      await this.prismaService.pluginInstall.create({
+      await this.prismaService.txClient().pluginInstall.create({
         data: {
           ...installedPlugins,
           id: newPluginInstallId,
@@ -542,7 +544,7 @@ export class DashboardService {
         },
       });
 
-      const dashboard = await this.prismaService.dashboard.findFirstOrThrow({
+      const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
         where: {
           baseId,
           id: dashboardId,
@@ -562,7 +564,7 @@ export class DashboardService {
         h: sourceLayout?.h || 2,
       });
 
-      await this.prismaService.dashboard.update({
+      await this.prismaService.txClient().dashboard.update({
         where: {
           id: dashboardId,
         },

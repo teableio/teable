@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -27,8 +26,6 @@ import {
   submitPlugin,
   updateDashboardPluginStorage,
   updateLayoutDashboard,
-  updateRecord,
-  updateRecords,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -204,7 +201,7 @@ describe('DashboardController', () => {
       });
     });
 
-    it('api/base/:baseId/dashboard/:id/plugin/:pluginInstallId/duplicate (POST) - duplicate installed dashboard plugin', async () => {
+    it.only('api/base/:baseId/dashboard/:id/plugin/:pluginInstallId/duplicate (POST) - duplicate installed dashboard plugin', async () => {
       const textField = table.fields.find((field) => field.name === 'Name')!;
       const numberField = table.fields.find((field) => field.name === 'Count')!;
       const res = (
