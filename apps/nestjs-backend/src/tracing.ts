@@ -37,7 +37,7 @@ const traceExporter = exporterOptions.url ? new OTLPTraceExporter(exporterOption
 const otelSDK = new opentelemetry.NodeSDK({
   traceExporter,
   sampler: new ParentBasedSampler({
-    root: new TraceIdRatioBasedSampler(Number(process.env.OTEL_EXPORTER_OTLP_SAMPLER_RATIO) || 0.1),
+    root: new TraceIdRatioBasedSampler(Number(process.env.OTEL_SAMPLER_RATIO) || 0.1),
   }),
   instrumentations: [
     new HttpInstrumentation({
@@ -56,7 +56,7 @@ const otelSDK = new opentelemetry.NodeSDK({
     new PrismaInstrumentation({ middleware: false }),
   ],
   resource: resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: 'teable-test',
+    [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'teable',
     [ATTR_SERVICE_VERSION]: process.env.BUILD_VERSION,
   }),
 });
