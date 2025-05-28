@@ -64,3 +64,11 @@ export const formatDateToString = (
     return formatInTimeZone(cellValue, timeZone, format.replace(/D/g, 'd').replace(/Y/g, 'y'));
   }
 };
+
+export const normalizeDateFormatting = (dateFormatting: string): string => {
+  const validFormats = Object.values(DateFormattingPreset);
+  if (validFormats.includes(dateFormatting as DateFormattingPreset)) {
+    return dateFormatting;
+  }
+  return DateFormattingPreset.ISO;
+};

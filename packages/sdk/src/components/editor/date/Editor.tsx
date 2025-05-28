@@ -1,29 +1,33 @@
-import { TimeFormatting } from '@teable/core';
-import { Calendar } from '@teable/icons';
-import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
-import dayjs, { extend } from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
+import { defaultDatetimeFormatting, formatDateToString } from '@teable/core';
+import { Calendar as CalendarIcon } from '@teable/icons';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
+import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
+import { useIsTouchDevice } from '../../../hooks';
 import type { IEditorRef } from '../type';
 import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
-
-extend(timezone);
+import { convertZonedInputToUtc, formatDisplayValue } from './utils';
 
 const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (
   props,
   ref
 ) => {
   const { value, onChange, className, readonly, options, disableTimePicker = false } = props;
-  const {
-    date,
-    time,
-    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
-  } = options?.formatting || {};
   const editorRef = useRef<IEditorRef<string>>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const popoverTriggerRef = useRef<HTMLButtonElement>(null);
+  const popoverContentRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [isPopoverOpen, setPopoverOpen] = useState(false);
+  const [isEditing, setEditing] = useState(false);
+  const isTouchDevice = useIsTouchDevice();
   const { t } = useTranslation();
+
+  const formatting = options?.formatting || defaultDatetimeFormatting;
+  const { timeZone } = formatting;
 
   useImperativeHandle(ref, () => ({
     setValue: (value?: string) => {
@@ -31,38 +35,91 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
     },
   }));
 
-  const valueComponent = useMemo(() => {
-    if (!value) return <span className="text-xs">{t('editor.date.placeholder')}</span>;
+  useEffect(() => {
+    setInputValue(formatDisplayValue(value || '', formatting));
+  }, [value, formatting]);
 
-    let format = 'YYYY-MM-DD HH:mm';
-    if (date && time) {
-      format = time === TimeFormatting.None ? date : `${date} ${time}`;
-    }
-    return dayjs(value).tz(timeZone).format(format);
-  }, [value, t, date, time, timeZone]);
+  const onInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const relatedTarget = e.relatedTarget as HTMLElement;
+
+    if (relatedTarget && popoverContentRef.current?.contains(relatedTarget)) return;
+
+    const value = convertZonedInputToUtc(inputValue, timeZone);
+    onChange?.(value);
+    setEditing(false);
+  };
+
+  const onInputClick = () => {
+    setPopoverOpen(true);
+    setEditing(true);
+    inputRef.current?.focus();
+  };
+
+  const onCalendarChange = (value: string | null | undefined) => {
+    onChange?.(value);
+    setEditing(false);
+  };
+
+  let displayStr = value || '';
+  displayStr = dayjs(displayStr).isValid() ? formatDateToString(displayStr || '', formatting) : '';
+  const placeholder = !readonly ? t('editor.date.placeholder') : '';
 
   return (
-    <Popover>
-      <PopoverTrigger asChild disabled={readonly}>
-        <Button
-          variant={'outline'}
-          className={cn(
-            'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9',
-            !value && 'text-muted-foreground',
-            className
-          )}
-        >
-          {valueComponent}
-          <Calendar />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+    <Popover open={isPopoverOpen} onOpenChange={setPopoverOpen}>
+      {isTouchDevice ? (
+        <PopoverTrigger asChild disabled={readonly}>
+          <Button
+            variant={'outline'}
+            className={cn(
+              'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9',
+              !value && 'text-muted-foreground',
+              className
+            )}
+          >
+            {displayStr || t('editor.date.placeholder')}
+            <CalendarIcon />
+          </Button>
+        </PopoverTrigger>
+      ) : (
+        <PopoverTrigger ref={popoverTriggerRef} disabled={readonly} asChild>
+          <div className="relative">
+            <Input
+              ref={inputRef}
+              value={inputValue}
+              readOnly={readonly}
+              placeholder={placeholder}
+              className={cn('w-full h-10 sm:h-8', className)}
+              onChange={(e) => setInputValue(e.target.value)}
+              onClick={onInputClick}
+              onBlur={onInputBlur}
+            />
+            {!isEditing && (
+              <Input
+                className={cn(
+                  'absolute left-0 top-0 w-full h-10 sm:h-8 shadow-none pointer-events-none disabled:opacity-100',
+                  className
+                )}
+                placeholder={placeholder}
+                value={displayStr}
+                readOnly
+              />
+            )}
+          </div>
+        </PopoverTrigger>
+      )}
+
+      <PopoverContent
+        className="w-auto p-0"
+        align="start"
+        ref={popoverContentRef}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DateEditorMain
           ref={editorRef}
           value={value}
           options={options}
           disableTimePicker={disableTimePicker}
-          onChange={onChange}
+          onChange={onCalendarChange}
         />
       </PopoverContent>
     </Popover>

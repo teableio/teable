@@ -270,7 +270,6 @@ export const useCreateCellValue2GridDisplay = (
               type: CellType.Text,
               data: (cellValue as string) || '',
               displayData,
-              editorWidth: 250,
               customEditor: (props, editorRef) => (
                 <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
               ),
