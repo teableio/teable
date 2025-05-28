@@ -1,5 +1,6 @@
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+/* eslint-disable @typescript-eslint/naming-convention */
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
@@ -24,36 +25,38 @@ const headers = parseOtelHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 const exporterOptions = {
   url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
   headers: {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
     'Content-Type': 'application/x-protobuf',
     ...headers,
   },
 };
 
+const { ParentBasedSampler, TraceIdRatioBasedSampler } = opentelemetry.node;
+
 const traceExporter = exporterOptions.url ? new OTLPTraceExporter(exporterOptions) : undefined;
+
 const otelSDK = new opentelemetry.NodeSDK({
   traceExporter,
+  sampler: new ParentBasedSampler({
+    root: new TraceIdRatioBasedSampler(Number(process.env.OTEL_EXPORTER_OTLP_SAMPLER_RATIO) || 0.1),
+  }),
   instrumentations: [
-    getNodeAutoInstrumentations({
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      '@opentelemetry/instrumentation-http': {
-        ignoreIncomingRequestHook: (request) => {
-          const ignorePaths = [
-            '/favicon.ico',
-            '/_next/',
-            '/__nextjs',
-            '/images/',
-            '/.well-known/',
-            '/health',
-          ];
-          return ignorePaths.some((path) => request.url?.startsWith(path));
-        },
+    new HttpInstrumentation({
+      ignoreIncomingRequestHook: (request) => {
+        const ignorePaths = [
+          '/favicon.ico',
+          '/_next/',
+          '/__nextjs',
+          '/images/',
+          '/.well-known/',
+          '/health',
+        ];
+        return ignorePaths.some((path) => request.url?.startsWith(path));
       },
     }),
-    new PrismaInstrumentation(),
+    new PrismaInstrumentation({ middleware: false }),
   ],
   resource: resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: 'teable',
+    [ATTR_SERVICE_NAME]: 'teable-test',
     [ATTR_SERVICE_VERSION]: process.env.BUILD_VERSION,
   }),
 });
