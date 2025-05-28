@@ -201,7 +201,7 @@ describe('DashboardController', () => {
       });
     });
 
-    it.only('api/base/:baseId/dashboard/:id/plugin/:pluginInstallId/duplicate (POST) - duplicate installed dashboard plugin', async () => {
+    it('api/base/:baseId/dashboard/:id/plugin/:pluginInstallId/duplicate (POST) - duplicate installed dashboard plugin', async () => {
       const textField = table.fields.find((field) => field.name === 'Name')!;
       const numberField = table.fields.find((field) => field.name === 'Count')!;
       const res = (

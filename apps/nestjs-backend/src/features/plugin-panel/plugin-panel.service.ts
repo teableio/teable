@@ -375,7 +375,7 @@ export class PluginPanelService {
     duplicatePluginPanelRo: IDuplicatePluginPanelRo
   ) {
     const { name } = duplicatePluginPanelRo;
-    const pluginPanel = (await this.prismaService.pluginPanel.findFirstOrThrow({
+    const pluginPanel = (await this.prismaService.txClient().pluginPanel.findFirstOrThrow({
       where: {
         tableId,
         id: pluginPanelId,
@@ -388,7 +388,7 @@ export class PluginPanelService {
       },
     })) as IBaseJson['plugins'][PluginPosition.Panel][number];
 
-    const installedPlugins = await this.prismaService.pluginInstall.findMany({
+    const installedPlugins = await this.prismaService.txClient().pluginInstall.findMany({
       where: {
         positionId: pluginPanelId,
         position: PluginPosition.Panel,
@@ -410,9 +410,9 @@ export class PluginPanelService {
       storage: plugin.storage ? JSON.parse(plugin.storage) : {},
     }));
 
-    pluginPanel.layout = pluginPanel.layout ? JSON.parse(pluginPanel.layout) : '[]';
+    pluginPanel.layout = pluginPanel.layout ? JSON.parse(pluginPanel.layout) : undefined;
 
-    const pluginPanelNames = await this.prismaService.pluginPanel.findMany({
+    const pluginPanelNames = await this.prismaService.txClient().pluginPanel.findMany({
       where: {
         tableId,
       },
@@ -430,19 +430,21 @@ export class PluginPanelService {
 
     const baseId = installedPlugins[0].baseId;
 
-    const { panelMap } = await this.baseImportService.createPanel(
-      baseId,
-      [pluginPanel],
-      { [tableId]: tableId },
-      {}
-    );
+    return this.prismaService.$tx(async () => {
+      const { panelMap } = await this.baseImportService.createPanel(
+        baseId,
+        [pluginPanel],
+        { [tableId]: tableId },
+        {}
+      );
 
-    const newDashboardId = panelMap[pluginPanelId];
+      const newDashboardId = panelMap[pluginPanelId];
 
-    return {
-      id: newDashboardId,
-      name: newName,
-    };
+      return {
+        id: newDashboardId,
+        name: newName,
+      };
+    });
   }
 
   async duplicatePluginPanelPlugin(
@@ -455,14 +457,14 @@ export class PluginPanelService {
 
     return this.prismaService.$tx(async () => {
       const { name } = duplicatePluginPanelInstalledPluginRo;
-      const installedPlugins = await this.prismaService.pluginInstall.findFirstOrThrow({
+      const installedPlugins = await this.prismaService.txClient().pluginInstall.findFirstOrThrow({
         where: {
           baseId,
           id: pluginInstallId,
           position: PluginPosition.Panel,
         },
       });
-      const names = await this.prismaService.pluginInstall.findMany({
+      const names = await this.prismaService.txClient().pluginInstall.findMany({
         where: {
           baseId,
           positionId: pluginPanelId,
@@ -480,7 +482,7 @@ export class PluginPanelService {
 
       const newPluginInstallId = generatePluginInstallId();
 
-      await this.prismaService.pluginInstall.create({
+      await this.prismaService.txClient().pluginInstall.create({
         data: {
           ...installedPlugins,
           id: newPluginInstallId,
@@ -488,7 +490,7 @@ export class PluginPanelService {
         },
       });
 
-      const pluginPanel = await this.prismaService.pluginPanel.findFirstOrThrow({
+      const pluginPanel = await this.prismaService.txClient().pluginPanel.findFirstOrThrow({
         where: {
           tableId,
           id: pluginPanelId,
@@ -509,7 +511,7 @@ export class PluginPanelService {
         h: sourceLayout?.h || 2,
       });
 
-      await this.prismaService.pluginPanel.update({
+      await this.prismaService.txClient().pluginPanel.update({
         where: {
           id: pluginPanelId,
         },
