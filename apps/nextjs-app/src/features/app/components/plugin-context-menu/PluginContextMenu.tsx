@@ -10,6 +10,8 @@ export const PluginContextMenu = (props: { tableId: string; baseId: string }) =>
   const { activePluginId, setActivePluginId } = useActiveMenuPluginStore();
   const preTableId = useRef(tableId);
 
+  const isTableChanged = tableId !== preTableId.current;
+
   useEffect(() => {
     if (preTableId.current && tableId && preTableId.current !== tableId) {
       setActivePluginId(null);
@@ -21,10 +23,10 @@ export const PluginContextMenu = (props: { tableId: string; baseId: string }) =>
     queryKey: ReactQueryKeys.getPluginContextMenuPlugin(tableId!, activePluginId!),
     queryFn: ({ queryKey }) =>
       getPluginContextMenu(queryKey[1], queryKey[2]).then((res) => res.data),
-    enabled: !!tableId && !!activePluginId,
+    enabled: !!tableId && !!activePluginId && !isTableChanged,
   });
 
-  if (!baseId || !tableId || !activePluginId || !plugin) return null;
+  if (!baseId || !tableId || !activePluginId || !plugin || isTableChanged) return null;
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
