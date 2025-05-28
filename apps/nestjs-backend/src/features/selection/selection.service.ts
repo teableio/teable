@@ -516,7 +516,6 @@ export class SelectionService {
         }
       });
     });
-    console.log('records', records);
     return records;
   }
 
