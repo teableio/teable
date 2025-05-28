@@ -105,20 +105,22 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
     mutationFn: ({
       principalId,
       resourceId,
+      principalType,
       isBase,
     }: {
       principalId: string;
+      principalType: PrincipalType;
       resourceId: string;
       isBase?: boolean;
     }) =>
       isBase
         ? deleteBaseCollaborator({
             baseId: resourceId,
-            deleteBaseCollaboratorRo: { principalId, principalType: PrincipalType.User },
+            deleteBaseCollaboratorRo: { principalId, principalType },
           })
         : deleteSpaceCollaborator({
             spaceId: resourceId,
-            deleteSpaceCollaboratorRo: { principalId, principalType: PrincipalType.User },
+            deleteSpaceCollaboratorRo: { principalId, principalType },
           }),
     onSuccess: async (_, context) => {
       if (context.principalId === user.id) {
@@ -174,6 +176,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
               deleteCollaborator({
                 resourceId: base ? base.id : spaceId,
                 principalId: collaborator.id,
+                principalType: collaborator.type,
                 isBase,
               });
             }}
