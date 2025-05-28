@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
@@ -53,7 +54,8 @@ const otelSDK = new opentelemetry.NodeSDK({
         return ignorePaths.some((path) => request.url?.startsWith(path));
       },
     }),
-    new PrismaInstrumentation({ middleware: false }),
+    new ExpressInstrumentation(),
+    new PrismaInstrumentation(),
   ],
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'teable',
