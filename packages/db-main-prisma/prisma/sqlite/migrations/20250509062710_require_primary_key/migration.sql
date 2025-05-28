@@ -31,7 +31,7 @@ ALTER TABLE "new_comment_subscription" RENAME TO "comment_subscription";
 CREATE INDEX "comment_subscription_table_id_record_id_idx" ON "comment_subscription"("table_id", "record_id");
 CREATE UNIQUE INDEX "comment_subscription_table_id_record_id_key" ON "comment_subscription"("table_id", "record_id");
 CREATE TABLE "new_ops" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     "collection" TEXT NOT NULL,
     "doc_id" TEXT NOT NULL,
     "doc_type" TEXT NOT NULL,
