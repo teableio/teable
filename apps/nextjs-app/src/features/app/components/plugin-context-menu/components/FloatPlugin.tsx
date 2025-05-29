@@ -138,6 +138,9 @@ export const FloatPlugin = (props: {
           pluginUrl={pluginUrl}
           positionType={PluginPosition.ContextMenu}
           dragging={isDragging}
+          iframeAttributes={{
+            loading: 'eager',
+          }}
         />
       </div>
     </Rnd>,

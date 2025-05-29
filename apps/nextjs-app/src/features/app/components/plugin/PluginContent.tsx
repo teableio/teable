@@ -2,6 +2,7 @@ import type { IChildBridgeMethods } from '@teable/sdk/plugin-bridge';
 import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import type { IframeHTMLAttributes } from 'react';
 import { useState } from 'react';
 import { useIframeUrl } from './hooks/iframe-url/useIframeUrl';
 import { useIframeSize } from './hooks/useIframeSize';
@@ -19,10 +20,12 @@ type IPluginContentProps = {
   renderClassName?: string;
   dragging?: boolean;
   onExpand?: () => void;
+  iframeAttributes?: IframeHTMLAttributes<HTMLIFrameElement>;
 } & IPluginParams;
 
 export const PluginContent = (props: IPluginContentProps) => {
-  const { className, renderClassName, pluginInstallId, dragging, onExpand } = props;
+  const { className, renderClassName, pluginInstallId, dragging, onExpand, iframeAttributes } =
+    props;
   const { t } = useTranslation(['common']);
   const [bridge, setBridge] = useState<IChildBridgeMethods>();
   const iframeUrl = useIframeUrl(props);
@@ -64,6 +67,7 @@ export const PluginContent = (props: IPluginContentProps) => {
         className={renderClassName}
         utilsEvent={utilsEvent}
         uiEvent={uiEvent}
+        {...iframeAttributes}
       />
     </div>
   );

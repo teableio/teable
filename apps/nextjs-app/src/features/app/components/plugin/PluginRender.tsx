@@ -7,7 +7,7 @@ import type {
 import { cn } from '@teable/ui-lib';
 import type { Methods } from 'penpal';
 import { connectToChild } from 'penpal';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElement> {
   src: string;
@@ -17,13 +17,9 @@ interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElemen
 }
 export const PluginRender = (props: IPluginRenderProps) => {
   const { onBridge, utilsEvent, uiEvent, className, ...rest } = props;
-  const [isLoading, setIsLoading] = useState(true);
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   useEffect(() => {
-    if (isLoading) {
-      return;
-    }
     if (!iframeRef.current) {
       return;
     }
@@ -61,24 +57,16 @@ export const PluginRender = (props: IPluginRenderProps) => {
       throw error;
     });
 
-    connection;
-
     return () => {
       connection.destroy();
       onBridge(undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onBridge, isLoading]);
+  }, [onBridge]);
 
   // eslint-disable-next-line jsx-a11y/iframe-has-title
   return (
     // eslint-disable-next-line jsx-a11y/iframe-has-title
-    <iframe
-      loading={'lazy'}
-      {...rest}
-      ref={iframeRef}
-      className={cn('rounded-b', className)}
-      onLoad={() => setIsLoading(false)}
-    />
+    <iframe loading={'lazy'} {...rest} ref={iframeRef} className={cn('rounded-b', className)} />
   );
 };
