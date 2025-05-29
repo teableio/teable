@@ -10,9 +10,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  sonner,
 } from '@teable/ui-lib';
-
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
 
 import { isUrl } from '@udecode/plate';
 import { useEditorRef } from '@udecode/plate/react';
@@ -35,6 +34,8 @@ import {
   ToolbarSplitButtonPrimary,
   // ToolbarSplitButtonSecondary,
 } from './toolbar';
+
+const { toast } = sonner;
 
 const MEDIA_CONFIG: Record<
   string,

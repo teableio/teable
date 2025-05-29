@@ -1,9 +1,12 @@
 'use client';
 
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { sonner } from '@teable/ui-lib';
+
 import { usePluginOption } from '@udecode/plate/react';
 import { PlaceholderPlugin, UploadErrorCode } from '@udecode/plate-media/react';
 import * as React from 'react';
+
+const { toast } = sonner;
 
 export const useUploadErrorToast = () => {
   const uploadError = usePluginOption(PlaceholderPlugin, 'error');

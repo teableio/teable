@@ -1,11 +1,13 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ICustomHttpExceptionData, IHttpError } from '@teable/core';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { sonner } from '@teable/ui-lib';
 import {
   UsageLimitModalType,
   useUsageLimitModalStore,
 } from '../../components/billing/store/usage-limit-modal';
 import type { ILocaleFunction, TKey } from './i18n';
+
+const { toast } = sonner;
 
 export function toCamelCaseErrorCode(errorCode: string): string {
   return errorCode
