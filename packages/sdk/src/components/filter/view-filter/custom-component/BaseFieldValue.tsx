@@ -180,6 +180,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       }
       return <FilterUserSelect {...props} modal={modal} />;
     }
+    case FieldType.Rollup:
     case FieldType.Formula: {
       return getFormulaValueComponent(field.cellValueType);
     }
