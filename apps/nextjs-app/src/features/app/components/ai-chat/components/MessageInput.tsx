@@ -1,7 +1,6 @@
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { ArrowUpRight } from '@teable/icons';
 import { Button, Textarea } from '@teable/ui-lib/shadcn';
-import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { PauseIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useChatStore } from '../store/useChatStore';
@@ -35,6 +34,10 @@ export const MessageInput = ({
 
   const hasModel = models.length > 0;
 
+  const hasRequesting = ['submitted', 'streaming'].includes(status);
+
+  const disabledSubmit = input.length === 0 || !hasModel || hasRequesting;
+
   return (
     <form className="px-2">
       <div className="rounded-lg border bg-muted px-2 py-1">
@@ -49,9 +52,7 @@ export const MessageInput = ({
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
 
-              if (status !== 'ready') {
-                toast.error('Please wait for the model to finish its response!');
-              } else {
+              if (!disabledSubmit) {
                 handleSubmit();
               }
             }
@@ -65,7 +66,7 @@ export const MessageInput = ({
           ) : (
             <div className="text-xs text-destructive">{t('table:aiChat.noModel')}</div>
           )}
-          {status === 'submitted' ? (
+          {hasRequesting ? (
             <Button
               size={'xs'}
               onClick={(event) => {
@@ -84,7 +85,7 @@ export const MessageInput = ({
                 event.preventDefault();
                 handleSubmit();
               }}
-              disabled={input.length === 0 || !hasModel}
+              disabled={disabledSubmit}
             >
               <ArrowUpRight className="size-4" />
             </Button>
