@@ -9,7 +9,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const updateContext = useCallback((context: IChatContext) => {
     setContext({
       ...context,
-      tableIds: context?.tableIds?.length ? context?.tableIds : undefined,
+      tables: context?.tables?.length ? context?.tables : undefined,
     });
   }, []);
 
