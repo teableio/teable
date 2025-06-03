@@ -14,11 +14,8 @@ export const formatDisplayValue = (value: string, formatting: IDatetimeFormattin
 export const convertZonedInputToUtc = (inputValue: string, formatting: IDatetimeFormatting) => {
   const { date: dateFormatting, time: timeFormatting, timeZone } = formatting;
   const normalizedDateFormatting = normalizeDateFormatting(dateFormatting);
-  const format =
-    timeFormatting === TimeFormatting.None
-      ? normalizedDateFormatting
-      : `${normalizedDateFormatting} ${timeFormatting}`;
-  let curDate = dayjs(inputValue.trim(), format);
+  const formats = [normalizedDateFormatting, `${normalizedDateFormatting} ${timeFormatting}`];
+  let curDate = dayjs(inputValue.trim(), formats);
   const isValid = curDate.isValid();
 
   if (!isValid) return null;
