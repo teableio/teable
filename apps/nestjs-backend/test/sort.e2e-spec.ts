@@ -164,7 +164,7 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     expect(viewSort).toEqual(assertSort.sort);
   });
 
-  it.only('sort date should always use a second precision', async () => {
+  it('sort date should always use a second precision', async () => {
     await createRecords(tableId, {
       records: [
         {
