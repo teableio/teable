@@ -1,4 +1,3 @@
-import { getRecordsRoSchema } from '../record';
 import { z } from '../zod';
 
 export enum McpToolInvocationName {
@@ -8,17 +7,13 @@ export enum McpToolInvocationName {
 }
 
 export const chatContextSchema = z.object({
-  tableIds: z.array(z.string()).optional(),
-  viewIds: z.array(z.string()).optional(),
-  tableQuery: getRecordsRoSchema
-    .pick({
-      filter: true,
-      search: true,
-      groupBy: true,
-      orderBy: true,
-      projection: true,
-      ignoreViewQuery: true,
-    })
+  tables: z
+    .array(
+      z.object({
+        id: z.string(),
+        viewId: z.string().optional(),
+      })
+    )
     .optional(),
 });
 

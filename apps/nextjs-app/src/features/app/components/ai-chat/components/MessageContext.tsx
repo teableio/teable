@@ -1,6 +1,8 @@
-import { Check, Table2, X } from '@teable/icons';
+import { ViewType } from '@teable/core';
+import { Check, Table2, X, Lock } from '@teable/icons';
 import type { IChatContext } from '@teable/openapi';
-import { useTables } from '@teable/sdk/hooks';
+import { AnchorContext, ViewProvider } from '@teable/sdk/context';
+import { useTables, useViews } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import {
   Button,
@@ -10,15 +12,23 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
   ScrollArea,
+  Skeleton,
 } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import { VIEW_ICON_MAP } from '@/features/app/blocks/view/constant';
 import { Emoji } from '../../emoji/Emoji';
 import { useChatContext } from '../context/useChatContext';
+
+const SelectedViewNameMap: Record<string, string> = {};
 
 export const MessageContext = () => {
   const { context, setContext } = useChatContext();
@@ -38,7 +48,7 @@ export const MessageContext = () => {
   const onTableIdDelete = (tableId: string) => {
     setContext({
       ...context,
-      tableIds: context?.tableIds?.filter((id) => id !== tableId),
+      tables: context?.tables?.filter(({ id }) => id !== tableId),
     });
   };
 
@@ -54,12 +64,12 @@ export const MessageContext = () => {
             className="h-6 justify-between gap-0.5 border border-zinc-200 bg-muted px-1.5 font-normal text-muted-foreground dark:border-zinc-700"
           >
             <span className="text-xs">@</span>
-            {!context?.tableIds?.length && (
+            {!context?.tables?.length && (
               <span className="text-xs">{t('table:aiChat.context.button')}</span>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-0">
+        <PopoverContent className="w-64 p-0" align="start">
           <Command>
             <CommandInput className="text-xs" placeholder={t('table:aiChat.context.search')} />
             <CommandEmpty className="py-5 text-center text-xs text-muted-foreground">
@@ -71,34 +81,57 @@ export const MessageContext = () => {
               <CommandList>
                 <CommandGroup heading={t('common:noun.table')}>
                   {tables.map((table) => (
-                    <CommandItem
-                      className="gap-2 text-xs"
+                    <ViewMenu
                       key={table.id}
-                      value={table.name}
-                      onSelect={() => {
-                        if (context?.tableIds?.includes(table.id)) {
+                      table={table}
+                      selectedViewId={context?.tables?.find(({ id }) => id === table.id)?.viewId}
+                      onSelect={(viewId) => {
+                        if (context?.tables?.some(({ id }) => id === table.id)) {
                           setContext({
                             ...context,
-                            tableIds: context?.tableIds?.filter((id) => id !== table.id),
+                            tables: context?.tables?.map(({ id, viewId: oldViewId }) =>
+                              id === table.id
+                                ? { id, viewId: oldViewId === viewId ? undefined : viewId }
+                                : { id }
+                            ),
                           });
                         } else {
                           setContext({
                             ...context,
-                            tableIds: [...(context?.tableIds || []), table.id],
+                            tables: [...(context?.tables || []), { id: table.id, viewId }],
                           });
                         }
                       }}
                     >
-                      {table.icon ? (
-                        <Emoji className="w-auto shrink-0" emoji={table.icon} size={'0.8rem'} />
-                      ) : (
-                        <Table2 className="size-4 shrink-0" />
-                      )}
-                      <span className="grow truncate">{table.name}</span>
-                      {context?.tableIds?.includes(table.id) && (
-                        <Check className="size-4 shrink-0" />
-                      )}
-                    </CommandItem>
+                      <CommandItem
+                        className="gap-2 text-xs"
+                        key={table.id}
+                        value={table.name}
+                        onSelect={() => {
+                          if (context?.tables?.some(({ id }) => id === table.id)) {
+                            setContext({
+                              ...context,
+                              tables: context?.tables?.filter(({ id }) => id !== table.id),
+                            });
+                          } else {
+                            setContext({
+                              ...context,
+                              tables: [...(context?.tables || []), { id: table.id }],
+                            });
+                          }
+                        }}
+                      >
+                        {table.icon ? (
+                          <Emoji className="w-auto shrink-0" emoji={table.icon} size={'0.8rem'} />
+                        ) : (
+                          <Table2 className="size-4 shrink-0" />
+                        )}
+                        <span className="grow truncate">{table.name}</span>
+                        {context?.tables?.some(({ id }) => id === table.id) && (
+                          <Check className="size-4 shrink-0" />
+                        )}
+                      </CommandItem>
+                    </ViewMenu>
                   ))}
                 </CommandGroup>
               </CommandList>
@@ -122,16 +155,17 @@ const ContextItem = ({
   tableMap: Record<string, Table>;
   onTableIdDelete?: (tableId: string) => void;
 }) => {
-  const { tableIds } = context;
+  const { tables } = context;
 
   return (
     <>
-      {tableIds?.map((tableId) => {
-        const table = tableMap[tableId];
+      {tables?.map(({ id, viewId }) => {
+        const table = tableMap[id];
         if (!table) return;
+        const viewName = viewId ? SelectedViewNameMap[viewId] : '';
         return (
           <div
-            key={tableId}
+            key={id}
             className="group flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded border border-zinc-200 px-1 text-xs text-muted-foreground dark:border-zinc-700"
           >
             <div className="group-hover:hidden">
@@ -145,15 +179,102 @@ const ContextItem = ({
               type="button"
               className="hidden group-hover:block"
               onClick={() => {
-                onTableIdDelete?.(tableId);
+                onTableIdDelete?.(id);
               }}
             >
               <X className="size-3 shrink-0" />
             </button>
             {table.name}
+            {viewName && (
+              <span className="text-xs text-muted-foreground">
+                {' '}
+                - {viewName.length > 10 ? viewName.slice(0, 10) + '...' : viewName}
+              </span>
+            )}
           </div>
         );
       })}
     </>
+  );
+};
+
+const ViewMenu = ({
+  table,
+  children,
+  selectedViewId,
+  onSelect,
+}: {
+  table: Table;
+  children: React.ReactNode;
+  selectedViewId?: string;
+  onSelect: (viewId: string) => void;
+}) => {
+  return (
+    <HoverCard openDelay={200} closeDelay={50}>
+      <HoverCardTrigger>{children}</HoverCardTrigger>
+      <HoverCardContent side="right" className="w-64 p-1">
+        <AnchorContext.Provider value={{ tableId: table.id }}>
+          <ViewProvider>
+            <ViewList selectedViewId={selectedViewId} onSelect={onSelect} />
+          </ViewProvider>
+        </AnchorContext.Provider>
+      </HoverCardContent>
+    </HoverCard>
+  );
+};
+
+const ViewList = ({
+  selectedViewId,
+  onSelect,
+}: {
+  selectedViewId?: string;
+  onSelect: (viewId: string) => void;
+}) => {
+  const views = useViews();
+  if (!views.length)
+    return (
+      <div className="flex flex-col gap-2 p-2">
+        <Skeleton className="h-6 w-full" />
+      </div>
+    );
+
+  return (
+    <Command className="w-full">
+      <CommandList>
+        {views.map((view) => {
+          const ViewIcon = VIEW_ICON_MAP[view.type];
+          return (
+            <CommandItem
+              key={view.id}
+              className="justify-between text-xs"
+              onSelect={() => {
+                onSelect(view.id);
+                SelectedViewNameMap[view.id] = view.name;
+              }}
+            >
+              <div className="flex items-center gap-0.5">
+                {view.type === ViewType.Plugin ? (
+                  <Image
+                    className="mr-1 size-4 shrink-0"
+                    width={16}
+                    height={16}
+                    src={view.options.pluginLogo}
+                    alt={view.name}
+                  />
+                ) : (
+                  <Fragment>
+                    {view.isLocked && <Lock className="mr-[2px] size-4 shrink-0" />}
+                    <ViewIcon className="mr-1 size-4 shrink-0" />
+                  </Fragment>
+                )}
+
+                {view.name}
+              </div>
+              {view.id === selectedViewId && <Check className="size-4 shrink-0" />}
+            </CommandItem>
+          );
+        })}
+      </CommandList>
+    </Command>
   );
 };
