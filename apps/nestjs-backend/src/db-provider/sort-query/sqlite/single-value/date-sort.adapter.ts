@@ -3,13 +3,12 @@ import { SortFunctionSqlite } from '../sort-query.function';
 
 export class DateSortAdapter extends SortFunctionSqlite {
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    builderClient.orderBy(this.columnName, 'asc', 'first');
+    builderClient.orderByRaw('?? ASC NULLS FIRST', [this.columnName]);
     return builderClient;
   }
 
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    builderClient.orderBy(this.columnName, 'desc', 'last');
-
+    builderClient.orderByRaw('?? DESC NULLS LAST', [this.columnName]);
     return builderClient;
   }
 

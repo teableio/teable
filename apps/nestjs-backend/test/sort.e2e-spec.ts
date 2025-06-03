@@ -199,7 +199,6 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
       { fieldId: createdTimeField.id, order: SortFunc.Desc },
     ];
 
-    // await setRecordsOrder(tableId, viewId!, ascOrders);
     const originRecords = await getSortRecords(tableId, {
       viewId,
       orderBy: ascOrders,
