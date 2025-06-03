@@ -13,14 +13,17 @@ export const formatDisplayValue = (value: string, formatting: IDatetimeFormattin
 
 export const convertZonedInputToUtc = (inputValue: string, formatting: IDatetimeFormatting) => {
   const { date: dateFormatting, time: timeFormatting, timeZone } = formatting;
+  const isTimeNone = timeFormatting === TimeFormatting.None;
   const normalizedDateFormatting = normalizeDateFormatting(dateFormatting);
-  const formats = [normalizedDateFormatting, `${normalizedDateFormatting} ${timeFormatting}`];
+  const formats = isTimeNone
+    ? [normalizedDateFormatting]
+    : [`${normalizedDateFormatting} ${timeFormatting}`, normalizedDateFormatting];
   let curDate = dayjs(inputValue.trim(), formats);
   const isValid = curDate.isValid();
 
   if (!isValid) return null;
 
-  if (timeFormatting === TimeFormatting.None) {
+  if (isTimeNone) {
     const now = fromZonedTime(new Date(), timeZone);
     curDate = curDate
       .set('hour', now.getHours())
