@@ -20,37 +20,41 @@ interface ChatTriggerProps {
 export const ChatTriggerButton = ({ buttonClassName }: ChatTriggerProps) => {
   const chatEnabled = useChatEnabled();
   const { toggleVisible: toggleChatPanel } = useChatPanelStore();
-
-  return (
-    <TooltipWrapper>
-      <Button
-        variant="ghost"
-        size="xs"
-        className={cn('flex relative', buttonClassName)}
-        onClick={toggleChatPanel}
-        disabled={!chatEnabled}
-      >
-        <MagicAi className="size-4 text-orange-500" />
-      </Button>
-    </TooltipWrapper>
-  );
-};
-
-const TooltipWrapper = ({ children }: ChatTriggerProps) => {
-  const chatEnabled = useChatEnabled();
   const { t } = useTranslation(['common']);
-  if (chatEnabled) return children;
 
+  if (!chatEnabled) {
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger>
+            <div
+              className={cn(
+                'flex relative items-center justify-center px-2 opacity-50 cursor-default',
+                buttonClassName
+              )}
+            >
+              <MagicAi className="size-4 text-orange-500" />
+            </div>
+          </TooltipTrigger>
+          <TooltipPortal>
+            <TooltipContent>
+              <p>{t('common:billing.unavailableInPlanTips')}</p>
+            </TooltipContent>
+          </TooltipPortal>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
   return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger>{children}</TooltipTrigger>
-        <TooltipPortal>
-          <TooltipContent>
-            <p>{t('common:billing.unavailableInPlanTips')}</p>
-          </TooltipContent>
-        </TooltipPortal>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      variant="ghost"
+      size="xs"
+      className={cn('flex relative', buttonClassName, {
+        'opacity-50': !chatEnabled,
+      })}
+      onClick={toggleChatPanel}
+    >
+      <MagicAi className="size-4 text-orange-500" />
+    </Button>
   );
 };
