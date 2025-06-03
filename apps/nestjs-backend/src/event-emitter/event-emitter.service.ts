@@ -252,7 +252,14 @@ export class EventEmitterService {
   }
 
   private getUpdateFieldsFromEvent(event: RecordUpdateEvent): { [key: string]: unknown } {
-    return Object.entries((event.payload.record as IChangeRecord).fields).reduce(
+    const { payload, rawOpType } = event;
+    const fields = (payload.record as IChangeRecord).fields;
+
+    if (rawOpType === RawOpType.Edit) {
+      return fields;
+    }
+
+    return Object.entries(fields).reduce(
       (acc, [key, value]) => {
         acc[key] = value.newValue;
         return acc;
