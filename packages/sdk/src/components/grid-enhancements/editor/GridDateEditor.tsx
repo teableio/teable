@@ -30,7 +30,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   const dateTime = record.getCellValue(field.id) as string;
   const options = field.options as IDateFieldOptions;
   const formatting = options?.formatting || defaultDatetimeFormatting;
-  const { timeZone, date: dateFormatting, time: timeFormatting } = formatting;
+  const { date: dateFormatting, time: timeFormatting } = formatting;
   const { cellLineColorActived } = theme;
   const { width, height } = rect;
 
@@ -49,7 +49,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
       editorRef.current?.setValue?.(value);
     },
     saveValue: () => {
-      const value = convertZonedInputToUtc(inputValue, timeZone);
+      const value = convertZonedInputToUtc(inputValue, formatting);
       onCalendarChange(value);
     },
   }));

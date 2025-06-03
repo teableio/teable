@@ -27,7 +27,6 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const { t } = useTranslation();
 
   const formatting = options?.formatting || defaultDatetimeFormatting;
-  const { timeZone } = formatting;
 
   useImperativeHandle(ref, () => ({
     setValue: (value?: string) => {
@@ -44,7 +43,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
 
     if (relatedTarget && popoverContentRef.current?.contains(relatedTarget)) return;
 
-    const value = convertZonedInputToUtc(inputValue, timeZone);
+    const value = convertZonedInputToUtc(inputValue, formatting);
     onChange?.(value);
     setEditing(false);
   };
