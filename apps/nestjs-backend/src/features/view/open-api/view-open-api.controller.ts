@@ -341,7 +341,7 @@ export class ViewOpenApiController {
   }
 
   @Get(':viewId/plugin')
-  @Permissions('base|read')
+  @Permissions('view|read')
   getPluginInstall(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
