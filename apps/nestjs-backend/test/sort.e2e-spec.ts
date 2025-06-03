@@ -20,7 +20,7 @@ import {
   FieldKeyType,
 } from '@teable/core';
 import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
-import { updateViewSort as apiSetViewSort } from '@teable/openapi';
+import { updateViewSort as apiSetViewSort, createRecords } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
@@ -36,6 +36,8 @@ import {
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // cellValueType which need to test
 const typeTests = [
@@ -160,6 +162,60 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     const updatedView = await getView(tableId, viewId);
     const viewSort = updatedView.sort;
     expect(viewSort).toEqual(assertSort.sort);
+  });
+
+  it.only('sort date should always use a second precision', async () => {
+    await createRecords(tableId, {
+      records: [
+        {
+          fields: {},
+        },
+      ],
+    });
+
+    await delay(1000);
+
+    await createRecords(tableId, {
+      records: [
+        {
+          fields: {},
+        },
+      ],
+    });
+
+    const createdTimeField = await createField(tableId, {
+      name: 'createdTime',
+      type: FieldType.CreatedTime,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.ISO,
+          time: TimeFormatting.None,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      },
+    });
+
+    const ascOrders: IGetRecordsRo['orderBy'] = [
+      { fieldId: createdTimeField.id, order: SortFunc.Desc },
+    ];
+
+    // await setRecordsOrder(tableId, viewId!, ascOrders);
+    const originRecords = await getSortRecords(tableId, {
+      viewId,
+      orderBy: ascOrders,
+    });
+
+    const assertSort = orderBy(
+      originRecords,
+      ['createdTime', 'autoNumber'],
+      [SortFunc.Desc, SortFunc.Asc]
+    );
+
+    const originId = originRecords.map((record) => record.id);
+
+    const assertId = assertSort.map((record) => record.id);
+
+    expect(originId).toEqual(assertId);
   });
 });
 
