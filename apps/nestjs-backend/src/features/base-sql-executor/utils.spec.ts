@@ -71,5 +71,13 @@ describe('base sql executor utils', () => {
         database: DriverClient.Pg,
       });
     });
+
+    it('deep with', () => {
+      const sql = 'with a as (with b as (select * from c) select * from b) select * from a';
+      checkTableAccess(sql, {
+        tableNames: ['c'],
+        database: DriverClient.Pg,
+      });
+    });
   });
 });

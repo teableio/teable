@@ -25,11 +25,16 @@ const databaseTypeMap = {
   [DriverClient.Sqlite]: 'sqlite',
 };
 
-const collectWithNames = (ast: AST) => {
+const collectWithNames = (ast?: AST) => {
+  if (!ast) {
+    return [];
+  }
   const withNames: string[] = [];
   if (ast.type === 'select' && ast.with) {
     ast.with.forEach((withItem) => {
-      withNames.push(withItem.name.value);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const names = (withItem.stmt as any) ? collectWithNames(withItem.stmt as any) : [];
+      withNames.push(...names, withItem.name.value);
     });
   }
   return withNames;
@@ -56,6 +61,7 @@ export const checkTableAccess = (
     const [schema, tableName] = table.includes('.') ? table.split('.') : [null, table];
     return `select::${schema}::${tableName}`;
   });
+
   try {
     const error = parser.whiteListCheck(sql, whiteColumnList, opt);
     if (error) {
