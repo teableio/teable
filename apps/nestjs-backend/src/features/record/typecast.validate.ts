@@ -350,7 +350,6 @@ export class TypeCastAndValidate {
       (validatedCellValue: unknown) => {
         if (this.field.isMultipleCellValue) {
           const notInUserMap = (validatedCellValue as IUserCellValue[]).find((v) => !userMap[v.id]);
-          console.log('notInUserMap', notInUserMap);
           if (notInUserMap) {
             throw new BadRequestException(
               `User(${notInUserMap.id}) not selected in table(${this.tableId})`
