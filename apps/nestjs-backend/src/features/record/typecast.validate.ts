@@ -419,7 +419,7 @@ export class TypeCastAndValidate {
 
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
     const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
-    const attachmentCvMap = !this.typecast ? await this.getAttachmentCvMapByCv(cellValues) : {};
+    const attachmentCvMap = await this.getAttachmentCvMapByCv(cellValues);
     const unsignedValues = this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
