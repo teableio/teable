@@ -133,11 +133,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
-      <StarButton
-        className="size-6 rounded-full bg-gray-100/50 p-1 shadow backdrop-blur-sm transition-colors hover:bg-gray-200/80"
-        id={table.id}
-        type={PinType.Table}
-      />
+      <StarButton id={table.id} type={PinType.Table} className="size-3.5" />
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <div>

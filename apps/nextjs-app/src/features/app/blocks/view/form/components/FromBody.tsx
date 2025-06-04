@@ -126,9 +126,6 @@ export const FormBody = (props: IFormBodyProps) => {
 
   const { coverUrl, logoUrl, submitLabel } = view?.options ?? {};
 
-  console.log('coverUrl', coverUrl, previewUrl(coverUrl ?? ''));
-  console.log('logoUrl', logoUrl, previewUrl(logoUrl ?? ''));
-
   return (
     <div className={className}>
       <div

@@ -48,7 +48,7 @@ export const StarButton = (props: IStarButtonProps) => {
         <TooltipTrigger>
           <Star
             className={cn(
-              'size-3 shrink-0 opacity-0 group-hover:opacity-100',
+              'size-3 shrink-0 opacity-0 group-hover:opacity-100 transition-colors',
               {
                 'opacity-100': isPin,
                 'fill-yellow-400 text-yellow-400': isPin,
