@@ -1,9 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import type {
+  IAttachmentCellValue,
   IAttachmentItem,
   ILinkCellValue,
   ISelectFieldChoice,
   ISelectFieldOptions,
+  IUserCellValue,
   UserFieldCore,
 } from '@teable/core';
 import {
@@ -141,7 +143,8 @@ export class TypeCastAndValidate {
    */
   private mapFieldsCellValuesWithValidate(
     cellValues: unknown[],
-    callBack: (cellValue: unknown) => unknown
+    callBack: (cellValue: unknown) => unknown,
+    validateBusinessRules?: (cellValue: unknown) => unknown
   ) {
     return cellValues.map((cellValue) => {
       if (cellValue === undefined) {
@@ -158,7 +161,7 @@ export class TypeCastAndValidate {
       if (this.field.type === FieldType.SingleLineText || this.field.type === FieldType.LongText) {
         return this.field.convertStringToCellValue(validate.data as string);
       }
-      return validate.data == null ? null : validate.data;
+      return validate.data == null ? null : validateBusinessRules?.(validate.data) ?? validate.data;
     });
   }
 
@@ -306,44 +309,118 @@ export class TypeCastAndValidate {
   }
 
   private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
-    let ctx: { id: string; name: string; email: string }[] = [];
-    if (this.typecast) {
-      const userStrArray = cellValues.map((v) => {
-        const stringCv = convertUser(v);
-        if (!stringCv) {
-          return [];
-        }
-        const stringCvArr = stringCv.split(',').map((s) => s.trim());
-        if (this.field.isMultipleCellValue) {
-          return stringCvArr;
-        }
-        return stringCvArr[0];
-      });
-      ctx = await this.services.collaboratorService.getUserCollaboratorsByTableId(this.tableId, {
+    const userStrArray = cellValues.map((v) => {
+      const stringCv = convertUser(v);
+      if (!stringCv) {
+        return [];
+      }
+      const stringCvArr = stringCv.split(',').map((s) => s.trim());
+      if (this.field.isMultipleCellValue) {
+        return stringCvArr;
+      }
+      return stringCvArr[0];
+    });
+    const ctx = await this.services.collaboratorService.getUserCollaboratorsByTableId(
+      this.tableId,
+      {
         containsIn: {
           keys: ['id', 'name', 'email', 'phone'],
           values: userStrArray.flat(),
         },
-      });
-    }
-
-    return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
-      const strValue = convertUser(cellValue);
-      if (strValue) {
-        const cv = (this.field as UserFieldCore).convertStringToCellValue(strValue, {
-          userSets: ctx,
-        });
-        if (Array.isArray(cv)) {
-          return cv.map(UserFieldDto.fullAvatarUrl);
-        }
-        return cv ? UserFieldDto.fullAvatarUrl(cv) : cv;
       }
-      return null;
+    );
+
+    const userMap = keyBy(ctx, 'id');
+
+    return this.mapFieldsCellValuesWithValidate(
+      cellValues,
+      (cellValue: unknown) => {
+        const strValue = convertUser(cellValue);
+        if (strValue) {
+          const cv = (this.field as UserFieldCore).convertStringToCellValue(strValue, {
+            userSets: ctx,
+          });
+          if (Array.isArray(cv)) {
+            return cv.map(UserFieldDto.fullAvatarUrl);
+          }
+          return cv ? UserFieldDto.fullAvatarUrl(cv) : cv;
+        }
+        return null;
+      },
+      (validatedCellValue: unknown) => {
+        if (this.field.isMultipleCellValue) {
+          const notInUserMap = (validatedCellValue as IUserCellValue[]).find((v) => !userMap[v.id]);
+          console.log('notInUserMap', notInUserMap);
+          if (notInUserMap) {
+            throw new BadRequestException(
+              `User(${notInUserMap.id}) not selected in table(${this.tableId})`
+            );
+          }
+          return (validatedCellValue as IUserCellValue[]).map((v) => {
+            const user = userMap[v.id];
+            return {
+              id: user.id,
+              title: user.name,
+              email: user.email,
+            };
+          });
+        }
+        const user = userMap[(validatedCellValue as IUserCellValue).id];
+        if (!user) {
+          throw new BadRequestException(
+            `User(${(validatedCellValue as IUserCellValue).id}) not selected in table(${this.tableId})`
+          );
+        }
+        return {
+          id: user.id,
+          title: user.name,
+          email: user.email,
+        };
+      }
+    );
+  }
+
+  private async getAttachmentCvMapByCv(cellValues: unknown[]): Promise<
+    Record<
+      string,
+      {
+        token: string;
+        size: number;
+        mimetype: string;
+        width: number | null;
+        height: number | null;
+        path: string;
+      }
+    >
+  > {
+    const tokens = cellValues
+      .flat()
+      .flatMap((v) => {
+        if (isObject(v) && 'token' in v && typeof v.token === 'string') {
+          return [v.token];
+        }
+      })
+      .filter(Boolean) as string[];
+    if (tokens.length === 0) {
+      return {};
+    }
+    const attachmentMetadata = await this.services.prismaService.attachments.findMany({
+      where: { token: { in: tokens } },
+      select: {
+        token: true,
+        size: true,
+        mimetype: true,
+        width: true,
+        height: true,
+        path: true,
+      },
     });
+    return keyBy(attachmentMetadata, 'token');
   }
 
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
     const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
+    const attachmentCvMap = !this.typecast ? await this.getAttachmentCvMapByCv(cellValues) : {};
     const unsignedValues = this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
@@ -354,6 +431,20 @@ export class TypeCastAndValidate {
             return result;
           }
         }
+      },
+      (validatedCellValue: unknown) => {
+        const attachmentCellValue = validatedCellValue as IAttachmentCellValue;
+        const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvMap[v.token]);
+        if (notInAttachmentMap) {
+          throw new BadRequestException(`Attachment(${notInAttachmentMap.token}) not found`);
+        }
+        return attachmentCellValue.map((v) => {
+          return {
+            ...nullsToUndefined(attachmentCvMap[v.token]),
+            name: v.name,
+            id: generateAttachmentId(),
+          };
+        });
       }
     );
 
@@ -413,8 +504,26 @@ export class TypeCastAndValidate {
     // Extract and flatten attachment IDs from cell values
     const attachmentIds = cellValues
       .flat()
-      .flatMap((v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()) : []))
-      .filter((v) => v.startsWith(IdPrefix.Attachment));
+      .flatMap((v) => {
+        if (typeof v === 'string') {
+          return v.split(',').map((s) => s.trim());
+        }
+        if (Array.isArray(v)) {
+          return v
+            .map((v) => {
+              if (typeof v === 'string') {
+                return v;
+              }
+              if (isObject(v) && 'id' in v && typeof v.id === 'string') {
+                return v.id;
+              }
+              return undefined;
+            })
+            .filter(Boolean) as string[];
+        }
+        return [];
+      })
+      .filter((v) => v?.startsWith(IdPrefix.Attachment));
 
     // Fetch attachment metadata from attachmentsTable
     const attachmentMetadata = await this.services.prismaService.attachmentsTable.findMany({
