@@ -47,6 +47,7 @@ export const useRecordOperations = () => {
     return queryClient.ensureQueryData({
       queryKey: ReactQueryKeys.duplicateRecord(tableId, recordId, order),
       queryFn: async ({ queryKey }) => duplicateRecordApi(queryKey[1], queryKey[2], queryKey[3]),
+      cacheTime: 0,
     });
   };
 
