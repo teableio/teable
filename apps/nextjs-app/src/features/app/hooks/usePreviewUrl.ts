@@ -16,6 +16,9 @@ export const usePreviewUrl = () => {
         console.error('storagePrefix is not set');
         return path;
       }
+      if (path.startsWith(storagePrefix)) {
+        return path;
+      }
       return pathJoin(storagePrefix, path);
     },
     [storagePrefix]
