@@ -25,10 +25,13 @@ import {
   TableIndex,
   duplicateTableRoSchema,
   IDuplicateTableRo,
+  moveTableRoSchema,
+  IMoveTableRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { ResourceMeta } from '../../auth/decorators/resource_meta.decorator';
 import { TableIndexService } from '../table-index.service';
 import { TablePermissionService } from '../table-permission.service';
 import { TableService } from '../table.service';
@@ -143,6 +146,18 @@ export class TableController {
     duplicateTableRo: IDuplicateTableRo
   ): Promise<IDuplicateTableVo> {
     return await this.tableOpenApiService.duplicateTable(baseId, tableId, duplicateTableRo);
+  }
+
+  @Permissions('base|update')
+  @ResourceMeta('baseId', 'params')
+  @Post(':tableId/move')
+  async moveTable(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(moveTableRoSchema))
+    moveTableRo: IMoveTableRo
+  ): Promise<{ baseId: string; tableId: string }> {
+    return await this.tableOpenApiService.moveTable(baseId, tableId, moveTableRo);
   }
 
   @Delete(':tableId')

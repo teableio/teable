@@ -15,3 +15,4 @@ export * from './get-activated-index';
 export * from './get-abnormal-index';
 export * from './repair-table-index';
 export * from './duplicate';
+export * from './move';

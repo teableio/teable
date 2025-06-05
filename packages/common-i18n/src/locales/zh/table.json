@@ -472,6 +472,11 @@
     "operator": {
       "createBlank": "新表格"
     },
+    "moveTableTips": {
+      "title": "温馨提示",
+      "tips": "移动表格后，可能会影响自动化运行（如：自动化节点配置了此表），可能会执行失败，是否继续",
+      "stillContinue": "继续"
+    },
     "actionTips": {
       "copyAndPasteEnvironment": "复制和粘贴功能仅在 HTTPS 或 localhost 环境下可用",
       "copyAndPasteBrowser": "当前浏览器不支持复制和粘贴功能",
@@ -503,6 +508,7 @@
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
       "pasteFileFailed": "文件只能粘贴到附件字段中",
+      "moveTableSucceedAndJump": "移动成功，点击跳转",
       "copyError": {
         "noFocus": "请保持页面激活，不要切换窗口",
         "noPermission": "您没有权限复制记录"
@@ -581,6 +587,7 @@
       "duplicating": "复制中...",
       "duplicateSuccess": "复制成功",
       "duplicateFailed": "复制失败",
+      "moveTo": "移至",
       "importing": "导入中",
       "includeRecords": "包含记录"
     },

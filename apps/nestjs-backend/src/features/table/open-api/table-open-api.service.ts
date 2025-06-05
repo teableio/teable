@@ -30,12 +30,14 @@ import type {
   ICreateTableRo,
   ICreateTableWithDefault,
   IDuplicateTableRo,
+  IMoveTableRo,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
   IUpdateOrderRo,
 } from '@teable/openapi';
 import { nanoid } from 'nanoid';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
@@ -57,6 +59,7 @@ import { RecordOpenApiService } from '../../record/open-api/record-open-api.serv
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
+import { TableMoveService } from '../table-move.service';
 import { TableService } from '../table.service';
 
 @Injectable()
@@ -75,6 +78,7 @@ export class TableOpenApiService {
     private readonly permissionService: PermissionService,
     private readonly tableDuplicateService: TableDuplicateService,
     private readonly batchService: BatchService,
+    private readonly tableMoveService: TableMoveService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
@@ -248,6 +252,21 @@ export class TableOpenApiService {
 
   async duplicateTable(baseId: string, tableId: string, tableRo: IDuplicateTableRo) {
     return await this.tableDuplicateService.duplicateTable(baseId, tableId, tableRo);
+  }
+
+  async moveTable(baseId: string, tableId: string, tableRo: IMoveTableRo) {
+    const { baseId: targetBaseId } = tableRo;
+    await this.checkBaseOwnerPermission(targetBaseId);
+    return await this.tableMoveService.moveTable(baseId, tableId, tableRo);
+  }
+
+  private async checkBaseOwnerPermission(baseId: string) {
+    await this.permissionService.validPermissions(baseId, ['table|create']);
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      await this.permissionService.validPermissions(baseId, ['table|create'], accessTokenId);
+    }
   }
 
   async createTableMeta(baseId: string, tableRo: ICreateTableRo) {
