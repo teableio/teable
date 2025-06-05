@@ -15,8 +15,8 @@ import type {
   IUserCellValue,
   IUserFieldOptions,
 } from '@teable/core';
-import { FieldKeyType, FieldType } from '@teable/core';
-import { updateRecord } from '@teable/openapi';
+import { FieldType } from '@teable/core';
+import { temporaryPaste } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId } from '../../hooks';
 import { transformSelectOptions } from '../cell-value';
@@ -46,27 +46,19 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
   }, [cellValue]);
 
   const onOptionAdd = useCallback(
-    async (curValue: string | string[] | undefined, name: string) => {
-      if (!tableId || !recordId) return;
-      if (type !== FieldType.SingleSelect && type !== FieldType.MultipleSelect) return;
-      const appendValue =
-        type === FieldType.SingleSelect
-          ? name
-          : curValue
-            ? [...(curValue as string[]), name]
-            : [name];
+    async (name: string) => {
+      if (!tableId) return;
 
-      await updateRecord(tableId, recordId, {
-        fieldKeyType: FieldKeyType.Id,
-        typecast: true,
-        record: {
-          fields: {
-            [fieldId]: appendValue,
-          },
-        },
+      await temporaryPaste(tableId, {
+        content: name,
+        projection: [fieldId],
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
       });
     },
-    [tableId, recordId, type, fieldId]
+    [tableId, fieldId]
   );
 
   switch (type) {

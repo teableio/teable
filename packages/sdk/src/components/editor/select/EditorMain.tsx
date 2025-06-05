@@ -15,7 +15,7 @@ export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelec
   isMultiple?: T;
   style?: React.CSSProperties;
   className?: string;
-  onOptionAdd?: (curValue: string | string[] | undefined, name: string) => Promise<void>;
+  onOptionAdd?: (optionName: string) => Promise<void>;
 }
 
 const getValue = (value?: string | string[]) => {
@@ -82,7 +82,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   const onOptionAddInner = async () => {
     if (!searchValue || preventAutoNewOptions) return;
     setSearchValue('');
-    await onOptionAdd?.(originValue, searchValue);
+    await onOptionAdd?.(searchValue);
     if (isMultiple) {
       const newValue = value.concat(searchValue);
       setValue(newValue);

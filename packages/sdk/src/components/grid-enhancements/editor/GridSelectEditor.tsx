@@ -3,8 +3,8 @@ import type {
   ISingleSelectCellValue,
   IMultipleSelectCellValue,
 } from '@teable/core';
-import { FieldType, ColorUtils, FieldKeyType } from '@teable/core';
-import { updateRecord } from '@teable/openapi';
+import { FieldType, ColorUtils } from '@teable/core';
+import { temporaryPaste } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import colors from 'tailwindcss/colors';
@@ -70,28 +70,19 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   };
 
   const onOptionAdd = useCallback(
-    async (curValue: string | string[] | undefined, name: string) => {
-      const recordId = record.id;
-      if (!tableId || !recordId) return;
-      if (fieldType !== FieldType.SingleSelect && fieldType !== FieldType.MultipleSelect) return;
-      const appendValue =
-        fieldType === FieldType.SingleSelect
-          ? name
-          : curValue
-            ? [...(curValue as string[]), name]
-            : [name];
+    async (name: string) => {
+      if (!tableId) return;
 
-      await updateRecord(tableId, recordId, {
-        fieldKeyType: FieldKeyType.Id,
-        typecast: true,
-        record: {
-          fields: {
-            [fieldId]: appendValue,
-          },
-        },
+      await temporaryPaste(tableId, {
+        content: name,
+        projection: [fieldId],
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
       });
     },
-    [record.id, tableId, fieldType, fieldId]
+    [tableId, fieldId]
   );
 
   return (
