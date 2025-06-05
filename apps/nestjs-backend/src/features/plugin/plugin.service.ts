@@ -365,20 +365,26 @@ export class PluginService {
               id: { in: ids },
             }
           : {}),
-        OR: [
+        AND: [
           {
-            status: PluginStatus.Published,
+            OR: [
+              {
+                status: PluginStatus.Published,
+              },
+              {
+                status: { not: PluginStatus.Published },
+                createdBy: this.cls.get('user.id'),
+              },
+            ],
           },
-          {
-            status: { not: PluginStatus.Published },
-            createdBy: this.cls.get('user.id'),
-          },
+          ...(positions?.length
+            ? [
+                {
+                  OR: positions.map((position) => ({ positions: { contains: position } })),
+                },
+              ]
+            : []),
         ],
-        ...(positions?.length
-          ? {
-              OR: positions.map((position) => ({ positions: { contains: position } })),
-            }
-          : {}),
       },
     });
     const userIds = res.map((r) => r.createdBy);
