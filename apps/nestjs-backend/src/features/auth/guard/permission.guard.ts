@@ -57,6 +57,15 @@ export class PermissionGuard {
     return true;
   }
 
+  private async permissionSpaceRead() {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
+      return scopes.includes('space|read');
+    }
+    return true;
+  }
+
   protected async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
       console.log('permissions', permissions);
@@ -122,9 +131,13 @@ export class PermissionGuard {
     if (permissions?.includes('base|read_all')) {
       return await this.permissionBaseReadAll();
     }
+    const resourceId = this.getResourceId(context);
+    if (!resourceId && permissions?.includes('space|read')) {
+      return await this.permissionSpaceRead();
+    }
 
     // resource permission check
-    return await this.resourcePermission(this.getResourceId(context), permissions);
+    return await this.resourcePermission(resourceId, permissions);
   }
 
   /**

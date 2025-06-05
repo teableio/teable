@@ -10,14 +10,17 @@ import { useMemo } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 
 interface IAccessListProps {
-  baseIds: string[];
-  spaceIds: string[];
+  baseIds?: string[];
+  spaceIds?: string[];
+  hasFullAccess?: boolean;
+  onDeleteFullAccess: () => void;
   onDeleteBaseId: (baseId: string) => void;
   onDeleteSpaceId: (spaceId: string) => void;
 }
 
 export const AccessList = (props: IAccessListProps) => {
-  const { baseIds, spaceIds, onDeleteBaseId, onDeleteSpaceId } = props;
+  const { baseIds, spaceIds, hasFullAccess, onDeleteBaseId, onDeleteSpaceId, onDeleteFullAccess } =
+    props;
   const { t } = useTranslation('token');
 
   const { data: spaceList } = useQuery({
@@ -51,12 +54,12 @@ export const AccessList = (props: IAccessListProps) => {
     const displaySpaceMap: Record<string, IGetSpaceVo> = {};
     const displayBaseMap: Record<string, IGetBaseVo[]> = {};
     const allDisplaySpaceIds = new Set<string>();
-    spaceIds.forEach((spaceId) => {
+    spaceIds?.forEach((spaceId) => {
       displaySpaceMap[spaceId] = spaceMap[spaceId];
       allDisplaySpaceIds.add(spaceId);
     });
 
-    baseIds.forEach((baseId) => {
+    baseIds?.forEach((baseId) => {
       const base = baseMap[baseId];
       if (!base) {
         return;
@@ -70,7 +73,22 @@ export const AccessList = (props: IAccessListProps) => {
   }, [spaceIds, baseIds, spaceMap, baseMap]);
 
   return (
-    <div className="py-3 pl-1 text-sm">
+    <div className="space-y-1.5 py-3 pl-1 text-sm">
+      {hasFullAccess && (
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">{t('accessSelect.fullAccess.title')}</div>
+
+          <div className="flex h-8 items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Component className="size-4 shrink-0" />
+              {t('accessSelect.fullAccess.description')}
+            </div>
+            <Button variant={'ghost'} size={'sm'} onClick={() => onDeleteFullAccess()}>
+              <X />
+            </Button>
+          </div>
+        </div>
+      )}
       {allDisplaySpaceIds.map((spaceId) => {
         const space = spaceMap[spaceId];
         const displaySpace = displaySpaceMap[spaceId];

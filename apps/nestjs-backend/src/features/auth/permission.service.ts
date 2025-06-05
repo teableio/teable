@@ -84,9 +84,17 @@ export class PermissionService {
       baseIds,
       clientId,
       userId,
+      hasFullAccess,
     } = await this.prismaService.accessToken.findFirstOrThrow({
       where: { id: accessTokenId },
-      select: { scopes: true, spaceIds: true, baseIds: true, clientId: true, userId: true },
+      select: {
+        scopes: true,
+        spaceIds: true,
+        baseIds: true,
+        clientId: true,
+        userId: true,
+        hasFullAccess: true,
+      },
     });
     const scopes = JSON.parse(stringifyScopes) as Action[];
     if (clientId && clientId.startsWith(IdPrefix.OAuthClient)) {
@@ -102,6 +110,7 @@ export class PermissionService {
       scopes,
       spaceIds: spaceIds ? JSON.parse(spaceIds) : undefined,
       baseIds: baseIds ? JSON.parse(baseIds) : undefined,
+      hasFullAccess: hasFullAccess ?? undefined,
     };
   }
 
@@ -170,7 +179,11 @@ export class PermissionService {
     accessTokenId: string,
     includeInactiveResource?: boolean
   ) {
-    const { scopes, spaceIds, baseIds } = await this.getAccessToken(accessTokenId);
+    const { scopes, spaceIds, baseIds, hasFullAccess } = await this.getAccessToken(accessTokenId);
+
+    if (hasFullAccess) {
+      return scopes;
+    }
 
     if (
       !resourceId.startsWith(IdPrefix.Space) &&

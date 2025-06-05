@@ -89,6 +89,7 @@ export class SpaceController {
     return await this.spaceService.getSpaceById(spaceId);
   }
 
+  @Permissions('space|read')
   @Get()
   async getSpaceList(): Promise<IGetSpaceVo[]> {
     return await this.spaceService.getSpaceList();

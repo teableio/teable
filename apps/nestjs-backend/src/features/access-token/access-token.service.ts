@@ -27,10 +27,19 @@ export class AccessTokenService {
       createdTime?: Date;
       lastUsedTime?: Date | null;
       expiredTime?: Date;
+      hasFullAccess?: boolean | null;
     },
   >(accessTokenEntity: T) {
-    const { scopes, spaceIds, baseIds, createdTime, lastUsedTime, expiredTime, description } =
-      accessTokenEntity;
+    const {
+      scopes,
+      spaceIds,
+      baseIds,
+      createdTime,
+      lastUsedTime,
+      expiredTime,
+      description,
+      hasFullAccess,
+    } = accessTokenEntity;
     return {
       ...accessTokenEntity,
       description: description || undefined,
@@ -40,6 +49,7 @@ export class AccessTokenService {
       createdTime: createdTime?.toISOString(),
       lastUsedTime: lastUsedTime?.toISOString(),
       expiredTime: expiredTime?.toISOString(),
+      hasFullAccess: hasFullAccess ?? undefined,
     };
   }
 
@@ -87,6 +97,7 @@ export class AccessTokenService {
         scopes: true,
         spaceIds: true,
         baseIds: true,
+        hasFullAccess: true,
         createdTime: true,
         expiredTime: true,
         lastUsedTime: true,
@@ -100,7 +111,7 @@ export class AccessTokenService {
     createAccessToken: CreateAccessTokenRo & { clientId?: string; userId?: string }
   ) {
     const userId = createAccessToken.userId ?? this.cls.get('user.id')!;
-    const { name, description, scopes, spaceIds, baseIds, expiredTime, clientId } =
+    const { name, description, scopes, spaceIds, baseIds, expiredTime, clientId, hasFullAccess } =
       createAccessToken;
     const id = generateAccessTokenId();
     const sign = getRandomString(16);
@@ -116,6 +127,7 @@ export class AccessTokenService {
         sign,
         clientId,
         expiredTime: new Date(expiredTime).toISOString(),
+        hasFullAccess,
       },
       select: {
         id: true,
@@ -127,6 +139,7 @@ export class AccessTokenService {
         expiredTime: true,
         createdTime: true,
         lastUsedTime: true,
+        hasFullAccess: true,
       },
     });
     return {
@@ -172,7 +185,7 @@ export class AccessTokenService {
 
   async updateAccessToken(id: string, updateAccessToken: UpdateAccessTokenRo) {
     const userId = this.cls.get('user.id');
-    const { name, description, scopes, spaceIds, baseIds } = updateAccessToken;
+    const { name, description, scopes, spaceIds, baseIds, hasFullAccess } = updateAccessToken;
     const accessTokenEntity = await this.prismaService.accessToken.update({
       where: { id, userId },
       data: {
@@ -181,6 +194,7 @@ export class AccessTokenService {
         scopes: JSON.stringify(scopes),
         spaceIds: spaceIds === null ? null : JSON.stringify(spaceIds),
         baseIds: baseIds === null ? null : JSON.stringify(baseIds),
+        hasFullAccess,
       },
       select: {
         id: true,
@@ -189,6 +203,7 @@ export class AccessTokenService {
         scopes: true,
         spaceIds: true,
         baseIds: true,
+        hasFullAccess: true,
       },
     });
     return this.transformAccessTokenEntity(accessTokenEntity);
@@ -208,6 +223,7 @@ export class AccessTokenService {
         createdTime: true,
         expiredTime: true,
         lastUsedTime: true,
+        hasFullAccess: true,
       },
     });
     const res = this.transformAccessTokenEntity(item);

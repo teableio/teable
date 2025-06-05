@@ -7,6 +7,7 @@ export const accessTokenItemSchema = z.object({
   scopes: z.array(z.string()),
   spaceIds: z.array(z.string()).optional(),
   baseIds: z.array(z.string()).optional(),
+  hasFullAccess: z.boolean().optional(),
   expiredTime: z.string(),
   createdTime: z.string(),
   lastUsedTime: z.string().optional(),

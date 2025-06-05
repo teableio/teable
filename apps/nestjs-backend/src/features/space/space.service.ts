@@ -83,6 +83,21 @@ export class SpaceService {
     };
   }
 
+  async filterSpaceListWithAccessToken(spaceList: { id: string; name: string }[]) {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId) {
+      return spaceList;
+    }
+    const accessToken = await this.permissionService.getAccessToken(accessTokenId);
+    if (accessToken.hasFullAccess) {
+      return spaceList;
+    }
+    if (!accessToken.spaceIds?.length) {
+      return [];
+    }
+    return spaceList.filter((space) => accessToken.spaceIds.includes(space.id));
+  }
+
   async getSpaceList() {
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
@@ -118,7 +133,8 @@ export class SpaceService {
       },
       {} as Record<string, { roleName: string; resourceId: string }>
     );
-    return spaceList.map((space) => ({
+    const filteredSpaceList = await this.filterSpaceListWithAccessToken(spaceList);
+    return filteredSpaceList.map((space) => ({
       ...space,
       role: roleMap[space.id].roleName as IRole,
     }));

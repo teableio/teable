@@ -110,54 +110,6 @@ export class BaseService {
     });
   }
 
-  async getAccessBaseList() {
-    const userId = this.cls.get('user.id');
-    const accessTokenId = this.cls.get('accessTokenId');
-    const { spaceIds, baseIds } =
-      await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
-
-    if (accessTokenId) {
-      const access = await this.prismaService.accessToken.findFirst({
-        select: {
-          baseIds: true,
-          spaceIds: true,
-        },
-        where: {
-          id: accessTokenId,
-          userId,
-        },
-      });
-      if (!access) {
-        return [];
-      }
-      spaceIds.push(...(access.spaceIds || []));
-      baseIds.push(...(access.baseIds || []));
-    }
-
-    return this.prismaService.base.findMany({
-      select: {
-        id: true,
-        name: true,
-      },
-      where: {
-        deletedTime: null,
-        OR: [
-          {
-            id: {
-              in: baseIds,
-            },
-          },
-          {
-            spaceId: {
-              in: spaceIds,
-            },
-          },
-        ],
-      },
-      orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
-    });
-  }
-
   private async getMaxOrder(spaceId: string) {
     const spaceAggregate = await this.prismaService.base.aggregate({
       where: { spaceId, deletedTime: null },

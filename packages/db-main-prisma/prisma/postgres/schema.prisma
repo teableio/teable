@@ -313,6 +313,7 @@ model AccessToken {
   baseIds          String?   @map("base_ids")
   sign             String
   clientId         String?   @map("client_id")
+  hasFullAccess    Boolean?  @map("has_full_access")
   expiredTime      DateTime  @map("expired_time")
   lastUsedTime     DateTime? @map("last_used_time")
   createdTime      DateTime  @default(now()) @map("created_time")

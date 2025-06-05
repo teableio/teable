@@ -224,6 +224,7 @@ describe('PermissionService', () => {
         scopes,
         spaceIds,
         baseIds: undefined,
+        hasFullAccess: undefined,
       });
 
       const result = await service.getPermissionsByAccessToken(resourceId, accessTokenId);
@@ -240,6 +241,7 @@ describe('PermissionService', () => {
         scopes: ['table|update'],
         spaceIds,
         baseIds: undefined,
+        hasFullAccess: undefined,
       });
 
       await expect(
@@ -256,6 +258,7 @@ describe('PermissionService', () => {
         scopes: ['table|read'],
         baseIds,
         spaceIds: undefined,
+        hasFullAccess: undefined,
       });
 
       vi.spyOn(service as any, 'isBaseIdAllowedForResource').mockResolvedValueOnce(false);

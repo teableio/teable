@@ -72,7 +72,7 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
                 {isAllSelected ? t('edit.cancelSelectAll') : t('edit.selectAll')}
               </Button>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               {actions.map((action) => (
                 <div className="flex items-center gap-1 text-sm" key={action}>
                   <Checkbox

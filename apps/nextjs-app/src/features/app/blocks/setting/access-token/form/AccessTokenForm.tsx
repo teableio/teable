@@ -38,6 +38,7 @@ export interface IAccessTokenForm<T extends IFormType = 'new'> {
     spaceIds?: string[];
     baseIds?: string[];
     expiredTime?: string;
+    hasFullAccess?: boolean;
   };
 }
 
@@ -56,6 +57,9 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
     defaultData?.description || ''
   );
   const [scopes, setScopes] = useState<string[]>(defaultData?.scopes || []);
+  const [hasFullAccess, setHasFullAccess] = useState<boolean | undefined>(
+    defaultData?.hasFullAccess
+  );
 
   const actionsPrefixes = useMemo(() => {
     const prefixes = [
@@ -108,6 +112,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         expiredTime: expiredTime!,
         spaceIds,
         baseIds,
+        hasFullAccess,
       });
     }
     if (type === 'edit') {
@@ -117,6 +122,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         scopes,
         spaceIds,
         baseIds,
+        hasFullAccess,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
     }
@@ -182,10 +188,11 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         </Label>
         <div>
           <AccessSelect
-            value={{ spaceIds: spaceIds || [], baseIds: baseIds || [] }}
-            onChange={({ spaceIds, baseIds }) => {
-              setSpaceIds(spaceIds.length ? spaceIds : null);
-              setBaseIds(baseIds.length ? baseIds : null);
+            value={{ spaceIds: spaceIds || [], baseIds: baseIds || [], hasFullAccess }}
+            onChange={({ spaceIds, baseIds, hasFullAccess }) => {
+              setSpaceIds(spaceIds?.length ? spaceIds : null);
+              setBaseIds(baseIds?.length ? baseIds : null);
+              setHasFullAccess(hasFullAccess ?? undefined);
             }}
           />
         </div>

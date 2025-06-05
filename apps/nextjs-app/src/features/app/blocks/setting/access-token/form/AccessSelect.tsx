@@ -22,8 +22,9 @@ import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { AccessList } from './AccessList';
 
 interface IValue {
-  spaceIds: string[];
-  baseIds: string[];
+  spaceIds?: string[];
+  baseIds?: string[];
+  hasFullAccess?: boolean;
 }
 
 interface IFormAccess {
@@ -63,6 +64,7 @@ export const AccessSelect = (props: IFormAccess) => {
 
   const onChangeInner = (spaceId?: string, baseId?: string) => {
     onChange({
+      ...value,
       spaceIds: spaceId ? [...spaces, spaceId] : spaces,
       baseIds: baseId ? [...bases, baseId] : bases,
     });
@@ -72,6 +74,7 @@ export const AccessSelect = (props: IFormAccess) => {
     const newBases = bases.filter((id) => id !== baseId);
     setBases(newBases);
     onChange({
+      ...value,
       spaceIds: spaces,
       baseIds: newBases,
     });
@@ -81,6 +84,7 @@ export const AccessSelect = (props: IFormAccess) => {
     const newSpaces = spaces.filter((id) => id !== spaceId);
     setSpaces(newSpaces);
     onChange({
+      ...value,
       spaceIds: newSpaces,
       baseIds: bases,
     });
@@ -90,75 +94,100 @@ export const AccessSelect = (props: IFormAccess) => {
     return <Spin className="size-5" />;
   }
 
+  const onFullAccessChange = (hasFullAccess?: boolean) => {
+    onChange({
+      ...value,
+      hasFullAccess,
+    });
+  };
+
   return (
     <div>
       <AccessList
+        hasFullAccess={value?.hasFullAccess}
         spaceIds={spaces}
         baseIds={bases}
         onDeleteBaseId={onDeleteBaseId}
         onDeleteSpaceId={onDeleteSpaceId}
+        onDeleteFullAccess={() => {
+          onFullAccessChange(false);
+        }}
       />
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button size={'sm'} variant="outline" role="combobox" aria-expanded={open}>
+      <div className="flex items-center gap-2">
+        {!value?.hasFullAccess && (
+          <Button
+            size={'sm'}
+            variant="outline"
+            onClick={() => {
+              onFullAccessChange(true);
+            }}
+          >
             <Plus />
-            {t('accessSelect.button')}
+            {t('accessSelect.fullAccess.button')}
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-96 p-0">
-          <Command>
-            <CommandInput placeholder={t('accessSelect.inputPlaceholder')} className="h-9" />
-            <CommandEmpty>{t('accessSelect.empty')}</CommandEmpty>
-            <CommandList>
-              {spaceList
-                ?.filter(({ id: spaceId }) => !spaces.includes(spaceId))
-                ?.map(({ id, name }) => (
-                  <CommandGroup
-                    key={id}
-                    heading={<div className="truncate text-sm font-bold">{name}</div>}
-                    title={name}
-                  >
-                    <CommandItem
-                      className="gap-1"
-                      key={`${id}-all`}
-                      value={name}
-                      onSelect={() => {
-                        setSpaces((prev) => [...prev, id]);
-                        setOpen(false);
-                        onChangeInner(id);
-                      }}
+        )}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button size={'sm'} variant="outline" role="combobox" aria-expanded={open}>
+              <Plus />
+              {t('accessSelect.button')}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-96 p-0">
+            <Command>
+              <CommandInput placeholder={t('accessSelect.inputPlaceholder')} className="h-9" />
+              <CommandEmpty>{t('accessSelect.empty')}</CommandEmpty>
+              <CommandList>
+                {spaceList
+                  ?.filter(({ id: spaceId }) => !spaces.includes(spaceId))
+                  ?.map(({ id, name }) => (
+                    <CommandGroup
+                      key={id}
+                      heading={<div className="truncate text-sm font-bold">{name}</div>}
+                      title={name}
                     >
-                      <Component className="size-4 shrink-0" />
-                      {t('accessSelect.spaceSelectItem')}
-                    </CommandItem>
-                    {baseMap[id]
-                      ?.filter(({ id: baseId }) => !bases.includes(baseId))
-                      ?.map((base) => (
-                        <CommandItem
-                          className="gap-1"
-                          key={base.id}
-                          value={`${base.id}-${base.name}`}
-                          title={base.name}
-                          onSelect={() => {
-                            setBases((prev) => [...prev, base.id]);
-                            setOpen(false);
-                            onChangeInner(undefined, base.id);
-                          }}
-                        >
-                          {base.icon ? (
-                            <Emoji className="w-4 shrink-0" emoji={base.icon} size={16} />
-                          ) : (
-                            <Database className="size-4 shrink-0" />
-                          )}
-                          <div className="truncate">{base.name}</div>
-                        </CommandItem>
-                      ))}
-                  </CommandGroup>
-                ))}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                      <CommandItem
+                        className="gap-1"
+                        key={`${id}-all`}
+                        value={name}
+                        onSelect={() => {
+                          setSpaces((prev) => [...prev, id]);
+                          setOpen(false);
+                          onChangeInner(id);
+                        }}
+                      >
+                        <Component className="size-4 shrink-0" />
+                        {t('accessSelect.spaceSelectItem')}
+                      </CommandItem>
+                      {baseMap[id]
+                        ?.filter(({ id: baseId }) => !bases.includes(baseId))
+                        ?.map((base) => (
+                          <CommandItem
+                            className="gap-1"
+                            key={base.id}
+                            value={`${base.id}-${base.name}`}
+                            title={base.name}
+                            onSelect={() => {
+                              setBases((prev) => [...prev, base.id]);
+                              setOpen(false);
+                              onChangeInner(undefined, base.id);
+                            }}
+                          >
+                            {base.icon ? (
+                              <Emoji className="w-4 shrink-0" emoji={base.icon} size={16} />
+                            ) : (
+                              <Database className="size-4 shrink-0" />
+                            )}
+                            <div className="truncate">{base.name}</div>
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   );
 };
