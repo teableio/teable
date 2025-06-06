@@ -6,7 +6,6 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import {
-  DateFormattingPreset,
   TimeFormatting,
   datetimeFormattingSchema,
   defaultDatetimeFormatting,
@@ -81,11 +80,7 @@ export class DateFieldCore extends FieldCore {
     const format = `${this.options.formatting.date}${hasTime && this.options.formatting.time !== TimeFormatting.None ? ' ' + this.options.formatting.time : ''}`;
 
     try {
-      const formatValue = [DateFormattingPreset.European, DateFormattingPreset.US].includes(
-        this.options.formatting.date as DateFormattingPreset
-      )
-        ? dayjs.tz(value, format, this.options.formatting.timeZone)
-        : dayjs.tz(value, this.options.formatting.timeZone);
+      const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
       if (!formatValue.isValid()) return null;
       const formatValueISOString = formatValue.toISOString();
       // ISOString start with '-' means the date is invalid
