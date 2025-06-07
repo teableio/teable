@@ -39,12 +39,18 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       ]);
 
       if (!dashboardIdQuery && lastVisit) {
-        return {
-          redirect: {
-            destination: `/base/${baseId}/dashboard?dashboardId=${lastVisit.resourceId}`,
-            permanent: false,
-          },
-        };
+        const dashboardExists = dashboardList.some(
+          (dashboard) => dashboard.id === lastVisit.resourceId
+        );
+
+        if (dashboardExists) {
+          return {
+            redirect: {
+              destination: `/base/${baseId}/dashboard?dashboardId=${lastVisit.resourceId}`,
+              permanent: false,
+            },
+          };
+        }
       }
 
       const dashboardId = dashboardIdQuery ? (dashboardIdQuery as string) : dashboardList[0]?.id;
