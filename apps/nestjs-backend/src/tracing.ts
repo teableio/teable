@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
+import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
@@ -23,7 +25,7 @@ const parseOtelHeaders = (headerStr?: string) => {
 
 const headers = parseOtelHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
-const exporterOptions = {
+const traceExporterOptions = {
   url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
   headers: {
     'Content-Type': 'application/x-protobuf',
@@ -31,12 +33,27 @@ const exporterOptions = {
   },
 };
 
-const { ParentBasedSampler, TraceIdRatioBasedSampler } = opentelemetry.node;
+const traceExporter = traceExporterOptions.url
+  ? new OTLPTraceExporter(traceExporterOptions)
+  : undefined;
 
-const traceExporter = exporterOptions.url ? new OTLPTraceExporter(exporterOptions) : undefined;
+const logExporterOptions = {
+  url: process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
+  headers: {
+    'Content-Type': 'application/x-protobuf',
+    ...headers,
+  },
+};
+
+const logExporter = logExporterOptions.url ? new OTLPLogExporter(logExporterOptions) : undefined;
+
+const { SimpleLogRecordProcessor } = opentelemetry.logs;
+
+const { ParentBasedSampler, TraceIdRatioBasedSampler } = opentelemetry.node;
 
 const otelSDK = new opentelemetry.NodeSDK({
   traceExporter,
+  logRecordProcessors: logExporter ? [new SimpleLogRecordProcessor(logExporter)] : [],
   sampler: new ParentBasedSampler({
     root: new TraceIdRatioBasedSampler(Number(process.env.OTEL_SAMPLER_RATIO) || 0.1),
   }),
@@ -54,8 +71,11 @@ const otelSDK = new opentelemetry.NodeSDK({
         return ignorePaths.some((path) => request.url?.startsWith(path));
       },
     }),
-    new ExpressInstrumentation(),
+    new ExpressInstrumentation({
+      ignoreLayersType: [ExpressLayerType.MIDDLEWARE, ExpressLayerType.REQUEST_HANDLER],
+    }),
     new PrismaInstrumentation(),
+    new PinoInstrumentation(),
   ],
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'teable',
