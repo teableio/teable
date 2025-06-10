@@ -125,7 +125,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                 const { Icon } = fieldStaticGetter(type, {
                   isLookup,
                   hasAiConfig: Boolean(aiConfig),
-                  deniedReadRecord: !canReadFieldRecord,
+                  deniedReadRecord: canReadFieldRecord,
                 });
                 return (
                   <Draggable key={id} id={id} disabled={!dragEnabled}>
