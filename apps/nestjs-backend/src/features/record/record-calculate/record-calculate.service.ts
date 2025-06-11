@@ -351,9 +351,9 @@ export class RecordCalculateService {
 
     const recordIds = plainRecords.map((r) => r.id);
 
-    await this.fieldCalculationService.calComputedFieldsByRecordIds(tableId, recordIds);
-
     await this.calculateUpdatedRecord(tableId, fieldKeyType, plainRecords, true);
+
+    await this.fieldCalculationService.calComputedFieldsByRecordIds(tableId, recordIds);
 
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       tableId,
