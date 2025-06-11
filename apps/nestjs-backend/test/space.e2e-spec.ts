@@ -104,8 +104,10 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   it('/api/space/:spaceId (GET) - deleted', async () => {
-    await apiDeleteSpace(spaceId);
-    const error = await getError(() => apiGetSpaceById(spaceId));
+    const newSpaceRes = await apiCreateSpace({ name: 'delete space' });
+    await apiDeleteSpace(newSpaceRes.data.id);
+    const error = await getError(() => apiGetSpaceById(newSpaceRes.data.id));
+    await permanentDeleteSpace(newSpaceRes.data.id);
     expect(error?.status).toEqual(403);
   });
 
@@ -126,7 +128,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
     const res = await apiDeleteSpace(newSpaceRes.data.id);
     expect(res.status).toEqual(200);
     const error = await getError(() => apiDeleteSpace(newSpaceRes.data.id));
-    expect(error?.status).toEqual(404);
+    expect(error?.status).toEqual(403);
   });
 
   it('/api/space/:spaceId/collaborators (GET)', async () => {
