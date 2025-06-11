@@ -166,8 +166,29 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
       type: 'string',
       description: 'An array of group objects that specifies how the records should be grouped.',
     }),
-  collapsedGroupIds: z.array(z.string()).optional().openapi({
-    description: 'An array of group ids that specifies which groups are collapsed',
+  collapsedGroupIds: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (value == null) {
+        return value;
+      }
+
+      const parsingResult = z.array(z.string()).safeParse(JSON.parse(value));
+      if (!parsingResult.success) {
+        parsingResult.error.issues.forEach((issue) => {
+          ctx.addIssue(issue);
+        });
+        return z.NEVER;
+      }
+      return parsingResult.data;
+    })
+    .openapi({
+      description: 'An array of group ids that specifies which groups are collapsed',
+    }),
+  queryId: z.string().optional().openapi({
+    example: 'qry_xxxxxxxx',
+    description: 'When provided, other query parameters will be merged with the saved ones.',
   }),
 });
 
@@ -227,10 +248,6 @@ export const recordsVoSchema = z.object({
     ],
     description: 'Array of record objects ',
   }),
-  offset: z.string().optional().openapi({
-    description:
-      'If more records exist, the response includes an offset. Use this offset for fetching the next page of records.',
-  }),
   extra: z
     .object({
       groupPoints: groupPointsVoSchema.optional().openapi({
@@ -282,6 +299,9 @@ export async function getRecords(
     filter: query?.filter ? JSON.stringify(query.filter) : undefined,
     orderBy: query?.orderBy ? JSON.stringify(query.orderBy) : undefined,
     groupBy: query?.groupBy ? JSON.stringify(query.groupBy) : undefined,
+    collapsedGroupIds: query?.collapsedGroupIds
+      ? JSON.stringify(query.collapsedGroupIds)
+      : undefined,
   };
 
   return axios.get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { tableId }), {

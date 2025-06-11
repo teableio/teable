@@ -42,6 +42,7 @@ export const getShareViewGroupPoints = async (shareId: string, query?: IShareVie
       ...query,
       filter: JSON.stringify(query?.filter),
       groupBy: JSON.stringify(query?.groupBy),
+      collapsedGroupIds: JSON.stringify(query?.collapsedGroupIds),
     },
   });
 };

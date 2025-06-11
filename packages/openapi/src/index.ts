@@ -38,3 +38,4 @@ export * from './plugin-panel';
 export * from './plugin-context-menu';
 export * from './template';
 export * from './chat';
+export * from './query';

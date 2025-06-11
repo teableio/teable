@@ -29,6 +29,7 @@ export const rangesRoSchema = contentQueryBaseSchema.extend({
   filter: filterSchema.optional(),
   orderBy: orderBySchema.optional(),
   groupBy: groupSchema.optional(),
+  collapsedGroupIds: z.array(z.string()).optional(),
   projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
     description:
       'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',

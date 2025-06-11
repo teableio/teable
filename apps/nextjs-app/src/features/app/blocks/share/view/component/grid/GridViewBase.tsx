@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { IGridViewOptions } from '@teable/core';
 import { RowHeightLevel } from '@teable/core';
 import type { IGetRecordsRo, IGroupPointsVo, IRangesRo } from '@teable/openapi';
-import { shareViewCopy } from '@teable/openapi';
+import { saveQueryParams, shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,
   ICell,
@@ -31,6 +31,7 @@ import {
   useGridTooltipStore,
   RegionType,
   useGridViewStore,
+  LARGE_QUERY_THRESHOLD,
 } from '@teable/sdk/components';
 import {
   useFields,
@@ -113,16 +114,24 @@ export const GridViewBase = (props: IGridViewProps) => {
   } = useGridCollapsedGroup(generateLocalId(tableId, view?.id));
 
   const { mutateAsync: copyReq } = useMutation({
-    mutationFn: (copyRo: IRangesRo) =>
-      shareViewCopy(router.query.shareId as string, {
-        ...copyRo,
+    mutationFn: async (copyRo: IRangesRo) => {
+      const shareId = router.query.shareId as string;
+      const collapsedGroupIds = viewQueryWithGroup?.collapsedGroupIds;
+      const { collapsedGroupIds: originalCollapsedGroupIds, ...rest } = copyRo;
+      const params = {
+        ...rest,
         orderBy: view?.sort?.sortObjs,
         groupBy: view?.group,
         filter: view?.filter,
         search,
         projection: visibleFields.map((field) => field.id),
-        collapsedGroupIds: viewQueryWithGroup?.collapsedGroupIds,
-      }),
+      };
+      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+        return shareViewCopy(shareId, { ...params, queryId: data.queryId });
+      }
+      return shareViewCopy(shareId, { ...params, collapsedGroupIds });
+    },
   });
   const { copy } = useSelectionOperation({
     copyReq,

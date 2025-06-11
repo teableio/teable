@@ -239,10 +239,10 @@ export class ShareController {
   }
 
   @UseGuards(ShareAuthGuard)
-  @Get('/:shareId/socket/record/doc-ids')
+  @Post('/:shareId/socket/record/doc-ids')
   async getRecordDocIds(
     @Request() req: any,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+    @Body(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
   ) {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareSocketService.getRecordDocIdsByQuery(shareInfo, query);

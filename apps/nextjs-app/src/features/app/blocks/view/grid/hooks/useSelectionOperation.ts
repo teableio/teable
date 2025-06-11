@@ -9,7 +9,14 @@ import type {
   ITemporaryPasteRo,
   ITemporaryPasteVo,
 } from '@teable/openapi';
-import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
+import {
+  clear,
+  copy,
+  deleteSelection,
+  paste,
+  saveQueryParams,
+  temporaryPaste,
+} from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
 import {
   useBaseId,
@@ -20,6 +27,7 @@ import {
   useViewId,
   usePersonalView,
   getHttpErrorMessage,
+  LARGE_QUERY_THRESHOLD,
 } from '@teable/sdk';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
@@ -68,15 +76,21 @@ export const useSelectionOperation = (props?: {
   const groupBy = view?.group;
 
   const { mutateAsync: defaultCopyReq } = useMutation({
-    mutationFn: (copyRo: IRangesRo) =>
-      copy(tableId!, {
-        ...copyRo,
+    mutationFn: async (copyRo: IRangesRo) => {
+      const { collapsedGroupIds: originalCollapsedGroupIds, ...rest } = copyRo;
+      const params = {
+        ...rest,
         ...personalViewCommonQuery,
         viewId,
         groupBy,
-        collapsedGroupIds,
         search,
-      }),
+      };
+      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+        return copy(tableId!, { ...params, queryId: data.queryId });
+      }
+      return copy(tableId!, { ...params, collapsedGroupIds });
+    },
     meta: {
       preventGlobalError: true,
     },

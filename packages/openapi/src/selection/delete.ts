@@ -48,6 +48,7 @@ export const deleteSelection = async (tableId: string, deleteRo: IRangesRo) => {
         orderBy: JSON.stringify(deleteRo.orderBy),
         groupBy: JSON.stringify(deleteRo.groupBy),
         ranges: JSON.stringify(deleteRo.ranges),
+        collapsedGroupIds: JSON.stringify(deleteRo.collapsedGroupIds),
       },
     }
   );

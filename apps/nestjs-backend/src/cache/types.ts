@@ -25,6 +25,7 @@ export interface ICacheStore {
   [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
   [key: `signin:attempts:${string}`]: number;
   [key: `signin:lockout:${string}`]: boolean;
+  [key: `query-params:${string}`]: Record<string, unknown>;
 }
 
 export interface IAttachmentSignatureCache {

@@ -50,6 +50,9 @@ export const getRecordStatus = (
     filter: query?.filter ? JSON.stringify(query.filter) : undefined,
     orderBy: query?.orderBy ? JSON.stringify(query.orderBy) : undefined,
     groupBy: query?.groupBy ? JSON.stringify(query.groupBy) : undefined,
+    collapsedGroupIds: query?.collapsedGroupIds
+      ? JSON.stringify(query.collapsedGroupIds)
+      : undefined,
   };
 
   return axios.get<IRecordStatusVo>(urlBuilder(GET_RECORD_STATUS_URL, { tableId, recordId }), {

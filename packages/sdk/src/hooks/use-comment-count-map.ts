@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { IdPrefix, getTableCommentChannel } from '@teable/core';
 import type { IGetRecordsRo, ICommentCountVo } from '@teable/openapi';
-import { getCommentCount, CommentPatchType } from '@teable/openapi';
+import { getCommentCount, CommentPatchType, saveQueryParams } from '@teable/openapi';
 import { get } from 'lodash';
 import { useMemo, useEffect, useState } from 'react';
+import { LARGE_QUERY_THRESHOLD } from '../components/grid-enhancements/hooks/constant';
 import { ReactQueryKeys } from '../config';
 import { useConnection } from './use-connection';
 import { useSearch } from './use-search';
@@ -28,15 +29,25 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
       search: searchQuery,
       type: IdPrefix.Record,
       ...query,
-      groupBy: query?.groupBy ? JSON.stringify(query?.groupBy) : query?.groupBy,
-      filter: view?.filter ? JSON.stringify(view?.filter) : view?.filter,
-      orderBy: view?.sort?.sortObjs ? JSON.stringify(view?.sort?.sortObjs) : view?.sort?.sortObjs,
+      groupBy: query?.groupBy,
+      filter: view?.filter,
+      orderBy: view?.sort?.sortObjs,
     } as IGetRecordsRo;
   }, [query, searchQuery, viewId, view]);
 
   const { data } = useQuery({
     queryKey: ReactQueryKeys.commentCount(tableId!, queryParams),
-    queryFn: () => getCommentCount(tableId!, queryParams).then(({ data }) => data),
+    queryFn: async () => {
+      const { collapsedGroupIds, ...rest } = queryParams;
+
+      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+        return getCommentCount(tableId!, { ...rest, queryId: data.queryId }).then(
+          ({ data }) => data
+        );
+      }
+      return getCommentCount(tableId!, queryParams).then(({ data }) => data);
+    },
     enabled: !!tableId,
   });
 

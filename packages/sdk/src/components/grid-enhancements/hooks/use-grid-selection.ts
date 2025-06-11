@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { getRecordStatus } from '@teable/openapi';
+import { getRecordStatus, saveQueryParams } from '@teable/openapi';
 import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFields, useRecord, useTableId, useViewId } from '../../../hooks';
@@ -11,6 +11,7 @@ import { CellType, SelectionRegionType } from '../../grid/interface';
 import { CombinedSelection, emptySelection } from '../../grid/managers';
 import { useGridViewStore } from '../store/useGridViewStore';
 import { isNeedPersistEditing } from '../utils/persist-editing';
+import { LARGE_QUERY_THRESHOLD } from './constant';
 import { useCreateCellValue2GridDisplay } from './use-grid-columns';
 
 interface IUseGridSelectionProps {
@@ -46,7 +47,7 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
   const { setSelection } = useGridViewStore();
 
   const { mutateAsync: mutateGetRecordStatus } = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       tableId,
       recordId,
       skip,
@@ -54,7 +55,21 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
       tableId: string;
       recordId: string;
       skip: number;
-    }) => getRecordStatus(tableId, recordId, { ...viewQuery, viewId, skip, take: 1 }),
+    }) => {
+      const { collapsedGroupIds, ...rest } = viewQuery || {};
+
+      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+        return getRecordStatus(tableId, recordId, {
+          ...rest,
+          viewId,
+          skip,
+          take: 1,
+          queryId: data.queryId,
+        });
+      }
+      return getRecordStatus(tableId, recordId, { ...viewQuery, viewId, skip, take: 1 });
+    },
     onSuccess: (data) => {
       if (activeCell == null) return setActiveCell(undefined);
 

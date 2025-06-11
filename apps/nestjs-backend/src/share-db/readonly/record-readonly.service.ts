@@ -20,17 +20,21 @@ export class RecordReadonlyServiceAdapter
       ? `/share/${shareId}/socket/record/doc-ids`
       : `/table/${tableId}/record/socket/doc-ids`;
     return this.axios
-      .get(url, {
-        headers: {
-          cookie: this.cls.get('cookie'),
-        },
-        params: {
+      .post(
+        url,
+        {
           ...query,
           filter: JSON.stringify(query?.filter),
           orderBy: JSON.stringify(query?.orderBy),
           groupBy: JSON.stringify(query?.groupBy),
+          collapsedGroupIds: JSON.stringify(query?.collapsedGroupIds),
         },
-      })
+        {
+          headers: {
+            cookie: this.cls.get('cookie'),
+          },
+        }
+      )
       .then((res) => res.data);
   }
   getSnapshotBulk(

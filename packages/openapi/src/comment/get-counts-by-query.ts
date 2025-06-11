@@ -41,6 +41,12 @@ export const GetCommentCountRoute: RouteConfig = registerRoute({
 
 export const getCommentCount = async (tableId: string, query: IGetRecordsRo) => {
   return axios.get<ICommentCountVo>(urlBuilder(GET_COMMENT_COUNT, { tableId }), {
-    params: query,
+    params: {
+      ...query,
+      filter: JSON.stringify(query.filter),
+      orderBy: JSON.stringify(query.orderBy),
+      groupBy: JSON.stringify(query.groupBy),
+      collapsedGroupIds: JSON.stringify(query.collapsedGroupIds),
+    },
   });
 };

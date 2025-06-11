@@ -42,6 +42,7 @@ export const shareViewCopy = async (shareId: string, copyRo: IRangesRo) => {
         orderBy: JSON.stringify(copyRo.orderBy),
         ranges: JSON.stringify(copyRo.ranges),
         groupBy: JSON.stringify(copyRo.groupBy),
+        collapsedGroupIds: JSON.stringify(copyRo.collapsedGroupIds),
       },
     }
   );

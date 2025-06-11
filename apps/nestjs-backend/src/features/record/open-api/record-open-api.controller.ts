@@ -190,10 +190,10 @@ export class RecordOpenApiController {
   }
 
   @Permissions('record|read')
-  @Get('/socket/doc-ids')
+  @Post('/socket/doc-ids')
   async getDocIds(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+    @Body(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
   ) {
     return this.recordService.getDocIdsByQuery(tableId, query);
   }

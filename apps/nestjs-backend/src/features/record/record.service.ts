@@ -1961,15 +1961,18 @@ export class RecordService {
   }
 
   public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo) {
-    const {
-      groupBy: extraGroupBy,
-      filter,
-      search,
-      collapsedGroupIds,
-      ignoreViewQuery,
-    } = query || {};
+    const { groupBy: extraGroupBy, filter, search, ignoreViewQuery, queryId } = query || {};
     let groupPoints: IGroupPoint[] = [];
     let allGroupHeaderRefs: IGroupHeaderRef[] = [];
+    let collapsedGroupIds = query?.collapsedGroupIds;
+
+    if (queryId) {
+      const cacheKey = `query-params:${queryId}` as const;
+      const cache = await this.cacheService.get(cacheKey);
+      if (cache) {
+        collapsedGroupIds = (cache.queryParams as IGetRecordsRo)?.collapsedGroupIds;
+      }
+    }
 
     const fullGroupBy = parseGroup(extraGroupBy);
 

@@ -18,14 +18,18 @@ export const searchIndexVoSchema = z
 
 export type ISearchIndexVo = z.infer<typeof searchIndexVoSchema>;
 
-export const searchIndexByQueryRoSchema = contentQueryBaseSchema.extend({
-  skip: z.coerce.number().optional(),
-  take: z.coerce.number(),
-  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
-    description:
-      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
-  }),
-});
+export const searchIndexByQueryRoSchema = contentQueryBaseSchema
+  .omit({
+    collapsedGroupIds: true,
+  })
+  .extend({
+    skip: z.coerce.number().optional(),
+    take: z.coerce.number(),
+    projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+      description:
+        'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
+    }),
+  });
 
 export type ISearchIndexByQueryRo = z.infer<typeof searchIndexByQueryRoSchema>;
 

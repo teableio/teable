@@ -62,6 +62,8 @@ export enum IdPrefix {
 
   Chat = 'cht',
   ChatMessage = 'cmm',
+
+  Query = 'qry',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -240,4 +242,8 @@ export function generateChatId() {
 
 export function generateChatMessageId() {
   return IdPrefix.ChatMessage + getRandomString(16);
+}
+
+export function generateQueryId() {
+  return IdPrefix.Query + getRandomString(16);
 }
