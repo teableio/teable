@@ -21,6 +21,7 @@ import {
   EMAIL_BASE_INVITATION,
   emailBaseInvitation,
   GET_BASE_LIST,
+  getBaseAll,
   getBaseCollaboratorList,
   getUserCollaborators,
   listBaseCollaboratorUserVoSchema,
@@ -37,7 +38,13 @@ import {
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp } from './utils/init-app';
+import {
+  createBase,
+  createSpace,
+  deleteSpace,
+  initApp,
+  permanentDeleteSpace,
+} from './utils/init-app';
 
 describe('OpenAPI BaseController (e2e)', () => {
   let app: INestApplication;
@@ -456,5 +463,32 @@ describe('OpenAPI BaseController (e2e)', () => {
         expect(spaceBaseList1AfterMove[0].id).toBe(newBase1.id);
       });
     });
+  });
+
+  it('/api/base/access/all (GET)', async () => {
+    const spaceId1 = await createSpace({
+      name: 'new space test base access all',
+    }).then((res) => res.id);
+    const baseId1 = await createBase({
+      name: 'new base test base access all',
+      spaceId: spaceId1,
+    }).then((res) => res.id);
+    const spaceId2 = await createSpace({
+      name: 'new space test base access all',
+    }).then((res) => res.id);
+    const baseId2 = await createBase({
+      name: 'new base test base access all',
+      spaceId: spaceId2,
+    }).then((res) => res.id);
+
+    await deleteSpace(spaceId1);
+
+    const res = await getBaseAll();
+
+    await permanentDeleteSpace(spaceId1);
+    await permanentDeleteSpace(spaceId2);
+
+    expect(res.data.find((v) => v.id === baseId1)).toBeUndefined();
+    expect(res.data.find((v) => v.id === baseId2)).toBeDefined();
   });
 });

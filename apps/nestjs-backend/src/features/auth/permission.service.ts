@@ -246,7 +246,8 @@ export class PermissionService {
   private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(
-      (await this.getUpperIdByBaseId(baseId, includeInactiveResource)).spaceId
+      (await this.getUpperIdByBaseId(baseId, includeInactiveResource)).spaceId,
+      includeInactiveResource
     );
     if (!role && !spaceRole) {
       throw new ForbiddenException(`you have no permission to access this base`);

@@ -99,6 +99,9 @@ export class BaseService {
             spaceId: {
               in: spaceIds,
             },
+            space: {
+              deletedTime: null,
+            },
           },
         ],
       },
