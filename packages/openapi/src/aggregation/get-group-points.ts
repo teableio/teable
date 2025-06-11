@@ -50,6 +50,7 @@ export const getGroupPoints = async (tableId: string, query?: IGroupPointsRo) =>
       ...query,
       filter: JSON.stringify(query?.filter),
       groupBy: JSON.stringify(query?.groupBy),
+      collapsedGroupIds: JSON.stringify(query?.collapsedGroupIds),
     },
   });
 };
