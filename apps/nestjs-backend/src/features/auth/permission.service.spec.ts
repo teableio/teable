@@ -44,6 +44,7 @@ describe('PermissionService', () => {
       const spaceId = 'space-id';
       const roleName = 'space-role';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([{ roleName } as any]);
+      prismaServiceMock.space.findFirst.mockResolvedValue({ deletedTime: null } as any);
       const result = await service['getRoleBySpaceId'](spaceId);
       expect(result).toBe(roleName);
     });
@@ -51,6 +52,7 @@ describe('PermissionService', () => {
     it('should throw a ForbiddenException if collaborator is not found', async () => {
       const spaceId = 'space-id';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
+      prismaServiceMock.space.findFirst.mockResolvedValue({ deletedTime: null } as any);
       const res = await service['getRoleBySpaceId'](spaceId);
       expect(res).toBeNull();
     });
@@ -78,7 +80,7 @@ describe('PermissionService', () => {
       const resourceId = 'spcxxxxxxxx';
       vi.spyOn(service as any, 'getPermissionBySpaceId').mockImplementation(noop);
       await service.getPermissionsByResourceId(resourceId);
-      expect(service['getPermissionBySpaceId']).toHaveBeenCalledWith(resourceId);
+      expect(service['getPermissionBySpaceId']).toHaveBeenCalledWith(resourceId, undefined);
     });
 
     it('should return permissions for a base resource', async () => {
