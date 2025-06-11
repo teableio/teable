@@ -4,7 +4,7 @@ import { generateChatId } from '@teable/core';
 import { getAIConfig, getChatMessages } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { MessageInput } from '../components/MessageInput';
 import { Messages } from '../components/Messages';
@@ -97,6 +97,16 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
       toast.error(error.message);
     },
   });
+
+  useEffect(() => {
+    if (status === 'streaming' && !isActiveChat) {
+      setActiveChatId(chatId);
+      queryClient.refetchQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) }).then(() => {
+        setActiveChatId(chatId);
+        chatIdRef.current = generateChatId();
+      });
+    }
+  }, [status, setActiveChatId, chatId, isActiveChat, queryClient, baseId]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden pb-3">
