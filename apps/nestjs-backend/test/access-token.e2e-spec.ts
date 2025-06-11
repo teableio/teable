@@ -142,9 +142,10 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
       baseIds: [base.id],
     };
     const { data: newAccessToken } = await createAccessToken(ro);
-    await deleteSpace(space.id);
     await deleteBase(base.id);
+    await deleteSpace(space.id);
     const { data } = await getAccessToken(newAccessToken.id);
+    await permanentDeleteSpace(space.id);
     expect(data.spaceIds).toEqual([]);
     expect(data.baseIds).toEqual([]);
   });
