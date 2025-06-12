@@ -49,7 +49,7 @@ interface ITableImportChunkJob {
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
-export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = 20;
+export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = 6;
 
 @Injectable()
 @Processor(TABLE_IMPORT_CSV_CHUNK_QUEUE, {
@@ -277,6 +277,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         jobId: chunkJobId,
         removeOnComplete: true,
         removeOnFail: true,
+        delay: 1000,
       }
     );
   }
@@ -299,5 +300,11 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         this.logger.warn(`Failed to cancel job ${relatedJob.id}: ${error}`);
       }
     }
+
+    const localPresence = this.importTableCsvQueueProcessor.createImportPresence(
+      table.id,
+      'status'
+    );
+    this.importTableCsvQueueProcessor.setImportStatus(localPresence, true);
   }
 }

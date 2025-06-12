@@ -64,8 +64,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<ITableImportCsvJob>) {
-    const jobId = String(job.id);
-
     const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range } = job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
@@ -109,18 +107,18 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           message: `❌ ${table.name} import aborted: ${err.message} fail row range: [${range}]. Please check the data for this range and retry.`,
         });
 
-      await this.cleanRelativeTask(jobId);
-
       throw err;
     }
   }
 
-  private async cleanRelativeTask(jobId: string) {
-    const [sameBatchJobPrefix] = jobId.split('_');
-    const waitingJobs = await this.queue.getJobs(['waiting', 'active']);
-    await Promise.all(
-      waitingJobs.filter((job) => job.id?.startsWith(sameBatchJobPrefix)).map((job) => job.remove())
+  private async cleanRelativeTask(parentJobId: string) {
+    const allJobs = (await this.queue.getJobs(['waiting', 'active'])).filter((job) =>
+      job.id?.startsWith(parentJobId)
     );
+
+    for (const relatedJob of allJobs) {
+      relatedJob.remove();
+    }
   }
 
   private async handleImportChunkCsv(job: Job<ITableImportCsvJob>) {
@@ -215,7 +213,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     this.shareDbService.publishRecordChannel(tableId, updateEmptyOps);
   }
 
-  private setImportStatus(presence: LocalPresence<unknown>, loading: boolean) {
+  setImportStatus(presence: LocalPresence<unknown>, loading: boolean) {
     presence.submit(
       {
         loading,
@@ -226,7 +224,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     );
   }
 
-  private createImportPresence(tableId: string, type: 'rowCount' | 'status' = 'status') {
+  createImportPresence(tableId: string, type: 'rowCount' | 'status' = 'status') {
     const channel =
       type === 'rowCount' ? getActionTriggerChannel(tableId) : getTableImportChannel(tableId);
     const existPresence = this.presences.find(({ presence }) => {
@@ -260,14 +258,9 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   async onError(job: Job) {
     const { table, range, parentJobId } = job.data;
     this.logger.error(`import data to ${table.id} job failed, range: [${range}]`);
-
-    const allJobs = (await this.queue.getJobs(['waiting', 'active'])).filter((job) =>
-      job.id?.startsWith(parentJobId)
-    );
-
-    for (const relatedJob of allJobs) {
-      relatedJob.remove();
-    }
+    this.cleanRelativeTask(parentJobId);
+    const localPresence = this.createImportPresence(table.id, 'status');
+    this.setImportStatus(localPresence, false);
   }
 
   @OnWorkerEvent('completed')
