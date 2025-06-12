@@ -65,6 +65,9 @@ interface IParseResult {
 export abstract class Importer {
   public static DEFAULT_ERROR_MESSAGE = 'unknown error';
 
+  public static OVER_PLAN_ROW_COUNT_ERROR_MESSAGE =
+    'Please upgrade your plan to import more records';
+
   public static CHUNK_SIZE = 1024 * 1024 * 0.2;
 
   public static MAX_CHUNK_LENGTH = 500;
@@ -216,14 +219,14 @@ export class CsvImporter extends Importer {
   parse(): Promise<IParseResult>;
   parse(
     options: Papa.ParseConfig & { skipFirstNLines: number; key: string },
-    chunk: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    chunk: (chunk: Record<string, unknown[][]>, lastChunk?: boolean) => Promise<void>,
     onFinished?: () => void,
     onError?: (errorMsg: string) => void
   ): Promise<void>;
   async parse(
     ...args: [
       options?: Papa.ParseConfig & { skipFirstNLines: number; key: string },
-      chunkCb?: (chunk: Record<string, unknown[][]>) => Promise<void>,
+      chunkCb?: (chunk: Record<string, unknown[][]>, lastChunk?: boolean) => Promise<void>,
       onFinished?: () => void,
       onError?: (errorMsg: string) => void,
     ]
@@ -231,7 +234,7 @@ export class CsvImporter extends Importer {
     const [options, chunkCb, onFinished, onError] = args;
     const { stream } = await this.getFile();
 
-    // chunk parse
+    // reload function, having chunkCb support chunk, otherwise in one operation.
     if (options && chunkCb) {
       return new Promise((resolve, reject) => {
         let isFirst = true;
@@ -256,7 +259,7 @@ export class CsvImporter extends Importer {
               if (this.config.maxRowCount && totalRowCount > this.config.maxRowCount) {
                 isAbort = true;
                 recordBuffer = [];
-                onError?.('please upgrade your plan to import more records');
+                onError?.(Importer.OVER_PLAN_ROW_COUNT_ERROR_MESSAGE);
                 parser.abort();
               }
 
@@ -282,8 +285,8 @@ export class CsvImporter extends Importer {
           complete: () => {
             (async () => {
               try {
-                recordBuffer.length &&
-                  (await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer }));
+                // whatever execute chunkCb, empty recordBuffer
+                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer }, true);
               } catch (e) {
                 isAbort = true;
                 recordBuffer = [];
@@ -332,14 +335,14 @@ export class ExcelImporter extends Importer {
   parse(): Promise<IParseResult>;
   parse(
     options: { skipFirstNLines: number; key: string },
-    chunk: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    chunk: (chunk: Record<string, unknown[][]>, lastChunk?: boolean) => Promise<void>,
     onFinished?: () => void,
     onError?: (errorMsg: string) => void
   ): Promise<void>;
 
   async parse(
     options?: { skipFirstNLines: number; key: string },
-    chunk?: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    chunk?: (chunk: Record<string, unknown[][]>, lastChunk?: boolean) => Promise<void>,
     onFinished?: () => void,
     onError?: (errorMsg: string) => void
   ): Promise<unknown> {
@@ -376,7 +379,7 @@ export class ExcelImporter extends Importer {
       const parseResults = chunkArray(chunks, Importer.MAX_CHUNK_LENGTH);
 
       if (this.config.maxRowCount && chunks.length > this.config.maxRowCount) {
-        onError?.('Please upgrade your plan to import more records');
+        onError?.(Importer.OVER_PLAN_ROW_COUNT_ERROR_MESSAGE);
         return;
       }
 
@@ -385,8 +388,9 @@ export class ExcelImporter extends Importer {
         if (i === 0 && skipFirstNLines) {
           currentChunk.splice(0, 1);
         }
+        const lastChunk = i === parseResults.length - 1;
         try {
-          await chunk({ [key]: currentChunk });
+          await chunk({ [key]: currentChunk }, lastChunk);
         } catch (e) {
           onError?.((e as Error)?.message || Importer.DEFAULT_ERROR_MESSAGE);
         }
@@ -405,7 +409,7 @@ export const importerFactory = (type: SUPPORTEDTYPE, config: IImportConstructorP
     case SUPPORTEDTYPE.EXCEL:
       return new ExcelImporter(config);
     default:
-      throw new Error('not support');
+      throw new BadRequestException('Import file type not support');
   }
 };
 

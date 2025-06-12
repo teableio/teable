@@ -3,8 +3,11 @@
 import { join, resolve } from 'path';
 import type { Readable } from 'stream';
 import {
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -303,5 +306,34 @@ export class S3Storage implements StorageAdapter {
     });
     const { Body: stream } = await this.s3Client.send(command);
     return stream as Readable;
+  }
+
+  async deleteDir(bucket: string, path: string, throwError: boolean = true) {
+    const prefix = path.endsWith('/') ? path : `${path}/`;
+
+    const { Contents } = await this.s3Client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+      })
+    );
+
+    if (!Contents || Contents.length === 0) return;
+
+    try {
+      await this.s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: {
+            Objects: Contents.map((obj) => ({ Key: obj.Key! })),
+          },
+        })
+      );
+    } catch (error) {
+      if (!throwError) {
+        return;
+      }
+      throw error;
+    }
   }
 }

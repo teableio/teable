@@ -34,7 +34,7 @@ export const UserAvatar = (props: IUserAvatarProps) => {
         }
         alt={name}
       />
-      <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
+      <AvatarFallback>{name?.slice(0, 1)}</AvatarFallback>
     </Avatar>
   );
 };

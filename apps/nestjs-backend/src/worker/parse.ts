@@ -15,10 +15,10 @@ const parse = () => {
   const importer = importerFactory(config.type, config);
   importer.parse(
     { ...options },
-    async (chunk) => {
+    async (chunk, lastChunk) => {
       return await new Promise((resolve) => {
         const chunkId = `chunk_${getRandomString(8)}`;
-        parentPort?.postMessage({ type: 'chunk', data: chunk, chunkId, id });
+        parentPort?.postMessage({ type: 'chunk', data: chunk, chunkId, id, lastChunk });
         parentPort?.on('message', (result) => {
           const { type, chunkId: tunnelChunkId } = result;
           if (type === 'done' && tunnelChunkId === chunkId) {

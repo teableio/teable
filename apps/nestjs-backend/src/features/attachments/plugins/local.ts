@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream, unlinkSync } from 'fs';
+import { createReadStream, createWriteStream, unlinkSync, existsSync, rmSync } from 'fs';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
@@ -322,5 +322,22 @@ export class LocalStorage implements StorageAdapter {
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
     return createReadStream(resolve(this.storageDir, bucket, path));
+  }
+
+  async deleteDir(bucket: string, path: string, throwError: boolean = true) {
+    const dirPath = resolve(this.storageDir, bucket, path);
+    try {
+      if (existsSync(dirPath)) {
+        rmSync(dirPath, { recursive: true, force: true });
+      } else {
+        this.logger.error('delete dir failed: no such dir', dirPath);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error?.code === 'ENOENT' || !throwError) {
+        return;
+      }
+      throw error;
+    }
   }
 }

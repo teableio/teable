@@ -250,4 +250,37 @@ export class MinioStorage implements StorageAdapter {
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
     return this.minioClientPrivateNetwork.getObject(bucket, path);
   }
+
+  async deleteDir(bucket: string, path: string, throwError: boolean = true): Promise<void> {
+    try {
+      const prefix = path.endsWith('/') ? path : `${path}/`;
+
+      const objectsList: string[] = [];
+      const objectsStream = this.minioClientPrivateNetwork.listObjects(bucket, prefix, true);
+
+      await new Promise((resolve, reject) => {
+        objectsStream.on('data', (obj) => {
+          if (obj.name) {
+            objectsList.push(obj.name);
+          }
+        });
+
+        objectsStream.on('end', resolve);
+        objectsStream.on('error', reject);
+      });
+
+      if (objectsList.length === 0) {
+        return;
+      }
+
+      await this.minioClientPrivateNetwork.removeObjects(bucket, objectsList);
+    } catch (error) {
+      if (!throwError) {
+        return;
+      }
+      throw new BadRequestException(
+        `Failed to delete directory "${path}" in bucket "${bucket}": ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
 }
