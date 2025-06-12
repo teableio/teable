@@ -813,4 +813,73 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(records2[0].fields[field.id]).toEqual(undefined);
     });
   });
+
+  describe('create record with link field', () => {
+    let table: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+        records: [],
+      });
+      table2 = await createTable(baseId, {
+        name: 'table2',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create a record with constraint link field', async () => {
+      const linkField = await createField(table.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+        name: 'link field',
+        dbFieldName: 'link_field',
+      });
+
+      await convertField(table.id, linkField.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+        name: 'link field',
+        dbFieldName: 'link_field',
+        notNull: true,
+      });
+
+      const textField = await table2.fields[0];
+      await createField(table.id, {
+        dbFieldName: 'lookup_field',
+        type: textField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [linkField.id]: [{ id: table2.records[0].id, title: '' }],
+            },
+          },
+        ],
+      });
+
+      expect(records).toBeDefined();
+    });
+  });
 });
