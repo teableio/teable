@@ -26,7 +26,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   IEditorRef<string>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { record, field, rect, style, theme, setEditing } = props;
+  const { record, field, rect, style, theme, isEditing, setEditing } = props;
   const dateTime = record.getCellValue(field.id) as string;
   const options = field.options as IDateFieldOptions;
   const formatting = options?.formatting || defaultDatetimeFormatting;
@@ -49,6 +49,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
       editorRef.current?.setValue?.(value);
     },
     saveValue: () => {
+      if (!isEditing) return;
       const value = convertZonedInputToUtc(inputValue, formatting);
       onCalendarChange(value);
     },

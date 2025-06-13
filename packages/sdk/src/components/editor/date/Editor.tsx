@@ -21,6 +21,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const popoverTriggerRef = useRef<HTMLButtonElement>(null);
   const popoverContentRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState('');
+  const [originalInputValue, setOriginalInputValue] = useState<string>('');
   const [isPopoverOpen, setPopoverOpen] = useState(false);
   const [isEditing, setEditing] = useState(false);
   const isTouchDevice = useIsTouchDevice();
@@ -41,6 +42,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const onInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const relatedTarget = e.relatedTarget as HTMLElement;
 
+    if (inputValue === originalInputValue) return;
     if (relatedTarget && popoverContentRef.current?.contains(relatedTarget)) return;
 
     const value = convertZonedInputToUtc(inputValue, formatting);
@@ -51,6 +53,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const onInputClick = () => {
     setPopoverOpen(true);
     setEditing(true);
+    setOriginalInputValue(inputValue);
     inputRef.current?.focus();
   };
 
