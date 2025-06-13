@@ -230,7 +230,8 @@
     "pluginContextMenu": "Context Menu",
     "plugin": "Plugins",
     "copy": "Copy",
-    "credits": "Credits"
+    "credits": "Credits",
+    "aiChat": "AI Chat"
   },
   "level": {
     "free": "Free",

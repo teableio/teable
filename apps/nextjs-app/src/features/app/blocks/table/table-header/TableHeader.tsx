@@ -173,6 +173,7 @@ const RightMenu = ({ className }: { className?: string }) => {
   const tableId = useTableId();
   const basePermission = useBasePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const [open, setOpen] = useState(false);
 
   const hasTableHistoryPermission = basePermission?.['table_record_history|read'];
   const hasTableTrashPermission = basePermission?.['table|trash_read'];
@@ -192,7 +193,7 @@ const RightMenu = ({ className }: { className?: string }) => {
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant={'ghost'}
@@ -272,6 +273,9 @@ const RightMenu = ({ className }: { className?: string }) => {
               <HelpCircle className="size-4" /> {t('help.title')}
             </a>
           </Button>
+          <ChatTriggerButton buttonClassName="flex justify-start" onClick={() => setOpen(false)}>
+            {t('common:noun.aiChat')}
+          </ChatTriggerButton>
         </div>
       </PopoverContent>
     </Popover>

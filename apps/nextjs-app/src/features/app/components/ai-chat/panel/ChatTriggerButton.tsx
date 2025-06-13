@@ -15,12 +15,18 @@ import { useChatPanelStore } from '../store/useChatPanelStore';
 interface ChatTriggerProps {
   buttonClassName?: string;
   children?: React.ReactNode;
+  onClick?: () => void;
 }
 
-export const ChatTriggerButton = ({ buttonClassName }: ChatTriggerProps) => {
+export const ChatTriggerButton = ({ buttonClassName, children, onClick }: ChatTriggerProps) => {
   const chatEnabled = useChatEnabled();
   const { toggleVisible: toggleChatPanel } = useChatPanelStore();
   const { t } = useTranslation(['common']);
+
+  const handleClick = () => {
+    onClick?.();
+    toggleChatPanel();
+  };
 
   if (!chatEnabled) {
     return (
@@ -34,6 +40,7 @@ export const ChatTriggerButton = ({ buttonClassName }: ChatTriggerProps) => {
               )}
             >
               <MagicAi className="size-4 text-orange-500" />
+              {children}
             </div>
           </TooltipTrigger>
           <TooltipPortal>
@@ -52,9 +59,10 @@ export const ChatTriggerButton = ({ buttonClassName }: ChatTriggerProps) => {
       className={cn('flex relative', buttonClassName, {
         'opacity-50': !chatEnabled,
       })}
-      onClick={toggleChatPanel}
+      onClick={handleClick}
     >
       <MagicAi className="size-4 text-orange-500" />
+      {children}
     </Button>
   );
 };

@@ -2,7 +2,7 @@ import { ViewType } from '@teable/core';
 import { Check, Table2, X, Lock } from '@teable/icons';
 import type { IChatContext } from '@teable/openapi';
 import { AnchorContext, ViewProvider } from '@teable/sdk/context';
-import { useTables, useViews } from '@teable/sdk/hooks';
+import { useIsMobile, useTables, useViews } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import {
   Button,
@@ -21,6 +21,7 @@ import {
   ScrollArea,
   Skeleton,
 } from '@teable/ui-lib/shadcn';
+import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn/ui/dialog';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo, useState } from 'react';
@@ -104,7 +105,7 @@ export const MessageContext = () => {
                       }}
                     >
                       <CommandItem
-                        className="gap-2 text-xs"
+                        className="flex-1 gap-2 text-xs"
                         key={table.id}
                         value={table.name}
                         onSelect={() => {
@@ -168,7 +169,7 @@ const ContextItem = ({
             key={id}
             className="group flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded border border-zinc-200 px-1 text-xs text-muted-foreground dark:border-zinc-700"
           >
-            <div className="group-hover:hidden">
+            <div className="md:group-hover:hidden">
               {table.icon ? (
                 <Emoji className="w-auto shrink-0" emoji={table.icon} size={'0.7rem'} />
               ) : (
@@ -177,7 +178,7 @@ const ContextItem = ({
             </div>
             <button
               type="button"
-              className="hidden group-hover:block"
+              className="group-hover:block md:hidden"
               onClick={() => {
                 onTableIdDelete?.(id);
               }}
@@ -209,6 +210,48 @@ const ViewMenu = ({
   selectedViewId?: string;
   onSelect: (viewId: string) => void;
 }) => {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
+  const { t } = useTranslation(['common']);
+  if (isMobile) {
+    return (
+      <Dialog
+        open={open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpen(false);
+          }
+        }}
+      >
+        <DialogTrigger asChild>
+          <div className="flex w-full items-center gap-1">
+            {children}
+            <Button
+              className="p-0 font-normal"
+              size={'xs'}
+              variant={'link'}
+              onClick={() => setOpen(true)}
+            >
+              {t('common:noun.view')}
+            </Button>
+          </div>
+        </DialogTrigger>
+        <DialogContent>
+          <AnchorContext.Provider value={{ tableId: table.id }}>
+            <ViewProvider>
+              <ViewList
+                selectedViewId={selectedViewId}
+                onSelect={(viewId) => {
+                  onSelect(viewId);
+                  setOpen(false);
+                }}
+              />
+            </ViewProvider>
+          </AnchorContext.Provider>
+        </DialogContent>
+      </Dialog>
+    );
+  }
   return (
     <HoverCard openDelay={200} closeDelay={50}>
       <HoverCardTrigger>{children}</HoverCardTrigger>
@@ -230,6 +273,7 @@ const ViewList = ({
   selectedViewId?: string;
   onSelect: (viewId: string) => void;
 }) => {
+  const { t } = useTranslation(['table']);
   const views = useViews();
   if (!views.length)
     return (
@@ -240,7 +284,8 @@ const ViewList = ({
 
   return (
     <Command className="w-full">
-      <CommandList>
+      <CommandInput className="text-xs" placeholder={t('table:view.searchView')} />
+      <CommandList className="mt-2">
         {views.map((view) => {
           const ViewIcon = VIEW_ICON_MAP[view.type];
           return (

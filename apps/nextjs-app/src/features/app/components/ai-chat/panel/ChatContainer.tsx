@@ -74,6 +74,18 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
     );
   }, [modelKey, models, codingModel]);
 
+  const useChatRef = useRef({
+    isActiveChat,
+    chatId,
+  });
+
+  useEffect(() => {
+    useChatRef.current = {
+      isActiveChat,
+      chatId,
+    };
+  }, [isActiveChat, chatId]);
+
   const { messages, setMessages, handleSubmit, input, setInput, status, stop } = useChat({
     id: chatId,
     api: `/api/base/${baseId}/chat`,
@@ -84,6 +96,7 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
       context,
     },
     onFinish: () => {
+      const { isActiveChat, chatId } = useChatRef.current;
       if (isActiveChat) {
         queryClient.invalidateQueries({ queryKey: ['chat-message', chatId] });
         return;

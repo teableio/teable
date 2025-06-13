@@ -1,3 +1,4 @@
+import { useIsMobile } from '@teable/sdk/hooks';
 import { Resizable } from 're-resizable';
 import { useChatPanelStore } from '../store/useChatPanelStore';
 import { ChatContainer } from './ChatContainer';
@@ -7,6 +8,16 @@ const DEFAULT_PANEL_WIDTH = '300px';
 
 export const PanelContainer = ({ baseId }: { baseId: string }) => {
   const { width = DEFAULT_PANEL_WIDTH, updateWidth } = useChatPanelStore();
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <div className="z-50 flex h-full flex-col overflow-hidden bg-background px-1">
+        <ChatPanelHeader baseId={baseId} />
+        <ChatContainer baseId={baseId} />
+      </div>
+    );
+  }
 
   return (
     <Resizable

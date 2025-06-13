@@ -230,7 +230,8 @@
     "pluginContextMenu": "菜单",
     "plugin": "插件",
     "copy": "副本",
-    "credits": "算力"
+    "credits": "算力",
+    "aiChat": "AI 对话"
   },
   "level": {
     "free": "免费版",
