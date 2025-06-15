@@ -256,6 +256,10 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
 
   @OnWorkerEvent('error')
   async onError(job: Job) {
+    if (!job?.data) {
+      this.logger.error('import csv job data is undefined');
+      return;
+    }
     const { table, range, parentJobId } = job.data;
     this.logger.error(`import data to ${table.id} job failed, range: [${range}]`);
     this.cleanRelativeTask(parentJobId);
