@@ -35,6 +35,7 @@ import {
   GET_SPACE_LIST,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
+import { splitAccessToken } from '../src/features/access-token/access-token.encryptor';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { createTable, initApp, permanentDeleteSpace } from './utils/init-app';
@@ -89,6 +90,12 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
     const error = await getError(() => createAccessToken(ro));
     expect(error?.status).toEqual(400);
     expect(error?.message).contain('expiredTime');
+  });
+
+  it('check access token', async () => {
+    const accessToken = '1234567890';
+    const res = splitAccessToken(accessToken);
+    expect(res).toEqual(null);
   });
 
   it('/api/access-token (GET)', async () => {

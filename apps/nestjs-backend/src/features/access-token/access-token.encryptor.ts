@@ -24,7 +24,7 @@ export const getAccessToken = (accessTokenId: string, sign: string) => {
 };
 
 export const splitAccessToken = (accessToken: string) => {
-  const [prefix, accessTokenId, encryptedSign] = accessToken.split('_');
+  const [prefix = '', accessTokenId = '', encryptedSign = ''] = accessToken.split('_');
   if (!accessTokenId) {
     return null;
   }
