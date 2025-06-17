@@ -212,9 +212,9 @@ export class LastVisitService {
       })
       .where('ulv.user_id', userId)
       .where('ulv.resource_type', LastVisitResourceType.Dashboard)
-      .where('ulv.parent_resource_id', parentResourceId);
-
-    query.limit(1);
+      .where('ulv.parent_resource_id', parentResourceId)
+      .whereNotNull('v.id')
+      .limit(1);
 
     const sql = query.toQuery();
 
