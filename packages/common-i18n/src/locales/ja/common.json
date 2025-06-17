@@ -208,6 +208,7 @@
     "overLimitsDescription": "現在契約中のプランは使用制限を超えました。この機能を引き続き使用するには、プランをアップグレードしてください。",
     "userLimitExceededDescription": "現在のインスタンスは、ライセンスで許可されている最大ユーザー数に達しました。一部のユーザーを非アクティブ化するか、ライセンスをアップグレードしてください。",
     "unavailableInPlanTips": "現在契約中のプランではこの機能はサポートされていません",
+    "unavailableConnectionTips": "データベース接続機能は将来削除され、Enterpriseプランと自己ホストバージョンでのみ利用可能になります。",
     "levelTips": "このスペースは現在{{level}}プランにです",
     "spaceSubscriptionModal": {
       "title": "スペースの契約プランをアップグレード",

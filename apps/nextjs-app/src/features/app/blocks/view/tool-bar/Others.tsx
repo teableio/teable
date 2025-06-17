@@ -1,8 +1,6 @@
-import { ArrowUpRight, Code2, Database, MoreHorizontal } from '@teable/icons';
+import { ArrowUpRight, Code2, MoreHorizontal } from '@teable/icons';
 import { useBaseId, useTableId, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
-import Link from 'next/link';
-import { useTranslation } from 'next-i18next';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { SearchButton } from '../search/SearchButton';
 import { PersonalViewSwitch } from './components';
@@ -17,11 +15,19 @@ const OthersList = ({
   className?: string;
 }) => {
   const permission = useTablePermission();
-  const { t } = useTranslation('table');
   const baseId = useBaseId() as string;
-  const tableId = useTableId();
+  const tableId = useTableId() as string;
 
   const { textClassName, buttonClassName } = classNames ?? {};
+
+  const onAPIClick = () => {
+    const path = `/developer/tool/query-builder`;
+    const url = new URL(path, window.location.origin);
+    url.searchParams.set('baseId', baseId);
+    url.searchParams.set('tableId', tableId);
+
+    window.open(url.toString(), '_blank');
+  };
 
   return (
     <div className={cn('gap-1', className)}>
@@ -38,52 +44,14 @@ const OthersList = ({
           </ToolBarButton>
         )}
       </SharePopover>
-      <Popover>
-        <PopoverTrigger asChild>
-          <ToolBarButton
-            text="API"
-            className={cn(GUIDE_API_BUTTON, buttonClassName)}
-            textClassName={textClassName}
-          >
-            <Code2 className="size-4" />
-          </ToolBarButton>
-        </PopoverTrigger>
-        <PopoverContent side="bottom" align="start" className="w-48 p-0">
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className="w-full justify-start font-normal"
-            asChild
-          >
-            <Link
-              href={{
-                pathname: '/developer/tool/query-builder',
-                query: { baseId, tableId },
-              }}
-              target="_blank"
-            >
-              <Code2 className="size-4" />
-              {t('toolbar.others.api.restfulApi')}
-            </Link>
-          </Button>
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className="w-full justify-start font-normal"
-            asChild
-          >
-            <Link
-              href={{
-                pathname: '/base/[baseId]/design',
-                query: { baseId, tableId },
-              }}
-            >
-              <Database className="pr-1 text-lg" />
-              {t('toolbar.others.api.databaseConnection')}
-            </Link>
-          </Button>
-        </PopoverContent>
-      </Popover>
+      <ToolBarButton
+        text="API"
+        className={cn(GUIDE_API_BUTTON, buttonClassName)}
+        textClassName={textClassName}
+        onClick={onAPIClick}
+      >
+        <Code2 className="size-4" />
+      </ToolBarButton>
       <PersonalViewSwitch textClassName={textClassName} buttonClassName={buttonClassName} />
     </div>
   );

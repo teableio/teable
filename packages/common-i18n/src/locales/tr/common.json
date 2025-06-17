@@ -215,6 +215,7 @@
     "overLimitsDescription": "Mevcut aboneliğiniz kullanım sınırını aştı. Bu özelliği kesintisiz kullanmaya devam etmek için lütfen planınızı yükseltin.",
     "userLimitExceededDescription": "Mevcut örnek, lisansınızın izin verdiği maksimum kullanıcı sayısına ulaştı. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin.",
     "unavailableInPlanTips": "Mevcut abonelik planı bu özelliği desteklemiyor",
+    "unavailableConnectionTips": "Veritabanı bağlantısı özelliği gelecekte kaldırılacak ve yalnızca Kurumsal Plan ve kendi sunucu sürümleri için kullanılabilir olacak.",
     "levelTips": "Bu alan şu anda {{level}} planında",
     "spaceSubscriptionModal": {
       "title": "Alan abonelik planını yükselt",

@@ -203,6 +203,7 @@
     "overLimitsDescription": "Votre abonnement actuel a dépassé sa limite d'utilisation. Veuillez mettre à niveau votre plan pour continuer à utiliser cette fonctionnalité sans interruption.",
     "userLimitExceededDescription": "L'instance actuelle a atteint le nombre maximum d'utilisateurs autorisés par votre licence. Veuillez désactiver certains utilisateurs ou mettre à niveau la licence.",
     "unavailableInPlanTips": "Le plan d'abonnement actuel ne prend pas en charge cette fonctionnalité",
+    "unavailableConnectionTips": "La fonctionnalité de connexion de base de données sera supprimée et ne sera disponible que dans la version Entreprise et les versions auto-hébergées.",
     "levelTips": "Cet espace est actuellement sur le plan {{level}}",
     "spaceSubscriptionModal": {
       "title": "Mettre à niveau le plan d'abonnement de l'espace",

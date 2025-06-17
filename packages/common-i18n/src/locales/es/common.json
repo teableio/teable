@@ -229,6 +229,7 @@
     "overLimitsDescription": "Tu suscripción actual ha excedido su límite de uso. Por favor, actualiza tu plan para continuar usando esta función sin interrupciones.",
     "userLimitExceededDescription": "La instancia actual ha alcanzado el número máximo de usuarios permitidos por tu licencia. Por favor, desactiva algunos usuarios o actualiza la licencia.",
     "unavailableInPlanTips": "El plan de suscripción actual no admite esta función",
+    "unavailableConnectionTips": "La función de conexión de base de datos se eliminará en el futuro y solo estará disponible en la edición Enterprise y en versiones autohospedadas.",
     "spaceSubscriptionModal": {
       "title": "Plan de suscripción de actualización de Space",
       "description": "Solo puede actualizar los espacios de trabajo donde es un propietario"

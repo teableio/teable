@@ -242,6 +242,7 @@
     "overLimitsDescription": "Il tuo abbonamento attuale ha superato il limite di utilizzo. Si prega di aggiornare il piano per continuare a utilizzare questa funzione senza interruzioni.",
     "userLimitExceededDescription": "L'istanza corrente ha raggiunto il numero massimo di utenti consentiti dalla tua licenza. Si prega di disattivare alcuni utenti o aggiornare la licenza.",
     "unavailableInPlanTips": "Il piano di abbonamento attuale non supporta questa funzione",
+    "unavailableConnectionTips": "La funzione di connessione al database verrà rimossa in futuro e sarà disponibile solo nella versione Enterprise e nelle versioni self-hosted.",
     "levelTips": "Questo spazio è attualmente sul piano {{level}}",
     "spaceSubscriptionModal": {
       "title": "Aggiorna il piano di abbonamento dello spazio",

@@ -314,6 +314,7 @@
     "overLimitsDescription": "用量已超出了当前订阅版本的限制，您可以升级到更高级的版本以解锁更多功能用量。",
     "userLimitExceededDescription": "当前实例已达到许可证允许的最大用户数限制，请停用超限的用户或升级许可证以继续使用。",
     "unavailableInPlanTips": "当前订阅计划不支持此功能",
+    "unavailableConnectionTips": "数据链接功能即将移除，未来仅在公有云企业版和自托管版本中提供。",
     "levelTips": "当前空间使用的是{{level}}计划",
     "enterpriseFeature": "企业版功能",
     "automationRequiresUpgrade": "升级到企业版以启用自动化",

@@ -245,6 +245,7 @@
     "overLimitsDescription": "Ihr aktuelles Abonnement hat sein Nutzungslimit überschritten. Bitte aktualisieren Sie Ihr Abonnement, um diese Funktion weiterhin ohne Unterbrechung nutzen zu können.",
     "userLimitExceededDescription": "Die aktuelle Instanz hat die maximale Anzahl von Benutzern erreicht, die Ihre Lizenz erlaubt. Bitte deaktivieren Sie einige Benutzer oder aktualisieren Sie die Lizenz.",
     "unavailableInPlanTips": "Der aktuelle Abonnementplan unterstützt diese Funktion nicht",
+    "unavailableConnectionTips": "Die Datenbankverbindungsfunktion wird in Zukunft entfernt und ist nur in der Enterprise-Edition von öffentlicher Cloud und selbstgehosteten Versionen verfügbar.",
     "levelTips": "Dieser Space befindet sich derzeit auf dem {{level}} Plan",
     "spaceSubscriptionModal": {
       "title": "Upgrade des Space-Abonnementplans",
