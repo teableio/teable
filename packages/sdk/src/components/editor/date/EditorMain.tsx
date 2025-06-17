@@ -113,6 +113,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
         locale={LOCAL_MAP[lang as keyof typeof LOCAL_MAP]}
         style={style}
         mode="single"
+        timeZone={timeZone}
         selected={selectedDate}
         defaultMonth={selectedDate}
         onSelect={onSelect}
