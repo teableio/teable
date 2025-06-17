@@ -2,7 +2,6 @@ import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { context, trace } from '@opentelemetry/api';
-import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { LoggerModule as BaseLoggerModule } from 'nestjs-pino';
 import type { ILoggerConfig } from '../configs/logger.config';
