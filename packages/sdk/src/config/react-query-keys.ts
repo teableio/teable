@@ -118,7 +118,7 @@ export const ReactQueryKeys = {
     ['create-field-plan', tableId, fieldRo] as const,
 
   planFieldConvert: (tableId: string, fieldId: string, fieldRo: IConvertFieldRo) =>
-    ['create-field-plan', tableId, fieldId, fieldRo] as const,
+    ['convert-field-plan', tableId, fieldId, fieldRo] as const,
 
   planField: (tableId: string, fieldId: string) => ['field-plan', tableId, fieldId] as const,
 

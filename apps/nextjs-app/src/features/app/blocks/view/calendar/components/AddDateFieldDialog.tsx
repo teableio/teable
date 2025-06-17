@@ -48,18 +48,24 @@ export const AddDateFieldDialog = () => {
       timeZone: systemTimeZone,
     };
 
-    const startDateField = await createField(tableId, {
-      name: t('table:calendar.dialog.startDate'),
-      type: FieldType.Date,
-      options: {
-        formatting: defaultFormatting,
+    const startDateField = await createField({
+      tableId,
+      fieldRo: {
+        name: t('table:calendar.dialog.startDate'),
+        type: FieldType.Date,
+        options: {
+          formatting: defaultFormatting,
+        },
       },
     });
-    const endDateField = await createField(tableId, {
-      name: t('table:calendar.dialog.endDate'),
-      type: FieldType.Date,
-      options: {
-        formatting: defaultFormatting,
+    const endDateField = await createField({
+      tableId,
+      fieldRo: {
+        name: t('table:calendar.dialog.endDate'),
+        type: FieldType.Date,
+        options: {
+          formatting: defaultFormatting,
+        },
       },
     });
 

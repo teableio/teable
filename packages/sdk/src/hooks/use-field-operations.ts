@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import type { IFieldRo } from '@teable/core';
 import {
   convertField as convertFieldApi,
@@ -7,45 +7,46 @@ import {
   planFieldConvert as planFieldConvertApi,
   deleteField as deleteFieldApi,
 } from '@teable/openapi';
-import { ReactQueryKeys } from '../config';
 
 export const useFieldOperations = () => {
-  const queryClient = useQueryClient();
+  const { mutateAsync: convertField } = useMutation({
+    mutationFn: ({
+      tableId,
+      fieldId,
+      fieldRo,
+    }: {
+      tableId: string;
+      fieldId: string;
+      fieldRo: IFieldRo;
+    }) => convertFieldApi(tableId, fieldId, fieldRo),
+  });
 
-  const convertField = async (tableId: string, fieldId: string, fieldRo: IFieldRo) => {
-    return queryClient.ensureQueryData({
-      queryKey: ReactQueryKeys.convertField(tableId, fieldId, fieldRo),
-      queryFn: async ({ queryKey }) => convertFieldApi(queryKey[1], queryKey[2], queryKey[3]),
-    });
-  };
+  const { mutateAsync: createField } = useMutation({
+    mutationFn: ({ tableId, fieldRo }: { tableId: string; fieldRo: IFieldRo }) =>
+      createFieldApi(tableId, fieldRo),
+  });
 
-  const createField = async (tableId: string, fieldRo: IFieldRo) => {
-    return queryClient.ensureQueryData({
-      queryKey: ReactQueryKeys.createField(tableId, fieldRo),
-      queryFn: async ({ queryKey }) => createFieldApi(queryKey[1], queryKey[2]),
-    });
-  };
+  const { mutateAsync: planFieldCreate } = useMutation({
+    mutationFn: ({ tableId, fieldRo }: { tableId: string; fieldRo: IFieldRo }) =>
+      planFieldCreateApi(tableId, fieldRo),
+  });
 
-  const planFieldCreate = async (tableId: string, fieldRo: IFieldRo) => {
-    return queryClient.ensureQueryData({
-      queryKey: ReactQueryKeys.planFieldCreate(tableId, fieldRo),
-      queryFn: async ({ queryKey }) => planFieldCreateApi(queryKey[1], queryKey[2]),
-    });
-  };
+  const { mutateAsync: planFieldConvert } = useMutation({
+    mutationFn: ({
+      tableId,
+      fieldId,
+      fieldRo,
+    }: {
+      tableId: string;
+      fieldId: string;
+      fieldRo: IFieldRo;
+    }) => planFieldConvertApi(tableId, fieldId, fieldRo),
+  });
 
-  const planFieldConvert = async (tableId: string, fieldId: string, fieldRo: IFieldRo) => {
-    return queryClient.ensureQueryData({
-      queryKey: ReactQueryKeys.planFieldConvert(tableId, fieldId, fieldRo),
-      queryFn: async ({ queryKey }) => planFieldConvertApi(queryKey[1], queryKey[2], queryKey[3]),
-    });
-  };
-
-  const deleteField = async (tableId: string, fieldId: string) => {
-    return queryClient.ensureQueryData({
-      queryKey: ReactQueryKeys.deleteField(tableId, fieldId),
-      queryFn: async ({ queryKey }) => deleteFieldApi(queryKey[1], queryKey[2]),
-    });
-  };
+  const { mutateAsync: deleteField } = useMutation({
+    mutationFn: ({ tableId, fieldId }: { tableId: string; fieldId: string }) =>
+      deleteFieldApi(tableId, fieldId),
+  });
 
   return { createField, convertField, planFieldCreate, planFieldConvert, deleteField };
 };

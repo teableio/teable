@@ -175,7 +175,7 @@ export const FieldEditor = (props: {
             className="h-12 resize-none"
             value={field['description'] || undefined}
             placeholder={t('table:field.editor.descriptionPlaceholder')}
-            onChange={(e) => updateFieldProps({ description: e.target.value || undefined })}
+            onChange={(e) => updateFieldProps({ description: e.target.value || null })}
           />
         </div>
       )}

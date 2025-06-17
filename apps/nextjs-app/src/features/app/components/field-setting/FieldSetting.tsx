@@ -45,7 +45,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const createNewField = async (field: IFieldRo) => {
     const fieldName = field.name ?? (await getDefaultFieldName(field));
-    return await createField(tableId, { ...field, name: fieldName });
+    return await createField({ tableId, fieldRo: { ...field, name: fieldName } });
   };
 
   const performAction = async (field: IFieldRo) => {
@@ -73,7 +73,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
-        tableId && fieldId && (await convertField(tableId, fieldId, field));
+        tableId && fieldId && (await convertField({ tableId, fieldId, fieldRo: field }));
       }
 
       toast(
@@ -90,9 +90,9 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
-      return planFieldConvert(tableId, props.field?.id as string, fieldRo);
+      return planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo });
     }
-    return planFieldCreate(tableId, fieldRo);
+    return planFieldCreate({ tableId, fieldRo });
   };
 
   const onConfirm = async (fieldRo?: IFieldRo) => {

@@ -31,7 +31,7 @@ export const Actions = ({ fieldId }: { fieldId: string }) => {
         <DropdownMenuItem
           className="text-destructive"
           onClick={() => {
-            deleteField(tableId, fieldId);
+            deleteField({ tableId, fieldId });
           }}
         >
           {t('actions.delete')}

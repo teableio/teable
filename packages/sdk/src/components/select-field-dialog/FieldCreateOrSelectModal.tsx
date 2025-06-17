@@ -79,7 +79,7 @@ export const FieldCreateOrSelectModal = forwardRef<
       if (tableId == null) return setNewField(undefined);
       const result = createFieldRoSchema.safeParse(newField);
       if (result.success) {
-        const field = (await createField(tableId, newField)).data;
+        const field = (await createField({ tableId, fieldRo: newField })).data;
         setNewField(undefined);
         return onConfirm?.(field);
       }
