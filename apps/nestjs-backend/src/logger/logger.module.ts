@@ -49,11 +49,11 @@ export class LoggerModule {
                 const sessionId = (object as any)?.res?.req?.sessionID;
                 return {
                   ...object,
+                  is_access_token: Boolean(cls.get('accessTokenId')),
+                  user_id: cls.get('user.id'),
+                  session_id: sessionId,
                   spanId,
                   traceId,
-                  isAccessToken: cls.get('accessTokenId'),
-                  userId: cls.get('user')?.id,
-                  sessionId,
                 };
               },
             },
