@@ -56,20 +56,29 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
 
   const listRef = useRef<ILinkListRef>(null);
   const [values, setValues] = useState<ILinkCellValue[]>();
-  const [listType, setListType] = useState<LinkListType>(LinkListType.Unselected);
 
   const isMultiple = isMultiValueLink(options.relationship);
   const { foreignTableId, filterByViewId } = options;
 
-  const { selectedRecordIds, filterLinkCellCandidate, setLinkCellCandidate } = useLinkFilter();
+  const {
+    listType,
+    setListType,
+    selectedRecordIds,
+    filterLinkCellCandidate,
+    filterLinkCellSelected,
+    setLinkCellCandidate,
+    setLinkCellSelected,
+  } = useLinkFilter();
 
   const recordQuery = useMemo((): IGetRecordsRo => {
     return {
       search: searchQuery,
+      // for new record
+      selectedRecordIds: recordId ? undefined : selectedRecordIds,
+      filterLinkCellSelected,
       filterLinkCellCandidate,
-      selectedRecordIds,
     };
-  }, [searchQuery, filterLinkCellCandidate, selectedRecordIds]);
+  }, [searchQuery, filterLinkCellCandidate, filterLinkCellSelected, selectedRecordIds, recordId]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -83,7 +92,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     listRef.current?.onReset();
     setListType(type);
     if (type === LinkListType.Selected) {
-      setLinkCellCandidate(undefined);
+      setLinkCellSelected([fieldId, recordId].filter(Boolean));
     } else {
       setLinkCellCandidate([fieldId, recordId].filter(Boolean));
     }

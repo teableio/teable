@@ -27,7 +27,7 @@ import {
 import { LinkListType } from './interface';
 
 interface ILinkListProps {
-  type: LinkListType;
+  type?: LinkListType;
   rowCount: number;
   hiddenFieldIds?: string[];
   readonly?: boolean;
@@ -51,7 +51,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
 ) => {
   const {
     readonly,
-    type,
+    type = LinkListType.Unselected,
     rowCount,
     cellValue,
     recordQuery,

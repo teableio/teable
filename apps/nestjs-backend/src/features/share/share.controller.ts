@@ -53,6 +53,7 @@ import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareAuthGuard } from './guard/auth.guard';
+import { ShareLinkView } from './guard/link-view.decorator';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
 import { ShareSubmit } from './guard/submit.decorator';
 import type { IShareViewInfo } from './share-auth.service';
@@ -83,6 +84,7 @@ export class ShareController {
     return { token };
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view')
   async getShareView(@Request() req?: any): Promise<ShareViewGetVo> {
@@ -101,6 +103,7 @@ export class ShareController {
     return this.shareService.getViewAggregations(shareInfo, query);
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/row-count')
   async getViewRowCount(
@@ -199,6 +202,7 @@ export class ShareController {
     return this.shareService.getShareSearchIndex(tableId, { ...queryRo, viewId: view?.id });
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/view/snapshot-bulk')
   async getViewSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
@@ -206,6 +210,7 @@ export class ShareController {
     return this.shareSocketService.getViewSnapshotBulk(shareInfo, ids);
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/view/doc-ids')
   async getViewDocIds(@Request() req: any) {
@@ -213,6 +218,7 @@ export class ShareController {
     return this.shareSocketService.getViewDocIdsByQuery(shareInfo);
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/field/snapshot-bulk')
   async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
@@ -220,6 +226,7 @@ export class ShareController {
     return this.shareSocketService.getFieldSnapshotBulk(shareInfo, ids);
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/field/doc-ids')
   async getFieldDocIds(
@@ -231,6 +238,7 @@ export class ShareController {
     return this.shareSocketService.getFieldDocIdsByQuery(shareInfo, query);
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/record/snapshot-bulk')
   async getRecordSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
@@ -238,6 +246,7 @@ export class ShareController {
     return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids);
   }
 
+  @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @Post('/:shareId/socket/record/doc-ids')
   async getRecordDocIds(

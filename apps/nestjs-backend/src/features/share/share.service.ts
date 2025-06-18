@@ -189,9 +189,12 @@ export class ShareService {
     }
 
     const { id } = view ?? {};
-    const { filterByViewId, filter } = linkOptions ?? {};
+    const { filterByViewId } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
     const tableId = shareInfo.tableId;
+    // if filterLinkCellSelected is not empty, use it as filter
+    const defaultFilter = linkOptions?.filter ?? query?.filter;
+    const filter = query?.filterLinkCellSelected ? undefined : defaultFilter;
     const result = await this.aggregationService.performRowCount(tableId, {
       viewId,
       filter,

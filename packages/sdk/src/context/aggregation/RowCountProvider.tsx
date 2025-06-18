@@ -28,7 +28,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
   const { shareId } = useContext(ShareViewContext);
-  const { selectedRecordIds, filterLinkCellCandidate } = useLinkFilter();
+  const { selectedRecordIds, filterLinkCellCandidate, filterLinkCellSelected } = useLinkFilter();
 
   const view = useView();
 
@@ -38,10 +38,20 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
       search: searchQuery,
       selectedRecordIds,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
       filter: shareId ? view?.filter : undefined,
       ...query,
     }),
-    [viewId, searchQuery, selectedRecordIds, filterLinkCellCandidate, shareId, view?.filter, query]
+    [
+      viewId,
+      searchQuery,
+      selectedRecordIds,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      shareId,
+      view?.filter,
+      query,
+    ]
   );
   const ignoreViewQuery = rowCountQuery?.ignoreViewQuery ?? false;
 

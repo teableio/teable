@@ -85,7 +85,9 @@ export class ShareSocketService {
     const { id } = view ?? {};
     const { filterByViewId } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
-    const filter = linkOptions?.filter ?? query.filter;
+    // if filterLinkCellSelected is not empty, use it as filter
+    const defaultFilter = linkOptions?.filter ?? query.filter;
+    const filter = !query.filterLinkCellSelected ? defaultFilter : undefined;
     let projection = query.projection;
 
     if (linkOptions) {

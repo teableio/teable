@@ -9,5 +9,6 @@ export function useLinkFilter() {
     ...linkFilter,
     setLinkCellCandidate: linkFilter.setLinkCellCandidate || noop,
     setLinkCellSelected: linkFilter.setLinkCellSelected || noop,
+    setListType: linkFilter.setListType || noop,
   };
 }

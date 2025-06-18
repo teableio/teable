@@ -9,6 +9,7 @@ import type { IClsStore } from '../../../types/cls';
 import { AuthGuard } from '../../auth/guard/auth.guard';
 import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
+import { IS_SHARE_LINK_VIEW } from './link-view.decorator';
 import { IS_SHARE_SUBMIT_KEY } from './submit.decorator';
 
 @Injectable()
@@ -24,9 +25,13 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
 
   async validate(context: ExecutionContext, shareId: string) {
     const req = context.switchToHttp().getRequest();
-    const isLinkView = shareId.startsWith(IdPrefix.Field);
+    // share link view route
+    const isShareLinkView = this.reflector.getAllAndOverride<boolean>(IS_SHARE_LINK_VIEW, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
-    if (isLinkView) {
+    if (isShareLinkView && shareId.startsWith(IdPrefix.Field)) {
       const activate = (await this.authGuard.validate(context)) as boolean;
       const shareInfo = await this.shareAuthService.getLinkViewInfo(shareId);
       req.shareInfo = shareInfo;
