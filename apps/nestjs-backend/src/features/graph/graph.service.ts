@@ -186,21 +186,31 @@ export class GraphService {
     );
 
     if (field.type === FieldType.Link && !field.isLookup && field.options.symmetricFieldId) {
-      const suplimentLookupRefernce = await this.prismaService.field.findMany({
+      const findSymmetricField = await this.prismaService.field.findUnique({
         where: {
-          lookupLinkedFieldId: field.options.symmetricFieldId,
+          id: field.options.symmetricFieldId,
           deletedTime: null,
         },
         select: { id: true },
       });
-      oldRefernce.push(
-        ...suplimentLookupRefernce.map((field) => field.id),
-        field.options.symmetricFieldId
-      );
-      lookupGraph.push(
-        ...suplimentLookupRefernce.map((f) => ({ fromFieldId: field.id, toFieldId: f.id }))
-      );
-      lookupGraph.push({ fromFieldId: field.id, toFieldId: field.options.symmetricFieldId });
+
+      if (findSymmetricField) {
+        const suplimentLookupRefernce = await this.prismaService.field.findMany({
+          where: {
+            lookupLinkedFieldId: field.options.symmetricFieldId,
+            deletedTime: null,
+          },
+          select: { id: true },
+        });
+        oldRefernce.push(
+          ...suplimentLookupRefernce.map((field) => field.id),
+          field.options.symmetricFieldId
+        );
+        lookupGraph.push(
+          ...suplimentLookupRefernce.map((f) => ({ fromFieldId: field.id, toFieldId: f.id }))
+        );
+        lookupGraph.push({ fromFieldId: field.id, toFieldId: field.options.symmetricFieldId });
+      }
     }
 
     const context = await this.fieldCalculationService.getTopoOrdersContext(
