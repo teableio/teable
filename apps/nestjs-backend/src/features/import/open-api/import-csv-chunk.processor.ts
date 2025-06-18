@@ -251,6 +251,11 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
   @OnWorkerEvent('error')
   async onError(job: Job) {
+    if (!job?.data) {
+      this.logger.error('import csv job data is undefined');
+      return;
+    }
+
     const { table, range } = job.data;
     const jobId = String(job.id);
 
