@@ -3,18 +3,18 @@ import { Readable } from 'stream';
 import { Worker } from 'worker_threads';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { FieldType, getRandomString } from '@teable/core';
+import type { FieldType } from '@teable/core';
+import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import type { IImportOptionRo, IImportColumn } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
-import { toString } from 'lodash';
 import Papa from 'papaparse';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
-import { getWorkerPath, importerFactory, parseBoolean } from './import.class';
+import { getWorkerPath, importerFactory } from './import.class';
 
 class ImportError extends Error {
   constructor(
@@ -108,7 +108,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   private async resolveDataByWorker(job: Job<ITableImportChunkJob>) {
     const jobId = String(job.id);
     const jobData = job.data;
-    const { importerParams, table, options, recordsCal } = jobData;
+    const { importerParams, table, options } = jobData;
 
     const workerId = `worker_${getRandomString(8)}`;
     const path = getWorkerPath('parse');
@@ -116,8 +116,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     const { attachmentUrl, fileType, maxRowCount } = importerParams;
 
     const { skipFirstNLines, sheetKey, notification } = options;
-
-    const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
@@ -145,34 +143,8 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         const { type, data, chunkId, id, lastChunk } = result;
         switch (type) {
           case 'chunk': {
-            const currentResult = (data as Record<string, unknown[][]>)[sheetKey];
+            const records = (data as Record<string, unknown[][]>)[sheetKey];
             // fill data
-            const records = currentResult.map((row) => {
-              const res: { fields: Record<string, unknown> } = {
-                fields: {},
-              };
-              // import new table
-              if (columnInfo) {
-                columnInfo.forEach((col, index) => {
-                  const { sourceColumnIndex, type } = col;
-                  // empty row will be return void row value
-                  const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-                  res.fields[fields[index].id] =
-                    type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
-                });
-              }
-              // inplace records
-              if (sourceColumnMap) {
-                for (const [key, value] of Object.entries(sourceColumnMap)) {
-                  if (value !== null) {
-                    const { type } = fields.find((f) => f.id === key) || {};
-                    // link value should be string
-                    res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
-                  }
-                }
-              }
-              return res;
-            });
             recordCount += records.length;
             if (records.length === 0) {
               return;
@@ -224,7 +196,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     jobId: string,
     tableId: string,
     range: [number, number],
-    records: Record<string, unknown>[],
+    records: unknown[][],
     lastChunk: boolean
   ) {
     const {
@@ -239,12 +211,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
     const bucket = StorageAdapter.getBucket(UploadType.Import);
 
-    const csvData = records.map((record) => {
-      const fields = record.fields as Record<string, unknown>;
-      return Object.values(fields);
-    });
-
-    const csvString = Papa.unparse(csvData);
+    const csvString = Papa.unparse(records);
 
     const csvStream = Readable.from([csvString]);
 
