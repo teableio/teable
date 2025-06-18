@@ -126,7 +126,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
       this.cls.set('user.id', job.data.userId);
       const { columnInfo, fields, sourceColumnMap, table } = job.data;
       const currentResult = await this.getChunkData(job);
-      console.log('currentResult', currentResult);
       // fill data
       const records = currentResult.map((row) => {
         const res: { fields: Record<string, unknown> } = {
