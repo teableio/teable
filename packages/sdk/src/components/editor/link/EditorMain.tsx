@@ -219,7 +219,7 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
     <LinkViewProvider linkBaseId={foreignBaseId ?? baseId} linkFieldId={props.fieldId}>
       <LinkFilterProvider
         filterLinkCellCandidate={props.recordId ? [props.fieldId, props.recordId] : props.fieldId}
-        selectedRecordIds={selectedRecordIds}
+        selectedRecordIds={props.recordId ? undefined : selectedRecordIds}
       >
         <RowCountProvider>
           <LinkEditorInner ref={forwardRef} {...props} />

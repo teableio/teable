@@ -124,7 +124,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 filterLinkCellCandidate={
                   props.recordId ? [props.fieldId, props.recordId] : props.fieldId
                 }
-                selectedRecordIds={selectedRecordIds}
+                selectedRecordIds={props.recordId ? undefined : selectedRecordIds}
               >
                 <RowCountProvider>
                   <LinkList
