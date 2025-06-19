@@ -21,6 +21,7 @@ import { cva } from 'class-variance-authority';
 import { ExternalLink, Link, Text, Unlink } from 'lucide-react';
 import * as React from 'react';
 
+import { useClickAway } from 'react-use';
 import { useTranslation } from '../../../context/app/i18n';
 import { buttonVariants } from './button';
 import { Separator } from './separator';
@@ -83,16 +84,34 @@ export function LinkFloatingToolbar({ state }: { state?: LinkFloatingToolbarStat
     preventDefaultOnEnterKeydown: true,
   });
 
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  useClickAway(ref, () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    inputRef.current?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+      })
+    );
+  });
+
   if (hidden) return null;
 
   const input = (
-    <div className="flex w-[330px] flex-col" {...inputProps}>
+    <div className="flex w-[330px] flex-col" {...inputProps} ref={ref}>
       <div className="flex items-center">
         <div className="flex items-center pl-2 pr-1 text-muted-foreground">
           <Link className="size-4" />
         </div>
 
         <FloatingLinkUrlInput
+          ref={inputRef}
           className={inputVariants()}
           placeholder={t('comment.floatToolbar.enterUrl')}
           data-plate-focus
