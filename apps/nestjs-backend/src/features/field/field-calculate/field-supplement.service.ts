@@ -25,6 +25,7 @@ import {
   CreatedTimeFieldCore,
   DateFieldCore,
   DbFieldType,
+  extractFieldIdsFromFilter,
   FieldAIActionType,
   FieldType,
   generateChoiceId,
@@ -1451,6 +1452,15 @@ export class FieldSupplementService {
 
     const graphItems = await this.referenceService.getFieldGraphItems([field.id]);
     const fieldIds = this.getFieldReferenceIds(field);
+
+    // add lookupOptions filter fieldIds to reference
+    if (field?.lookupOptions) {
+      const filterSetFieldIds = extractFieldIdsFromFilter(field?.lookupOptions.filter);
+      filterSetFieldIds.forEach((fieldId) => {
+        graphItems.push({ fromFieldId: fieldId, toFieldId });
+        fieldIds.push(fieldId);
+      });
+    }
 
     fieldIds.forEach((fromFieldId) => {
       graphItems.push({ fromFieldId, toFieldId });

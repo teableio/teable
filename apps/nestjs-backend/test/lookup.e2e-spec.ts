@@ -1006,5 +1006,66 @@ describe('OpenAPI Lookup field (e2e)', () => {
       const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(table1Records.records[0].fields[lookupField.id]).toEqual(['B1', 'B2']);
     });
+
+    it('should update a lookup field with fiter when update statusField in filterSet', async () => {
+      const statusField = await createField(table2.id, {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      });
+
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      const lookupField = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: table2.fields[0].id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusField.id,
+                value: 'x',
+                operator: 'is',
+              },
+            ],
+          },
+        },
+      });
+
+      // update from table record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'A1');
+      await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'x');
+
+      // set to table link
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
+        { id: table2.records[0].id },
+      ]);
+
+      //  check lookup field
+      const record = await getRecord(table1.id, table1.records[0].id);
+      expect(record.fields[lookupField.id]).toEqual(['A1']);
+
+      //  update from table record
+      await updateRecordByApi(table2.id, table2.records[0].id, statusField.id, 'y');
+      console.log('e2euno tablel2 end');
+
+      //  check lookup field
+      const recordAfter = await getRecord(table1.id, table1.records[0].id);
+      expect(recordAfter.fields[lookupField.id]).toBeUndefined();
+    });
   });
 });
