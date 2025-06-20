@@ -25,6 +25,7 @@ import {
   createBase,
   deleteBase,
   deleteRecords,
+  planFieldConvert,
   updateDbTableName,
 } from '@teable/openapi';
 import {
@@ -3407,6 +3408,65 @@ describe('OpenAPI link (e2e)', () => {
       });
 
       expect(newTable3LookupField.data).toBeDefined();
+    });
+  });
+
+  describe('link field conversion plan', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let baseId2: string;
+    beforeEach(async () => {
+      baseId2 = (await createBase({ spaceId, name: 'base2' })).data.id;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId2, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId2, table2.id);
+      await deleteBase(baseId2);
+    });
+
+    it('should plan conversion from bidirectional to unidirectional', async () => {
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      });
+
+      const fieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+      await planFieldConvert(table1.id, linkField.id, fieldRo);
+    });
+
+    it('should plan conversion from  unidirectional to bidirectional', async () => {
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      });
+
+      const fieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      };
+      await planFieldConvert(table1.id, linkField.id, fieldRo);
     });
   });
 });
