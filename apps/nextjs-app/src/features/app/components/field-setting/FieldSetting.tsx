@@ -90,9 +90,10 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
-      return planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo });
+      return (await planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo }))
+        .data;
     }
-    return planFieldCreate({ tableId, fieldRo });
+    return (await planFieldCreate({ tableId, fieldRo })).data;
   };
 
   const onConfirm = async (fieldRo?: IFieldRo) => {
