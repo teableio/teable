@@ -49,7 +49,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { keyBy, merge, mergeWith } from 'lodash';
+import { keyBy, merge, mergeWith, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -1451,17 +1451,17 @@ export class FieldSupplementService {
     const toFieldId = field.id;
 
     const graphItems = await this.referenceService.getFieldGraphItems([field.id]);
-    const fieldIds = this.getFieldReferenceIds(field);
+    let fieldIds = this.getFieldReferenceIds(field);
 
     // add lookupOptions filter fieldIds to reference
     if (field?.lookupOptions) {
       const filterSetFieldIds = extractFieldIdsFromFilter(field?.lookupOptions.filter);
       filterSetFieldIds.forEach((fieldId) => {
-        graphItems.push({ fromFieldId: fieldId, toFieldId });
         fieldIds.push(fieldId);
       });
     }
 
+    fieldIds = uniq(fieldIds);
     fieldIds.forEach((fromFieldId) => {
       graphItems.push({ fromFieldId, toFieldId });
     });
