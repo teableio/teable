@@ -49,7 +49,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { keyBy, merge, mergeWith, uniq } from 'lodash';
+import { uniq, keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -535,16 +535,18 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return merge(
-        {},
-        fieldRo.options
-          ? {
-              ...oldFieldVo,
-              options: { ...oldFieldVo.options, showAs: undefined }, // clean showAs
-            }
-          : oldFieldVo,
-        fieldRo
-      );
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+        options: {
+          ...oldFieldVo.options,
+          showAs: undefined,
+        },
+        lookupOptions: {
+          ...oldLookupOptions,
+          ...newLookupOptions,
+        },
+      };
     }
 
     return this.prepareLookupField(fieldRo);
