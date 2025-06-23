@@ -73,7 +73,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const pinMap = usePinMap();
   const isPin = pinMap?.[view.id];
 
-  const showViewMenu = !isEditing && (permission['view|delete'] || permission['view|update']);
+  const showViewMenu = !isEditing;
 
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">
