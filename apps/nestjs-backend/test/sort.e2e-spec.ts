@@ -20,7 +20,13 @@ import {
   FieldKeyType,
 } from '@teable/core';
 import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
-import { updateViewSort as apiSetViewSort, createRecords } from '@teable/openapi';
+import {
+  updateViewSort as apiSetViewSort,
+  convertField,
+  createRecords,
+  updateRecords,
+  updateViewGroup,
+} from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
@@ -164,7 +170,83 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     expect(viewSort).toEqual(assertSort.sort);
   });
 
-  it('sort date should always use a second precision', async () => {
+  it('sort date should always use a second precision when formatting time is not none', async () => {
+    await createRecords(tableId, {
+      records: [
+        {
+          fields: {},
+        },
+      ],
+    });
+
+    await delay(1000);
+
+    await createRecords(tableId, {
+      records: [
+        {
+          fields: {},
+        },
+      ],
+    });
+
+    const createdTimeField = await createField(tableId, {
+      name: 'createdTime',
+      type: FieldType.CreatedTime,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.ISO,
+          time: TimeFormatting.Hour24,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      },
+    });
+
+    // asc
+    const ascOrders: IGetRecordsRo['orderBy'] = [
+      { fieldId: createdTimeField.id, order: SortFunc.Asc },
+    ];
+
+    const originRecords = await getSortRecords(tableId, {
+      viewId,
+      orderBy: ascOrders,
+    });
+
+    const assertSort = orderBy(
+      originRecords,
+      ['createdTime', 'autoNumber'],
+      [SortFunc.Asc, SortFunc.Asc]
+    );
+
+    const originId = originRecords.map((record) => record.id);
+
+    const assertId = assertSort.map((record) => record.id);
+
+    expect(originId).toEqual(assertId);
+
+    // desc
+    const descOrders: IGetRecordsRo['orderBy'] = [
+      { fieldId: createdTimeField.id, order: SortFunc.Desc },
+    ];
+
+    const descOriginRecords = await getSortRecords(tableId, {
+      viewId,
+      orderBy: descOrders,
+    });
+
+    const assertDescSort = orderBy(
+      descOriginRecords,
+      ['createdTime', 'autoNumber'],
+      [SortFunc.Desc, SortFunc.Asc]
+    );
+
+    const originDescId = descOriginRecords.map((record) => record.id);
+
+    const assertDescId = assertDescSort.map((record) => record.id);
+
+    expect(originDescId).toEqual(assertDescId);
+  });
+
+  it('sort date should precision should be day when formatting time is none', async () => {
     await createRecords(tableId, {
       records: [
         {
@@ -227,17 +309,73 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
       orderBy: descOrders,
     });
 
-    const assertDescSort = orderBy(
-      descOriginRecords,
-      ['createdTime', 'autoNumber'],
-      [SortFunc.Desc, SortFunc.Asc]
-    );
+    const ascOriginRecords = await getSortRecords(tableId, {
+      viewId,
+      orderBy: ascOrders,
+    });
 
-    const originDescId = descOriginRecords.map((record) => record.id);
+    const descRecordsDescId = descOriginRecords.map((record) => record.id);
 
-    const assertDescId = assertDescSort.map((record) => record.id);
+    const ascRecordsDescId = ascOriginRecords.map((record) => record.id);
 
-    expect(originDescId).toEqual(assertDescId);
+    // if time is none, the sort precision should be day, meaning that the sort by day instead of second
+    expect(descRecordsDescId).toEqual(ascRecordsDescId);
+
+    // then group by createdTime, and sort by single select field
+    const fields = await getFields(tableId);
+    const singleSelectField = fields.find((field) => field.type === FieldType.SingleSelect)!;
+    await convertField(tableId, singleSelectField.id, {
+      dbFieldName: singleSelectField.dbFieldName,
+      type: singleSelectField.type as FieldType,
+      options: {
+        choices: [
+          { name: '1', color: 'cyanLight2' },
+          { name: '2', color: 'yellowDark1' },
+          { name: '3', color: 'yellowLight1' },
+          { name: '4', color: 'orangeBright' },
+          { name: '5', color: 'yellowLight2' },
+        ],
+      },
+    });
+    await updateRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      records: ascRecordsDescId.reverse().map((id, index) => ({
+        id,
+        fields: {
+          [singleSelectField.id!]: index + 1,
+        },
+      })),
+    });
+    const createTimeField = await createField(tableId, {
+      name: 'createdTime',
+      type: FieldType.CreatedTime,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.ISO,
+          time: TimeFormatting.None,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      },
+    });
+
+    await apiSetViewSort(tableId, viewId, {
+      sort: {
+        sortObjs: [{ fieldId: singleSelectField.id, order: SortFunc.Asc }],
+      },
+    });
+
+    await updateViewGroup(tableId, viewId, {
+      group: [{ fieldId: createTimeField.id, order: SortFunc.Asc }],
+    });
+
+    const records = await getRecords(tableId, {
+      viewId,
+    });
+
+    const assertRecordIds = orderBy(records.records, [`fields.${singleSelectField.name}`], ['asc']);
+
+    expect(records.records.map((r) => r.id)).toEqual(assertRecordIds.map((r) => r.id));
   });
 });
 
