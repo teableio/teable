@@ -4,6 +4,9 @@ export enum McpToolInvocationName {
   GetTableFields = 'get-table-fields',
   GetTablesMeta = 'get-tables-meta',
   SqlQuery = 'sql-query',
+  GenerateScriptAction = 'generate-script-action',
+  GetScriptInput = 'get-script-input',
+  GetTeableApi = 'get-teable-api',
 }
 
 export const chatContextSchema = z.object({
@@ -15,6 +18,8 @@ export const chatContextSchema = z.object({
       })
     )
     .optional(),
+  workflowId: z.string().optional(),
+  actionId: z.string().optional(),
 });
 
 export type IChatContext = z.infer<typeof chatContextSchema>;

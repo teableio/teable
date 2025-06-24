@@ -6,10 +6,25 @@ import type { OpenAPIObject } from 'openapi3-ts/oas30';
 import OpenAPISnippet from './openapi-snippet';
 import { getRoutes } from './utils';
 
-function registerAllRoute() {
+function registerRoutes(filters?: { tags?: string[]; paths?: string[] }) {
   const registry = new OpenAPIRegistry();
   const routeObjList: RouteConfig[] = getRoutes();
-  for (const routeObj of routeObjList) {
+
+  let filteredRoutes = routeObjList;
+
+  if (filters?.tags?.length) {
+    filteredRoutes = filteredRoutes.filter(
+      (route) => route.tags && route.tags.some((tag) => filters.tags!.includes(tag))
+    );
+  }
+
+  if (filters?.paths?.length) {
+    filteredRoutes = filteredRoutes.filter(
+      (route) => route.path && filters.paths!.includes(route.path)
+    );
+  }
+
+  for (const routeObj of filteredRoutes) {
     const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
       type: 'http',
       scheme: 'bearer',
@@ -54,12 +69,14 @@ async function generateCodeSamples(document: OpenAPIObject) {
 export async function getOpenApiDocumentation(config: {
   origin?: string;
   snippet?: boolean;
+  tags?: string[];
+  paths?: string[];
 }): Promise<OpenAPIObject> {
-  const { origin, snippet } = config;
+  const { origin, snippet, tags, paths } = config;
   if (!origin && snippet) {
     throw new Error('origin is required when snippets is true, generateCodeSamples need origin');
   }
-  const registry = registerAllRoute();
+  const registry = registerRoutes({ tags, paths });
   const generator = new OpenApiGeneratorV3(registry.definitions);
 
   const document = generator.generateDocument({
