@@ -7,11 +7,12 @@ function pathJoin(...parts: string[]) {
   return parts.join(separator).replace(replace, separator);
 }
 
+export const READ_PATH = '/api/attachments/read/public';
+
 export const usePreviewUrl = () => {
   const { storagePrefix } = useEnv();
-
   return useCallback(
-    (path: string) => {
+    (path: string, readPath = '') => {
       if (!storagePrefix) {
         console.error('storagePrefix is not set');
         return path;
@@ -19,7 +20,7 @@ export const usePreviewUrl = () => {
       if (path.startsWith(storagePrefix)) {
         return path;
       }
-      return pathJoin(storagePrefix, path);
+      return storagePrefix + pathJoin(readPath, path);
     },
     [storagePrefix]
   );
