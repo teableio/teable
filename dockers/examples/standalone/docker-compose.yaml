@@ -21,6 +21,8 @@ services:
     depends_on:
       teable-db:
         condition: service_healthy
+      teable-cache:
+        condition: service_healthy
 
   teable-db:
     image: postgres:15.4
@@ -44,6 +46,22 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+  teable-cache:
+    image: redis:7.2.4
+    restart: always
+    expose:
+      - '6379'
+    volumes:
+      - teable-cache:/data:rw
+    networks:
+      - teable-standalone
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
 
 networks:
   teable-standalone:
@@ -52,4 +70,5 @@ networks:
 
 volumes:
   teable-data: {}
-  teable-db: {}
+  teable-db: {} 
+  teable-cache: {}
