@@ -7,12 +7,8 @@ export const usePreviewUrl = () => {
 
   return useCallback(
     (path: string) => {
-      const { publicUrl, prefix, provider, publicBucket } = storage;
+      const { publicUrl, prefix = '', provider, publicBucket } = storage;
 
-      if (!prefix) {
-        console.error('storagePrefix is not set');
-        return path;
-      }
       if (path.startsWith(prefix)) {
         return path;
       }

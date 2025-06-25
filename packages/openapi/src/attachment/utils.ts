@@ -13,8 +13,8 @@ export const getPublicFullStorageUrl = (
     publicBucket?: string;
     publicUrl?: string;
   },
-  bucket: string = '',
-  path: string = ''
+  bucket: string,
+  path: string
 ) => {
   const { prefix, provider, publicUrl, publicBucket } = storage;
   const _bucket = bucket || publicBucket || '';
