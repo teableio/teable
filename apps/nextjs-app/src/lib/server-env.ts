@@ -11,6 +11,7 @@ export interface IServerEnv {
   sentryDsn?: string;
   socialAuthProviders?: string[];
   storagePrefix?: string;
+  storageProvider?: 'local' | 'minio' | 's3';
   edition?: string;
   passwordLoginDisabled?: boolean;
   // global settings

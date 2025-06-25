@@ -21,7 +21,7 @@ import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
-import { READ_PATH, usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
+import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { FORM_EDITOR_DROPPABLE_ID } from '../constant';
@@ -142,7 +142,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
         >
           {coverUrl && (
             <Image
-              src={previewUrl(coverUrl, READ_PATH)}
+              src={previewUrl(coverUrl)}
               alt="card cover"
               fill
               sizes="100%"
@@ -172,7 +172,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             <>
               <Image
                 className="rounded-lg object-cover shadow-sm"
-                src={previewUrl(logoUrl, READ_PATH)}
+                src={previewUrl(logoUrl)}
                 alt="card cover"
                 fill
                 sizes="100%"

@@ -31,6 +31,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storagePrefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN,
+        storageProvider: process.env.BACKEND_STORAGE_PROVIDER ?? 'local',
         passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true' ? true : undefined,
         // default to Infinity, return undefined causing the value will be transformed to null when json-stringify
         maxSearchFieldCount:

@@ -1,19 +1,13 @@
-import { join } from 'path';
+import { getFullStorageUrl as getFullStorageUrlOpenApi } from '@teable/openapi';
 import { baseConfig } from '../../../configs/base.config';
 import { storageConfig } from '../../../configs/storage';
-import { LocalStorage } from './local';
 import type { ThumbnailSize } from './types';
 
 export const getFullStorageUrl = (bucket: string, path: string) => {
   const { storagePrefix } = baseConfig();
   const { provider } = storageConfig();
-  if (provider === 'local') {
-    return baseConfig().storagePrefix + join('/', LocalStorage.readPath, bucket, path);
-  }
-  if (provider === 's3') {
-    return storagePrefix + join('/', path);
-  }
-  return storagePrefix + join('/', bucket, path);
+
+  return getFullStorageUrlOpenApi({ prefix: storagePrefix, provider }, bucket, path);
 };
 
 export const generateCropImagePath = (path: string, size: ThumbnailSize) => {
