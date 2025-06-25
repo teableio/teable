@@ -10,8 +10,12 @@ export interface IServerEnv {
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
-  storagePrefix?: string;
-  storageProvider?: 'local' | 'minio' | 's3';
+  storage?: {
+    provider?: 'local' | 'minio' | 's3';
+    prefix?: string;
+    publicBucket?: string;
+    publicUrl?: string;
+  };
   edition?: string;
   passwordLoginDisabled?: boolean;
   // global settings

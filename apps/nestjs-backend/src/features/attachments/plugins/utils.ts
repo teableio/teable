@@ -1,13 +1,17 @@
-import { getFullStorageUrl as getFullStorageUrlOpenApi } from '@teable/openapi';
+import { getPublicFullStorageUrl as getPublicFullStorageUrlOpenApi } from '@teable/openapi';
 import { baseConfig } from '../../../configs/base.config';
 import { storageConfig } from '../../../configs/storage';
 import type { ThumbnailSize } from './types';
 
 export const getFullStorageUrl = (bucket: string, path: string) => {
   const { storagePrefix } = baseConfig();
-  const { provider } = storageConfig();
+  const { provider, publicUrl, publicBucket } = storageConfig();
 
-  return getFullStorageUrlOpenApi({ prefix: storagePrefix, provider }, bucket, path);
+  return getPublicFullStorageUrlOpenApi(
+    { publicUrl, prefix: storagePrefix, provider, publicBucket },
+    bucket,
+    path
+  );
 };
 
 export const generateCropImagePath = (path: string, size: ThumbnailSize) => {
