@@ -32,7 +32,6 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -43,8 +42,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
@@ -268,19 +266,16 @@ export class ViewService implements IReadonlyAdapterService {
       const formOptions = viewVo.options as IFormViewOptions;
       formOptions?.coverUrl &&
         (formOptions.coverUrl = formOptions.coverUrl
-          ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Form), formOptions.coverUrl)
+          ? getPublicFullStorageUrl(formOptions.coverUrl)
           : undefined);
       formOptions?.logoUrl &&
         (formOptions.logoUrl = formOptions.logoUrl
-          ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Form), formOptions.logoUrl)
+          ? getPublicFullStorageUrl(formOptions.logoUrl)
           : undefined);
     }
     if (viewVo.type === ViewType.Plugin) {
       const pluginOptions = viewVo.options as IPluginViewOptions;
-      pluginOptions.pluginLogo = getFullStorageUrl(
-        StorageAdapter.getBucket(UploadType.Plugin),
-        pluginOptions.pluginLogo
-      );
+      pluginOptions.pluginLogo = getPublicFullStorageUrl(pluginOptions.pluginLogo);
     }
     return viewVo;
   }

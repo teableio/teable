@@ -25,7 +25,7 @@ import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { NotificationService } from '../notification/notification.service';
 import { RecordService } from '../record/record.service';
 
@@ -87,9 +87,7 @@ export class CommentOpenApiService {
         acc[user.id] = {
           id: user.id,
           name: user.name,
-          avatar: user.avatar
-            ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), user.avatar)
-            : undefined,
+          avatar: user.avatar ? getPublicFullStorageUrl(user.avatar) : undefined,
         };
         return acc;
       },

@@ -4,7 +4,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { nullsToUndefined, type ViewType } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type { IGetPinListVo, AddPinRo, DeletePinRo, UpdatePinOrderRo } from '@teable/openapi';
-import { PinType, UploadType } from '@teable/openapi';
+import { PinType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type {
@@ -16,8 +16,7 @@ import type {
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class PinService {
@@ -191,9 +190,7 @@ export class PinService {
             viewMeta: {
               tableId: view.table_id,
               type: view.type,
-              pluginLogo: pluginLogo
-                ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), pluginLogo)
-                : undefined,
+              pluginLogo: pluginLogo ? getPublicFullStorageUrl(pluginLogo) : undefined,
             },
           };
         }

@@ -13,7 +13,7 @@ export const usePreviewUrl = () => {
         return path;
       }
 
-      return getPublicFullStorageUrl({ publicUrl, prefix, provider, publicBucket }, '', path);
+      return getPublicFullStorageUrl({ publicUrl, prefix, provider, publicBucket }, path);
     },
     [storage]
   );

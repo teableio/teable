@@ -20,7 +20,7 @@ import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class UserService {
@@ -39,9 +39,7 @@ export class UserService {
     return (
       userRaw && {
         ...userRaw,
-        avatar:
-          userRaw.avatar &&
-          getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), userRaw.avatar),
+        avatar: userRaw.avatar && getPublicFullStorageUrl(userRaw.avatar),
         notifyMeta: userRaw.notifyMeta && JSON.parse(userRaw.notifyMeta),
       }
     );
@@ -349,7 +347,7 @@ export class UserService {
       const { avatar } = user;
       return {
         ...user,
-        avatar: avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
+        avatar: avatar && getPublicFullStorageUrl(avatar),
       };
     });
   }

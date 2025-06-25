@@ -13,20 +13,19 @@ export const getPublicFullStorageUrl = (
     publicBucket?: string;
     publicUrl?: string;
   },
-  bucket: string,
   path: string
 ) => {
   const { prefix, provider, publicUrl, publicBucket } = storage;
-  const _bucket = bucket || publicBucket || '';
+  const bucket = publicBucket || '';
 
   if (publicUrl) {
     return publicUrl + pathJoin('/', path);
   }
   if (provider === 'minio') {
-    return prefix + pathJoin('/', _bucket, path);
+    return prefix + pathJoin('/', bucket, path);
   }
   if (provider === 's3') {
     return prefix + pathJoin('/', path);
   }
-  return prefix + pathJoin(READ_PATH, _bucket, path);
+  return prefix + pathJoin(READ_PATH, bucket, path);
 };
