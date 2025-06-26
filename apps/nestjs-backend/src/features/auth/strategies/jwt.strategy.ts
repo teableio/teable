@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { AUTOMATION_ROBOT_USER } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { authConfig } from '../../../configs/auth.config';
@@ -9,7 +10,7 @@ import type { IClsStore } from '../../../types/cls';
 import { UserService } from '../../user/user.service';
 import { pickUserMe } from '../utils';
 import { JWT_TOKEN_STRATEGY_NAME } from './constant';
-import type { IJwtAuthInfo } from './types';
+import type { IJwtAuthAutomationInfo, IJwtAuthInfo } from './types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_NAME) {
@@ -25,7 +26,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     });
   }
 
-  async validate(payload: IJwtAuthInfo) {
+  async validate(payload: IJwtAuthInfo | IJwtAuthAutomationInfo) {
+    if ('baseId' in payload) {
+      this.cls.set('user', AUTOMATION_ROBOT_USER);
+      this.cls.set('tempAuthBaseId', payload.baseId);
+      return AUTOMATION_ROBOT_USER;
+    }
+
     const user = await this.userService.getUserById(payload.userId);
     if (!user) {
       throw new UnauthorizedException();

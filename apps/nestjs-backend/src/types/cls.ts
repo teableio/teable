@@ -41,4 +41,5 @@ export interface IClsStore extends ClsStore {
       name: string;
     }[];
   };
+  tempAuthBaseId?: string; // for automation robot
 }

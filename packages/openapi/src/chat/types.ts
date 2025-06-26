@@ -10,6 +10,7 @@ export enum McpToolInvocationName {
 }
 
 export const chatContextSchema = z.object({
+  tools: z.array(z.nativeEnum(McpToolInvocationName)).optional(),
   tables: z
     .array(
       z.object({

@@ -6,3 +6,4 @@ export * from './system';
 export * from './me-tag';
 export * from './types';
 export * from './oauth';
+export * from './automation-robot';
