@@ -15,7 +15,7 @@ import { useChatStore } from '../store/useChatStore';
 
 export const ChatContainer = ({ baseId }: { baseId: string }) => {
   const chatIdRef = useRef(generateChatId());
-  const { modelKey } = useChatStore();
+  const { modelKey, setModelKey } = useChatStore();
   const activeChat = useActiveChat(baseId);
   const queryClient = useQueryClient();
   const { context, setActiveChatId } = useChatContext();
@@ -129,17 +129,20 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
         chatId={chatId}
         status={status}
       />
-      <MessageInput
-        modelKey={validModelKey}
-        models={models}
-        input={input}
-        setInput={setInput}
-        status={status}
-        stop={stop}
-        setMessages={setMessages}
-        handleSubmit={handleSubmit}
-        modelLoading={isBaseAiConfigLoading}
-      />
+      <form className="px-2">
+        <MessageInput
+          modelKey={validModelKey}
+          models={models}
+          input={input}
+          setInput={setInput}
+          status={status}
+          stop={stop}
+          setModelKey={setModelKey}
+          setMessages={setMessages}
+          handleSubmit={handleSubmit}
+          modelLoading={isBaseAiConfigLoading}
+        />
+      </form>
     </div>
   );
 };
