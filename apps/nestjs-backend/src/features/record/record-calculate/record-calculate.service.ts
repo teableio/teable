@@ -59,7 +59,11 @@ export class RecordCalculateService {
     );
 
     const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, [fieldKeyType]: { in: fieldKeys } },
+      where: {
+        tableId,
+        [fieldKeyType]: { in: fieldKeys },
+        deletedTime: null,
+      },
       select: { id: true, name: true, dbFieldName: true },
     });
     const fieldIdMap = keyBy(fieldRaws, fieldKeyType);
