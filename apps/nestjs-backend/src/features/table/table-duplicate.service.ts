@@ -711,6 +711,7 @@ export class TableDuplicateService {
       where: {
         tableId: sourceTableId,
         type: FieldType.Attachment,
+        deletedTime: null,
       },
       select: {
         id: true,

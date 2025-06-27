@@ -271,6 +271,7 @@ export class BatchService {
               tableId: table.id,
               dbFieldName: { in: validDbFieldNames },
               unique: true,
+              deletedTime: null,
             },
             select: { id: true, name: true },
           });
@@ -300,6 +301,7 @@ export class BatchService {
               tableId: table.id,
               dbFieldName: { in: validDbFieldNames },
               notNull: true,
+              deletedTime: null,
             },
             select: { id: true, name: true },
           });
