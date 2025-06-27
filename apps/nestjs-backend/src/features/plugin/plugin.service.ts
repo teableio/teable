@@ -25,7 +25,7 @@ import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { UserService } from '../user/user.service';
 import { generateSecret } from './utils';
 
@@ -38,7 +38,7 @@ export class PluginService {
   ) {}
 
   private logoToVoValue(logo: string) {
-    return getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), logo);
+    return getPublicFullStorageUrl(logo);
   }
 
   private convertToVo<
@@ -96,9 +96,7 @@ export class PluginService {
         }
         acc[user.id] = {
           ...user,
-          avatar: user.avatar
-            ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), user.avatar)
-            : undefined,
+          avatar: user.avatar ? getPublicFullStorageUrl(user.avatar) : undefined,
         };
         return acc;
       },
@@ -179,9 +177,7 @@ export class PluginService {
               id: user.id,
               name: user.name,
               email: user.email,
-              avatar: user.avatar
-                ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), user.avatar)
-                : undefined,
+              avatar: user.avatar ? getPublicFullStorageUrl(user.avatar) : undefined,
             }
           : undefined,
       };

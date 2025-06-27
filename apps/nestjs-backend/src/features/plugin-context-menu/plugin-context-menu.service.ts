@@ -3,7 +3,7 @@ import type { IBaseRole } from '@teable/core';
 import { generatePluginInstallId, Role } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, PluginPosition, PrincipalType, UploadType } from '@teable/openapi';
+import { CollaboratorType, PluginPosition, PrincipalType } from '@teable/openapi';
 import type {
   IPluginContextMenuRenameRo,
   IPluginContextMenuInstallRo,
@@ -15,8 +15,7 @@ import type {
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -163,7 +162,7 @@ export class PluginContextMenuService {
         pluginInstallId: plugin.id,
         name: plugin.name,
         pluginId: plugin.pluginId,
-        logo: getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), plugin.plugin.logo),
+        logo: getPublicFullStorageUrl(plugin.plugin.logo),
         order: item.order,
       });
       return acc;

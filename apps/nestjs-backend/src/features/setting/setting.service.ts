@@ -23,7 +23,7 @@ import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class SettingService {
@@ -51,9 +51,7 @@ export class SettingService {
       .then((setting) => ({
         ...setting,
         aiConfig: setting.aiConfig ? JSON.parse(setting.aiConfig as string) : null,
-        brandLogo: setting.brandLogo
-          ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Logo), setting.brandLogo)
-          : null,
+        brandLogo: setting.brandLogo ? getPublicFullStorageUrl(setting.brandLogo) : null,
       }))
       .catch(() => {
         throw new NotFoundException('Setting not found');
@@ -107,7 +105,7 @@ export class SettingService {
     });
 
     return {
-      url: getFullStorageUrl(StorageAdapter.getBucket(UploadType.Logo), path),
+      url: getPublicFullStorageUrl(path),
     };
   }
 

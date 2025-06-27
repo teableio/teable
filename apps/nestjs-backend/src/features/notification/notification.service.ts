@@ -14,7 +14,6 @@ import {
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
-  UploadType,
   type IGetNotifyListQuery,
   type INotificationUnreadCountVo,
   type INotificationVo,
@@ -23,8 +22,7 @@ import {
 import { keyBy } from 'lodash';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
 
@@ -71,9 +69,7 @@ export class NotificationService {
     const userIcon = userIconSchema.parse({
       userId: fromUser.id,
       userName: fromUser.name,
-      userAvatarUrl:
-        fromUser?.avatar &&
-        getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), fromUser.avatar),
+      userAvatarUrl: fromUser?.avatar && getPublicFullStorageUrl(fromUser.avatar),
     });
 
     const urlMeta = notificationUrlSchema.parse({
@@ -427,8 +423,7 @@ export class NotificationService {
         return {
           userId: id,
           userName: name,
-          userAvatarUrl:
-            avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
+          userAvatarUrl: avatar && getPublicFullStorageUrl(avatar),
         };
       }
       default:

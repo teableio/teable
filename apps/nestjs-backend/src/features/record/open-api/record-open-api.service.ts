@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { IAttachmentCellValue, IAttachmentItem, IMakeOptional } from '@teable/core';
 import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsRo,
@@ -23,8 +22,7 @@ import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import { AttachmentsService } from '../../attachments/attachments.service';
-import StorageAdapter from '../../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../../attachments/plugins/utils';
+import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
@@ -530,7 +528,7 @@ export class RecordOpenApiService {
       const { avatar } = user;
       return {
         ...user,
-        avatar: avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
+        avatar: avatar && getPublicFullStorageUrl(avatar),
       };
     });
 

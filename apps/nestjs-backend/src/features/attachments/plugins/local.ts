@@ -4,6 +4,7 @@ import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
+import { READ_PATH } from '@teable/openapi';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
 import sharp from 'sharp';
@@ -27,7 +28,7 @@ export class LocalStorage implements StorageAdapter {
   path: string;
   storageDir: string;
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
-  static readPath = '/api/attachments/read';
+  static readPath = READ_PATH;
 
   constructor(
     @StorageConfig() readonly config: IStorageConfig,

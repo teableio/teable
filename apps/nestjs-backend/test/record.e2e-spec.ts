@@ -655,6 +655,34 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(data.records[0].fields[lookupField.id]).toBeUndefined();
       expect(data.records[0].fields[rollup.id]).toBeUndefined();
     });
+
+    it('should create a record by name when duplicate name field is deleted', async () => {
+      const fieldName = 'test-field';
+      const fieldRo: IFieldRo = {
+        name: fieldName,
+        type: FieldType.SingleLineText,
+      };
+      for (let i = 0; i < 10; i++) {
+        const field = await createField(table1.id, fieldRo);
+        await deleteField(table1.id, field.id);
+      }
+
+      await createField(table1.id, fieldRo);
+      const cellValue = 'test';
+      const res = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {
+              [fieldName]: cellValue,
+            },
+          },
+        ],
+        fieldKeyType: FieldKeyType.Name,
+        typecast: true,
+      });
+
+      expect(res.records[0].fields[fieldName]).toEqual(cellValue);
+    });
   });
 
   describe('create record with default value', () => {

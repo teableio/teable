@@ -8,6 +8,7 @@ export const storageConfig = registerAs('storage', () => ({
   local: {
     path: process.env.BACKEND_STORAGE_LOCAL_PATH ?? '.assets/uploads',
   },
+  publicUrl: process.env.BACKEND_STORAGE_PUBLIC_URL,
   publicBucket: process.env.BACKEND_STORAGE_PUBLIC_BUCKET || 'public',
   privateBucket: process.env.BACKEND_STORAGE_PRIVATE_BUCKET || 'private',
   minio: {

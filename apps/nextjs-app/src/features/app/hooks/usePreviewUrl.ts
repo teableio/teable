@@ -1,26 +1,20 @@
+import { getPublicFullStorageUrl } from '@teable/openapi';
 import { useCallback } from 'react';
 import { useEnv } from './useEnv';
 
-function pathJoin(...parts: string[]) {
-  const separator = '/';
-  const replace = new RegExp(separator + '+', 'g');
-  return parts.join(separator).replace(replace, separator);
-}
-
 export const usePreviewUrl = () => {
-  const { storagePrefix } = useEnv();
+  const { storage = {} } = useEnv();
 
   return useCallback(
     (path: string) => {
-      if (!storagePrefix) {
-        console.error('storagePrefix is not set');
+      const { publicUrl, prefix = '', provider, publicBucket } = storage;
+
+      if (path.startsWith(prefix)) {
         return path;
       }
-      if (path.startsWith(storagePrefix)) {
-        return path;
-      }
-      return pathJoin(storagePrefix, path);
+
+      return getPublicFullStorageUrl({ publicUrl, prefix, provider, publicBucket }, path);
     },
-    [storagePrefix]
+    [storage]
   );
 };
