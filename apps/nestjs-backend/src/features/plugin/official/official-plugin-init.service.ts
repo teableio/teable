@@ -36,14 +36,14 @@ export class OfficialPluginInitService implements OnModuleInit {
       {
         ...chartConfig,
         secret: this.configService.get<string>('PLUGIN_CHART_SECRET') || this.baseConfig.secretKey,
-        url: `${this.baseConfig.publicOrigin}/plugin/chart`,
+        url: `/plugin/chart`,
       },
       {
         ...sheetFormConfig,
         secret:
           this.configService.get<string>('PLUGIN_SHEETFORMVIEW_SECRET') ||
           this.baseConfig.secretKey,
-        url: `${this.baseConfig.publicOrigin}/plugin/sheet-form-view`,
+        url: `/plugin/sheet-form-view`,
       },
     ];
 

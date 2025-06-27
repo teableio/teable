@@ -22,7 +22,7 @@ export const useIframeUrl = (params: IPluginParams) => {
     if (!pluginUrl) {
       return;
     }
-    const urlObj = new URL(pluginUrl);
+    const urlObj = new URL(pluginUrl, location.href);
     defaultTheme.current && urlObj.searchParams.set('theme', defaultTheme.current);
     resolvedLanguage && urlObj.searchParams.set('lang', resolvedLanguage);
     const urlStr = urlObj.toString();
