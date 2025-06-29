@@ -134,6 +134,7 @@ export { default as Qwen } from './components/Qwen';
 export { default as Redo2 } from './components/Redo2';
 export { default as RefreshCcw } from './components/RefreshCcw';
 export { default as RotateCw } from './components/RotateCw';
+export { default as ScriptAction } from './components/ScriptAction';
 export { default as Search } from './components/Search';
 export { default as SendMail } from './components/SendMail';
 export { default as Settings } from './components/Settings';
