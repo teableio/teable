@@ -645,6 +645,9 @@
       "getTableFields": "Get table fields",
       "getTablesMeta": "Get tables meta",
       "sqlQuery": "Execute SQL query",
+      "generateScriptAction": "Generate script action",
+      "getScriptInput": "Get script input",
+      "getTeableApi": "Get API",
       "args": "Arguments",
       "result": "Result"
     },

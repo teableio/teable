@@ -604,5 +604,48 @@
     "title": "Tabelle Papierkorb",
     "resourceType": "Typ der Ressource",
     "deletedResource": "Gelöschte Ressource"
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Tabelle Felder abrufen",
+      "getTablesMeta": "Tabelle Metadaten abrufen",
+      "sqlQuery": "SQL Abfrage ausführen",
+      "generateScriptAction": "Skript Aktion generieren",
+      "getScriptInput": "Skript Eingabe abrufen",
+      "getTeableApi": "API abrufen",
+      "args": "Argumente",
+      "result": "Ergebnis"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} Zeilen ausgeblendet",
+      "collapseCode": "Code einklappen",
+      "code": "Code",
+      "preview": "Vorschau"
+    },
+    "newChat": "Neue Chat",
+    "noModel": "Keine verfügbaren Modelle",
+    "noHistory": "Keine Chat-Verlauf",
+    "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
+    "timeGroup": {
+      "today": "Heute",
+      "oneWeek": "Eine Woche",
+      "twoWeek": "Zwei Wochen",
+      "oneMonth": "Ein Monat",
+      "other": "Andere"
+    },
+    "context": {
+      "button": "Kontext hinzufügen",
+      "search": "Tabellen hinzufügen",
+      "searchEmpty": "Kein passender Kontext gefunden",
+      "emptyContext": "Kein Kontext zum Hinzufügen"
+    },
+    "inputPlaceholder": "Nachricht senden...",
+    "thought": "Denken",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Generierungszeit: {{timeCost}}s",
+      "creditDescription": "{{credits}} Credits verbraucht",
+      "tokenDescription": "Tokens verwendet: {{tokens}}"
+    }
   }
 }

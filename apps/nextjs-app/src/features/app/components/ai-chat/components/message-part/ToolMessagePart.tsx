@@ -37,6 +37,12 @@ export const PureToolMessagePart = ({ id, part }: IToolMessagePart) => {
         return t('aiChat.tool.getTablesMeta');
       case McpToolInvocationName.SqlQuery:
         return t('aiChat.tool.sqlQuery');
+      case McpToolInvocationName.GenerateScriptAction:
+        return t('aiChat.tool.generateScriptAction');
+      case McpToolInvocationName.GetScriptInput:
+        return t('aiChat.tool.getScriptInput');
+      case McpToolInvocationName.GetTeableApi:
+        return t('aiChat.tool.getTeableApi');
       default:
         return toolInvocation.toolName;
     }

@@ -608,5 +608,48 @@
   "plugin": {
     "recent": "Recenti",
     "more": "Esplora di più..."
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Ottieni campi della tabella",
+      "getTablesMeta": "Ottieni metadati della tabella",
+      "sqlQuery": "Esegui query SQL",
+      "generateScriptAction": "Genera azione script",
+      "getScriptInput": "Ottieni input script",
+      "getTeableApi": "Ottieni API",
+      "args": "Argomenti",
+      "result": "Risultato"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} linee nascoste",
+      "collapseCode": "Comprimi codice",
+      "code": "Codice",
+      "preview": "Anteprima"
+    },
+    "newChat": "Nuovo Chat",
+    "noModel": "Nessun modello disponibile",
+    "noHistory": "Nessun chat history",
+    "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
+    "timeGroup": {
+      "today": "Oggi",
+      "oneWeek": "Una settimana",
+      "twoWeek": "Due settimane",
+      "oneMonth": "Un mese",
+      "other": "Altro"
+    },
+    "context": {
+      "button": "Aggiungi contesto",
+      "search": "Aggiungi tabelle",
+      "searchEmpty": "Nessun contesto trovato",
+      "emptyContext": "Nessun contesto da aggiungere"
+    },
+    "inputPlaceholder": "Invia messaggio...",
+    "thought": "Pensando",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Tempo di generazione: {{timeCost}}s",
+      "creditDescription": "{{credits}} crediti consumati",
+      "tokenDescription": "Tokens usati: {{tokens}}"
+    }
   }
 }

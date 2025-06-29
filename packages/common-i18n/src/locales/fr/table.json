@@ -580,5 +580,48 @@
     "title": "Corbeille de Table",
     "resourceType": "Type de Ressource",
     "deletedResource": "Ressource Supprimée"
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Obtenir les champs de la table",
+      "getTablesMeta": "Obtenir les métadonnées de la table",
+      "sqlQuery": "Exécuter une requête SQL",
+      "generateScriptAction": "Générer une action de script",
+      "getScriptInput": "Obtenir l'entrée du script",
+      "getTeableApi": "Obtenir l'API",
+      "args": "Arguments",
+      "result": "Résultat"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} lignes masquées",
+      "collapseCode": "Réduire le code",
+      "code": "Code",
+      "preview": "Aperçu"
+    },
+    "newChat": "Nouveau Chat",
+    "noModel": "Aucun modèle disponible",
+    "noHistory": "Aucun historique de chat",
+    "noFoundHistory": "Aucun historique de chat trouvé, veuillez commencer une nouvelle conversation",
+    "timeGroup": {
+      "today": "Aujourd'hui",
+      "oneWeek": "Une semaine",
+      "twoWeek": "Deux semaines",
+      "oneMonth": "Un mois",
+      "other": "Autre"
+    },
+    "context": {
+      "button": "Ajouter un contexte",
+      "search": "Ajouter des tables",
+      "searchEmpty": "Aucun contexte trouvé",
+      "emptyContext": "Aucun contexte à ajouter"
+    },
+    "inputPlaceholder": "Envoyer un message...",
+    "thought": "En train de penser",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Temps de génération : {{timeCost}}s",
+      "creditDescription": "{{credits}} crédits consommés",
+      "tokenDescription": "Tokens utilisés : {{tokens}}"
+    }
   }
 }

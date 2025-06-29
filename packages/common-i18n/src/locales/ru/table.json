@@ -580,5 +580,48 @@
     "title": "Корзина таблицы",
     "resourceType": "Тип ресурса",
     "deletedResource": "Удаленный ресурс"
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Получить поля таблицы",
+      "getTablesMeta": "Получить метаданные таблицы",
+      "sqlQuery": "Выполнить SQL запрос",
+      "generateScriptAction": "Сгенерировать действие скрипта",
+      "getScriptInput": "Получить входные данные скрипта",
+      "getTeableApi": "Получить API",
+      "args": "Аргументы",
+      "result": "Результат"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} строк скрыто",
+      "collapseCode": "Свернуть код",
+      "code": "Код",
+      "preview": "Предварительный просмотр"
+    },
+    "newChat": "Новый чат",
+    "noModel": "Нет доступных моделей",
+    "noHistory": "Нет истории чата",
+    "noFoundHistory": "Нет истории чата, пожалуйста, начните новую беседу",
+    "timeGroup": {
+      "today": "Сегодня",
+      "oneWeek": "Одна неделя",
+      "twoWeek": "Две недели",
+      "oneMonth": "Один месяц",
+      "other": "Другое"
+    },
+    "context": {
+      "button": "Добавить контекст",
+      "search": "Добавить таблицы",
+      "searchEmpty": "Не найден соответствующий контекст",
+      "emptyContext": "Нет контекста для добавления"
+    },
+    "inputPlaceholder": "Отправить сообщение...",
+    "thought": "Мысли",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Время генерации: {{timeCost}}s",
+      "creditDescription": "{{credits}} кредитов использовано",
+      "tokenDescription": "Токенов использовано: {{tokens}}"
+    }
   }
 }

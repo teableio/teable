@@ -645,6 +645,9 @@
       "getTableFields": "获取表格字段",
       "getTablesMeta": "获取表格元数据",
       "sqlQuery": "执行 SQL 查询",
+      "generateScriptAction": "生成脚本",
+      "getScriptInput": "获取脚本输入",
+      "getTeableApi": "获取 API",
       "args": "参数",
       "result": "结果"
     },

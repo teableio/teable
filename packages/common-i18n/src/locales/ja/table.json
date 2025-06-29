@@ -579,5 +579,48 @@
     "title": "テーブルのごみ箱",
     "resourceType": "リソースタイプ",
     "deletedResource": "削除されたリソース"
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "テーブルフィールドを取得",
+      "getTablesMeta": "テーブルメタデータを取得",
+      "sqlQuery": "SQL クエリを実行",
+      "generateScriptAction": "スクリプトアクションを生成",
+      "getScriptInput": "スクリプト入力を取得",
+      "getTeableApi": "API を取得",
+      "args": "引数",
+      "result": "結果"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} 行が非表示",
+      "collapseCode": "コードを折りたたむ",
+      "code": "コード",
+      "preview": "プレビュー"
+    },
+    "newChat": "新しいチャット",
+    "noModel": "利用可能なモデルがありません",
+    "noHistory": "チャット履歴がありません",
+    "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
+    "timeGroup": {
+      "today": "今日",
+      "oneWeek": "1週間",
+      "twoWeek": "2週間",
+      "oneMonth": "1ヶ月",
+      "other": "その他"
+    },
+    "context": {
+      "button": "コンテキストを追加",
+      "search": "テーブルを追加",
+      "searchEmpty": "一致するコンテキストが見つかりません",
+      "emptyContext": "追加するコンテキストがありません"
+    },
+    "inputPlaceholder": "メッセージを送信...",
+    "thought": "思考中",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "生成時間: {{timeCost}}s",
+      "creditDescription": "{{credits}} クレジット使用済み",
+      "tokenDescription": "トークン使用数: {{tokens}}"
+    }
   }
 }

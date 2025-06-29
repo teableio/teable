@@ -602,5 +602,48 @@
     "title": "Кошик таблиці",
     "resourceType": "Тип ресурсу",
     "deletedResource": "Видалений ресурс"
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Отримати поля таблиці",
+      "getTablesMeta": "Отримати метадані таблиці",
+      "sqlQuery": "Виконати SQL запит",
+      "generateScriptAction": "Створити дію скрипта",
+      "getScriptInput": "Отримати вхідні дані скрипта",
+      "getTeableApi": "Отримати API",
+      "args": "Аргументи",
+      "result": "Результат"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} рядків приховано",
+      "collapseCode": "Згорнути код",
+      "code": "Код",
+      "preview": "Попередній перегляд"
+    },
+    "newChat": "Новий чат",
+    "noModel": "Немає доступних моделей",
+    "noHistory": "Немає історії чату",
+    "noFoundHistory": "Немає історії чату, будь ласка, почати нову розмову",
+    "timeGroup": {
+      "today": "Сьогодні",
+      "oneWeek": "Одна тиждень",
+      "twoWeek": "Дві тижні",
+      "oneMonth": "Один місяць",
+      "other": "Інше"
+    },
+    "context": {
+      "button": "Додати контекст",
+      "search": "Додати таблиці",
+      "searchEmpty": "Не знайдено відповідного контексту",
+      "emptyContext": "Немає контексту для додавання"
+    },
+    "inputPlaceholder": "Відправити повідомлення...",
+    "thought": "Міркування",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Час генерації: {{timeCost}}s",
+      "creditDescription": "{{credits}} кредитів використано",
+      "tokenDescription": "Токенів використано: {{tokens}}"
+    }
   }
 }

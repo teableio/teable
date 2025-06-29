@@ -595,5 +595,48 @@
   "plugin": {
     "recent": "Frases",
     "more": "Explorar más ..."
+  },
+  "aiChat": {
+    "tool": {
+      "getTableFields": "Obtener campos de la tabla",
+      "getTablesMeta": "Obtener metadatos de la tabla",
+      "sqlQuery": "Ejecutar consulta SQL",
+      "generateScriptAction": "Generar acción de script",
+      "getScriptInput": "Obtener entrada de script",
+      "getTeableApi": "Obtener API",
+      "args": "Argumentos",
+      "result": "Resultado"
+    },
+    "codeBlock": {
+      "hiddenLines": "{{count}} líneas ocultas",
+      "collapseCode": "Ocultar código",
+      "code": "Código",
+      "preview": "Vista previa"
+    },
+    "newChat": "Nuevo chat",
+    "noModel": "No hay modelos disponibles",
+    "noHistory": "No hay historial de chat",
+    "noFoundHistory": "No se encontró historial de chat coincidente, comience una nueva conversación",
+    "timeGroup": {
+      "today": "Hoy",
+      "oneWeek": "Una semana",
+      "twoWeek": "Dos semanas",
+      "oneMonth": "Un mes",
+      "other": "Andere"
+    },
+    "context": {
+      "button": "Agregar contexto",
+      "search": "Agregar tablas",
+      "searchEmpty": "No se encontró contexto coincidente",
+      "emptyContext": "No hay contexto para agregar"
+    },
+    "inputPlaceholder": "Enviar mensaje...",
+    "thought": "Pensando",
+    "meta": {
+      "timeCostUnit": "s",
+      "timeCostDescription": "Tiempo de generación: {{timeCost}}s",
+      "creditDescription": "{{credits}} créditos utilizados",
+      "tokenDescription": "Tokens utilizados: {{tokens}}"
+    }
   }
 }
