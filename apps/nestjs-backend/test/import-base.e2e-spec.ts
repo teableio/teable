@@ -43,6 +43,7 @@ function getAttachmentService(app: INestApplication) {
 
 describe('OpenAPI BaseController for base import (e2e)', () => {
   let app: INestApplication;
+  let appUrl: string;
   let sourceBaseId: string;
   const spaceId = globalThis.testConfig.spaceId;
   const userId = globalThis.testConfig.userId;
@@ -52,6 +53,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    appUrl = appCtx.appUrl;
   });
 
   afterAll(async () => {
@@ -148,9 +150,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       await permanentDeleteTable(sourceBaseId, subTable.id);
     });
     it('should export table and import the table', async () => {
-      const { previewUrl } = await awaitWithEvent(async () => {
+      const { previewUrl: url } = await awaitWithEvent(async () => {
         await exportBase(sourceBaseId);
       });
+      const previewUrl = appUrl + url;
 
       const clsService = app.get(ClsService);
 
