@@ -42,8 +42,9 @@ export class LocalStorage implements StorageAdapter {
     fse.ensureDirSync(this.storageDir);
   }
 
-  private getUploadUrl(token: string) {
-    return `/api/attachments/upload/${token}`;
+  private getUploadUrl(token: string, internal?: boolean) {
+    const baseUrl = internal ? `http://localhost:${process.env.PORT}` : '';
+    return `${baseUrl}/api/attachments/upload/${token}`;
   }
 
   private deleteFile(filePath: string) {
@@ -73,7 +74,7 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async presigned(_bucket: string, dir: string, params: IPresignParams) {
-    const { contentType, contentLength, hash } = params;
+    const { contentType, contentLength, hash, internal } = params;
     const token = getRandomString(12);
     const filename = hash ?? token;
     const expiresIn = params?.expiresIn ?? second(this.config.tokenExpireIn);
@@ -91,7 +92,7 @@ export class LocalStorage implements StorageAdapter {
     return {
       token,
       path,
-      url: this.getUploadUrl(token),
+      url: this.getUploadUrl(token, internal),
       uploadMethod: 'PUT',
       requestHeaders: {
         'Content-Type': contentType,

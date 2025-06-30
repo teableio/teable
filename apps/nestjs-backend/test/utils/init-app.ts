@@ -124,9 +124,6 @@ export async function initApp() {
 
   axios.interceptors.request.use((config) => {
     config.headers.Cookie = cookie;
-    if (config.url?.startsWith('/api')) {
-      config.url = config.url.replace('/api', '');
-    }
     return config;
   });
 
