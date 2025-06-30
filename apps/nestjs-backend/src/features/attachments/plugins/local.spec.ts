@@ -335,9 +335,7 @@ describe('LocalStorage', () => {
         expiresDate: Math.floor(Date.now() / 1000) + mockExpiresIn,
         respHeaders: mockRespHeaders,
       });
-      expect(result).toBe(
-        'http://localhost:3000/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
-      );
+      expect(result).toBe('/api/attachments/read/mock-bucket/mock/file/path?token=mock-token');
     });
   });
 
