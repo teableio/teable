@@ -12,7 +12,7 @@ export const PanelContainer = ({ baseId }: { baseId: string }) => {
 
   if (isMobile) {
     return (
-      <div className="z-50 flex h-full flex-col overflow-hidden bg-background px-1">
+      <div className="fixed z-50 flex size-full flex-col overflow-hidden bg-background px-1">
         <ChatPanelHeader baseId={baseId} />
         <ChatContainer baseId={baseId} />
       </div>
