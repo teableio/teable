@@ -28,7 +28,8 @@ const countCalculator = (
       }, 0);
       return result;
     }
-    return calcFn(result) ? result + 1 : result;
+
+    return calcFn(param.value) ? result + 1 : result;
   }, 0);
 };
 

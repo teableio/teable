@@ -22,6 +22,7 @@ import {
 describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
   let table1Id = '';
+  let table1: ITableFullVo;
   let numberFieldRo: IFieldRo & { id: string; name: string };
   let textFieldRo: IFieldRo & { id: string; name: string };
   let formulaFieldRo: IFieldRo & { id: string; name: string };
@@ -64,12 +65,11 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    table1Id = (
-      await createTable(baseId, {
-        name: 'table1',
-        fields: [numberFieldRo, textFieldRo, formulaFieldRo],
-      })
-    ).id;
+    table1 = await createTable(baseId, {
+      name: 'table1',
+      fields: [numberFieldRo, textFieldRo, formulaFieldRo],
+    });
+    table1Id = table1.id;
   });
 
   afterEach(async () => {
@@ -300,6 +300,21 @@ describe('OpenAPI formula (e2e)', () => {
 
       const record = await getRecord(table.id, table.records[0].id);
       expect(record.data.fields[table.fields[0].name]).toEqual('1');
+    });
+  });
+
+  describe('array function', () => {
+    it.only('should calculate array function - count', async () => {
+      const field = await createField(table1Id, {
+        type: FieldType.Formula,
+        options: {
+          expression: 'COUNT(100, 200, 300, "", "Teable", TRUE)',
+        },
+      });
+      console.log('fixme uno field', field);
+      const record = await getRecord(table1Id, table1.records[0].id);
+      console.log('fixme uno record', record.data.fields[field.name]);
+      expect(record.data.fields[field.name]).toEqual(3);
     });
   });
 });
