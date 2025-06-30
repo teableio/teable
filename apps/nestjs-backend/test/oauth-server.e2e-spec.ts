@@ -33,7 +33,8 @@ const gerAuthorize = async (axios: AxiosInstance, oauth: OAuthCreateVo, state?: 
       maxRedirects: 0,
     }
   );
-  const url = new URL(res.headers.location);
+
+  const url = new URL(res.headers.location, oauth.homepage);
   return {
     transactionID: url.searchParams.get('transaction_id') as string | null,
     code: url.searchParams.get('code') as string | null,
