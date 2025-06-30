@@ -7,7 +7,7 @@ export enum SUPPORTEDTYPE {
 }
 
 export const analyzeRoSchema = z.object({
-  attachmentUrl: z.string().url().trim(),
+  attachmentUrl: z.string(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
 });
 
@@ -57,14 +57,14 @@ export const importOptionSchema = importSheetItem.pick({
 
 export const importOptionRoSchema = z.object({
   worksheets: z.record(z.string(), importSheetItem),
-  attachmentUrl: z.string().url(),
+  attachmentUrl: z.string(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
   notification: z.boolean().optional(),
   tz: timeZoneStringSchema,
 });
 
 export const inplaceImportOptionRoSchema = z.object({
-  attachmentUrl: z.string().url(),
+  attachmentUrl: z.string(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
   insertConfig: z.object({
     sourceWorkSheetKey: z.string(),

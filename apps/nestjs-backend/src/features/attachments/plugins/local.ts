@@ -43,7 +43,7 @@ export class LocalStorage implements StorageAdapter {
   }
 
   private getUploadUrl(token: string) {
-    return `${this.baseConfig.storagePrefix}/api/attachments/upload/${token}`;
+    return `/api/attachments/upload/${token}`;
   }
 
   private deleteFile(filePath: string) {
@@ -234,7 +234,7 @@ export class LocalStorage implements StorageAdapter {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });
-    return this.baseConfig.storagePrefix + join('/', url);
+    return join('/', url);
   }
   verifyReadToken(token: string) {
     try {

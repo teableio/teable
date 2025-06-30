@@ -149,7 +149,7 @@ export class OAuthServerService {
           }
           res.redirect(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            `${this.baseConfig.publicOrigin}/oauth/decision?transaction_id=${(req as any).oauth2.transactionID}`
+            `/oauth/decision?transaction_id=${(req as any).oauth2.transactionID}`
           );
           resolve();
         }

@@ -105,7 +105,12 @@ export abstract class Importer {
   }
 
   async getFile() {
-    const { url, type } = this.config;
+    const { url: _url, type } = this.config;
+    let url = _url.trim();
+    if (!z.string().url().safeParse(url).success) {
+      url = `http://localhost:${process.env.PORT}${url}`;
+    }
+
     const { body: stream, headers } = await fetch(url);
 
     const supportType = importTypeMap[type].accept.split(',');
