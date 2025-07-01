@@ -304,7 +304,7 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   describe('array function', () => {
-    it.only('should calculate array function - count', async () => {
+    it('should calculate array function - count', async () => {
       const field = await createField(table1Id, {
         type: FieldType.Formula,
         options: {
