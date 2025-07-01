@@ -27,10 +27,10 @@ jobs:
         include:
           - target: app
             file: Dockerfile
-            image: teable
+            image: teable-community
           - target: db-migrate
             file: Dockerfile.db-migrate
-            image: teable-db-migrate
+            image: teable-db-migrate-community
 
     steps:
       - name: Checkout code
