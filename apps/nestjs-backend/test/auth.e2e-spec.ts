@@ -109,7 +109,6 @@ describe('Auth Controller (e2e)', () => {
     beforeEach(async () => {
       await runWithTestUser(clsService, async () => {
         const setting = await settingService.getSetting();
-        console.log('fixme uno setting', setting);
         preEnableEmailVerification = setting.enableEmailVerification;
         await settingService.updateSetting({
           enableEmailVerification: true,
