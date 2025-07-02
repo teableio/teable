@@ -35,7 +35,10 @@ export function retryOnDeadlock(opt?: {
             retryCodes.includes(error.code)
           ) {
             if (retries === maxRetries) {
-              logger.error('Database deadlock detected', error.stack);
+              logger.error(
+                `Database deadlock after ${retries} retries (code: ${error.code})`,
+                error.stack
+              );
               throw new CustomHttpException(
                 'Database deadlock detected',
                 HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE
