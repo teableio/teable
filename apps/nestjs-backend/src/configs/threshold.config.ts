@@ -25,6 +25,11 @@ export const thresholdConfig = registerAs('threshold', () => ({
   maxOpenapiAttachmentUploadSize: Number(
     process.env.MAX_OPENAPI_ATTACHMENT_UPLOAD_SIZE ?? Infinity
   ),
+  dbDeadlock: {
+    maxRetries: Number(process.env.BACKEND_DB_DEADLOCK_MAX_RETRIES ?? 3),
+    initialBackoff: Number(process.env.BACKEND_DB_DEADLOCK_INITIAL_BACKOFF ?? 100),
+    jitter: Number(process.env.BACKEND_DB_DEADLOCK_JITTER ?? 1.0),
+  },
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);
