@@ -5,7 +5,7 @@ import { registerRoute } from '../../utils';
 import { aiConfigVoSchema } from './update';
 
 export const settingVoSchema = z.object({
-  instanceId: z.string().nullable().optional(),
+  instanceId: z.string(),
   brandName: z.string().nullable().optional(),
   brandLogo: z.string().nullable().optional(),
   disallowSignUp: z.boolean().nullable().optional(),

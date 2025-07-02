@@ -36,7 +36,9 @@ export class SettingService {
       },
     });
 
-    const res: Record<string, unknown> = {};
+    const res: Record<string, unknown> = {
+      instanceId: '',
+    };
 
     for (const setting of settings) {
       const value = this.parseSettingContent(setting.content);
