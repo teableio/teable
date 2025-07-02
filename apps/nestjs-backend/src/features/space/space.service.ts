@@ -24,6 +24,7 @@ import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class SpaceService {
@@ -33,6 +34,7 @@ export class SpaceService {
     private readonly baseService: BaseService,
     private readonly collaboratorService: CollaboratorService,
     private readonly permissionService: PermissionService,
+    private readonly settingService: SettingService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -145,12 +147,7 @@ export class SpaceService {
     const isAdmin = this.cls.get('user.isAdmin');
 
     if (!isAdmin) {
-      const setting = await this.prismaService.setting.findFirst({
-        select: {
-          disallowSpaceCreation: true,
-        },
-      });
-
+      const setting = await this.settingService.getSetting();
       if (setting?.disallowSpaceCreation) {
         throw new ForbiddenException(
           'The current instance disallow space creation by the administrator'

@@ -14,12 +14,10 @@
  * the brand assets, may result in legal action.
  */
 
-import { join } from 'path';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, type ISettingVo, type IUpdateSettingRo } from '@teable/openapi';
+import type { ISettingVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
-import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -29,98 +27,65 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 export class SettingService {
   constructor(
     private readonly prismaService: PrismaService,
-    @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
   async getSetting(): Promise<ISettingVo> {
-    return await this.prismaService.setting
-      .findFirstOrThrow({
-        select: {
-          instanceId: true,
-          disallowSignUp: true,
-          disallowSpaceCreation: true,
-          disallowSpaceInvitation: true,
-          enableEmailVerification: true,
-          aiConfig: true,
-          brandName: true,
-          brandLogo: true,
-        },
-      })
-      .then((setting) => ({
-        ...setting,
-        aiConfig: setting.aiConfig ? JSON.parse(setting.aiConfig as string) : null,
-        brandLogo: setting.brandLogo ? getPublicFullStorageUrl(setting.brandLogo) : null,
-      }))
-      .catch(() => {
-        throw new NotFoundException('Setting not found');
-      });
-  }
-
-  async getServerBrand(): Promise<{ brandName: string; brandLogo: string }> {
-    return {
-      brandName: 'Teable',
-      brandLogo: `${this.baseConfig.publicOrigin}/images/favicon/apple-touch-icon.png`,
-    };
-  }
-
-  async uploadLogo(file: Express.Multer.File) {
-    const token = 'brand';
-    const path = join(StorageAdapter.getDir(UploadType.Logo), 'brand');
-    const bucket = StorageAdapter.getBucket(UploadType.Logo);
-    const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, file.path, {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'Content-Type': file.mimetype,
-    });
-    const { size, mimetype } = file;
-    const setting = await this.getSetting();
-
-    await this.prismaService.txClient().attachments.upsert({
-      create: {
-        hash,
-        size,
-        mimetype,
-        token,
-        path,
-        createdBy: this.cls.get('user.id'),
-      },
-      update: {
-        hash,
-        size,
-        mimetype,
-        path,
-      },
-      where: {
-        token,
-        deletedTime: null,
+    const settings = await this.prismaService.setting.findMany({
+      select: {
+        name: true,
+        content: true,
       },
     });
 
-    await this.prismaService.setting.update({
-      where: { instanceId: setting.instanceId },
-      data: {
-        brandLogo: path,
-      },
-    });
+    const res: Record<string, unknown> = {};
 
-    return {
-      url: getPublicFullStorageUrl(path),
-    };
-  }
-
-  async updateSetting(updateSettingRo: IUpdateSettingRo) {
-    const setting = await this.getSetting();
-
-    const data: object = updateSettingRo;
-    if ('aiConfig' in data) {
-      // if statement to prevent "aiConfig" removal in case that field is not provided
-      data['aiConfig'] = updateSettingRo.aiConfig ? JSON.stringify(updateSettingRo.aiConfig) : null;
+    for (const setting of settings) {
+      const value = this.parseSettingContent(setting.content);
+      if (setting.name === 'brandLogo') {
+        res[setting.name] = value ? getPublicFullStorageUrl(value as string) : value;
+      } else {
+        res[setting.name] = value;
+      }
     }
 
-    return await this.prismaService.setting.update({
-      where: { instanceId: setting.instanceId },
-      data,
-    });
+    return res as ISettingVo;
+  }
+
+  async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
+    const userId = this.cls.get('user.id');
+    const updates = Object.entries(updateSettingRo).map(([name, value]) => ({
+      where: { name },
+      update: { content: JSON.stringify(value), lastModifiedBy: userId },
+      create: {
+        name,
+        content: JSON.stringify(value),
+        createdBy: userId,
+      },
+    }));
+
+    const results = await Promise.all(
+      updates.map((update) => this.prismaService.setting.upsert(update))
+    );
+
+    const res: Record<string, unknown> = {};
+    for (const setting of results) {
+      const value = this.parseSettingContent(setting.content);
+      res[setting.name] = value;
+    }
+
+    return res as ISettingVo;
+  }
+
+  private parseSettingContent(content: string | null): unknown {
+    if (!content) return null;
+
+    try {
+      return JSON.parse(content);
+    } catch (error) {
+      // If parsing fails, return the original content
+      return content;
+    }
   }
 }

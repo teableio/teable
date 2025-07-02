@@ -10,14 +10,14 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { IPublicSettingVo, ISettingVo, IUploadLogoVo } from '@teable/openapi';
 import { IUpdateSettingRo, updateSettingRoSchema } from '@teable/openapi';
-import { ZodValidationPipe } from '../../zod.validation.pipe';
-import { Permissions } from '../auth/decorators/permissions.decorator';
-import { Public } from '../auth/decorators/public.decorator';
-import { SettingService } from './setting.service';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { Public } from '../../auth/decorators/public.decorator';
+import { SettingOpenApiService } from './setting-open-api.service';
 
 @Controller('api/admin/setting')
-export class SettingController {
-  constructor(private readonly settingService: SettingService) {}
+export class SettingOpenApiController {
+  constructor(private readonly settingOpenApiService: SettingOpenApiService) {}
 
   /**
    * Get the instance settings, now we have config for AI, there are some sensitive fields, we need check the permission before return.
@@ -25,7 +25,7 @@ export class SettingController {
   @Permissions('instance|read')
   @Get()
   async getSetting(): Promise<ISettingVo> {
-    return await this.settingService.getSetting();
+    return await this.settingOpenApiService.getSetting();
   }
 
   /**
@@ -34,7 +34,7 @@ export class SettingController {
   @Public()
   @Get('public')
   async getPublicSetting(): Promise<IPublicSettingVo> {
-    const setting = await this.settingService.getSetting();
+    const setting = await this.settingOpenApiService.getSetting();
     const { aiConfig, ...rest } = setting;
     return {
       ...rest,
@@ -56,11 +56,7 @@ export class SettingController {
     @Body(new ZodValidationPipe(updateSettingRoSchema))
     updateSettingRo: IUpdateSettingRo
   ): Promise<ISettingVo> {
-    const res = await this.settingService.updateSetting(updateSettingRo);
-    return {
-      ...res,
-      aiConfig: res.aiConfig ? JSON.parse(res.aiConfig) : null,
-    };
+    return await this.settingOpenApiService.updateSetting(updateSettingRo);
   }
 
   @UseInterceptors(
@@ -80,6 +76,6 @@ export class SettingController {
   @Patch('logo')
   @Permissions('instance|update')
   async uploadLogo(@UploadedFile() file: Express.Multer.File): Promise<IUploadLogoVo> {
-    return this.settingService.uploadLogo(file);
+    return this.settingOpenApiService.uploadLogo(file);
   }
 }

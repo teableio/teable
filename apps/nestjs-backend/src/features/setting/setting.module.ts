@@ -5,7 +5,6 @@ import { AttachmentsCropModule } from '../attachments/attachments-crop.module';
 import { StorageModule } from '../attachments/plugins/storage.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
-import { SettingController } from './setting.controller';
 import { SettingService } from './setting.service';
 
 @Module({
@@ -16,7 +15,7 @@ import { SettingService } from './setting.service';
     }),
     StorageModule,
   ],
-  controllers: [SettingController, AdminController],
+  controllers: [AdminController],
   exports: [SettingService],
   providers: [SettingService, AdminService],
 })

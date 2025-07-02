@@ -25,14 +25,14 @@ import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
-import { SettingService } from '../setting/setting.service';
+import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { UserService } from '../user/user.service';
 
 @Injectable()
 export class InvitationService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly settingService: SettingService,
+    private readonly settingOpenApiService: SettingOpenApiService,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
@@ -58,11 +58,7 @@ export class InvitationService {
     const user = this.cls.get('user');
 
     if (!user?.isAdmin) {
-      const setting = await this.prismaService.setting.findFirst({
-        select: {
-          disallowSpaceInvitation: true,
-        },
-      });
+      const setting = await this.settingOpenApiService.getSetting();
 
       if (setting?.disallowSpaceInvitation) {
         throw new ForbiddenException(
@@ -154,7 +150,7 @@ export class InvitationService {
             invitationId: id,
           },
         });
-        const { brandName } = await this.settingService.getServerBrand();
+        const { brandName } = await this.settingOpenApiService.getServerBrand();
 
         // get email info
         const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({

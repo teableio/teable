@@ -3,7 +3,7 @@ import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import { MailerService } from '@nestjs-modules/mailer';
 import { CollaboratorType } from '@teable/openapi';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
-import { SettingService } from '../setting/setting.service';
+import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 
 @Injectable()
 export class MailSenderService {
@@ -12,7 +12,7 @@ export class MailSenderService {
   constructor(
     private readonly mailService: MailerService,
     @MailConfig() private readonly mailConfig: IMailConfig,
-    private readonly settingService: SettingService
+    private readonly settingOpenApiService: SettingOpenApiService
   ) {}
 
   async sendMail(
@@ -79,7 +79,7 @@ export class MailSenderService {
     const refLength = recordIds.length;
 
     const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/${tableId}`;
-    const { brandName } = await this.settingService.getServerBrand();
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
     if (refLength <= 1) {
       subject = `${fromUserName} added you to the ${fieldName} field of a record in ${tableName}`;
       partialBody = 'collaborator-cell-tag';
@@ -114,7 +114,7 @@ export class MailSenderService {
     buttonText: string;
   }) {
     const { title, message } = info;
-    const { brandName } = await this.settingService.getServerBrand();
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
     return {
       notifyMessage: message,
       subject: `${title} - ${brandName}`,
@@ -135,7 +135,7 @@ export class MailSenderService {
     buttonText: string;
   }) {
     const { title, message } = info;
-    const { brandName } = await this.settingService.getServerBrand();
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
     return {
       notifyMessage: message,
       subject: `${title} - ${brandName}`,
@@ -150,7 +150,7 @@ export class MailSenderService {
 
   async resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
     const { name, email, resetPasswordUrl } = info;
-    const { brandName } = await this.settingService.getServerBrand();
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: `Reset your password - ${brandName}`,
       template: 'normal',
@@ -166,7 +166,7 @@ export class MailSenderService {
 
   async sendEmailVerifyCodeEmailOptions(info: { title: string; message: string }) {
     const { title } = info;
-    const { brandName } = await this.settingService.getServerBrand();
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: `${title} - ${brandName}`,
       template: 'normal',
