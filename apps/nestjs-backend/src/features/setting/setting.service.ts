@@ -56,10 +56,10 @@ export class SettingService {
     const userId = this.cls.get('user.id');
     const updates = Object.entries(updateSettingRo).map(([name, value]) => ({
       where: { name },
-      update: { content: JSON.stringify(value), lastModifiedBy: userId },
+      update: { content: JSON.stringify(value ?? null), lastModifiedBy: userId },
       create: {
         name,
-        content: JSON.stringify(value),
+        content: JSON.stringify(value ?? null),
         createdBy: userId,
       },
     }));
