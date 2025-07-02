@@ -1,22 +1,9 @@
 import { Module } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
-import multer from 'multer';
-import { AttachmentsCropModule } from '../attachments/attachments-crop.module';
-import { StorageModule } from '../attachments/plugins/storage.module';
-import { AdminController } from './admin.controller';
-import { AdminService } from './admin.service';
 import { SettingService } from './setting.service';
 
 @Module({
-  imports: [
-    AttachmentsCropModule,
-    MulterModule.register({
-      storage: multer.diskStorage({}),
-    }),
-    StorageModule,
-  ],
-  controllers: [AdminController],
+  imports: [],
   exports: [SettingService],
-  providers: [SettingService, AdminService],
+  providers: [SettingService],
 })
 export class SettingModule {}

@@ -19,15 +19,12 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { ISettingVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class SettingService {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
