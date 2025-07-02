@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { AdminOpenApiService } from './admin-open-api.service.ts';
+import { AdminOpenApiService } from './admin-open-api.service';
 
 @Controller('api/admin')
 @Permissions('instance|update')
