@@ -17,6 +17,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ISettingVo } from '@teable/openapi';
+import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -35,10 +36,12 @@ export class SettingService {
         content: true,
       },
     });
-
     const res: Record<string, unknown> = {
       instanceId: '',
     };
+    if (!isArray(settings)) {
+      return res as ISettingVo;
+    }
 
     for (const setting of settings) {
       const value = this.parseSettingContent(setting.content);
