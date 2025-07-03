@@ -246,7 +246,7 @@ export class PermissionService {
   private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
-      return getPermissions('creator');
+      return getPermissions('owner');
     }
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(
