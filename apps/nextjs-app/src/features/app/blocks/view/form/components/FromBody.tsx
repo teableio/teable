@@ -111,7 +111,14 @@ export const FormBody = (props: IFormBodyProps) => {
 
     setLoading(true);
     if (submit) {
-      await submit(formData);
+      const finalData = visibleFields.reduce(
+        (acc, field) => {
+          acc[field.id] = formData[field.id];
+          return acc;
+        },
+        {} as Record<string, unknown>
+      );
+      await submit(finalData);
     }
 
     setTimeout(() => {
