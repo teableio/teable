@@ -24,7 +24,7 @@ export default function withEnv<P extends { [key: string]: any }>(
     const storage = {
       provider: process.env.BACKEND_STORAGE_PROVIDER ?? 'local',
       prefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN,
-      publicBucket: process.env.BACKEND_STORAGE_PUBLIC_BUCKET ?? 'public1',
+      publicBucket: process.env.BACKEND_STORAGE_PUBLIC_BUCKET ?? 'public',
       publicUrl: process.env.BACKEND_STORAGE_PUBLIC_URL,
     };
     const env = omitBy(
