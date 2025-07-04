@@ -95,7 +95,7 @@ jobs:
           - target: app
             image: teable-community
           - target: db-migrate
-            image: teable-community-db-migrate
+            image: teable-db-migrate-community
 
     steps:
       - name: Login to GitHub container registry
