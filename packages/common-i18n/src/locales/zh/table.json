@@ -651,6 +651,7 @@
       "generateScriptAction": "生成脚本",
       "getScriptInput": "获取脚本输入",
       "getTeableApi": "获取 API",
+      "dataVisualization": "数据可视化",
       "args": "参数",
       "result": "结果"
     },
@@ -684,6 +685,9 @@
       "timeCostDescription": "生成耗时{{timeCost}}秒",
       "creditDescription": "消耗{{credits}}算力",
       "tokenDescription": "本次消耗：{{tokens}} tokens"
+    },
+    "dataVisualization": {
+      "error": "数据可视化失败"
     }
   }
 }
