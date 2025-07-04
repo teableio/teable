@@ -1,8 +1,5 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
-/* eslint-disable jsx-a11y/click-events-have-key-events */
-import type { UseChatHelpers } from '@ai-sdk/react';
 import { Check, ChevronDown } from '@teable/icons';
-import { McpToolInvocationName } from '@teable/openapi';
+import { McpToolInvocationName, AgentInvocationName } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import {
   Accordion,
@@ -14,16 +11,22 @@ import { isEqual } from 'lodash';
 import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { memo, useMemo, useState } from 'react';
-import { Markdown } from './Markdown';
+import { Markdown } from '../common/Markdown';
+import { DataVisualizationMessagePart } from './DataVisualizationMessagePart';
+import type { IToolMessagePart } from './types';
 
-interface IToolMessagePart {
-  id: string;
-  part: UseChatHelpers['messages'][number]['parts'][number] & {
-    type: 'tool-invocation';
-  };
-}
+export const PureToolMessagePart = (props: IToolMessagePart) => {
+  const { id, part, chatId } = props;
+  // eslint-disable-next-line sonarjs/no-small-switch
+  switch (part.toolInvocation.toolName) {
+    case AgentInvocationName.DataVisualization:
+      return <DataVisualizationMessagePart {...props} />;
+    default:
+      return <ToolMessagePartNormal id={id} part={part} chatId={chatId} />;
+  }
+};
 
-export const PureToolMessagePart = ({ id, part }: IToolMessagePart) => {
+export const ToolMessagePartNormal = ({ id, part }: IToolMessagePart) => {
   const { toolInvocation } = part;
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -35,6 +38,7 @@ export const PureToolMessagePart = ({ id, part }: IToolMessagePart) => {
         return t('aiChat.tool.getTableFields');
       case McpToolInvocationName.GetTablesMeta:
         return t('aiChat.tool.getTablesMeta');
+      case AgentInvocationName.Sql:
       case McpToolInvocationName.SqlQuery:
         return t('aiChat.tool.sqlQuery');
       case McpToolInvocationName.GenerateScriptAction:
@@ -43,6 +47,8 @@ export const PureToolMessagePart = ({ id, part }: IToolMessagePart) => {
         return t('aiChat.tool.getScriptInput');
       case McpToolInvocationName.GetTeableApi:
         return t('aiChat.tool.getTeableApi');
+      case AgentInvocationName.DataVisualization:
+        return t('aiChat.tool.dataVisualization');
       default:
         return toolInvocation.toolName;
     }
