@@ -1,7 +1,7 @@
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { isEqual } from 'lodash';
 import { useState, useCallback, useEffect, memo } from 'react';
-import { LoadingDot } from './LoadingDot';
+import { LoadingDot } from './common/LoadingDot';
 import { Message, MessageWrapper } from './Message';
 import type { IMessageMeta } from './types';
 import { useScrollToBottom } from './use-scroll-to-bottom';
@@ -13,7 +13,7 @@ interface IMessages {
   messageMetaMap?: Record<string, IMessageMeta>;
 }
 
-export const PureMessages = ({ messages, status, messageMetaMap }: IMessages) => {
+export const PureMessages = ({ messages, status, messageMetaMap, chatId }: IMessages) => {
   const isStreaming = status === 'streaming';
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [messagesContainerRef, messagesEndRef] = useScrollToBottom<HTMLDivElement>(
@@ -50,6 +50,7 @@ export const PureMessages = ({ messages, status, messageMetaMap }: IMessages) =>
       {messages.map((message, i) => (
         <Message
           key={message.id}
+          chatId={chatId}
           message={message}
           meta={messageMetaMap?.[message.id]}
           isLoading={i === length - 1 && isStreaming}
@@ -57,6 +58,7 @@ export const PureMessages = ({ messages, status, messageMetaMap }: IMessages) =>
       ))}
       {isLoadingAI && (
         <MessageWrapper
+          chatId={chatId}
           message={{
             id: 'thinking',
             role: 'assistant',

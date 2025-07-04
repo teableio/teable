@@ -134,11 +134,6 @@ export class LocalStorage implements StorageAdapter {
 
         req.on('end', () => {
           fileStream.end();
-          resolve({
-            size,
-            mimetype: req.headers['content-type'] as string,
-            path,
-          });
         });
         req.on('error', (err) => {
           this.deleteFile(path);
@@ -147,6 +142,14 @@ export class LocalStorage implements StorageAdapter {
         fileStream.on('error', (err) => {
           this.deleteFile(path);
           reject(err.message);
+        });
+        fileStream.on('finish', () => {
+          fileStream.close();
+          resolve({
+            size,
+            mimetype: req.headers['content-type'] as string,
+            path,
+          });
         });
       } catch (error) {
         this.logger.error('saveTemporaryFile error', error);
@@ -279,14 +282,15 @@ export class LocalStorage implements StorageAdapter {
         stream.pipe(writer);
         stream.on('end', function () {
           writer.end();
-          writer.close();
-          resolve();
         });
         stream.on('error', (err) => {
-          writer.end();
-          writer.close();
-          this.deleteFile(path);
+          writer.destroy();
+          this.deleteFile(temPath);
           reject(err);
+        });
+        writer.on('finish', () => {
+          writer.close();
+          resolve();
         });
       });
     }
