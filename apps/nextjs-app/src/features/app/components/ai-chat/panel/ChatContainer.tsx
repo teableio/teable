@@ -9,6 +9,7 @@ import { generateModelKeyList } from '@/features/app/blocks/admin/setting/compon
 import { MessageInput } from '../components/MessageInput';
 import { Messages } from '../components/Messages';
 import type { IMessageMeta } from '../components/types';
+import { ChatThreadProvider } from '../context/chat-thread/ChatThreadProvider';
 import { useChatContext } from '../context/useChatContext';
 import { useActiveChat } from '../hooks/useActiveChat';
 import { useChatStore } from '../store/useChatStore';
@@ -86,30 +87,31 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
     };
   }, [isActiveChat, chatId]);
 
-  const { messages, setMessages, handleSubmit, input, setInput, status, stop } = useChat({
-    id: chatId,
-    api: `/api/base/${baseId}/chat`,
-    initialMessages: convertToUIMessages,
-    body: {
-      chatId,
-      model: validModelKey,
-      context,
-    },
-    onFinish: () => {
-      const { isActiveChat, chatId } = useChatRef.current;
-      if (isActiveChat) {
-        queryClient.invalidateQueries({ queryKey: ['chat-message', chatId] });
-        return;
-      }
-      queryClient.refetchQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) }).then(() => {
-        setActiveChatId(chatId);
-        chatIdRef.current = generateChatId();
-      });
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const { messages, setMessages, handleSubmit, input, setInput, status, stop, data, setData } =
+    useChat({
+      id: chatId,
+      api: `/api/base/${baseId}/chat`,
+      initialMessages: convertToUIMessages,
+      body: {
+        chatId,
+        model: validModelKey,
+        context,
+      },
+      onFinish: () => {
+        const { isActiveChat, chatId } = useChatRef.current;
+        if (isActiveChat) {
+          queryClient.invalidateQueries({ queryKey: ['chat-message', chatId] });
+          return;
+        }
+        queryClient.refetchQueries({ queryKey: ReactQueryKeys.chatHistory(baseId) }).then(() => {
+          setActiveChatId(chatId);
+          chatIdRef.current = generateChatId();
+        });
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    });
 
   useEffect(() => {
     if (status === 'streaming' && !isActiveChat) {
@@ -123,26 +125,26 @@ export const ChatContainer = ({ baseId }: { baseId: string }) => {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden pb-3">
-      <Messages
-        messages={messages}
-        messageMetaMap={messageMetaMap}
-        chatId={chatId}
-        status={status}
-      />
-      <form className="px-2">
-        <MessageInput
-          modelKey={validModelKey}
-          models={models}
-          input={input}
-          setInput={setInput}
+      <ChatThreadProvider dataStream={data} setDataStream={setData}>
+        <Messages
+          messages={messages}
+          messageMetaMap={messageMetaMap}
+          chatId={chatId}
           status={status}
-          stop={stop}
-          setModelKey={setModelKey}
-          setMessages={setMessages}
-          handleSubmit={handleSubmit}
-          modelLoading={isBaseAiConfigLoading}
         />
-      </form>
+      </ChatThreadProvider>
+      <MessageInput
+        modelKey={validModelKey}
+        models={models}
+        input={input}
+        setInput={setInput}
+        status={status}
+        stop={stop}
+        setModelKey={setModelKey}
+        setMessages={setMessages}
+        handleSubmit={handleSubmit}
+        modelLoading={isBaseAiConfigLoading}
+      />
     </div>
   );
 };
