@@ -14,6 +14,7 @@ export enum UploadType {
   Logo = 8,
   ExportBase = 9,
   Template = 10,
+  ChatDataVisualizationCode = 11,
 }
 
 export const signatureRoSchema = z.object({

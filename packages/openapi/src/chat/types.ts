@@ -30,3 +30,23 @@ export type IChatMessageUsage = {
   completionTokens: number;
   credit?: number;
 };
+
+export enum AgentInvocationName {
+  DataVisualization = 'data-visualization-agent',
+  Sql = 'sql-agent',
+}
+
+export type IDataVisualizationDataStream = {
+  type: 'tool-invocation';
+  data: {
+    toolCallId: string;
+    toolName: AgentInvocationName.DataVisualization;
+    state: 'progress' | 'finish';
+    code?: string;
+  };
+};
+
+export type IDataVisualizationAgentResult = {
+  filePath?: string;
+  error?: string;
+};

@@ -65,6 +65,7 @@ export class AttachmentsController {
       }
     }
     headers['Cross-Origin-Resource-Policy'] = 'unsafe-none';
+    headers['Content-Security-Policy'] = '';
     res.set(headers);
     return new StreamableFile(fileStream);
   }
