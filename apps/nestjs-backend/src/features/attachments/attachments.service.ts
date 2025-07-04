@@ -285,7 +285,7 @@ export class AttachmentsService {
       const headResponse = await axios.head(fileUrl);
       contentLength =
         headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
-      contentType = headResponse.headers['content-type'];
+      contentType = mimeTypes.lookup(fileUrl) || headResponse.headers['content-type'];
       this.logger.log(
         `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
       );
