@@ -3,7 +3,7 @@ import { UserAvatar } from '@teable/sdk/components';
 import { useSession } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { BotIcon } from 'lucide-react';
-import { LoadingDot } from './LoadingDot';
+import { LoadingDot } from './common/LoadingDot';
 import { ReasonMessagePart } from './message-part/ReasonMessagePart';
 import { TextMessagePart } from './message-part/TextMessagePart';
 import { ToolMessagePart } from './message-part/ToolMessagePart';
@@ -14,15 +14,16 @@ export const THINKING_MESSAGE_ID = 'thinking';
 
 interface IMessage {
   isLoading?: boolean;
+  chatId: string;
   message: UseChatHelpers['messages'][number];
   meta?: IMessageMeta;
 }
 
-export const Message = ({ message, isLoading, meta }: IMessage) => {
+export const Message = ({ message, isLoading, meta, chatId }: IMessage) => {
   const partsLength = message.parts.length;
 
   return (
-    <MessageWrapper message={message}>
+    <MessageWrapper message={message} chatId={chatId}>
       {message.parts.map((part, index) => {
         switch (part.type) {
           case 'text':
@@ -44,7 +45,14 @@ export const Message = ({ message, isLoading, meta }: IMessage) => {
               />
             );
           case 'tool-invocation':
-            return <ToolMessagePart key={index} part={part} id={`${message.id}-tool-${index}`} />;
+            return (
+              <ToolMessagePart
+                key={index}
+                part={part}
+                id={`${message.id}-tool-${index}`}
+                chatId={chatId}
+              />
+            );
           default:
             return;
         }

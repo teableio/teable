@@ -5,7 +5,7 @@ import { Button, cn, Textarea } from '@teable/ui-lib/shadcn';
 import { PauseIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { LoadingDot } from './LoadingDot';
+import { LoadingDot } from './common/LoadingDot';
 import { MessageContext } from './MessageContext';
 import { ModelSelector } from './ModelSelector';
 

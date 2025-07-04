@@ -651,6 +651,7 @@
       "generateScriptAction": "Generate script action",
       "getScriptInput": "Get script input",
       "getTeableApi": "Get API",
+      "dataVisualization": "Data visualization",
       "args": "Arguments",
       "result": "Result"
     },
@@ -684,6 +685,9 @@
       "timeCostDescription": "Generation time: {{timeCost}}s",
       "creditDescription": "{{credits}} credits consumed",
       "tokenDescription": "Tokens used: {{tokens}}"
+    },
+    "dataVisualization": {
+      "error": "Data visualization failed"
     }
   }
 }
