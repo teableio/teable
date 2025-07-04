@@ -1,7 +1,7 @@
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { isEqual } from 'lodash';
 import { memo } from 'react';
-import { Markdown } from './Markdown';
+import { Markdown } from '../common/Markdown';
 
 type ITextPart = UseChatHelpers['messages'][number]['parts'][number] & {
   type: 'text';
