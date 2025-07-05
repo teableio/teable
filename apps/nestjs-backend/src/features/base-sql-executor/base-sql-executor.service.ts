@@ -29,6 +29,10 @@ export class BaseSqlExecutorService {
     return this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
   }
 
+  private getDisablePreSqlExecutorCheck() {
+    return this.configService.get<string>('DISABLE_PRE_SQL_EXECUTOR_CHECK') === 'true';
+  }
+
   private async getReadOnlyDatabaseConnectionConfig(): Promise<
     Knex.PgConnectionConfig | undefined
   > {
@@ -62,10 +66,14 @@ export class BaseSqlExecutorService {
       password: this.dsn.pass,
       query_timeout: 10000,
       user: BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME,
+      host: (this.dsn.params?.host as string) ?? this.dsn.host,
     };
   }
 
   async onModuleInit() {
+    if (this.getDisablePreSqlExecutorCheck()) {
+      return;
+    }
     // if pg_read_all_data role not exist, no need to create read only role
     this.hasPgReadAllDataRole = await this.roleExits('pg_read_all_data');
     if (!this.hasPgReadAllDataRole) {
