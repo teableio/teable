@@ -14,7 +14,7 @@ CREATE TABLE "setting_new" (
 CREATE UNIQUE INDEX "setting_name_key" ON "setting_new"("name");
 
 -- Drop old table
-DROP TABLE "setting";
+DROP TABLE IF EXISTS "setting";   
 
 -- Rename new table to original name
 ALTER TABLE "setting_new" RENAME TO "setting";

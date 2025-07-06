@@ -75,6 +75,8 @@ ALTER TABLE "setting"
 
 CREATE UNIQUE INDEX "setting_name_key" ON "setting"("name");
 
+DROP TABLE IF EXISTS "setting_backup";
+
 COMMIT;
 
 
