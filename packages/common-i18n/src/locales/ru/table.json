@@ -235,6 +235,7 @@
       "enableValidateFieldNotNull": "Включить проверку на ненулевое значение",
       "knowMore": "узнать больше",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "Показать записи по полю",
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",

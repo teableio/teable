@@ -235,6 +235,7 @@
       "enableValidateFieldNotNull": "NULLでない値の検証を有効にする",
       "knowMore": "さらに詳しく",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "フィールドでレコードを表示する",
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",

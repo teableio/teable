@@ -3,9 +3,11 @@ import { ChevronsUpDown } from '@teable/icons';
 import { Button, Popover, PopoverTrigger, PopoverContent, cn } from '@teable/ui-lib';
 import { useState, useMemo } from 'react';
 import { useFields, useFieldStaticGetter } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 import { FieldCommand } from './FieldCommand';
 
 interface IFieldSelector {
+  fields?: IFieldInstance[];
   value?: string;
   className?: string;
   excludedIds?: string[];
@@ -28,11 +30,14 @@ export function FieldSelector(props: IFieldSelector) {
     onSelect,
     children,
     modal = false,
+    fields: propsFields,
   } = props;
 
   const [open, setOpen] = useState(false);
 
-  const fields = useFields({ withHidden: true, withDenied: true });
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = propsFields ?? defaultFields;
+
   const selectedField = useMemo(() => fields.find((f) => f.id === value), [fields, value]);
 
   const fieldStaticGetter = useFieldStaticGetter();
@@ -72,6 +77,7 @@ export function FieldSelector(props: IFieldSelector) {
 
       <PopoverContent className="w-[200px] p-0" container={props.container}>
         <FieldCommand
+          fields={fields}
           selectedIds={selectedIds}
           placeholder={placeholder}
           emptyHolder={emptyHolder}

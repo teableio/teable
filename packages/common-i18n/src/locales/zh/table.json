@@ -243,6 +243,7 @@
       "enableValidateFieldNotNull": "禁止空值",
       "knowMore": "了解更多",
       "linkFieldKnowMoreLink": "https://help.teable.cn/zh/basic/field/advanced/link",
+      "showByField": "选择展示的列",
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
