@@ -65,6 +65,7 @@ import { AppModule } from '../../src/app.module';
 import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
+import { BaseSqlExecutorModule } from '../../src/features/base-sql-executor/base-sql-executor.module';
 import { NextService } from '../../src/features/next/next.service';
 import { TableIndexService } from '../../src/features/table/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
@@ -77,7 +78,7 @@ export async function initApp() {
   if (globalThis.initApp) return await globalThis.initApp();
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [AppModule],
+    imports: [AppModule, BaseSqlExecutorModule],
   })
     .overrideProvider(NextService)
     .useValue({
