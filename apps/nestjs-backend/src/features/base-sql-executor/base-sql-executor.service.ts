@@ -68,6 +68,9 @@ export class BaseSqlExecutorService {
   }
 
   async onModuleInit() {
+    if (this.driver !== DriverClient.Pg) {
+      return;
+    }
     if (this.getDisablePreSqlExecutorCheck()) {
       return;
     }
