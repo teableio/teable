@@ -1,7 +1,9 @@
 import type { UseChatHelpers } from '@ai-sdk/react';
-import { ArrowUpRight } from '@teable/icons';
+import { ArrowUpRight, Plus } from '@teable/icons';
+import { useBase } from '@teable/sdk/hooks';
 import { Button, cn, Textarea } from '@teable/ui-lib/shadcn';
 import { PauseIcon } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { LoadingDot } from './LoadingDot';
 import { MessageContext } from './MessageContext';
@@ -33,12 +35,21 @@ export const MessageInput = ({
   handleSubmit: UseChatHelpers['handleSubmit'];
 }) => {
   const { t } = useTranslation(['table']);
+  const router = useRouter();
+  const base = useBase();
 
   const hasModel = models.length > 0;
 
   const hasRequesting = ['submitted', 'streaming'].includes(status);
 
   const disabledSubmit = input.length === 0 || !hasModel || hasRequesting;
+
+  const onLinkIntegration = () => {
+    router.push({
+      pathname: '/space/[spaceId]/setting/integration',
+      query: { spaceId: base.spaceId },
+    });
+  };
 
   return (
     <div className="rounded-lg border bg-muted px-2 py-1">
@@ -68,7 +79,20 @@ export const MessageInput = ({
         ) : modelLoading ? (
           <LoadingDot dotClassName="size-0.5" />
         ) : (
-          <div className="text-xs text-destructive">{t('table:aiChat.noModel')}</div>
+          <div className="flex items-center gap-2 text-xs text-destructive">
+            <Button
+              variant="outline"
+              size="xs"
+              className="h-5 px-[2px] text-xs text-muted-foreground"
+              onClick={(e) => {
+                e.preventDefault();
+                onLinkIntegration();
+              }}
+            >
+              <Plus className="size-4" />
+            </Button>
+            {t('table:aiChat.noModel')}
+          </div>
         )}
         {hasRequesting ? (
           <Button

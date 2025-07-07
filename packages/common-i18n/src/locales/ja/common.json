@@ -284,7 +284,8 @@
         "testFailed": "テスト失敗",
         "fillRequiredFields": "すべての必須フィールドを入力してください",
         "modelsRequired": "少なくとも1つのモデルを入力してください",
-        "noValidModel": "有効なモデルが見つかりません"
+        "noValidModel": "有効なモデルが見つかりません",
+        "addCustomModel": "カスタムモデルを追加する"
       }
     }
   },

@@ -398,7 +398,8 @@
         "testFailed": "Test failed",
         "fillRequiredFields": "Please fill in all required fields",
         "modelsRequired": "Please fill in at least one model",
-        "noValidModel": "No valid model found"
+        "noValidModel": "No valid model found",
+        "addCustomModel": "Add custom model"
       }
     }
   },

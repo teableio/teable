@@ -1,7 +1,8 @@
 'use client';
 
-import { ChevronDown } from '@teable/icons';
+import { ChevronDown, Plus } from '@teable/icons';
 import type { IModelDefinationMap } from '@teable/openapi';
+import { useBase } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib';
 import {
   cn,
@@ -22,6 +23,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { Check } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { Fragment, useMemo, useState } from 'react';
@@ -57,15 +59,17 @@ export function AIModelSelect({
   needGroup,
   children,
 }: IAIModelSelectProps) {
-  const [open, setOpen] = useState(false);
+  const base = useBase();
+  const router = useRouter();
   const isCloud = useIsCloud();
+  const { t } = useTranslation('common');
+
+  const [open, setOpen] = useState(false);
   const currentModel = options.find(
     ({ modelKey }) => modelKey.toLowerCase() === value.toLowerCase()
   );
   const { type, name, model } = parseModelKey(currentModel?.modelKey);
   const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
-
-  const { t } = useTranslation('common');
 
   const { spaceOptions, instanceOptions } = useMemo(() => {
     return {
@@ -76,6 +80,13 @@ export function AIModelSelect({
       }),
     };
   }, [options]);
+
+  const onLinkIntegration = () => {
+    router.push({
+      pathname: '/space/[spaceId]/setting/integration',
+      query: { spaceId: base.spaceId },
+    });
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal>
@@ -264,6 +275,18 @@ export function AIModelSelect({
               </CommandList>
             </div>
           </ScrollArea>
+          {needGroup && (
+            <Fragment>
+              {Boolean(spaceOptions.length || instanceOptions.length) && <CommandSeparator />}
+              <CommandItem
+                className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground"
+                onSelect={onLinkIntegration}
+              >
+                <Plus className="size-4" />
+                {t('admin.setting.ai.addCustomModel')}
+              </CommandItem>
+            </Fragment>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

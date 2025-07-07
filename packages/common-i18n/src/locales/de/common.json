@@ -323,7 +323,8 @@
         "testFailed": "Test fehlgeschlagen",
         "fillRequiredFields": "Bitte füllen Sie alle erforderlichen Felder aus",
         "modelsRequired": "Bitte füllen Sie mindestens ein Modell aus",
-        "noValidModel": "Kein gültiges Modell gefunden"
+        "noValidModel": "Kein gültiges Modell gefunden",
+        "addCustomModel": "Benutzerdefiniertes Modell hinzufügen"
       }
     }
   },

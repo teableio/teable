@@ -279,7 +279,8 @@
         "testFailed": "Test échoué",
         "fillRequiredFields": "Veuillez remplir tous les champs requis",
         "modelsRequired": "Veuillez remplir au moins un modèle",
-        "noValidModel": "Aucun modèle valide trouvé"
+        "noValidModel": "Aucun modèle valide trouvé",
+        "addCustomModel": "Ajouter un modèle personnalisé"
       }
     }
   },

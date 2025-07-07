@@ -306,7 +306,8 @@
         "testFailed": "Test fallido",
         "fillRequiredFields": "Por favor, complete todos los campos requeridos",
         "modelsRequired": "Por favor, complete al menos un modelo",
-        "noValidModel": "No se encontró ningún modelo válido"
+        "noValidModel": "No se encontró ningún modelo válido",
+        "addCustomModel": "Agregar modelo personalizado"
       }
     }
   },
