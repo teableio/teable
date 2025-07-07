@@ -71,6 +71,14 @@ const NonMemoizedMarkdown = ({
             <p className="!mb-2 !mt-2">{children}</p>
           );
         },
+        a(props) {
+          const { children, href, ...rest } = props;
+          return (
+            <a {...rest} href={href} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          );
+        },
         ...components,
       }}
     >
