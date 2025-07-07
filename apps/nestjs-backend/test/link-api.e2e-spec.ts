@@ -16,18 +16,24 @@ import {
   DriverClient,
   FieldKeyType,
   FieldType,
+  getRandomString,
   NumberFormattingType,
   Relationship,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
+  axios,
   convertField,
   createBase,
   deleteBase,
   deleteRecords,
   planFieldConvert,
+  undo,
   updateDbTableName,
 } from '@teable/openapi';
+import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+import { Events } from '../src/event-emitter/events';
+import { createAwaitWithEvent } from './utils/event-promise';
 import {
   createField,
   createRecords,
@@ -50,10 +56,19 @@ describe('OpenAPI link (e2e)', () => {
   const baseId = globalThis.testConfig.baseId;
   const spaceId = globalThis.testConfig.spaceId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
+  let eventEmitterService: EventEmitterService;
+  let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<T>;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    eventEmitterService = app.get(EventEmitterService);
+    const windowId = 'win' + getRandomString(8);
+    axios.interceptors.request.use((config) => {
+      config.headers['X-Window-Id'] = windowId;
+      return config;
+    });
+    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
   });
 
   afterAll(async () => {
@@ -3467,6 +3482,185 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
       await planFieldConvert(table1.id, linkField.id, fieldRo);
+    });
+  });
+
+  describe('link field show by field', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should work with link field show by field - create field', async () => {
+      const textField = await createField(table2.id, {
+        type: FieldType.SingleLineText,
+        name: 'text field',
+      });
+      const linkField = await createField(table1.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+        },
+      });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'H1',
+            [table2.fields[0].id]: 'A1',
+          },
+        },
+      });
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: { id: table2.records[0].id },
+          },
+        },
+      });
+
+      const res = await getRecord(table1.id, table1.records[0].id);
+      expect(res.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H1' });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'H2',
+          },
+        },
+      });
+
+      const res1 = await getRecord(table1.id, table1.records[0].id);
+      expect(res1.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H2' });
+    });
+
+    it('should work with link field show by field - convert field', async () => {
+      const textField = await createField(table2.id, {
+        type: FieldType.SingleLineText,
+        name: 'text field',
+      });
+      const linkField = await createField(table1.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+        },
+      });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'H1',
+            [table2.fields[0].id]: 'A1',
+          },
+        },
+      });
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: { id: table2.records[0].id },
+          },
+        },
+      });
+
+      const res1 = await getRecord(table1.id, table1.records[0].id);
+      expect(res1.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'A1' });
+
+      const newLinkField = await convertField(table1.id, linkField.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+        },
+      });
+      expect((newLinkField.data?.options as ILinkFieldOptions)?.lookupFieldId).toEqual(
+        textField.id
+      );
+
+      const res2 = await getRecord(table1.id, table1.records[0].id);
+      expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H1' });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'H2',
+          },
+        },
+      });
+
+      const res3 = await getRecord(table1.id, table1.records[0].id);
+      expect(res3.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H2' });
+    });
+
+    it('should work with link field show by field - delete lookuped field and undo', async () => {
+      const textField = await createField(table2.id, {
+        type: FieldType.SingleLineText,
+        name: 'text field',
+      });
+      const linkField = await createField(table1.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+        },
+      });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'H1',
+            [table2.fields[0].id]: 'A1',
+          },
+        },
+      });
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: { id: table2.records[0].id },
+          },
+        },
+      });
+
+      const res = await getRecord(table1.id, table1.records[0].id);
+      expect(res.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H1' });
+
+      // await deleteField(table2.id, textField.id);
+      await awaitWithEvent(() => deleteField(table2.id, textField.id));
+
+      const res1 = await getRecord(table1.id, table1.records[0].id);
+      expect(res1.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'A1' });
+
+      const undoRes = await undo(table2.id);
+      expect(undoRes.data.status).toEqual('fulfilled');
+
+      // const res2 = await getRecord(table1.id, table1.records[0].id);
+      // console.log('fixme uno res2', res2);
+      // expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H1' });
     });
   });
 });

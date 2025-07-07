@@ -197,14 +197,20 @@ export class FieldSupplementService {
     optionsRo: ILinkFieldOptionsRo
   ): Promise<ILinkFieldOptions> {
     const { baseId, foreignTableId, isOneWay } = optionsRo;
+    let lookupFieldId = optionsRo.lookupFieldId;
     const symmetricFieldId = isOneWay ? undefined : generateFieldId();
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
 
-    const { id: lookupFieldId } = await this.prismaService.txClient().field.findFirstOrThrow({
-      where: { tableId: foreignTableId, isPrimary: true },
-      select: { id: true },
-    });
+    if (!lookupFieldId) {
+      const { id: defaultLookupFieldId } = await this.prismaService
+        .txClient()
+        .field.findFirstOrThrow({
+          where: { tableId: foreignTableId, isPrimary: true },
+          select: { id: true },
+        });
+      lookupFieldId = defaultLookupFieldId;
+    }
 
     if (baseId) {
       await this.prismaService.tableMeta
@@ -257,15 +263,22 @@ export class FieldSupplementService {
       return generateFieldId();
     })();
 
-    const lookupFieldId =
-      oldOptions.foreignTableId === foreignTableId
-        ? oldOptions.lookupFieldId
-        : (
-            await this.prismaService.field.findFirstOrThrow({
-              where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
-              select: { id: true },
-            })
-          ).id;
+    let lookupFieldId = newOptionsRo.lookupFieldId;
+    if (!lookupFieldId) {
+      const sameTable = oldOptions.foreignTableId === foreignTableId;
+      if (sameTable) {
+        lookupFieldId = oldOptions.lookupFieldId;
+      }
+    }
+    if (!lookupFieldId) {
+      const { id: defaultLookupFieldId } = await this.prismaService
+        .txClient()
+        .field.findFirstOrThrow({
+          where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
+          select: { id: true },
+        });
+      lookupFieldId = defaultLookupFieldId;
+    }
 
     if (baseId) {
       await this.prismaService.tableMeta
@@ -1157,7 +1170,6 @@ export class FieldSupplementService {
       }, // for convenience, we fallback name adn dbFieldName when it be undefined
       oldFieldVo
     )) as IFieldVo;
-
     this.validateFormattingShowAs(fieldVo);
     this.validateAiConfig(fieldVo);
 

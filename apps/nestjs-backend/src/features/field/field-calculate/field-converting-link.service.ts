@@ -310,6 +310,7 @@ export class FieldConvertingLinkService {
     // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
     const foreignRecords = await this.getRecords(foreignTableId, lookupField);
 
+    // TODO: maybe have same title in foreignTable, should use id to map
     const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
       const str = lookupField.cellValue2String(record.fields[lookupField.id]);
       pre[str] = record.id;
@@ -429,7 +430,10 @@ export class FieldConvertingLinkService {
 
       oldLinkLinks.forEach((link) => {
         if (idToTitleMap[link.id]) {
-          pushNewCellValue(link);
+          pushNewCellValue({
+            ...link,
+            title: idToTitleMap[link.id],
+          });
         }
       });
 
