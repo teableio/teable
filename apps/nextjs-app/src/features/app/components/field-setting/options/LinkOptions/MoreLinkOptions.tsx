@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IFilter, ILinkFieldOptionsRo } from '@teable/core';
+import { type IFilter, type ILinkFieldOptionsRo } from '@teable/core';
 import { EyeOff, Maximize2 } from '@teable/icons';
 import { getFields } from '@teable/openapi';
 import {
@@ -7,10 +7,11 @@ import {
   HideFieldsBase,
   useFieldFilterLinkContext,
   ViewSelect,
+  FieldSelector,
 } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useTableId } from '@teable/sdk/hooks';
-import type { IFieldInstance } from '@teable/sdk/model';
+import { createFieldInstance, type IFieldInstance } from '@teable/sdk/model';
 import { Button, cn, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
@@ -21,6 +22,7 @@ interface IMoreOptionsProps {
   fieldId?: string;
   filter?: IFilter | null;
   filterByViewId?: string | null;
+  lookupFieldId?: string | null;
   visibleFieldIds?: string[] | null;
   onChange?: (options: Partial<ILinkFieldOptionsRo>) => void;
 }
@@ -32,6 +34,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
     filterByViewId,
     visibleFieldIds: _visibleFieldIds,
     filter,
+    lookupFieldId,
     onChange,
   } = props;
 
@@ -50,6 +53,14 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
     queryFn: () => getFields(foreignTableId).then((res) => res.data),
     enabled: !!foreignTableId,
   });
+
+  const primaryField = useMemo(() => {
+    return totalFields.find((field) => field.isPrimary);
+  }, [totalFields]);
+
+  const fieldInstances = useMemo(() => {
+    return totalFields.map((field) => createFieldInstance(field));
+  }, [totalFields]);
 
   const { data: withViewFields } = useQuery({
     queryKey: ReactQueryKeys.fieldList(foreignTableId, query),
@@ -87,6 +98,14 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
 
   return (
     <div className="flex flex-col gap-2 rounded-md border px-2 py-3">
+      <div className="flex flex-col gap-2">
+        <span>{t('table:field.editor.showByField')}</span>
+        <FieldSelector
+          fields={fieldInstances}
+          value={lookupFieldId ?? primaryField?.id}
+          onSelect={(fieldId) => onChange?.({ lookupFieldId: fieldId ?? undefined })}
+        />
+      </div>
       <div className="flex flex-col gap-2">
         <span>{t('table:field.editor.filterByView')}</span>
         <ViewSelect

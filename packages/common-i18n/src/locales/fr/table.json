@@ -235,6 +235,7 @@
       "enableValidateFieldNotNull": "Activer la validation des valeurs non nulles",
       "knowMore": "en savoir plus",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "Afficher les enregistrements par champ",
       "filterByView": "Filtrer les enregistrements par vue",
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",

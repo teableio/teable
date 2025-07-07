@@ -240,6 +240,7 @@
       "enableValidateFieldNotNull": "Prohibir valores no vacíos",
       "knowMore": "conocer más",
       "linkFieldKnowMoreLink": "https://help.table.io/en/basic/field/advanced/link",
+      "showByField": "Mostrar registros por campo",
       "filterByView": "Registros de filtro por vista",
       "filter": "Registros de filtro",
       "hideFields": "Ocultar campos",

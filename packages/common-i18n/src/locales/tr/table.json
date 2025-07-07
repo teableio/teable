@@ -233,6 +233,7 @@
       "enableValidateFieldNotNull": "Boş değerleri yasakla",
       "knowMore": "daha fazla bilgi",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "Alanlara göre kayıtları göster",
       "filterByView": "Görünüme göre kayıtları filtrele",
       "filter": "Kayıtları filtrele",
       "hideFields": "Alanları gizle",

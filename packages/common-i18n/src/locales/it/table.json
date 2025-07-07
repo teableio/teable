@@ -244,6 +244,7 @@
       "enableValidateFieldNotNull": "Vieta valori non vuoti",
       "knowMore": "saperne di più",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "Mostra record per campo",
       "filterByView": "Filtra record per vista",
       "filter": "Filtra record",
       "hideFields": "Nascondi campi",

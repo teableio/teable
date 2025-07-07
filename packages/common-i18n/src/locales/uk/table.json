@@ -244,6 +244,7 @@
       "enableValidateFieldNotNull": "Заборонити непорожні значення",
       "knowMore": "дізнатися більше",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "Показати записи за полем",
       "filterByView": "Фільтрувати записи за переглядом",
       "filter": "Фільтрувати записи",
       "hideFields": "Приховати поля",

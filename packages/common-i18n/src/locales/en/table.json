@@ -244,6 +244,7 @@
       "enableValidateFieldNotNull": "Forbid non-empty values",
       "knowMore": "know more",
       "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "showByField": "Show records by field",
       "filterByView": "Filter records by view",
       "filter": "Filter records",
       "hideFields": "Hide fields",

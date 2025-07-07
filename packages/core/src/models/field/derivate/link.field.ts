@@ -49,15 +49,21 @@ export const linkFieldOptionsSchema = z
 
 export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
-export const linkFieldOptionsRoSchema = linkFieldOptionsSchema.pick({
-  baseId: true,
-  relationship: true,
-  foreignTableId: true,
-  isOneWay: true,
-  filterByViewId: true,
-  visibleFieldIds: true,
-  filter: true,
-});
+export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
+  .pick({
+    baseId: true,
+    relationship: true,
+    foreignTableId: true,
+    isOneWay: true,
+    filterByViewId: true,
+    visibleFieldIds: true,
+    filter: true,
+  })
+  .merge(
+    z.object({
+      lookupFieldId: z.string().optional(),
+    })
+  );
 
 export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;
 

@@ -120,6 +120,7 @@ export const LinkOptions = (props: {
               filterByViewId={options?.filterByViewId}
               visibleFieldIds={options?.visibleFieldIds}
               filter={options?.filter}
+              lookupFieldId={options?.lookupFieldId}
               onChange={(partialOptions: Partial<ILinkFieldOptionsRo>) => {
                 onChange?.({ ...options, ...partialOptions });
               }}

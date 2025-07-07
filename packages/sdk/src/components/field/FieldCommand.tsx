@@ -9,8 +9,10 @@ import {
 import React, { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields, useFieldStaticGetter } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 
 interface IFieldCommand {
+  fields?: IFieldInstance[];
   onSelect?: (fieldId: string) => void;
   className?: string;
   selectedIds?: string[];
@@ -19,10 +21,11 @@ interface IFieldCommand {
 }
 
 export function FieldCommand(props: IFieldCommand) {
-  const { placeholder, emptyHolder, onSelect, selectedIds } = props;
+  const { placeholder, emptyHolder, onSelect, selectedIds, fields: propsFields } = props;
   const { t } = useTranslation();
 
-  const fields = useFields({ withHidden: true, withDenied: true });
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = propsFields ?? defaultFields;
 
   const fieldStaticGetter = useFieldStaticGetter();
 
