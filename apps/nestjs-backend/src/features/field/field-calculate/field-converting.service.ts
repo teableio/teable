@@ -10,6 +10,7 @@ import type {
   IOtOperation,
   ISelectFieldChoice,
   IConvertFieldRo,
+  ILinkFieldOptions,
 } from '@teable/core';
 import {
   CellValueType,
@@ -1012,6 +1013,14 @@ export class FieldConvertingService {
   private shouldUpdateReference(newField: IFieldInstance, oldField: IFieldInstance) {
     const keys = this.getOriginFieldKeys(newField, oldField);
     if (newField.type === FieldType.Link && !newField.isLookup) {
+      if (
+        keys.includes('options') &&
+        newField.type === oldField.type &&
+        newField.options.lookupFieldId !== (oldField.options as ILinkFieldOptions).lookupFieldId
+      ) {
+        return true;
+      }
+
       return false;
     }
 
