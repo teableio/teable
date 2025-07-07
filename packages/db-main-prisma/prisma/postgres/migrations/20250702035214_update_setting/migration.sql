@@ -1,5 +1,3 @@
-
-
 BEGIN;
 
 CREATE TABLE "setting_backup" AS SELECT * FROM "setting";
@@ -28,22 +26,22 @@ BEGIN
     FOR old_record IN (SELECT * FROM "setting_backup" LIMIT 1) LOOP
         IF old_record.disallow_sign_up IS NOT NULL THEN
             INSERT INTO "setting" ("name", "content", "created_by") 
-            VALUES ('disallowSignUp', old_record.disallow_sign_up::text, 'anonymous');
+            VALUES ('disallowSignUp', to_json(old_record.disallow_sign_up)::text, 'anonymous');
         END IF;
 
         IF old_record.disallow_space_creation IS NOT NULL THEN
             INSERT INTO "setting" ("name", "content", "created_by") 
-            VALUES ('disallowSpaceCreation', old_record.disallow_space_creation::text, 'anonymous');
+            VALUES ('disallowSpaceCreation', to_json(old_record.disallow_space_creation)::text, 'anonymous');
         END IF;
 
         IF old_record.disallow_space_invitation IS NOT NULL THEN
             INSERT INTO "setting" ("name", "content", "created_by") 
-            VALUES ('disallowSpaceInvitation', old_record.disallow_space_invitation::text, 'anonymous');
+            VALUES ('disallowSpaceInvitation', to_json(old_record.disallow_space_invitation)::text, 'anonymous');
         END IF;
 
         IF old_record.enable_email_verification IS NOT NULL THEN
             INSERT INTO "setting" ("name", "content", "created_by") 
-            VALUES ('enableEmailVerification', old_record.enable_email_verification::text, 'anonymous');
+            VALUES ('enableEmailVerification', to_json(old_record.enable_email_verification)::text, 'anonymous');
         END IF;
 
         IF old_record.ai_config IS NOT NULL THEN
@@ -53,16 +51,18 @@ BEGIN
 
         IF old_record.brand_name IS NOT NULL THEN
             INSERT INTO "setting" ("name", "content", "created_by") 
-            VALUES ('brandName', old_record.brand_name, 'anonymous');
+            VALUES ('brandName', to_json(old_record.brand_name)::text, 'anonymous');
         END IF;
 
         IF old_record.brand_logo IS NOT NULL THEN
             INSERT INTO "setting" ("name", "content", "created_by") 
-            VALUES ('brandLogo', old_record.brand_logo, 'anonymous');
+            VALUES ('brandLogo', to_json(old_record.brand_logo)::text, 'anonymous');
         END IF;
 
-        INSERT INTO "setting" ("name", "content", "created_by") 
-        VALUES ('instanceId', old_record.instance_id, 'anonymous');
+        IF old_record.instance_id IS NOT NULL THEN
+            INSERT INTO "setting" ("name", "content", "created_by") 
+            VALUES ('instanceId', to_json(old_record.instance_id)::text, 'anonymous');
+        END IF;
     END LOOP;
 END $$;
 
