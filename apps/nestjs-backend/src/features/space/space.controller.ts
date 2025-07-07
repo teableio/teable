@@ -21,6 +21,7 @@ import type {
   UpdateSpaceInvitationLinkVo,
   ListSpaceCollaboratorVo,
   IGetBaseAllVo,
+  ITestLLMVo,
 } from '@teable/openapi';
 import {
   createSpaceRoSchema,
@@ -46,6 +47,8 @@ import {
   ICreateIntegrationRo,
   updateIntegrationRoSchema,
   IUpdateIntegrationRo,
+  testLLMRoSchema,
+  ITestLLMRo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -274,5 +277,14 @@ export class SpaceController {
     @Param('integrationId') integrationId: string
   ) {
     return this.spaceService.deleteIntegration(integrationId);
+  }
+
+  @Permissions('instance|update')
+  @Post(':spaceId/test-llm')
+  async testIntegrationLLM(
+    @Param('spaceId') _spaceId: string,
+    @Body(new ZodValidationPipe(testLLMRoSchema)) testLLMRo: ITestLLMRo
+  ): Promise<ITestLLMVo> {
+    return await this.spaceService.testIntegrationLLM(testLLMRo);
   }
 }

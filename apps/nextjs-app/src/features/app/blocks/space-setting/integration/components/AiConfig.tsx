@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { IAIIntegrationConfig } from '@teable/openapi';
+import { testIntegrationLLM, type IAIIntegrationConfig } from '@teable/openapi';
 import type { LLMProvider } from '@teable/openapi/src/admin/setting';
 import { aiConfigVoSchema } from '@teable/openapi/src/admin/setting';
 import { Form, toast } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,6 +18,9 @@ interface IAIConfigProps {
 
 export const AIConfig = (props: IAIConfigProps) => {
   const { config, onChange } = props;
+  const router = useRouter();
+  const spaceId = router.query.spaceId as string;
+
   const defaultValues = useMemo(
     () =>
       config ?? {
@@ -52,10 +56,12 @@ export const AIConfig = (props: IAIConfigProps) => {
     onSubmit(form.getValues());
   };
 
+  const onTest = async (data: Required<LLMProvider>) => testIntegrationLLM(spaceId, data);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <AIProviderCard control={form.control} onChange={onProvidersUpdate} />
+        <AIProviderCard control={form.control} onChange={onProvidersUpdate} onTest={onTest} />
         <AIModelPreferencesCard
           control={form.control}
           models={models}

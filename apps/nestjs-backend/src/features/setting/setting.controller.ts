@@ -1,15 +1,22 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import {
   BadRequestException,
   Body,
   Controller,
   Get,
   Patch,
+  Post,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { IPublicSettingVo, ISettingVo, IUploadLogoVo } from '@teable/openapi';
-import { IUpdateSettingRo, updateSettingRoSchema } from '@teable/openapi';
+import type { IPublicSettingVo, ISettingVo, IUploadLogoVo, ITestLLMVo } from '@teable/openapi';
+import {
+  IUpdateSettingRo,
+  updateSettingRoSchema,
+  ITestLLMRo,
+  testLLMRoSchema,
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -81,5 +88,13 @@ export class SettingController {
   @Permissions('instance|update')
   async uploadLogo(@UploadedFile() file: Express.Multer.File): Promise<IUploadLogoVo> {
     return this.settingService.uploadLogo(file);
+  }
+
+  @Permissions('instance|update')
+  @Post('test-llm')
+  async testLLM(
+    @Body(new ZodValidationPipe(testLLMRoSchema)) testLLMRo: ITestLLMRo
+  ): Promise<ITestLLMVo> {
+    return await this.settingService.testLLM(testLLMRo);
   }
 }

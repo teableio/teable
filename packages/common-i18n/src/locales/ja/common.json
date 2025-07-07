@@ -277,7 +277,14 @@
         "supportVisionTip": "このモデルは画像入力をサポートしています",
         "supportAudioTip": "このモデルは音声入力をサポートしています",
         "supportVideoTip": "このモデルは動画入力をサポートしています",
-        "supportDeepThinkTip": "このモデルは深い思考をサポートしています"
+        "supportDeepThinkTip": "このモデルは深い思考をサポートしています",
+        "testConnection": "テスト",
+        "testing": "テスト中...",
+        "testSuccess": "テスト成功",
+        "testFailed": "テスト失敗",
+        "fillRequiredFields": "すべての必須フィールドを入力してください",
+        "modelsRequired": "少なくとも1つのモデルを入力してください",
+        "noValidModel": "有効なモデルが見つかりません"
       }
     }
   },

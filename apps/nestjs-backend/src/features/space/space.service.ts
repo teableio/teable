@@ -13,6 +13,7 @@ import type {
   ICreateIntegrationRo,
   ICreateSpaceRo,
   IIntegrationItemVo,
+  ITestLLMRo,
   IUpdateIntegrationRo,
   IUpdateSpaceRo,
 } from '@teable/openapi';
@@ -24,6 +25,7 @@ import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class SpaceService {
@@ -33,6 +35,7 @@ export class SpaceService {
     private readonly baseService: BaseService,
     private readonly collaboratorService: CollaboratorService,
     private readonly permissionService: PermissionService,
+    private readonly settingService: SettingService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -390,5 +393,9 @@ export class SpaceService {
     await this.prismaService.integration.delete({
       where: { id: integrationId },
     });
+  }
+
+  async testIntegrationLLM(testLLMRo: ITestLLMRo) {
+    return await this.settingService.testLLM(testLLMRo);
   }
 }

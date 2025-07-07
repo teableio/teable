@@ -1,4 +1,4 @@
-import type { LLMProvider } from '@teable/openapi/src/admin/setting';
+import type { ITestLLMVo, LLMProvider } from '@teable/openapi/src/admin/setting';
 import { Button } from '@teable/ui-lib/shadcn';
 import { SlidersHorizontalIcon, XIcon } from 'lucide-react';
 
@@ -7,9 +7,10 @@ import { NewLLMProviderForm, UpdateLLMProviderForm } from './LlmProviderForm';
 interface ILLMProviderManageProps {
   value: LLMProvider[];
   onChange: (value: LLMProvider[]) => void;
+  onTest?: (data: Required<LLMProvider>) => Promise<ITestLLMVo>;
 }
 
-export const LLMProviderManage = ({ value, onChange }: ILLMProviderManageProps) => {
+export const LLMProviderManage = ({ value, onChange, onTest }: ILLMProviderManageProps) => {
   const handleAdd = (data: LLMProvider) => {
     const newData = [...value, data];
     onChange(newData);
@@ -19,13 +20,16 @@ export const LLMProviderManage = ({ value, onChange }: ILLMProviderManageProps) 
     const newData = value.map((provider, i) => (i === index ? data : provider));
     onChange(newData);
   };
+
   const handleRemove = (index: number) => {
     const newData = value.filter((_, i) => i !== index);
     onChange(newData);
   };
+
   if (value.length === 0) {
-    return <NewLLMProviderForm onAdd={handleAdd} />;
+    return <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} />;
   }
+
   return (
     <div>
       <div className="flex max-w-lg flex-col gap-2">
@@ -46,7 +50,11 @@ export const LLMProviderManage = ({ value, onChange }: ILLMProviderManageProps) 
               >
                 <XIcon className="size-4" />
               </Button>
-              <UpdateLLMProviderForm value={provider} onChange={handleUpdate(index)}>
+              <UpdateLLMProviderForm
+                value={provider}
+                onChange={handleUpdate(index)}
+                onTest={onTest}
+              >
                 <Button size="xs" variant="ghost">
                   <SlidersHorizontalIcon className="size-4" />
                 </Button>

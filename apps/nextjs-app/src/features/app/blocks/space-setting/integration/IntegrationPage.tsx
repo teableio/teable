@@ -6,6 +6,7 @@ import {
   deleteIntegration,
   getIntegrationList,
   IntegrationType,
+  testIntegrationLLM,
   updateIntegration,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -98,6 +99,8 @@ export const IntegrationPage = () => {
     });
   };
 
+  const onTest = async (data: Required<LLMProvider>) => testIntegrationLLM(spaceId, data);
+
   return (
     <SpaceSettingContainer
       title={t('space:integration.title')}
@@ -119,7 +122,7 @@ export const IntegrationPage = () => {
 
                   if (type === IntegrationType.AI) {
                     return (
-                      <NewLLMProviderForm onAdd={onCreateIntegration} key={type}>
+                      <NewLLMProviderForm onAdd={onCreateIntegration} key={type} onTest={onTest}>
                         <Button
                           variant="ghost"
                           className="flex cursor-pointer items-center gap-2 p-2 hover:bg-gray-100"

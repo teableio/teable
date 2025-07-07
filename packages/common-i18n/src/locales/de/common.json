@@ -316,7 +316,14 @@
         "supportVisionTip": "Dieses Modell unterstützt Bildeingabe",
         "supportAudioTip": "Dieses Modell unterstützt Audioeingabe",
         "supportVideoTip": "Dieses Modell unterstützt Videoeingabe",
-        "supportDeepThinkTip": "Dieses Modell unterstützt tiefes Denken"
+        "supportDeepThinkTip": "Dieses Modell unterstützt tiefes Denken",
+        "testConnection": "Test",
+        "testing": "Testen...",
+        "testSuccess": "Test erfolgreich",
+        "testFailed": "Test fehlgeschlagen",
+        "fillRequiredFields": "Bitte füllen Sie alle erforderlichen Felder aus",
+        "modelsRequired": "Bitte füllen Sie mindestens ein Modell aus",
+        "noValidModel": "Kein gültiges Modell gefunden"
       }
     }
   },

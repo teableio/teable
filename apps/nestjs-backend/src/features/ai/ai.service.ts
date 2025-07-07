@@ -1,24 +1,14 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createAzure } from '@ai-sdk/azure';
-import { createCohere } from '@ai-sdk/cohere';
-import { createDeepSeek } from '@ai-sdk/deepseek';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createMistral } from '@ai-sdk/mistral';
 import type { OpenAIProvider } from '@ai-sdk/openai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createTogetherAI } from '@ai-sdk/togetherai';
-import { createXai } from '@ai-sdk/xai';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
 import { IntegrationType, LLMProviderType, Task } from '@teable/openapi';
 import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
-import { createOllama } from 'ollama-ai-provider';
-import { createQwen } from 'qwen-ai-provider';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { SettingService } from '../setting/setting.service';
 import { TASK_MODEL_MAP } from './constant';
+import { modelProviders } from './util';
 
 @Injectable()
 export class AiService {
@@ -27,22 +17,6 @@ export class AiService {
     private readonly prismaService: PrismaService,
     @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
-
-  readonly modelProviders = {
-    [LLMProviderType.OPENAI]: createOpenAI,
-    [LLMProviderType.ANTHROPIC]: createAnthropic,
-    [LLMProviderType.GOOGLE]: createGoogleGenerativeAI,
-    [LLMProviderType.AZURE]: createAzure,
-    [LLMProviderType.COHERE]: createCohere,
-    [LLMProviderType.MISTRAL]: createMistral,
-    [LLMProviderType.DEEPSEEK]: createDeepSeek,
-    [LLMProviderType.QWEN]: createQwen,
-    [LLMProviderType.ZHIPU]: createOpenAI,
-    [LLMProviderType.LINGYIWANWU]: createOpenAI,
-    [LLMProviderType.XAI]: createXai,
-    [LLMProviderType.TOGETHERAI]: createTogetherAI,
-    [LLMProviderType.OLLAMA]: createOllama,
-  } as const;
 
   public parseModelKey(modelKey: string) {
     const [type, model, name] = modelKey.split('@');
@@ -83,7 +57,7 @@ export class AiService {
       throw new Error('AI configuration is not set');
     }
 
-    const provider = Object.entries(this.modelProviders).find(([key]) =>
+    const provider = Object.entries(modelProviders).find(([key]) =>
       type.toLowerCase().includes(key.toLowerCase())
     )?.[1];
 

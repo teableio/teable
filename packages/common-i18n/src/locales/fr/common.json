@@ -272,7 +272,14 @@
         "supportVisionTip": "Ce modèle prend en charge l'entrée d'images",
         "supportAudioTip": "Ce modèle prend en charge l'entrée audio",
         "supportVideoTip": "Ce modèle prend en charge l'entrée vidéo",
-        "supportDeepThinkTip": "Ce modèle prend en charge la réflexion approfondie"
+        "supportDeepThinkTip": "Ce modèle prend en charge la réflexion approfondie",
+        "testConnection": "Test",
+        "testing": "Test en cours...",
+        "testSuccess": "Test réussi",
+        "testFailed": "Test échoué",
+        "fillRequiredFields": "Veuillez remplir tous les champs requis",
+        "modelsRequired": "Veuillez remplir au moins un modèle",
+        "noValidModel": "Aucun modèle valide trouvé"
       }
     }
   },

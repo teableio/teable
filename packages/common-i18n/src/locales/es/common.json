@@ -299,7 +299,14 @@
         "supportVisionTip": "Este modelo admite entrada de imagen",
         "supportAudioTip": "Este modelo admite entrada de audio",
         "supportVideoTip": "Este modelo admite entrada de video",
-        "supportDeepThinkTip": "Este modelo admite pensamiento profundo"
+        "supportDeepThinkTip": "Este modelo admite pensamiento profundo",
+        "testConnection": "Test",
+        "testing": "Probando...",
+        "testSuccess": "Test exitoso",
+        "testFailed": "Test fallido",
+        "fillRequiredFields": "Por favor, complete todos los campos requeridos",
+        "modelsRequired": "Por favor, complete al menos un modelo",
+        "noValidModel": "No se encontró ningún modelo válido"
       }
     }
   },

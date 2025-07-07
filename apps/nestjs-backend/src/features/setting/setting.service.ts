@@ -17,10 +17,19 @@
 import { join } from 'path';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, type ISettingVo, type IUpdateSettingRo } from '@teable/openapi';
+import {
+  UploadType,
+  type ISettingVo,
+  type IUpdateSettingRo,
+  type ITestLLMRo,
+  type ITestLLMVo,
+  LLMProviderType,
+} from '@teable/openapi';
+import { generateText, type LanguageModel } from 'ai';
 import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import type { IClsStore } from '../../types/cls';
+import { modelProviders } from '../ai/util';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -122,5 +131,33 @@ export class SettingService {
       where: { instanceId: setting.instanceId },
       data,
     });
+  }
+
+  async testLLM(testLLMRo: ITestLLMRo): Promise<ITestLLMVo> {
+    const { type, baseUrl, apiKey, models } = testLLMRo;
+    const testPrompt = 'Hello, please respond with "Connection successful!"';
+
+    try {
+      const model = models.split(',')[0].trim();
+      const provider = modelProviders[type];
+      const providerOptions =
+        type === LLMProviderType.OLLAMA ? { baseURL: baseUrl } : { baseURL: baseUrl, apiKey };
+      const modelProvider = provider(providerOptions);
+      const modelInstance = modelProvider(model);
+      const { text } = await generateText({
+        model: modelInstance as LanguageModel,
+        prompt: testPrompt,
+      });
+
+      return {
+        success: true,
+        response: text,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        response: error instanceof Error ? error.message : undefined,
+      };
+    }
   }
 }

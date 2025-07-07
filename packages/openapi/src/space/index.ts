@@ -19,3 +19,4 @@ export * from './integration-get-list';
 export * from './integration-create';
 export * from './integration-update';
 export * from './integration-delete';
+export * from './test-llm-integration';

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { LLMProvider } from '@teable/openapi/src/admin/setting';
-import { aiConfigVoSchema } from '@teable/openapi/src/admin/setting';
+import { aiConfigVoSchema, testLLM } from '@teable/openapi/src/admin/setting';
 import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import {
   Form,
@@ -61,6 +61,8 @@ export function AIConfigForm({
     onSubmit(form.getValues());
   }
 
+  const onTest = async (data: Required<LLMProvider>) => testLLM(data);
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -85,7 +87,7 @@ export function AIConfigForm({
             </FormItem>
           )}
         />
-        <AIProviderCard control={form.control} onChange={updateProviders} />
+        <AIProviderCard control={form.control} onChange={updateProviders} onTest={onTest} />
         <AIModelPreferencesCard
           control={form.control}
           models={models}
