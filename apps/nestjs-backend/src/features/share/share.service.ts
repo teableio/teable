@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
-import { FieldKeyType, FieldType, ViewType } from '@teable/core';
+import { CellFormat, FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
@@ -290,7 +290,11 @@ export class ShareService {
     } else {
       recordsVo = await this.getViewFilterLinkRecords(field, query);
     }
-    return recordsVo.records.map(({ id, name }) => ({ id, title: name }));
+    return recordsVo.records.map(({ id, name, fields }) => {
+      const lookupFieldId = (field.options as ILinkFieldOptions).lookupFieldId;
+      const title = lookupFieldId ? fields[lookupFieldId] : name;
+      return { id, title };
+    });
   }
 
   async getFormLinkRecords(field: IFieldVo, query: IShareViewLinkRecordsRo) {
@@ -307,6 +311,7 @@ export class ShareService {
       projection: [lookupFieldId],
       fieldKeyType: FieldKeyType.Id,
       filterLinkCellCandidate: field.id,
+      cellFormat: CellFormat.Text,
     });
   }
 
@@ -322,6 +327,7 @@ export class ShareService {
       fieldKeyType: FieldKeyType.Id,
       projection: [lookupFieldId],
       filterLinkCellSelected: fieldId,
+      cellFormat: CellFormat.Text,
     });
   }
 
