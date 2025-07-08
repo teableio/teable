@@ -96,7 +96,7 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
       {linkFieldCount && linkFieldCount > 0 ? (
         <div className="flex items-center gap-2 text-xs">
           <Badge>{Intl.NumberFormat(i18n.language).format(linkFieldCount)}</Badge>
-          个关联字段的展示将会重置为主键字段，请注意查看
+          linkFields's display will be reset to primary field, please check it.
         </div>
       ) : null}
 
