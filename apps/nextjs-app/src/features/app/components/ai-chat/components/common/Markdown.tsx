@@ -15,11 +15,13 @@ const NonMemoizedMarkdown = ({
   children,
   className,
   components,
+  syntaxHighlighterProps,
 }: {
   id?: string;
   children: string;
   className?: string;
   components?: Components;
+  syntaxHighlighterProps?: Omit<React.ComponentProps<typeof SyntaxHighlighter>, 'children'>;
 }) => {
   const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children]);
 
@@ -44,6 +46,7 @@ const NonMemoizedMarkdown = ({
               customStyle={{
                 maxHeight: '500px',
               }}
+              {...syntaxHighlighterProps}
             />
           ) : (
             <code {...rest} className={className}>
