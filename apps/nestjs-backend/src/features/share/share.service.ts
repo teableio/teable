@@ -292,7 +292,7 @@ export class ShareService {
     }
     return recordsVo.records.map(({ id, name, fields }) => {
       const lookupFieldId = (field.options as ILinkFieldOptions).lookupFieldId;
-      const title = lookupFieldId ? fields[lookupFieldId] : name;
+      const title = lookupFieldId ? (fields[lookupFieldId] as string) : name;
       return { id, title };
     });
   }
