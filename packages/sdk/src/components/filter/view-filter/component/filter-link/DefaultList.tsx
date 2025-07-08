@@ -22,7 +22,7 @@ export const DefaultList = (props: IFilterLinkSelectListProps) => {
               onClick(value.id);
               StorageLinkSelected.set(`${field.options.foreignTableId}-${value.id}`, value.title);
             }}
-            primaryFieldId={field.options.lookupFieldId}
+            lookupFieldId={field.options.lookupFieldId}
           />
         </RowCountProvider>
       </LinkFilterProvider>
