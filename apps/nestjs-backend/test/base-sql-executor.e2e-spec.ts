@@ -59,6 +59,18 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       ).rejects.toThrow('ERROR: permission denied for schema');
     });
 
+    it('read only role can read base', async () => {
+      await expect(
+        baseSqlExecutorService.executeQuerySql(
+          globalThis.testConfig.baseId,
+          `select * from ${tableDbName}`,
+          {
+            projectionTableDbNames: [tableDbName.replaceAll('"', '')],
+          }
+        )
+      ).rejects.toThrow('ERROR: permission denied for schema');
+    });
+
     it('prisma service can execute sql', async () => {
       await prismaService.$queryRawUnsafe(`create table test (id int)`);
       await prismaService.$queryRawUnsafe(`drop table test`);
