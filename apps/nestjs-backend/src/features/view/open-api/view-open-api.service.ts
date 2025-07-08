@@ -41,6 +41,7 @@ import type {
   IViewShareMetaRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
+import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
@@ -740,6 +741,15 @@ export class ViewOpenApiService {
     const linkFields = await this.prismaService.field.findMany({
       where: { tableId, deletedTime: null, type: FieldType.Link },
     });
+
+    const linkFieldInstances = linkFields.map((field) => createFieldInstanceByRaw(field));
+
+    const lookupFieldIds = linkFieldInstances.reduce((arr, field) => {
+      const { lookupFieldId } = field.options as ILinkFieldOptions;
+      arr.push(lookupFieldId);
+      return arr;
+    }, [] as string[]);
+
     const linkFieldTableMap = linkFields.reduce(
       (map, field) => {
         const { foreignTableId } = JSON.parse(field.options as string) as ILinkFieldOptions;
@@ -754,17 +764,21 @@ export class ViewOpenApiService {
     if (!tableRecordMap) {
       return [];
     }
+
+    const lookupFieldRaws = await this.prismaService.field.findMany({
+      where: { id: { in: lookupFieldIds }, deletedTime: null },
+    });
+    const lookupFieldRawsMap = keyBy(lookupFieldRaws, 'tableId');
+
     const res: IGetViewFilterLinkRecordsVo = [];
     for (const [foreignTableId, recordSet] of Object.entries(tableRecordMap)) {
       const dbTableName = await this.recordService.getDbTableName(foreignTableId);
-      const primaryField = await this.prismaService.field.findFirst({
-        where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
-      });
-      if (!primaryField) {
+
+      const lookupedFieldRaw = lookupFieldRawsMap[foreignTableId];
+      if (!lookupedFieldRaw) {
         continue;
       }
-
-      const dbFieldName = primaryField.dbFieldName;
+      const dbFieldName = lookupedFieldRaw.dbFieldName;
 
       const nativeQuery = this.knex(dbTableName)
         .select('__id as id', `${dbFieldName} as title`)
@@ -775,7 +789,7 @@ export class ViewOpenApiService {
       const list = await this.prismaService
         .txClient()
         .$queryRawUnsafe<{ id: string; title: string | null }[]>(nativeQuery);
-      const fieldInstances = createFieldInstanceByRaw(primaryField);
+      const fieldInstances = createFieldInstanceByRaw(lookupedFieldRaw);
       res.push({
         tableId: foreignTableId,
         records: list.map(({ id, title }) => ({
