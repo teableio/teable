@@ -3662,5 +3662,64 @@ describe('OpenAPI link (e2e)', () => {
       // console.log('fixme uno res2', res2);
       // expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H1' });
     });
+
+    it('should work with link field show by field - convert lookuped field', async () => {
+      const textField = await createField(table2.id, {
+        type: FieldType.SingleLineText,
+        name: 'text field',
+      });
+      const linkField = await createField(table1.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+          isOneWay: true,
+        },
+      });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: '11',
+            [table2.fields[0].id]: 'A1',
+          },
+        },
+      });
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: { id: table2.records[0].id },
+          },
+        },
+      });
+
+      const res = await getRecord(table1.id, table1.records[0].id);
+      expect(res.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: '11' });
+
+      await convertField(table2.id, textField.id, {
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
+      });
+
+      const res1 = await getRecord(table1.id, table1.records[0].id);
+      expect(res1.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: '11.00' });
+
+      await convertField(table2.id, textField.id, {
+        type: FieldType.Checkbox,
+      });
+
+      const res2 = await getRecord(table1.id, table1.records[0].id);
+      expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'A1' });
+    });
   });
 });

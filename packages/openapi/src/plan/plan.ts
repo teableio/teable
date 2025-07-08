@@ -48,6 +48,7 @@ export const planFieldVoSchema = z.object({
   estimateTime: z.number(),
   graph: graphVoSchema,
   updateCellCount: z.number(),
+  linkFieldCount: z.number().optional(),
 });
 
 export type IPlanFieldVo = z.infer<typeof planFieldVoSchema>;

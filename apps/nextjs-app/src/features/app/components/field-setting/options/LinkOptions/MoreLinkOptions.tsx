@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { type IFilter, type ILinkFieldOptionsRo } from '@teable/core';
+import { PRIMARY_SUPPORTED_TYPES, type IFilter, type ILinkFieldOptionsRo } from '@teable/core';
 import { EyeOff, Maximize2 } from '@teable/icons';
 import { getFields } from '@teable/openapi';
 import {
@@ -59,7 +59,9 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
   }, [totalFields]);
 
   const fieldInstances = useMemo(() => {
-    return totalFields.map((field) => createFieldInstance(field));
+    return totalFields
+      .filter((field) => PRIMARY_SUPPORTED_TYPES.has(field.type))
+      .map((field) => createFieldInstance(field));
   }, [totalFields]);
 
   const { data: withViewFields } = useQuery({
