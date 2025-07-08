@@ -9,28 +9,28 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { Markdown } from '../../common/Markdown';
+import { CodePreview } from './CodePreview';
 import { IFrameLoading } from './IFrameLoading';
+import { useCodeBlobPreview } from './useCodeBlobPreview';
 
 export const CodeDialog = ({
   defaultTab = 'preview',
-  url,
   code,
   open,
   onOpenChange,
 }: {
   defaultTab?: 'preview' | 'code';
-  url: string;
-  code: string;
+  code?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) => {
   const [codeTab, setCodeTab] = useState<'preview' | 'code'>(defaultTab);
   const { t } = useTranslation(['table']);
+  const url = useCodeBlobPreview(code);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[70%] max-w-4xl">
+      <DialogContent className="h-[70%] w-[90%] max-w-7xl">
         <Tabs
           value={codeTab}
           onValueChange={(value) => setCodeTab(value as 'preview' | 'code')}
@@ -47,7 +47,7 @@ export const CodeDialog = ({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="preview" className="flex-1" forceMount hidden={codeTab !== 'preview'}>
-            {url && <IFrameLoading src={url} className="size-full" title="Data Visualization" />}
+            <IFrameLoading src={url} className="size-full" title="Data Visualization" />
           </TabsContent>
           <TabsContent
             value="code"
@@ -55,18 +55,7 @@ export const CodeDialog = ({
             forceMount
             hidden={codeTab !== 'code'}
           >
-            <style>{`
-                .data-visualization-code pre {
-                  background-color: transparent;
-                  height: 100%;
-                  padding: 0;
-                }
-                .data-visualization-code pre code, .markdown-body pre div {
-                  height: 100%;
-                  max-height: 100% !important;
-                }
-              `}</style>
-            <Markdown className="data-visualization-code h-full ">{`\`\`\`html\n${code ?? ''}\n\`\`\``}</Markdown>
+            <CodePreview code={code} />
           </TabsContent>
         </Tabs>
       </DialogContent>

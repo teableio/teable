@@ -1,9 +1,10 @@
 import { Skeleton } from '@teable/ui-lib/shadcn';
 import html2canvas from 'html2canvas';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCodeBlobPreview } from './useCodeBlobPreview';
 
 interface CodePreviewImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
-  code: string;
+  code?: string;
 }
 
 export const CodePreviewImage = (props: CodePreviewImageProps) => {
@@ -11,21 +12,7 @@ export const CodePreviewImage = (props: CodePreviewImageProps) => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [src, setSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    let currentSrc: string | null = null;
-    if (code) {
-      const blob = new Blob([code], { type: 'text/html;charset=utf-8' });
-      currentSrc = URL.createObjectURL(blob);
-      setSrc(currentSrc);
-    }
-    return () => {
-      if (currentSrc) {
-        URL.revokeObjectURL(currentSrc);
-      }
-    };
-  }, [code]);
+  const src = useCodeBlobPreview(code);
 
   const captureIframe = useCallback(async () => {
     setIsCapturing(true);
@@ -69,7 +56,7 @@ export const CodePreviewImage = (props: CodePreviewImageProps) => {
       {!previewImage && src && (
         <iframe
           ref={iframeRef}
-          className="absolute inset-0 -z-10 size-full"
+          className="absolute -z-50 size-full"
           src={src}
           title="URL Preview"
           loading="lazy"
