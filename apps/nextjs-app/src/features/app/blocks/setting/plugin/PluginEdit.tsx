@@ -5,10 +5,13 @@ import type { IUpdatePluginRo } from '@teable/openapi';
 import {
   getPlugin,
   pluginRegenerateSecret,
+  PluginStatus,
+  submitPlugin,
   updatePlugin,
   updatePluginRoSchema,
 } from '@teable/openapi';
 import { UserAvatar } from '@teable/sdk/components';
+import { Spin } from '@teable/ui-lib';
 import {
   Button,
   Form,
@@ -22,6 +25,7 @@ import {
   Label,
   Textarea,
 } from '@teable/ui-lib/shadcn';
+import { Send } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
@@ -77,6 +81,13 @@ export const PluginEdit = (props: { secret?: string }) => {
     },
   });
 
+  const { mutate: submitApproved, isLoading: submitApprovedLoading } = useMutation({
+    mutationFn: submitPlugin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plugin', pluginId] });
+    },
+  });
+
   const onSubmit = async (data: IUpdatePluginRo) => {
     mutate(data);
   };
@@ -89,7 +100,23 @@ export const PluginEdit = (props: { secret?: string }) => {
       onCancel={() => router.push({ pathname: router.pathname })}
     >
       {initFormValue?.status && (
-        <StatusBadge className="absolute right-10" status={initFormValue.status} />
+        <div className="absolute right-10 flex items-center gap-2 bg-background">
+          <StatusBadge status={initFormValue.status} />
+          {initFormValue.status === PluginStatus.Developing && (
+            <Button
+              className="h-[22px]"
+              size={'xs'}
+              variant={'outline'}
+              disabled={submitApprovedLoading}
+              onClick={() => {
+                submitApproved(pluginId);
+              }}
+            >
+              {submitApprovedLoading ? <Spin /> : <Send className="text-green-500" size={12} />}
+              {t('plugin:button.submitApproved')}
+            </Button>
+          )}
+        </div>
       )}
       <div className="space-y-2">
         <NewSecret secret={newSecret} ref={secretRef} />

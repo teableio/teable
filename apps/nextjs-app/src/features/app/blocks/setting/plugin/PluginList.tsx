@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Settings, Trash2 } from '@teable/icons';
-import type { PluginStatus } from '@teable/openapi';
 import { deletePlugin, getPlugins } from '@teable/openapi';
+import type { PluginStatus } from '@teable/openapi';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
