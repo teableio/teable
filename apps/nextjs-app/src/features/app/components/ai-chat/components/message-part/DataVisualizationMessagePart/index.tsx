@@ -138,7 +138,7 @@ export const DataVisualizationMessagePart = (props: IToolMessagePart) => {
             onClick={() => setOpen(true)}
           >
             <div className="h-12 w-[68px]">
-              <CodePreviewImage code={fileCode ?? ''} alt="Data Visualization" />
+              <CodePreviewImage code={fileCode} alt="Data Visualization" />
             </div>
             <div
               className="line-clamp-2 flex-1 text-sm font-medium text-slate-600"
@@ -149,7 +149,7 @@ export const DataVisualizationMessagePart = (props: IToolMessagePart) => {
           </div>
         )}
       </div>
-      <CodeDialog url={url} code={fileCode ?? ''} open={open} onOpenChange={setOpen} />
+      <CodeDialog code={fileCode} open={open} onOpenChange={setOpen} />
     </div>
   );
 };

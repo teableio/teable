@@ -32,6 +32,7 @@ import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
 import { InjectStorageAdapter } from './plugins/storage';
+import { getExtensionPreview } from './utils';
 @Injectable()
 export class AttachmentsService {
   private logger = new Logger(AttachmentsService.name);
@@ -85,7 +86,7 @@ export class AttachmentsService {
       if (!attachment) {
         throw new BadRequestException(`Invalid path: ${path}`);
       }
-      respHeaders['Content-Type'] = attachment.mimetype;
+      respHeaders['Content-Type'] = getExtensionPreview(attachment.mimetype);
     }
 
     const headers: Record<string, string> = respHeaders ?? {};
