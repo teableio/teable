@@ -18,6 +18,7 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
   const ref = useRef(null);
   const planData = usePlan(params);
   const updateCellCount = planData?.updateCellCount;
+  const linkFieldCount = planData?.linkFieldCount;
   const estimateTime = planData?.estimateTime || 0;
   const { t, i18n } = useTranslation(['table']);
   const dayjs = useLanDayjs();
@@ -92,6 +93,13 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
           {t('table.graph.estimatedTime')}: <b>{formatDuration}</b>
         </div>
       </div>
+      {linkFieldCount && linkFieldCount > 0 ? (
+        <div className="flex items-center gap-2 text-xs">
+          <Badge>{Intl.NumberFormat(i18n.language).format(linkFieldCount)}</Badge>
+          个关联字段的展示将会重置为主键字段，请注意查看
+        </div>
+      ) : null}
+
       <div className="relative flex h-[calc(100vh-400px)] max-h-[600px] w-full flex-col">
         <div ref={ref} className="grow rounded border shadow"></div>
       </div>

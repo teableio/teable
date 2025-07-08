@@ -15,6 +15,8 @@ import { isEqual, differenceBy, find, isEmpty } from 'lodash';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
+import { FieldConvertingLinkService } from './field-converting-link.service';
+import { FieldDeletingService } from './field-deleting.service';
 
 /**
  * This service' purpose is to sync the relative data from field to view
@@ -27,7 +29,9 @@ export class FieldViewSyncService {
   constructor(
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly fieldDeletingService: FieldDeletingService,
+    private readonly fieldConvertingLinkService: FieldConvertingLinkService
   ) {}
 
   async deleteDependenciesByFieldIds(tableId: string, fieldIds: string[]) {
@@ -120,6 +124,32 @@ export class FieldViewSyncService {
   ) {
     await this.convertViewDependenciesByFieldIds(tableId, newField, oldField);
     await this.convertLinkOptionsDependenciesByFieldIds(tableId, newField, oldField);
+    await this.convertLinkLookupFieldId(tableId, newField);
+  }
+
+  async convertLinkLookupFieldId(tableId: string, newField: IFieldInstance) {
+    const prisma = this.prismaService.txClient();
+    const fieldId = newField.id;
+    const resetLinkFieldIds = await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(
+      tableId,
+      newField
+    );
+
+    if (isEmpty(resetLinkFieldIds)) {
+      return;
+    }
+
+    await prisma.reference.deleteMany({
+      where: {
+        fromFieldId: fieldId,
+      },
+    });
+
+    await this.fieldDeletingService.resetLinkFieldLookupFieldId(
+      resetLinkFieldIds,
+      tableId,
+      fieldId
+    );
   }
 
   async convertLinkOptionsDependenciesByFieldIds(

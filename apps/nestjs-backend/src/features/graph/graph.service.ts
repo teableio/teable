@@ -19,6 +19,7 @@ import { FieldCalculationService } from '../calculation/field-calculation.servic
 import type { IGraphItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
 import { pruneGraph, topoOrderWithStart } from '../calculation/utils/dfs';
+import { FieldConvertingLinkService } from '../field/field-calculate/field-converting-link.service';
 import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -53,6 +54,7 @@ export class GraphService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly fieldConvertingService: FieldConvertingService,
+    private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -348,10 +350,18 @@ export class GraphService {
       fieldId2DbTableName
     );
 
+    const newFieldInstance = createFieldInstanceByVo(newField);
+    const resetLinkFieldLookupFieldIds =
+      await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(
+        tableId,
+        newFieldInstance
+      );
+
     return {
       graph,
       updateCellCount,
       estimateTime: this.getEstimateTime(updateCellCount),
+      linkFieldCount: resetLinkFieldLookupFieldIds.length,
     };
   }
 

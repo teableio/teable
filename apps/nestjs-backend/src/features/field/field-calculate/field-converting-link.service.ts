@@ -6,6 +6,7 @@ import {
   FieldType,
   RecordOpBuilder,
   isMultiValueLink,
+  PRIMARY_SUPPORTED_TYPES,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { groupBy, isEqual } from 'lodash';
@@ -450,5 +451,52 @@ export class FieldConvertingLinkService {
     });
 
     return recordOpsMap;
+  }
+
+  async planResetLinkFieldLookupFieldId(
+    lookupedTableId: string,
+    lookupedField: IFieldInstance
+  ): Promise<string[]> {
+    if (PRIMARY_SUPPORTED_TYPES.has(lookupedField.type)) {
+      return [];
+    }
+    const prisma = this.prismaService.txClient();
+
+    const lookupedFieldId = lookupedField.id;
+    const refRaws = await prisma.reference.findMany({
+      where: {
+        fromFieldId: lookupedFieldId,
+      },
+    });
+    const toFieldIds = refRaws.map((ref) => ref.toFieldId);
+
+    const lookupedPrimaryField = await prisma.field.findFirst({
+      where: { tableId: lookupedTableId, isPrimary: true },
+      select: { id: true },
+    });
+
+    if (!lookupedPrimaryField) {
+      return [];
+    }
+
+    const fieldRaws = await prisma.field.findMany({
+      where: {
+        id: { in: toFieldIds },
+        type: FieldType.Link,
+        deletedTime: null,
+      },
+    });
+
+    const fieldInstances = fieldRaws
+      .filter((field) => field.type === FieldType.Link && !field.isLookup)
+      .map((field) => createFieldInstanceByRaw(field))
+      .filter((field) => {
+        const option = field.options as ILinkFieldOptions;
+        return (
+          option.foreignTableId === lookupedTableId && option.lookupFieldId === lookupedFieldId
+        );
+      });
+
+    return fieldInstances.map((field) => field.id);
   }
 }
