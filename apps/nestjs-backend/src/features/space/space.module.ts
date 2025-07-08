@@ -12,6 +12,6 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
   controllers: [SpaceController],
   providers: [SpaceService, TemplateSpaceInitService],
   exports: [SpaceService, TemplateSpaceInitService],
-  imports: [CollaboratorModule, InvitationModule, BaseModule, PermissionModule, SettingModule],
+  imports: [SettingModule, CollaboratorModule, InvitationModule, BaseModule, PermissionModule],
 })
 export class SpaceModule {}

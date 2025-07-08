@@ -16,20 +16,27 @@ import {
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
+import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../src/const';
+import { SettingService } from '../src/features/setting/setting.service';
+import type { IClsStore } from '../src/types/cls';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp } from './utils/init-app';
+import { initApp, runWithTestUser } from './utils/init-app';
 
 describe('Auth Controller (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
+  let settingService: SettingService;
+  let clsService: ClsService<IClsStore>;
   const authTestEmail = 'auth@test-auth.com';
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    clsService = app.get(ClsService);
     prismaService = app.get(PrismaService);
+    settingService = app.get(SettingService);
   });
 
   afterAll(async () => {
@@ -100,17 +107,20 @@ describe('Auth Controller (e2e)', () => {
   describe('sign up with email verification', () => {
     let preEnableEmailVerification: boolean | null | undefined;
     beforeEach(async () => {
-      preEnableEmailVerification = await prismaService.setting
-        .findFirst()
-        .then((res) => res?.enableEmailVerification);
-      await prismaService.setting.updateMany({
-        data: { enableEmailVerification: true },
+      await runWithTestUser(clsService, async () => {
+        const setting = await settingService.getSetting();
+        preEnableEmailVerification = setting.enableEmailVerification;
+        await settingService.updateSetting({
+          enableEmailVerification: true,
+        });
       });
     });
 
     afterEach(async () => {
-      await prismaService.setting.updateMany({
-        data: { enableEmailVerification: preEnableEmailVerification },
+      await runWithTestUser(clsService, async () => {
+        await settingService.updateSetting({
+          enableEmailVerification: preEnableEmailVerification,
+        });
       });
     });
 

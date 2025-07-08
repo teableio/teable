@@ -65,5 +65,8 @@
     "reviewing": "审核中",
     "published": "已发布",
     "developing": "开发中"
+  },
+  "button": {
+    "submitApproved": "提交审核"
   }
 }

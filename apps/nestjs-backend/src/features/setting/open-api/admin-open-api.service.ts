@@ -6,13 +6,13 @@ import { PluginStatus, UploadType } from '@teable/openapi';
 import { Response } from 'express';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
-import { Timing } from '../../utils/timing';
-import { AttachmentsCropQueueProcessor } from '../attachments/attachments-crop.processor';
-import StorageAdapter from '../attachments/plugins/adapter';
+import { Timing } from '../../../utils/timing';
+import { AttachmentsCropQueueProcessor } from '../../attachments/attachments-crop.processor';
+import StorageAdapter from '../../attachments/plugins/adapter';
 
 @Injectable()
-export class AdminService {
-  private readonly logger = new Logger(AdminService.name);
+export class AdminOpenApiService {
+  private readonly logger = new Logger(AdminOpenApiService.name);
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,

@@ -1,17 +1,17 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
-import { DriverClient, getRandomString, parseDsn } from '@teable/core';
+import { DriverClient, parseDsn } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
-import knex, { Knex } from 'knex';
+import { PrismaService, PrismaClient } from '@teable/db-main-prisma';
+import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { BASE_READ_ONLY_ROLE_PREFIX, BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME } from './const';
 import { checkTableAccess, validateRoleOperations } from './utils';
 
 @Injectable()
 export class BaseSqlExecutorService {
-  private db?: Knex;
+  private db?: PrismaClient;
   private readonly dsn: IDsn;
   readonly driver: DriverClient;
   private hasPgReadAllDataRole?: boolean;
@@ -33,9 +33,7 @@ export class BaseSqlExecutorService {
     return this.configService.get<string>('DISABLE_PRE_SQL_EXECUTOR_CHECK') === 'true';
   }
 
-  private async getReadOnlyDatabaseConnectionConfig(): Promise<
-    Knex.PgConnectionConfig | undefined
-  > {
+  private async getReadOnlyDatabaseConnectionConfig(): Promise<string | undefined> {
     if (this.driver === DriverClient.Sqlite) {
       return;
     }
@@ -60,17 +58,19 @@ export class BaseSqlExecutorService {
         );
       });
     }
-    return {
-      ...this.dsn,
-      database: this.dsn.db,
-      password: this.dsn.pass,
-      query_timeout: 10000,
-      user: BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME,
-      host: (this.dsn.params?.host as string) ?? this.dsn.host,
-    };
+    return `postgresql://${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME}:${this.dsn.pass}@${this.dsn.host}:${this.dsn.port}/${this.dsn.db}${
+      this.dsn.params
+        ? `?${Object.entries(this.dsn.params)
+            .map(([key, value]) => `${key}=${value}`)
+            .join('&')}`
+        : ''
+    }`;
   }
 
   async onModuleInit() {
+    if (this.driver !== DriverClient.Pg) {
+      return;
+    }
     if (this.getDisablePreSqlExecutorCheck()) {
       return;
     }
@@ -83,10 +83,10 @@ export class BaseSqlExecutorService {
   }
 
   async onModuleDestroy() {
-    await this.db?.destroy();
+    await this.db?.$disconnect();
   }
 
-  private async createConnection(): Promise<Knex | undefined> {
+  private async createConnection(): Promise<PrismaClient | undefined> {
     if (this.db) {
       return this.db;
     }
@@ -94,18 +94,22 @@ export class BaseSqlExecutorService {
     if (!connectionConfig) {
       return;
     }
-    const connection = knex({
-      client: this.driver,
-      connection: connectionConfig,
+    const connection = new PrismaClient({
+      datasources: {
+        db: {
+          url: connectionConfig,
+        },
+      },
     });
+    await connection.$connect();
 
     // validate connection
     try {
-      await connection.raw('SELECT 1');
+      await connection.$queryRawUnsafe('SELECT 1');
       return connection;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      await connection.destroy();
+      await connection.$disconnect();
       throw new Error(`database connection failed: ${error.message}`);
     }
   }
@@ -121,8 +125,8 @@ export class BaseSqlExecutorService {
       .$executeRawUnsafe(
         this.knex
           .raw(
-            `CREATE ROLE ?? WITH NOLOGIN PASSWORD ? NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`,
-            [roleName, getRandomString(16).toLocaleLowerCase()]
+            `CREATE ROLE ?? WITH NOLOGIN NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`,
+            [roleName]
           )
           .toQuery()
       );
@@ -228,7 +232,7 @@ export class BaseSqlExecutorService {
   }
 
   private async readonlyExecuteSql(sql: string) {
-    return this.db?.raw(sql);
+    return this.db?.$queryRawUnsafe(sql);
   }
 
   /**

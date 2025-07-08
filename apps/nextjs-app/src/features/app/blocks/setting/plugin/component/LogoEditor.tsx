@@ -5,6 +5,7 @@ import { Button, useToast } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
+import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 
@@ -13,7 +14,8 @@ export const LogoEditor = (props: {
   onChange: (value?: string | null) => void;
 }) => {
   const { value, onChange } = props;
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const previewUrl = usePreviewUrl();
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
   const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -22,7 +24,7 @@ export const LogoEditor = (props: {
     onSuccess: (res) => {
       if (res?.[0]) {
         onChange(res[0].path);
-        setUploadedUrl(res[0].presignedUrl);
+        setUploadedPath(res[0].path);
       }
       return res;
     },
@@ -84,7 +86,7 @@ export const LogoEditor = (props: {
         {value && (
           <div className="relative size-full overflow-hidden rounded-md border border-border">
             <Image
-              src={uploadedUrl || value}
+              src={previewUrl(uploadedPath || value)}
               alt="card cover"
               fill
               sizes="100%"

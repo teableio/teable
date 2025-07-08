@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import type { IMailConfig } from '../../configs/mail.config';
-import { SettingModule } from '../setting/setting.module';
+import { SettingOpenApiModule } from '../setting/open-api/setting-open-api.module';
 import { helpers } from './mail-helpers';
 import { MailSenderService } from './mail-sender.service';
 
@@ -62,7 +62,7 @@ export class MailSenderModule extends MailSenderModuleClass {
     });
 
     return {
-      imports: [SettingModule, module],
+      imports: [SettingOpenApiModule, module],
       module: MailSenderModule,
       providers: [MailSenderService],
       exports: [MailSenderService],

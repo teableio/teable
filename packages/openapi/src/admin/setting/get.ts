@@ -6,13 +6,13 @@ import { aiConfigVoSchema } from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
-  brandName: z.string().nullable(),
-  brandLogo: z.string().nullable(),
-  disallowSignUp: z.boolean().nullable(),
-  disallowSpaceCreation: z.boolean().nullable(),
-  disallowSpaceInvitation: z.boolean().nullable(),
-  enableEmailVerification: z.boolean().nullable(),
-  aiConfig: aiConfigVoSchema.nullable(),
+  brandName: z.string().nullable().optional(),
+  brandLogo: z.string().nullable().optional(),
+  disallowSignUp: z.boolean().nullable().optional(),
+  disallowSpaceCreation: z.boolean().nullable().optional(),
+  disallowSpaceInvitation: z.boolean().nullable().optional(),
+  enableEmailVerification: z.boolean().nullable().optional(),
+  aiConfig: aiConfigVoSchema.nullable().optional(),
 });
 
 export type ISettingVo = z.infer<typeof settingVoSchema>;

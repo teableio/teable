@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { IAuthConfig } from '../../../configs/auth.config';
 import { authConfig } from '../../../configs/auth.config';
 import { MailSenderModule } from '../../mail-sender/mail-sender.module';
+import { SettingModule } from '../../setting/setting.module';
 import { UserModule } from '../../user/user.module';
 import { SessionStoreService } from '../session/session-store.service';
 import { SessionModule } from '../session/session.module';
@@ -12,6 +13,7 @@ import { LocalAuthService } from './local-auth.service';
 
 @Module({
   imports: [
+    SettingModule,
     UserModule,
     SessionModule,
     MailSenderModule.register(),

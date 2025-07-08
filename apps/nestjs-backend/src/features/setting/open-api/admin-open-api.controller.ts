@@ -1,12 +1,12 @@
 import { Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
-import { Permissions } from '../auth/decorators/permissions.decorator';
-import { AdminService } from './admin.service';
+import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { AdminOpenApiService } from './admin-open-api.service';
 
 @Controller('api/admin')
 @Permissions('instance|update')
-export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+export class AdminOpenApiController {
+  constructor(private readonly adminService: AdminOpenApiService) {}
 
   @Patch('/plugin/:pluginId/publish')
   async publishPlugin(@Param('pluginId') pluginId: string): Promise<void> {

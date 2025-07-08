@@ -26,6 +26,7 @@ import { UserSignUpEvent } from '../../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../../types/cls';
 import { second } from '../../../utils/second';
 import { MailSenderService } from '../../mail-sender/mail-sender.service';
+import { SettingService } from '../../setting/setting.service';
 import { UserService } from '../../user/user.service';
 import { SessionStoreService } from '../session/session-store.service';
 
@@ -44,7 +45,8 @@ export class LocalAuthService {
     @AuthConfig() private readonly authConfig: IAuthConfig,
     @MailConfig() private readonly mailConfig: IMailConfig,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly settingService: SettingService
   ) {}
 
   private async encodePassword(password: string) {
@@ -102,7 +104,7 @@ export class LocalAuthService {
   }
 
   private async verifySignup(body: ISignup) {
-    const setting = await this.prismaService.setting.findFirst();
+    const setting = await this.settingService.getSetting();
     if (!setting?.enableEmailVerification) {
       return;
     }

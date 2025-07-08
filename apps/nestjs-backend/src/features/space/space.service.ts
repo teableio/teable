@@ -148,12 +148,7 @@ export class SpaceService {
     const isAdmin = this.cls.get('user.isAdmin');
 
     if (!isAdmin) {
-      const setting = await this.prismaService.setting.findFirst({
-        select: {
-          disallowSpaceCreation: true,
-        },
-      });
-
+      const setting = await this.settingService.getSetting();
       if (setting?.disallowSpaceCreation) {
         throw new ForbiddenException(
           'The current instance disallow space creation by the administrator'

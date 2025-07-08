@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { HttpException, HttpStatus } from '@nestjs/common';
-
 export enum PostgresErrorCode {
   NOT_NULL_VIOLATION = '23502',
   UNIQUE_VIOLATION = '23505',
@@ -34,7 +32,6 @@ export const handleDBValidationErrors = async ({
     ) {
       return handleNotNullError();
     }
-    console.log('handleDBValidationErrorssss', e);
-    throw new HttpException(`An error occurred: ${e.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    throw e;
   }
 };

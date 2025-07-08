@@ -61,13 +61,16 @@ import {
   permanentDeleteBase as apiPermanentDeleteBase,
 } from '@teable/openapi';
 import { json, urlencoded } from 'express';
+import type { ClsService } from 'nestjs-cls';
 import { AppModule } from '../../src/app.module';
 import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
+import { BaseSqlExecutorModule } from '../../src/features/base-sql-executor/base-sql-executor.module';
 import { NextService } from '../../src/features/next/next.service';
 import { TableIndexService } from '../../src/features/table/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
+import type { IClsStore } from '../../src/types/cls';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 import { TestingLogger } from './testing-logger';
@@ -77,7 +80,7 @@ export async function initApp() {
   if (globalThis.initApp) return await globalThis.initApp();
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [AppModule],
+    imports: [AppModule, BaseSqlExecutorModule],
   })
     .overrideProvider(NextService)
     .useValue({
@@ -145,6 +148,37 @@ export async function initApp() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
   };
+}
+
+/**
+ * Helper function to run code within CLS context with test user
+ */
+export async function runWithTestUser<T>(
+  clsService: ClsService<IClsStore>,
+  fn: () => Promise<T>,
+  userOverrides?: Partial<IClsStore['user']>
+): Promise<T> {
+  const testUser: IClsStore['user'] = {
+    id: globalThis.testConfig.userId,
+    name: globalThis.testConfig.userName,
+    email: globalThis.testConfig.email,
+    isAdmin: false,
+    ...userOverrides,
+  };
+
+  const clsStore: IClsStore = {
+    user: testUser,
+    origin: {
+      ip: '127.0.0.1',
+      byApi: false,
+      userAgent: 'test-agent',
+      referer: '',
+    },
+    tx: {},
+    permissions: [],
+  };
+
+  return clsService.runWith(clsStore, fn);
 }
 
 export async function getTableIndexService(app: INestApplication) {

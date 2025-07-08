@@ -323,14 +323,12 @@ model AccessToken {
 }
 
 model Setting {
-  instanceId                String    @id @default(cuid()) @map("instance_id")
-  disallowSignUp            Boolean?  @map("disallow_sign_up")
-  disallowSpaceCreation     Boolean?  @map("disallow_space_creation")
-  disallowSpaceInvitation   Boolean?  @map("disallow_space_invitation")
-  enableEmailVerification   Boolean?  @map("enable_email_verification")
-  aiConfig                  String?   @map("ai_config")
-  brandName                 String?   @map("brand_name")
-  brandLogo                 String?   @map("brand_logo")
+  name             String @unique
+  content          String?   
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
 
   @@map("setting")
 }

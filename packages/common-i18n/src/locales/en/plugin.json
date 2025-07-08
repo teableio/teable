@@ -65,5 +65,8 @@
     "reviewing": "Reviewing",
     "published": "Published",
     "developing": "Developing"
+  },
+  "button": {
+    "submitApproved": "Submit Approved"
   }
 }
