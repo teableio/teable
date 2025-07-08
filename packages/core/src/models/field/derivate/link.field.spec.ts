@@ -159,6 +159,7 @@ describe('LinkFieldCore', () => {
       expect(linkFieldOptionsRoSchema.parse(object)).toEqual({
         relationship: 'manyOne',
         foreignTableId: 'tblERSkHpp4KDRK1hvL',
+        lookupFieldId: 'fldXWPHcgSGeKgFFuOI',
         filterByViewId: 'viwXWPHcgSGeKgFFuOI',
         visibleFieldIds: ['fldXWPHcgSGeKgFFuOI'],
         filter: {
