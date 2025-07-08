@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
-import { DriverClient, getRandomString, parseDsn } from '@teable/core';
+import { DriverClient, parseDsn } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService, PrismaClient } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -125,8 +125,8 @@ export class BaseSqlExecutorService {
       .$executeRawUnsafe(
         this.knex
           .raw(
-            `CREATE ROLE ?? WITH NOLOGIN PASSWORD ? NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`,
-            [roleName, getRandomString(16).toLocaleLowerCase()]
+            `CREATE ROLE ?? WITH NOLOGIN NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`,
+            [roleName]
           )
           .toQuery()
       );
