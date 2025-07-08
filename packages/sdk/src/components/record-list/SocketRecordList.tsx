@@ -44,7 +44,7 @@ export const SocketRecordList = (props: ISocketRecordListProps) => {
       className="h-full"
       onSelect={(index) => {
         const record = recordMap[index];
-        if (!record) {
+        if (!record || !lookupFieldId) {
           return;
         }
         const title = record.getCellValueAsString(lookupFieldId);
@@ -55,7 +55,7 @@ export const SocketRecordList = (props: ISocketRecordListProps) => {
       }}
       itemRender={(index) => {
         const record = recordMap[index];
-        if (!record) {
+        if (!record || !lookupFieldId) {
           return <Skeleton className="size-full"></Skeleton>;
         }
         const title = record.getCellValueAsString(lookupFieldId);
