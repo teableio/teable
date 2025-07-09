@@ -11,7 +11,6 @@ export const PLAN_FIELD_CONVERT = '/table/{tableId}/field/{fieldId}/plan';
 export const planFieldConvertVoSchema = planFieldVoSchema.partial().merge(
   z.object({
     skip: z.boolean().optional(),
-    linkFieldCount: z.number().optional(),
   })
 );
 

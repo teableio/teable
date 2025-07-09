@@ -377,7 +377,8 @@
     "graph": {
       "tableLabel": "Мітка таблиці",
       "effectCells": "Може впливати на клітини",
-      "estimatedTime": "Орієнтовний час"
+      "estimatedTime": "Орієнтовний час",
+      "linkFieldCount": "Впливає на кількість посилань"
     },
     "integrity": {
       "check": "Перевірити",

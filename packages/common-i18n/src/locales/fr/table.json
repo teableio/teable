@@ -365,7 +365,8 @@
     "graph": {
       "tableLabel": "Étiquette de la table",
       "effectCells": "Peut affecter les cellules",
-      "estimatedTime": "Temps estimé"
+      "estimatedTime": "Temps estimé",
+      "linkFieldCount": "Affecte le nombre de champs liés"
     },
     "integrity": {
       "check": "Vérifier",

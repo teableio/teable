@@ -372,7 +372,8 @@
     "graph": {
       "tableLabel": "Etiqueta de mesa",
       "effectCells": "Puede afectar las células",
-      "estimatedTime": "Tiempo estimado"
+      "estimatedTime": "Tiempo estimado",
+      "linkFieldCount": "Afecta el número de campos vinculados"
     },
     "integrity": {
       "check": "Controlar",

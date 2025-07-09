@@ -95,8 +95,8 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
       </div>
       {linkFieldCount && linkFieldCount > 0 ? (
         <div className="flex items-center gap-2 text-xs">
+          {t('table.graph.linkFieldCount')}:{' '}
           <Badge>{Intl.NumberFormat(i18n.language).format(linkFieldCount)}</Badge>
-          linkFields's display will be reset to primary field, please check it.
         </div>
       ) : null}
 

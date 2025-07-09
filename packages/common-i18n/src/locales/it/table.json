@@ -377,7 +377,8 @@
     "graph": {
       "tableLabel": "Etichetta della tabella",
       "effectCells": "Può influire sulle celle",
-      "estimatedTime": "Tempo stimato"
+      "estimatedTime": "Tempo stimato",
+      "linkFieldCount": "Influisce sul numero di campi collegati"
     },
     "integrity": {
       "check": "Controlla",
