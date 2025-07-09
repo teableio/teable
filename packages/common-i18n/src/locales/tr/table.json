@@ -364,7 +364,8 @@
     "graph": {
       "tableLabel": "Tablo etiketi",
       "effectCells": "Etkilenebilecek hücreler",
-      "estimatedTime": "Tahmini süre"
+      "estimatedTime": "Tahmini süre",
+      "linkFieldCount": "Etkilenebilecek bağlantılı alan sayısı"
     }
   },
   "import": {

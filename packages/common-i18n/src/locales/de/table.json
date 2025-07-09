@@ -377,7 +377,8 @@
     "graph": {
       "tableLabel": "Tabelle Label",
       "effectCells": "Kann sich auf Zellen auswirken",
-      "estimatedTime": "Geschätzte Zeit"
+      "estimatedTime": "Geschätzte Zeit",
+      "linkFieldCount": "Affects the number of linked fields"
     },
     "integrity": {
       "check": "Prüfen",

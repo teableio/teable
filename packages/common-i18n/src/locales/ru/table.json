@@ -365,7 +365,8 @@
     "graph": {
       "tableLabel": "Метка таблицы",
       "effectCells": "Может повлиять на ячейки",
-      "estimatedTime": "Расчетное время"
+      "estimatedTime": "Расчетное время",
+      "linkFieldCount": "Влияет на количество связанных полей"
     },
     "integrity": {
       "check": "Проверить",

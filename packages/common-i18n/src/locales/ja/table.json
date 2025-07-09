@@ -365,7 +365,8 @@
     "graph": {
       "tableLabel": "テーブルラベル",
       "effectCells": "セルに影響を与える可能性があります",
-      "estimatedTime": "推定所要時間"
+      "estimatedTime": "推定所要時間",
+      "linkFieldCount": "影響するリンクフィールドの数"
     },
     "integrity": {
       "check": "チェック",

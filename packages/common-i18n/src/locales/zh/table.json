@@ -376,7 +376,8 @@
     "graph": {
       "tableLabel": "表格名称",
       "effectCells": "影响单元格数",
-      "estimatedTime": "预计完成"
+      "estimatedTime": "预计完成",
+      "linkFieldCount": "影响关联字段的个数"
     },
     "integrity": {
       "check": "检查",

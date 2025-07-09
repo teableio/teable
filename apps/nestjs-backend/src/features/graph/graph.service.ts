@@ -350,12 +350,8 @@ export class GraphService {
       fieldId2DbTableName
     );
 
-    const newFieldInstance = createFieldInstanceByVo(newField);
     const resetLinkFieldLookupFieldIds =
-      await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(
-        tableId,
-        newFieldInstance
-      );
+      await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(tableId, newField);
 
     return {
       graph,
