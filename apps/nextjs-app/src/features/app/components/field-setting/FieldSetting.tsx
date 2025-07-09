@@ -211,7 +211,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   };
 
   const onSave = async () => {
-    if (!updateCount) {
+    if (operator === FieldOperator.Edit && !updateCount) {
       onConfirm?.();
       return;
     }
