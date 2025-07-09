@@ -25,6 +25,7 @@ import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 
 @Injectable()
@@ -36,6 +37,7 @@ export class SpaceService {
     private readonly collaboratorService: CollaboratorService,
     private readonly permissionService: PermissionService,
     private readonly settingService: SettingService,
+    private readonly settingOpenApiService: SettingOpenApiService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -391,6 +393,6 @@ export class SpaceService {
   }
 
   async testIntegrationLLM(testLLMRo: ITestLLMRo) {
-    return await this.settingService.testLLM(testLLMRo);
+    return await this.settingOpenApiService.testLLM(testLLMRo);
   }
 }
