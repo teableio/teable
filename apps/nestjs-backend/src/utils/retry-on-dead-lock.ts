@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { HttpErrorCode } from '@teable/core';
 import { thresholdConfig } from '../configs/threshold.config';
 import { CustomHttpException } from '../custom.exception';
@@ -29,10 +28,11 @@ export function retryOnDeadlock(opt?: {
       while (retries <= maxRetries) {
         try {
           return await originalMethod.apply(this, args);
-        } catch (error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (error: any) {
           if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            retryCodes.includes(error.code)
+            retryCodes.includes(error.code) ||
+            (error.meta?.code && retryCodes.includes(error.meta.code as string))
           ) {
             if (retries === maxRetries) {
               logger.error(
