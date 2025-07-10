@@ -132,7 +132,8 @@ export class FieldViewSyncService {
     const fieldId = newField.id;
     const resetLinkFieldIds = await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(
       tableId,
-      newField
+      newField,
+      'field|update'
     );
 
     if (isEmpty(resetLinkFieldIds)) {

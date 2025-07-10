@@ -367,6 +367,7 @@
       "pasteFailed": "Incolla fallita",
       "clearing": "Cancellazione in corso...",
       "clearSuccessful": "Cancellazione riuscita",
+      "deleteFieldConfirmTitle": "Elimina i seguenti campi",
       "deleting": "Eliminazione in corso...",
       "deleteSuccessful": "Eliminazione riuscita",
       "pasteFileFailed": "I file possono essere incollati solo in un campo di allegato",

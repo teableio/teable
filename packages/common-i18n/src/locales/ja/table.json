@@ -358,9 +358,13 @@
       "pasteFailed": "貼り付け失敗",
       "clearing": "クリア...",
       "clearSuccessful": "クリア成功",
+      "deleteFieldConfirmTitle": "以下のフィールドを削除します",
       "deleting": "削除中...",
       "deleteSuccessful": "削除成功",
-      "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます"
+      "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます",
+      "copyError": {
+        "noFocus": "ページをアクティブに保ち、ウィンドウを切り替えないでください"
+      }
     },
     "graph": {
       "tableLabel": "テーブルラベル",

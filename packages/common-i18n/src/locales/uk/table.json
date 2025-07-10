@@ -367,6 +367,7 @@
       "pasteFailed": "Не вдалося вставити",
       "clearing": "Очищення...",
       "clearSuccessful": "Очистити успішно",
+      "deleteFieldConfirmTitle": "Ви видаляєте наступні поля",
       "deleting": "Видалення...",
       "deleteSuccessful": "Успішне видалення",
       "pasteFileFailed": "Файли можна вставляти лише в поле вкладення",

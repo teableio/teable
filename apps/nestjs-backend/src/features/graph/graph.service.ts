@@ -8,6 +8,7 @@ import type {
   IGraphCombo,
   IPlanFieldVo,
   IPlanFieldConvertVo,
+  IPlanFieldDeleteVo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
@@ -351,12 +352,33 @@ export class GraphService {
     );
 
     const resetLinkFieldLookupFieldIds =
-      await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(tableId, newField);
+      await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(
+        tableId,
+        newField,
+        'field|update'
+      );
 
     return {
       graph,
       updateCellCount,
       estimateTime: this.getEstimateTime(updateCellCount),
+      linkFieldCount: resetLinkFieldLookupFieldIds.length,
+    };
+  }
+
+  async planDeleteField(tableId: string, fieldId: string): Promise<IPlanFieldDeleteVo> {
+    const res = await this.planField(tableId, fieldId);
+    const field = await this.fieldService.getField(tableId, fieldId);
+    const fieldInstance = createFieldInstanceByVo(field);
+    const resetLinkFieldLookupFieldIds =
+      await this.fieldConvertingLinkService.planResetLinkFieldLookupFieldId(
+        tableId,
+        fieldInstance,
+        'field|delete'
+      );
+
+    return {
+      ...res,
       linkFieldCount: resetLinkFieldLookupFieldIds.length,
     };
   }

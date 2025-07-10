@@ -362,6 +362,7 @@
       "pasteFailed": "Pasta falló",
       "clearing": "Claro...",
       "clearSuccessful": "Claro exitoso",
+      "deleteFieldConfirmTitle": "Eliminar los siguientes campos",
       "deleting": "Eliminar ...",
       "deleteSuccessful": "Eliminar exitoso",
       "pasteFileFailed": "Los archivos solo se pueden pegar en un campo de archivo adjunto",

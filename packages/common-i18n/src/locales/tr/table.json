@@ -357,9 +357,13 @@
       "pasteFailed": "Yapıştırma başarısız",
       "clearing": "Temizleniyor...",
       "clearSuccessful": "Temizleme başarılı",
+      "deleteFieldConfirmTitle": "Aşağıdaki alanları silmek üzeresiniz",
       "deleting": "Siliniyor...",
       "deleteSuccessful": "Silme başarılı",
-      "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir"
+      "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
+      "copyError": {
+        "noFocus": "Lütfen pencereyi değiştirmeyin"
+      }
     },
     "graph": {
       "tableLabel": "Tablo etiketi",

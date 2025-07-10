@@ -16,7 +16,7 @@ import {
   MagicAi,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
-import { deleteFields, duplicateField } from '@teable/openapi';
+import { duplicateField } from '@teable/openapi';
 import type { GridView } from '@teable/sdk';
 import {
   useFieldPermission,
@@ -44,8 +44,9 @@ import {
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { Fragment, useRef } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
+import { FieldDeleteConfirmDialog } from '@/features/app/components/field-setting/field-delete-confirm-dialog/FieldDeleteConfirmDialog';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
@@ -82,6 +83,14 @@ export const FieldMenu = () => {
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
+  const emptyFieldMenu = !view || !fields?.length || !allFields.length;
+  const [deleteFieldDialog, setDeleteFieldDialog] = useState<{
+    open: boolean;
+    tableId?: string;
+    fieldIds?: string[];
+  }>({
+    open: false,
+  });
 
   const { mutateAsync: duplicateFieldFn } = useMutation({
     mutationFn: ({
@@ -99,7 +108,15 @@ export const FieldMenu = () => {
     closeHeaderMenu();
   });
 
-  if (!view || !fields?.length || !allFields.length) return null;
+  useEffect(() => {
+    if (emptyFieldMenu) {
+      setDeleteFieldDialog({ open: false });
+    }
+  }, [emptyFieldMenu]);
+
+  if (emptyFieldMenu) {
+    return null;
+  }
 
   const fieldIds = fields.map((f) => f.id);
 
@@ -350,10 +367,12 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          await deleteFields(
+
+          setDeleteFieldDialog({
+            open: true,
             tableId,
-            filteredFields.map((f) => f.id)
-          );
+            fieldIds: filteredFields.map((f) => f.id),
+          });
         },
       },
     ],
@@ -381,8 +400,11 @@ export const FieldMenu = () => {
                     if (disabled) return;
 
                     await onClick();
-                    onSelectionClear?.();
-                    closeHeaderMenu();
+                    // Don't auto-close menu for delete action
+                    if (type !== MenuItemType.Delete) {
+                      onSelectionClear?.();
+                      closeHeaderMenu();
+                    }
                   }}
                 >
                   {icon}
@@ -424,8 +446,11 @@ export const FieldMenu = () => {
                                 return;
                               }
                               await onClick();
-                              onSelectionClear?.();
-                              closeHeaderMenu();
+                              // Don't auto-close menu for delete action
+                              if (type !== MenuItemType.Delete) {
+                                onSelectionClear?.();
+                                closeHeaderMenu();
+                              }
                             }}
                           >
                             {icon}
@@ -442,6 +467,17 @@ export const FieldMenu = () => {
           </PopoverContent>
         </Popover>
       )}
+
+      <FieldDeleteConfirmDialog
+        tableId={deleteFieldDialog.tableId ?? ''}
+        fieldIds={deleteFieldDialog.fieldIds ?? []}
+        open={deleteFieldDialog.open}
+        onClose={() => {
+          setDeleteFieldDialog({ open: false });
+          onSelectionClear?.();
+          closeHeaderMenu();
+        }}
+      />
     </>
   );
 };

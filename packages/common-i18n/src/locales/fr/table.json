@@ -358,9 +358,13 @@
       "pasteFailed": "Échec du collage",
       "clearing": "Effacement en cours...",
       "clearSuccessful": "Effacement réussi",
+      "deleteFieldConfirmTitle": "Vous allez supprimer les champs suivants",
       "deleting": "Suppression en cours...",
       "deleteSuccessful": "Suppression réussie",
-      "pasteFileFailed": "Les fichiers ne peuvent être collés que dans un champ de pièces jointes"
+      "pasteFileFailed": "Les fichiers ne peuvent être collés que dans un champ de pièces jointes",
+      "copyError": {
+        "noFocus": "Veuillez garder la page active et ne pas changer de fenêtre"
+      }
     },
     "graph": {
       "tableLabel": "Étiquette de la table",

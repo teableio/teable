@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions, IOtOperation } from '@teable/core';
+import type { FieldAction, ILinkCellValue, ILinkFieldOptions, IOtOperation } from '@teable/core';
 import {
   Relationship,
   RelationshipRevert,
@@ -455,11 +455,16 @@ export class FieldConvertingLinkService {
 
   async planResetLinkFieldLookupFieldId(
     lookupedTableId: string,
-    lookupedField: IFieldInstance
+    lookupedField: IFieldInstance,
+    fieldAction: FieldAction
   ): Promise<string[]> {
-    if (PRIMARY_SUPPORTED_TYPES.has(lookupedField.type)) {
+    if (fieldAction !== 'field|update' && fieldAction !== 'field|delete') {
       return [];
     }
+    if (fieldAction === 'field|update' && PRIMARY_SUPPORTED_TYPES.has(lookupedField.type)) {
+      return [];
+    }
+
     const prisma = this.prismaService.txClient();
 
     const lookupedFieldId = lookupedField.id;

@@ -367,6 +367,7 @@
       "pasteFailed": "Einfügen fehlgeschlagen",
       "clearing": "Leeren...",
       "clearSuccessful": "Leeren erfolgreich",
+      "deleteFieldConfirmTitle": "Sie werden die folgenden Felder löschen",
       "deleting": "Lösche...",
       "deleteSuccessful": "Löschen erfolgreich",
       "pasteFileFailed": "Dateien können nur in ein Anhangsfeld eingefügt werden",

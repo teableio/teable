@@ -86,6 +86,10 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
 
+  async planDeleteField(tableId: string, fieldId: string) {
+    return await this.graphService.planDeleteField(tableId, fieldId);
+  }
+
   async getFields(tableId: string, query: IGetFieldsQuery) {
     return await this.fieldService.getFieldsByQuery(tableId, {
       ...query,

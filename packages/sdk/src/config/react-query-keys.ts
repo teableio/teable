@@ -122,6 +122,9 @@ export const ReactQueryKeys = {
 
   planField: (tableId: string, fieldId: string) => ['field-plan', tableId, fieldId] as const,
 
+  planFieldDelete: (tableId: string, fieldId: string) =>
+    ['delete-field-plan', tableId, fieldId] as const,
+
   createRecords: (tableId: string, recordsRo: ICreateRecordsRo) =>
     ['create-records', tableId, recordsRo] as const,
 

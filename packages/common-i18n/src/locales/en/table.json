@@ -367,6 +367,7 @@
       "pasteFailed": "Paste failed",
       "clearing": "Clearing...",
       "clearSuccessful": "Clear successful",
+      "deleteFieldConfirmTitle": "You will delete the following fields",
       "deleting": "Deleting...",
       "deleteSuccessful": "Delete successful",
       "pasteFileFailed": "Files can only be pasted into an attachment field",

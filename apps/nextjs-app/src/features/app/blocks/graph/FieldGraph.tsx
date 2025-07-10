@@ -1,4 +1,4 @@
-import type { IFieldRo } from '@teable/core';
+import type { FieldAction, IFieldRo } from '@teable/core';
 import { ColorUtils } from '@teable/core';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Badge } from '@teable/ui-lib/shadcn';
@@ -14,7 +14,12 @@ import { usePlan } from './usePlan';
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
 
-export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?: IFieldRo }) => {
+export const FieldGraph = (params: {
+  tableId: string;
+  fieldId?: string;
+  fieldRo?: IFieldRo;
+  fieldAction?: FieldAction;
+}) => {
   const ref = useRef(null);
   const planData = usePlan(params);
   const updateCellCount = planData?.updateCellCount;

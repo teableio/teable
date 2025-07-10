@@ -358,9 +358,13 @@
       "pasteFailed": "Вставка не удалась",
       "clearing": "Очистка...",
       "clearSuccessful": "Очистка успешна",
+      "deleteFieldConfirmTitle": "Вы собираетесь удалить следующие поля",
       "deleting": "Удаление...",
       "deleteSuccessful": "Удаление успешно",
-      "pasteFileFailed": "Файлы можно вставлять только в поле вложений"
+      "pasteFileFailed": "Файлы можно вставлять только в поле вложений",
+      "copyError": {
+        "noFocus": "Пожалуйста, не меняйте окно"
+      }
     },
     "graph": {
       "tableLabel": "Метка таблицы",

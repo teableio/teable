@@ -126,6 +126,12 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|delete')
+  @Delete(':fieldId/plan')
+  async planDeleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
+    return await this.fieldOpenApiService.planDeleteField(tableId, fieldId);
+  }
+
+  @Permissions('field|delete')
   @Delete(':fieldId')
   async deleteField(
     @Param('tableId') tableId: string,
