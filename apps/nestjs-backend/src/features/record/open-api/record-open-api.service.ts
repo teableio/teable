@@ -2,9 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { IAttachmentCellValue, IAttachmentItem, IMakeOptional } from '@teable/core';
 import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ICreateRecordsRo } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
-  ICreateRecordsRo,
   ICreateRecordsVo,
   IGetRecordHistoryQuery,
   IRecord,
@@ -53,6 +53,7 @@ export class RecordOpenApiService {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
+  @retryOnDeadlock()
   async multipleCreateRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
