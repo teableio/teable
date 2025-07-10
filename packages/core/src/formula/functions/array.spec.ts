@@ -65,6 +65,19 @@ describe('ArrayFunc', () => {
 
       expect(result).toBe(4);
     });
+
+    it('should count numbers example', () => {
+      const result = countAFunc.eval([
+        new TypedValue(100, CellValueType.Number, false),
+        new TypedValue(200, CellValueType.Number, false),
+        new TypedValue(300, CellValueType.Number, false),
+        new TypedValue('', CellValueType.String, false),
+        new TypedValue('Teable', CellValueType.String, false),
+        new TypedValue(true, CellValueType.Boolean, false),
+      ]);
+
+      expect(result).toBe(4);
+    });
   });
 
   describe('Count', () => {
@@ -80,6 +93,19 @@ describe('ArrayFunc', () => {
       const result = countFunc.eval([
         new TypedValue([1, 2, 'A', 'B'], CellValueType.Number, true),
         new TypedValue(3, CellValueType.Number, false),
+      ]);
+
+      expect(result).toBe(3);
+    });
+
+    it('should count numbers example', () => {
+      const result = countFunc.eval([
+        new TypedValue(100, CellValueType.Number, false),
+        new TypedValue(200, CellValueType.Number, false),
+        new TypedValue(300, CellValueType.Number, false),
+        new TypedValue('', CellValueType.String, false),
+        new TypedValue('Teable', CellValueType.String, false),
+        new TypedValue(true, CellValueType.Boolean, false),
       ]);
 
       expect(result).toBe(3);

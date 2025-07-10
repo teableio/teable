@@ -126,7 +126,7 @@ export class CountA extends ArrayFunc {
   }
 
   eval(params: TypedValue<IUnionType>[]): number {
-    return countCalculator(params, (v) => v != null && v !== '');
+    return countCalculator(params, (v) => isNumber(v) || (isString(v) && v !== ''));
   }
 }
 
