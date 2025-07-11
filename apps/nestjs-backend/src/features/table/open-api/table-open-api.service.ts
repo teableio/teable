@@ -174,6 +174,11 @@ export class TableOpenApiService {
 
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
 
+      // set the first field to be the primary field if not set
+      if (!preparedFields.find((field) => field.isPrimary)) {
+        preparedFields[0].isPrimary = true;
+      }
+
       // create teable should not set computed field isPending, because noting need to calculate when create
       preparedFields.forEach((field) => delete field.isPending);
       const fieldVos = await this.createFields(tableId, preparedFields);
