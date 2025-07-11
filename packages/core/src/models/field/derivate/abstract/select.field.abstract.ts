@@ -22,11 +22,13 @@ export const selectFieldOptionsSchema = z.object({
   preventAutoNewOptions: z.boolean().optional(),
 });
 
-export const selectFieldOptionsRoSchema = z.object({
-  choices: z.array(selectFieldChoiceRoSchema),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
-  preventAutoNewOptions: z.boolean().optional(),
-});
+export const selectFieldOptionsRoSchema = z
+  .object({
+    choices: z.array(selectFieldChoiceRoSchema),
+    defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+    preventAutoNewOptions: z.boolean().optional(),
+  })
+  .describe('options for both single and multiple select fields');
 
 export type ISelectFieldOptions = z.infer<typeof selectFieldOptionsSchema>;
 
