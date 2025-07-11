@@ -28,13 +28,14 @@ export class BaseDuplicateService {
   ) {}
 
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo, allowCrossBase: boolean = true) {
-    const { fromBaseId, spaceId, withRecords, name } = duplicateBaseRo;
+    const { fromBaseId, spaceId, withRecords, name, baseId } = duplicateBaseRo;
 
     const { base, tableIdMap, fieldIdMap, viewIdMap } = await this.duplicateStructure(
       fromBaseId,
       spaceId,
       name,
-      allowCrossBase
+      allowCrossBase,
+      baseId
     );
 
     const crossBaseLinkFieldTableMap = allowCrossBase
@@ -105,7 +106,8 @@ export class BaseDuplicateService {
     fromBaseId: string,
     spaceId: string,
     baseName?: string,
-    allowCrossBase?: boolean
+    allowCrossBase?: boolean,
+    baseId?: string
   ) {
     const prisma = this.prismaService.txClient();
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -160,7 +162,7 @@ export class BaseDuplicateService {
       tableIdMap,
       fieldIdMap,
       viewIdMap,
-    } = await this.baseImportService.createBaseStructure(spaceId, structure);
+    } = await this.baseImportService.createBaseStructure(spaceId, structure, baseId);
 
     return { base: newBase, tableIdMap, fieldIdMap, viewIdMap };
   }

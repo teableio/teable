@@ -54,6 +54,283 @@
   "password": {
     "setInvalid": "The password is invalid, at least 8 characters, and must contain at least one letter and one number."
   },
+  "template": {
+    "aiTitle": "Build your internal tool",
+    "aiSubTitle": "The first AI platform where teams collaborate on data and generate production apps",
+    "title": "Template",
+    "description": "Create a new base from a template",
+    "browseAll": "Browse All",
+    "templateTitle": "Start with template",
+    "loadMore": "Load More",
+    "allTemplatesLoaded": "All templates loaded",
+    "noTemplates": "No templates available",
+    "promptBox": {
+      "placeholder": "Build your business app with Teable",
+      "start": "Start it",
+      "ideas": "Some ideas to get started:",
+      "ideasList": {
+        "crm": {
+          "title": "CRM",
+          "crmForArtists": {
+            "title": "CRM for Artists",
+            "prompt": "I'm an independent artist who needs to manage my collectors, artwork inventory, and sales pipeline. I want to track which clients are interested in specific styles, monitor my piece availability, record sales transactions, and keep tabs on upcoming exhibitions. I'd love insights into my best-selling works, identify repeat buyers, and get notifications when pieces are running low or important shows are approaching."
+          },
+          "crmForRealEstate": {
+            "title": "CRM for Real Estate",
+            "prompt": "I'm a real estate agent who needs to manage my clients, properties, and sales pipeline. I want to track which clients are interested in specific properties, monitor property availability, record sales transactions, and keep tabs on upcoming open houses. I'd love insights into my best-selling properties, identify repeat buyers, and get notifications when properties are running low or important open houses are approaching."
+          },
+          "crmForLawyers": {
+            "title": "CRM for Lawyers/Legal Practices",
+            "prompt": "Our law firm handles client matters across various practice areas and needs to streamline case management. We track case progression, critical deadlines, billing cycles, and attorney workloads. I want oversight of our revenue streams, practice area distribution, and automated alerts for upcoming court dates, overdue invoices, and client check-ins."
+          },
+          "crmForPhotographers": {
+            "title": "CRM for Photographers",
+            "prompt": "As a freelance photographer, I manage client bookings, shoot schedules, and deliverable timelines across wedding, portrait, and commercial work. I need insights into revenue by photography type, equipment usage, post-production workflow, and automated reminders for project deadlines and outstanding payments."
+          },
+          "crmForHealthcare": {
+            "title": "CRM for Healthcare Practices",
+            "prompt": "Our medical practice manages patient records, appointment scheduling, and treatment protocols. We want to track patient visit history, treatment outcomes, follow-up compliance, and operational metrics. The system should send appointment reminders, schedule follow-ups, manage provider availability, and analyze our most successful treatment programs."
+          },
+          "crmForInfluencers": {
+            "title": "CRM for Influencers/Content Creators",
+            "prompt": "I'm a content creator managing brand partnerships, content calendars, and audience engagement across multiple platforms. I need to track campaign performance, collaboration revenue, content metrics, and partnership deliverables. I want growth analytics, performance insights, and reminders for content deadlines and payment milestones."
+          },
+          "crmForWeddingPlanners": {
+            "title": "CRM for Wedding Planners",
+            "prompt": "I run a wedding planning business coordinating couples, vendors, and event timelines. I need to manage wedding budgets, task completion, vendor performance, and client satisfaction. The system should alert me to important wedding milestones, vendor contract renewals, and help me analyze our most popular wedding packages."
+          },
+          "crmForFitnessTrainers": {
+            "title": "CRM for Fitness Trainers/Gyms",
+            "prompt": "I operate a fitness studio managing member profiles, class schedules, and training progress. I want to track member engagement, attendance patterns, renewal rates, and trainer schedules. I need insights into popular class types, member retention, and automated alerts for membership renewals and low-attendance members."
+          },
+          "crmForMusicians": {
+            "title": "CRM for Musicians/Bands",
+            "prompt": "Our band manages fan relationships, tour logistics, and merchandise sales. We track concert ticket sales, fan engagement, merch inventory, and music performance metrics. We want to see our popularity across different markets and get automated fan notifications for new releases and upcoming shows."
+          },
+          "crmForConstruction": {
+            "title": "CRM for Construction Contractors",
+            "prompt": "I'm a general contractor overseeing multiple projects, client relationships, and construction timelines. I need to monitor project costs, material procurement, schedule adherence, and payment cycles. I want profitability insights, resource utilization reports, and alerts for project milestones and payment due dates."
+          }
+        },
+        "devProductivity": {
+          "title": "Dev Productivity",
+          "codeReviewTracker": {
+            "title": "Code Review Tracker",
+            "prompt": "I'm a software developer who needs to manage my code reviews. I want to track which code reviews are pending, which ones are in progress, and which ones are completed. I'd love to see a list of all code reviews, their status, and the reviewers. I'd also like to be able to filter code reviews by status, reviewer, and project."
+          },
+          "bugTrackingSystem": {
+            "title": "Bug Tracking System",
+            "prompt": "Our engineering team needs to streamline bug reporting, triage, and resolution workflows. I want to track bug severity distribution, time-to-resolution metrics, developer workload balance, and identify recurring issue patterns. The system should prioritize critical bugs, assign based on expertise, and provide progress visibility to stakeholders."
+          },
+          "sprintPlanningDashboard": {
+            "title": "Sprint Planning Dashboard",
+            "prompt": "I'm a scrum master coordinating sprint planning, story point estimation, and velocity tracking for multiple development teams. I need visibility into team capacity, sprint completion rates, backlog prioritization, and impediment resolution. I want predictive analytics for delivery timelines and automated alerts for scope creep."
+          },
+          "apiDocumentationManager": {
+            "title": "API Documentation Manager",
+            "prompt": "Our development team maintains numerous APIs and microservices that need comprehensive documentation tracking. I want to monitor documentation coverage, API usage analytics, deprecation timelines, and integration health. The system should alert us to outdated docs, breaking changes, and help maintain API versioning consistency."
+          },
+          "techDebtTracker": {
+            "title": "Tech Debt Tracker",
+            "prompt": "I need to systematically track, prioritize, and manage technical debt across our codebase. I want to catalog legacy code sections, assess refactoring priorities, track improvement progress, and measure the impact of debt reduction efforts. The system should help balance feature development with maintenance work."
+          },
+          "developerOnboardingSystem": {
+            "title": "Developer Onboarding System",
+            "prompt": "I'm responsible for streamlining the onboarding process for new developers joining our team. I need to track completion of setup tasks, skill assessment progress, mentorship assignments, and early productivity metrics. I want insights into onboarding bottlenecks and automated progress notifications for both new hires and mentors."
+          }
+        },
+        "educational": {
+          "title": "Educational",
+          "studentPerformanceTracker": {
+            "title": "Student Performance Tracker",
+            "prompt": "I'm an educator managing student progress across multiple courses and assessment types. I need to track attendance, assignment completion, grade trends, and learning objective mastery. I want early intervention alerts for struggling students, insights into successful teaching methods, and automated parent communication for progress updates."
+          },
+          "courseContentManagement": {
+            "title": "Course Content Management",
+            "prompt": "I manage curriculum development and content delivery across multiple educational programs. I need to organize learning materials, track content effectiveness, monitor engagement metrics, and coordinate with other instructors. I want insights into which content resonates best and automated scheduling for content reviews and updates."
+          },
+          "onlineLearningPlatform": {
+            "title": "Online Learning Platform",
+            "prompt": "I run an online education platform managing student enrollments, course completions, and instructor performance. I need to track engagement metrics, completion rates, student satisfaction, and revenue by course type. I want predictive analytics for student success and automated recommendations for course improvements."
+          },
+          "researchProjectManager": {
+            "title": "Research Project Manager",
+            "prompt": "I'm coordinating academic research projects involving multiple students, faculty, and external collaborators. I need to track research milestones, budget allocation, publication progress, and resource utilization. I want insights into productive research patterns and automated reminders for grant deadlines and project deliverables."
+          },
+          "schoolAdministrationSystem": {
+            "title": "School Administration System",
+            "prompt": "I manage school operations including enrollment, scheduling, staff coordination, and resource allocation. I need visibility into classroom utilization, teacher workloads, student demographics, and budget management. I want operational insights and automated notifications for enrollment periods, staffing needs, and facility maintenance."
+          },
+          "trainingProgramTracker": {
+            "title": "Training Program Tracker",
+            "prompt": "I oversee professional development and certification programs for working adults. I need to manage enrollment cycles, track skill progression, monitor instructor effectiveness, and measure career impact. I want insights into program ROI and automated alerts for certification renewals and program improvements."
+          }
+        },
+        "personalFinance": {
+          "title": "Personal Finance",
+          "investmentPortfolioTracker": {
+            "title": "Investment Portfolio Tracker",
+            "prompt": "I'm managing my investment portfolio across stocks, bonds, crypto, and real estate. I need to track asset allocation, performance metrics, dividend income, and rebalancing opportunities. I want insights into my investment patterns, risk exposure analysis, and automated alerts for significant market movements or rebalancing needs."
+          },
+          "budgetManagementSystem": {
+            "title": "Budget Management System",
+            "prompt": "I need comprehensive tracking of my monthly income, expenses, and savings goals across multiple accounts and categories. I want to monitor spending patterns, identify cost-saving opportunities, track progress toward financial goals, and receive alerts for budget overruns or unusual spending patterns."
+          },
+          "debtPayoffPlanner": {
+            "title": "Debt Payoff Planner",
+            "prompt": "I'm managing multiple debts including credit cards, student loans, and mortgages with different interest rates and payment schedules. I need to track payoff progress, optimize payment strategies, monitor interest savings, and maintain motivation through goal visualization. I want automated reminders and payment optimization suggestions."
+          },
+          "retirementPlanningDashboard": {
+            "title": "Retirement Planning Dashboard",
+            "prompt": "I'm planning for retirement and need to track contributions across 401k, IRA, and other investment accounts. I want to model different retirement scenarios, monitor progress toward retirement goals, track employer matching, and optimize tax-advantaged contributions. The system should provide retirement readiness insights and adjustment recommendations."
+          },
+          "taxPreparationOrganizer": {
+            "title": "Tax Preparation Organizer",
+            "prompt": "I need to organize tax-related documents, track deductible expenses, monitor tax-loss harvesting opportunities, and prepare for annual tax filing. I want to categorize income sources, track business expenses, monitor charitable contributions, and receive reminders for important tax deadlines and document collection."
+          },
+          "sideHustleRevenueTracker": {
+            "title": "Side Hustle Revenue Tracker",
+            "prompt": "I'm managing income from multiple side businesses including freelancing, rental properties, and online sales. I need to track revenue streams, business expenses, tax obligations, and profitability by venture. I want insights into my most profitable activities and automated tracking for business mileage and expense categorization."
+          }
+        },
+        "productivity": {
+          "title": "Productivity",
+          "taskManagementSystem": {
+            "title": "Task Management System",
+            "prompt": "I need to organize my daily tasks, project deadlines, and personal goals across work and personal life. I want to track completion rates, time allocation, priority management, and productivity patterns. The system should help me focus on high-impact activities and provide insights into my most productive working styles."
+          },
+          "habitTrackingDashboard": {
+            "title": "Habit Tracking Dashboard",
+            "prompt": "I'm building positive habits and breaking negative ones across health, career, and personal development areas. I need to track consistency, identify trigger patterns, monitor progress streaks, and maintain motivation. I want insights into successful habit formation strategies and automated reminders and encouragement."
+          },
+          "timeBlockingPlanner": {
+            "title": "Time Blocking Planner",
+            "prompt": "I use time blocking to manage my calendar and want to optimize my schedule for maximum productivity. I need to track time allocation across different activities, identify scheduling conflicts, monitor focus time availability, and analyze productive vs. unproductive time blocks. I want automated scheduling suggestions and protected focus time."
+          },
+          "goalAchievementTracker": {
+            "title": "Goal Achievement Tracker",
+            "prompt": "I'm working toward multiple personal and professional goals with different timelines and success metrics. I need to break down large goals into actionable steps, track milestone progress, monitor motivation levels, and adjust strategies based on results. I want visual progress tracking and automated check-ins for goal review."
+          },
+          "energyManagementSystem": {
+            "title": "Energy Management System",
+            "prompt": "I want to optimize my daily energy levels by tracking sleep, exercise, nutrition, and work patterns. I need to identify what activities drain or boost my energy, monitor optimal working hours, track recovery periods, and correlate lifestyle factors with productivity. I want personalized recommendations for energy optimization."
+          },
+          "digitalMinimalismTracker": {
+            "title": "Digital Minimalism Tracker",
+            "prompt": "I'm reducing digital distractions and want to track screen time, app usage, notification patterns, and digital wellness metrics. I need to monitor progress toward reduced device dependency, track focused work sessions, and identify digital habits that support or hinder my goals. I want insights into healthy digital boundaries."
+          }
+        },
+        "healthAndWellness": {
+          "title": "Health and Wellness",
+          "fitnessProgressTracker": {
+            "title": "Fitness Progress Tracker",
+            "prompt": "I'm tracking my fitness journey including workouts, strength progression, cardio performance, and body composition changes. I need to monitor exercise consistency, track personal records, plan workout rotations, and correlate fitness activities with energy and mood. I want insights into effective workout patterns and automated rest day recommendations."
+          },
+          "nutritionAndMealPlanning": {
+            "title": "Nutrition and Meal Planning",
+            "prompt": "I want to plan healthy meals, track nutritional intake, monitor dietary goals, and manage grocery shopping efficiently. I need to track macronutrients, identify nutritional gaps, plan meals around dietary restrictions, and correlate nutrition with energy and health markers. I want meal suggestions and automated shopping lists."
+          },
+          "mentalHealthJournal": {
+            "title": "Mental Health Journal",
+            "prompt": "I'm tracking my mental health through mood patterns, stress levels, therapy progress, and coping strategy effectiveness. I need to identify emotional triggers, monitor medication effects, track therapy insights, and maintain consistent self-care practices. I want trend analysis and automated reminders for mental health check-ins."
+          },
+          "sleepOptimizationSystem": {
+            "title": "Sleep Optimization System",
+            "prompt": "I'm improving my sleep quality by tracking sleep duration, bedtime routines, environmental factors, and wake-up patterns. I need to correlate sleep quality with daily activities, monitor sleep debt, track bedtime consistency, and identify factors that improve or disrupt sleep. I want personalized sleep hygiene recommendations."
+          },
+          "medicalRecordsManager": {
+            "title": "Medical Records Manager",
+            "prompt": "I need to organize medical appointments, track health symptoms, manage medication schedules, and monitor health metrics over time. I want to prepare for doctor visits, track treatment effectiveness, manage insurance information, and maintain family health history. The system should provide health trend insights and appointment reminders."
+          },
+          "wellnessChallengeTracker": {
+            "title": "Wellness Challenge Tracker",
+            "prompt": "I'm participating in various wellness challenges and want to track progress across fitness goals, healthy habits, and lifestyle improvements. I need to monitor challenge completion, compare with friends or groups, track motivation levels, and celebrate achievements. I want social accountability features and progress sharing capabilities."
+          }
+        },
+        "contentGenerationAndEditing": {
+          "title": "Content Generation and Editing",
+          "blogContentPipeline": {
+            "title": "Blog Content Pipeline",
+            "prompt": "I manage a content blog and need to track article ideas, writing progress, publication schedules, and performance metrics. I want to organize content by topic, monitor writing productivity, track engagement analytics, and coordinate with editors and collaborators. I need insights into high-performing content and automated publishing workflows."
+          },
+          "socialMediaContentCalendar": {
+            "title": "Social Media Content Calendar",
+            "prompt": "I'm managing social media content across multiple platforms and need to plan posts, track engagement, monitor brand consistency, and analyze performance. I want to schedule content in advance, track hashtag effectiveness, monitor audience growth, and coordinate campaigns across different social channels."
+          },
+          "videoProductionTracker": {
+            "title": "Video Production Tracker",
+            "prompt": "I'm producing video content and need to manage scripts, filming schedules, editing progress, and publication timelines. I want to track video performance metrics, manage equipment and location bookings, coordinate with team members, and monitor production costs. I need insights into successful video formats and automated workflow notifications."
+          },
+          "podcastManagementSystem": {
+            "title": "Podcast Management System",
+            "prompt": "I run a podcast and need to manage episode planning, guest coordination, recording schedules, and publication workflows. I want to track listener analytics, manage sponsor relationships, organize episode archives, and coordinate post-production tasks. I need insights into audience engagement and automated guest communication."
+          },
+          "newsletterCampaignManager": {
+            "title": "Newsletter Campaign Manager",
+            "prompt": "I manage email newsletters and need to track subscriber growth, content performance, send schedules, and engagement metrics. I want to segment subscribers, A/B test subject lines, monitor unsubscribe rates, and optimize send times. I need insights into content that resonates and automated follow-up sequences."
+          },
+          "creativeWritingProjectTracker": {
+            "title": "Creative Writing Project Tracker",
+            "prompt": "I'm working on creative writing projects including novels, short stories, and poetry. I need to track writing sessions, word count progress, character development, plot timelines, and submission status. I want to maintain consistency in writing habits, organize research materials, and track publication opportunities and rejections."
+          }
+        },
+        "travelPlanning": {
+          "title": "Travel Planning",
+          "tripItineraryOrganizer": {
+            "title": "Trip Itinerary Organizer",
+            "prompt": "I'm planning multiple trips and need to organize flight details, accommodation bookings, activity schedules, and transportation arrangements. I want to track trip expenses, manage confirmation numbers, store important documents, and share itineraries with travel companions. I need automated reminders for check-ins and booking deadlines."
+          },
+          "travelExpenseTracker": {
+            "title": "Travel Expense Tracker",
+            "prompt": "I need to track travel expenses across multiple trips for both personal and business purposes. I want to categorize expenses, track currency conversions, monitor budget adherence, and prepare expense reports. The system should help with tax deductions and provide insights into travel cost patterns and optimization opportunities."
+          },
+          "travelExperienceJournal": {
+            "title": "Travel Experience Journal",
+            "prompt": "I want to document my travel experiences including photos, memories, recommendations, and ratings for places visited. I need to organize by destination, track travel companions, note favorite experiences, and maintain a bucket list of future destinations. I want to create shareable travel guides and preserve travel memories."
+          },
+          "businessTravelManager": {
+            "title": "Business Travel Manager",
+            "prompt": "I frequently travel for business and need to coordinate meeting schedules, track travel policies compliance, manage loyalty programs, and optimize travel efficiency. I want to monitor travel patterns, track time zones, manage corporate bookings, and ensure policy adherence while maximizing comfort and productivity."
+          },
+          "groupTravelCoordinator": {
+            "title": "Group Travel Coordinator",
+            "prompt": "I organize group trips and need to manage multiple travelers' preferences, coordinate group bookings, track payments and deposits, and communicate updates to all participants. I want to plan group activities, manage dietary restrictions and special needs, and ensure everyone has the information they need for a successful trip."
+          },
+          "travelPlanningResearchHub": {
+            "title": "Travel Planning Research Hub",
+            "prompt": "I'm researching destinations and need to organize travel inspiration, compare options, track visa requirements, monitor weather patterns, and save potential accommodations and activities. I want to build detailed destination knowledge, track price changes, and maintain organized research for future trip planning decisions."
+          }
+        },
+        "entertainment": {
+          "title": "Entertainment",
+          "movieAndTvShowTracker": {
+            "title": "Movie and TV Show Tracker",
+            "prompt": "I want to track movies and TV shows I've watched, plan my viewing queue, rate content, and discover new recommendations. I need to organize by genre, track progress on series, monitor streaming platform availability, and share recommendations with friends. I want insights into my viewing patterns and automated recommendations based on my preferences."
+          },
+          "bookReadingProgress": {
+            "title": "Book Reading Progress",
+            "prompt": "I'm tracking my reading goals, book progress, genre preferences, and reading insights. I need to organize my reading list, track pages read, monitor reading speed, rate books, and maintain notes and quotes. I want to discover new books, track reading challenges, and analyze my reading habits for improvement."
+          },
+          "gamingAchievementTracker": {
+            "title": "Gaming Achievement Tracker",
+            "prompt": "I'm tracking my gaming progress across multiple platforms and games. I need to monitor achievement completion, track time played, organize game libraries, and plan gaming sessions. I want insights into gaming patterns, track multiplayer sessions with friends, and maintain a backlog of games to play."
+          },
+          "musicDiscoveryAndOrganization": {
+            "title": "Music Discovery and Organization",
+            "prompt": "I want to organize my music collection, discover new artists, track concert attendance, and manage playlists across different platforms. I need to monitor listening patterns, rate albums, track music purchases, and plan concert attendance. I want insights into my musical preferences and automated recommendations for new discoveries."
+          },
+          "eventAndConcertPlanner": {
+            "title": "Event and Concert Planner",
+            "prompt": "I'm planning events and concerts and need to manage guest lists, track RSVPs, coordinate transportation, and manage event budgets. I want to monitor attendance patterns, track event popularity, coordinate with vendors, and ensure everyone has a great experience. I need insights into event success and automated reminders for follow-ups."
+          },
+          "hobbyProjectManager": {
+            "title": "Hobby Project Manager",
+            "prompt": "I have multiple creative hobbies and need to track project progress, supply inventory, skill development, and time investment. I want to organize projects by type, track completion status, monitor costs, and document learning progress. I need insights into productive hobby time and automated reminders for project milestones."
+          }
+        }
+      }
+    }
+  },
   "settings": {
     "title": "Settings",
     "templateAdmin": {

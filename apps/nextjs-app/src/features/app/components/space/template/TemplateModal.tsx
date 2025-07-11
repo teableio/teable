@@ -40,8 +40,8 @@ export const TemplateModal = (props: TemplateModalProps) => {
         <DialogHeader className="flex w-full border-b p-4">
           <div className="relative flex w-full items-center justify-center gap-2">
             <div className="absolute left-0 flex shrink-0 flex-col gap-0.5">
-              <DialogTitle>{t('template.title')}</DialogTitle>
-              <DialogDescription>{t('template.description')}</DialogDescription>
+              <DialogTitle>{t('common:template.title')}</DialogTitle>
+              <DialogDescription>{t('common:template.description')}</DialogDescription>
             </div>
             <Input
               placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}

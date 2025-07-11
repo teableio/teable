@@ -225,11 +225,21 @@ export class BaseImportService {
     );
   }
 
-  async createBaseStructure(spaceId: string, structure: IBaseJson) {
+  async createBaseStructure(spaceId: string, structure: IBaseJson, baseId?: string) {
     const { name, icon, tables, plugins } = structure;
 
     // create base
-    const newBase = await this.createBase(spaceId, name, icon || undefined);
+    const newBase = baseId
+      ? await this.prismaService.base.findUniqueOrThrow({
+          where: { id: baseId },
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            spaceId: true,
+          },
+        })
+      : await this.createBase(spaceId, name, icon || undefined);
     this.logger.log(`base-duplicate-service: Duplicate base successfully`);
 
     // create table

@@ -1,12 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { Optional } from '@prisma/client/runtime/library';
-import type {
-  IConvertFieldRo,
-  IFieldVo,
-  ISelectFieldChoice,
-  ISelectFieldOptions,
-  IUpdateFieldRo,
-} from '@teable/core';
+import type { IFieldVo, ISelectFieldChoice, ISelectFieldOptions } from '@teable/core';
 import { FieldType, ViewType, SortFunc, Colors } from '@teable/core';
 import {
   createTable,
