@@ -2,12 +2,14 @@ import { ChevronsLeft } from '@teable/icons';
 import { useIsMobile } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SIDE_BAR_WIDTH } from '../toggle-side-bar/constant';
 import { HoverWrapper } from '../toggle-side-bar/HoverWrapper';
 import { SheetWrapper } from '../toggle-side-bar/SheetWrapper';
 import { SidebarHeader } from './SidebarHeader';
+import { useChatPanelStore } from './useChatPanelStore';
+import { useSidebarStore } from './useSidebarStore';
 
 interface ISidebarProps {
   headerLeft: ReactNode;
@@ -18,9 +20,17 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   const isMobile = useIsMobile();
   const [leftVisible, setLeftVisible] = useState(true);
 
+  const { setVisible } = useSidebarStore();
+
+  const { isExpanded } = useChatPanelStore();
+
   useHotkeys(`meta+b`, () => {
-    setLeftVisible(!leftVisible);
+    setVisible(!leftVisible);
   });
+
+  useEffect(() => {
+    setVisible(leftVisible);
+  }, [leftVisible, setVisible]);
 
   return (
     <>
@@ -33,9 +43,10 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         </SheetWrapper>
       ) : (
         <div
-          className={cn('flex w-0 border-r flex-shrink-0 h-full', {
-            'overflow-hidden': !leftVisible,
+          className={cn('flex w-0 flex-shrink-0 h-full border-r', {
+            'overflow-hidden border-none': !leftVisible,
             'w-72': leftVisible,
+            'border-none': isExpanded && !leftVisible,
           })}
           onContextMenu={(e) => e.preventDefault()}
         >

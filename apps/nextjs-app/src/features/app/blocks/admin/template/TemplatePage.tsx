@@ -15,7 +15,7 @@ export const TemplatePage = () => {
     },
   });
   return (
-    <div className="flex size-full flex-col px-8 py-6">
+    <div className="flex size-full flex-col overflow-auto px-8 py-6">
       <div className="flex items-center justify-between p-2">
         <div className="text-2xl font-semibold">{t('settings.templateAdmin.title')}</div>
         <Button variant="outline" onClick={() => createTemplateFn({})}>

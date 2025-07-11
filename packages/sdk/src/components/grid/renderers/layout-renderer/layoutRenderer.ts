@@ -712,7 +712,7 @@ const getVisibleCollaborators = (
   ];
 
   for (const i of columnIndices) {
-    for (let j = startRowIndex; j < stopRowIndex; j++) {
+    for (let j = startRowIndex; j <= stopRowIndex; j++) {
       const realIndex = getLinearRow(j).realIndex;
       const cell = getCellContent([i, realIndex]);
       if (!cell?.id) {
@@ -992,7 +992,7 @@ export const getVisibleSearchTargetIndex = (
   const searchCellIds = searchHitIndex?.map((item) => `${item.recordId}-${item.fieldId}`) || [];
 
   for (const i of columnIndices) {
-    for (let j = startRowIndex; j < stopRowIndex; j++) {
+    for (let j = startRowIndex; j <= stopRowIndex; j++) {
       const line = getLinearRow(j);
       const { realIndex } = line;
       const cell = getCellContent([i, realIndex]);

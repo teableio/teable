@@ -34,7 +34,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
-import { ChatTriggerButton } from '@/features/app/components/ai-chat/panel/ChatTriggerButton';
 import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
 import { tableConfig } from '@/features/i18n/table.config';
 import { usePluginPanelStorage } from '../../../components/plugin-panel/hooks/usePluginPanelStorage';
@@ -129,7 +128,6 @@ const RightList = ({
         >
           <Puzzle className="size-4" />
         </Button>
-        <ChatTriggerButton buttonClassName={buttonClassName} />
         <Button asChild variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
           <a href={t('help.mainLink')} title={t('help.title')} target="_blank" rel="noreferrer">
             <HelpCircle className="size-4" />
@@ -273,9 +271,6 @@ const RightMenu = ({ className }: { className?: string }) => {
               <HelpCircle className="size-4" /> {t('help.title')}
             </a>
           </Button>
-          <ChatTriggerButton buttonClassName="flex justify-start" onClick={() => setOpen(false)}>
-            {t('common:noun.aiChat')}
-          </ChatTriggerButton>
         </div>
       </PopoverContent>
     </Popover>
