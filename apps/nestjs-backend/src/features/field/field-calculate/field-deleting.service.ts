@@ -100,12 +100,21 @@ export class FieldDeletingService {
 
       await this.fieldService.batchUpdateFields(fieldRawMap[field.id].tableId, opData);
 
-      await this.prismaService.txClient().reference.create({
-        data: {
+      const reference = await this.prismaService.txClient().reference.findFirst({
+        where: {
           fromFieldId: toSetLookupFieldId,
           toFieldId: field.id,
         },
       });
+
+      if (!reference) {
+        await this.prismaService.txClient().reference.create({
+          data: {
+            fromFieldId: toSetLookupFieldId,
+            toFieldId: field.id,
+          },
+        });
+      }
 
       await this.fieldCalculationService.calculateFields(fieldRawMap[field.id].tableId, [field.id]);
     }
