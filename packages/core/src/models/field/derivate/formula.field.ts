@@ -13,10 +13,11 @@ import { getShowAsSchema, unionShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 export const formulaFieldOptionsSchema = z.object({
-  expression: z.string().openapi({
-    description:
-      'The formula including fields referenced by their IDs. For example, LEFT(4, {Birthday}) input will be returned as LEFT(4, {fldXXX}) via API.',
-  }),
+  expression: z
+    .string()
+    .describe(
+      'The formula including fields referenced by their IDs. For example, LEFT(4, {Birthday}) input will be returned as LEFT(4, {fldXXX}) via API. The formula syntax in Teable is basically the same as Airtable'
+    ),
   timeZone: timeZoneStringSchema.optional(),
   formatting: unionFormattingSchema.optional(),
   showAs: unionShowAsSchema.optional(),

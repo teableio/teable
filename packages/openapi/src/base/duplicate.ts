@@ -20,6 +20,7 @@ export const duplicateBaseRoSchema = z.object({
   name: z.string().optional().openapi({
     description: 'The name of the duplicated base',
   }),
+  baseId: z.string().optional(),
 });
 
 export type IDuplicateBaseRo = z.infer<typeof duplicateBaseRoSchema>;
