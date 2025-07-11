@@ -1,5 +1,6 @@
 import { cn } from '@teable/ui-lib/shadcn';
 import React, { useState } from 'react';
+import { useSidebarStore } from '../sidebar/useSidebarStore';
 
 interface IHoverWrapperProps {
   children: React.ReactElement[];
@@ -23,6 +24,8 @@ export const HoverWrapper = (props: IHoverWrapperProps) => {
     setHover(false);
   };
 
+  const { isVisible } = useSidebarStore();
+
   return (
     <div>
       <div onMouseEnter={() => mouseEnterHandler()} className="z-10">
@@ -37,7 +40,10 @@ export const HoverWrapper = (props: IHoverWrapperProps) => {
         >
           <div
             className={cn(
-              'transition-[width] overflow-hidden drop-shadow-2xl border-r will-change-auto'
+              'transition-[width] overflow-hidden drop-shadow-2xl border-r will-change-auto',
+              {
+                'border-r-0': !isVisible,
+              }
             )}
             style={{
               width: hover ? `${size}px` : '0',

@@ -36,7 +36,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
           <div className="flex w-full items-center justify-start gap-2">
             <div className="left-0 flex flex-1 flex-col gap-1 p-0.5 pr-2">
               <div className="flex gap-2">
-                <SheetTitle>{t('template.title')}</SheetTitle>
+                <SheetTitle>{t('common:template.title')}</SheetTitle>
                 <Input
                   placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
                   value={search}
@@ -47,7 +47,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
                 />
               </div>
               <SheetDescription className="text-start">
-                {t('template.description')}
+                {t('common:template.description')}
               </SheetDescription>
             </div>
           </div>
