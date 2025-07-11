@@ -8,7 +8,6 @@ import {
   DropdownMenuSeparator,
   Separator,
   Tooltip,
-  TooltipPortal,
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { type VariantProps, cva } from 'class-variance-authority';

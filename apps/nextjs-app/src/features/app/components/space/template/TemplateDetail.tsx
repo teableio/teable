@@ -5,7 +5,7 @@ import {
   getPublishedTemplateCategoryList,
   getTemplateDetail,
 } from '@teable/openapi';
-import { MarkdownPreview } from '@teable/sdk';
+import { MarkdownPreview, useTables } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 import { useSpaceId } from './hooks/use-space-id';
 interface ITemplateDetailProps {
   templateId: string;
-  onBackToTemplateList: () => void;
+  onBackToTemplateList?: () => void;
 }
 export const TemplateDetail = (props: ITemplateDetailProps) => {
   const { templateId, onBackToTemplateList } = props;
@@ -38,6 +38,8 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   const router = useRouter();
   const spaceId = useSpaceId();
+  const routerBaseId = router.query.baseId as string | undefined;
+  const tables = useTables();
 
   const { mutateAsync: createTemplateToBase, isLoading } = useMutation({
     mutationFn: () =>
@@ -45,9 +47,14 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         spaceId: spaceId as string,
         templateId,
         withRecords: true,
+        baseId: routerBaseId,
       }),
     onSuccess: (res) => {
       const { id: baseId } = res.data;
+      if (routerBaseId && tables.length > 0) {
+        router.push(`/base/${baseId}/table/${tables[0].id}`);
+        return;
+      }
       router.push(`/base/${baseId}`);
     },
   });
@@ -56,20 +63,22 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     <div className="mx-6 mt-2 flex flex-1 items-start justify-center overflow-auto">
       <div className="relative grid w-full grid-cols-8">
         <div className="sticky top-0 col-span-8 flex flex-col self-start pb-12 pr-8 sm:col-span-2 sm:pb-0">
-          <div
-            className="flex cursor-pointer items-center gap-1 pb-4 text-sm text-foreground transition-colors hover:text-foreground/80"
-            role="button"
-            tabIndex={0}
-            onClick={() => onBackToTemplateList()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                onBackToTemplateList();
-              }
-            }}
-          >
-            <ArrowLeft />
-            {t('common:settings.templateAdmin.backToTemplateList')}
-          </div>
+          {onBackToTemplateList && (
+            <div
+              className="flex cursor-pointer items-center gap-1 pb-4 text-sm text-foreground transition-colors hover:text-foreground/80"
+              role="button"
+              tabIndex={0}
+              onClick={() => onBackToTemplateList?.()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onBackToTemplateList?.();
+                }
+              }}
+            >
+              <ArrowLeft />
+              {t('common:settings.templateAdmin.backToTemplateList')}
+            </div>
+          )}
           <h1 className="z-10 bg-background text-lg font-bold">{name}</h1>
           <p className="overflow-hidden text-wrap break-words text-base text-gray-500">
             {description}

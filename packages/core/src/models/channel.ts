@@ -29,3 +29,11 @@ export function getCommentChannel(tableId: string, recordId: string) {
 export function getTableCommentChannel(tableId: string) {
   return `__table_comment_${tableId}`;
 }
+
+export function getToolCallChannel(toolCallId: string) {
+  return `__tool_call_${toolCallId}`;
+}
+
+export function getChatChannel(chatId: string) {
+  return `__chat_${chatId}`;
+}

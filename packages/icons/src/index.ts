@@ -169,3 +169,4 @@ export { default as Zap } from './components/Zap';
 export { default as Zhipu } from './components/Zhipu';
 export { default as ZoomIn } from './components/ZoomIn';
 export { default as ZoomOut } from './components/ZoomOut';
+export { default as TeableAi } from './components/TeableAi';

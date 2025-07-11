@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ActionPrefix, actionPrefixMap, generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
@@ -287,7 +293,7 @@ export class BaseService {
   }
 
   async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
-    const { spaceId, templateId, withRecords } = createBaseFromTemplateRo;
+    const { spaceId, templateId, withRecords, baseId } = createBaseFromTemplateRo;
     const template = await this.prismaService.template.findUniqueOrThrow({
       where: { id: templateId },
       select: {
@@ -295,6 +301,22 @@ export class BaseService {
         name: true,
       },
     });
+
+    if (baseId) {
+      // check the base update permission
+      await this.checkBaseUpdatePermission(baseId);
+
+      const base = await this.prismaService.base.findUniqueOrThrow({
+        where: { id: baseId, deletedTime: null },
+        select: {
+          spaceId: true,
+        },
+      });
+
+      if (base.spaceId !== spaceId) {
+        throw new BadRequestException('baseId and spaceId mismatch');
+      }
+    }
 
     const { baseId: fromBaseId = '' } = template?.snapshot ? JSON.parse(template.snapshot) : {};
 
@@ -309,6 +331,7 @@ export class BaseService {
           fromBaseId,
           spaceId,
           withRecords,
+          baseId,
         });
         await this.prismaService.template.update({
           where: { id: templateId },

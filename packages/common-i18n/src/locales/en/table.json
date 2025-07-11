@@ -653,7 +653,37 @@
       "getTeableApi": "Get API",
       "dataVisualization": "Data visualization",
       "args": "Arguments",
-      "result": "Result"
+      "result": "Result",
+      "thinking": "Thinking..."
+    },
+    "fallback": {
+      "previewLoadFailed": "Preview load failed"
+    },
+    "preview": {
+      "deletedTable": "Deleted table",
+      "deletedView": "Deleted view",
+      "deletedField": "Deleted field",
+      "deletedRecords": "Deleted records"
+    },
+    "agentName": {
+      "tableOperatorAgent": "Table Agent",
+      "viewOperatorAgent": "View Agent",
+      "fieldOperatorAgent": "Field Agent",
+      "recordOperatorAgent": "Record Agent"
+    },
+    "action": {
+      "createTable": "Create table",
+      "updateTableName": "Update table name",
+      "deleteTable": "Delete table",
+      "createView": "Create view",
+      "updateViewName": "Update view name",
+      "deleteView": "Delete view",
+      "createField": "Create field",
+      "deleteField": "Delete field",
+      "updateField": "Update field",
+      "createRecord": "Create record",
+      "deleteRecord": "Delete record",
+      "updateRecord": "Update record"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
