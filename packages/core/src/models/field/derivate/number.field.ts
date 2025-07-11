@@ -15,10 +15,12 @@ export const numberFieldOptionsSchema = z.object({
   defaultValue: z.number().optional(),
 });
 
-export const numberFieldOptionsRoSchema = numberFieldOptionsSchema.partial({
-  formatting: true,
-  showAs: true,
-});
+export const numberFieldOptionsRoSchema = numberFieldOptionsSchema
+  .partial({
+    formatting: true,
+    showAs: true,
+  })
+  .describe('options for number fields');
 
 export type INumberFieldOptionsRo = z.infer<typeof numberFieldOptionsRoSchema>;
 

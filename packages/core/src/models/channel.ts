@@ -33,3 +33,11 @@ export function getTableCommentChannel(tableId: string) {
 export function getTableButtonClickChannel(tableId: string) {
   return `__table_button_click_${tableId}`;
 }
+
+export function getToolCallChannel(toolCallId: string) {
+  return `__tool_call_${toolCallId}`;
+}
+
+export function getChatChannel(chatId: string) {
+  return `__chat_${chatId}`;
+}
