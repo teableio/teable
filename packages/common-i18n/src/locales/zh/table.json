@@ -653,7 +653,37 @@
       "getTeableApi": "获取 API",
       "dataVisualization": "数据可视化",
       "args": "参数",
-      "result": "结果"
+      "result": "结果",
+      "thinking": "思考中..."
+    },
+    "fallback": {
+      "previewLoadFailed": "参数错误"
+    },
+    "preview": {
+      "deletedTable": "表格不存在或已删除",
+      "deletedView": "视图不存在或已删除",
+      "deletedField": "字段不存在或已删除",
+      "deletedRecords": "记录不存在或已删除"
+    },
+    "agentName": {
+      "tableOperatorAgent": "表格Agent",
+      "viewOperatorAgent": "视图Agent",
+      "fieldOperatorAgent": "字段Agent",
+      "recordOperatorAgent": "记录Agent"
+    },
+    "action": {
+      "createTable": "创建表格",
+      "updateTableName": "更新表格名称",
+      "deleteTable": "删除表格",
+      "createView": "创建视图",
+      "updateViewName": "更新视图名称",
+      "deleteView": "删除视图",
+      "createField": "创建字段",
+      "deleteField": "删除字段",
+      "updateField": "更新字段",
+      "createRecord": "创建记录",
+      "deleteRecord": "删除记录",
+      "updateRecord": "更新记录"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
