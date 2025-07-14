@@ -55,15 +55,16 @@
     "setInvalid": "设置的密码无效，至少需要8个字符，且必须包含至少一个字母和一个数字。"
   },
   "template": {
-    "aiTitle": "打造你的专属内部应用",
+    "aiTitle": "让我们一起构建",
     "aiSubTitle": "首个让团队在数据协作并生成生产级应用的 AI 平台",
+    "guideTitle": "从你的场景开始",
     "title": "模板中心",
     "description": "快速从模板创建一个新数据库",
     "browseAll": "浏览全部",
     "templateTitle": "从模板开始",
     "loadMore": "加载更多",
     "allTemplatesLoaded": "所有模板已加载",
-    "noTemplates": "暂无模板",
+    "createTemplate": "创建模版",
     "promptBox": {
       "placeholder": "使用 Teable 构建你的业务应用",
       "start": "开始",
