@@ -652,6 +652,7 @@
       "getScriptInput": "获取脚本输入",
       "getTeableApi": "获取 API",
       "dataVisualization": "数据可视化",
+      "updateBase": "更新数据库信息",
       "args": "参数",
       "result": "结果",
       "thinking": "思考中..."
@@ -666,10 +667,10 @@
       "deletedRecords": "记录不存在或已删除"
     },
     "agentName": {
-      "tableOperatorAgent": "表格Agent",
-      "viewOperatorAgent": "视图Agent",
-      "fieldOperatorAgent": "字段Agent",
-      "recordOperatorAgent": "记录Agent"
+      "tableOperatorAgent": "表格工具",
+      "viewOperatorAgent": "视图工具",
+      "fieldOperatorAgent": "字段工具",
+      "recordOperatorAgent": "记录工具"
     },
     "action": {
       "createTable": "创建表格",
