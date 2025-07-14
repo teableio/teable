@@ -1214,8 +1214,7 @@ export class FieldConvertingService {
 
     const matchedIndexes = await this.fieldService.findUniqueIndexesForField(
       dbTableName,
-      dbFieldName,
-      oldField.id
+      dbFieldName
     );
 
     const fieldValidationQuery = this.knex.schema

@@ -26,7 +26,7 @@ export class UniqueIndexService {
 
     const colId = '__id';
     const idUniqueIndexExists =
-      (await this.fieldService.findUniqueIndexesForField(table.dbTableName, colId, '')).length > 0;
+      (await this.fieldService.findUniqueIndexesForField(table.dbTableName, colId)).length > 0;
 
     if (!idUniqueIndexExists) {
       issues.push({
@@ -44,8 +44,7 @@ export class UniqueIndexService {
     for (const field of uniqueFields) {
       const indexNames = await this.fieldService.findUniqueIndexesForField(
         table.dbTableName,
-        field.dbFieldName,
-        field.id
+        field.dbFieldName
       );
       if (indexNames.length === 0) {
         issues.push({

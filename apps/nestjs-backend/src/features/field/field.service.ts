@@ -373,7 +373,7 @@ export class FieldService implements IReadonlyAdapterService {
     });
   }
 
-  async findUniqueIndexesForField(dbTableName: string, dbFieldName: string, fieldId: string) {
+  async findUniqueIndexesForField(dbTableName: string, dbFieldName: string) {
     const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
     const indexes = await this.prismaService
       .txClient()
@@ -384,15 +384,10 @@ export class FieldService implements IReadonlyAdapterService {
      * bseu6lgzwkkyn9jmjax_countrys_jian_ma_dui_zhao_biaozerrjmgblz___
      * so we need to check the def of the index
      */
-    const uniqueIndexSuffix = `___${fieldId.toLowerCase()}_unique`;
-
     return indexes
       .filter((index) => {
-        const { name, def } = index;
-        const checkOld = def.includes(`(${dbFieldName})`) || def.includes(`("${dbFieldName}")`);
-        const checkNew =
-          name.endsWith(uniqueIndexSuffix) && !name.endsWith(`_${uniqueIndexSuffix}`);
-        return checkOld || checkNew;
+        const { def } = index;
+        return def.includes(`(${dbFieldName})`) || def.includes(`("${dbFieldName}")`);
       })
       .map((index) => index.name);
   }
@@ -420,7 +415,7 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     const dbTableName = table.dbTableName;
-    const matchedIndexes = await this.findUniqueIndexesForField(dbTableName, dbFieldName, fieldId);
+    const matchedIndexes = await this.findUniqueIndexesForField(dbTableName, dbFieldName);
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {

@@ -442,8 +442,7 @@ describe('OpenAPI integrity (e2e)', () => {
       const colId = '__id';
       const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
         base1table.dbTableName,
-        colId,
-        ''
+        colId
       );
 
       expect(matchedIndexes1.length).toEqual(1);
@@ -462,8 +461,7 @@ describe('OpenAPI integrity (e2e)', () => {
       }
       const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
         base1table.dbTableName,
-        colId,
-        ''
+        colId
       );
       expect(matchedIndexes2.length).toEqual(0);
 
@@ -486,8 +484,7 @@ describe('OpenAPI integrity (e2e)', () => {
 
       const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
         base1table.dbTableName,
-        field.dbFieldName,
-        field.id
+        field.dbFieldName
       );
 
       expect(matchedIndexes1.length).toEqual(1);
@@ -506,8 +503,7 @@ describe('OpenAPI integrity (e2e)', () => {
       }
       const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
         base1table.dbTableName,
-        field.dbFieldName,
-        field.id
+        field.dbFieldName
       );
       expect(matchedIndexes2.length).toEqual(0);
 

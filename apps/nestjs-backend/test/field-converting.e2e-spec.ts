@@ -4040,8 +4040,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(uniqueField.unique).toEqual(true);
       const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
         table1.dbTableName,
-        uniqueField.dbFieldName,
-        uniqueField.id
+        uniqueField.dbFieldName
       );
       expect(matchedIndexes1).toHaveLength(1);
 
@@ -4054,8 +4053,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(dropUniqueField.unique).toEqual(false);
       const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
         table1.dbTableName,
-        dropUniqueField.dbFieldName,
-        dropUniqueField.id
+        dropUniqueField.dbFieldName
       );
       expect(matchedIndexes2).toHaveLength(0);
     });
@@ -4064,8 +4062,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const field = table1.fields[0];
       const matchedIndexes = await fieldService.findUniqueIndexesForField(
         table1.dbTableName,
-        field.dbFieldName,
-        field.id
+        field.dbFieldName
       );
       expect(matchedIndexes).toHaveLength(0);
 
@@ -4079,8 +4076,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
         table1.dbTableName,
-        field.dbFieldName,
-        field.id
+        field.dbFieldName
       );
       expect(matchedIndexes1).toHaveLength(1);
     });
