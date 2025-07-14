@@ -9,6 +9,7 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
 import { LinkFieldIntegrityService } from './link-field.service';
+import { UniqueIndexService } from './unique-index.service';
 
 @Injectable()
 export class LinkIntegrityService {
@@ -18,6 +19,7 @@ export class LinkIntegrityService {
     private readonly prismaService: PrismaService,
     private readonly foreignKeyIntegrityService: ForeignKeyIntegrityService,
     private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
+    private readonly uniqueIndexService: UniqueIndexService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -32,6 +34,7 @@ export class LinkIntegrityService {
       select: {
         id: true,
         name: true,
+        dbTableName: true,
         fields: {
           where: { type: FieldType.Link, isLookup: null, deletedTime: null },
         },
@@ -55,6 +58,16 @@ export class LinkIntegrityService {
           baseId: mainBase.id,
           baseName: mainBase.name,
           issues: tableIssues,
+        });
+      }
+      const uniqueIndexIssues = await this.uniqueIndexService.checkUniqueIndex(table);
+      if (uniqueIndexIssues.length > 0) {
+        linkFieldIssues.push({
+          baseId: mainBase.id,
+          baseName: mainBase.name,
+          tableId: table.id,
+          tableName: table.name,
+          issues: uniqueIndexIssues,
         });
       }
     }
@@ -296,6 +309,14 @@ export class LinkIntegrityService {
           }
           case IntegrityIssueType.ReferenceFieldNotFound: {
             const result = await this.fixReferenceField(issue.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
+          case IntegrityIssueType.UniqueIndexNotFound: {
+            const result = await this.uniqueIndexService.fixUniqueIndex(
+              issues.tableId,
+              issue.fieldId
+            );
             result && fixResults.push(result);
             break;
           }

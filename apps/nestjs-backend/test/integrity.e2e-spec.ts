@@ -22,6 +22,7 @@ import {
 import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
+import { FieldService } from '../src/features/field/field.service';
 import {
   createField,
   createTable,
@@ -37,6 +38,8 @@ describe('OpenAPI integrity (e2e)', () => {
 
   let prisma: PrismaService;
   let dbProvider: IDbProvider;
+  let fieldService: FieldService;
+  let knex: Knex;
 
   async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
     const query = builder.toQuery();
@@ -45,9 +48,11 @@ describe('OpenAPI integrity (e2e)', () => {
 
   beforeAll(async () => {
     const appCtx = await initApp();
+    app = appCtx.app;
     dbProvider = appCtx.app.get<IDbProvider>(DB_PROVIDER_SYMBOL);
     prisma = appCtx.app.get<PrismaService>(PrismaService);
-    app = appCtx.app;
+    fieldService = appCtx.app.get<FieldService>(FieldService);
+    knex = appCtx.app.get('CUSTOM_KNEX');
   });
 
   afterAll(async () => {
@@ -417,6 +422,102 @@ describe('OpenAPI integrity (e2e)', () => {
 
       const integrity5 = await checkBaseIntegrity(baseId2);
       expect(integrity5.data.hasIssues).toEqual(false);
+    });
+  });
+
+  describe('unique index', () => {
+    let baseId1: string;
+    let base1table: ITableFullVo;
+    beforeEach(async () => {
+      baseId1 = (await createBase({ spaceId, name: 'base1' })).data.id;
+      base1table = await createTable(baseId1, { name: 'base1table' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId1, base1table.id);
+      await deleteBase(baseId1);
+    });
+
+    it('should check integrity when __id unique index is not found', async () => {
+      const colId = '__id';
+      const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
+        base1table.dbTableName,
+        colId,
+        ''
+      );
+
+      expect(matchedIndexes1.length).toEqual(1);
+
+      const fieldValidationQuery = knex.schema
+        .alterTable(base1table.dbTableName, (table) => {
+          matchedIndexes1.forEach((indexName) => table.dropUnique([colId], indexName));
+        })
+        .toSQL();
+      const executeSqls = fieldValidationQuery
+        .filter((s) => !s.sql.startsWith('PRAGMA'))
+        .map(({ sql }) => sql);
+
+      for (const sql of executeSqls) {
+        await prisma.txClient().$executeRawUnsafe(sql);
+      }
+      const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
+        base1table.dbTableName,
+        colId,
+        ''
+      );
+      expect(matchedIndexes2.length).toEqual(0);
+
+      const integrity1 = await checkBaseIntegrity(baseId1);
+      expect(integrity1.data.hasIssues).toEqual(true);
+
+      await fixBaseIntegrity(baseId1);
+
+      const integrity2 = await checkBaseIntegrity(baseId1);
+      expect(integrity2.data.hasIssues).toEqual(false);
+    });
+
+    it('should check integrity when id unique index is not found', async () => {
+      const field = await getField(base1table.id, base1table.fields[0].id);
+
+      await convertField(base1table.id, field.id, {
+        ...field,
+        unique: true,
+      });
+
+      const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
+        base1table.dbTableName,
+        field.dbFieldName,
+        field.id
+      );
+
+      expect(matchedIndexes1.length).toEqual(1);
+
+      const fieldValidationQuery = knex.schema
+        .alterTable(base1table.dbTableName, (table) => {
+          matchedIndexes1.forEach((indexName) => table.dropUnique([field.dbFieldName], indexName));
+        })
+        .toSQL();
+      const executeSqls = fieldValidationQuery
+        .filter((s) => !s.sql.startsWith('PRAGMA'))
+        .map(({ sql }) => sql);
+
+      for (const sql of executeSqls) {
+        await prisma.txClient().$executeRawUnsafe(sql);
+      }
+      const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
+        base1table.dbTableName,
+        field.dbFieldName,
+        field.id
+      );
+      expect(matchedIndexes2.length).toEqual(0);
+
+      const integrity1 = await checkBaseIntegrity(baseId1);
+      expect(integrity1.data.hasIssues).toEqual(true);
+
+      await fixBaseIntegrity(baseId1);
+
+      const integrity2 = await checkBaseIntegrity(baseId1);
+      expect(integrity2.data.hasIssues).toEqual(false);
     });
   });
 });

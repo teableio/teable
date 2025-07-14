@@ -378,12 +378,21 @@ export class FieldService implements IReadonlyAdapterService {
     const indexes = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ name: string }[]>(indexesQuery);
+
+    // bsetestbaseid_table1_83jase6cgokc_name_unique
+    const oldUniqueIndexSuffix = `_${dbFieldName.toLowerCase()}_unique`;
+    // bsetestbaseid_table1_83jase6cgokc___fldda2eymqax9rnglsr_unique
+    const uniqueIndexSuffix = `___${fieldId.toLowerCase()}_unique`;
+
     return indexes
-      .filter(
-        (index) =>
-          index.name.includes(`${dbFieldName.toLowerCase()}_unique`) ||
-          index.name.includes(`${fieldId.toLowerCase()}_unique`)
-      )
+      .filter((index) => {
+        const { name } = index;
+        const checkOld =
+          name.endsWith(oldUniqueIndexSuffix) && !name.endsWith(`_${oldUniqueIndexSuffix}`);
+        const checkNew =
+          name.endsWith(uniqueIndexSuffix) && !name.endsWith(`_${uniqueIndexSuffix}`);
+        return checkOld || checkNew;
+      })
       .map((index) => index.name);
   }
 

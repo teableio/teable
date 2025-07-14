@@ -31,8 +31,10 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { type ITableFullVo } from '@teable/openapi';
+import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
+import { FieldService } from '../src/features/field/field.service';
 import {
   getRecords,
   createField,
@@ -56,12 +58,16 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   const baseId = globalThis.testConfig.baseId;
   let dbProvider: IDbProvider;
   let prisma: PrismaService;
+  let fieldService: FieldService;
+  let knex: Knex;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     dbProvider = appCtx.app.get<IDbProvider>(DB_PROVIDER_SYMBOL);
     prisma = appCtx.app.get<PrismaService>(PrismaService);
+    fieldService = appCtx.app.get<FieldService>(FieldService);
+    knex = appCtx.app.get('CUSTOM_KNEX');
   });
 
   afterAll(async () => {
@@ -4008,6 +4014,75 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         globalThis.testConfig.userId,
         globalThis.testConfig.userId,
       ]);
+    });
+  });
+
+  describe('modify primary field', () => {
+    bfAf();
+
+    it('should modify general property', async () => {
+      const primaryField = table1.fields[0];
+      const primaryFieldId = primaryField.id;
+      const newFieldRo: IFieldRo = {
+        ...primaryField,
+        dbFieldName: 'id',
+      };
+
+      const field = await convertField(table1.id, primaryField.id, newFieldRo);
+      expect(field.dbFieldName).toEqual('id');
+
+      const uniqueFieldRo: IFieldRo = {
+        ...field,
+        unique: true,
+      };
+
+      const uniqueField = await convertField(table1.id, primaryFieldId, uniqueFieldRo);
+      expect(uniqueField.unique).toEqual(true);
+      const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        uniqueField.dbFieldName,
+        uniqueField.id
+      );
+      expect(matchedIndexes1).toHaveLength(1);
+
+      const dropUniqueFieldRo: IFieldRo = {
+        ...uniqueField,
+        unique: false,
+      };
+
+      const dropUniqueField = await convertField(table1.id, primaryFieldId, dropUniqueFieldRo);
+      expect(dropUniqueField.unique).toEqual(false);
+      const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        dropUniqueField.dbFieldName,
+        dropUniqueField.id
+      );
+      expect(matchedIndexes2).toHaveLength(0);
+    });
+
+    it('should modify old unique property', async () => {
+      const field = table1.fields[0];
+      const matchedIndexes = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        field.dbFieldName,
+        field.id
+      );
+      expect(matchedIndexes).toHaveLength(0);
+
+      const sql = knex.schema
+        .alterTable(table1.dbTableName, (table) => {
+          table.unique([field.dbFieldName], {});
+        })
+        .toQuery();
+
+      await prisma.txClient().$executeRawUnsafe(sql);
+
+      const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        field.dbFieldName,
+        field.id
+      );
+      expect(matchedIndexes1).toHaveLength(1);
     });
   });
 });

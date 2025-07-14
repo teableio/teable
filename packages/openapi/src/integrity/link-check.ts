@@ -15,6 +15,7 @@ export enum IntegrityIssueType {
   InvalidLinkReference = 'InvalidLinkReference',
   ForeignKeyHostTableNotFound = 'ForeignKeyHostTableNotFound',
   ReferenceFieldNotFound = 'ReferenceFieldNotFound',
+  UniqueIndexNotFound = 'UniqueIndexNotFound',
 }
 
 // Define the schema for a single issue
@@ -31,6 +32,8 @@ export const linkFieldCheckItemSchema = z.object({
     .optional()
     .openapi({ description: 'The base id of the link field with is cross-base' }),
   baseName: z.string().optional(),
+  tableId: z.string().optional(),
+  tableName: z.string().optional(),
   issues: z.array(integrityIssueSchema),
 });
 
