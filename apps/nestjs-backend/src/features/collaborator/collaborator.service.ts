@@ -158,6 +158,7 @@ export class CollaboratorService {
       take?: number;
       search?: string;
       type?: PrincipalType;
+      orderBy?: 'desc' | 'asc';
     }
   ) {
     const { skip = 0, take = 50 } = options ?? {};
@@ -174,7 +175,7 @@ export class CollaboratorService {
       user_avatar: 'users.avatar',
       user_is_system: 'users.is_system',
     });
-    builder.orderBy('collaborator.created_time', 'asc');
+    builder.orderBy('collaborator.created_time', options?.orderBy ?? 'desc');
   }
 
   async getListByBase(
@@ -247,7 +248,6 @@ export class CollaboratorService {
       });
     }
     builder.whereNotNull('users.id');
-    builder.orderBy('collaborator.created_time', 'asc');
     builder.select({
       id: 'users.id',
       name: 'users.name',
@@ -343,6 +343,7 @@ export class CollaboratorService {
     return Number(res[0].count);
   }
 
+  // eslint-disable-next-line sonarjs/no-identical-functions
   protected async getListBySpaceBuilder(
     builder: Knex.QueryBuilder,
     options?: {
@@ -352,6 +353,7 @@ export class CollaboratorService {
       take?: number;
       search?: string;
       type?: PrincipalType;
+      orderBy?: 'desc' | 'asc';
     }
   ) {
     const { skip = 0, take = 50 } = options ?? {};
@@ -368,6 +370,7 @@ export class CollaboratorService {
       user_avatar: 'users.avatar',
       user_is_system: 'users.is_system',
     });
+    builder.orderBy('collaborator.created_time', options?.orderBy ?? 'desc');
   }
 
   async getListBySpace(
@@ -379,6 +382,7 @@ export class CollaboratorService {
       take?: number;
       search?: string;
       type?: PrincipalType;
+      orderBy?: 'desc' | 'asc';
     }
   ): Promise<CollaboratorItem[]> {
     const builder = this.knex.queryBuilder();
@@ -838,7 +842,7 @@ export class CollaboratorService {
     const builder = this.knex.queryBuilder();
     await this.getBaseCollaboratorBuilder(builder, baseId, options);
     builder.whereNotNull('users.id');
-    builder.orderBy('collaborator.created_time', 'asc');
+    builder.orderBy('collaborator.created_time', options?.orderBy ?? 'desc');
     builder.offset(skip);
     builder.limit(take);
     builder.select({

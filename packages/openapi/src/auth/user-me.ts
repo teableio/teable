@@ -19,6 +19,12 @@ export const userMeVoSchema = z.object({
     .object({
       id: z.string(),
       name: z.string(),
+      departments: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+        })
+      ),
       isAdmin: z.boolean().optional(),
     })
     .optional(),

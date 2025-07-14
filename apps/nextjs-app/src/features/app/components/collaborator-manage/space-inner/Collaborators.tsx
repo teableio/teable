@@ -20,10 +20,11 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId, {
       skip: 0,
       take: MEMBERS_PER_PAGE,
+      orderBy: 'asc',
     }),
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryFn: ({ queryKey }) =>
+      getSpaceCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
-
   const collaborators = data?.collaborators;
 
   return (

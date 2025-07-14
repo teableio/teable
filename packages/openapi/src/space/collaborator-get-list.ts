@@ -14,6 +14,7 @@ export const listSpaceCollaboratorRoSchema = z.object({
   take: z.coerce.number().optional(),
   search: z.string().optional(),
   type: z.nativeEnum(PrincipalType).optional(),
+  orderBy: z.enum(['desc', 'asc']).optional(),
 });
 
 export type ListSpaceCollaboratorRo = z.infer<typeof listSpaceCollaboratorRoSchema>;
