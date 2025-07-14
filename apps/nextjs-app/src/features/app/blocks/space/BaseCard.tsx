@@ -11,6 +11,7 @@ import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
+import { useChatPanelStore } from '../../components/sidebar/useChatPanelStore';
 import { ColorBg } from './ColorBg';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 import { StarButton } from './space-side-bar/StarButton';
@@ -27,6 +28,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const [renaming, setRenaming] = useState<boolean>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [baseName, setBaseName] = useState<string>(base.name);
+  const { setExpanded } = useChatPanelStore();
 
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
@@ -72,6 +74,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   };
 
   const intoBase = () => {
+    setExpanded(false);
     if (renaming) {
       return;
     }
