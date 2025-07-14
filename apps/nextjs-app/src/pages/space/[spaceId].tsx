@@ -34,7 +34,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
             take: 50,
             orderBy: 'asc',
           }),
-          queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1]),
+          queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1], queryKey[2]),
         }),
 
         queryClient.fetchQuery({
