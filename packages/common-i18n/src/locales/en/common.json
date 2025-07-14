@@ -55,15 +55,16 @@
     "setInvalid": "The password is invalid, at least 8 characters, and must contain at least one letter and one number."
   },
   "template": {
-    "aiTitle": "Build your internal tool",
+    "aiTitle": "Let’s build together",
     "aiSubTitle": "The first AI platform where teams collaborate on data and generate production apps",
+    "guideTitle": "Start from your scenario",
     "title": "Template",
     "description": "Create a new base from a template",
     "browseAll": "Browse All",
     "templateTitle": "Start with template",
     "loadMore": "Load More",
     "allTemplatesLoaded": "All templates loaded",
-    "noTemplates": "No templates available",
+    "createTemplate": "Create Template",
     "promptBox": {
       "placeholder": "Build your business app with Teable",
       "start": "Start it",
