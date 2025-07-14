@@ -20,12 +20,21 @@ export const fieldKeyTypeRoSchema = z
   .openapi({
     description:
       'Define the key type of record.fields[key], You can click "systemInfo" in the field edit box to get fieldId or enter the table design screen with all the field details',
-  });
+  })
+  .describe(
+    'Define the key type of record.fields[key], You can click "systemInfo" in the field edit box to get fieldId or enter the table design screen with all the field details'
+  );
 
-export const typecastSchema = z.boolean().optional().openapi({
-  description:
-    'Automatic data conversion from cellValues if the typecast parameter is passed in. Automatic conversion is disabled by default to ensure data integrity, but it may be helpful for integrating with 3rd party data sources.',
-});
+export const typecastSchema = z
+  .boolean()
+  .optional()
+  .openapi({
+    description:
+      'Automatic data conversion from cellValues if the typecast parameter is passed in. Automatic conversion is disabled by default to ensure data integrity, but it may be helpful for integrating with 3rd party data sources.',
+  })
+  .describe(
+    'Automatic data conversion from cellValues if the typecast parameter is passed in. Automatic conversion is disabled by default to ensure data integrity, but it may be helpful for integrating with 3rd party data sources.'
+  );
 
 export const getRecordQuerySchema = z.object({
   projection: z.string().array().optional().openapi({
