@@ -8,6 +8,7 @@ export enum McpToolInvocationName {
   GetTableViews = 'get-table-views',
   SqlQuery = 'sql-query',
   GenerateScriptAction = 'generate-script-action',
+  UpdateBase = 'update-base',
 }
 
 export const chatContextSchema = z.object({
@@ -75,9 +76,15 @@ export const ViewAgentOperator = {
 
 export type IViewAgentOperator = (typeof ViewAgentOperator)[keyof typeof ViewAgentOperator];
 
+export const BaseAgentOperator = {
+  updateBase: 'update-base',
+} as const;
+
+export type IBaseAgentOperator = (typeof BaseAgentOperator)[keyof typeof BaseAgentOperator];
+
 // field-agent
 export const FieldAgentOperator = {
-  createField: 'create-field',
+  createFields: 'create-fields',
   deleteField: 'delete-field',
   updateField: 'update-field',
 } as const;
