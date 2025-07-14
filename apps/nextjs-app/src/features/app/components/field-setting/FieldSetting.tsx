@@ -104,7 +104,9 @@ export const FieldSetting = (props: IFieldSetting) => {
     const plan = (await getPlan(fieldRo)) as IPlanFieldConvertVo;
     setFieldRo(fieldRo);
     setPlan(plan);
-    if (plan && (plan.estimateTime || 0) > 1000) {
+    const estimateTime = plan?.estimateTime || 0;
+    const linkFieldCount = plan?.linkFieldCount || 0;
+    if (estimateTime > 1000 || linkFieldCount > 0) {
       setGraphVisible(true);
       return;
     }

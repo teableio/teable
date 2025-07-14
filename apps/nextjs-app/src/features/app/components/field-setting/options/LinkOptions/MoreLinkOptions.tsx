@@ -106,6 +106,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           fields={fieldInstances}
           value={lookupFieldId ?? primaryField?.id}
           onSelect={(fieldId) => onChange?.({ lookupFieldId: fieldId ?? undefined })}
+          className="w-full max-w-none "
         />
       </div>
       <div className="flex flex-col gap-2">
