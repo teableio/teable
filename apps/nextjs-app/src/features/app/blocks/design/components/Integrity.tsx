@@ -29,7 +29,7 @@ export const IntegrityButton = () => {
           {t('table:table.integrity.check')}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80">
+      <PopoverContent className="w-96">
         {isLoading ? (
           <div className="flex items-center justify-center py-2">
             <Loader2 className="size-6 animate-spin" />
@@ -42,19 +42,25 @@ export const IntegrityButton = () => {
                 {data?.linkFieldIssues?.[0]?.baseName && (
                   <div className="mb-2 font-medium">{data.linkFieldIssues[0].baseName}</div>
                 )}
-                {data?.linkFieldIssues?.map((issues, index) => (
-                  <div key={index} className="mb-2 ml-4 text-sm">
-                    {issues.issues.map((issue) => (
-                      <div key={issue.type}>
-                        <div>Type: {issue.type}</div>
-                        <div>Message: {issue.message}</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                <Button onClick={() => fixIntegrity()} size="sm" className="mt-2">
-                  {t('table:table.integrity.fixIssues')}
-                </Button>
+
+                <div className="max-h-96  max-w-md overflow-y-auto">
+                  {data?.linkFieldIssues?.map((issues, index) => (
+                    <div key={index} className="mb-2 ml-4 text-sm">
+                      {issues.issues.map((issue) => (
+                        <div key={issue.type}>
+                          <div>Type: {issue.type}</div>
+                          <div>Message: {issue.message}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={() => fixIntegrity()} size="sm" className="mt-2">
+                    {t('table:table.integrity.fixIssues')}
+                  </Button>
+                </div>
               </>
             ) : (
               <div className="flex items-center justify-center py-2">

@@ -377,18 +377,19 @@ export class FieldService implements IReadonlyAdapterService {
     const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
     const indexes = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(indexesQuery);
+      .$queryRawUnsafe<{ name: string; def: string }[]>(indexesQuery);
 
-    // bsetestbaseid_table1_83jase6cgokc_name_unique
-    const oldUniqueIndexSuffix = `_${dbFieldName.toLowerCase()}_unique`;
-    // bsetestbaseid_table1_83jase6cgokc___fldda2eymqax9rnglsr_unique
+    /**
+     * when dbFieldName is too long, the unique index will be like this:
+     * bseu6lgzwkkyn9jmjax_countrys_jian_ma_dui_zhao_biaozerrjmgblz___
+     * so we need to check the def of the index
+     */
     const uniqueIndexSuffix = `___${fieldId.toLowerCase()}_unique`;
 
     return indexes
       .filter((index) => {
-        const { name } = index;
-        const checkOld =
-          name.endsWith(oldUniqueIndexSuffix) && !name.endsWith(`_${oldUniqueIndexSuffix}`);
+        const { name, def } = index;
+        const checkOld = def.includes(`(${dbFieldName})`) || def.includes(`("${dbFieldName}")`);
         const checkNew =
           name.endsWith(uniqueIndexSuffix) && !name.endsWith(`_${uniqueIndexSuffix}`);
         return checkOld || checkNew;

@@ -555,7 +555,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     return this.knex
       .raw(
         `
-        SELECT indexname as name
+        SELECT indexname as name, indexdef as def
         FROM pg_indexes
         WHERE tablename = ?
       `,

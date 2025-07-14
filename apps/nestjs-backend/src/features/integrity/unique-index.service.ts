@@ -22,20 +22,11 @@ export class UniqueIndexService {
     name: string;
     dbTableName: string;
   }): Promise<IIntegrityIssue[]> {
-    const indexesQuery = this.dbProvider.getTableIndexes(table.dbTableName);
-    const indexes = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ name: string }[]>(indexesQuery);
-
-    const colId = '__id';
-    const idUniqueIndexEndsWith = `_${colId}_unique`;
     const issues: IIntegrityIssue[] = [];
 
+    const colId = '__id';
     const idUniqueIndexExists =
-      indexes.filter((index) => {
-        const { name } = index;
-        return name.endsWith(idUniqueIndexEndsWith) && !name.endsWith(`_${idUniqueIndexEndsWith}`);
-      }).length > 0;
+      (await this.fieldService.findUniqueIndexesForField(table.dbTableName, colId, '')).length > 0;
 
     if (!idUniqueIndexExists) {
       issues.push({
@@ -108,7 +99,6 @@ export class UniqueIndexService {
     if (!sql) {
       return;
     }
-
     await this.prismaService.txClient().$executeRawUnsafe(sql);
 
     return {
