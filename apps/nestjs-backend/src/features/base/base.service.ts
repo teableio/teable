@@ -174,6 +174,7 @@ export class BaseService {
         id: true,
         name: true,
         spaceId: true,
+        icon: true,
       },
       where: {
         id: baseId,

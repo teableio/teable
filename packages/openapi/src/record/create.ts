@@ -9,13 +9,21 @@ import { recordsVoSchema } from './get-list';
 
 export const recordInsertOrderRoSchema = z
   .object({
-    viewId: z.string().openapi({
-      description:
-        'You can only specify order in one view when create record (will create a order index automatically)',
-    }),
-    anchorId: z.string().openapi({
-      description: 'The record id to anchor to',
-    }),
+    viewId: z
+      .string()
+      .openapi({
+        description:
+          'You can only specify order in one view when create record (will create a order index automatically)',
+      })
+      .describe(
+        'You can only specify order in one view when create record (will create a order index automatically)'
+      ),
+    anchorId: z
+      .string()
+      .openapi({
+        description: 'The record id to anchor to',
+      })
+      .describe('The record id to anchor to'),
     position: z.enum(['before', 'after']),
   })
   .openapi({
