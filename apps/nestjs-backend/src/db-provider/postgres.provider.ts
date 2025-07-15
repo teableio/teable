@@ -555,9 +555,29 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     return this.knex
       .raw(
         `
-        SELECT indexname as name, indexdef as def
-        FROM pg_indexes
-        WHERE tablename = ?
+        SELECT
+    i.relname AS name,
+    ix.indisunique AS unique,
+    ix.indisprimary AS primary,
+    jsonb_agg(a.attname ORDER BY u.attposition) AS columns
+FROM
+    pg_class t,
+    pg_class i,
+    pg_index ix,
+    pg_attribute a,
+    unnest(ix.indkey) WITH ORDINALITY u(attnum, attposition)
+WHERE
+    t.oid = ix.indrelid
+    AND i.oid = ix.indexrelid
+    AND a.attrelid = t.oid
+    AND a.attnum = u.attnum
+    AND t.relname = ?
+GROUP BY
+    i.relname,
+    ix.indisunique,
+    ix.indisprimary
+ORDER BY
+    i.relname;
       `,
         [tableName]
       )

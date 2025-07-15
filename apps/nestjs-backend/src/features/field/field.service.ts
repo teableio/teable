@@ -377,17 +377,12 @@ export class FieldService implements IReadonlyAdapterService {
     const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
     const indexes = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ name: string; def: string }[]>(indexesQuery);
+      .$queryRawUnsafe<{ name: string; columns: string[]; unique: boolean }[]>(indexesQuery);
 
-    /**
-     * when dbFieldName is too long, the unique index will be like this:
-     * bseu6lgzwkkyn9jmjax_countrys_jian_ma_dui_zhao_biaozerrjmgblz___
-     * so we need to check the def of the index
-     */
     return indexes
       .filter((index) => {
-        const { def } = index;
-        return def.includes(`(${dbFieldName})`) || def.includes(`("${dbFieldName}")`);
+        const { columns, unique } = index;
+        return unique && columns.includes(dbFieldName);
       })
       .map((index) => index.name);
   }
