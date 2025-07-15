@@ -377,12 +377,13 @@ export class FieldService implements IReadonlyAdapterService {
     const indexesQuery = this.dbProvider.getTableIndexes(dbTableName);
     const indexes = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ name: string; columns: string[]; unique: boolean }[]>(indexesQuery);
+      .$queryRawUnsafe<{ name: string; columns: string; isUnique: boolean }[]>(indexesQuery);
 
     return indexes
       .filter((index) => {
-        const { columns, unique } = index;
-        return unique && columns.includes(dbFieldName);
+        const { columns, isUnique } = index;
+        const columnsArray = JSON.parse(columns) as string[];
+        return isUnique && columnsArray.includes(dbFieldName);
       })
       .map((index) => index.name);
   }

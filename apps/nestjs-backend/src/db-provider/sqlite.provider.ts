@@ -487,6 +487,21 @@ export class SqliteProvider implements IDbProvider {
   }
 
   getTableIndexes(dbTableName: string): string {
-    return this.knex.raw(`PRAGMA index_list(??)`, [dbTableName]).toQuery();
+    return this.knex
+      .raw(
+        `SELECT
+    s.name AS name,
+    (SELECT "unique" FROM pragma_index_list(s.tbl_name) WHERE name = s.name) AS isUnique,
+    (SELECT json_group_array(name) FROM pragma_index_info(s.name) ORDER BY seqno) AS columns
+FROM
+    sqlite_schema AS s
+WHERE
+    s.type = 'index'
+    AND s.tbl_name = ?
+ORDER BY
+    s.name;`,
+        [dbTableName]
+      )
+      .toQuery();
   }
 }

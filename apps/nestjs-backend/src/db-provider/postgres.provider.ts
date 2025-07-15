@@ -557,9 +557,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         `
         SELECT
     i.relname AS name,
-    ix.indisunique AS unique,
-    ix.indisprimary AS primary,
-    jsonb_agg(a.attname ORDER BY u.attposition) AS columns
+    ix.indisunique AS "isUnique",
+    CAST(jsonb_agg(a.attname ORDER BY u.attposition) AS TEXT) AS columns
 FROM
     pg_class t,
     pg_class i,
