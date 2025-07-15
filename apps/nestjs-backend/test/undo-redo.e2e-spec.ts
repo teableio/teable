@@ -641,6 +641,50 @@ describe('Undo Redo (e2e)', () => {
     expect(fieldsAfterRedo.length).toEqual(2);
   });
 
+  it('should undo / redo convert field to formula field', async () => {
+    const tableId = table.id;
+    const fieldId = table.fields[1].id;
+    const recordId = table.records[0].id;
+    const res = await awaitWithEvent(() =>
+      updateRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [fieldId]: 666 } },
+      })
+    );
+    expect(res.data.fields[fieldId]).toEqual(666);
+
+    await awaitWithEvent(() =>
+      convertField(tableId, fieldId, {
+        type: FieldType.Formula,
+        options: {
+          expression: `1+1`,
+        },
+      })
+    );
+    const recordAfterConvert = (
+      await getRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+    expect(recordAfterConvert.fields[fieldId]).toEqual(2);
+
+    await undo(tableId);
+    const recordAfterUndo = (
+      await getRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+    expect(recordAfterUndo.fields[fieldId]).toEqual(666);
+
+    await redo(tableId);
+    const recordAfterRedo = (
+      await getRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+    expect(recordAfterRedo.fields[fieldId]).toEqual(2);
+  });
+
   // event throw error because of sqlite(record history create many)
   it('should undo / redo delete field with outgoing references', async () => {
     // update and move 0 to 2

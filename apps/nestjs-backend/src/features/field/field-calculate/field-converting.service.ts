@@ -947,6 +947,14 @@ export class FieldConvertingService {
       return;
     }
 
+    return this.buildBasalOpsMap(tableId, newField, oldField);
+  }
+
+  private async buildBasalOpsMap(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ) {
     const fieldId = newField.id;
     const records = await this.getExistRecords(tableId, oldField);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
@@ -979,8 +987,12 @@ export class FieldConvertingService {
     newField: IFieldInstance,
     oldField: IFieldInstance
   ): Promise<IOpsMap | undefined> {
-    if (newField.isComputed) {
+    if (oldField.isComputed && newField.isComputed) {
       return;
+    }
+
+    if (!oldField.isComputed && newField.isComputed) {
+      return this.buildBasalOpsMap(tableId, newField, oldField);
     }
 
     if (newField.type === FieldType.SingleSelect || newField.type === FieldType.MultipleSelect) {
