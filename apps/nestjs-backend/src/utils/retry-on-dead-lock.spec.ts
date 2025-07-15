@@ -11,10 +11,10 @@ class TestService {
     });
   }
 
-  // 630ms backoff time is determined through testing, 3 retries take approximately 4s in total
+  // 300ms backoff time is determined through testing, 3 retries take approximately 4s in total
   @retryOnDeadlock({
     maxRetries: 3,
-    initialBackoff: 600,
+    initialBackoff: 300,
     jitter: 1.0,
   })
   async testMethod2() {
