@@ -80,7 +80,7 @@ describe('clipboard', () => {
       expect(data).toEqual([['text1"'], ['text2']]);
     });
 
-    it('content star or end with newline', () => {
+    it('content start or end with newline', () => {
       const data = parseClipboardText('text1\n');
       expect(data).toEqual([['text1']]);
 
