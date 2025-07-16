@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { DriverClient } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
-import { retryOnDeadlock } from '../src/utils/retry-on-dead-lock';
+import { retryOnDeadlock } from '../src/utils/retry-decorator';
 import { initApp } from './utils/init-app';
 
 const deadLockTableA = 'dead_lock_a';
