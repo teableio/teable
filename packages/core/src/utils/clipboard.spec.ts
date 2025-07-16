@@ -79,6 +79,20 @@ describe('clipboard', () => {
       const data = parseClipboardText('text1"\r\ntext2');
       expect(data).toEqual([['text1"'], ['text2']]);
     });
+
+    it('content star or end with newline', () => {
+      const data = parseClipboardText('text1\n');
+      expect(data).toEqual([['text1']]);
+
+      const data2 = parseClipboardText('\ntext1');
+      expect(data2).toEqual([['text1']]);
+
+      const data3 = parseClipboardText('tex"t1\n');
+      expect(data3).toEqual([['tex"t1']]);
+
+      const data4 = parseClipboardText('\ntex"t1');
+      expect(data4).toEqual([['tex"t1']]);
+    });
   });
 
   describe('stringify', () => {

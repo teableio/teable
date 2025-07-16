@@ -9,6 +9,7 @@ import {
   extractHtmlHeader,
   serializerHtml,
   isTeableHTML,
+  parseNormalHtml,
 } from '@/features/app/utils/clipboard';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { getSelectionCell } from './selection';
@@ -112,14 +113,18 @@ export const textPasteHandler = async (
     ? e.clipboardData.getData(ClipboardTypes.text)
     : '';
 
-  const cellValues = extractTableContent(html);
+  const cellValues = hasHtml
+    ? isTeableHTML(html)
+      ? extractTableContent(html)
+      : parseNormalHtml(html)
+    : [];
 
   if (header.error) {
     throw new Error(header.error);
   }
 
   await requestPaste(
-    isTeableHTML(html) ? cellValues : text,
+    hasHtml ? cellValues : text,
     rangeTypes[selection.type],
     selection.serialize(),
     header.result

@@ -54,8 +54,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
   });
 
   afterEach(async () => {
-    const result = await permanentDeleteTable(baseId, table.id);
-    console.log('clear table: ', result);
+    await permanentDeleteTable(baseId, table.id);
   });
 
   afterAll(async () => {
@@ -725,5 +724,32 @@ describe('OpenAPI SelectionController (e2e)', () => {
         recordsData.records.map((r) => (r.fields[tableData.fields[2].name] as IUserCellValue)?.id)
       ).toEqual([user2Info.id, user1Info.id]);
     });
+  });
+
+  it('paste content end with newline', async () => {
+    await apiPaste(table.id, {
+      viewId: table.defaultViewId!,
+      content: 'test\ntest2',
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+    });
+    await apiPaste(table.id, {
+      viewId: table.defaultViewId!,
+      content: 'test3\n',
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+    });
+    const records = await getRecords(table.id, {
+      viewId: table.defaultViewId!,
+    });
+    expect(records.data.records.map((r) => r.fields[table.fields[0].name])).toEqual([
+      'test3',
+      'test2',
+      undefined,
+    ]);
   });
 });
