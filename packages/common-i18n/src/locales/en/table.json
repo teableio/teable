@@ -655,7 +655,8 @@
       "updateBase": "Update database info",
       "args": "Arguments",
       "result": "Result",
-      "thinking": "Thinking..."
+      "thinking": "Thinking...",
+      "toBeConfirmed": "Waiting for confirmation"
     },
     "fallback": {
       "previewLoadFailed": "Preview load failed"
