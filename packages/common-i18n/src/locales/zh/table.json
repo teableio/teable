@@ -655,7 +655,8 @@
       "updateBase": "更新数据库信息",
       "args": "参数",
       "result": "结果",
-      "thinking": "思考中..."
+      "thinking": "思考中...",
+      "toBeConfirmed": "待确认"
     },
     "fallback": {
       "previewLoadFailed": "参数错误"
