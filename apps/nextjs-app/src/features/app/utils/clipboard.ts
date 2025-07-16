@@ -120,6 +120,6 @@ export const parseNormalHtml = (html: string) => {
   const rows = Array.from(table?.rows || []);
   return rows.map((row) => {
     const cells = Array.from(row.cells);
-    return cells.map((cell) => cell.innerText);
+    return cells.map((cell) => cell.textContent || '');
   });
 };
