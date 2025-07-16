@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
+import type { IFieldRo, IFieldVo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
 import { updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
@@ -908,6 +908,120 @@ describe('OpenAPI RecordController (e2e)', () => {
       });
 
       expect(records).toBeDefined();
+    });
+  });
+
+  describe('ops index conflict', () => {
+    let table: ITableFullVo;
+    let tableLinkField: IFieldVo;
+    let linkTable: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'field1',
+          },
+        ],
+      });
+      linkTable = await createTable(baseId, {
+        name: 'linkTable',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'field1',
+          },
+        ],
+        records: [
+          {
+            fields: {
+              field1: 'test1',
+            },
+          },
+          {
+            fields: {
+              field1: 'test2',
+            },
+          },
+          {
+            fields: {
+              field1: 'test3',
+            },
+          },
+          {
+            fields: {
+              field1: 'test4',
+            },
+          },
+        ],
+      });
+      tableLinkField = await createField(table.id, {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: linkTable.id,
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, linkTable.id);
+    });
+
+    it('should create a record with link field', async () => {
+      await Promise.all([
+        createRecords(table.id, {
+          records: [
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[0].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[1].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[2].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[3].id }],
+              },
+            },
+          ],
+        }),
+        createRecords(table.id, {
+          records: [
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[0].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[1].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[2].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[3].id }],
+              },
+            },
+          ],
+        }),
+      ]);
     });
   });
 });

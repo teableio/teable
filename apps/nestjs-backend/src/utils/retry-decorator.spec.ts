@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import { Prisma } from '@prisma/client';
-import { retryOnDeadlock } from './retry-on-dead-lock';
+import { retryOnDeadlock } from './retry-decorator';
 
 class TestService {
   @retryOnDeadlock()
@@ -37,7 +37,7 @@ describe('RetryOnDeadlock Decorator', () => {
       thresholdConfig: () => ({
         dbDeadlock: {
           maxRetries: 3,
-          initialBackoff: 300,
+          initialBackoff: 200,
           jitter: 1,
         },
       }),
