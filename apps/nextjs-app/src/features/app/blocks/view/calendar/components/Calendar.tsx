@@ -137,16 +137,19 @@ export const Calendar = (props: ICalendarProps) => {
         const newDate = set(date, { hours: 0, minutes: 0, seconds: 0, milliseconds: 0 });
         const newDateStr = fromZonedTime(newDate, timeZone).toISOString();
 
-        const { data } = await createRecords(tableId, {
-          fieldKeyType: FieldKeyType.Id,
-          records: [
-            {
-              fields: {
-                [startDateField.id]: newDateStr,
-                [endDateField.id]: newDateStr,
+        const { data } = await createRecords({
+          tableId,
+          recordsRo: {
+            fieldKeyType: FieldKeyType.Id,
+            records: [
+              {
+                fields: {
+                  [startDateField.id]: newDateStr,
+                  [endDateField.id]: newDateStr,
+                },
               },
-            },
-          ],
+            ],
+          },
         });
 
         setExpandRecordId?.(data.records[0].id);

@@ -27,16 +27,19 @@ export const AddEventButton = (props: IAddEventButtonProps) => {
 
     if (!tableId || !startDateField || !endDateField) return;
 
-    const { data } = await createRecords(tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: [
-        {
-          fields: {
-            [startDateField.id]: date.toISOString(),
-            [endDateField.id]: date.toISOString(),
+    const { data } = await createRecords({
+      tableId,
+      recordsRo: {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [startDateField.id]: date.toISOString(),
+              [endDateField.id]: date.toISOString(),
+            },
           },
-        },
-      ],
+        ],
+      },
     });
 
     setExpandRecordId?.(data.records[0].id);

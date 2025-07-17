@@ -24,13 +24,12 @@ export const FormViewBase = () => {
 
   const submitForm = async (fields: Record<string, unknown>) => {
     if (!tableId) return;
-    await createRecords(tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: [
-        {
-          fields,
-        },
-      ],
+    await createRecords({
+      tableId,
+      recordsRo: {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields }],
+      },
     });
   };
 

@@ -102,13 +102,17 @@ export const GalleryViewBase = () => {
 
     updateRecordOrder(actualOldIndex, actualNewIndex);
 
-    updateRecord(tableId, activeId as string, {
-      fieldKeyType: FieldKeyType.Id,
-      record: { fields: {} },
-      order: {
-        viewId,
-        anchorId: overId as string,
-        position: actualOldIndex > actualNewIndex ? 'before' : 'after',
+    updateRecord({
+      tableId,
+      recordId: activeId as string,
+      recordRo: {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: {} },
+        order: {
+          viewId,
+          anchorId: overId as string,
+          position: actualOldIndex > actualNewIndex ? 'before' : 'after',
+        },
       },
     });
   };

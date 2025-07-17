@@ -5,7 +5,7 @@ import type { GridView } from '../../../model';
 import type { IRecordIndexMap } from './use-grid-async-records';
 
 export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
-  const tableId = useTableId();
+  const tableId = useTableId() as string;
   const viewId = useViewId();
   const view = useView(viewId) as GridView | undefined;
   const { updateRecords } = useRecordOperations();
@@ -43,13 +43,16 @@ export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
       }
 
       if (newRowIndex === 0) {
-        return updateRecords(tableId as string, {
-          fieldKeyType: FieldKeyType.Id,
-          records: draggingRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
-          order: {
-            viewId,
-            anchorId: recordMap[0].id,
-            position: 'before',
+        return updateRecords({
+          tableId,
+          recordsRo: {
+            fieldKeyType: FieldKeyType.Id,
+            records: draggingRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
+            order: {
+              viewId,
+              anchorId: recordMap[0].id,
+              position: 'before',
+            },
           },
         });
       }
@@ -59,13 +62,16 @@ export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
         throw new Error("Can't find target record by index: " + newRowIndex);
       }
 
-      return updateRecords(tableId as string, {
-        fieldKeyType: FieldKeyType.Id,
-        records: draggingRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
-        order: {
-          viewId,
-          anchorId: record.id,
-          position: 'after',
+      return updateRecords({
+        tableId,
+        recordsRo: {
+          fieldKeyType: FieldKeyType.Id,
+          records: draggingRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
+          order: {
+            viewId,
+            anchorId: record.id,
+            position: 'after',
+          },
         },
       });
     },

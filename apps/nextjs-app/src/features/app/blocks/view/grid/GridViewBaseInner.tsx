@@ -435,10 +435,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           },
           duplicateRecord: async () => {
             if (!record || !activeViewId) return;
-            await duplicateRecord(tableId, record.id, {
-              viewId: activeViewId,
-              anchorId: record.id,
-              position: 'after',
+            await duplicateRecord({
+              tableId,
+              recordId: record.id,
+              order: {
+                viewId: activeViewId,
+                anchorId: record.id,
+                position: 'after',
+              },
             });
           },
           deleteRecords: async () => {
@@ -693,10 +697,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return toast({ title: 'Unable to paste' });
     }
     paste(e, selection, { 0: presortRecord }, (records) => {
-      updateRecord(tableId, presortRecord.id, {
-        fieldKeyType: FieldKeyType.Id,
-        record: {
-          fields: { ...presortRecord.fields, ...records[0].fields },
+      updateRecord({
+        tableId,
+        recordId: presortRecord.id,
+        recordRo: {
+          fieldKeyType: FieldKeyType.Id,
+          record: {
+            fields: { ...presortRecord.fields, ...records[0].fields },
+          },
         },
       });
     });

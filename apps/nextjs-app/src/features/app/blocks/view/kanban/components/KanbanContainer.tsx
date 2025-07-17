@@ -89,10 +89,14 @@ export const KanbanContainer = () => {
 
       if (sourceIndex < cardCount && targetIndex < cardCount) {
         if (tableId && viewId) {
-          updateRecordOrders(tableId, viewId, {
-            anchorId: cards[targetIndex].id,
-            position: targetIndex > sourceIndex ? 'after' : 'before',
-            recordIds: [cards[sourceIndex].id],
+          updateRecordOrders({
+            tableId,
+            viewId,
+            order: {
+              anchorId: cards[targetIndex].id,
+              position: targetIndex > sourceIndex ? 'after' : 'before',
+              recordIds: [cards[sourceIndex].id],
+            },
           });
         }
 
@@ -144,7 +148,11 @@ export const KanbanContainer = () => {
         };
       }
 
-      updateRecord(tableId, sourceCardId, recordRo);
+      updateRecord({
+        tableId,
+        recordId: sourceCardId,
+        recordRo,
+      });
     }
 
     const { sourceList, targetList } = moveTo({

@@ -76,10 +76,14 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   }
 
   const onDuplicate = async () => {
-    await duplicateRecord(tableId, recordId, {
-      viewId: viewId || '',
-      anchorId: recordId,
-      position: 'after',
+    await duplicateRecord({
+      tableId,
+      recordId,
+      order: {
+        viewId: viewId || '',
+        anchorId: recordId,
+        position: 'after',
+      },
     });
     toast.success(t('expandRecord.duplicateRecord'));
   };
