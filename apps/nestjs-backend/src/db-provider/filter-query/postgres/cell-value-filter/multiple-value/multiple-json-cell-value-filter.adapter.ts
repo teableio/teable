@@ -142,6 +142,28 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     return builderClient;
   }
 
+  isNotExactlyOperatorHandler(
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
+  ): Knex.QueryBuilder {
+    const { type } = this.field;
+    const sqlPlaceholders = this.createSqlPlaceholders(value);
+
+    if (isUserOrLink(type)) {
+      builderClient.whereRaw(
+        `NOT (jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}]) AND to_jsonb(ARRAY[${sqlPlaceholders}]) @> jsonb_path_query_array(??::jsonb, '$[*].id'))`,
+        [this.tableColumnRef, ...value, ...value, this.tableColumnRef]
+      );
+    } else {
+      builderClient.whereRaw(
+        `NOT (??::jsonb @> to_jsonb(ARRAY[${sqlPlaceholders}]) AND to_jsonb(ARRAY[${sqlPlaceholders}]) @> ??::jsonb)`,
+        [this.tableColumnRef, ...value, ...value, this.tableColumnRef]
+      );
+    }
+    return builderClient;
+  }
+
   containsOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,

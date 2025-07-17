@@ -14,6 +14,7 @@ import {
   hasAllOf,
   hasAnyOf,
   hasNoneOf,
+  isNotExactly,
   is,
   isAfter,
   isAnyOf,
@@ -67,6 +68,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       [isNoneOf.value]: this.isNoneOfOperatorHandler,
       [hasNoneOf.value]: this.isNoneOfOperatorHandler,
       [hasAllOf.value]: this.hasAllOfOperatorHandler,
+      [isNotExactly.value]: this.isNotExactlyOperatorHandler,
       [isWithIn.value]: this.isWithInOperatorHandler,
       [isEmpty.value]: this.isEmptyOperatorHandler,
       [isNotEmpty.value]: this.isNotEmptyOperatorHandler,
@@ -186,6 +188,14 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   ): Knex.QueryBuilder;
 
   hasAllOfOperatorHandler(
+    _builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
+  ): Knex.QueryBuilder {
+    throw new NotImplementedException();
+  }
+
+  isNotExactlyOperatorHandler(
     _builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
     _value: IFilterValue

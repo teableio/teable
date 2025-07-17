@@ -2,6 +2,7 @@ import {
   hasAllOf,
   hasAnyOf,
   hasNoneOf,
+  isNotExactly,
   isNoneOf,
   isAnyOf,
   isEmpty,
@@ -14,6 +15,7 @@ const MULTIPLE_SELECT_ARRAY_OPERATORS = [
   hasAnyOf.value,
   hasAllOf.value,
   hasNoneOf.value,
+  isNotExactly.value,
 ] as string[];
 const ARRAY_OPERATORS = [...SINGLE_SELECT_ARRAY_OPERATORS, ...MULTIPLE_SELECT_ARRAY_OPERATORS];
 

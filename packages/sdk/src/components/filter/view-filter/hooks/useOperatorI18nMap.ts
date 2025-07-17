@@ -25,6 +25,7 @@ export const useOperatorI18nMap = (cellValueType?: CellValueType) => {
     isAfter: t('filter.operator.isAfter'),
     isOnOrBefore: t('filter.operator.isOnOrBefore'),
     isOnOrAfter: t('filter.operator.isOnOrAfter'),
+    isNotExactly: t('filter.operator.isNot'),
   };
   if (cellValueType === CellValueType.Number) {
     return {

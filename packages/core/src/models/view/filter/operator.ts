@@ -18,6 +18,7 @@ export const isAnyOf = z.literal('isAnyOf');
 export const isNoneOf = z.literal('isNoneOf');
 export const hasAnyOf = z.literal('hasAnyOf');
 export const hasAllOf = z.literal('hasAllOf');
+export const isNotExactly = z.literal('isNotExactly');
 export const hasNoneOf = z.literal('hasNoneOf');
 export const isExactly = z.literal('isExactly');
 export const isWithIn = z.literal('isWithIn');
@@ -73,6 +74,7 @@ export const operators = z.union([
   isNoneOf,
   hasAnyOf,
   hasAllOf,
+  isNotExactly,
   hasNoneOf,
   isExactly,
   isWithIn,
@@ -176,6 +178,7 @@ const mappingOperatorSymbol = {
   [hasNoneOf.value]: $notIn.value,
 
   [hasAllOf.value]: $has.value,
+  [isNotExactly.value]: $neq.value,
 
   // [isWithIn.value]: $between.value,
 
@@ -370,6 +373,7 @@ export function getValidFilterOperators(field: {
           hasAnyOf.value,
           hasAllOf.value,
           isExactly.value,
+          isNotExactly.value,
           hasNoneOf.value,
           isEmpty.value,
           isNotEmpty.value,
@@ -386,6 +390,7 @@ export function getValidFilterOperators(field: {
         hasAnyOf.value,
         hasAllOf.value,
         isExactly.value,
+        isNotExactly.value,
         hasNoneOf.value,
         isEmpty.value,
         isNotEmpty.value,
@@ -397,7 +402,7 @@ export function getValidFilterOperators(field: {
     case FieldType.LastModifiedBy:
     case FieldType.Link: {
       operationSet = isMultipleCellValue
-        ? [hasAnyOf.value, hasAllOf.value, isExactly.value, hasNoneOf.value]
+        ? [hasAnyOf.value, hasAllOf.value, isExactly.value, hasNoneOf.value, isNotExactly.value]
         : [is.value, isNot.value, isAnyOf.value, isNoneOf.value];
 
       const fixLinkOperator = type === FieldType.Link ? [contains.value, doesNotContain.value] : [];

@@ -11,6 +11,7 @@ export interface ICellValueFilterInterface {
   isOperatorHandler: ICellValueFilterHandler;
   isExactlyOperatorHandler: ICellValueFilterHandler;
   isNotOperatorHandler: ICellValueFilterHandler;
+  isNotExactlyOperatorHandler: ICellValueFilterHandler;
   containsOperatorHandler: ICellValueFilterHandler;
   doesNotContainOperatorHandler: ICellValueFilterHandler;
   isGreaterOperatorHandler: ICellValueFilterHandler;

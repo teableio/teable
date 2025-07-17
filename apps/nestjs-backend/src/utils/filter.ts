@@ -5,7 +5,7 @@ import {
   isNot,
   is,
   isNotEmpty,
-  hasNoneOf,
+  isNotExactly,
   CellValueType,
   exactFormatDate,
 } from '@teable/core';
@@ -70,7 +70,7 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
       timeZone,
     };
   } else if (SPECIAL_OPERATOR_FIELD_TYPE_SET.has(type) && isMultipleCellValue) {
-    operator = hasNoneOf.value;
+    operator = isNotExactly.value;
   }
 
   return {

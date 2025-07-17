@@ -18,6 +18,7 @@ import {
   pastNumberOfDays,
   subOperators,
   symbols,
+  isNotExactly,
 } from './operator';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -69,6 +70,7 @@ const operatorsExpectingArray: string[] = [
   isNoneOf.value,
   hasAnyOf.value,
   hasAllOf.value,
+  isNotExactly.value,
   hasNoneOf.value,
   isExactly.value,
 ];
