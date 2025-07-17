@@ -9,6 +9,7 @@ import {
   isNoneOf,
   isNot,
   isNotEmpty,
+  isNotExactly,
   Me,
 } from '@teable/core';
 
@@ -103,6 +104,13 @@ export const MULTIPLE_USER_FIELD_CASES = [
   {
     fieldIndex: 7,
     operator: isExactly.value,
+    queryValue: ['usrTestUserId', 'usrTestUserId_1'],
+    expectResultLength: 1,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 7,
+    operator: isNotExactly.value,
     queryValue: ['usrTestUserId', 'usrTestUserId_1'],
     expectResultLength: 1,
     expectMoreResults: true,
@@ -209,6 +217,13 @@ export const MULTIPLE_USER_LOOKUP_FIELD_CASES = [
     operator: isExactly.value,
     queryValue: ['usrTestUserId', 'usrTestUserId_1'],
     expectResultLength: 5,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 10,
+    operator: isNotExactly.value,
+    queryValue: ['usrTestUserId', 'usrTestUserId_1'],
+    expectResultLength: 2,
     expectMoreResults: true,
   },
   {

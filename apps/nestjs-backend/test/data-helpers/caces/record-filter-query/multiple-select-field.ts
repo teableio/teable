@@ -39,13 +39,6 @@ export const MULTIPLE_SELECT_FIELD_CASES = [
   },
   {
     fieldIndex: 6,
-    operator: isNotExactly.value,
-    queryValue: ['rap', 'rock'],
-    expectResultLength: 20,
-    expectMoreResults: true,
-  },
-  {
-    fieldIndex: 6,
     operator: hasNoneOf.value,
     queryValue: ['rock'],
     expectResultLength: 18,
@@ -57,6 +50,13 @@ export const MULTIPLE_SELECT_FIELD_CASES = [
     queryValue: ['rock', 'hiphop'],
     expectResultLength: 1,
     expectMoreResults: false,
+  },
+  {
+    fieldIndex: 6,
+    operator: isNotExactly.value,
+    queryValue: ['rap', 'rock'],
+    expectResultLength: 7,
+    expectMoreResults: true,
   },
 ];
 
@@ -101,6 +101,13 @@ export const MULTIPLE_SELECT_LOOKUP_FIELD_CASES = [
     operator: isExactly.value,
     queryValue: ['rock', 'hiphop'],
     expectResultLength: 1,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 9,
+    operator: isNotExactly.value,
+    queryValue: ['rap', 'hiphop'],
+    expectResultLength: 10,
     expectMoreResults: false,
   },
 ];
