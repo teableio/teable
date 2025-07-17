@@ -656,7 +656,8 @@
       "args": "Arguments",
       "result": "Result",
       "thinking": "Thinking...",
-      "toBeConfirmed": "Waiting for confirmation"
+      "toBeConfirmed": "To be confirmed",
+      "errorMessage": "Error message"
     },
     "fallback": {
       "previewLoadFailed": "Preview load failed"

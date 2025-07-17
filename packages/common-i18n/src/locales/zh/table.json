@@ -656,7 +656,8 @@
       "args": "参数",
       "result": "结果",
       "thinking": "思考中...",
-      "toBeConfirmed": "待确认"
+      "toBeConfirmed": "待确认",
+      "errorMessage": "错误信息"
     },
     "fallback": {
       "previewLoadFailed": "参数错误"
