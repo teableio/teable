@@ -132,15 +132,21 @@ export const useSelectionOperation = (props?: {
   });
 
   const { mutateAsync: deleteReq } = useMutation({
-    mutationFn: (deleteRo: IRangesRo) =>
-      deleteSelection(tableId!, {
-        ...deleteRo,
+    mutationFn: async (deleteRo: IRangesRo) => {
+      const { collapsedGroupIds: originalCollapsedGroupIds, ...rest } = deleteRo;
+      const params = {
+        ...rest,
         ...personalViewCommonQuery,
         viewId,
         groupBy,
-        collapsedGroupIds,
         search,
-      }),
+      };
+      if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+        const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+        return deleteSelection(tableId!, { ...params, queryId: data.queryId });
+      }
+      return deleteSelection(tableId!, { ...params, collapsedGroupIds });
+    },
     onError: () => {
       toast.dismiss(deleteToastId);
     },
