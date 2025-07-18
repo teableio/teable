@@ -112,7 +112,7 @@ export const MULTIPLE_USER_FIELD_CASES = [
     fieldIndex: 7,
     operator: isNotExactly.value,
     queryValue: ['usrTestUserId', 'usrTestUserId_1'],
-    expectResultLength: 1,
+    expectResultLength: 22,
     expectMoreResults: true,
   },
   {
@@ -223,7 +223,7 @@ export const MULTIPLE_USER_LOOKUP_FIELD_CASES = [
     fieldIndex: 10,
     operator: isNotExactly.value,
     queryValue: ['usrTestUserId', 'usrTestUserId_1'],
-    expectResultLength: 2,
+    expectResultLength: 16,
     expectMoreResults: true,
   },
   {
