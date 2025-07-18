@@ -34,6 +34,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
         umamiUrl: process.env.UMAMI_URL,
         umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
+        gaId: process.env.GA_ID,
         sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storage: omitBy(storage, isUndefined),

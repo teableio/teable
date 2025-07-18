@@ -74,3 +74,42 @@ export const Umami = ({
     </>
   );
 };
+
+export const GoogleAnalytics = ({
+  gaId,
+  user,
+}: {
+  gaId?: string;
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  };
+}) => {
+  if (!gaId) {
+    return null;
+  }
+
+  return (
+    <>
+      <Script
+        id="google-analytics"
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+      />
+      <Script
+        id="google-analytics-init"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${gaId}');
+            ${user ? `gtag('config', '${gaId}', { user_id: '${user.id}', custom_map: { custom_dimension_1: 'user_email' } }); gtag('event', 'login', { custom_dimension_1: '${user.email}' });` : ''}
+          `,
+        }}
+      />
+    </>
+  );
+};

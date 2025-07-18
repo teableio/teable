@@ -7,6 +7,7 @@ export interface IServerEnv {
   templateSiteLink?: string;
   microsoftClarityId?: string;
   umamiWebSiteId?: string;
+  gaId?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];

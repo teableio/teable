@@ -11,7 +11,7 @@ import { appWithTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 import { z } from 'zod';
 import { Guide } from '@/components/Guide';
-import { MicrosoftClarity, Umami } from '@/components/Metrics';
+import { GoogleAnalytics, MicrosoftClarity, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
@@ -66,6 +66,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         </Head>
         <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
+        <GoogleAnalytics gaId={env.gaId} user={user} />
         <script
           dangerouslySetInnerHTML={{
             __html: `
