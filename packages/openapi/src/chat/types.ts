@@ -41,6 +41,7 @@ export enum AgentInvocationName {
   FieldOperator = 'field-operator-agent',
   ViewOperator = 'view-operator-agent',
   RecordOperator = 'record-operator-agent',
+  BuildBase = 'build-base-agent',
 }
 
 export type IDataVisualizationDataStream = {
@@ -76,12 +77,6 @@ export const ViewAgentOperator = {
 
 export type IViewAgentOperator = (typeof ViewAgentOperator)[keyof typeof ViewAgentOperator];
 
-export const BaseAgentOperator = {
-  updateBase: 'update-base',
-} as const;
-
-export type IBaseAgentOperator = (typeof BaseAgentOperator)[keyof typeof BaseAgentOperator];
-
 // field-agent
 export const FieldAgentOperator = {
   createFields: 'create-fields',
@@ -110,3 +105,14 @@ export const ConfirmOperators = [
   RecordAgentOperator.deleteRecords,
   RecordAgentOperator.updateRecords,
 ] as const;
+
+export const BuildBaseOperator = {
+  updateBase: 'update-base',
+  planTask: 'plan-task',
+  generateTables: 'generate-tables',
+  generateFields: 'generate-fields',
+  generateViews: 'generate-views',
+  generateRecords: 'generate-records',
+} as const;
+
+export type IBuildBaseOperator = (typeof BuildBaseOperator)[keyof typeof BuildBaseOperator];

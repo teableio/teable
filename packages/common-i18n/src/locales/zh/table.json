@@ -672,7 +672,8 @@
       "tableOperatorAgent": "表格工具",
       "viewOperatorAgent": "视图工具",
       "fieldOperatorAgent": "字段工具",
-      "recordOperatorAgent": "记录工具"
+      "recordOperatorAgent": "记录工具",
+      "buildBaseAgent": "构建数据库工具"
     },
     "action": {
       "createTable": "创建表格",
@@ -686,7 +687,14 @@
       "updateField": "更新字段",
       "createRecord": "创建记录",
       "deleteRecord": "删除记录",
-      "updateRecord": "更新记录"
+      "updateRecord": "更新记录",
+
+      "updateBase": "更新数据库信息",
+      "planTask": "规划任务",
+      "generateTables": "生成表格",
+      "generateFields": "生成字段",
+      "generateViews": "生成视图",
+      "generateRecords": "生成记录"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",

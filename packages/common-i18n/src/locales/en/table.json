@@ -672,7 +672,8 @@
       "tableOperatorAgent": "Table Agent",
       "viewOperatorAgent": "View Agent",
       "fieldOperatorAgent": "Field Agent",
-      "recordOperatorAgent": "Record Agent"
+      "recordOperatorAgent": "Record Agent",
+      "buildBaseAgent": "Build Base Agent"
     },
     "action": {
       "createTable": "Create table",
@@ -686,7 +687,14 @@
       "updateField": "Update field",
       "createRecord": "Create record",
       "deleteRecord": "Delete record",
-      "updateRecord": "Update record"
+      "updateRecord": "Update record",
+
+      "updateBase": "Update database info",
+      "planTask": "Plan task",
+      "generateTables": "Generate tables",
+      "generateFields": "Generate fields",
+      "generateViews": "Generate views",
+      "generateRecords": "Generate records"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
