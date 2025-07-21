@@ -660,7 +660,8 @@
       "errorMessage": "错误信息"
     },
     "fallback": {
-      "previewLoadFailed": "参数错误"
+      "previewLoadFailed": "参数错误",
+      "retry": "重试 {{count}} 次"
     },
     "preview": {
       "deletedTable": "表格不存在或已删除",
@@ -694,7 +695,11 @@
       "generateTables": "生成表格",
       "generateFields": "生成字段",
       "generateViews": "生成视图",
-      "generateRecords": "生成记录"
+      "generateRecords": "生成记录",
+      "generateAIFields": "生成 AI 字段",
+      "generateLinkFields": "生成关联字段",
+      "generateLookupFields": "生成查找字段",
+      "generateLinkFieldsRecords": "生成关联字段记录"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",

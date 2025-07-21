@@ -113,6 +113,10 @@ export const BuildBaseOperator = {
   generateFields: 'generate-fields',
   generateViews: 'generate-views',
   generateRecords: 'generate-records',
+  generateAIFields: 'generate-ai-fields',
+  generateLinkFields: 'generate-link-fields',
+  generateLookupFields: 'generate-lookup-fields',
+  generateLinkFieldsRecords: 'generate-link-fields-records',
 } as const;
 
 export type IBuildBaseOperator = (typeof BuildBaseOperator)[keyof typeof BuildBaseOperator];

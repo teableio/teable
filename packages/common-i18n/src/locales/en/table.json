@@ -660,7 +660,8 @@
       "errorMessage": "Error message"
     },
     "fallback": {
-      "previewLoadFailed": "Preview load failed"
+      "previewLoadFailed": "Preview load failed",
+      "retry": "Retry {{count}} time"
     },
     "preview": {
       "deletedTable": "Deleted table",
@@ -694,7 +695,11 @@
       "generateTables": "Generate tables",
       "generateFields": "Generate fields",
       "generateViews": "Generate views",
-      "generateRecords": "Generate records"
+      "generateRecords": "Generate records",
+      "generateAIFields": "Generate AI fields",
+      "generateLinkFields": "Generate link fields",
+      "generateLookupFields": "Generate lookup fields",
+      "generateLinkFieldsRecords": "Generate link fields records"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
