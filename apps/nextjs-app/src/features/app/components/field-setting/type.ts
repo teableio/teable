@@ -11,7 +11,7 @@ export interface IFieldSetting {
   order?: number;
   field?: IFieldVo;
   operator: FieldOperator;
-  onConfirm?: () => void;
+  onConfirm?: (field?: IFieldVo) => void;
   onCancel?: () => void;
 }
 

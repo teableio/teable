@@ -13,8 +13,10 @@ import type {
   IUserFieldOptions,
   ICheckboxFieldOptions,
   ILongTextFieldOptions,
+  IButtonFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
+import { ButtonOptions } from './options/ButtonOptions';
 import { CheckboxOptions } from './options/CheckboxOptions';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
@@ -32,9 +34,10 @@ import type { IFieldEditorRo } from './type';
 export interface IFieldOptionsProps {
   field: IFieldEditorRo;
   onChange: (options: Partial<IFieldVo['options']>) => void;
+  onSave?: () => void;
 }
 
-export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) => {
+export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, onSave }) => {
   const { id, type, isLookup, cellValueType, isMultipleCellValue, options } = field;
   switch (type) {
     case FieldType.SingleLineText:
@@ -142,6 +145,15 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) 
           cellValueType={cellValueType}
           isMultipleCellValue={isMultipleCellValue}
           onChange={onChange}
+        />
+      );
+    case FieldType.Button:
+      return (
+        <ButtonOptions
+          options={options as IButtonFieldOptions}
+          isLookup={isLookup}
+          onChange={onChange}
+          onSave={onSave}
         />
       );
     default:

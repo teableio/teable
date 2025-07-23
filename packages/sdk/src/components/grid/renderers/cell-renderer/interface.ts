@@ -1,3 +1,4 @@
+import type { IButtonFieldOptions } from '@teable/core';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
@@ -15,6 +16,7 @@ export enum CellType {
   User = 'User',
   Boolean = 'Boolean',
   Loading = 'Loading',
+  Button = 'Button',
 }
 
 export enum EditorType {
@@ -154,6 +156,15 @@ export interface IUserCell extends IEditableCell {
   displayData?: string;
 }
 
+export interface IButtonCell extends IBaseCell {
+  type: CellType.Button;
+  data: IButtonFieldOptions & {
+    baseId: string;
+    tableId: string;
+    viewId: string;
+  };
+}
+
 export type IInnerCell =
   | ITextCell
   | ILinkCell
@@ -163,7 +174,8 @@ export type IInnerCell =
   | IRatingCell
   | IBooleanCell
   | IChartCell
-  | IUserCell;
+  | IUserCell
+  | IButtonCell;
 
 export type ICell = IInnerCell | ILoadingCell;
 

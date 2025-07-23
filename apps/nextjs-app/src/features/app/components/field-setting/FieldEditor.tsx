@@ -29,8 +29,9 @@ export const FieldEditor = (props: {
   field: Partial<IFieldEditorRo>;
   operator: FieldOperator;
   onChange?: (field: IFieldEditorRo) => void;
+  onSave?: () => void;
 }) => {
-  const { isPrimary, field, operator, onChange } = props;
+  const { isPrimary, field, operator, onChange, onSave } = props;
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
     (field: IFieldEditorRo) => {
@@ -114,7 +115,7 @@ export const FieldEditor = (props: {
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
           <hr className="my-2" />
-          <FieldOptions field={field} onChange={updateFieldOptions} />
+          <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
         </>
       );
     }
@@ -123,12 +124,14 @@ export const FieldEditor = (props: {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
-          {field.lookupOptions && <FieldOptions field={field} onChange={updateFieldOptions} />}
+          {field.lookupOptions && (
+            <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
+          )}
         </>
       );
     }
 
-    return <FieldOptions field={field} onChange={updateFieldOptions} />;
+    return <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />;
   };
 
   return (

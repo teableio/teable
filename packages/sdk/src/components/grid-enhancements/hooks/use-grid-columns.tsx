@@ -15,7 +15,14 @@ import {
   onMixedTextClick,
 } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
-import { useFields, useTablePermission, useView } from '../../../hooks';
+import {
+  useBaseId,
+  useFields,
+  useTableId,
+  useTablePermission,
+  useView,
+  useViewId,
+} from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
@@ -171,7 +178,9 @@ export const useCreateCellValue2GridDisplay = (
 ) => {
   const { t } = useTranslation();
   const i18nMap = useAttachmentPreviewI18Map();
-
+  const baseId = useBaseId() as string;
+  const tableId = useTableId() as string;
+  const viewId = useViewId() as string;
   return useCallback(
     (fields: IFieldInstance[]) =>
       (
@@ -490,6 +499,18 @@ export const useCreateCellValue2GridDisplay = (
               customEditor: (props, editorRef) => (
                 <GridUserEditor ref={editorRef} field={field} record={record} {...props} />
               ),
+            };
+          }
+          case FieldType.Button: {
+            return {
+              ...baseCellProps,
+              type: CellType.Button,
+              data: {
+                ...field.options,
+                baseId,
+                tableId,
+                viewId,
+              },
             };
           }
           default: {

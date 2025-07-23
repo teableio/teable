@@ -1,4 +1,4 @@
-import type { IFieldRo } from '@teable/core';
+import type { IFieldRo, IFieldVo } from '@teable/core';
 import { convertFieldRoSchema, FieldType, getOptionsSchema } from '@teable/core';
 import { Share2 } from '@teable/icons';
 import { type IPlanFieldConvertVo } from '@teable/openapi';
@@ -53,27 +53,32 @@ export const FieldSetting = (props: IFieldSetting) => {
     if (plan && (plan.estimateTime || 0) > 1000) {
       setProcessVisible(true);
     }
+    let result: IFieldVo | undefined;
     try {
       if (operator === FieldOperator.Add) {
-        await createNewField(field);
+        result = (await createNewField(field)).data;
       }
 
       if (operator === FieldOperator.Insert) {
-        await createNewField({
-          ...field,
-          order:
-            view && order != null
-              ? {
-                  viewId: view.id,
-                  orderIndex: order,
-                }
-              : undefined,
-        });
+        result = (
+          await createNewField({
+            ...field,
+            order:
+              view && order != null
+                ? {
+                    viewId: view.id,
+                    orderIndex: order,
+                  }
+                : undefined,
+          })
+        ).data;
       }
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
-        tableId && fieldId && (await convertField({ tableId, fieldId, fieldRo: field }));
+        if (tableId && fieldId) {
+          result = (await convertField({ tableId, fieldId, fieldRo: field })).data;
+        }
       }
 
       toast(
@@ -85,7 +90,7 @@ export const FieldSetting = (props: IFieldSetting) => {
       setProcessVisible(false);
     }
 
-    props.onConfirm?.();
+    props.onConfirm?.(result);
   };
 
   const getPlan = async (fieldRo: IFieldRo) => {
@@ -261,6 +266,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                 field={field}
                 operator={operator}
                 onChange={onFieldEditorChange}
+                onSave={onSave}
               />
             }
             {/* Footer */}
