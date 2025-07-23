@@ -7,6 +7,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { Fragment } from 'react';
 import { AppLayout } from '@/features/app/layouts';
+import { WorkFlowPanelModal } from '../automation/workflow-panel/WorkFlowPanelModal';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
@@ -60,6 +61,7 @@ export const BaseLayout: React.FC<{
                     </div>
                   </div>
                   <UsageLimitModal />
+                  <WorkFlowPanelModal />
                 </TableProvider>
               </BaseProvider>
             </AnchorContext.Provider>
