@@ -70,6 +70,8 @@ export const useDefaultFieldName = () => {
           return t('field.default.rating.title');
         case FieldType.Checkbox:
           return t('field.default.checkbox.title');
+        case FieldType.Button:
+          return t('field.default.button.title');
         case FieldType.Link: {
           const foreignTable = tables.find(
             (table) => table.id === (fieldRo.options as ILinkFieldOptionsRo).foreignTableId

@@ -4,6 +4,7 @@ import { FieldType } from './constant';
 import {
   attachmentCellValueSchema,
   autoNumberCellValueSchema,
+  buttonFieldCelValueSchema,
   dataFieldCellValueSchema,
   getFormulaCellValueSchema,
   linkCellValueSchema,
@@ -54,6 +55,7 @@ export const validateCellValue = (field: IFieldVo, cellValue: unknown) => {
       return validateWithSchema(schema, cellValue);
     }
     case FieldType.Button:
+      return validateWithSchema(buttonFieldCelValueSchema, cellValue);
     case FieldType.Count:
     case FieldType.Duration:
       throw new Error('did not implement yet');

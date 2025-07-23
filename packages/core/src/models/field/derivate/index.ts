@@ -19,3 +19,4 @@ export * from './auto-number.field';
 export * from './user.field';
 export * from './created-by.field';
 export * from './last-modified-by.field';
+export * from './button.field';

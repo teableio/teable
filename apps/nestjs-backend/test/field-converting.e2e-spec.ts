@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type {
+  IButtonFieldOptions,
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
@@ -28,6 +29,7 @@ import {
   DriverClient,
   CellFormat,
   FieldAIActionType,
+  BUTTON_FIELD_TEMP_WORKFLOW_ID,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { type ITableFullVo } from '@teable/openapi';
@@ -612,6 +614,34 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const record1 = await getRecord(table1.id, table1.records[0].id);
       expect(record1.fields[cField.id]).toEqual('1null');
+    });
+
+    it('should modify options of button field', async () => {
+      const buttonFieldRo1: IFieldRo = {
+        name: 'buttonField',
+        type: FieldType.Button,
+        options: {
+          label: 'buttonField',
+          color: Colors.Teal,
+          maxCount: 10,
+        },
+      };
+      const buttonFieldRo2: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          color: Colors.Red,
+          workflowId: BUTTON_FIELD_TEMP_WORKFLOW_ID,
+        },
+      };
+      const { newField } = await expectUpdate(table1, buttonFieldRo1, buttonFieldRo2);
+      const options = newField.options as IButtonFieldOptions;
+      const options1 = buttonFieldRo1.options as IButtonFieldOptions;
+      const options2 = buttonFieldRo2.options as IButtonFieldOptions;
+      expect(newField.name).toEqual('buttonField');
+      expect(options.label).toEqual(options1.label);
+      expect(options.color).toEqual(options2.color);
+      expect(options?.maxCount).toEqual(options1?.maxCount);
+      expect(options?.workflowId).toEqual(options2?.workflowId);
     });
   });
 

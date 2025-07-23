@@ -134,6 +134,9 @@
       "checkbox": {
         "title": "勾选"
       },
+      "button": {
+        "title": "按钮"
+      },
       "formula": {
         "title": "计算",
         "formula": "公式"

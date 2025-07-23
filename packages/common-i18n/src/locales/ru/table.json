@@ -131,6 +131,9 @@
       "checkbox": {
         "title": "Выполнено"
       },
+      "button": {
+        "title": "Кнопка"
+      },
       "formula": {
         "title": "Вычисление",
         "formula": "Формула"

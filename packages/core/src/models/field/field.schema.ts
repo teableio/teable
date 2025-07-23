@@ -29,7 +29,9 @@ import {
   userFieldOptionsSchema,
   createdByFieldOptionsSchema,
   lastModifiedByFieldOptionsSchema,
+  buttonFieldOptionsSchema,
 } from './derivate';
+
 import { unionFormattingSchema } from './formatting';
 import { unionShowAsSchema } from './show-as';
 
@@ -74,6 +76,7 @@ export const unionFieldOptions = z.union([
   userFieldOptionsSchema.strict(),
   createdByFieldOptionsSchema.strict(),
   lastModifiedByFieldOptionsSchema.strict(),
+  buttonFieldOptionsSchema.strict(),
 ]);
 
 export const unionFieldOptionsVoSchema = z.union([
@@ -285,9 +288,10 @@ export const getOptionsSchema = (type: FieldType) => {
       return createdByFieldOptionsSchema;
     case FieldType.LastModifiedBy:
       return lastModifiedByFieldOptionsSchema;
+    case FieldType.Button:
+      return buttonFieldOptionsSchema;
     case FieldType.Duration:
     case FieldType.Count:
-    case FieldType.Button:
       throw new Error('no implementation');
     default:
       assertNever(type);

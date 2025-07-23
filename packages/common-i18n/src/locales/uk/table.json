@@ -133,6 +133,9 @@
       "checkbox": {
         "title": "Виконано"
       },
+      "button": {
+        "title": "Кнопка"
+      },
       "formula": {
         "title": "Обчислення",
         "formula": "Формула"

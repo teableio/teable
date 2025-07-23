@@ -131,6 +131,9 @@
       "checkbox": {
         "title": "完了"
       },
+      "button": {
+        "title": "ボタン"
+      },
       "formula": {
         "title": "計算",
         "formula": "式"

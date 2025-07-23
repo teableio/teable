@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import type { Doc } from 'sharedb/lib/client';
 import { AttachmentField } from './attachment.field';
 import { AutoNumberField } from './auto-number.field';
+import { ButtonField } from './button.field';
 import { CheckboxField } from './checkbox.field';
 import { CreatedByField } from './created-by.field';
 import { CreatedTimeField } from './created-time.field';
@@ -61,6 +62,7 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
       case FieldType.LastModifiedBy:
         return plainToInstance(LastModifiedByField, field);
       case FieldType.Button:
+        return plainToInstance(ButtonField, field);
       case FieldType.Count:
       case FieldType.Duration:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });

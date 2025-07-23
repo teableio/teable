@@ -133,6 +133,9 @@
       "checkbox": {
         "title": "Erledigt"
       },
+      "button": {
+        "title": "Schaltfläche"
+      },
       "formula": {
         "title": "Berechnung",
         "formula": "Formel"

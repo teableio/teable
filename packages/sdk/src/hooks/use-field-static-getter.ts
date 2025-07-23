@@ -26,6 +26,7 @@ import {
   MagicAi,
 } from '@teable/icons';
 
+import { MousePointerClick } from 'lucide-react';
 import { useCallback } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import {
@@ -44,6 +45,7 @@ import {
   SingleSelectField,
   UserField,
 } from '../model';
+import { ButtonField } from '../model/field/button.field';
 
 export interface IFieldStatic {
   title: string;
@@ -186,6 +188,12 @@ export const useFieldStaticGetter = () => {
             title: t('field.title.lastModifiedBy'),
             defaultOptions: {},
             Icon: getIcon(LastModifiedByIcon),
+          };
+        case FieldType.Button:
+          return {
+            title: t('field.title.button'),
+            defaultOptions: ButtonField.defaultOptions(),
+            Icon: getIcon(MousePointerClick),
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

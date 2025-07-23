@@ -18,6 +18,7 @@ import {
   lastModifiedByFieldOptionsSchema,
   longTextFieldOptionsSchema,
   rollupFieldOptionsSchema,
+  buttonFieldOptionsSchema,
 } from './derivate';
 
 export function safeParseOptions(fieldType: FieldType, value: unknown) {
@@ -58,9 +59,10 @@ export function safeParseOptions(fieldType: FieldType, value: unknown) {
       return lastModifiedByFieldOptionsSchema.safeParse(value);
     case FieldType.Rollup:
       return rollupFieldOptionsSchema.safeParse(value);
+    case FieldType.Button:
+      return buttonFieldOptionsSchema.safeParse(value);
     case FieldType.Count:
-    case FieldType.Duration:
-    case FieldType.Button: {
+    case FieldType.Duration: {
       throw new Error(`${fieldType} is not supported`);
     }
     default:

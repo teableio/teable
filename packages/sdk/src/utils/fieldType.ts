@@ -19,4 +19,5 @@ export const FIELD_TYPE_ORDER = [
   FieldType.CreatedBy,
   FieldType.LastModifiedBy,
   FieldType.AutoNumber,
+  FieldType.Button,
 ];

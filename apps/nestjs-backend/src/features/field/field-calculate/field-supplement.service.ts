@@ -19,6 +19,7 @@ import {
   assertNever,
   AttachmentFieldCore,
   AutoNumberFieldCore,
+  ButtonFieldCore,
   CellValueType,
   CheckboxFieldCore,
   ColorUtils,
@@ -931,6 +932,18 @@ export class FieldSupplementService {
     };
   }
 
+  private prepareButtonField(field: IFieldRo) {
+    const { name, options } = field;
+
+    return {
+      ...field,
+      name: name ?? 'Button',
+      options: options ?? ButtonFieldCore.defaultOptions(),
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+    };
+  }
+
   private async prepareCreateFieldInner(
     tableId: string,
     fieldRo: IFieldRo,
@@ -977,6 +990,8 @@ export class FieldSupplementService {
         return this.prepareLastModifiedByField(fieldRo);
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
+      case FieldType.Button:
+        return this.prepareButtonField(fieldRo);
       default:
         throw new Error('invalid field type');
     }
@@ -1025,6 +1040,8 @@ export class FieldSupplementService {
         return this.prepareLastModifiedTimeField(fieldRo);
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
+      case FieldType.Button:
+        return this.prepareButtonField(fieldRo);
       case FieldType.LastModifiedBy:
         return this.prepareLastModifiedByField(fieldRo);
       case FieldType.CreatedBy:

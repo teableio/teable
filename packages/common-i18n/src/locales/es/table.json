@@ -133,6 +133,9 @@
       "checkbox": {
         "title": "Hecho"
       },
+      "button": {
+        "title": "Botón"
+      },
       "formula": {
         "title": "Cálculo",
         "formula": "Fórmula"

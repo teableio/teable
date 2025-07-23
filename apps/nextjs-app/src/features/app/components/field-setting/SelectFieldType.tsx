@@ -28,7 +28,7 @@ export const SelectFieldType = (props: {
         return {
           id: type,
           name: title,
-          icon: <Icon />,
+          icon: <Icon className="size-4" />,
         };
       }
     );

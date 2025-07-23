@@ -8,6 +8,7 @@ import type {
   ILookupOptionsRo,
 } from '@teable/core';
 import {
+  Colors,
   DateFormattingPreset,
   DriverClient,
   FieldAIActionType,
@@ -162,6 +163,13 @@ describe('OpenAPI FieldController (e2e)', () => {
       const attachmentField = await createFieldByType(FieldType.Attachment);
       expect(attachmentField.name).toEqual('Attachments');
       expect(attachmentField.options).toEqual({});
+
+      const buttonField = await createFieldByType(FieldType.Button);
+      expect(buttonField.name).toEqual('Button');
+      expect(buttonField.options).toEqual({
+        label: 'Button',
+        color: Colors.Teal,
+      });
     });
 
     it('formula field', async () => {

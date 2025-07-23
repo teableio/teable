@@ -133,6 +133,9 @@
       "checkbox": {
         "title": "Fatto"
       },
+      "button": {
+        "title": "Pulsante"
+      },
       "formula": {
         "title": "Calcolo",
         "formula": "Formula"

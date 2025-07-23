@@ -123,6 +123,9 @@
       "checkbox": {
         "title": "Tamamlandı"
       },
+      "button": {
+        "title": "Düğme"
+      },
       "formula": {
         "title": "Hesaplama",
         "formula": "Formül"

@@ -4,6 +4,7 @@ import type { Field } from '@teable/db-main-prisma';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { AutoNumberFieldDto } from './field-dto/auto-number-field.dto';
+import { ButtonFieldDto } from './field-dto/button-field.dto';
 import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { CreatedByFieldDto } from './field-dto/created-by-field.dto';
 import { CreatedTimeFieldDto } from './field-dto/created-time-field.dto';
@@ -88,6 +89,7 @@ export function createFieldInstanceByVo(field: IFieldVo) {
     case FieldType.LastModifiedBy:
       return plainToInstance(LastModifiedByFieldDto, field);
     case FieldType.Button:
+      return plainToInstance(ButtonFieldDto, field);
     case FieldType.Count:
     case FieldType.Duration:
       throw new Error('did not implement yet');
