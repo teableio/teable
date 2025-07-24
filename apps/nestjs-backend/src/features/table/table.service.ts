@@ -279,7 +279,7 @@ export class TableService implements IReadonlyAdapterService {
       ...input,
       version: tableRaw.version + 1,
       lastModifiedBy: this.cls.get('user.id'),
-      lastModifiedTime: new Date(),
+      lastModifiedTime: new Date().toISOString(),
     };
 
     const ops = Object.entries(updateInput)
@@ -304,7 +304,6 @@ export class TableService implements IReadonlyAdapterService {
         data: ops,
       },
     ]);
-
     return tableRawAfter;
   }
 

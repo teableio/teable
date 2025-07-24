@@ -6,7 +6,7 @@ import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
-export type IChangeTable = Record<keyof Omit<ITableOp, 'id' | 'lastModifiedTime'>, IChangeValue> & {
+export type IChangeTable = Record<keyof Omit<ITableOp, 'id' | 'version'>, IChangeValue> & {
   id: string;
 };
 

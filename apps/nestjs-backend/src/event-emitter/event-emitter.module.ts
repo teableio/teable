@@ -4,6 +4,7 @@ import { ConfigurableModuleBuilder, Module } from '@nestjs/common';
 import { EventEmitterModule as BaseEventEmitterModule } from '@nestjs/event-emitter';
 import { AttachmentsTableModule } from '../features/attachments/attachments-table.module';
 import { NotificationModule } from '../features/notification/notification.module';
+import { TableModule } from '../features/table/table.module';
 import { ShareDbModule } from '../share-db/share-db.module';
 import { EventEmitterService } from './event-emitter.service';
 import { ActionTriggerListener } from './listeners/action-trigger.listener';
@@ -12,6 +13,7 @@ import { BasePermissionUpdateListener } from './listeners/base-permission-update
 import { CollaboratorNotificationListener } from './listeners/collaborator-notification.listener';
 import { PinListener } from './listeners/pin.listener';
 import { RecordHistoryListener } from './listeners/record-history.listener';
+import { TableListener } from './listeners/table.listener';
 import { TrashListener } from './listeners/trash.listener';
 
 export interface EventEmitterModuleOptions {
@@ -32,7 +34,7 @@ export class EventEmitterModule extends EventEmitterModuleClass {
     });
 
     return {
-      imports: [module, ShareDbModule, NotificationModule, AttachmentsTableModule],
+      imports: [module, ShareDbModule, NotificationModule, AttachmentsTableModule, TableModule],
       module: EventEmitterModule,
       global,
       providers: [
@@ -44,6 +46,7 @@ export class EventEmitterModule extends EventEmitterModuleClass {
         PinListener,
         RecordHistoryListener,
         TrashListener,
+        TableListener,
       ],
       exports: [EventEmitterService],
     };
