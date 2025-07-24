@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { TableService } from '../../features/table/table.service';
+import type { IClsStore } from '../../types/cls';
 import type {
   FieldCreateEvent,
   FieldDeleteEvent,
@@ -24,26 +26,35 @@ type ITableLastModifiedTimeEvent = IViewEvent | IRecordEvent | IFieldEvent;
 export class TableListener {
   constructor(
     private readonly tableService: TableService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @OnEvent('table.view.*', { async: true })
   @OnEvent('table.field.*', { async: true })
   @OnEvent('table.record.*', { async: true })
   async handleTableLastModifiedTimeEvent(event: ITableLastModifiedTimeEvent) {
-    await this.prismaService.$tx(async () => {
-      const tableId = await this.getTableId(event);
-      if (!tableId) {
-        return;
+    await this.cls.runWith(
+      {
+        ...this.cls.get(),
+        tx: {},
+      },
+      async () => {
+        await this.prismaService.$tx(async () => {
+          const tableId = await this.getTableId(event);
+          if (!tableId) {
+            return;
+          }
+          const table = await this.prismaService.txClient().tableMeta.findUnique({
+            where: { id: tableId, deletedTime: null },
+          });
+          if (!table) {
+            return;
+          }
+          await this.tableService.updateTable(table.baseId, tableId, {});
+        });
       }
-      const table = await this.prismaService.tableMeta.findUnique({
-        where: { id: tableId, deletedTime: null },
-      });
-      if (!table) {
-        return;
-      }
-      await this.tableService.updateTable(table.baseId, tableId, {});
-    });
+    );
   }
 
   private async getTableId(event: ITableLastModifiedTimeEvent) {
