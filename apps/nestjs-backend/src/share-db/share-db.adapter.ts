@@ -289,7 +289,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         m: {
           ts: Date.now(),
         },
-        v: version,
+        v: version - 1,
       };
 
       if (version === 0) {
@@ -330,7 +330,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       const editOps = new Array((to || version) - from).fill(0).map((_, i) => {
         return {
           ...baseRaw,
-          v: baseRaw.v + i,
+          v: baseRaw.v + i - 1,
           op: editOp,
         } as IEditOp;
       });

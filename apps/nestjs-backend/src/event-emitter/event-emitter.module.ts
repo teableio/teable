@@ -4,7 +4,6 @@ import { ConfigurableModuleBuilder, Module } from '@nestjs/common';
 import { EventEmitterModule as BaseEventEmitterModule } from '@nestjs/event-emitter';
 import { AttachmentsTableModule } from '../features/attachments/attachments-table.module';
 import { NotificationModule } from '../features/notification/notification.module';
-import { TableModule } from '../features/table/table.module';
 import { ShareDbModule } from '../share-db/share-db.module';
 import { EventEmitterService } from './event-emitter.service';
 import { ActionTriggerListener } from './listeners/action-trigger.listener';
@@ -34,7 +33,7 @@ export class EventEmitterModule extends EventEmitterModuleClass {
     });
 
     return {
-      imports: [module, ShareDbModule, NotificationModule, AttachmentsTableModule, TableModule],
+      imports: [module, ShareDbModule, NotificationModule, AttachmentsTableModule],
       module: EventEmitterModule,
       global,
       providers: [

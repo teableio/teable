@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { IdPrefix, TableOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { TableService } from '../../features/table/table.service';
+import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
-import { isSQLite } from '../../utils/db-helpers';
 import type {
   FieldCreateEvent,
   FieldDeleteEvent,
@@ -28,40 +26,63 @@ type ITableLastModifiedTimeEvent = IViewEvent | IRecordEvent | IFieldEvent;
 @Injectable()
 export class TableListener {
   constructor(
-    private readonly tableService: TableService,
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly shareDbService: ShareDbService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @OnEvent('table.view.*', { async: true })
   @OnEvent('table.field.*', { async: true })
   @OnEvent('table.record.*', { async: true })
   async handleTableLastModifiedTimeEvent(event: ITableLastModifiedTimeEvent) {
-    if (isSQLite(this.knex)) {
+    const tableId = await this.getTableId(event);
+    if (!tableId) {
       return;
     }
-    await this.cls.runWith(
-      {
-        ...this.cls.get(),
-        tx: {},
+    const lastModifiedTime = new Date().toISOString();
+    const updatedTable = await this.prismaService.tableMeta.update({
+      where: { id: tableId, deletedTime: null },
+      data: {
+        lastModifiedTime,
+        version: {
+          increment: 1,
+        },
       },
-      async () => {
-        await this.prismaService.$tx(async () => {
-          const tableId = await this.getTableId(event);
-          if (!tableId) {
-            return;
-          }
-          const table = await this.prismaService.txClient().tableMeta.findUnique({
-            where: { id: tableId, deletedTime: null },
-          });
-          if (!table) {
-            return;
-          }
-          await this.tableService.updateTable(table.baseId, tableId, {});
-        });
-      }
-    );
+      select: {
+        baseId: true,
+        lastModifiedTime: true,
+        version: true,
+      },
+    });
+    if (!updatedTable) {
+      return;
+    }
+    const collection = `${IdPrefix.Table}_${updatedTable.baseId}`;
+    const baseRaw = {
+      src: this.cls.getId() || 'unknown',
+      seq: 1,
+      m: {
+        ts: Date.now(),
+      },
+    };
+
+    await this.shareDbService.publishOpsMap([
+      {
+        [collection]: {
+          [tableId]: {
+            ...baseRaw,
+            op: [
+              TableOpBuilder.editor.setTableProperty.build({
+                key: 'lastModifiedTime',
+                newValue: lastModifiedTime,
+                oldValue: null,
+              }),
+            ],
+            v: updatedTable.version - 1,
+          },
+        },
+      },
+    ]);
   }
 
   private async getTableId(event: ITableLastModifiedTimeEvent) {
