@@ -42,7 +42,6 @@ export class TableListener {
       if (!table) {
         return;
       }
-      console.log('update table', tableId);
       await this.tableService.updateTable(table.baseId, tableId, {});
     });
   }
