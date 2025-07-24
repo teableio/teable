@@ -2,9 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { IdPrefix, TableOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
+import { isSQLite } from '../../utils/db-helpers';
 import type {
   FieldCreateEvent,
   FieldDeleteEvent,
@@ -28,13 +31,17 @@ export class TableListener {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   @OnEvent('table.view.*', { async: true })
   @OnEvent('table.field.*', { async: true })
   @OnEvent('table.record.*', { async: true })
   async handleTableLastModifiedTimeEvent(event: ITableLastModifiedTimeEvent) {
+    if (isSQLite(this.knex)) {
+      return;
+    }
     const tableId = await this.getTableId(event);
     if (!tableId) {
       return;
