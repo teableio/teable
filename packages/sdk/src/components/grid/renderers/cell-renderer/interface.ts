@@ -1,4 +1,4 @@
-import type { IButtonFieldOptions } from '@teable/core';
+import type { IButtonFieldCellValue, IButtonFieldOptions } from '@teable/core';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
@@ -158,10 +158,12 @@ export interface IUserCell extends IEditableCell {
 
 export interface IButtonCell extends IBaseCell {
   type: CellType.Button;
-  data: IButtonFieldOptions & {
+  data: {
+    cellValue: IButtonFieldCellValue;
+    fieldOptions: IButtonFieldOptions;
     baseId: string;
     tableId: string;
-    viewId: string;
+    viewId?: string;
   };
 }
 

@@ -9,6 +9,7 @@ export const buttonClickTriggerRoSchema = z.object({
   tableId: z.string(),
   viewId: z.string().optional(),
   fieldId: z.string(),
+  recordId: z.string(),
 });
 
 export type IButtonClickTriggerRo = z.infer<typeof buttonClickTriggerRoSchema>;
@@ -42,7 +43,7 @@ export const buttonClickTrigger = async (
   baseId: string,
   buttonClickTriggerRo: IButtonClickTriggerRo
 ) => {
-  return await axios.post<void>(
+  return await axios.post<IButtonClickTriggerRo>(
     urlBuilder(BUTTON_CLICK_TRIGGER, {
       baseId,
     }),

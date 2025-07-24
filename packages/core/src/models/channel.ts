@@ -30,6 +30,6 @@ export function getTableCommentChannel(tableId: string) {
   return `__table_comment_${tableId}`;
 }
 
-export function getTableButtonClickChannel(tableId: string, recordId: string, fieldId: string) {
-  return `__table_button_click_${tableId}_${recordId}_${fieldId}`;
+export function getTableButtonClickChannel(tableId: string) {
+  return `__table_button_click_${tableId}`;
 }

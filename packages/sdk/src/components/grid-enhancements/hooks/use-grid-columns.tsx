@@ -1,4 +1,9 @@
-import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
+import type {
+  IAttachmentCellValue,
+  IButtonFieldCellValue,
+  INumberShowAs,
+  ISingleLineTextShowAs,
+} from '@teable/core';
 import { RowHeightLevel, CellValueType, ColorUtils, FieldType } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
@@ -181,6 +186,7 @@ export const useCreateCellValue2GridDisplay = (
   const baseId = useBaseId() as string;
   const tableId = useTableId() as string;
   const viewId = useViewId() as string;
+
   return useCallback(
     (fields: IFieldInstance[]) =>
       (
@@ -506,7 +512,8 @@ export const useCreateCellValue2GridDisplay = (
               ...baseCellProps,
               type: CellType.Button,
               data: {
-                ...field.options,
+                cellValue: cellValue as IButtonFieldCellValue,
+                fieldOptions: field.options,
                 baseId,
                 tableId,
                 viewId,
@@ -518,7 +525,7 @@ export const useCreateCellValue2GridDisplay = (
           }
         }
       },
-    [i18nMap, recordEditable, rowHeight, t]
+    [i18nMap, recordEditable, rowHeight, t, baseId, tableId, viewId]
   );
 };
 

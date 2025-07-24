@@ -21,6 +21,36 @@ const BUTTON_RADIUS = 4;
 const BUTTON_WIDTH = 80;
 const BUTTON_HEIGHT = 20;
 
+const checkClickable = (cell: IButtonCell) => {
+  const { data } = cell;
+  const { fieldOptions, cellValue } = data;
+  const { workflowId } = fieldOptions;
+  if (!workflowId) {
+    return false;
+  }
+  const maxCount = fieldOptions.maxCount || 0;
+  if (maxCount <= 0) {
+    return true;
+  }
+  const count = cellValue?.count || 0;
+  return count < maxCount;
+};
+
+const clickHandler = async (cell: IButtonCell, props: ICellClickProps) => {
+  const { id = '', data } = cell;
+
+  console.log('fixme uno clickHandler', cell, props);
+  const { baseId, tableId, viewId = '' } = data;
+  const [recordId = '', fieldId = ''] = id.split('-');
+
+  await buttonClickTrigger(baseId, {
+    tableId,
+    viewId,
+    fieldId,
+    recordId,
+  });
+};
+
 const drawButton = (
   ctx: CanvasRenderingContext2D,
   props: {
@@ -59,30 +89,17 @@ const drawButton = (
   });
 };
 
-const clickHandler = (cell: IButtonCell, props: ICellClickProps) => {
-  const { id = '', data } = cell;
-
-  console.log('clickHandler', cell, props);
-  const { baseId, tableId, viewId } = data;
-  const [fieldId = ''] = id.split('-');
-
-  buttonClickTrigger(baseId, {
-    tableId,
-    viewId,
-    fieldId,
-  });
-};
-
 export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
   type: CellType.Button,
   needsHover: true,
   needsHoverPosition: true,
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
     const { data } = cell;
+    const { fieldOptions, cellValue } = data;
     const { ctx, rect, theme } = props;
     const { x, y, width } = rect;
-    const bgColor = ColorUtils.getHexForColor(data.color);
-    const textColor = ColorUtils.shouldUseLightTextOnColor(data.color)
+    const bgColor = ColorUtils.getHexForColor(fieldOptions.color);
+    const textColor = ColorUtils.shouldUseLightTextOnColor(fieldOptions.color)
       ? colors.white
       : colors.black;
 
@@ -91,37 +108,40 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       y: y + cellVerticalPaddingSM,
       width: BUTTON_WIDTH,
       height: BUTTON_HEIGHT,
-      text: data.label,
+      text: fieldOptions.label + (cellValue?.count || 0),
       maxTextWidth: BUTTON_WIDTH,
       textColor,
       bgColor,
       theme,
-      disabled: !data.workflowId,
+      disabled: !checkClickable(cell),
     });
   },
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
-    const { data, readonly } = cell;
+    const { readonly, data } = cell;
+    const { cellValue } = data;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, width, height } = props;
     const [x, y] = hoverCellPosition;
 
     if (
-      data.workflowId &&
+      checkClickable(cell) &&
       inRange(x, width / 2 - BUTTON_WIDTH / 2, width / 2 + BUTTON_WIDTH / 2) &&
       inRange(y, height / 2 - BUTTON_HEIGHT / 2, height / 2 + BUTTON_HEIGHT / 2)
     ) {
       return {
         type: CellRegionType.Update,
-        data: null,
+        data: {
+          count: (cellValue?.count || 0) + 1,
+        },
       };
     }
     return { type: CellRegionType.Blank };
   },
-  onClick: (cell: IButtonCell, props: ICellClickProps, callback: ICellClickCallback) => {
+  onClick: (cell: IButtonCell, props: ICellClickProps, _callback: ICellClickCallback) => {
     const cellRegion = buttonCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
 
     clickHandler(cell, props);
-    callback(cellRegion);
+    // callback(cellRegion);
   },
 };
