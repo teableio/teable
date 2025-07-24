@@ -327,10 +327,10 @@ export class ShareDbAdapter extends ShareDb.DB {
         return;
       }
       const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
-      const editOps = new Array((to || version) - from).fill(0).map((_, i) => {
+      const editOps = new Array((to || baseRaw.v) - from).fill(0).map((_, i) => {
         return {
           ...baseRaw,
-          v: baseRaw.v + i - 1,
+          v: from + i,
           op: editOp,
         } as IEditOp;
       });
