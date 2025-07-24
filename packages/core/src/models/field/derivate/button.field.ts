@@ -15,8 +15,6 @@ export const buttonFieldOptionsSchema = z.object({
   workflowId: z.string().optional().openapi({ description: 'Workflow ID' }),
 });
 
-export const BUTTON_FIELD_TEMP_WORKFLOW_ID = 'buttonFieldTempWorkflowId';
-
 export type IButtonFieldOptions = z.infer<typeof buttonFieldOptionsSchema>;
 
 export const buttonFieldCelValueSchema = z.object({

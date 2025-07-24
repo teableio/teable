@@ -1,4 +1,4 @@
-import { BUTTON_FIELD_TEMP_WORKFLOW_ID, Colors, ColorUtils } from '@teable/core';
+import { Colors, ColorUtils } from '@teable/core';
 import type { IButtonFieldOptions } from '@teable/core';
 import {
   Button,
@@ -8,42 +8,25 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
-import { useCallback, useEffect, useRef } from 'react';
-// import { flushSync } from 'react-dom'; // 备选方案2：使用flushSync
+import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
 import { ColorPicker } from './SelectOptions';
 
-const WorkflowAction = (props: {
-  options: Partial<IButtonFieldOptions>;
-  workflowId?: string;
-  onChange?: (options: Partial<IButtonFieldOptions>) => void;
-  onSave?: () => void;
-}) => {
-  const { workflowId, onChange, onSave, options } = props;
-  const shouldSaveRef = useRef(false);
-
-  console.log('fixme uno workflowId - 1', workflowId, options);
-
-  useEffect(() => {
-    if (shouldSaveRef.current) {
-      shouldSaveRef.current = false;
-      onSave?.();
-    }
-  }, [options, onSave]);
-
-  const handleClick = useCallback(() => {
-    shouldSaveRef.current = true;
-    onChange?.({
-      ...options,
-      workflowId: workflowId ?? BUTTON_FIELD_TEMP_WORKFLOW_ID,
-    });
-    console.log('fixme uno workflowId - 2', workflowId, options);
-  }, [onChange, options, workflowId]);
+const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?: () => void }) => {
+  const { options, onSave } = props;
+  const { setModal } = useWorkFlowPanelStore();
 
   return (
     <div className="flex flex-col gap-2">
       <Label className="font-normal">Workflow</Label>
-      <Input className="h-8 flex-1" placeholder="workflow-id" value={workflowId} />
-      <Button variant="outline" onClick={handleClick}>
+      <Input className="h-8 flex-1" placeholder="workflow-id" value={options?.workflowId} />
+      <Button
+        variant="outline"
+        onClick={() => {
+          setModal({ from: 'buttonFieldOptions' });
+          console.log('fixme uno button options workflowId', options?.workflowId);
+          onSave?.();
+        }}
+      >
         Custom Automation
       </Button>
     </div>
@@ -107,12 +90,7 @@ export const ButtonOptions = (props: {
             />
           </div>
 
-          <WorkflowAction
-            options={options ?? {}}
-            workflowId={options?.workflowId}
-            onChange={onChange}
-            onSave={onSave}
-          />
+          <WorkflowAction options={options} onSave={onSave} />
         </div>
       )}
     </div>

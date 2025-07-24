@@ -1,12 +1,18 @@
+import { z } from 'zod';
 import { create } from 'zustand';
+
+const from = ['buttonFieldOptions'] as const;
+const fromSchema = z.enum(from);
+type From = z.infer<typeof fromSchema>;
 
 interface IWorkFlowPanelState {
   baseId?: string;
   workflowId?: string;
-  buttonFieldId?: string;
+  open?: boolean;
+  from?: From;
   closeModal: () => void;
   openModal: (baseId: string, workflowId: string) => void;
-  setModal: (props: Pick<IWorkFlowPanelState, 'baseId' | 'workflowId' | 'buttonFieldId'>) => void;
+  setModal: (props: Pick<IWorkFlowPanelState, 'baseId' | 'workflowId' | 'open' | 'from'>) => void;
 }
 
 export const useWorkFlowPanelStore = create<IWorkFlowPanelState>((set) => ({
@@ -16,7 +22,8 @@ export const useWorkFlowPanelStore = create<IWorkFlowPanelState>((set) => ({
         ...state,
         baseId: undefined,
         workflowId: undefined,
-        buttonFieldId: undefined,
+        open: false,
+        from: undefined,
       };
     });
   },
@@ -26,10 +33,11 @@ export const useWorkFlowPanelStore = create<IWorkFlowPanelState>((set) => ({
         ...state,
         baseId,
         workflowId,
+        open: true,
       };
     });
   },
-  setModal: (props: Pick<IWorkFlowPanelState, 'baseId' | 'workflowId' | 'buttonFieldId'>) => {
+  setModal: (props: Pick<IWorkFlowPanelState, 'baseId' | 'workflowId' | 'open' | 'from'>) => {
     set((state) => {
       return {
         ...state,

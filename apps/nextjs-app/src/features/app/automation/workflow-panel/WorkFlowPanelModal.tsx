@@ -10,16 +10,14 @@ const WorkFlowPanelLazy = lazy(() =>
   }))
 );
 export const WorkFlowPanelModal = () => {
-  const { baseId, workflowId, closeModal } = useWorkFlowPanelStore();
+  const { baseId, workflowId, closeModal, open, from } = useWorkFlowPanelStore();
   const isHydrated = useIsHydrated();
 
-  if (!isHydrated || !baseId || !workflowId) {
+  if (!isHydrated || !baseId || !workflowId || !open) {
     return null;
   }
-  console.log('fixme uno workflow-panel baseId', baseId);
-  console.log('fixme uno workflow-panel workflowId', workflowId);
   return (
-    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && closeModal()}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && closeModal()}>
       <DialogContent className="w-500 flex h-screen max-h-none max-w-none flex-col p-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Custom Automation</DialogTitle>

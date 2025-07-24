@@ -29,7 +29,6 @@ import {
   DriverClient,
   CellFormat,
   FieldAIActionType,
-  BUTTON_FIELD_TEMP_WORKFLOW_ID,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { type ITableFullVo } from '@teable/openapi';
@@ -630,7 +629,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Button,
         options: {
           color: Colors.Red,
-          workflowId: BUTTON_FIELD_TEMP_WORKFLOW_ID,
+          workflowId: '123',
         },
       };
       const { newField } = await expectUpdate(table1, buttonFieldRo1, buttonFieldRo2);
