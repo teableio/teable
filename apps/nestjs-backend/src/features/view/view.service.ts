@@ -9,13 +9,11 @@ import type {
   ISetViewPropertyOpContext,
   IColumnMeta,
   IViewPropertyKeys,
-  IFormViewOptions,
   IGroup,
   IViewOptions,
   IFilter,
   IKanbanViewOptions,
   IFilterSet,
-  IPluginViewOptions,
   IGalleryViewOptions,
   ICalendarViewOptions,
 } from '@teable/core';
@@ -42,7 +40,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
@@ -258,26 +256,7 @@ export class ViewService implements IReadonlyAdapterService {
       where: { id: viewId, deletedTime: null },
     });
 
-    return this.convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
-  }
-
-  convertViewVoAttachmentUrl(viewVo: IViewVo) {
-    if (viewVo.type === ViewType.Form) {
-      const formOptions = viewVo.options as IFormViewOptions;
-      formOptions?.coverUrl &&
-        (formOptions.coverUrl = formOptions.coverUrl
-          ? getPublicFullStorageUrl(formOptions.coverUrl)
-          : undefined);
-      formOptions?.logoUrl &&
-        (formOptions.logoUrl = formOptions.logoUrl
-          ? getPublicFullStorageUrl(formOptions.logoUrl)
-          : undefined);
-    }
-    if (viewVo.type === ViewType.Plugin) {
-      const pluginOptions = viewVo.options as IPluginViewOptions;
-      pluginOptions.pluginLogo = getPublicFullStorageUrl(pluginOptions.pluginLogo);
-    }
-    return viewVo;
+    return convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
   }
 
   async getViews(tableId: string): Promise<IViewVo[]> {
@@ -286,7 +265,7 @@ export class ViewService implements IReadonlyAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    return viewRaws.map((viewRaw) => this.convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw)));
+    return viewRaws.map((viewRaw) => convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw)));
   }
 
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
@@ -296,7 +275,7 @@ export class ViewService implements IReadonlyAdapterService {
       { docId: viewRaw.id, version: 0, data: viewRaw },
     ]);
 
-    return this.convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw));
+    return convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw));
   }
 
   async deleteView(tableId: string, viewId: string) {
@@ -505,7 +484,7 @@ export class ViewService implements IReadonlyAdapterService {
           id: view.id,
           v: view.version,
           type: 'json0',
-          data: this.convertViewVoAttachmentUrl(createViewVoByRaw(view)),
+          data: convertViewVoAttachmentUrl(createViewVoByRaw(view)),
         };
       })
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));

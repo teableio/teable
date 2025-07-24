@@ -392,7 +392,7 @@ export class BatchService {
 
     this.logger.verbose(`saveOp: ${baseRaw.src}-${collection}`);
 
-    const rawOps = dataList.map(({ docId: docId, version, data }) => {
+    dataList.forEach(({ docId: docId, version, data }) => {
       let rawOp: IRawOp;
       if (opType === RawOpType.Create) {
         rawOp = {
@@ -419,53 +419,11 @@ export class BatchService {
         throw new Error('unknown raw op type');
       }
       rawOpMap[collection][docId] = rawOp;
-      return { rawOp, docId };
     });
 
-    await this.executeInsertOps(collectionId, docType, rawOps);
     const prevMap = this.cls.get('tx.rawOpMaps') || [];
     prevMap.push(rawOpMap);
     this.cls.set('tx.rawOpMaps', prevMap);
     return rawOpMap;
-  }
-
-  private async executeInsertOps(
-    collectionId: string,
-    docType: IdPrefix,
-    rawOps: { rawOp: IRawOp; docId: string }[]
-  ) {
-    const userId = this.cls.get('user.id');
-    const insertRowsData = rawOps
-      .filter(({ rawOp }) => !('del' in rawOp && rawOp.del))
-      .map(({ rawOp, docId }) => {
-        return {
-          collection: collectionId,
-          doc_type: docType,
-          doc_id: docId,
-          version: rawOp.v,
-          operation: JSON.stringify(rawOp),
-          created_by: userId,
-          created_time: new Date().toISOString(),
-        };
-      });
-
-    // delete history op when doc is deleted
-    const deleteIds = rawOps
-      .filter(({ rawOp }) => 'del' in rawOp && rawOp.del)
-      .map(({ docId }) => docId);
-
-    if (deleteIds.length) {
-      const deleteOpsSql = this.knex('ops')
-        .where('collection', collectionId)
-        .whereIn('doc_id', deleteIds)
-        .delete()
-        .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(deleteOpsSql);
-    }
-
-    if (insertRowsData.length) {
-      const batchInsertOpsSql = this.dbProvider.batchInsertSql('ops', insertRowsData);
-      await this.prismaService.txClient().$executeRawUnsafe(batchInsertOpsSql);
-    }
   }
 }

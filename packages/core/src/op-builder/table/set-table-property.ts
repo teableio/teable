@@ -11,7 +11,7 @@ export interface ITableOp {
   lastModifiedTime?: string;
 }
 
-type ITablePropertyKey = keyof ITableOp;
+export type ITablePropertyKey = keyof ITableOp;
 
 export interface ISetTablePropertyOpContext {
   name: OpName.SetTableProperty;

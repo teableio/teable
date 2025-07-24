@@ -15,7 +15,15 @@ export interface IReadonlyAdapterService {
   ): Promise<{ ids: string[]; extra?: unknown }>;
 }
 
-export interface IAdapterService extends IReadonlyAdapterService {
+export interface IShareDbReadonlyAdapterService extends IReadonlyAdapterService {
+  // get current version and data of the document
+  // return version 0 if the document is deleted
+  // return version 1 if the document is created
+  // return version > 1 if the document is updated
+  getVersion(collectionId: string, docId: string): Promise<number>;
+}
+
+export interface IAdapterService {
   create(collectionId: string, snapshot: unknown): Promise<void>;
 
   del(version: number, collectionId: string, docId: string): Promise<void>;

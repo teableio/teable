@@ -1,16 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IGetRecordsRo } from '@teable/openapi';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import type { IReadonlyAdapterService } from '../interface';
+import type { IShareDbReadonlyAdapterService } from '../interface';
 import { ReadonlyService } from './readonly.service';
 
 @Injectable()
 export class RecordReadonlyServiceAdapter
   extends ReadonlyService
-  implements IReadonlyAdapterService
+  implements IShareDbReadonlyAdapterService
 {
-  constructor(private readonly cls: ClsService<IClsStore>) {
+  constructor(
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+  ) {
     super(cls);
   }
 
@@ -57,5 +64,31 @@ export class RecordReadonlyServiceAdapter
         },
       })
       .then((res) => res.data);
+  }
+
+  async getVersion(tableId: string, recordId: string) {
+    const table = await this.prismaService.tableMeta.findUnique({
+      where: {
+        id: tableId,
+      },
+      select: {
+        version: true,
+        deletedTime: true,
+        dbTableName: true,
+      },
+    });
+    if (!table) {
+      throw new NotFoundException('Table not found');
+    }
+    return this.prismaService
+      .$queryRawUnsafe<
+        { version: number; deletedTime: Date | null }[]
+      >(this.knex(table.dbTableName).select('__version as version').where('__id', recordId).toQuery())
+      .then((res) => {
+        if (res.length === 0) {
+          return 0;
+        }
+        return res[0].version;
+      });
   }
 }

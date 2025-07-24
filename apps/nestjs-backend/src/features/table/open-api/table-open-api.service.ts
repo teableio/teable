@@ -228,10 +228,8 @@ export class TableOpenApiService {
       },
     });
     const tableIds = tablesMeta.map((tableMeta) => tableMeta.id);
-    const tableTime = await this.tableService.getTableLastModifiedTime(tableIds);
     const tableDefaultViewIds = await this.tableService.getTableDefaultViewId(tableIds);
     return tablesMeta.map((tableMeta, i) => {
-      const time = tableTime[i];
       const defaultViewId = tableDefaultViewIds[i];
       if (!defaultViewId) {
         throw new Error('defaultViewId is not found');
@@ -240,7 +238,8 @@ export class TableOpenApiService {
         ...tableMeta,
         description: tableMeta.description ?? undefined,
         icon: tableMeta.icon ?? undefined,
-        lastModifiedTime: time || tableMeta.lastModifiedTime?.toISOString(),
+        lastModifiedTime:
+          tableMeta.lastModifiedTime?.toISOString() || tableMeta.createdTime.toISOString(),
         defaultViewId,
       };
     });

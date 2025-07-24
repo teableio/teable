@@ -1,7 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type { IRecord } from '@teable/core';
-import { IdPrefix } from '@teable/core';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type {
+  IFieldPropertyKey,
+  IFieldVo,
+  IOtOperation,
+  IRecord,
+  ITablePropertyKey,
+} from '@teable/core';
+import { FieldOpBuilder, IdPrefix, RecordOpBuilder, TableOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -10,7 +17,7 @@ import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
-import type { IReadonlyAdapterService } from './interface';
+import type { ICreateOp, IDeleteOp, IEditOp, IShareDbReadonlyAdapterService } from './interface';
 import { FieldReadonlyServiceAdapter } from './readonly/field-readonly.service';
 import { RecordReadonlyServiceAdapter } from './readonly/record-readonly.service';
 import { TableReadonlyServiceAdapter } from './readonly/table-readonly.service';
@@ -43,7 +50,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     this.closed = false;
   }
 
-  getReadonlyService(type: IdPrefix): IReadonlyAdapterService {
+  getReadonlyService(type: IdPrefix): IShareDbReadonlyAdapterService {
     switch (type) {
       case IdPrefix.View:
         return this.viewService;
@@ -230,6 +237,22 @@ export class ShareDbAdapter extends ShareDb.DB {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async getSnapshotData(docType: IdPrefix, collectionId: string, id: string, options: any) {
+    return await this.cls.runWith(
+      {
+        ...this.cls.get(),
+        cookie: options.agentCustom.cookie,
+        shareViewId: options.agentCustom.shareId,
+      },
+      async () => {
+        return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(collectionId, [
+          id,
+        ]);
+      }
+    );
+  }
+
   // Get operations between [from, to) non-inclusively. (Ie, the range should
   // contain start but not end).
   //
@@ -244,36 +267,111 @@ export class ShareDbAdapter extends ShareDb.DB {
     id: string,
     from: number,
     to: number | null,
-    options: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_, collectionId] = collection.split('_');
-      const query = this.knex('ops')
-        .select('operation')
-        .where({
-          collection: collectionId,
-          doc_id: id,
-        })
-        .andWhere('version', '>=', from)
-        .limit(1000);
-
-      if (to) {
-        query.andWhere('version', '<', to);
+      const [docType, collectionId] = collection.split('_');
+      const version = await this.getReadonlyService(docType as IdPrefix).getVersion(
+        collectionId,
+        id
+      );
+      if (version < from) {
+        callback(null);
+        return;
       }
 
-      const sql = query.toQuery();
+      const baseRaw = {
+        src: this.cls.getId() || 'unknown',
+        seq: 1,
+        m: {
+          ts: Date.now(),
+        },
+        v: version,
+      };
 
-      const res = await this.prismaService.txClient().$queryRawUnsafe<{ operation: string }[]>(sql);
-      callback(
-        null,
-        res.map(function (row) {
-          return JSON.parse(row.operation);
-        })
+      if (version === 0) {
+        callback(null, [
+          {
+            ...baseRaw,
+            del: true,
+          } as IDeleteOp,
+        ]);
+        return;
+      }
+
+      const snapshotData = await this.getSnapshotData(
+        docType as IdPrefix,
+        collectionId,
+        id,
+        options
       );
+
+      if (!snapshotData.length) {
+        throw new NotFoundException(`docType: ${docType}, id: ${id} not found`);
+      }
+
+      const { data } = snapshotData[0];
+      if (version === 1) {
+        callback(null, [
+          {
+            ...baseRaw,
+            create: {
+              type: 'json0',
+              data,
+            },
+          } as ICreateOp,
+        ]);
+        return;
+      }
+      const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
+      const editOps = new Array((to || version) - from).fill(0).map((_, i) => {
+        return {
+          ...baseRaw,
+          v: baseRaw.v + i,
+          op: editOp,
+        } as IEditOp;
+      });
+      callback(null, editOps);
     } catch (err) {
       callback(exceptionParse(err as Error));
+    }
+  }
+
+  private getOpsFromSnapshot(docType: IdPrefix, snapshot: unknown): IOtOperation[] {
+    switch (docType) {
+      case IdPrefix.Record:
+        return Object.entries((snapshot as IRecord).fields).map(([fieldId, fieldValue]) => {
+          return RecordOpBuilder.editor.setRecord.build({
+            fieldId,
+            newCellValue: fieldValue,
+            oldCellValue: undefined,
+          });
+        });
+      case IdPrefix.Field:
+        return Object.entries(snapshot as IFieldVo)
+          .filter(([key]) => key !== 'id')
+          .map(([key, value]) => {
+            return FieldOpBuilder.editor.setFieldProperty.build({
+              key: key as IFieldPropertyKey,
+              newValue: value,
+              oldValue: undefined,
+            });
+          });
+      case IdPrefix.Table:
+        return Object.entries(snapshot as ITableVo)
+          .filter(([key]) => key !== 'id')
+          .map(([key, value]) => {
+            return TableOpBuilder.editor.setTableProperty.build({
+              key: key as ITablePropertyKey,
+              newValue: value,
+              oldValue: undefined,
+            });
+          });
+      default:
+        return [];
     }
   }
 }

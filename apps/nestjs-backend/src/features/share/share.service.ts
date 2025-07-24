@@ -34,6 +34,7 @@ import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -44,7 +45,6 @@ import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
-import { ViewService } from '../view/view.service';
 import type { IShareViewInfo } from './share-auth.service';
 
 export interface IJwtShareInfo {
@@ -56,7 +56,6 @@ export interface IJwtShareInfo {
 export class ShareService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly aggregationService: AggregationService,
@@ -135,7 +134,7 @@ export class ShareService {
       shareId,
       tableId,
       viewId,
-      view: view ? this.viewService.convertViewVoAttachmentUrl(view) : undefined,
+      view: view ? convertViewVoAttachmentUrl(view) : undefined,
       fields: filteredFields,
       records,
       extra,
