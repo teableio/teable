@@ -22,7 +22,8 @@ export const FieldSetting = () => {
     const { from = '', openModal } = useWorkFlowPanelStore.getState();
     if (from === 'buttonFieldOptions' && field && field.type === FieldType.Button) {
       const options = field.options as IButtonFieldOptions;
-      let workflowId = options.workflowId ?? '';
+      const workflow = options.workflow ?? {};
+      let workflowId = workflow.id ?? '';
       if (isEmpty(workflowId)) {
         const result = await buttonClickWorkflowCreate(baseId, {
           tableId,

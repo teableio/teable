@@ -12,7 +12,15 @@ export const buttonFieldOptionsSchema = z.object({
     .positive()
     .optional()
     .openapi({ description: 'Max count of button clicks' }),
-  workflowId: z.string().optional().openapi({ description: 'Workflow ID' }),
+  resetCount: z.boolean().optional().openapi({ description: 'Reset count' }),
+  workflow: z
+    .object({
+      id: z.string().optional().openapi({ description: 'Workflow ID' }),
+      name: z.string().optional().openapi({ description: 'Workflow Name' }),
+      isActive: z.boolean().optional().openapi({ description: 'Workflow is active' }),
+    })
+    .optional()
+    .openapi({ description: 'Workflow' }),
 });
 
 export type IButtonFieldOptions = z.infer<typeof buttonFieldOptionsSchema>;

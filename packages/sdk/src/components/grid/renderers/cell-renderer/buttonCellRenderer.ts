@@ -24,8 +24,9 @@ const BUTTON_HEIGHT = 20;
 const checkClickable = (cell: IButtonCell) => {
   const { data } = cell;
   const { fieldOptions, cellValue } = data;
-  const { workflowId } = fieldOptions;
-  if (!workflowId) {
+  const { workflow = {} } = fieldOptions;
+  const { id: workflowId, isActive = false } = workflow;
+  if (!workflowId || !isActive) {
     return false;
   }
   const maxCount = fieldOptions.maxCount || 0;

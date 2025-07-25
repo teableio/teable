@@ -7,27 +7,32 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Switch,
 } from '@teable/ui-lib/shadcn';
+import { PencilIcon, PlusIcon } from 'lucide-react';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
 import { ColorPicker } from './SelectOptions';
 
 const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?: () => void }) => {
   const { options, onSave } = props;
+  const workflow = options?.workflow;
   const { setModal } = useWorkFlowPanelStore();
 
   return (
     <div className="flex flex-col gap-2">
       <Label className="font-normal">Workflow</Label>
-      <Input className="h-8 flex-1" placeholder="workflow-id" value={options?.workflowId} />
+      <Input className="h-8 flex-1" placeholder="workflow-id to be hidden" value={workflow?.id} />
       <Button
+        className="flex items-center "
         variant="outline"
         onClick={() => {
           setModal({ from: 'buttonFieldOptions' });
-          console.log('fixme uno button options workflowId', options?.workflowId);
+          console.log('fixme uno button options workflowId', workflow?.id);
           onSave?.();
         }}
       >
-        Custom Automation
+        {workflow?.id ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
+        <span className="flex-1 text-left">{workflow?.name || 'Custom Automation'}</span>
       </Button>
     </div>
   );
@@ -81,12 +86,20 @@ export const ButtonOptions = (props: {
           <div className="flex flex-col gap-2">
             <Label className="font-normal">Max count</Label>
             <Input
-              className="h-8 flex-1"
+              className="h-8"
               type="number"
               value={options?.maxCount}
               onChange={(e) =>
                 onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
               }
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label className="font-normal">Reset count</Label>
+            <Switch
+              checked={Boolean(options?.resetCount)}
+              onCheckedChange={(checked) => onChange?.({ ...options, resetCount: checked })}
             />
           </div>
 

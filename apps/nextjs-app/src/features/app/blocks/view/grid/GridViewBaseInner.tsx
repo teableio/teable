@@ -94,6 +94,7 @@ import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
+import { ResetClickCountButton } from './components/ResetClickCountButton';
 import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
@@ -164,6 +165,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { fieldAIEnable = false } = usage?.limit ?? {};
 
   const aiGenerateButtonRef = useRef<{
+    onScrollHandler: () => void;
+  }>(null);
+  const resetClickCountButtonRef = useRef<{
     onScrollHandler: () => void;
   }>(null);
 
@@ -851,6 +855,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const onGridScrollChanged = useCallback((sl?: number, _st?: number) => {
     prefillingGridRef.current?.scrollTo(sl, undefined);
     aiGenerateButtonRef.current?.onScrollHandler();
+    resetClickCountButtonRef.current?.onScrollHandler();
   }, []);
 
   const onPrefillingGridScrollChanged = useCallback((sl?: number, _st?: number) => {
@@ -1039,6 +1044,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       {fieldAIEnable && (
         <AiGenerateButton
           ref={aiGenerateButtonRef}
+          gridRef={gridRef}
+          activeCell={activeCell}
+          recordMap={recordMap}
+        />
+      )}
+      {activeCell && (
+        <ResetClickCountButton
+          ref={resetClickCountButtonRef}
           gridRef={gridRef}
           activeCell={activeCell}
           recordMap={recordMap}
