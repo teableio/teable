@@ -8,10 +8,13 @@ import type {
   IDatetimeFormatting,
   ILinkCellValue,
   SingleLineTextDisplayType,
+  IButtonFieldCellValue,
+  IButtonFieldOptions,
 } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../model';
 import { CellAttachment } from './cell-attachment';
+import { CellButton } from './cell-button';
 import { CellCheckbox } from './cell-checkbox';
 import { CellDate } from './cell-date';
 import { CellLink } from './cell-link';
@@ -117,6 +120,15 @@ export const CellValue = (props: ICellValueContainer) => {
     }
     case FieldType.Checkbox: {
       return <CellCheckbox value={value as boolean | boolean[]} className={className} />;
+    }
+    case FieldType.Button: {
+      return (
+        <CellButton
+          value={value as IButtonFieldCellValue}
+          className={className}
+          options={options as IButtonFieldOptions}
+        />
+      );
     }
     case FieldType.Formula:
     case FieldType.Rollup: {

@@ -9,3 +9,4 @@ export * from './formula';
 export * from './rating';
 export * from './link';
 export * from './user';
+export * from './button';

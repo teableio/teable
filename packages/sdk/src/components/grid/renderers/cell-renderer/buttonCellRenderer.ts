@@ -1,4 +1,4 @@
-import { Colors, ColorUtils } from '@teable/core';
+import { checkButtonClickable, Colors, ColorUtils } from '@teable/core';
 import { buttonClickTrigger } from '@teable/openapi';
 import colors from 'tailwindcss/colors';
 
@@ -20,22 +20,6 @@ const { cellVerticalPaddingSM } = GRID_DEFAULT;
 const BUTTON_RADIUS = 4;
 const BUTTON_WIDTH = 80;
 const BUTTON_HEIGHT = 20;
-
-const checkClickable = (cell: IButtonCell) => {
-  const { data } = cell;
-  const { fieldOptions, cellValue } = data;
-  const { workflow = {} } = fieldOptions;
-  const { id: workflowId, isActive = false } = workflow;
-  if (!workflowId || !isActive) {
-    return false;
-  }
-  const maxCount = fieldOptions.maxCount || 0;
-  if (maxCount <= 0) {
-    return true;
-  }
-  const count = cellValue?.count || 0;
-  return count < maxCount;
-};
 
 const clickHandler = async (cell: IButtonCell, props: ICellClickProps) => {
   const { id = '', data } = cell;
@@ -114,18 +98,18 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       textColor,
       bgColor,
       theme,
-      disabled: !checkClickable(cell),
+      disabled: !checkButtonClickable(fieldOptions, cellValue),
     });
   },
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
     const { readonly, data } = cell;
-    const { cellValue } = data;
+    const { fieldOptions, cellValue } = data;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, width, height } = props;
     const [x, y] = hoverCellPosition;
 
     if (
-      checkClickable(cell) &&
+      checkButtonClickable(fieldOptions, cellValue) &&
       inRange(x, width / 2 - BUTTON_WIDTH / 2, width / 2 + BUTTON_WIDTH / 2) &&
       inRange(y, height / 2 - BUTTON_HEIGHT / 2, height / 2 + BUTTON_HEIGHT / 2)
     ) {

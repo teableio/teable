@@ -6,4 +6,5 @@ export * from './cell-select';
 export * from './cell-rating';
 export * from './cell-checkbox';
 export * from './cell-attachment';
+export * from './cell-button';
 export * from './CellValue';
