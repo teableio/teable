@@ -35,6 +35,13 @@ export const aiConfigSchema = z.object({
   embeddingModel: z.string().optional(),
   translationModel: z.string().optional(),
   codingModel: z.string().optional(),
+  codingModels: z
+    .object({
+      sm: z.string().optional(),
+      md: z.string().optional(),
+      lg: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;
