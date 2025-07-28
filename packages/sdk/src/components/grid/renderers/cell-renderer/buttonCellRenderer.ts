@@ -21,10 +21,9 @@ const BUTTON_RADIUS = 4;
 const BUTTON_WIDTH = 80;
 const BUTTON_HEIGHT = 20;
 
-const clickHandler = async (cell: IButtonCell, props: ICellClickProps) => {
+const clickHandler = async (cell: IButtonCell) => {
   const { id = '', data } = cell;
 
-  console.log('fixme uno clickHandler', cell, props);
   const { baseId, tableId } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
 
@@ -121,7 +120,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     const cellRegion = buttonCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
 
-    clickHandler(cell, props);
+    clickHandler(cell);
     // callback(cellRegion);
   },
 };

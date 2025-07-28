@@ -156,7 +156,7 @@ export interface IUserCell extends IEditableCell {
   displayData?: string;
 }
 
-export interface IButtonCell extends IBaseCell {
+export interface IButtonCell extends IEditableCell {
   type: CellType.Button;
   data: {
     cellValue: IButtonFieldCellValue;

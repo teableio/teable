@@ -24,7 +24,6 @@ export const ResetClickCountButton = forwardRef<
   const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
   const record = activeCell?.rowIndex ? recordMap[activeCell.rowIndex] : undefined;
   const { fieldId } = activeCell || {};
-  console.log('fixme uno ResetClickCountButton', activeCell);
 
   const onPositionChanged = useCallback(() => {
     if (!activeCell || !permission['record|update']) {

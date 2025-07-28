@@ -24,9 +24,7 @@ export const useButtonClickStatus = (tableId: string) => {
   const presence = connection?.getPresence(channel);
   const [statusMap, setStatusMap] = useState<IButtonClickStatus>({});
   const toastMapRef = useRef<Record<string, number | string | undefined>>({});
-  // console.log('fixme uno useButtonClickStatus tableId', tableId, JSON.stringify(status));
-  // const { t } = useTranslation();
-  // const { loading, message } = status;
+
   useEffect(() => {
     if (!presence || !channel) {
       return;

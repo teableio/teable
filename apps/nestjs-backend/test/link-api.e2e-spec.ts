@@ -3659,7 +3659,6 @@ describe('OpenAPI link (e2e)', () => {
       expect(undoRes.data.status).toEqual('fulfilled');
 
       // const res2 = await getRecord(table1.id, table1.records[0].id);
-      // console.log('fixme uno res2', res2);
       // expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H1' });
     });
 

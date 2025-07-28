@@ -27,7 +27,6 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
         variant="outline"
         onClick={() => {
           setModal({ from: 'buttonFieldOptions' });
-          console.log('fixme uno button options workflowId', workflow?.id);
           onSave?.();
         }}
       >
@@ -45,7 +44,6 @@ export const ButtonOptions = (props: {
   onSave?: () => void;
 }) => {
   const { isLookup, options, onChange, onSave } = props;
-  // console.log('fixme uno button options', fieldId, options);
 
   const bgColor = ColorUtils.getHexForColor(options?.color ?? Colors.Teal);
 
