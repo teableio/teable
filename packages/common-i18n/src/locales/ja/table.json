@@ -132,7 +132,13 @@
         "title": "完了"
       },
       "button": {
-        "title": "ボタン"
+        "title": "ボタン",
+        "label": "ボタンラベル",
+        "color": "ボタンカラー",
+        "resetCount": "クリック数リセット",
+        "maxCount": "最大クリック数",
+        "automation": "自動化",
+        "customAutomation": "カスタマイズされた自動化"
       },
       "formula": {
         "title": "計算",

@@ -132,7 +132,13 @@
         "title": "Fait"
       },
       "button": {
-        "title": "Bouton"
+        "title": "Bouton",
+        "label": "Texte du bouton",
+        "color": "Couleur du bouton",
+        "resetCount": "Réinitialiser le compteur de clics",
+        "maxCount": "Maximum de clics",
+        "automation": "Automatisation",
+        "customAutomation": "Automatisation personnalisée"
       },
       "formula": {
         "title": "Calcul",

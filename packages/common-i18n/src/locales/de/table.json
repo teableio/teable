@@ -134,7 +134,13 @@
         "title": "Erledigt"
       },
       "button": {
-        "title": "Schaltfläche"
+        "title": "Schaltfläche",
+        "label": "Schaltflächentext",
+        "color": "Schaltflächencolor",
+        "resetCount": "Klickzähler zurücksetzen",
+        "maxCount": "Maximale Klickzahl",
+        "automation": "Automatisierung",
+        "customAutomation": "Benutzerdefinierte Automatisierung"
       },
       "formula": {
         "title": "Berechnung",

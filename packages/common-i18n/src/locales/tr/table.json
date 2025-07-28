@@ -124,7 +124,13 @@
         "title": "Tamamlandı"
       },
       "button": {
-        "title": "Düğme"
+        "title": "Düğme",
+        "label": "Düğme metni",
+        "color": "Düğme rengi",
+        "resetCount": "Tıklama sayısını sıfırla",
+        "maxCount": "Maksimum tıklama sayısı",
+        "automation": "Otomasyon",
+        "customAutomation": "Özel otomasyon"
       },
       "formula": {
         "title": "Hesaplama",

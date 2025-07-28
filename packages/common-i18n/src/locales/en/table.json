@@ -134,7 +134,13 @@
         "title": "Done"
       },
       "button": {
-        "title": "Button"
+        "title": "Button",
+        "label": "Button label",
+        "color": "Button color",
+        "resetCount": "Reset click count",
+        "maxCount": "Max click count",
+        "automation": "Automation",
+        "customAutomation": "Custom automation"
       },
       "formula": {
         "title": "Calculation",

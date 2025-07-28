@@ -10,17 +10,19 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { PencilIcon, PlusIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
+import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from './SelectOptions';
 
 const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?: () => void }) => {
   const { options, onSave } = props;
   const workflow = options?.workflow;
   const { setModal } = useWorkFlowPanelStore();
-
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
     <div className="flex flex-col gap-2">
-      <Label className="font-normal">Workflow</Label>
+      <Label className="font-normal">{t('table:field.default.button.automation')}</Label>
       <Button
         className="flex items-center "
         variant="outline"
@@ -30,7 +32,9 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
         }}
       >
         {workflow?.id ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
-        <span className="flex-1 text-left">{workflow?.name || 'Custom Automation'}</span>
+        <span className="flex-1 text-left">
+          {workflow?.name || t('table:field.default.button.customAutomation')}
+        </span>
       </Button>
     </div>
   );
@@ -43,7 +47,7 @@ export const ButtonOptions = (props: {
   onSave?: () => void;
 }) => {
   const { isLookup, options, onChange, onSave } = props;
-
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const bgColor = ColorUtils.getHexForColor(options?.color ?? Colors.Teal);
 
   return (
@@ -51,7 +55,7 @@ export const ButtonOptions = (props: {
       {!isLookup && (
         <div className="flex w-full flex-col gap-2">
           <div className="flex flex-col gap-2">
-            <Label className="font-normal">Label</Label>
+            <Label className="font-normal">{t('table:field.default.button.label')}</Label>
 
             <div className="flex items-center gap-2">
               <Popover>
@@ -81,7 +85,7 @@ export const ButtonOptions = (props: {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label className="font-normal">Max count</Label>
+            <Label className="font-normal">{t('table:field.default.button.maxCount')}</Label>
             <Input
               className="h-8"
               type="number"
@@ -93,7 +97,7 @@ export const ButtonOptions = (props: {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label className="font-normal">Reset count</Label>
+            <Label className="font-normal">{t('table:field.default.button.resetCount')}</Label>
             <Switch
               checked={Boolean(options?.resetCount)}
               onCheckedChange={(checked) => onChange?.({ ...options, resetCount: checked })}

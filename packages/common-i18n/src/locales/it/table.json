@@ -134,7 +134,13 @@
         "title": "Fatto"
       },
       "button": {
-        "title": "Pulsante"
+        "title": "Pulsante",
+        "label": "Testo del pulsante",
+        "color": "Colore del pulsante",
+        "resetCount": "Reimposta conteggio clic",
+        "maxCount": "Massimo di clic",
+        "automation": "Automazione",
+        "customAutomation": "Automazione personalizzata"
       },
       "formula": {
         "title": "Calcolo",
