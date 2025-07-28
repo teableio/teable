@@ -1,2 +1,2 @@
 export * from './button-click/trigger';
-export * from './button-click/workflow-create';
+export * from './workflow/create';

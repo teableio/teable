@@ -1,5 +1,5 @@
 import { FieldType, fieldVoSchema, type IButtonFieldOptions, type IFieldVo } from '@teable/core';
-import { buttonClickWorkflowCreate } from '@teable/openapi';
+import { createWorkflow } from '@teable/openapi';
 import type { IFieldInstance } from '@teable/sdk';
 import { useBaseId, useField, useTableId } from '@teable/sdk';
 import { isEmpty } from 'lodash';
@@ -18,18 +18,23 @@ export const FieldSetting = () => {
   const tableId = useTableId() as string;
 
   const handleOpenWorkflowPanel = async (field?: IFieldVo | IFieldInstance) => {
-    // 动态获取最新的状态，而不是在函数开始时解构
     const { from = '', openModal } = useWorkFlowPanelStore.getState();
     if (from === 'buttonFieldOptions' && field && field.type === FieldType.Button) {
       const options = field.options as IButtonFieldOptions;
       const workflow = options.workflow ?? {};
       let workflowId = workflow.id ?? '';
       if (isEmpty(workflowId)) {
-        const result = await buttonClickWorkflowCreate(baseId, {
-          tableId,
-          watchFieldIds: [field.id],
+        const result = await createWorkflow(baseId, {
+          name: field.name,
+          trigger: {
+            type: 'buttonClick', // WorkflowTriggerType.ButtonClick
+            config: {
+              tableId,
+              watchFieldIds: [field.id],
+            },
+          },
         });
-        const workflow = (result.data as { workflow: { id: string } }).workflow;
+        const workflow = result.data as { id: string };
         workflowId = workflow.id;
       }
       openModal(baseId, workflowId);
