@@ -676,6 +676,14 @@
         "translationModelDescription": "要使用的翻译模型",
         "codingModel": "编码模型",
         "codingModelDescription": "适用于 AI 生成公式等功能",
+        "codingModels": {
+          "sm": "小型编码模型",
+          "smDescription": "快速高效处理基础任务",
+          "md": "中型编码模型",
+          "mdDescription": "均衡能力满足常见需求",
+          "lg": "大型编码模型",
+          "lgDescription": "全面解决方案应对复杂场景"
+        },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",
         "searchModel": "搜索模型...",
