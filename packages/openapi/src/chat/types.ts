@@ -42,6 +42,7 @@ export enum AgentInvocationName {
   ViewOperator = 'view-operator-agent',
   RecordOperator = 'record-operator-agent',
   BuildBase = 'build-base-agent',
+  BuildAutomation = 'build-automation-agent',
 }
 
 export type IDataVisualizationDataStream = {
