@@ -11,31 +11,23 @@ interface ICellButton extends ICellValue<IButtonFieldCellValue> {
 }
 
 export const CellButton = (props: ICellButton) => {
-  const { className, style, itemClassName, options, value } = props;
+  const { className, style, itemClassName, options: fieldOptions, value } = props;
 
   const isClickable = useMemo(() => {
-    return checkButtonClickable(options, value);
-  }, [options, value]);
+    return checkButtonClickable(fieldOptions, value);
+  }, [fieldOptions, value]);
 
   const button = useMemo(() => {
-    if (!isClickable) {
-      return {
-        bgColor: Colors.Gray,
-        textColor: colors.white,
-        label: options.label,
-      };
-    }
-    const bgColor = ColorUtils.getHexForColor(options.color);
-    const textColor = ColorUtils.shouldUseLightTextOnColor(options.color)
-      ? colors.white
-      : colors.black;
+    const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
+    const bgColor = ColorUtils.getHexForColor(rectColor);
+    const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
 
     return {
       bgColor,
       textColor,
-      label: options.label,
+      label: fieldOptions.label,
     };
-  }, [options, isClickable]);
+  }, [fieldOptions, isClickable]);
 
   return (
     <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
@@ -49,7 +41,7 @@ export const CellButton = (props: ICellButton) => {
         disabled={!isClickable}
       >
         <span className="w-full truncate text-sm" style={{ color: button.textColor }}>
-          {button.label}1ewgflnvlegnlesngltr.nbhgtkjrjsntkr
+          {button.label}
         </span>
       </Button>
     </div>

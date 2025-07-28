@@ -1,4 +1,4 @@
-import { checkButtonClickable, Colors, ColorUtils } from '@teable/core';
+import { Colors, ColorUtils } from '@teable/core';
 import { buttonClickTrigger } from '@teable/openapi';
 import colors from 'tailwindcss/colors';
 
@@ -15,7 +15,7 @@ import type {
   IButtonCell,
 } from './interface';
 
-const { cellVerticalPaddingSM } = GRID_DEFAULT;
+const { cellVerticalPaddingSM, cellHorizontalPadding } = GRID_DEFAULT;
 
 const BUTTON_RADIUS = 4;
 const BUTTON_WIDTH = 80;
@@ -48,10 +48,9 @@ const drawButton = (
     textColor: string;
     bgColor: string;
     theme: IGridTheme;
-    disabled?: boolean;
   }
 ) => {
-  const { x, y, width, height, text, maxTextWidth, textColor, bgColor, theme, disabled } = props;
+  const { x, y, width, height, text, maxTextWidth, textColor, bgColor, theme } = props;
   const { fontSizeXS } = theme;
 
   drawRect(ctx, {
@@ -60,7 +59,7 @@ const drawButton = (
     width,
     height,
     radius: BUTTON_RADIUS,
-    fill: disabled ? Colors.Gray : bgColor,
+    fill: bgColor,
   });
 
   drawSingleLineText(ctx, {
@@ -79,14 +78,13 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
   needsHover: true,
   needsHoverPosition: true,
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
-    const { data } = cell;
+    const { data, readonly } = cell;
     const { fieldOptions, cellValue } = data;
     const { ctx, rect, theme } = props;
     const { x, y, width } = rect;
-    const bgColor = ColorUtils.getHexForColor(fieldOptions.color);
-    const textColor = ColorUtils.shouldUseLightTextOnColor(fieldOptions.color)
-      ? colors.white
-      : colors.black;
+    const rectColor = readonly ? Colors.Gray : fieldOptions.color;
+    const bgColor = ColorUtils.getHexForColor(rectColor);
+    const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
 
     return drawButton(ctx, {
       x: x + (width - BUTTON_WIDTH) / 2,
@@ -94,22 +92,20 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       width: BUTTON_WIDTH,
       height: BUTTON_HEIGHT,
       text: fieldOptions.label + (cellValue?.count || 0),
-      maxTextWidth: BUTTON_WIDTH,
+      maxTextWidth: BUTTON_WIDTH - 2 * cellHorizontalPadding,
       textColor,
       bgColor,
       theme,
-      disabled: !checkButtonClickable(fieldOptions, cellValue),
     });
   },
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
     const { readonly, data } = cell;
-    const { fieldOptions, cellValue } = data;
+    const { cellValue } = data;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, width, height } = props;
     const [x, y] = hoverCellPosition;
 
     if (
-      checkButtonClickable(fieldOptions, cellValue) &&
       inRange(x, width / 2 - BUTTON_WIDTH / 2, width / 2 + BUTTON_WIDTH / 2) &&
       inRange(y, height / 2 - BUTTON_HEIGHT / 2, height / 2 + BUTTON_HEIGHT / 2)
     ) {

@@ -1,10 +1,17 @@
 import type {
   IAttachmentCellValue,
   IButtonFieldCellValue,
+  IButtonFieldOptions,
   INumberShowAs,
   ISingleLineTextShowAs,
 } from '@teable/core';
-import { RowHeightLevel, CellValueType, ColorUtils, FieldType } from '@teable/core';
+import {
+  RowHeightLevel,
+  CellValueType,
+  ColorUtils,
+  FieldType,
+  checkButtonClickable,
+} from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
 import { LRUCache } from 'lru-cache';
@@ -510,6 +517,12 @@ export const useCreateCellValue2GridDisplay = (
           case FieldType.Button: {
             return {
               ...baseCellProps,
+              readonly:
+                readonly ||
+                !checkButtonClickable(
+                  field.options as IButtonFieldOptions,
+                  cellValue as IButtonFieldCellValue
+                ),
               type: CellType.Button,
               data: {
                 cellValue: cellValue as IButtonFieldCellValue,

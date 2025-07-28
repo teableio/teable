@@ -1,10 +1,11 @@
 import { FieldType } from '@teable/core';
-import { RefreshCcw } from '@teable/icons';
 import { Record, useFields, useTablePermission } from '@teable/sdk';
 import type { IActiveCell, IGridRef, IRecordIndexMap } from '@teable/sdk';
-import { Button } from '@teable/ui-lib';
-import { isBoolean } from 'lodash';
+import { Button, sonner } from '@teable/ui-lib';
+import { RotateCcwIcon } from 'lucide-react';
 import React, { useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+
+const { toast } = sonner;
 
 interface IResetClickCountButtonProps {
   gridRef: React.RefObject<IGridRef>;
@@ -85,10 +86,10 @@ export const ResetClickCountButton = forwardRef<
     };
   }, []);
 
-  const resetClickCount = () => {
+  const resetClickCount = async () => {
     if (!activeCell || !fieldId || !record) return;
-    record.updateCell(fieldId, null);
-    console.log('fixme uno resetClickCount', activeCell);
+    await record.updateCell(fieldId, null);
+    toast.success('Reset click count successfully');
   };
 
   if (!style) return null;
@@ -101,7 +102,7 @@ export const ResetClickCountButton = forwardRef<
         className="disabled:opacity-100"
         onClick={resetClickCount}
       >
-        <RefreshCcw className="size-4" />
+        <RotateCcwIcon className="size-4" />
       </Button>
     </div>
   );
