@@ -100,6 +100,16 @@ export class ShareDbAdapter extends ShareDb.DB {
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getCookieAndShareId(options: any) {
+    const cookie = options?.cookie || options?.agentCustom?.cookie;
+    const shareId = options?.shareId || options?.agentCustom?.shareId;
+    if (!cookie && !shareId) {
+      this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
+    }
+    return { cookie, shareId };
+  }
+
   async queryPoll(
     collection: string,
     query: unknown,
@@ -108,15 +118,13 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
-    if (!options.cookie) {
-      this.logger.error(`No cookie found in options: ${JSON.stringify(options)}`);
-    }
+    const { cookie, shareId } = this.getCookieAndShareId(options);
     try {
       await this.cls.runWith(
         {
           ...this.cls.get(),
-          cookie: options.cookie,
-          shareViewId: options.shareId,
+          cookie,
+          shareViewId: shareId,
         },
         async () => {
           const [docType, collectionId] = collection.split('_');
@@ -215,14 +223,12 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    if (!options.agentCustom.cookie) {
-      this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
-    }
+    const { cookie, shareId } = this.getCookieAndShareId(options);
     await this.cls.runWith(
       {
         ...this.cls.get(),
-        cookie: options.agentCustom.cookie,
-        shareViewId: options.agentCustom.shareId,
+        cookie,
+        shareViewId: shareId,
       },
       async () => {
         return this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
@@ -239,11 +245,12 @@ export class ShareDbAdapter extends ShareDb.DB {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async getSnapshotData(docType: IdPrefix, collectionId: string, id: string, options: any) {
+    const { cookie, shareId } = this.getCookieAndShareId(options);
     return await this.cls.runWith(
       {
         ...this.cls.get(),
-        cookie: options.agentCustom.cookie,
-        shareViewId: options.agentCustom.shareId,
+        cookie,
+        shareViewId: shareId,
       },
       async () => {
         return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(collectionId, [
@@ -327,7 +334,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         return;
       }
       const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
-      const editOps = new Array((to || baseRaw.v) - from).fill(0).map((_, i) => {
+      const editOps = new Array(Math.min((to || baseRaw.v + 1) - from, 1)).fill(0).map((_, i) => {
         return {
           ...baseRaw,
           v: from + i,
@@ -336,6 +343,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       });
       callback(null, editOps);
     } catch (err) {
+      this.logger.error(err);
       callback(exceptionParse(err as Error));
     }
   }
