@@ -1,13 +1,9 @@
+import type { IButtonClickTriggerFireRo } from '@teable/openapi';
 import { match } from 'ts-pattern';
 import { CoreEvent, type IEventContext } from '../core-event';
 import { Events } from '../event.enum';
 
-type IButtonClickPayload = {
-  viewId?: string;
-  tableId: string;
-  recordId: string;
-  fieldId: string;
-};
+type IButtonClickPayload = IButtonClickTriggerFireRo;
 
 export class ButtonClickEvent extends CoreEvent<IButtonClickPayload> {
   public readonly name = Events.TABLE_BUTTON_CLICK;

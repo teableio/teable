@@ -163,7 +163,6 @@ export interface IButtonCell extends IBaseCell {
     fieldOptions: IButtonFieldOptions;
     baseId: string;
     tableId: string;
-    viewId?: string;
   };
 }
 

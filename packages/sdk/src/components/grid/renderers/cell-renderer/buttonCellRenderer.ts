@@ -1,5 +1,5 @@
 import { Colors, ColorUtils } from '@teable/core';
-import { buttonClickTrigger } from '@teable/openapi';
+import { workflowTriggerFire } from '@teable/openapi';
 import colors from 'tailwindcss/colors';
 
 import type { IGridTheme } from '../../configs';
@@ -25,12 +25,11 @@ const clickHandler = async (cell: IButtonCell, props: ICellClickProps) => {
   const { id = '', data } = cell;
 
   console.log('fixme uno clickHandler', cell, props);
-  const { baseId, tableId, viewId = '' } = data;
+  const { baseId, tableId } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
 
-  await buttonClickTrigger(baseId, {
+  await workflowTriggerFire(baseId, 'buttonClick', {
     tableId,
-    viewId,
     fieldId,
     recordId,
   });

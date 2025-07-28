@@ -192,7 +192,6 @@ export const useCreateCellValue2GridDisplay = (
   const i18nMap = useAttachmentPreviewI18Map();
   const baseId = useBaseId() as string;
   const tableId = useTableId() as string;
-  const viewId = useViewId() as string;
 
   return useCallback(
     (fields: IFieldInstance[]) =>
@@ -529,7 +528,6 @@ export const useCreateCellValue2GridDisplay = (
                 fieldOptions: field.options,
                 baseId,
                 tableId,
-                viewId,
               },
             };
           }
@@ -538,7 +536,7 @@ export const useCreateCellValue2GridDisplay = (
           }
         }
       },
-    [i18nMap, recordEditable, rowHeight, t, baseId, tableId, viewId]
+    [i18nMap, recordEditable, rowHeight, t, baseId, tableId]
   );
 };
 

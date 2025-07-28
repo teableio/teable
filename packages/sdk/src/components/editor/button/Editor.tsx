@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IButtonFieldCellValue } from '@teable/core';
 import { Colors, ColorUtils } from '@teable/core';
-import { buttonClickTrigger } from '@teable/openapi';
+import { workflowTriggerFire } from '@teable/openapi';
 import { Button, cn } from '@teable/ui-lib';
 import { type FC, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
@@ -36,13 +36,13 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
     <div className={cn('flex items-center h-8')}>
       <Button
         onClick={() => {
-          if (readonly) {
+          if (readonly || !recordId) {
             return;
           }
 
-          buttonClickTrigger(baseId, {
+          workflowTriggerFire(baseId, 'buttonClick', {
             tableId,
-            recordId: recordId || '',
+            recordId,
             fieldId: field.id,
           });
         }}
