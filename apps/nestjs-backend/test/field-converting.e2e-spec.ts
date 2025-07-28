@@ -620,27 +620,30 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         name: 'buttonField',
         type: FieldType.Button,
         options: {
-          label: 'buttonField',
+          label: 'buttonField1',
           color: Colors.Teal,
           maxCount: 10,
+          resetCount: true,
         },
       };
+
       const buttonFieldRo2: IFieldRo = {
         type: FieldType.Button,
         options: {
+          label: 'buttonField2',
           color: Colors.Red,
-          workflowId: '123',
+          workflow: {
+            id: '123',
+            name: 'workflow1',
+            isActive: true,
+          },
         },
       };
       const { newField } = await expectUpdate(table1, buttonFieldRo1, buttonFieldRo2);
       const options = newField.options as IButtonFieldOptions;
-      const options1 = buttonFieldRo1.options as IButtonFieldOptions;
       const options2 = buttonFieldRo2.options as IButtonFieldOptions;
-      expect(newField.name).toEqual('buttonField');
-      expect(options.label).toEqual(options1.label);
-      expect(options.color).toEqual(options2.color);
-      expect(options?.maxCount).toEqual(options1?.maxCount);
-      expect(options?.workflowId).toEqual(options2?.workflowId);
+      expect(newField.name).toEqual(buttonFieldRo1.name);
+      expect(options).toEqual(options2);
     });
   });
 
