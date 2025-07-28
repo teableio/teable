@@ -656,10 +656,12 @@
       "args": "Arguments",
       "result": "Result",
       "thinking": "Thinking...",
-      "toBeConfirmed": "Waiting for confirmation"
+      "toBeConfirmed": "To be confirmed",
+      "errorMessage": "Error message"
     },
     "fallback": {
-      "previewLoadFailed": "Preview load failed"
+      "previewLoadFailed": "Preview load failed",
+      "retry": "Retry {{count}} time"
     },
     "preview": {
       "deletedTable": "Deleted table",
@@ -671,7 +673,8 @@
       "tableOperatorAgent": "Table Agent",
       "viewOperatorAgent": "View Agent",
       "fieldOperatorAgent": "Field Agent",
-      "recordOperatorAgent": "Record Agent"
+      "recordOperatorAgent": "Record Agent",
+      "buildBaseAgent": "Build Base Agent"
     },
     "action": {
       "createTable": "Create table",
@@ -685,7 +688,18 @@
       "updateField": "Update field",
       "createRecord": "Create record",
       "deleteRecord": "Delete record",
-      "updateRecord": "Update record"
+      "updateRecord": "Update record",
+
+      "updateBase": "Update database info",
+      "planTask": "Plan task",
+      "generateTables": "Generate tables",
+      "generateFields": "Generate fields",
+      "generateViews": "Generate views",
+      "generateRecords": "Generate records",
+      "generateAIFields": "Generate AI fields",
+      "generateLinkFields": "Generate link fields",
+      "generateLookupFields": "Generate lookup fields",
+      "generateLinkFieldsRecords": "Generate link fields records"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
