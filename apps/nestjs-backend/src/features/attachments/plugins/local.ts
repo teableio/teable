@@ -7,10 +7,12 @@ import { getRandomString } from '@teable/core';
 import { READ_PATH } from '@teable/openapi';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
+import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
 import { CacheService } from '../../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import type { IClsStore } from '../../../types/cls';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
 import { second } from '../../../utils/second';
@@ -33,7 +35,8 @@ export class LocalStorage implements StorageAdapter {
   constructor(
     @StorageConfig() readonly config: IStorageConfig,
     @BaseConfig() readonly baseConfig: IBaseConfig,
-    private readonly cacheService: CacheService
+    private readonly cacheService: CacheService,
+    private readonly cls: ClsService<IClsStore>
   ) {
     this.expireTokenEncryptor = new Encryptor(this.config.encryption);
     this.path = this.config.local.path;
@@ -238,7 +241,9 @@ export class LocalStorage implements StorageAdapter {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });
-    return join('/', url);
+    const origin = this.cls.get('origin');
+    const prefix = origin?.windowId ? '' : this.baseConfig.storagePrefix;
+    return prefix + join('/', url);
   }
   verifyReadToken(token: string) {
     try {
