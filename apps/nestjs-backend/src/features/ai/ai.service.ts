@@ -103,6 +103,7 @@ export class AiService {
       return aiIntegrationConfig as IAIConfig;
     }
 
+    const codingModel = aiIntegrationConfig.codingModel ?? aiConfig.codingModel;
     return {
       llmProviders: [
         ...aiIntegrationConfig.llmProviders,
@@ -111,7 +112,12 @@ export class AiService {
           isInstance: true,
         })),
       ],
-      codingModel: aiIntegrationConfig.codingModel ?? aiConfig.codingModel,
+      codingModel,
+      codingModels: {
+        sm: aiIntegrationConfig.codingModels?.sm ?? aiConfig.codingModels?.sm ?? codingModel,
+        md: aiIntegrationConfig.codingModels?.md ?? aiConfig.codingModels?.md ?? codingModel,
+        lg: aiIntegrationConfig.codingModels?.lg ?? aiConfig.codingModels?.lg ?? codingModel,
+      },
       embeddingModel: aiIntegrationConfig.embeddingModel ?? aiConfig.embeddingModel,
       translationModel: aiIntegrationConfig.translationModel ?? aiConfig.translationModel,
     };
