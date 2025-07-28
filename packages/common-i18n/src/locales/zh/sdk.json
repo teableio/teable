@@ -22,7 +22,13 @@
     "summary": "统计",
     "summaryTip": "点击此行进行统计",
     "actions": "操作",
-    "remove": "移除"
+    "remove": "移除",
+    "runStatus": {
+      "success": "{{name}} 执行成功",
+      "failed": "{{name}} 执行失败",
+      "running": "{{name}} 运行中"
+    },
+    "resetSuccess": "重置成功"
   },
   "noun": {
     "table": "表格",
@@ -797,6 +803,9 @@
       "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
       "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "该按钮字段已经和其他自动化流程绑定，请选择其他按钮字段"
     }
   }
 }

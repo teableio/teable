@@ -21,7 +21,14 @@
     "rowCount": "{{count}}レコード",
     "summary": "概要ー",
     "summaryTip": "カーソルを合わせて概要を選択",
-    "actions": "アクション"
+    "actions": "アクション",
+    "remove": "削除",
+    "runStatus": {
+      "success": "{{name}} 成功",
+      "failed": "{{name}} 失敗",
+      "running": "{{name}} 実行中"
+    },
+    "resetSuccess": "リセット成功"
   },
   "preview": {
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
@@ -755,6 +762,9 @@
       "requestTimeout": "操作範囲が大きすぎます。範囲を縮小して再試行してください。",
       "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
       "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "このボタンフィールドはすでに他の自動化プロセスにバインドされています。別のボタンフィールドを選択してください"
     }
   }
 }

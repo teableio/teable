@@ -3,8 +3,9 @@ import { Record, useFields, useTablePermission } from '@teable/sdk';
 import type { IActiveCell, IGridRef, IRecordIndexMap } from '@teable/sdk';
 import { Button, sonner } from '@teable/ui-lib';
 import { RotateCcwIcon } from 'lucide-react';
+import { useTranslation } from 'next-i18next';
 import React, { useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-
+import { tableConfig } from '@/features/i18n/table.config';
 const { toast } = sonner;
 
 interface IResetClickCountButtonProps {
@@ -24,6 +25,7 @@ export const ResetClickCountButton = forwardRef<
   const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
   const record = activeCell?.rowIndex ? recordMap[activeCell.rowIndex] : undefined;
   const { fieldId } = activeCell || {};
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const onPositionChanged = useCallback(() => {
     if (!activeCell || !permission['record|update']) {
@@ -88,7 +90,7 @@ export const ResetClickCountButton = forwardRef<
   const resetClickCount = async () => {
     if (!activeCell || !fieldId || !record) return;
     await record.updateCell(fieldId, null);
-    toast.success('Reset click count successfully');
+    toast.success(t('sdk:common.resetSuccess'));
   };
 
   if (!style) return null;

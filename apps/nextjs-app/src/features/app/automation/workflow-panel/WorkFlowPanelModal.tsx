@@ -10,7 +10,7 @@ const WorkFlowPanelLazy = lazy(() =>
   }))
 );
 export const WorkFlowPanelModal = () => {
-  const { baseId, workflowId, closeModal, open, from } = useWorkFlowPanelStore();
+  const { baseId, workflowId, closeModal, open } = useWorkFlowPanelStore();
   const isHydrated = useIsHydrated();
 
   if (!isHydrated || !baseId || !workflowId || !open) {

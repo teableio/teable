@@ -22,7 +22,13 @@
     "summary": "Resumen",
     "summaryTip": "Pasa el cursor para seleccionar resumen",
     "actions": "Acciones",
-    "remove": "Eliminar"
+    "remove": "Eliminar",
+    "runStatus": {
+      "success": "{{name}} exitoso",
+      "failed": "{{name}} fallido",
+      "running": "{{name}} en ejecución"
+    },
+    "resetSuccess": "Restablecido exitosamente"
   },
   "preview": {
     "previewFileLimit": "Límite de tamaño para vista previa: {{size}}MB, por favor descarga para ver.",
@@ -779,6 +785,9 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" campo no permite asociaciones duplicadas con el mismo registro",
       "requestTimeout": "El ámbito de la operación actual es demasiado grande, por favor intente con un ámbito más pequeño.",
       "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo."
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a otro proceso de automatización, por favor seleccione otro campo de botón"
     }
   }
 }

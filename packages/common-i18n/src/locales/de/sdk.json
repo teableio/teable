@@ -22,7 +22,13 @@
     "summary": "Zusammnfassung",
     "summaryTip": "Hovern, um Zusammenfassung auszuwählen",
     "actions": "Aktionen",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "runStatus": {
+      "success": "{{name}} erfolgreich",
+      "failed": "{{name}} fehlgeschlagen",
+      "running": "{{name}} läuft"
+    },
+    "resetSuccess": "Erfolgreich zurückgesetzt"
   },
   "preview": {
     "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
@@ -797,6 +803,9 @@
       "requestTimeout": "Der aktuelle Vorgangsbereich ist zu groß, bitte versuchen Sie es mit einem kleineren Bereich erneut.",
       "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
       "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit einem anderen Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld"
     }
   }
 }

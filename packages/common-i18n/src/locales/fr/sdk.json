@@ -21,7 +21,14 @@
     "rowCount": "{{count}} enregistrements",
     "summary": "Résumé",
     "summaryTip": "Survolez pour sélectionner le résumé",
-    "actions": "Actions"
+    "actions": "Actions",
+    "remove": "Supprimer",
+    "runStatus": {
+      "success": "{{name}} réussi",
+      "failed": "{{name}} échoué",
+      "running": "{{name}} en cours"
+    },
+    "resetSuccess": "Réinitialisation réussie"
   },
   "preview": {
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
@@ -766,6 +773,9 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" champ ne permet pas les associations dupliquées avec le même enregistrement",
       "requestTimeout": "L'action actuelle est trop grande, veuillez réessayer avec un étendue plus petite.",
       "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer."
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à un processus d'automatisation, veuillez sélectionner un autre champ de bouton"
     }
   }
 }

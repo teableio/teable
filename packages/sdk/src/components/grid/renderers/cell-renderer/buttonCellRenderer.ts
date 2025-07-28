@@ -77,7 +77,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
   needsHoverPosition: true,
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
     const { data, readonly } = cell;
-    const { fieldOptions, cellValue } = data;
+    const { fieldOptions } = data;
     const { ctx, rect, theme } = props;
     const { x, y, width } = rect;
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
@@ -89,7 +89,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       y: y + cellVerticalPaddingSM,
       width: BUTTON_WIDTH,
       height: BUTTON_HEIGHT,
-      text: fieldOptions.label + (cellValue?.count || 0),
+      text: fieldOptions.label,
       maxTextWidth: BUTTON_WIDTH - 2 * cellHorizontalPadding,
       textColor,
       bgColor,

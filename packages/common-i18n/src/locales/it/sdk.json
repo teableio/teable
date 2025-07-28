@@ -22,7 +22,13 @@
     "summary": "Riepilogo",
     "summaryTip": "Passa il mouse per selezionare il riepilogo",
     "actions": "Azioni",
-    "remove": "Rimuovi"
+    "remove": "Rimuovi",
+    "runStatus": {
+      "success": "{{name}} riuscito",
+      "failed": "{{name}} fallito",
+      "running": "{{name}} in corso"
+    },
+    "resetSuccess": "Rimesso riuscito"
   },
   "preview": {
     "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",
@@ -797,6 +803,9 @@
       "requestTimeout": "L'azione corrente è troppo grande, per favore riprova con un ambito più piccolo.",
       "searchTimeOut": "La ricerca ha scaduto, per favore ridurre l'ambito di ricerca e riprova.",
       "dependencyNodeRequire": "Il nodo dipendente non è stato testato, per favore controlla se tutti i nodi precedenti sono stati testati"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a un processo di automazione, per favore seleziona un altro campo di pulsante"
     }
   }
 }

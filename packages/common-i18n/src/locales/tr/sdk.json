@@ -21,7 +21,14 @@
     "rowCount": "{{count}} kayıt",
     "summary": "Özet",
     "summaryTip": "Özet seçmek için fareyle üzerine gelin",
-    "actions": "İşlemler"
+    "actions": "İşlemler",
+    "remove": "Sil",
+    "runStatus": {
+      "success": "{{name}} başarılı",
+      "failed": "{{name}} başarısız",
+      "running": "{{name}} çalışıyor"
+    },
+    "resetSuccess": "Sıfırlama başarılı"
   },
   "preview": {
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
@@ -770,6 +777,9 @@
       "requestTimeout": "İşlem kapsamı çok büyük, lütfen kapsamı daraltıp tekrar deneyin.",
       "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
       "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "Bu buton alanı zaten bir otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin"
     }
   }
 }

@@ -22,7 +22,13 @@
     "summary": "Summary",
     "summaryTip": "Hover to select summary",
     "actions": "Actions",
-    "remove": "Remove"
+    "remove": "Remove",
+    "runStatus": {
+      "success": "{{name}} Success",
+      "failed": "{{name}} Failed",
+      "running": "{{name}} Running"
+    },
+    "resetSuccess": "Reset successfully"
   },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
@@ -797,6 +803,9 @@
       "requestTimeout": "This action is too large, please try with a smaller scope.",
       "searchTimeOut": "search timeout, please decrease the search scope and try again",
       "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "This button field is already bound to another automation process, please select another button field"
     }
   }
 }

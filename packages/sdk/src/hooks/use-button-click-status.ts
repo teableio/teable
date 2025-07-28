@@ -2,7 +2,7 @@ import { getTableButtonClickChannel } from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
-// import { useTranslation } from '../context/app/i18n';
+import { useTranslation } from '../context/app/i18n';
 import { useConnection } from './use-connection';
 import { useSession } from './use-session';
 
@@ -11,6 +11,7 @@ type IButtonClickStatus = Record<
   string,
   {
     loading: boolean;
+    name: string;
     message?: string;
     errorMessage?: string;
   }
@@ -24,6 +25,7 @@ export const useButtonClickStatus = (tableId: string) => {
   const presence = connection?.getPresence(channel);
   const [statusMap, setStatusMap] = useState<IButtonClickStatus>({});
   const toastMapRef = useRef<Record<string, number | string | undefined>>({});
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!presence || !channel) {
@@ -61,9 +63,9 @@ export const useButtonClickStatus = (tableId: string) => {
     const status = statusMap[sourceId] ?? {};
 
     const toastId = toastMapRef.current[sourceId];
-    const { loading, message, errorMessage } = status;
+    const { loading, name, message, errorMessage } = status;
     if (errorMessage) {
-      toast.error(errorMessage, {
+      toast.error(t('common.runStatus.failed', { name }), {
         id: toastId ?? undefined,
       });
       toastMapRef.current[sourceId] = undefined;
@@ -72,17 +74,17 @@ export const useButtonClickStatus = (tableId: string) => {
     if (!message) return;
 
     if (loading) {
-      const newToastId = toast.loading(message, {
+      const newToastId = toast.loading(t('common.runStatus.running', { name }), {
         id: toastId ?? undefined,
       });
       toastMapRef.current[sourceId] = newToastId;
     } else {
-      toast.success(message, {
+      toast.success(t('common.runStatus.success', { name }), {
         id: toastId ?? undefined,
       });
       toastMapRef.current[sourceId] = undefined;
     }
-  }, [statusMap, user, tableId]);
+  }, [statusMap, user, tableId, t]);
 
   const getCellStatus = (recordId: string, fieldId: string) => {
     return statusMap[`${user?.id}-${tableId}-${recordId}-${fieldId}`] ?? {};
