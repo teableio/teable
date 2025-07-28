@@ -16,7 +16,7 @@ export const useChatPanelStore = create<IChatPanelState>()(
   persist(
     (set) => ({
       isVisible: false,
-      isExpanded: false,
+      isExpanded: true,
       toggleVisible: () => set((state) => ({ isVisible: !state.isVisible, isExpanded: false })),
       toggleExpanded: () => set((state) => ({ isExpanded: !state.isExpanded })),
       setExpanded: (expanded: boolean) => set({ isExpanded: expanded }),
