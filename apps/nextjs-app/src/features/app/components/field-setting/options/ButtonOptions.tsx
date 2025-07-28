@@ -21,7 +21,6 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
   return (
     <div className="flex flex-col gap-2">
       <Label className="font-normal">Workflow</Label>
-      <Input className="h-8 flex-1" placeholder="workflow-id to be hidden" value={workflow?.id} />
       <Button
         className="flex items-center "
         variant="outline"
