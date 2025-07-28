@@ -15,11 +15,12 @@ import { useTranslation } from 'next-i18next';
 import type { Control } from 'react-hook-form';
 import type { IModelOption } from './AiModelSelect';
 import { AIModelSelect } from './AiModelSelect';
+import { CodingModels } from './CodingModels';
 
 interface IAIModelPreferencesCardProps {
   control: Control<IAIIntegrationConfig>;
   models: IModelOption[];
-  onChange?: (value: string) => void;
+  onChange?: () => void;
 }
 
 export const AIModelPreferencesCard = ({
@@ -38,25 +39,25 @@ export const AIModelPreferencesCard = ({
       <CardContent className="space-y-6">
         <FormField
           control={control}
-          name="codingModel"
+          name={'codingModels'}
           render={({ field }) => (
             <FormItem>
-              <div className="flex items-center justify-between">
+              <div className="flex justify-between">
                 <FormLabel className="w-1/3">
-                  {t('admin.setting.ai.codingModel')}
+                  {t(`admin.setting.ai.codingModel`)}
                   <FormDescription className="mt-2">
-                    {t('admin.setting.ai.codingModelDescription')}
+                    {t(`admin.setting.ai.codingModelDescription`)}
                   </FormDescription>
                 </FormLabel>
                 <div className="flex w-2/3 space-x-2">
                   <FormControl className="grow">
-                    <AIModelSelect
-                      value={field.value ?? ''}
-                      onValueChange={(value) => {
+                    <CodingModels
+                      value={field.value}
+                      onChange={(value) => {
                         field.onChange(value);
-                        onChange?.(value);
+                        onChange?.();
                       }}
-                      options={models}
+                      models={models}
                     />
                   </FormControl>
                 </div>
@@ -83,7 +84,7 @@ export const AIModelPreferencesCard = ({
                       value={field.value ?? ''}
                       onValueChange={(value) => {
                         field.onChange(value);
-                        onChange?.(value);
+                        onChange?.();
                       }}
                       options={models}
                     />

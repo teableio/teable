@@ -663,6 +663,14 @@
         "translationModelDescription": "The translation model to use",
         "codingModel": "Coding model",
         "codingModelDescription": "Used for AI formula generation and related features",
+        "codingModels": {
+          "sm": "Small coding model",
+          "smDescription": "Fast and efficient for basic tasks.",
+          "md": "Medium coding model",
+          "mdDescription": "Balanced capability for common needs.",
+          "lg": "Large coding model",
+          "lgDescription": "Comprehensive solutions for complex scenarios."
+        },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",
         "searchModel": "Search model...",
