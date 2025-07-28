@@ -35,3 +35,40 @@ export function createAwaitWithEventWithResult<R = unknown>(
     return (await promise) as R;
   };
 }
+
+const createEventPromiseWithCount = (
+  eventEmitterService: EventEmitterService,
+  event: Events,
+  count: number = 1
+) => {
+  let theResolve: (value: unknown) => void;
+
+  const promise = new Promise((resolve) => {
+    theResolve = resolve;
+  });
+
+  const payloads: unknown[] = [];
+  eventEmitterService.eventEmitter.on(event, (payload) => {
+    payloads.push(payload);
+    if (payloads.length === count) {
+      theResolve(payloads);
+    }
+  });
+
+  return promise;
+};
+export function createAwaitWithEventWithResultWithCount(
+  eventEmitterService: EventEmitterService,
+  event: Events,
+  count: number = 1
+) {
+  return async function fn<T>(fn: () => Promise<T>) {
+    const promise = createEventPromiseWithCount(eventEmitterService, event, count);
+    const result = await fn();
+    const payloads = await promise;
+    return {
+      result,
+      payloads,
+    };
+  };
+}

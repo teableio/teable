@@ -87,7 +87,6 @@ export class EventEmitterService {
     if (!generatedEvents) {
       return;
     }
-
     const observable = from(Array.from(generatedEvents.values()));
 
     observable
@@ -114,7 +113,6 @@ export class EventEmitterService {
 
   private combineEvents(groupedEvents: OpEvent[]): OpEvent {
     if (groupedEvents.length <= 1) return groupedEvents[0];
-
     return groupedEvents.reduce((combinedEvent, event, index) => {
       const mergePropertyName = this.getMergePropertyName(event);
 
@@ -130,7 +128,11 @@ export class EventEmitterService {
 
   private getMergePropertyName(event: OpEvent): string {
     return match(event)
-      .with({ name: Events.TABLE_VIEW_CREATE }, () => 'view')
+      .with(
+        P.union({ name: Events.TABLE_VIEW_CREATE }, { name: Events.TABLE_VIEW_UPDATE }),
+        () => 'view'
+      )
+      .with({ name: Events.TABLE_VIEW_DELETE }, () => 'viewId')
       .with(
         P.union({ name: Events.TABLE_FIELD_CREATE }, { name: Events.TABLE_FIELD_UPDATE }),
         () => 'field'
@@ -190,7 +192,6 @@ export class EventEmitterService {
           opCreateData: rawOp.create?.data,
           ops: rawOp?.op,
         }) as OpEvent;
-
         const event = this.createEvent(docType, opType, {
           ...extendPlainContext,
           ...plainContext,

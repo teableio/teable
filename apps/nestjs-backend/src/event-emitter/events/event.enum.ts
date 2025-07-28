@@ -75,4 +75,7 @@ export enum Events {
   AUDIT_LOG_SAVED = 'audit-log.saved',
 
   IMPORT_TABLE_COMPLETE = 'import.table.complete',
+
+  UNDO = 'undo',
+  REDO = 'redo',
 }

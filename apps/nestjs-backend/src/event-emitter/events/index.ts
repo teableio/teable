@@ -5,3 +5,4 @@ export * from './base/base.event';
 export * from './space/space.event';
 export * from './space/collaborator.event';
 export * from './table';
+export * from './undo-redo';

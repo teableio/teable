@@ -10,7 +10,7 @@ export type IChangeTable = Record<keyof Omit<ITableOp, 'id' | 'version'>, IChang
   id: string;
 };
 
-type ITableCreatePayload = { baseId: string; table: ITableOp };
+type ITableCreatePayload = { baseId: string; table: ITableOp & { id: string } };
 type ITableDeletePayload = { baseId: string; tableId: string };
 type ITableUpdatePayload = {
   baseId: string;
@@ -21,7 +21,7 @@ export class TableCreateEvent extends OpEvent<ITableCreatePayload> {
   public readonly name = Events.TABLE_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
-  constructor(baseId: string, table: ITableOp, context: IEventContext) {
+  constructor(baseId: string, table: ITableOp & { id: string }, context: IEventContext) {
     super({ baseId, table }, context);
   }
 }
