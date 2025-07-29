@@ -1,4 +1,4 @@
-import { CellValueType, SqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
+import { SqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
 import type {
   IFormulaConversionContext,
   IFormulaConversionResult,
@@ -12,12 +12,12 @@ describe('Formula Query End-to-End Tests', () => {
   beforeEach(() => {
     mockContext = {
       fieldMap: {
-        fld1: { columnName: 'column_a', type: CellValueType.Number },
-        fld2: { columnName: 'column_b', type: CellValueType.Number },
-        fld3: { columnName: 'column_c', type: CellValueType.String },
-        fld4: { columnName: 'column_d', type: CellValueType.DateTime },
-        fld5: { columnName: 'column_e', type: CellValueType.Number },
-        fld6: { columnName: 'column_f', type: CellValueType.String },
+        fld1: { columnName: 'column_a' },
+        fld2: { columnName: 'column_b' },
+        fld3: { columnName: 'column_c' },
+        fld4: { columnName: 'column_d' },
+        fld5: { columnName: 'column_e' },
+        fld6: { columnName: 'column_f' },
       },
       timeZone: 'UTC',
     };

@@ -434,6 +434,11 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
     return `${value}::timestamp`;
   }
 
+  // Field Reference - PostgreSQL uses double quotes for identifiers
+  fieldReference(fieldId: string, columnName: string): string {
+    return `"${columnName}"`;
+  }
+
   protected escapeIdentifier(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`;
   }

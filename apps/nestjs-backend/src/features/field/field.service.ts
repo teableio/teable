@@ -17,6 +17,7 @@ import {
   OpName,
   checkFieldUniqueValidationEnabled,
   checkFieldValidationEnabled,
+  DriverClient,
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -31,10 +32,16 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { getDriverName } from '../../utils/db-helpers';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
+import {
+  PostgresDatabaseColumnVisitor,
+  type IDatabaseColumnContext,
+} from './database-column-visitor.postgres';
+import { SqliteDatabaseColumnVisitor } from './database-column-visitor.sqlite';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
@@ -230,25 +237,53 @@ export class FieldService implements IReadonlyAdapterService {
     return await this.dbCreateFields(tableId, fieldInstances);
   }
 
-  private async alterTableAddField(dbTableName: string, fieldInstances: IFieldInstance[]) {
-    for (let i = 0; i < fieldInstances.length; i++) {
-      const {
-        dbFieldType,
-        dbFieldName,
-        type,
-        isLookup,
-        unique,
-        notNull,
-        id: fieldId,
-        name,
-      } = fieldInstances[i];
+  private async alterTableAddField(
+    dbTableName: string,
+    fieldInstances: IFieldInstance[],
+    isNewTable: boolean = false
+  ) {
+    // Get table ID from dbTableName for field map construction
+    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { dbTableName },
+      select: { id: true },
+    });
+
+    if (!tableMeta) {
+      throw new NotFoundException(`Table not found: ${dbTableName}`);
+    }
+
+    // Build field map for formula conversion (only columnName, no type needed)
+    const fieldMap = await this.buildFieldMapForTable(tableMeta.id);
+
+    for (const fieldInstance of fieldInstances) {
+      const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
 
       const alterTableQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
-          const typeKey = dbType2knexFormat(this.knex, dbFieldType);
-          table[typeKey](dbFieldName);
+          // Create database column context
+          const context: IDatabaseColumnContext = {
+            table,
+            fieldId,
+            dbFieldName,
+            unique,
+            notNull,
+            dbProvider: this.dbProvider,
+            fieldMap,
+            isNewTable, // Pass the isNewTable parameter
+          };
+
+          // Create appropriate visitor based on database driver
+          const driverName = getDriverName(this.knex);
+          const visitor =
+            driverName === DriverClient.Pg
+              ? new PostgresDatabaseColumnVisitor(context)
+              : new SqliteDatabaseColumnVisitor(context);
+
+          // Use visitor pattern to create columns
+          fieldInstance.accept(visitor);
         })
         .toQuery();
+
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
 
       if (unique) {
@@ -756,7 +791,7 @@ export class FieldService implements IReadonlyAdapterService {
     await this.dbCreateMultipleFields(tableId, fields);
 
     // 2. alter table with real field in visual table
-    await this.alterTableAddField(dbTableName, fields);
+    await this.alterTableAddField(dbTableName, fields, true); // This is new table creation
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
@@ -897,6 +932,31 @@ export class FieldService implements IReadonlyAdapterService {
     return {
       ids: result.map((field) => field.id),
     };
+  }
+
+  /**
+   * Build field map for formula conversion context
+   * Only includes columnName since type is not used in conversion
+   */
+  private async buildFieldMapForTable(tableId: string): Promise<{
+    [fieldId: string]: { columnName: string };
+  }> {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, dbFieldName: true },
+    });
+
+    const fieldMap: {
+      [fieldId: string]: { columnName: string };
+    } = {};
+
+    for (const field of fields) {
+      fieldMap[field.id] = {
+        columnName: field.dbFieldName,
+      };
+    }
+
+    return fieldMap;
   }
 
   getFieldUniqueKeyName(dbTableName: string, dbFieldName: string, fieldId: string) {

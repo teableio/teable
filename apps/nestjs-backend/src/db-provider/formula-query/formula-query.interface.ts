@@ -150,7 +150,7 @@ export interface IFormulaQueryInterface {
  * Context information for formula conversion
  */
 export interface IFormulaConversionContext {
-  fieldMap: { [fieldId: string]: { columnName: string; type: CellValueType } };
+  fieldMap: { [fieldId: string]: { columnName: string } };
   timeZone?: string;
 }
 

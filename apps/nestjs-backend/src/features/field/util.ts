@@ -15,6 +15,11 @@ export enum SchemaType {
   Boolean = 'boolean',
 }
 
+/**
+ * @deprecated Use visitor pattern for field creation. This function is kept for legacy field modification operations.
+ * Convert DbFieldType to Knex SchemaType for field modification operations.
+ * For new field creation, use the visitor pattern instead.
+ */
 export function dbType2knexFormat(knex: Knex, dbFieldType: DbFieldType) {
   const driverName = getDriverName(knex);
 

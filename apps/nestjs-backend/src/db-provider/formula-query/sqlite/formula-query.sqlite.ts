@@ -434,6 +434,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
     return `CAST(${value} AS TEXT)`;
   }
 
+  // Field Reference - SQLite uses backticks for identifiers
+  fieldReference(fieldId: string, columnName: string): string {
+    return `\`${columnName}\``;
+  }
+
   // Override some base implementations for SQLite-specific syntax
   castToNumber(value: string): string {
     return `CAST(${value} AS REAL)`;
