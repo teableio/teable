@@ -30,6 +30,7 @@ import {
   planFieldConvert,
   undo,
   updateDbTableName,
+  updateRecords,
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
@@ -3719,6 +3720,93 @@ describe('OpenAPI link (e2e)', () => {
 
       const res2 = await getRecord(table1.id, table1.records[0].id);
       expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'A1' });
+    });
+  });
+
+  describe('link field update', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it.only('should work with many-many link field to many-one', async () => {
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      const table2TitleField = table2.fields[0];
+      const table2RecordId1 = table2.records[0].id;
+      const table2RecordId2 = table2.records[1].id;
+
+      await updateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table2RecordId1,
+            fields: {
+              [table2TitleField.id]: 'A1',
+            },
+          },
+          {
+            id: table2RecordId2,
+            fields: {
+              [table2TitleField.id]: 'A2',
+            },
+          },
+        ],
+      });
+
+      const table1RecordId1 = table1.records[0].id;
+      const updateRecordRes = await updateRecord(table1.id, table1RecordId1, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: [{ id: table2RecordId1 }, { id: table2RecordId2 }],
+          },
+        },
+      });
+
+      expect(updateRecordRes.fields[linkField.id]).toEqual([
+        { id: table2RecordId1, title: 'A1' },
+        { id: table2RecordId2, title: 'A2' },
+      ]);
+
+      await convertField(table1.id, linkField.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+
+      const res = await getRecord(table1.id, table1RecordId1);
+      expect(res.fields[linkField.id]).toEqual({ id: table2RecordId1, title: 'A1' });
+
+      const table1RecordId2 = table1.records[1].id;
+      const updateRecordRes2 = await updateRecord(table1.id, table1RecordId2, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: { id: table2RecordId2 },
+          },
+        },
+      });
+
+      expect(updateRecordRes2.fields[linkField.id]).toEqual({
+        id: table2RecordId2,
+        title: 'A2',
+      });
     });
   });
 });
