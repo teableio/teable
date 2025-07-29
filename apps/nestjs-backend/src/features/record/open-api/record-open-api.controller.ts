@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type {
   IAutoFillCellVo,
+  IButtonClickVo,
   ICreateRecordsVo,
   IRecord,
   IRecordStatusVo,
@@ -216,5 +217,22 @@ export class RecordOpenApiController {
     @Param('fieldId') _fieldId: string
   ): Promise<IAutoFillCellVo> {
     return { taskId: '' };
+  }
+
+  @Permissions('record|update')
+  @Post(':recordId/:fieldId/button-click')
+  async buttonClick(
+    @Param('tableId') _tableId: string,
+    @Param('recordId') _recordId: string,
+    @Param('fieldId') _fieldId: string
+  ): Promise<IButtonClickVo> {
+    return {
+      tableId: '',
+      fieldId: '',
+      record: {
+        id: '',
+        fields: {},
+      },
+    };
   }
 }

@@ -1,20 +1,20 @@
-import type { IButtonClickTriggerFireRo } from '@teable/openapi';
+import type { IButtonClickVo } from '@teable/openapi';
 import { match } from 'ts-pattern';
 import { CoreEvent, type IEventContext } from '../core-event';
 import { Events } from '../event.enum';
 
-type IButtonClickPayload = IButtonClickTriggerFireRo;
+type IButtonClickEventPayload = IButtonClickVo;
 
-export class ButtonClickEvent extends CoreEvent<IButtonClickPayload> {
+export class ButtonClickEvent extends CoreEvent<IButtonClickEventPayload> {
   public readonly name = Events.TABLE_BUTTON_CLICK;
 
-  constructor(payload: IButtonClickPayload, context: IEventContext) {
+  constructor(payload: IButtonClickEventPayload, context: IEventContext) {
     super(payload, context);
   }
 }
 
 export class ButtonEventFactory {
-  static create(name: string, payload: IButtonClickPayload, context: IEventContext) {
+  static create(name: string, payload: IButtonClickEventPayload, context: IEventContext) {
     return match(name)
       .with(Events.TABLE_BUTTON_CLICK, () => {
         return new ButtonClickEvent(payload, context);

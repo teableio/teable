@@ -161,7 +161,6 @@ export interface IButtonCell extends IEditableCell {
   data: {
     cellValue: IButtonFieldCellValue;
     fieldOptions: IButtonFieldOptions;
-    baseId: string;
     tableId: string;
   };
 }

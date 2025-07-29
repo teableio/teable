@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IButtonFieldCellValue } from '@teable/core';
 import { Colors, ColorUtils } from '@teable/core';
-import { workflowTriggerFire } from '@teable/openapi';
+import { buttonClick } from '@teable/openapi';
 import { Button, cn } from '@teable/ui-lib';
 import { type FC, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
-import { useBaseId } from '../../../hooks';
 import type { ButtonField } from '../../../model/field/button.field';
 import type { ICellEditor } from '../type';
 
@@ -18,7 +17,6 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
   const { className, field, recordId, readonly } = props;
   const { options: fieldOptions } = field;
   const { tableId } = field;
-  const baseId = useBaseId() as string;
 
   const button = useMemo(() => {
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
@@ -40,11 +38,7 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
             return;
           }
 
-          workflowTriggerFire(baseId, 'buttonClick', {
-            tableId,
-            recordId,
-            fieldId: field.id,
-          });
+          buttonClick(tableId, recordId, field.id);
         }}
         className={cn('flex w-24 h-6', className)}
         style={{

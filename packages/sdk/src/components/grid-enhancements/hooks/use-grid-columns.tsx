@@ -27,14 +27,7 @@ import {
   onMixedTextClick,
 } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
-import {
-  useBaseId,
-  useFields,
-  useTableId,
-  useTablePermission,
-  useView,
-  useViewId,
-} from '../../../hooks';
+import { useFields, useTablePermission, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
@@ -190,8 +183,6 @@ export const useCreateCellValue2GridDisplay = (
 ) => {
   const { t } = useTranslation();
   const i18nMap = useAttachmentPreviewI18Map();
-  const baseId = useBaseId() as string;
-  const tableId = useTableId() as string;
 
   return useCallback(
     (fields: IFieldInstance[]) =>
@@ -203,7 +194,6 @@ export const useCreateCellValue2GridDisplay = (
         // eslint-disable-next-line sonarjs/cognitive-complexity
       ): ICell => {
         const field = fields[col];
-
         if (field == null) return { type: CellType.Loading };
 
         const {
@@ -524,10 +514,9 @@ export const useCreateCellValue2GridDisplay = (
                 ),
               type: CellType.Button,
               data: {
+                tableId: field.tableId,
                 cellValue: cellValue as IButtonFieldCellValue,
                 fieldOptions: field.options,
-                baseId,
-                tableId,
               },
             };
           }
@@ -536,7 +525,7 @@ export const useCreateCellValue2GridDisplay = (
           }
         }
       },
-    [i18nMap, recordEditable, rowHeight, t, baseId, tableId]
+    [i18nMap, recordEditable, rowHeight, t]
   );
 };
 

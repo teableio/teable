@@ -1,5 +1,5 @@
 import { Colors, ColorUtils } from '@teable/core';
-import { workflowTriggerFire } from '@teable/openapi';
+import { buttonClick } from '@teable/openapi';
 import colors from 'tailwindcss/colors';
 
 import type { IGridTheme } from '../../configs';
@@ -21,17 +21,13 @@ const BUTTON_RADIUS = 4;
 const BUTTON_WIDTH = 80;
 const BUTTON_HEIGHT = 20;
 
-const clickHandler = async (cell: IButtonCell) => {
+const clickHandler = (cell: IButtonCell) => {
   const { id = '', data } = cell;
 
-  const { baseId, tableId } = data;
+  const { tableId } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
 
-  await workflowTriggerFire(baseId, 'buttonClick', {
-    tableId,
-    fieldId,
-    recordId,
-  });
+  buttonClick(tableId, recordId, fieldId);
 };
 
 const drawButton = (
