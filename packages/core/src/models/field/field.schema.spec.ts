@@ -9,6 +9,7 @@ import { SingleNumberDisplayType } from './show-as';
 describe('field Schema Test', () => {
   it('should return true when options validate', () => {
     const options = {
+      dbGenerated: false,
       expression: '1 + 1',
       formatting: {
         type: NumberFormattingType.Decimal,
