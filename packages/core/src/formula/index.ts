@@ -3,6 +3,7 @@ export * from './typed-value';
 export * from './visitor';
 export * from './field-reference.visitor';
 export * from './conversion.visitor';
+export * from './expansion.visitor';
 export * from './sql-conversion.visitor';
 export * from './parse-formula';
 export { FunctionName, FormulaFuncType } from './functions/common';

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { FieldType, FormulaFieldCore } from '@teable/core';
-import type { IFormulaFieldOptions } from '@teable/core';
+import { FieldType, FormulaFieldCore, FormulaExpansionVisitor } from '@teable/core';
+import type { IFormulaFieldOptions, IFieldExpansionMap } from '@teable/core';
 
 export interface IFieldForExpansion {
   id: string;
@@ -26,6 +26,9 @@ export class FormulaExpansionService {
    * This method recursively expands formula references to avoid PostgreSQL generated column limitations.
    * When a formula field references another formula field with dbGenerated=true, instead of referencing
    * the generated column name, we expand and substitute the original expression directly.
+   *
+   * Uses FormulaExpansionVisitor to traverse the parsed AST and replace field references, ensuring
+   * consistency with the grammar definition and avoiding regex pattern duplication.
    *
    * @example
    * ```typescript
@@ -53,16 +56,14 @@ export class FormulaExpansionService {
       // Get all field references in this expression
       const referencedFieldIds = FormulaFieldCore.getReferenceFieldIds(expression);
 
-      let result = expression;
+      // Build expansion map for the visitor
+      const expansionMap: IFieldExpansionMap = {};
 
-      // Replace each field reference
       for (const fieldId of referencedFieldIds) {
         const field = context.fieldMap[fieldId];
         if (!field) {
           throw new Error(`Referenced field not found: ${fieldId}`);
         }
-
-        let replacement: string;
 
         if (field.type === FieldType.Formula) {
           // Check for circular references
@@ -73,20 +74,19 @@ export class FormulaExpansionService {
           // Get the expanded expression for this formula field
           const expandedExpression = this.getExpandedExpressionForField(fieldId, context);
 
-          // Wrap in parentheses to maintain precedence
-          replacement = `(${expandedExpression})`;
+          // Wrap in parentheses to maintain precedence and add to expansion map
+          expansionMap[fieldId] = `(${expandedExpression})`;
         } else {
           // For non-formula fields, keep as field reference (will be converted to SQL later)
-          replacement = `{${fieldId}}`;
+          expansionMap[fieldId] = `{${fieldId}}`;
         }
-
-        // TODO: create a new visitor to handle field reference
-        // Replace all occurrences of this field reference
-        const fieldRefPattern = new RegExp(`\\{${fieldId}\\}`, 'g');
-        result = result.replace(fieldRefPattern, replacement);
       }
 
-      return result;
+      // Use the visitor to perform the expansion
+      const tree = FormulaFieldCore.parse(expression);
+      const visitor = new FormulaExpansionVisitor(expansionMap);
+      visitor.visit(tree);
+      return visitor.getResult();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to expand formula expression "${expression}": ${message}`);
