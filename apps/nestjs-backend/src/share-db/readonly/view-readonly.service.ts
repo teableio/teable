@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -47,11 +47,12 @@ export class ViewReadonlyServiceAdapter
       .then((res) => res.data);
   }
 
-  getVersion(tableId: string, viewId: string) {
+  getVersionAndType(tableId: string, viewId: string) {
     return this.prismaService.view
       .findUnique({
         where: {
           id: viewId,
+          tableId,
         },
         select: {
           version: true,
@@ -59,13 +60,7 @@ export class ViewReadonlyServiceAdapter
         },
       })
       .then((res) => {
-        if (!res) {
-          throw new NotFoundException(`View(id: ${viewId}) not found in table(id: ${tableId})`);
-        }
-        if (res.deletedTime) {
-          return 0;
-        }
-        return res.version;
+        return this.formatVersionAndType(res);
       });
   }
 }

@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IGetFieldsQuery } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import type { IShareDbReadonlyAdapterService } from '../interface';
+import { type IShareDbReadonlyAdapterService } from '../interface';
 import { ReadonlyService } from './readonly.service';
 
 @Injectable()
@@ -49,11 +49,12 @@ export class FieldReadonlyServiceAdapter
       .then((res) => res.data);
   }
 
-  getVersion(tableId: string, fieldId: string) {
+  getVersionAndType(tableId: string, fieldId: string) {
     return this.prismaService.field
       .findUnique({
         where: {
           id: fieldId,
+          tableId,
         },
         select: {
           version: true,
@@ -61,13 +62,7 @@ export class FieldReadonlyServiceAdapter
         },
       })
       .then((res) => {
-        if (!res) {
-          throw new NotFoundException(`Field(id: ${fieldId}) not found in table(id: ${tableId})`);
-        }
-        if (res.deletedTime) {
-          return 0;
-        }
-        return res.version;
+        return this.formatVersionAndType(res);
       });
   }
 }

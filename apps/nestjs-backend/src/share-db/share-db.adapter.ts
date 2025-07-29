@@ -17,7 +17,13 @@ import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
-import type { ICreateOp, IDeleteOp, IEditOp, IShareDbReadonlyAdapterService } from './interface';
+import {
+  RawOpType,
+  type ICreateOp,
+  type IDeleteOp,
+  type IEditOp,
+  type IShareDbReadonlyAdapterService,
+} from './interface';
 import { FieldReadonlyServiceAdapter } from './readonly/field-readonly.service';
 import { RecordReadonlyServiceAdapter } from './readonly/record-readonly.service';
 import { TableReadonlyServiceAdapter } from './readonly/table-readonly.service';
@@ -278,17 +284,24 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
+    let callbackCalled = false;
+    const safeCallback = (error: unknown, data?: unknown) => {
+      if (callbackCalled) {
+        this.logger.warn(
+          `Attempted to call callback multiple times for collection: ${collection}, id: ${id}`
+        );
+        return;
+      }
+      callbackCalled = true;
+      callback(error, data);
+    };
+
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [docType, collectionId] = collection.split('_');
-      const version = await this.getReadonlyService(docType as IdPrefix).getVersion(
-        collectionId,
-        id
-      );
-      if (version < from) {
-        callback(null);
-        return;
-      }
+      const { version, type } = await this.getReadonlyService(
+        docType as IdPrefix
+      ).getVersionAndType(collectionId, id);
 
       const baseRaw = {
         src: this.cls.getId() || 'unknown',
@@ -296,13 +309,14 @@ export class ShareDbAdapter extends ShareDb.DB {
         m: {
           ts: Date.now(),
         },
-        v: version - 1,
+        v: version,
       };
 
-      if (version === 0) {
-        callback(null, [
+      if (type === RawOpType.Del) {
+        safeCallback(null, [
           {
             ...baseRaw,
+            v: version < 0 ? from : version,
             del: true,
           } as IDeleteOp,
         ]);
@@ -321,8 +335,9 @@ export class ShareDbAdapter extends ShareDb.DB {
       }
 
       const { data } = snapshotData[0];
-      if (version === 1) {
-        callback(null, [
+
+      if (type === RawOpType.Create) {
+        safeCallback(null, [
           {
             ...baseRaw,
             create: {
@@ -333,6 +348,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         ]);
         return;
       }
+
       const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
       const editOps = new Array(Math.min((to || baseRaw.v + 1) - from, 1)).fill(0).map((_, i) => {
         return {
@@ -341,10 +357,10 @@ export class ShareDbAdapter extends ShareDb.DB {
           op: editOp,
         } as IEditOp;
       });
-      callback(null, editOps);
+      safeCallback(null, editOps);
     } catch (err) {
       this.logger.error(err);
-      callback(exceptionParse(err as Error));
+      safeCallback(exceptionParse(err as Error));
     }
   }
 

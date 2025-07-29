@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -39,7 +39,7 @@ export class TableReadonlyServiceAdapter
       .then((res) => res.data);
   }
 
-  getVersion(baseId: string, tableId: string) {
+  getVersionAndType(baseId: string, tableId: string) {
     return this.prismaService.tableMeta
       .findUnique({
         where: {
@@ -52,13 +52,7 @@ export class TableReadonlyServiceAdapter
         },
       })
       .then((res) => {
-        if (!res) {
-          throw new NotFoundException(`Table(id: ${tableId}) not found in base(id: ${baseId})`);
-        }
-        if (res.deletedTime) {
-          return 0;
-        }
-        return res.version;
+        return this.formatVersionAndType(res);
       });
   }
 }

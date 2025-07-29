@@ -66,7 +66,7 @@ export class RecordReadonlyServiceAdapter
       .then((res) => res.data);
   }
 
-  async getVersion(tableId: string, recordId: string) {
+  async getVersionAndType(tableId: string, recordId: string) {
     const table = await this.prismaService.tableMeta.findUnique({
       where: {
         id: tableId,
@@ -85,10 +85,7 @@ export class RecordReadonlyServiceAdapter
         { version: number; deletedTime: Date | null }[]
       >(this.knex(table.dbTableName).select('__version as version').where('__id', recordId).toQuery())
       .then((res) => {
-        if (res.length === 0) {
-          return 0;
-        }
-        return res[0].version;
+        return this.formatVersionAndType(res[0]);
       });
   }
 }
