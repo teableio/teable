@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { EvalVisitor } from '../../../formula/visitor';
 import type { CellValueType, FieldType } from '../constant';
 import type { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import type { ILookupOptionsVo } from '../field.schema';
 import {
   getDefaultFormatting,
@@ -87,5 +88,9 @@ export class RollupFieldCore extends FormulaAbstractCore {
         showAs: getShowAsSchema(this.cellValueType, this.isMultipleCellValue),
       })
       .safeParse(this.options);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitRollupField(this);
   }
 }

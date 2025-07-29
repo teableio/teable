@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import {
   defaultNumberFormatting,
   formatNumberToString,
@@ -95,5 +96,9 @@ export class NumberFieldCore extends FieldCore {
       return z.array(numberCellValueSchema).nonempty().nullable().safeParse(value);
     }
     return numberCellValueSchema.nullable().safeParse(value);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitNumberField(this);
   }
 }

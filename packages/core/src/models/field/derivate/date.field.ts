@@ -5,6 +5,7 @@ import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import {
   TimeFormatting,
   datetimeFormattingSchema,
@@ -127,5 +128,9 @@ export class DateFieldCore extends FieldCore {
       return z.array(z.string()).nonempty().nullable().safeParse(cellValue);
     }
     return z.string().nullable().safeParse(cellValue);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitDateField(this);
   }
 }

@@ -1,6 +1,7 @@
 export * from './derivate';
 export * from './constant';
 export * from './field';
+export * from './field-visitor.interface';
 export * from './colors';
 export * from './color-utils';
 export * from './formatting';

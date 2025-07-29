@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 export const autoNumberFieldOptionsSchema = z.object({
@@ -56,5 +57,9 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
       return z.array(autoNumberCellValueSchema).nonempty().nullable().safeParse(value);
     }
     return autoNumberCellValueSchema.nullable().safeParse(value);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitAutoNumberField(this);
   }
 }

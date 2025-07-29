@@ -251,6 +251,7 @@ export class ReferenceService {
     return keyBy(users, 'id');
   }
 
+  @Timing()
   private async calculateInTableRecords(props: {
     field: IFieldInstance;
     fieldMap: IFieldMap;

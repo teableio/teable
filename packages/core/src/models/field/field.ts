@@ -1,5 +1,6 @@
 import type { SafeParseReturnType } from 'zod';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
+import type { IFieldVisitor } from './field-visitor.interface';
 import type { IFieldVo, ILookupOptionsVo } from './field.schema';
 
 export abstract class FieldCore implements IFieldVo {
@@ -79,4 +80,13 @@ export abstract class FieldCore implements IFieldVo {
   abstract validateOptions(): SafeParseReturnType<unknown, unknown> | undefined;
 
   abstract validateCellValue(value: unknown): SafeParseReturnType<unknown, unknown> | undefined;
+
+  /**
+   * Accept method for the Visitor pattern.
+   * Each concrete field type should implement this method to call the appropriate visitor method.
+   *
+   * @param visitor The visitor instance
+   * @returns The result of the visitor method call
+   */
+  abstract accept<T>(visitor: IFieldVisitor<T>): T;
 }
