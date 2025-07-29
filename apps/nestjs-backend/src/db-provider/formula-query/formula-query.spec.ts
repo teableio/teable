@@ -128,8 +128,18 @@ describe('FormulaQuery', () => {
       const pgQuery = new FormulaQueryPostgres();
       const sqliteQuery = new FormulaQuerySqlite();
 
-      expect(pgQuery.fieldReference('fld1', 'column_a')).toBe('column_a');
-      expect(sqliteQuery.fieldReference('fld1', 'column_a')).toBe('column_a');
+      expect(pgQuery.fieldReference('fld1', 'column_a')).toMatchInlineSnapshot(`""column_a""`);
+      expect(sqliteQuery.fieldReference('fld1', 'column_a')).toMatchInlineSnapshot(
+        `"\`column_a\`"`
+      );
+    });
+
+    it('should handle variables', () => {
+      const pgQuery = new FormulaQueryPostgres();
+      const sqliteQuery = new FormulaQuerySqlite();
+
+      expect(pgQuery.sum(['{var1}', '1'])).toMatchInlineSnapshot(`"SUM({var1}, 1)"`);
+      expect(sqliteQuery.sum(['{var1}', '1'])).toMatchInlineSnapshot(`"SUM({var1}, 1)"`);
     });
 
     it('should handle parentheses', () => {
