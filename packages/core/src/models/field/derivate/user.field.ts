@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FieldType } from '../constant';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import type { IUserCellValue } from './abstract/user.field.abstract';
 import { UserAbstractCore } from './abstract/user.field.abstract';
 
@@ -87,5 +88,9 @@ export class UserFieldCore extends UserAbstractCore {
 
   validateOptions() {
     return userFieldOptionsSchema.safeParse(this.options);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitUserField(this);
   }
 }

@@ -4,6 +4,7 @@ import { filterSchema } from '../../view/filter';
 import type { FieldType, CellValueType } from '../constant';
 import { Relationship } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 
 export const linkFieldOptionsSchema = z
   .object({
@@ -131,5 +132,9 @@ export class LinkFieldCore extends FieldCore {
       return '';
     }
     return (value as { title?: string }).title || '';
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitLinkField(this);
   }
 }

@@ -2,6 +2,7 @@ import { extend } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import { datetimeFormattingSchema, defaultDatetimeFormatting } from '../formatting';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
@@ -35,5 +36,9 @@ export class CreatedTimeFieldCore extends FormulaAbstractCore {
 
   validateOptions() {
     return createdTimeFieldOptionsRoSchema.safeParse(this.options);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitCreatedTimeField(this);
   }
 }

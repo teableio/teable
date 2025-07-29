@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Colors } from '../colors';
 import type { CellValueType, FieldType } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import { parseStringToNumber } from '../formatting';
 
 export enum RatingIcon {
@@ -105,5 +106,9 @@ export class RatingFieldCore extends FieldCore {
         .safeParse(value);
     }
     return z.number().int().max(this.options.max).min(1).nullable().safeParse(value);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitRatingField(this);
   }
 }

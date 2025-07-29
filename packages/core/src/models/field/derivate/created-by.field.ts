@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FieldType } from '../constant';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import { UserAbstractCore } from './abstract/user.field.abstract';
 
 export const createdByFieldOptionsSchema = z.object({}).strict();
@@ -20,5 +21,9 @@ export class CreatedByFieldCore extends UserAbstractCore {
 
   validateOptions() {
     return createdByFieldOptionsSchema.safeParse(this.options);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitCreatedByField(this);
   }
 }

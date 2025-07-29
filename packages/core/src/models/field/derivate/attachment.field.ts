@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { IdPrefix } from '../../../utils';
 import { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 
 export const attachmentFieldOptionsSchema = z.object({}).strict();
 
@@ -84,5 +85,9 @@ export class AttachmentFieldCore extends FieldCore {
     }
     const { name, token } = value as IAttachmentItem;
     return AttachmentFieldCore.itemString(name, token);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitAttachmentField(this);
   }
 }

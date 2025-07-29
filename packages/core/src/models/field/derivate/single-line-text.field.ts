@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 import { singleLineTextShowAsSchema } from '../show-as';
 
 export const singlelineTextFieldOptionsSchema = z.object({
@@ -76,5 +77,9 @@ export class SingleLineTextFieldCore extends FieldCore {
       .transform((val) => (val === '' ? null : val))
       .nullable()
       .safeParse(value);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitSingleLineTextField(this);
   }
 }

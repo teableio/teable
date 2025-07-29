@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CellValueType, FieldType } from '../constant';
 import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
 
 export const longTextFieldOptionsSchema = z
   .object({
@@ -76,5 +77,9 @@ export class LongTextFieldCore extends FieldCore {
       .transform((val) => (val === '' ? null : val))
       .nullable()
       .safeParse(value);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitLongTextField(this);
   }
 }
