@@ -223,15 +223,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-<<<<<<< HEAD
     const { cookie, shareId } = this.getCookieAndShareId(options);
-=======
-    const cookie = options.cookie || options?.agentCustom?.cookie;
-    const shareId = options.shareId || options?.agentCustom?.shareId;
-    if (!cookie) {
-      this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
-    }
->>>>>>> 4b9da464c (feat: add undo redo event)
     await this.cls.runWith(
       {
         ...this.cls.get(),
@@ -253,12 +245,7 @@ export class ShareDbAdapter extends ShareDb.DB {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async getSnapshotData(docType: IdPrefix, collectionId: string, id: string, options: any) {
-<<<<<<< HEAD
     const { cookie, shareId } = this.getCookieAndShareId(options);
-=======
-    const cookie = options.cookie || options?.agentCustom?.cookie;
-    const shareId = options.shareId || options?.agentCustom?.shareId;
->>>>>>> 4b9da464c (feat: add undo redo event)
     return await this.cls.runWith(
       {
         ...this.cls.get(),
