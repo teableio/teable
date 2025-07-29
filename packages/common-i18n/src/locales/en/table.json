@@ -693,6 +693,7 @@
       "updateBase": "Update database info",
       "planTask": "Plan task",
       "generateTables": "Generate tables",
+      "generatePrimaryFields": "Generate primary fields",
       "generateFields": "Generate fields",
       "generateViews": "Generate views",
       "generateRecords": "Generate records",
