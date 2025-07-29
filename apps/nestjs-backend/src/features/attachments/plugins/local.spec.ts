@@ -171,7 +171,11 @@ describe('LocalStorage', () => {
       vi.spyOn(fs, 'createWriteStream').mockReturnValue({
         write: vi.fn(),
         end: vi.fn(),
-        on: vi.fn(),
+        on: vi.fn().mockImplementation((event, callback) => {
+          if (event === 'finish') {
+            callback();
+          }
+        }),
       } as any);
       mockRequest.on.mockImplementation((event, callback) => {
         if (event === 'data') {
