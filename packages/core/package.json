@@ -53,6 +53,7 @@
     "nanoid": "3.3.7",
     "papaparse": "5.4.1",
     "reflect-metadata": "0.2.1",
+    "ts-pattern": "5.0.8",
     "zod": "3.25.76",
     "zod-validation-error": "3.0.3"
   },

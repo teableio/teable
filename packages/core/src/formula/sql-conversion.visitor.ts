@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
+import { match } from 'ts-pattern';
 import { FunctionName } from './functions/common';
 import type {
   BinaryOpContext,
@@ -255,39 +256,24 @@ export class SqlConversionVisitor
     const right = ctx.expr(1).accept(this);
     const operator = ctx._op;
 
-    switch (operator.text) {
-      case '+':
-        return this.formulaQuery.add(left, right);
-      case '-':
-        return this.formulaQuery.subtract(left, right);
-      case '*':
-        return this.formulaQuery.multiply(left, right);
-      case '/':
-        return this.formulaQuery.divide(left, right);
-      case '%':
-        return this.formulaQuery.modulo(left, right);
-      case '>':
-        return this.formulaQuery.greaterThan(left, right);
-      case '<':
-        return this.formulaQuery.lessThan(left, right);
-      case '>=':
-        return this.formulaQuery.greaterThanOrEqual(left, right);
-      case '<=':
-        return this.formulaQuery.lessThanOrEqual(left, right);
-      case '=':
-        return this.formulaQuery.equal(left, right);
-      case '!=':
-      case '<>':
-        return this.formulaQuery.notEqual(left, right);
-      case '&&':
-        return this.formulaQuery.logicalAnd(left, right);
-      case '||':
-        return this.formulaQuery.logicalOr(left, right);
-      case '&':
-        return this.formulaQuery.bitwiseAnd(left, right);
-      default:
-        throw new Error(`Unsupported binary operator: ${operator.text}`);
-    }
+    return match(operator.text)
+      .with('+', () => this.formulaQuery.add(left, right))
+      .with('-', () => this.formulaQuery.subtract(left, right))
+      .with('*', () => this.formulaQuery.multiply(left, right))
+      .with('/', () => this.formulaQuery.divide(left, right))
+      .with('%', () => this.formulaQuery.modulo(left, right))
+      .with('>', () => this.formulaQuery.greaterThan(left, right))
+      .with('<', () => this.formulaQuery.lessThan(left, right))
+      .with('>=', () => this.formulaQuery.greaterThanOrEqual(left, right))
+      .with('<=', () => this.formulaQuery.lessThanOrEqual(left, right))
+      .with('=', () => this.formulaQuery.equal(left, right))
+      .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
+      .with('&&', () => this.formulaQuery.logicalAnd(left, right))
+      .with('||', () => this.formulaQuery.logicalOr(left, right))
+      .with('&', () => this.formulaQuery.bitwiseAnd(left, right))
+      .otherwise((op) => {
+        throw new Error(`Unsupported binary operator: ${op}`);
+      });
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
@@ -306,215 +292,147 @@ export class SqlConversionVisitor
     const fnName = ctx.func_name().text.toUpperCase() as FunctionName;
     const params = ctx.expr().map((exprCtx) => exprCtx.accept(this));
 
-    // eslint-disable-next-line sonarjs/max-switch-cases
-    switch (fnName) {
-      // Numeric Functions
-      case FunctionName.Sum:
-        return this.formulaQuery.sum(params);
-      case FunctionName.Average:
-        return this.formulaQuery.average(params);
-      case FunctionName.Max:
-        return this.formulaQuery.max(params);
-      case FunctionName.Min:
-        return this.formulaQuery.min(params);
-      case FunctionName.Round:
-        return this.formulaQuery.round(params[0], params[1]);
-      case FunctionName.RoundUp:
-        return this.formulaQuery.roundUp(params[0], params[1]);
-      case FunctionName.RoundDown:
-        return this.formulaQuery.roundDown(params[0], params[1]);
-      case FunctionName.Ceiling:
-        return this.formulaQuery.ceiling(params[0]);
-      case FunctionName.Floor:
-        return this.formulaQuery.floor(params[0]);
-      case FunctionName.Even:
-        return this.formulaQuery.even(params[0]);
-      case FunctionName.Odd:
-        return this.formulaQuery.odd(params[0]);
-      case FunctionName.Int:
-        return this.formulaQuery.int(params[0]);
-      case FunctionName.Abs:
-        return this.formulaQuery.abs(params[0]);
-      case FunctionName.Sqrt:
-        return this.formulaQuery.sqrt(params[0]);
-      case FunctionName.Power:
-        return this.formulaQuery.power(params[0], params[1]);
-      case FunctionName.Exp:
-        return this.formulaQuery.exp(params[0]);
-      case FunctionName.Log:
-        return this.formulaQuery.log(params[0], params[1]);
-      case FunctionName.Mod:
-        return this.formulaQuery.mod(params[0], params[1]);
-      case FunctionName.Value:
-        return this.formulaQuery.value(params[0]);
+    return (
+      match(fnName)
+        // Numeric Functions
+        .with(FunctionName.Sum, () => this.formulaQuery.sum(params))
+        .with(FunctionName.Average, () => this.formulaQuery.average(params))
+        .with(FunctionName.Max, () => this.formulaQuery.max(params))
+        .with(FunctionName.Min, () => this.formulaQuery.min(params))
+        .with(FunctionName.Round, () => this.formulaQuery.round(params[0], params[1]))
+        .with(FunctionName.RoundUp, () => this.formulaQuery.roundUp(params[0], params[1]))
+        .with(FunctionName.RoundDown, () => this.formulaQuery.roundDown(params[0], params[1]))
+        .with(FunctionName.Ceiling, () => this.formulaQuery.ceiling(params[0]))
+        .with(FunctionName.Floor, () => this.formulaQuery.floor(params[0]))
+        .with(FunctionName.Even, () => this.formulaQuery.even(params[0]))
+        .with(FunctionName.Odd, () => this.formulaQuery.odd(params[0]))
+        .with(FunctionName.Int, () => this.formulaQuery.int(params[0]))
+        .with(FunctionName.Abs, () => this.formulaQuery.abs(params[0]))
+        .with(FunctionName.Sqrt, () => this.formulaQuery.sqrt(params[0]))
+        .with(FunctionName.Power, () => this.formulaQuery.power(params[0], params[1]))
+        .with(FunctionName.Exp, () => this.formulaQuery.exp(params[0]))
+        .with(FunctionName.Log, () => this.formulaQuery.log(params[0], params[1]))
+        .with(FunctionName.Mod, () => this.formulaQuery.mod(params[0], params[1]))
+        .with(FunctionName.Value, () => this.formulaQuery.value(params[0]))
 
-      // Text Functions
-      case FunctionName.Concatenate:
-        return this.formulaQuery.concatenate(params);
-      case FunctionName.Find:
-        return this.formulaQuery.find(params[0], params[1], params[2]);
-      case FunctionName.Search:
-        return this.formulaQuery.search(params[0], params[1], params[2]);
-      case FunctionName.Mid:
-        return this.formulaQuery.mid(params[0], params[1], params[2]);
-      case FunctionName.Left:
-        return this.formulaQuery.left(params[0], params[1]);
-      case FunctionName.Right:
-        return this.formulaQuery.right(params[0], params[1]);
-      case FunctionName.Replace:
-        return this.formulaQuery.replace(params[0], params[1], params[2], params[3]);
-      case FunctionName.RegExpReplace:
-        return this.formulaQuery.regexpReplace(params[0], params[1], params[2]);
-      case FunctionName.Substitute:
-        return this.formulaQuery.substitute(params[0], params[1], params[2], params[3]);
-      case FunctionName.Lower:
-        return this.formulaQuery.lower(params[0]);
-      case FunctionName.Upper:
-        return this.formulaQuery.upper(params[0]);
-      case FunctionName.Rept:
-        return this.formulaQuery.rept(params[0], params[1]);
-      case FunctionName.Trim:
-        return this.formulaQuery.trim(params[0]);
-      case FunctionName.Len:
-        return this.formulaQuery.len(params[0]);
-      case FunctionName.T:
-        return this.formulaQuery.t(params[0]);
-      case FunctionName.EncodeUrlComponent:
-        return this.formulaQuery.encodeUrlComponent(params[0]);
+        // Text Functions
+        .with(FunctionName.Concatenate, () => this.formulaQuery.concatenate(params))
+        .with(FunctionName.Find, () => this.formulaQuery.find(params[0], params[1], params[2]))
+        .with(FunctionName.Search, () => this.formulaQuery.search(params[0], params[1], params[2]))
+        .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
+        .with(FunctionName.Left, () => this.formulaQuery.left(params[0], params[1]))
+        .with(FunctionName.Right, () => this.formulaQuery.right(params[0], params[1]))
+        .with(FunctionName.Replace, () =>
+          this.formulaQuery.replace(params[0], params[1], params[2], params[3])
+        )
+        .with(FunctionName.RegExpReplace, () =>
+          this.formulaQuery.regexpReplace(params[0], params[1], params[2])
+        )
+        .with(FunctionName.Substitute, () =>
+          this.formulaQuery.substitute(params[0], params[1], params[2], params[3])
+        )
+        .with(FunctionName.Lower, () => this.formulaQuery.lower(params[0]))
+        .with(FunctionName.Upper, () => this.formulaQuery.upper(params[0]))
+        .with(FunctionName.Rept, () => this.formulaQuery.rept(params[0], params[1]))
+        .with(FunctionName.Trim, () => this.formulaQuery.trim(params[0]))
+        .with(FunctionName.Len, () => this.formulaQuery.len(params[0]))
+        .with(FunctionName.T, () => this.formulaQuery.t(params[0]))
+        .with(FunctionName.EncodeUrlComponent, () =>
+          this.formulaQuery.encodeUrlComponent(params[0])
+        )
 
-      // DateTime Functions
-      case FunctionName.Now:
-        return this.formulaQuery.now();
-      case FunctionName.Today:
-        return this.formulaQuery.today();
-      case FunctionName.DateAdd:
-        return this.formulaQuery.dateAdd(params[0], params[1], params[2]);
-      case FunctionName.Datestr:
-        return this.formulaQuery.datestr(params[0]);
-      case FunctionName.DatetimeDiff:
-        return this.formulaQuery.datetimeDiff(params[0], params[1], params[2]);
-      case FunctionName.DatetimeFormat:
-        return this.formulaQuery.datetimeFormat(params[0], params[1]);
-      case FunctionName.DatetimeParse:
-        return this.formulaQuery.datetimeParse(params[0], params[1]);
-      case FunctionName.Day:
-        return this.formulaQuery.day(params[0]);
-      case FunctionName.FromNow:
-        return this.formulaQuery.fromNow(params[0]);
-      case FunctionName.Hour:
-        return this.formulaQuery.hour(params[0]);
-      case FunctionName.IsAfter:
-        return this.formulaQuery.isAfter(params[0], params[1]);
-      case FunctionName.IsBefore:
-        return this.formulaQuery.isBefore(params[0], params[1]);
-      case FunctionName.IsSame:
-        return this.formulaQuery.isSame(params[0], params[1], params[2]);
-      case FunctionName.LastModifiedTime:
-        return this.formulaQuery.lastModifiedTime();
-      case FunctionName.Minute:
-        return this.formulaQuery.minute(params[0]);
-      case FunctionName.Month:
-        return this.formulaQuery.month(params[0]);
-      case FunctionName.Second:
-        return this.formulaQuery.second(params[0]);
-      case FunctionName.Timestr:
-        return this.formulaQuery.timestr(params[0]);
-      case FunctionName.ToNow:
-        return this.formulaQuery.toNow(params[0]);
-      case FunctionName.WeekNum:
-        return this.formulaQuery.weekNum(params[0]);
-      case FunctionName.Weekday:
-        return this.formulaQuery.weekday(params[0]);
-      case FunctionName.Workday:
-        return this.formulaQuery.workday(params[0], params[1]);
-      case FunctionName.WorkdayDiff:
-        return this.formulaQuery.workdayDiff(params[0], params[1]);
-      case FunctionName.Year:
-        return this.formulaQuery.year(params[0]);
-      case FunctionName.CreatedTime:
-        return this.formulaQuery.createdTime();
+        // DateTime Functions
+        .with(FunctionName.Now, () => this.formulaQuery.now())
+        .with(FunctionName.Today, () => this.formulaQuery.today())
+        .with(FunctionName.DateAdd, () =>
+          this.formulaQuery.dateAdd(params[0], params[1], params[2])
+        )
+        .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
+        .with(FunctionName.DatetimeDiff, () =>
+          this.formulaQuery.datetimeDiff(params[0], params[1], params[2])
+        )
+        .with(FunctionName.DatetimeFormat, () =>
+          this.formulaQuery.datetimeFormat(params[0], params[1])
+        )
+        .with(FunctionName.DatetimeParse, () =>
+          this.formulaQuery.datetimeParse(params[0], params[1])
+        )
+        .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
+        .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
+        .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
+        .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
+        .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
+        .with(FunctionName.IsSame, () => this.formulaQuery.isSame(params[0], params[1], params[2]))
+        .with(FunctionName.LastModifiedTime, () => this.formulaQuery.lastModifiedTime())
+        .with(FunctionName.Minute, () => this.formulaQuery.minute(params[0]))
+        .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
+        .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
+        .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
+        .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
+        .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
+        .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
+        .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
+        .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
+        .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
+        .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())
 
-      // Logical Functions
-      case FunctionName.If:
-        return this.formulaQuery.if(params[0], params[1], params[2]);
-      case FunctionName.And:
-        return this.formulaQuery.and(params);
-      case FunctionName.Or:
-        return this.formulaQuery.or(params);
-      case FunctionName.Not:
-        return this.formulaQuery.not(params[0]);
-      case FunctionName.Xor:
-        return this.formulaQuery.xor(params);
-      case FunctionName.Blank:
-        return this.formulaQuery.blank();
-      case FunctionName.IsError:
-        return this.formulaQuery.isError(params[0]);
-      case FunctionName.Switch: {
-        // Handle switch function with variable number of case-result pairs
-        const expression = params[0];
-        const cases: Array<{ case: string; result: string }> = [];
-        let defaultResult: string | undefined;
+        // Logical Functions
+        .with(FunctionName.If, () => this.formulaQuery.if(params[0], params[1], params[2]))
+        .with(FunctionName.And, () => this.formulaQuery.and(params))
+        .with(FunctionName.Or, () => this.formulaQuery.or(params))
+        .with(FunctionName.Not, () => this.formulaQuery.not(params[0]))
+        .with(FunctionName.Xor, () => this.formulaQuery.xor(params))
+        .with(FunctionName.Blank, () => this.formulaQuery.blank())
+        .with(FunctionName.IsError, () => this.formulaQuery.isError(params[0]))
+        .with(FunctionName.Switch, () => {
+          // Handle switch function with variable number of case-result pairs
+          const expression = params[0];
+          const cases: Array<{ case: string; result: string }> = [];
+          let defaultResult: string | undefined;
 
-        // Process pairs of case-result, with optional default at the end
-        for (let i = 1; i < params.length; i += 2) {
-          if (i + 1 < params.length) {
-            cases.push({ case: params[i], result: params[i + 1] });
-          } else {
-            // Odd number of remaining params means we have a default value
-            defaultResult = params[i];
+          // Process pairs of case-result, with optional default at the end
+          for (let i = 1; i < params.length; i += 2) {
+            if (i + 1 < params.length) {
+              cases.push({ case: params[i], result: params[i + 1] });
+            } else {
+              // Odd number of remaining params means we have a default value
+              defaultResult = params[i];
+            }
           }
-        }
 
-        return this.formulaQuery.switch(expression, cases, defaultResult);
-      }
+          return this.formulaQuery.switch(expression, cases, defaultResult);
+        })
 
-      // Array Functions
-      case FunctionName.Count:
-        return this.formulaQuery.count(params);
-      case FunctionName.CountA:
-        return this.formulaQuery.countA(params);
-      case FunctionName.CountAll:
-        return this.formulaQuery.countAll(params[0]);
-      case FunctionName.ArrayJoin:
-        return this.formulaQuery.arrayJoin(params[0], params[1]);
-      case FunctionName.ArrayUnique:
-        return this.formulaQuery.arrayUnique(params[0]);
-      case FunctionName.ArrayFlatten:
-        return this.formulaQuery.arrayFlatten(params[0]);
-      case FunctionName.ArrayCompact:
-        return this.formulaQuery.arrayCompact(params[0]);
+        // Array Functions
+        .with(FunctionName.Count, () => this.formulaQuery.count(params))
+        .with(FunctionName.CountA, () => this.formulaQuery.countA(params))
+        .with(FunctionName.CountAll, () => this.formulaQuery.countAll(params[0]))
+        .with(FunctionName.ArrayJoin, () => this.formulaQuery.arrayJoin(params[0], params[1]))
+        .with(FunctionName.ArrayUnique, () => this.formulaQuery.arrayUnique(params[0]))
+        .with(FunctionName.ArrayFlatten, () => this.formulaQuery.arrayFlatten(params[0]))
+        .with(FunctionName.ArrayCompact, () => this.formulaQuery.arrayCompact(params[0]))
 
-      // System Functions
-      case FunctionName.RecordId:
-        return this.formulaQuery.recordId();
-      case FunctionName.AutoNumber:
-        return this.formulaQuery.autoNumber();
-      case FunctionName.TextAll:
-        return this.formulaQuery.textAll(params[0]);
+        // System Functions
+        .with(FunctionName.RecordId, () => this.formulaQuery.recordId())
+        .with(FunctionName.AutoNumber, () => this.formulaQuery.autoNumber())
+        .with(FunctionName.TextAll, () => this.formulaQuery.textAll(params[0]))
 
-      default:
-        throw new Error(`Unsupported function: ${fnName}`);
-    }
+        .otherwise((fn) => {
+          throw new Error(`Unsupported function: ${fn}`);
+        })
+    );
   }
 
   private unescapeString(str: string): string {
     return str.replace(/\\(.)/g, (_, char) => {
-      switch (char) {
-        case 'n':
-          return '\n';
-        case 't':
-          return '\t';
-        case 'r':
-          return '\r';
-        case '\\':
-          return '\\';
-        case "'":
-          return "'";
-        case '"':
-          return '"';
-        default:
-          return char;
-      }
+      return match(char)
+        .with('n', () => '\n')
+        .with('t', () => '\t')
+        .with('r', () => '\r')
+        .with('\\', () => '\\')
+        .with("'", () => "'")
+        .with('"', () => '"')
+        .otherwise((c) => c);
     });
   }
 }

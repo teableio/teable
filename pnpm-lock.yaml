@@ -1100,6 +1100,9 @@ importers:
       reflect-metadata:
         specifier: 0.2.1
         version: 0.2.1
+      ts-pattern:
+        specifier: 5.0.8
+        version: 5.0.8
       zod:
         specifier: 3.25.76
         version: 3.25.76
