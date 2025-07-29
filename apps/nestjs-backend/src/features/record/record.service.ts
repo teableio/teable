@@ -1255,7 +1255,7 @@ export class RecordService {
             undefined,
             {
               'Content-Type': mimetype,
-              'Content-Disposition': `attachment; filename="${item.name}"`,
+              'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(item.name)}`,
             }
           ));
         let smThumbnailUrl: string | undefined;

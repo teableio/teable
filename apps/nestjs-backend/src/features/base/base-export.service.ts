@@ -222,7 +222,11 @@ export class BaseExportService {
     const uploadResult = await this.storageAdapter.uploadFile(
       bucket,
       `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
-      passThrough
+      passThrough,
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': 'application/zip',
+      }
     );
 
     return {
