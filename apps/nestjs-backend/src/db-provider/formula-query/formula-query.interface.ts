@@ -124,7 +124,7 @@ export interface IFormulaQueryInterface {
   unaryMinus(value: string): string;
 
   // Field Reference
-  fieldReference(fieldId: string, columnName: string): string;
+  fieldReference(fieldId: string, columnName: string, context?: IFormulaConversionContext): string;
 
   // Literals
   stringLiteral(value: string): string;
@@ -150,7 +150,14 @@ export interface IFormulaQueryInterface {
  * Context information for formula conversion
  */
 export interface IFormulaConversionContext {
-  fieldMap: { [fieldId: string]: { columnName: string } };
+  fieldMap: {
+    [fieldId: string]: {
+      columnName: string;
+      fieldType?: string;
+      dbGenerated?: boolean;
+      expandedExpression?: string;
+    };
+  };
   timeZone?: string;
 }
 

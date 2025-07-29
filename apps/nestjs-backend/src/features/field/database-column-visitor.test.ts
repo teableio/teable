@@ -1,4 +1,10 @@
-import { FormulaFieldCore, FieldType, CellValueType, DbFieldType } from '@teable/core';
+import {
+  FormulaFieldCore,
+  FieldType,
+  CellValueType,
+  DbFieldType,
+  getGeneratedColumnName,
+} from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import type { Knex } from 'knex';
 import type { Mock } from 'vitest';
@@ -124,7 +130,7 @@ describe('Database Column Visitor', () => {
 
       expect(mockDoubleFn).toHaveBeenCalledWith('test_field');
       expect(mockSpecificTypeFn).toHaveBeenCalledWith(
-        'test_field___generated',
+        getGeneratedColumnName('test_field'),
         'DOUBLE PRECISION GENERATED ALWAYS AS (COALESCE("field1", 0) + COALESCE("field2", 0)) STORED'
       );
       expect(mockDoubleFn).toHaveBeenCalledTimes(1);
@@ -161,6 +167,71 @@ describe('Database Column Visitor', () => {
       expect(mockDoubleFn).toHaveBeenCalledWith('test_field');
       expect(mockSpecificTypeFn).not.toHaveBeenCalled();
       expect(mockDoubleFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should use expanded expression when available', () => {
+      const formulaField = plainToInstance(FormulaFieldCore, {
+        id: 'fld123',
+        name: 'Formula Field',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        dbFieldName: 'test_field',
+        cellValueType: CellValueType.Number,
+        options: {
+          expression: '{fld456} * 2', // Original expression
+          dbGenerated: true,
+        },
+      });
+
+      const mockDbProvider = {
+        convertFormula: vi.fn().mockReturnValue({
+          sql: '("field1" + 10) * 2',
+          dependencies: ['field1'],
+        }),
+      };
+
+      const fieldMapWithExpansion = {
+        fld123: {
+          columnName: 'test_field',
+          fieldType: 'formula',
+          dbGenerated: true,
+          expandedExpression: '({fld456} + 10) * 2', // Expanded expression
+        },
+        fld456: {
+          columnName: 'field1',
+          fieldType: 'formula',
+          dbGenerated: true,
+        },
+        field1: {
+          columnName: 'field1',
+          fieldType: 'number',
+          dbGenerated: false,
+        },
+      };
+
+      const expansionContext: IDatabaseColumnContext = {
+        table: mockTable,
+        fieldId: 'fld123',
+        dbFieldName: 'test_field',
+        dbProvider: mockDbProvider as any,
+        fieldMap: fieldMapWithExpansion,
+      };
+
+      const visitor = new PostgresDatabaseColumnVisitor(expansionContext);
+      formulaField.accept(visitor);
+
+      // Should call convertFormula with expanded expression, not original
+      expect(mockDbProvider.convertFormula).toHaveBeenCalledWith(
+        '({fld456} + 10) * 2', // Expanded expression
+        expect.objectContaining({
+          fieldMap: fieldMapWithExpansion,
+        })
+      );
+
+      expect(mockSpecificTypeFn).toHaveBeenCalledWith(
+        getGeneratedColumnName('test_field'),
+        'DOUBLE PRECISION GENERATED ALWAYS AS (("field1" + 10) * 2) STORED'
+      );
     });
   });
 
@@ -215,7 +286,7 @@ describe('Database Column Visitor', () => {
 
       expect(mockDoubleFn).toHaveBeenCalledWith('test_field');
       expect(mockSpecificTypeFn).toHaveBeenCalledWith(
-        'test_field___generated',
+        getGeneratedColumnName('test_field'),
         'REAL GENERATED ALWAYS AS (COALESCE(`field1`, 0) + COALESCE(`field2`, 0)) VIRTUAL'
       );
       expect(mockDoubleFn).toHaveBeenCalledTimes(1);
@@ -246,7 +317,7 @@ describe('Database Column Visitor', () => {
 
       expect(mockDoubleFn).toHaveBeenCalledWith('test_field');
       expect(mockSpecificTypeFn).toHaveBeenCalledWith(
-        'test_field___generated',
+        getGeneratedColumnName('test_field'),
         'REAL GENERATED ALWAYS AS (COALESCE(`field1`, 0) + COALESCE(`field2`, 0)) STORED'
       );
       expect(mockDoubleFn).toHaveBeenCalledTimes(1);

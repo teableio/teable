@@ -164,9 +164,7 @@ export abstract class FormulaQueryAbstract implements IFormulaQueryInterface {
   }
 
   // Field Reference - Common implementation
-  fieldReference(fieldId: string, columnName: string): string {
-    return columnName;
-  }
+  abstract fieldReference(fieldId: string, columnName: string): string;
 
   // Literals - Common implementations
   stringLiteral(value: string): string {

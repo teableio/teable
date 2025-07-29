@@ -141,7 +141,7 @@ export interface IFormulaQueryInterface {
   unaryMinus(value: string): string;
 
   // Field Reference
-  fieldReference(fieldId: string, columnName: string): string;
+  fieldReference(fieldId: string, columnName: string, context?: IFormulaConversionContext): string;
 
   // Literals
   stringLiteral(value: string): string;
@@ -157,7 +157,14 @@ export interface IFormulaQueryInterface {
  * Context information for formula conversion
  */
 export interface IFormulaConversionContext {
-  fieldMap: { [fieldId: string]: { columnName: string } };
+  fieldMap: {
+    [fieldId: string]: {
+      columnName: string;
+      fieldType?: string;
+      dbGenerated?: boolean;
+      expandedExpression?: string;
+    };
+  };
   timeZone?: string;
 }
 
@@ -285,7 +292,7 @@ export class SqlConversionVisitor
       throw new Error(`Field not found: ${fieldId}`);
     }
 
-    return this.formulaQuery.fieldReference(fieldId, fieldInfo.columnName);
+    return this.formulaQuery.fieldReference(fieldId, fieldInfo.columnName, this.context);
   }
 
   visitFunctionCall(ctx: FunctionCallContext): string {
