@@ -103,6 +103,14 @@ export class FormulaFieldCore extends FormulaAbstractCore {
     return Array.from(new Set(visitor.visit(this.tree)));
   }
 
+  /**
+   * Get the generated column name for database-generated formula fields
+   * This should match the naming convention used in database-column-visitor
+   */
+  getGeneratedColumnName(): string {
+    return `${this.dbFieldName}___generated`;
+  }
+
   validateOptions() {
     return z
       .object({

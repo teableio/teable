@@ -91,6 +91,7 @@ describe('Database Column Visitor', () => {
         type: FieldType.Formula,
         dbFieldType: DbFieldType.Real,
         cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
         options: {
           expression: '1 + 1',
           dbGenerated: false,
@@ -111,6 +112,7 @@ describe('Database Column Visitor', () => {
         type: FieldType.Formula,
         dbFieldType: DbFieldType.Real,
         cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
         options: {
           expression: '1 + 1',
           dbGenerated: true,
@@ -180,6 +182,7 @@ describe('Database Column Visitor', () => {
         type: FieldType.Formula,
         dbFieldType: DbFieldType.Real,
         cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
         options: {
           expression: '1 + 1',
           dbGenerated: false,
@@ -200,6 +203,7 @@ describe('Database Column Visitor', () => {
         type: FieldType.Formula,
         dbFieldType: DbFieldType.Real,
         cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
         options: {
           expression: '1 + 1',
           dbGenerated: true,
@@ -225,6 +229,7 @@ describe('Database Column Visitor', () => {
         type: FieldType.Formula,
         dbFieldType: DbFieldType.Real,
         cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
         options: {
           expression: '1 + 1',
           dbGenerated: true,
@@ -257,6 +262,7 @@ describe('Database Column Visitor', () => {
         type: FieldType.Formula,
         dbFieldType: DbFieldType.Text,
         cellValueType: CellValueType.String,
+        dbFieldName: 'very_long_field_name_that_might_cause_issues',
         options: {
           expression: 'CONCATENATE("Hello", " World")',
           dbGenerated: true,

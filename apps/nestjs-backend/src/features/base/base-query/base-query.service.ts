@@ -16,6 +16,7 @@ import {
   createFieldInstanceByVo,
   type IFieldInstance,
 } from '../../field/model/factory';
+import type { FormulaFieldDto } from '../../field/model/field-dto/formula-field.dto';
 import { RecordService } from '../../record/record.service';
 import { QueryAggregation } from './parse/aggregation';
 import { QueryFilter } from './parse/filter';
@@ -38,12 +39,27 @@ export class BaseQueryService {
     private readonly recordService: RecordService
   ) {}
 
+  /**
+   * Get the database column name to query for a field
+   * For formula fields with dbGenerated=true, use the generated column name
+   * For lookup formula fields, use the standard field name
+   */
+  private getQueryColumnName(field: IFieldInstance): string {
+    if (field.type === FieldType.Formula && !field.isLookup) {
+      const formulaField = field as FormulaFieldDto;
+      if (formulaField.options.dbGenerated) {
+        return formulaField.getGeneratedColumnName();
+      }
+    }
+    return field.dbFieldName;
+  }
+
   private convertFieldMapToColumn(fieldMap: Record<string, IFieldInstance>): IBaseQueryColumn[] {
     return Object.values(fieldMap).map((field) => {
       const type = getQueryColumnTypeByFieldInstance(field);
 
       return {
-        column: type === BaseQueryColumnType.Field ? field.dbFieldName : field.id,
+        column: type === BaseQueryColumnType.Field ? this.getQueryColumnName(field) : field.id,
         name: field.name,
         type,
         fieldSource:

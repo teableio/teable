@@ -929,9 +929,25 @@ export class ReferenceService {
     };
   }
 
+  /**
+   * Get the database column name to query for a field
+   * For formula fields with dbGenerated=true, use the generated column name
+   * For lookup formula fields, use the standard field name
+   */
+  private getQueryColumnName(field: IFieldInstance): string {
+    if (field.type === FieldType.Formula && !field.isLookup) {
+      const formulaField = field as FormulaFieldDto;
+      if (formulaField.options.dbGenerated) {
+        return formulaField.getGeneratedColumnName();
+      }
+    }
+    return field.dbFieldName;
+  }
+
   recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }): IRecord {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
-      acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
+      const queryColumnName = this.getQueryColumnName(field);
+      acc[field.id] = field.convertDBValue2CellValue(raw[queryColumnName] as string);
       return acc;
     }, {});
 
