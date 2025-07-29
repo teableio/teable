@@ -359,7 +359,7 @@ export class ExcelImporter extends Importer {
         stream.on('data', function (data) {
           buffers.push(data);
         });
-        stream.on('end', function () {
+        stream.on('finish', function () {
           const buf = Buffer.concat(buffers);
           const workbook = XLSX.read(buf, { dense: true });
           const result: IParseResult = {};

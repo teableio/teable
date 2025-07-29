@@ -265,7 +265,7 @@ export class MinioStorage implements StorageAdapter {
           }
         });
 
-        objectsStream.on('end', resolve);
+        objectsStream.on('finish', resolve);
         objectsStream.on('error', reject);
       });
 

@@ -274,17 +274,13 @@ export class LocalStorage implements StorageAdapter {
     if (stream instanceof Buffer) {
       await fse.writeFile(temPath, stream);
     } else {
+      const writer = createWriteStream(temPath);
       await new Promise<void>((resolve, reject) => {
-        const writer = createWriteStream(temPath);
         stream.pipe(writer);
-        stream.on('end', function () {
-          writer.end();
-          writer.close();
+        stream.on('finish', function () {
           resolve();
         });
         stream.on('error', (err) => {
-          writer.end();
-          writer.close();
           this.deleteFile(path);
           reject(err);
         });
