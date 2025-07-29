@@ -91,11 +91,6 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
     }
   }
 
-  private generateGeneratedColumnName(): string {
-    // Use the same naming convention as unique keys: ___suffix
-    return `${this.context.dbFieldName}___generated`;
-  }
-
   private createFormulaColumns(field: FormulaFieldCore): void {
     // Create the standard formula column
     this.createStandardColumn(field);
@@ -103,7 +98,7 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
     // If dbGenerated is enabled, create a generated column
     if (field.options.dbGenerated && this.context.dbProvider && this.context.fieldMap) {
       try {
-        const generatedColumnName = this.generateGeneratedColumnName();
+        const generatedColumnName = field.getGeneratedColumnName();
 
         const conversionContext: IFormulaConversionContext = {
           fieldMap: this.context.fieldMap,
