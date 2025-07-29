@@ -33,6 +33,7 @@
     "check-dist": "es-check -v",
     "check-size": "size-limit",
     "test": "vitest run test-unit",
+    "test:watch": "vitest --watch",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"

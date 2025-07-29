@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
 import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
-import { DriverClient } from '@teable/core';
+import { DriverClient, parseFormulaToSQL, SqlConversionVisitor } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -22,6 +22,12 @@ import { DuplicateAttachmentTableQuerySqlite } from './duplicate-table/duplicate
 import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
+import type {
+  IFormulaQueryInterface,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+} from './formula-query/formula-query.interface';
+import { FormulaQuerySqlite } from './formula-query/sqlite/formula-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
@@ -507,5 +513,22 @@ ORDER BY
         [dbTableName]
       )
       .toQuery();
+  }
+
+  formulaQuery(): IFormulaQueryInterface {
+    return new FormulaQuerySqlite();
+  }
+
+  convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult {
+    try {
+      const formulaQuery = this.formulaQuery();
+      const visitor = new SqlConversionVisitor(formulaQuery, context);
+
+      const sql = parseFormulaToSQL(expression, visitor);
+
+      return visitor.getResult(sql);
+    } catch (error) {
+      throw new Error(`Failed to convert formula: ${(error as Error).message}`);
+    }
   }
 }

@@ -10,6 +10,11 @@ import type { BaseQueryAbstract } from './base-query/abstract';
 import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
 import type { DuplicateAttachmentTableQueryAbstract } from './duplicate-table/duplicate-attachment-table-query.abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
+import type {
+  IFormulaQueryInterface,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+} from './formula-query/formula-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
@@ -194,4 +199,8 @@ export interface IDbProvider {
   searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder;
 
   getTableIndexes(dbTableName: string): string;
+
+  formulaQuery(): IFormulaQueryInterface;
+
+  convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult;
 }
