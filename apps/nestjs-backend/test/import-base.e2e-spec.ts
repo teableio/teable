@@ -3,7 +3,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentItem } from '@teable/core';
-import { ViewType } from '@teable/core';
+import { getRandomString, ViewType } from '@teable/core';
 import type { INotifyVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -23,6 +23,7 @@ import {
   getPluginPanel,
   getPluginPanelPlugin,
   getViewList,
+  axios,
 } from '@teable/openapi';
 import { pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
@@ -321,6 +322,23 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       for (const tableId of Object.values(tableIdMap)) {
         await permanentDeleteTable(base.id, tableId);
       }
+    });
+
+    it('should export base with windowId', async () => {
+      const { previewUrl: withoutWindowIdUrl } = await awaitWithEvent(async () => {
+        await exportBase(sourceBaseId);
+      });
+      expect(withoutWindowIdUrl.startsWith(appUrl)).toBe(true);
+
+      const windowId = 'win' + getRandomString(8);
+      axios.interceptors.request.use((config) => {
+        config.headers['X-Window-Id'] = windowId;
+        return config;
+      });
+      const { previewUrl: withWindowIdUrl } = await awaitWithEvent(async () => {
+        await exportBase(sourceBaseId);
+      });
+      expect(withWindowIdUrl.startsWith(appUrl)).toBe(false);
     });
   });
 });
