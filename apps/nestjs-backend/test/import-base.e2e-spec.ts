@@ -150,10 +150,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       await permanentDeleteTable(sourceBaseId, subTable.id);
     });
     it('should export table and import the table', async () => {
-      const { previewUrl: url } = await awaitWithEvent(async () => {
+      const { previewUrl } = await awaitWithEvent(async () => {
         await exportBase(sourceBaseId);
       });
-      const previewUrl = appUrl + url;
 
       const clsService = app.get(ClsService);
 
