@@ -1,4 +1,5 @@
 import { FormulaQueryAbstract } from '../formula-query.abstract';
+import type { IFormulaConversionContext } from '../formula-query.interface';
 
 /**
  * PostgreSQL-specific implementation of formula functions
@@ -435,7 +436,13 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
   }
 
   // Field Reference - PostgreSQL uses double quotes for identifiers
-  fieldReference(fieldId: string, columnName: string): string {
+  fieldReference(
+    _fieldId: string,
+    columnName: string,
+    _context?: IFormulaConversionContext
+  ): string {
+    // For regular field references, return the column reference
+    // Note: Expansion is handled at the expression level, not at individual field reference level
     return `"${columnName}"`;
   }
 

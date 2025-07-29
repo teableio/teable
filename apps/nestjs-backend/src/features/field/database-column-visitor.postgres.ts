@@ -19,7 +19,7 @@ import type {
   UserFieldCore,
   IFieldVisitor,
 } from '@teable/core';
-import { DbFieldType, CellValueType } from '@teable/core';
+import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IFormulaConversionContext } from '../../db-provider/formula-query/formula-query.interface';
@@ -43,7 +43,12 @@ export interface IDatabaseColumnContext {
   dbProvider?: IDbProvider;
   /** Field map for formula conversion context */
   fieldMap?: {
-    [fieldId: string]: { columnName: string };
+    [fieldId: string]: {
+      columnName: string;
+      fieldType?: string;
+      dbGenerated?: boolean;
+      expandedExpression?: string;
+    };
   };
   /** Whether this is a new table creation (affects SQLite generated columns) */
   isNewTable?: boolean;
@@ -104,8 +109,12 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
           fieldMap: this.context.fieldMap,
         };
 
+        // Use expanded expression if available, otherwise use original expression
+        const fieldInfo = this.context.fieldMap[field.id];
+        const expressionToConvert = fieldInfo?.expandedExpression || field.options.expression;
+
         const conversionResult = this.context.dbProvider.convertFormula(
-          field.options.expression,
+          expressionToConvert,
           conversionContext
         );
 

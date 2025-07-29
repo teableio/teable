@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
+import { getGeneratedColumnName } from '../../../utils/generated-column';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
@@ -108,7 +109,7 @@ export class FormulaFieldCore extends FormulaAbstractCore {
    * This should match the naming convention used in database-column-visitor
    */
   getGeneratedColumnName(): string {
-    return `${this.dbFieldName}___generated`;
+    return getGeneratedColumnName(this.dbFieldName);
   }
 
   validateOptions() {

@@ -1,4 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  getGeneratedColumnName,
+  FieldOpBuilder,
+  HttpErrorCode,
+  IdPrefix,
+  OpName,
+  checkFieldUniqueValidationEnabled,
+  checkFieldValidationEnabled,
+  DriverClient,
+  FieldType,
+} from '@teable/core';
 import type {
   IFieldVo,
   IGetFieldsQuery,
@@ -8,16 +19,7 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ViewType,
-  FieldType,
-} from '@teable/core';
-import {
-  FieldOpBuilder,
-  HttpErrorCode,
-  IdPrefix,
-  OpName,
-  checkFieldUniqueValidationEnabled,
-  checkFieldValidationEnabled,
-  DriverClient,
+  IFormulaFieldOptions,
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -42,6 +44,7 @@ import {
   type IDatabaseColumnContext,
 } from './database-column-visitor.postgres';
 import { SqliteDatabaseColumnVisitor } from './database-column-visitor.sqlite';
+import { FormulaExpansionService } from './formula-expansion.service';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
@@ -55,7 +58,8 @@ export class FieldService implements IReadonlyAdapterService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly formulaExpansionService: FormulaExpansionService
   ) {}
 
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
@@ -252,8 +256,8 @@ export class FieldService implements IReadonlyAdapterService {
       throw new NotFoundException(`Table not found: ${dbTableName}`);
     }
 
-    // Build field map for formula conversion (only columnName, no type needed)
-    const fieldMap = await this.buildFieldMapForTable(tableMeta.id);
+    // Build field map for formula conversion with expansion support
+    const fieldMap = await this.buildFieldMapForTableWithExpansion(tableMeta.id);
 
     for (const fieldInstance of fieldInstances) {
       const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
@@ -936,23 +940,110 @@ export class FieldService implements IReadonlyAdapterService {
 
   /**
    * Build field map for formula conversion context
-   * Only includes columnName since type is not used in conversion
+   * For formula fields with dbGenerated=true, use the generated column name
    */
   private async buildFieldMapForTable(tableId: string): Promise<{
-    [fieldId: string]: { columnName: string };
+    [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
   }> {
     const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, dbFieldName: true },
+      select: { id: true, dbFieldName: true, type: true, options: true },
     });
 
     const fieldMap: {
-      [fieldId: string]: { columnName: string };
+      [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
     } = {};
 
     for (const field of fields) {
+      let columnName = field.dbFieldName;
+      let dbGenerated = false;
+
+      // For formula fields with dbGenerated=true, use the generated column name
+      if (field.type === FieldType.Formula && field.options) {
+        try {
+          const options = JSON.parse(field.options as string) as { dbGenerated?: boolean };
+          if (options.dbGenerated) {
+            columnName = getGeneratedColumnName(field.dbFieldName);
+            dbGenerated = true;
+          }
+        } catch (error) {
+          // If JSON parsing fails, use default values
+          console.warn(`Failed to parse options for field ${field.id}:`, error);
+        }
+      }
+
       fieldMap[field.id] = {
-        columnName: field.dbFieldName,
+        columnName,
+        fieldType: field.type,
+        dbGenerated,
+      };
+    }
+
+    return fieldMap;
+  }
+
+  /**
+   * Build field map for formula conversion with expansion support
+   * This method handles formula expansion to avoid PostgreSQL generated column limitations
+   */
+  private async buildFieldMapForTableWithExpansion(tableId: string): Promise<{
+    [fieldId: string]: {
+      columnName: string;
+      fieldType?: string;
+      dbGenerated?: boolean;
+      expandedExpression?: string;
+    };
+  }> {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, dbFieldName: true, type: true, options: true },
+    });
+
+    // Create expansion context
+    const expansionContext = this.formulaExpansionService.createExpansionContext(fields);
+
+    const fieldMap: {
+      [fieldId: string]: {
+        columnName: string;
+        fieldType?: string;
+        dbGenerated?: boolean;
+        expandedExpression?: string;
+      };
+    } = {};
+
+    for (const field of fields) {
+      let columnName = field.dbFieldName;
+      let dbGenerated = false;
+      let expandedExpression: string | undefined;
+
+      if (field.type === FieldType.Formula && field.options) {
+        try {
+          const options = JSON.parse(field.options as string) as IFormulaFieldOptions;
+          if (options.dbGenerated) {
+            // Check if this formula should be expanded
+            if (this.formulaExpansionService.shouldExpandFormula(field, expansionContext)) {
+              // Use expansion instead of generated column reference
+              expandedExpression = this.formulaExpansionService.expandFormulaExpression(
+                options.expression,
+                expansionContext
+              );
+              columnName = field.dbFieldName; // Use original column name for expanded formulas
+            } else {
+              // Use generated column name for formulas that don't need expansion
+              columnName = getGeneratedColumnName(field.dbFieldName);
+            }
+            dbGenerated = true;
+          }
+        } catch (error) {
+          console.warn(`Failed to process formula field ${field.id}:`, error);
+        }
+      }
+
+      fieldMap[field.id] = {
+        columnName,
+        fieldType: field.type,
+        dbGenerated,
+        expandedExpression,
       };
     }
 
