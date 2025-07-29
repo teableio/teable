@@ -16,11 +16,11 @@ export interface IReadonlyAdapterService {
 }
 
 export interface IShareDbReadonlyAdapterService extends IReadonlyAdapterService {
-  // get current version and data of the document
-  // return version 0 if the document is deleted
-  // return version 1 if the document is created
-  // return version > 1 if the document is updated
-  getVersion(collectionId: string, docId: string): Promise<number>;
+  // get current version and type of the document
+  getVersionAndType(
+    collectionId: string,
+    docId: string
+  ): Promise<{ version: number; type: RawOpType }>;
 }
 
 export interface IAdapterService {
