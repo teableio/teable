@@ -8,34 +8,68 @@ import {
   PopoverContent,
   PopoverTrigger,
   Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { PencilIcon, PlusIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from './SelectOptions';
+
+const AutomationTooltip = (props: { children: React.ReactNode }) => {
+  const { children } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent>
+          <p className="max-w-[320px]">{t('billing.automationRequiresUpgrade')}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?: () => void }) => {
   const { options, onSave } = props;
   const workflow = options?.workflow;
   const { setModal } = useWorkFlowPanelStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const usage = useBaseUsage();
+  const { automationEnable = false } = usage?.limit ?? {};
+
   return (
     <div className="flex flex-col gap-2">
       <Label className="font-normal">{t('table:field.default.button.automation')}</Label>
-      <Button
-        className="flex items-center "
-        variant="outline"
-        onClick={() => {
-          setModal({ from: 'buttonFieldOptions' });
-          onSave?.();
-        }}
-      >
-        {workflow?.id ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
-        <span className="flex-1 text-left">
-          {workflow?.name || t('table:field.default.button.customAutomation')}
-        </span>
-      </Button>
+      {automationEnable ? (
+        <Button
+          className="flex items-center "
+          variant="outline"
+          onClick={() => {
+            setModal({ from: 'buttonFieldOptions' });
+            onSave?.();
+          }}
+        >
+          {workflow?.id ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
+          <span className="flex-1 text-left">
+            {workflow?.name || t('table:field.default.button.customAutomation')}
+          </span>
+        </Button>
+      ) : (
+        <AutomationTooltip>
+          <Button className="flex items-center " variant="outline">
+            <PlusIcon className="size-4" />
+            <span className="flex-1 text-left">
+              {workflow?.name || t('table:field.default.button.customAutomation')}
+            </span>
+          </Button>
+        </AutomationTooltip>
+      )}
     </div>
   );
 };
