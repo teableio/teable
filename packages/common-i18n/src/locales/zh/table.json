@@ -693,6 +693,7 @@
       "updateBase": "更新数据库信息",
       "planTask": "规划任务",
       "generateTables": "生成表格",
+      "generatePrimaryFields": "生成主键字段",
       "generateFields": "生成字段",
       "generateViews": "生成视图",
       "generateRecords": "生成记录",
