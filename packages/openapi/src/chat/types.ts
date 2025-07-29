@@ -111,6 +111,7 @@ export const BuildBaseOperator = {
   updateBase: 'update-base',
   planTask: 'plan-task',
   generateTables: 'generate-tables',
+  generatePrimaryFields: 'generate-primary-fields',
   generateFields: 'generate-fields',
   generateViews: 'generate-views',
   generateRecords: 'generate-records',
