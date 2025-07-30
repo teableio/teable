@@ -43,6 +43,11 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
     }
 
     if (isMultiple && Array.isArray(data)) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, width, height);
+      ctx.clip();
+
       let startX = x + cellHorizontalPadding;
       const startY = y + height / 2 - halfIconSize;
       data.forEach((check) => {
@@ -58,6 +63,8 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
           startX += iconSizeSM + cellHorizontalPadding / 2;
         }
       });
+
+      ctx.restore();
     }
   },
   checkRegion: (cell: IBooleanCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
