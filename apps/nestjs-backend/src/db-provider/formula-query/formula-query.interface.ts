@@ -1,11 +1,11 @@
-import type { CellValueType } from '@teable/core';
-
 /**
  * Interface for database-specific formula function implementations
  * Each database provider (PostgreSQL, SQLite) should implement this interface
  * to provide SQL translations for Teable formula functions
  */
 export interface IFormulaQueryInterface {
+  // Context management
+  setContext(context: IFormulaConversionContext): void;
   // Numeric Functions
   sum(params: string[]): string;
   average(params: string[]): string;
@@ -159,6 +159,8 @@ export interface IFormulaConversionContext {
     };
   };
   timeZone?: string;
+  /** Whether this conversion is for a generated column (affects immutable function handling) */
+  isGeneratedColumn?: boolean;
 }
 
 /**

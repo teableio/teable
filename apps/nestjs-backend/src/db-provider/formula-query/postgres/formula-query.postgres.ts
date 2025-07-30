@@ -175,10 +175,20 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
 
   // DateTime Functions
   now(): string {
+    // For generated columns, use the current timestamp at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      return `'${currentTimestamp}'::timestamp`;
+    }
     return 'NOW()';
   }
 
   today(): string {
+    // For generated columns, use the current date at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentDate = new Date().toISOString().split('T')[0];
+      return `'${currentDate}'::date`;
+    }
     return 'CURRENT_DATE';
   }
 
@@ -225,6 +235,11 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
   }
 
   fromNow(date: string): string {
+    // For generated columns, use the current timestamp at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${date}::timestamp)`;
+    }
     return `EXTRACT(EPOCH FROM NOW() - ${date}::timestamp)`;
   }
 
@@ -279,6 +294,11 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
   }
 
   toNow(date: string): string {
+    // For generated columns, use the current timestamp at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      return `EXTRACT(EPOCH FROM ${date}::timestamp - '${currentTimestamp}'::timestamp)`;
+    }
     return `EXTRACT(EPOCH FROM ${date}::timestamp - NOW())`;
   }
 

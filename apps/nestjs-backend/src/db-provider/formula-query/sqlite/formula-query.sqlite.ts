@@ -175,10 +175,20 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
 
   // DateTime Functions
   now(): string {
+    // For generated columns, use the current timestamp at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      return `'${currentTimestamp}'`;
+    }
     return "DATETIME('now')";
   }
 
   today(): string {
+    // For generated columns, use the current date at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentDate = new Date().toISOString().split('T')[0];
+      return `'${currentDate}'`;
+    }
     return "DATE('now')";
   }
 
@@ -246,6 +256,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   fromNow(date: string): string {
+    // For generated columns, use the current timestamp at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      return `(JULIANDAY('${currentTimestamp}') - JULIANDAY(${date})) * 24 * 60 * 60`;
+    }
     return `(JULIANDAY('now') - JULIANDAY(${date})) * 24 * 60 * 60`;
   }
 
@@ -299,6 +314,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   toNow(date: string): string {
+    // For generated columns, use the current timestamp at field creation time
+    if (this.isGeneratedColumnContext) {
+      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      return `(JULIANDAY(${date}) - JULIANDAY('${currentTimestamp}')) * 24 * 60 * 60`;
+    }
     return `(JULIANDAY(${date}) - JULIANDAY('now')) * 24 * 60 * 60`;
   }
 

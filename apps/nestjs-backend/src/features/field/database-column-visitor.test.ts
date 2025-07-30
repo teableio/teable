@@ -10,6 +10,7 @@ import type { Knex } from 'knex';
 import type { Mock } from 'vitest';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IFormulaConversionContext } from '../../db-provider/formula-query/formula-query.interface';
 import {
   PostgresDatabaseColumnVisitor,
   type IDatabaseColumnContext,
@@ -355,6 +356,102 @@ describe('Database Column Visitor', () => {
       );
       expect(mockTextFn).toHaveBeenCalledTimes(1);
       expect(mockSpecificTypeFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should pass isGeneratedColumn context for PostgreSQL generated columns', () => {
+      // Mock the convertFormula to capture the context and return a realistic SQL with current timestamp
+      let capturedContext: IFormulaConversionContext | undefined;
+      (mockDbProvider.convertFormula as Mock).mockImplementation(
+        (expression: string, context: IFormulaConversionContext) => {
+          capturedContext = context;
+          // Simulate what would happen with YEAR(NOW()) in generated column context
+          const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+          return {
+            sql: `EXTRACT(YEAR FROM '${currentTimestamp}'::timestamp)`,
+            dependencies: [],
+          };
+        }
+      );
+
+      const formulaField = plainToInstance(FormulaFieldCore, {
+        id: 'fld123',
+        name: 'Formula Field',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Integer,
+        cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
+        options: {
+          expression: 'YEAR(NOW())',
+          dbGenerated: true,
+        },
+      });
+
+      const visitor = new PostgresDatabaseColumnVisitor(context);
+      formulaField.accept(visitor);
+
+      expect(capturedContext?.isGeneratedColumn).toBe(true);
+      expect(mockIntegerFn).toHaveBeenCalledWith('test_field');
+      // The exact timestamp will vary, so we just check the pattern
+      expect(mockSpecificTypeFn).toHaveBeenCalledWith(
+        getGeneratedColumnName('test_field'),
+        expect.stringMatching(
+          /INTEGER GENERATED ALWAYS AS \(EXTRACT\(YEAR FROM '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'::timestamp\)\) STORED/
+        )
+      );
+    });
+  });
+
+  describe('SqliteDatabaseColumnVisitor - Non-deterministic function replacement', () => {
+    let sqliteContext: IDatabaseColumnContext;
+
+    beforeEach(() => {
+      mockKnex.client.config.client = 'sqlite3';
+      sqliteContext = {
+        ...context,
+        dbProvider: mockSqliteDbProvider,
+      };
+    });
+
+    it('should pass isGeneratedColumn context for SQLite generated columns', () => {
+      // Mock the convertFormula to capture the context and return a realistic SQL with current timestamp
+      let capturedContext: IFormulaConversionContext | undefined;
+      (mockSqliteDbProvider.convertFormula as Mock).mockImplementation(
+        (_expression: string, context: IFormulaConversionContext) => {
+          capturedContext = context;
+          // Simulate what would happen with YEAR(NOW()) in generated column context
+          const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+          return {
+            sql: `CAST(STRFTIME('%Y', '${currentTimestamp}') AS INTEGER)`,
+            dependencies: [],
+          };
+        }
+      );
+
+      const formulaField = plainToInstance(FormulaFieldCore, {
+        id: 'fld123',
+        name: 'Formula Field',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Integer,
+        cellValueType: CellValueType.Number,
+        dbFieldName: 'test_field',
+        options: {
+          expression: 'YEAR(NOW())',
+          dbGenerated: true,
+        },
+      });
+
+      const visitor = new SqliteDatabaseColumnVisitor(sqliteContext);
+      formulaField.accept(visitor);
+
+      expect(capturedContext?.isGeneratedColumn).toBe(true);
+      expect(mockIntegerFn).toHaveBeenCalledWith('test_field');
+      // The exact timestamp will vary, so we just check the pattern
+      expect(mockSpecificTypeFn).toHaveBeenCalledWith(
+        getGeneratedColumnName('test_field'),
+        expect.stringMatching(
+          /INTEGER GENERATED ALWAYS AS \(CAST\(STRFTIME\('%Y', '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'\) AS INTEGER\)\) VIRTUAL/
+        )
+      );
     });
   });
 });

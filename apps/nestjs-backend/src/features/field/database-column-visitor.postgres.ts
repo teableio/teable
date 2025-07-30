@@ -107,6 +107,7 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
 
         const conversionContext: IFormulaConversionContext = {
           fieldMap: this.context.fieldMap,
+          isGeneratedColumn: true, // Mark this as a generated column context
         };
 
         // Use expanded expression if available, otherwise use original expression
