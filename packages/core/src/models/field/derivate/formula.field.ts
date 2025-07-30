@@ -36,6 +36,12 @@ const formulaFieldCellValueSchema = z.any();
 export type IFormulaCellValue = z.infer<typeof formulaFieldCellValueSchema>;
 
 export class FormulaFieldCore extends FormulaAbstractCore {
+  override get dbFieldNames() {
+    return this.options.dbGenerated
+      ? [this.dbFieldName, this.getGeneratedColumnName()]
+      : [this.dbFieldName];
+  }
+
   static defaultOptions(cellValueType: CellValueType): IFormulaFieldOptions {
     return {
       expression: '',

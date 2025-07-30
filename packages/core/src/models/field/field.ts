@@ -18,6 +18,10 @@ export abstract class FieldCore implements IFieldVo {
 
   dbFieldName!: string;
 
+  get dbFieldNames() {
+    return [this.dbFieldName];
+  }
+
   aiConfig?: IFieldVo['aiConfig'];
 
   abstract type: FieldType;

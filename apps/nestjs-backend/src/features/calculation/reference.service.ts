@@ -842,9 +842,10 @@ export class ReferenceService {
     const value = this.calculateComputeField(field, fieldMap, recordItem, userMap);
 
     const oldValue = record.fields[field.id];
-    if (isEqual(oldValue, value)) {
-      return;
-    }
+
+    // if (isEqual(oldValue, value)) {
+    //   return;
+    // }
 
     return {
       tableId,
@@ -977,7 +978,7 @@ export class ReferenceService {
       // deduplication is needed
       const recordIds = Array.from(recordIdsByTableName[dbTableName]);
       const dbFieldNames = dbTableName2fields[dbTableName]
-        .map((f) => f.dbFieldName)
+        .flatMap((f) => f.dbFieldNames)
         .concat([...preservedDbFieldNames]);
       const nativeQuery = this.knex(dbTableName)
         .select(dbFieldNames)
