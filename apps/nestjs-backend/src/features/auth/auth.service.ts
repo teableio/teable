@@ -1,10 +1,25 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import { join } from 'path';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { IUserInfoVo, IUserMeVo } from '@teable/openapi';
+import { getRandomString, HttpErrorCode, Role } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import {
+  PluginStatus,
+  PrincipalType,
+  UploadType,
+  type IUserInfoVo,
+  type IUserMeVo,
+} from '@teable/openapi';
+import { Knex } from 'knex';
 import { omit, pick } from 'lodash';
 import ms from 'ms';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { PermissionService } from './permission.service';
 import type { IJwtAuthAutomationInfo, IJwtAuthInfo } from './strategies/types';
 
@@ -13,7 +28,10 @@ export class AuthService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly permissionService: PermissionService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly prismaService: PrismaService,
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   async getUserInfo(user: IUserMeVo): Promise<IUserInfoVo> {
@@ -57,5 +75,206 @@ export class AuthService {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
       expiresTime: new Date(Date.now() + ms(expiresIn)).toISOString(),
     };
+  }
+
+  private async updateUserAvatarToDeleted(userId: string) {
+    const path = join(StorageAdapter.getDir(UploadType.Avatar), userId);
+    const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+    const mimetype = `image/png`;
+    const { hash } = await this.storageAdapter.uploadFileWidthPath(
+      bucket,
+      path,
+      'static/system/deleted-user-avatar.png',
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': mimetype,
+      }
+    );
+    await this.prismaService.txClient().attachments.upsert({
+      create: {
+        token: userId,
+        path,
+        size: 0,
+        hash,
+        mimetype,
+        createdBy: 'system',
+      },
+      update: {
+        size: 0,
+        hash,
+        mimetype,
+        lastModifiedBy: 'system',
+      },
+      where: {
+        token: userId,
+        deletedTime: null,
+      },
+    });
+  }
+
+  private async permanentlyDeleteUser(userId: string) {
+    // update user avatar to default avatar
+    await this.updateUserAvatarToDeleted(userId);
+    await this.prismaService.txClient().user.update({
+      where: { id: userId, permanentDeletedTime: null },
+      data: {
+        email: `deleted-${getRandomString(10)}@teable.io`,
+        name: 'Deleted User',
+        permanentDeletedTime: new Date().toISOString(),
+        deletedTime: new Date().toISOString(),
+      },
+    });
+  }
+
+  private async clearUserData(userId: string) {
+    // clear user data
+    // clear token
+    await this.prismaService.txClient().accessToken.deleteMany({
+      where: {
+        userId,
+      },
+    });
+    // clear account
+    await this.prismaService.txClient().account.deleteMany({
+      where: {
+        userId,
+      },
+    });
+    // clear comment subscription
+    await this.prismaService.txClient().commentSubscription.deleteMany({
+      where: {
+        createdBy: userId,
+      },
+    });
+    // clear invitation
+    await this.prismaService.txClient().invitation.deleteMany({
+      where: {
+        createdBy: userId,
+      },
+    });
+    // clear notification
+    await this.prismaService.txClient().notification.deleteMany({
+      where: {
+        toUserId: userId,
+      },
+    });
+    // clear Oauth app
+    await this.prismaService.txClient().$executeRawUnsafe(
+      this.knex
+        .raw(
+          `DELETE FROM oauth_app_token t
+       USING oauth_app_secret s, oauth_app a
+       WHERE t.app_secret_id = s.id 
+       AND s.client_id = a.client_id
+       AND a.created_by = ?`,
+          [userId]
+        )
+        .toQuery()
+    );
+    await this.prismaService.txClient().$executeRawUnsafe(
+      this.knex
+        .raw(
+          `DELETE FROM oauth_app_secret s
+           USING oauth_app a
+           WHERE s.client_id = a.client_id
+           AND a.created_by = ?`,
+          [userId]
+        )
+        .toQuery()
+    );
+    await this.prismaService.txClient().$executeRawUnsafe(
+      this.knex
+        .raw(
+          `DELETE FROM oauth_app_authorized auth
+           USING oauth_app a
+           WHERE auth.client_id = a.client_id
+           AND a.created_by = ?`,
+          [userId]
+        )
+        .toQuery()
+    );
+    await this.prismaService.txClient().oAuthApp.deleteMany({
+      where: {
+        createdBy: userId,
+      },
+    });
+    // clear Pin
+    await this.prismaService.txClient().pinResource.deleteMany({
+      where: {
+        createdBy: userId,
+      },
+    });
+    // clear Plugin develop
+    await this.prismaService.txClient().plugin.deleteMany({
+      where: {
+        createdBy: userId,
+        status: {
+          not: PluginStatus.Published,
+        },
+      },
+    });
+    // clear user last visit
+    await this.prismaService.txClient().userLastVisit.deleteMany({
+      where: {
+        userId,
+      },
+    });
+
+    // clear collaborator
+    await this.prismaService.txClient().collaborator.deleteMany({
+      where: {
+        principalId: userId,
+      },
+    });
+  }
+
+  private async validateDeleteUser(userId: string) {
+    const collaboratorSpaces = await this.prismaService.txClient().$queryRawUnsafe<
+      {
+        id: string;
+        name: string;
+        deletedTime: string | null;
+      }[]
+    >(
+      this.knex
+        .queryBuilder()
+        .select({
+          id: 'space.id',
+          name: 'space.name',
+          deletedTime: 'space.deleted_time',
+        })
+        .from('collaborator')
+        .innerJoin('space', 'collaborator.resource_id', 'space.id')
+        .where('principal_id', userId)
+        .where('principal_type', PrincipalType.User)
+        .where((d1) =>
+          d1
+            .where((d2) =>
+              d2
+                .whereIn('collaborator.role_name', [Role.Owner, Role.Creator])
+                .whereNotNull('space.deleted_time')
+            )
+            .orWhereNull('space.deleted_time')
+        )
+        .toQuery()
+    );
+    if (collaboratorSpaces.length > 0) {
+      throw new CustomHttpException('User has collaborators', HttpErrorCode.VALIDATION_ERROR, {
+        spaces: collaboratorSpaces.map((space) => ({
+          id: space.id,
+          name: space.name,
+          deletedTime: space.deletedTime ? new Date(space.deletedTime).toISOString() : null,
+        })),
+      });
+    }
+  }
+
+  async deleteUser() {
+    const userId = this.cls.get('user.id');
+    await this.prismaService.$tx(async () => {
+      await this.validateDeleteUser(userId);
+      await this.permanentlyDeleteUser(userId);
+      await this.clearUserData(userId);
+    });
   }
 }

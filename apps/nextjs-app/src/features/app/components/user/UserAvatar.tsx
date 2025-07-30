@@ -26,7 +26,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = (props) => {
     }).props;
 
   return (
-    <Avatar className={cn('size-7', className)} style={style}>
+    <Avatar className={cn('size-7 bg-background', className)} style={style}>
       {userAvatarProps && <AvatarImage {...userAvatarProps} />}
       <AvatarFallback>{name?.slice(0, 1)}</AvatarFallback>
     </Avatar>

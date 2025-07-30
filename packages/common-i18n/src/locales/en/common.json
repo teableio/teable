@@ -170,6 +170,20 @@
           "desc": "You will be redirected to the login page in 2 seconds.",
           "sendSuccess": "Verification code sent successfully."
         }
+      },
+      "deleteAccount": {
+        "title": "Delete Account",
+        "desc": "This action is irreversible. It will permanently delete your account and all associated data.",
+        "error": {
+          "title": "Unable to delete account",
+          "desc": "You need to handle the following dependencies first:",
+          "spacesError": "Before deleting your account, you need to leave your spaces(or delete and then go to trash) first."
+        },
+        "confirm": {
+          "title": "Please enter <code>DELETE</code> to confirm",
+          "placeholder": "DELETE"
+        },
+        "loading": "Deleting..."
       }
     },
     "notify": {

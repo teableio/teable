@@ -19,7 +19,16 @@ export const UserAvatar = (props: IUserAvatarProps) => {
   }
 
   return (
-    <Avatar className={cn('size-6 border', className)} style={style}>
+    <Avatar
+      className={cn(
+        'size-6 border bg-background',
+        {
+          'bg-gray-300': name === 'Deleted User',
+        },
+        className
+      )}
+      style={style}
+    >
       <AvatarImage
         src={
           avatar

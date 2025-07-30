@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { authConfig, type IAuthConfig } from '../../configs/auth.config';
 import { AccessTokenModule } from '../access-token/access-token.module';
+import { StorageModule } from '../attachments/plugins/storage.module';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -38,6 +39,7 @@ import { SessionStrategy } from './strategies/session.strategy';
       }),
       inject: [authConfig.KEY],
     }),
+    StorageModule,
   ],
   providers: [
     AuthService,

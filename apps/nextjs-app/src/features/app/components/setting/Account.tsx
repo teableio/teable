@@ -17,6 +17,7 @@ import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { AddPassword } from './account/AddPassword';
 import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
+import { DeleteAccountDialog } from './account/DeleteAccountDialog';
 
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
@@ -129,6 +130,8 @@ export const Account: React.FC = () => {
               </ChangePasswordDialog>
             </div>
           )}
+
+          <DeleteAccountDialog />
         </div>
       </div>
     </div>
