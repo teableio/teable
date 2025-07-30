@@ -16,6 +16,9 @@ import {
   urlBuilder,
   axios as defaultAxios,
   GET_RECORD_URL,
+  permanentDeleteSpace,
+  listAccessToken,
+  deleteAccessToken,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { CacheService } from '../src/cache/cache.service';
@@ -185,5 +188,11 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect((res.data.fields[field.id] as Array<object>).length).toEqual(1);
     const attachmentByToken = (res.data.fields[field.id] as IAttachmentCellValue)[0]!;
     expect(attachmentByToken.presignedUrl?.startsWith(appUrl)).toBe(true);
+
+    await permanentDeleteSpace(space.id);
+    const { data } = await listAccessToken();
+    for (const { id } of data) {
+      await deleteAccessToken(id);
+    }
   });
 });
