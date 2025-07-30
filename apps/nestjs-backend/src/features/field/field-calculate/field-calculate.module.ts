@@ -12,6 +12,7 @@ import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
 import { FieldSupplementService } from './field-supplement.service';
 import { FieldViewSyncService } from './field-view-sync.service';
+import { FormulaFieldService } from './formula-field.service';
 
 @Module({
   imports: [FieldModule, CalculationModule, RecordCalculateModule, ViewModule, CollaboratorModule],
@@ -24,6 +25,7 @@ import { FieldViewSyncService } from './field-view-sync.service';
     FieldConvertingLinkService,
     TableIndexService,
     FieldViewSyncService,
+    FormulaFieldService,
   ],
   exports: [
     FieldDeletingService,

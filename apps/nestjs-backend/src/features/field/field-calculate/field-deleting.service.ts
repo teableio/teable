@@ -10,6 +10,7 @@ import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';
+import { FormulaFieldService } from './formula-field.service';
 
 @Injectable()
 export class FieldDeletingService {
@@ -20,7 +21,8 @@ export class FieldDeletingService {
     private readonly fieldService: FieldService,
     private readonly tableIndexService: TableIndexService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldCalculationService: FieldCalculationService
+    private readonly fieldCalculationService: FieldCalculationService,
+    private readonly formulaFieldService: FormulaFieldService
   ) {}
 
   private async markFieldsAsError(tableId: string, fieldIds: string[]) {
@@ -123,11 +125,95 @@ export class FieldDeletingService {
     return fieldInstances.map((field) => field.id);
   }
 
+  /**
+   * Cascade delete dependent formula fields
+   * Uses FormulaFieldService to get all dependencies in topological order
+   */
+  private async cascadeDeleteFormulaFields(fieldId: string): Promise<string[]> {
+    // Get all dependent formula fields in topological order (deepest first)
+    const dependentFormulaFields =
+      await this.formulaFieldService.getDependentFormulaFieldsInOrder(fieldId);
+
+    if (dependentFormulaFields.length === 0) {
+      return [];
+    }
+
+    this.logger.debug(
+      `Found ${dependentFormulaFields.length} dependent formula fields to cascade delete: ${dependentFormulaFields.map((f) => `${f.id}(L${f.level})`).join(', ')}`
+    );
+
+    // Group fields by tableId and level for efficient batch deletion
+    const fieldsByTableAndLevel = new Map<string, Map<number, string[]>>();
+
+    for (const field of dependentFormulaFields) {
+      if (!fieldsByTableAndLevel.has(field.tableId)) {
+        fieldsByTableAndLevel.set(field.tableId, new Map());
+      }
+      const tableMap = fieldsByTableAndLevel.get(field.tableId)!;
+      if (!tableMap.has(field.level)) {
+        tableMap.set(field.level, []);
+      }
+      tableMap.get(field.level)!.push(field.id);
+    }
+
+    const deletedFieldIds: string[] = [];
+
+    // Delete fields level by level (deepest first) and batch by table
+    // Ensure each level is completely deleted before proceeding to the next level
+    const allLevels = [...new Set(dependentFormulaFields.map((f) => f.level))].sort(
+      (a, b) => b - a
+    );
+
+    for (const level of allLevels) {
+      this.logger.debug(`Processing deletion for level ${level}`);
+
+      // Collect all deletion promises for this level
+      const levelDeletionPromises: Promise<void>[] = [];
+
+      for (const [tableId, levelMap] of fieldsByTableAndLevel) {
+        const fieldIdsAtLevel = levelMap.get(level);
+        if (fieldIdsAtLevel && fieldIdsAtLevel.length > 0) {
+          this.logger.debug(
+            `Batch deleting ${fieldIdsAtLevel.length} formula fields at level ${level} in table ${tableId}: ${fieldIdsAtLevel.join(', ')}`
+          );
+
+          // Delete fields directly without triggering cleanRef to avoid recursion
+          const deletionPromise = this.fieldService.batchDeleteFields(tableId, fieldIdsAtLevel);
+          levelDeletionPromises.push(deletionPromise);
+          deletedFieldIds.push(...fieldIdsAtLevel);
+        }
+      }
+
+      // Wait for all deletions at this level to complete before proceeding to the next level
+      if (levelDeletionPromises.length > 0) {
+        await Promise.all(levelDeletionPromises);
+        this.logger.debug(`Completed deletion for level ${level}`);
+      }
+    }
+
+    return deletedFieldIds;
+  }
+
   async cleanRef(tableId: string, field: IFieldInstance) {
+    // 1. Cascade delete dependent formula fields before deleting references
+    const deletedFormulaFieldIds = await this.cascadeDeleteFormulaFields(field.id);
+
+    if (deletedFormulaFieldIds.length > 0) {
+      this.logger.log(
+        `Cascade deleted ${deletedFormulaFieldIds.length} formula fields: ${deletedFormulaFieldIds.join(', ')}`
+      );
+    }
+
+    // 2. Delete reference relationships
     const errorRefFieldIds = await this.fieldSupplementService.deleteReference(field.id);
 
+    // 3. Filter out fields that have already been cascade deleted
+    const remainingErrorFieldIds = errorRefFieldIds.filter(
+      (id) => !deletedFormulaFieldIds.includes(id)
+    );
+
     const resetLinkFieldIds = await this.resetLinkFieldLookupFieldId(
-      errorRefFieldIds,
+      remainingErrorFieldIds,
       tableId,
       field.id
     );
@@ -136,17 +222,21 @@ export class FieldDeletingService {
       !field.isLookup &&
       field.type === FieldType.Link &&
       (await this.fieldSupplementService.deleteLookupFieldReference(field.id));
-    const errorFieldIds = difference(errorRefFieldIds, resetLinkFieldIds).concat(
+    const errorFieldIds = difference(remainingErrorFieldIds, resetLinkFieldIds).concat(
       errorLookupFieldIds || []
     );
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: errorFieldIds } },
-      select: { id: true, tableId: true },
-    });
 
-    for (const fieldRaw of fieldRaws) {
-      const { id, tableId } = fieldRaw;
-      await this.markFieldsAsError(tableId, [id]);
+    // 4. Mark remaining fields as error
+    if (errorFieldIds.length > 0) {
+      const fieldRaws = await this.prismaService.txClient().field.findMany({
+        where: { id: { in: errorFieldIds } },
+        select: { id: true, tableId: true },
+      });
+
+      for (const fieldRaw of fieldRaws) {
+        const { id, tableId } = fieldRaw;
+        await this.markFieldsAsError(tableId, [id]);
+      }
     }
   }
 

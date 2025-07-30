@@ -135,12 +135,11 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   }
 
   dropColumn(tableName: string, columnName: string): string[] {
-    return this.knex.schema
-      .alterTable(tableName, (table) => {
-        table.dropColumn(columnName);
-      })
-      .toSQL()
-      .map((item) => item.sql);
+    // Use CASCADE to automatically drop dependent objects (like generated columns)
+    // This is safe because we handle application-level dependencies separately
+    return [
+      this.knex.raw('ALTER TABLE ?? DROP COLUMN ?? CASCADE', [tableName, columnName]).toQuery(),
+    ];
   }
 
   // postgres drop index with column automatically
