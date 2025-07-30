@@ -599,6 +599,9 @@ ORDER BY
   convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult {
     try {
       const formulaQuery = this.formulaQuery();
+      // Set the context on the formula query instance
+      formulaQuery.setContext(context);
+
       const visitor = new SqlConversionVisitor(formulaQuery, context);
 
       const sql = parseFormulaToSQL(expression, visitor);

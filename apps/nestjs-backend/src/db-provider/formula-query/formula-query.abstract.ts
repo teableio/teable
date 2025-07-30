@@ -1,10 +1,22 @@
-import type { IFormulaQueryInterface } from './formula-query.interface';
+import type { IFormulaQueryInterface, IFormulaConversionContext } from './formula-query.interface';
 
 /**
  * Abstract base class for formula query implementations
  * Provides common functionality and default implementations
  */
 export abstract class FormulaQueryAbstract implements IFormulaQueryInterface {
+  /** Current conversion context */
+  protected context?: IFormulaConversionContext;
+
+  /** Set the conversion context */
+  setContext(context: IFormulaConversionContext): void {
+    this.context = context;
+  }
+
+  /** Check if we're in a generated column context */
+  protected get isGeneratedColumnContext(): boolean {
+    return this.context?.isGeneratedColumn ?? false;
+  }
   // Numeric Functions
   abstract sum(params: string[]): string;
   abstract average(params: string[]): string;
