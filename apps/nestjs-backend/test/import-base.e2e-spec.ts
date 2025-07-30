@@ -151,9 +151,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       await permanentDeleteTable(sourceBaseId, subTable.id);
     });
     it('should export table and import the table', async () => {
-      const { previewUrl } = await awaitWithEvent(async () => {
+      const { previewUrl: url } = await awaitWithEvent(async () => {
         await exportBase(sourceBaseId);
       });
+      const previewUrl = appUrl + url;
 
       const clsService = app.get(ClsService);
 
@@ -322,23 +323,6 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       for (const tableId of Object.values(tableIdMap)) {
         await permanentDeleteTable(base.id, tableId);
       }
-    });
-
-    it('should export base with windowId', async () => {
-      const { previewUrl: withoutWindowIdUrl } = await awaitWithEvent(async () => {
-        await exportBase(sourceBaseId);
-      });
-      expect(withoutWindowIdUrl.startsWith(appUrl)).toBe(true);
-
-      const windowId = 'win' + getRandomString(8);
-      axios.interceptors.request.use((config) => {
-        config.headers['X-Window-Id'] = windowId;
-        return config;
-      });
-      const { previewUrl: withWindowIdUrl } = await awaitWithEvent(async () => {
-        await exportBase(sourceBaseId);
-      });
-      expect(withWindowIdUrl.startsWith(appUrl)).toBe(false);
     });
   });
 });

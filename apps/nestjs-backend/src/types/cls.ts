@@ -20,7 +20,6 @@ export interface IClsStore extends ClsStore {
     byApi: boolean;
     userAgent: string;
     referer: string;
-    windowId?: string;
   };
   tx: {
     client?: Prisma.TransactionClient;

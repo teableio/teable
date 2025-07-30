@@ -242,7 +242,7 @@ export class LocalStorage implements StorageAdapter {
       respHeaders,
     });
     const origin = this.cls.get('origin');
-    const prefix = origin?.windowId ? '' : this.baseConfig.storagePrefix;
+    const prefix = origin?.byApi ? this.baseConfig.storagePrefix : '';
     return prefix + join('/', url);
   }
   verifyReadToken(token: string) {

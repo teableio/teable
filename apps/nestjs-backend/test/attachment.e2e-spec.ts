@@ -2,9 +2,23 @@ import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
-import { FieldKeyType, FieldType, getRandomString } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
-import { getRecord, permanentDeleteTable, updateRecord, uploadAttachment } from '@teable/openapi';
+import { CellFormat, FieldKeyType, FieldType, getRandomString } from '@teable/core';
+import type { CreateAccessTokenRo, ITableFullVo } from '@teable/openapi';
+import {
+  createAccessToken,
+  createAxios,
+  createBase,
+  createSpace,
+  getRecord,
+  permanentDeleteTable,
+  updateRecord,
+  uploadAttachment,
+  urlBuilder,
+  axios as defaultAxios,
+  GET_RECORD_URL,
+} from '@teable/openapi';
+import dayjs from 'dayjs';
+import { CacheService } from '../src/cache/cache.service';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
@@ -16,10 +30,11 @@ describe('OpenAPI AttachmentController (e2e)', () => {
   const baseId = globalThis.testConfig.baseId;
   let table: ITableFullVo;
   let filePath: string;
-
+  let appUrl: string;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    appUrl = appCtx.appUrl;
     filePath = path.join(StorageAdapter.TEMPORARY_DIR, 'test-file.txt');
     fs.writeFileSync(filePath, 'This is a test file for attachment upload.');
   });
@@ -113,5 +128,62 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(attachment?.lgThumbnailUrl).toBe(attachment.presignedUrl);
     expect(attachment?.smThumbnailUrl).toBeDefined();
     expect(attachment.smThumbnailUrl).not.toBe(attachment.presignedUrl);
+  });
+
+  it('should get attachment absolute url by token', async () => {
+    const space = await createSpace({ name: 'access token space' }).then((res) => res.data);
+    const base = await createBase({ spaceId: space.id, name: 'access token base' }).then(
+      (res) => res.data
+    );
+    const table = await createTable(base.id, { name: 'table1' });
+    const field = await createField(table.id, {
+      name: 'attachment123',
+      type: FieldType.Attachment,
+    });
+
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    const fileContent = fs.createReadStream(filePath);
+    const recordId = table.records[0].id;
+    const record = await uploadAttachment(table.id, recordId, field.id, fileContent);
+
+    expect(record.status).toBe(201);
+    expect((record.data.fields[field.id] as Array<object>).length).toEqual(1);
+    const attachment = (record.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachment.presignedUrl?.startsWith(appUrl)).toBe(false);
+
+    const defaultCreateRo: CreateAccessTokenRo = {
+      name: 'token1',
+      description: 'token1',
+      scopes: ['table|read', 'record|read'],
+      baseIds: [base.id],
+      spaceIds: [space.id],
+      expiredTime: dayjs(Date.now() + 1000 * 60 * 60 * 24).format('YYYY-MM-DD'),
+    };
+    const { data: recordReadTokenData } = await createAccessToken({
+      ...defaultCreateRo,
+      name: 'record read token',
+      scopes: ['record|read'],
+    });
+
+    const cacheService = app.get(CacheService);
+    await cacheService.del(`attachment:preview:${attachment.token}`);
+
+    const axios = createAxios();
+    axios.defaults.baseURL = defaultAxios.defaults.baseURL;
+    const res = await axios.get(urlBuilder(GET_RECORD_URL, { tableId: table.id, recordId }), {
+      params: {
+        fieldKeyType: FieldKeyType.Id,
+        cellFormat: CellFormat.Json,
+      },
+      headers: {
+        Authorization: `Bearer ${recordReadTokenData.token}`,
+      },
+    });
+
+    expect(res.status).toEqual(200);
+    expect((res.data.fields[field.id] as Array<object>).length).toEqual(1);
+    const attachmentByToken = (res.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentByToken.presignedUrl?.startsWith(appUrl)).toBe(true);
   });
 });

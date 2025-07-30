@@ -15,13 +15,11 @@ export class RequestInfoMiddleware implements NestMiddleware {
     const referer = req.headers.referer || '';
     const authHeader = req.headers.authorization || '';
     const byApi = authHeader.toLowerCase().startsWith('bearer ');
-    const windowId = (req.headers['x-window-id'] as string) || '';
     const origin: IClsStore['origin'] = {
       ip: req.ip || req.socket.remoteAddress || '',
       byApi,
       userAgent,
       referer,
-      windowId,
     };
 
     this.cls.set('origin', origin);
