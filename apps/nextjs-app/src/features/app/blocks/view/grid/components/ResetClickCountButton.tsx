@@ -1,4 +1,5 @@
 import { FieldType } from '@teable/core';
+import { buttonReset } from '@teable/openapi';
 import { Record, useFields, useTablePermission } from '@teable/sdk';
 import type { IActiveCell, IGridRef, IRecordIndexMap } from '@teable/sdk';
 import { Button, sonner } from '@teable/ui-lib';
@@ -26,6 +27,7 @@ export const ResetClickCountButton = forwardRef<
   const record = activeCell?.rowIndex ? recordMap[activeCell.rowIndex] : undefined;
   const { fieldId } = activeCell || {};
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const field = fields.find((f) => f.id === fieldId);
 
   const onPositionChanged = useCallback(() => {
     if (!activeCell || !permission['record|update']) {
@@ -33,9 +35,6 @@ export const ResetClickCountButton = forwardRef<
     }
 
     const { fieldId, columnIndex, rowIndex } = activeCell;
-
-    const field = fields.find((f) => f.id === fieldId);
-
     if (!field || field.type !== FieldType.Button) {
       return setStyle(null);
     }
@@ -59,7 +58,7 @@ export const ResetClickCountButton = forwardRef<
         top: y + (height - 32) / 2,
       });
     }
-  }, [activeCell, fields, gridRef, permission, record]);
+  }, [activeCell, gridRef, permission, record, field]);
 
   useEffect(() => {
     onPositionChanged();
@@ -88,8 +87,9 @@ export const ResetClickCountButton = forwardRef<
   }, []);
 
   const resetClickCount = async () => {
-    if (!activeCell || !fieldId || !record) return;
-    await record.updateCell(fieldId, null);
+    if (!activeCell || !field || !record) return;
+    await buttonReset(field.tableId, record.id, field.id);
+    // await record.updateCell(fieldId, null);
     toast.success(t('sdk:common.resetSuccess'));
   };
 

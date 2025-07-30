@@ -222,17 +222,20 @@ export class RecordOpenApiController {
   @Permissions('record|update')
   @Post(':recordId/:fieldId/button-click')
   async buttonClick(
-    @Param('tableId') _tableId: string,
-    @Param('recordId') _recordId: string,
-    @Param('fieldId') _fieldId: string
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Param('fieldId') fieldId: string
   ): Promise<IButtonClickVo> {
-    return {
-      tableId: '',
-      fieldId: '',
-      record: {
-        id: '',
-        fields: {},
-      },
-    };
+    return await this.recordOpenApiService.buttonClick(tableId, recordId, fieldId);
+  }
+
+  @Permissions('record|update')
+  @Patch(':recordId/:fieldId/button-reset')
+  async buttonReset(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<IRecord> {
+    return await this.recordOpenApiService.resetButton(tableId, recordId, fieldId);
   }
 }

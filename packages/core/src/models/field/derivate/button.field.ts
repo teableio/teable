@@ -6,12 +6,7 @@ import { FieldCore } from '../field';
 export const buttonFieldOptionsSchema = z.object({
   label: z.string().openapi({ description: 'Button label' }),
   color: z.nativeEnum(Colors).openapi({ description: 'Button color' }),
-  maxCount: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .openapi({ description: 'Max count of button clicks' }),
+  maxCount: z.number().optional().openapi({ description: 'Max count of button clicks' }),
   resetCount: z.boolean().optional().openapi({ description: 'Reset count' }),
   workflow: z
     .object({
@@ -26,7 +21,7 @@ export const buttonFieldOptionsSchema = z.object({
 export type IButtonFieldOptions = z.infer<typeof buttonFieldOptionsSchema>;
 
 export const buttonFieldCelValueSchema = z.object({
-  count: z.number().int().positive().openapi({ description: 'clicked count' }),
+  count: z.number().int().openapi({ description: 'clicked count' }),
 });
 
 export type IButtonFieldCellValue = z.infer<typeof buttonFieldCelValueSchema>;

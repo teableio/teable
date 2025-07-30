@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { IAttachmentCellValue, IAttachmentItem, IMakeOptional } from '@teable/core';
+import type {
+  IAttachmentCellValue,
+  IAttachmentItem,
+  IButtonFieldCellValue,
+  IButtonFieldOptions,
+  IMakeOptional,
+} from '@teable/core';
 import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ICreateRecordsRo } from '@teable/openapi';
@@ -13,7 +19,7 @@ import type {
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable/openapi';
-import { forEach, keyBy, map } from 'lodash';
+import { forEach, keyBy, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { bufferCount, concatMap, from, lastValueFrom, reduce } from 'rxjs';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
@@ -627,5 +633,71 @@ export class RecordOpenApiService {
       .then((res) => {
         return res.records[0];
       });
+  }
+
+  async buttonClick(tableId: string, recordId: string, fieldId: string) {
+    const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: {
+        id: fieldId,
+        type: FieldType.Button,
+        deletedTime: null,
+      },
+    });
+
+    const fieldInstance = createFieldInstanceByRaw(fieldRaw);
+    const options = fieldInstance.options as IButtonFieldOptions;
+    const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
+    if (!isActive) {
+      throw new BadRequestException('Button field is not active');
+    }
+
+    const maxCount = options.maxCount || 0;
+    const record = await this.recordService.getRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    const fieldValue = record.fields[fieldId] as IButtonFieldCellValue;
+    const count = fieldValue?.count || 0;
+    if (maxCount > 0 && count >= maxCount) {
+      throw new BadRequestException('Button click count reached max count');
+    }
+    const updatedRecord: IRecord = await this.updateRecord(tableId, recordId, {
+      record: {
+        fields: { [fieldId]: { count: count + 1 } },
+      },
+      fieldKeyType: FieldKeyType.Id,
+    });
+    updatedRecord.fields = pick(updatedRecord.fields, [fieldId]);
+
+    return {
+      tableId,
+      fieldId,
+      record: updatedRecord,
+    };
+  }
+
+  async resetButton(tableId: string, recordId: string, fieldId: string) {
+    const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: {
+        id: fieldId,
+        type: FieldType.Button,
+        deletedTime: null,
+      },
+    });
+
+    const fieldInstance = createFieldInstanceByRaw(fieldRaw);
+    const fieldOptions = fieldInstance.options as IButtonFieldOptions;
+    if (!fieldOptions.resetCount) {
+      throw new BadRequestException('Button field does not support reset');
+    }
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: null,
+        },
+      },
+    });
   }
 }

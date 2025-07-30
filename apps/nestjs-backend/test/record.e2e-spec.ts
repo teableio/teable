@@ -1,8 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ISelectFieldOptions } from '@teable/core';
-import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import { updateRecords, type ITableFullVo } from '@teable/openapi';
+import type { IButtonFieldCellValue, IFieldRo, IFieldVo, ISelectFieldOptions } from '@teable/core';
+import {
+  CellFormat,
+  Colors,
+  DriverClient,
+  FieldKeyType,
+  FieldType,
+  Relationship,
+} from '@teable/core';
+import { buttonClick, buttonReset, updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,
@@ -1022,6 +1029,113 @@ describe('OpenAPI RecordController (e2e)', () => {
           ],
         }),
       ]);
+    });
+  });
+
+  describe('button field click and reset', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should click a button field', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          workflow: {
+            id: '123',
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      const res = await buttonClick(table.id, table.records[0].id, field.id);
+      const value = res.data.record.fields[field.id] as IButtonFieldCellValue;
+      expect(value.count).toEqual(1);
+    });
+
+    it('should not click a button field without workflow', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+        },
+      });
+
+      expect(buttonClick(table.id, table.records[0].id, field.id)).rejects.toThrow();
+    });
+
+    it('should not click a button field with exceed max count', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          maxCount: 1,
+          workflow: {
+            id: '123',
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      const res = await buttonClick(table.id, table.records[0].id, field.id);
+      const value = res.data.record.fields[field.id] as IButtonFieldCellValue;
+      expect(value.count).toEqual(1);
+
+      expect(buttonClick(table.id, table.records[0].id, field.id)).rejects.toThrow();
+    });
+
+    it('should reset a button field', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          resetCount: true,
+          workflow: {
+            id: '123',
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      const clickRes = await buttonClick(table.id, table.records[0].id, field.id);
+      const clickValue = clickRes.data.record.fields[field.id] as IButtonFieldCellValue;
+      expect(clickValue.count).toEqual(1);
+
+      const resetRes = await buttonReset(table.id, table.records[0].id, field.id);
+      const resetValue = resetRes.data.fields[field.id] as IButtonFieldCellValue;
+      expect(resetValue).toBeUndefined();
+    });
+
+    it('should not reset a button field without resetCount', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          workflow: {
+            id: '123',
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      expect(buttonReset(table.id, table.records[0].id, field.id)).rejects.toThrow();
     });
   });
 });
