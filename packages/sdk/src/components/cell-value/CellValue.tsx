@@ -29,10 +29,11 @@ interface ICellValueContainer extends ICellValue<unknown> {
   field: IFieldInstance;
   formatImageUrl?: (url: string) => string;
   itemClassName?: string;
+  readonly?: boolean;
 }
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, ellipsis, className, itemClassName, formatImageUrl } = props;
+  const { field, value, ellipsis, className, itemClassName, formatImageUrl, readonly } = props;
   const { type, options, cellValueType } = field;
 
   switch (type) {
@@ -127,6 +128,7 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as IButtonFieldCellValue}
           className={className}
           options={options as IButtonFieldOptions}
+          readonly={readonly}
         />
       );
     }

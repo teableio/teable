@@ -1,7 +1,6 @@
 import type {
   IAttachmentCellValue,
   IButtonFieldCellValue,
-  IButtonFieldOptions,
   ICheckboxCellValue,
   IDateFieldOptions,
   ILinkCellValue,
@@ -17,7 +16,7 @@ import type {
   IUserCellValue,
   IUserFieldOptions,
 } from '@teable/core';
-import { checkButtonClickable, FieldType } from '@teable/core';
+import { FieldType } from '@teable/core';
 import { temporaryPaste } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId } from '../../hooks';
@@ -209,14 +208,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           className={className}
           value={cellValue as IButtonFieldCellValue}
           onChange={onChange}
-          readonly={
-            readonly ||
-            !recordId ||
-            !checkButtonClickable(
-              field.options as IButtonFieldOptions,
-              cellValue as IButtonFieldCellValue
-            )
-          }
+          readonly={readonly}
         />
       );
     }

@@ -6,7 +6,7 @@ export class ButtonFieldDto extends ButtonFieldCore implements FieldBase {
     return false;
   }
   convertCellValue2DBValue(value: unknown): unknown {
-    return value;
+    return value && JSON.stringify(value);
   }
 
   convertDBValue2CellValue(value: unknown): unknown {

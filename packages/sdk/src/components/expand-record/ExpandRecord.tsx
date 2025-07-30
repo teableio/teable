@@ -77,7 +77,8 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
       if (!canUpdateRecord) {
         return true;
       }
-      return Boolean(record?.isLocked(field.id));
+
+      return Boolean(record?.isLocked(field.id)) || Boolean(field.isComputed);
     },
     [record, canUpdateRecord]
   );

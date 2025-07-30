@@ -18,6 +18,7 @@ export const CellEditor = (props: ICellValueEditor) => {
           value={cellValue}
           className="text-sm"
           itemClassName={isRating ? 'size-5' : undefined}
+          readonly={readonly}
         />
       ) : (
         <CellEditorMain {...props} />

@@ -8,14 +8,15 @@ import type { ICellValue } from '../type';
 interface ICellButton extends ICellValue<IButtonFieldCellValue> {
   options: IButtonFieldOptions;
   itemClassName?: string;
+  readonly?: boolean;
 }
 
 export const CellButton = (props: ICellButton) => {
-  const { className, style, itemClassName, options: fieldOptions, value } = props;
+  const { className, style, itemClassName, options: fieldOptions, value, readonly } = props;
 
   const isClickable = useMemo(() => {
-    return checkButtonClickable(fieldOptions, value);
-  }, [fieldOptions, value]);
+    return !readonly && checkButtonClickable(fieldOptions, value);
+  }, [fieldOptions, value, readonly]);
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
@@ -32,13 +33,12 @@ export const CellButton = (props: ICellButton) => {
   return (
     <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
       <Button
-        className={cn('flex h-5 w-24', itemClassName)}
+        className={cn('flex w-24 h-6 cursor-default', itemClassName)}
         style={{
           backgroundColor: button.bgColor,
           borderColor: button.bgColor,
           color: button.textColor,
         }}
-        disabled={!isClickable}
       >
         <span className="w-full truncate text-sm" style={{ color: button.textColor }}>
           {button.label}
