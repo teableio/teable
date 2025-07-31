@@ -1,5 +1,5 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import { SortFunc } from '@teable/core';
+import { FieldType, SortFunc } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../features/field/model/factory';
 import type { ISortFunctionInterface } from './sort-function.interface';
@@ -11,9 +11,13 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
     protected readonly knex: Knex,
     protected readonly field: IFieldInstance
   ) {
-    const { dbFieldName } = this.field;
+    const { dbFieldName, type } = field;
 
-    this.columnName = dbFieldName;
+    if (type === FieldType.Formula && field.options.dbGenerated) {
+      this.columnName = field.getGeneratedColumnName();
+    } else {
+      this.columnName = dbFieldName;
+    }
   }
 
   compiler(builderClient: Knex.QueryBuilder, sortFunc: SortFunc) {

@@ -1,7 +1,8 @@
 import { Logger } from '@nestjs/common';
-import { CellValueType } from '@teable/core';
+import { CellValueType, FieldType, getGeneratedColumnName } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
 import type { IGroupQueryInterface, IGroupQueryExtra } from './group-query.interface';
 
 export abstract class AbstractGroupQuery implements IGroupQueryInterface {
@@ -17,6 +18,21 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
 
   appendGroupBuilder(): Knex.QueryBuilder {
     return this.parseGroups(this.originQueryBuilder, this.groupFieldIds);
+  }
+
+  /**
+   * Get the database column name to query for a field
+   * For formula fields with dbGenerated=true, use the generated column name
+   * Otherwise, use the standard dbFieldName
+   */
+  protected getTableColumnName(field: IFieldInstance): string {
+    if (field.type === FieldType.Formula && !field.isLookup) {
+      const formulaField = field as FormulaFieldDto;
+      if (formulaField.options.dbGenerated) {
+        return getGeneratedColumnName(field.dbFieldName);
+      }
+    }
+    return field.dbFieldName;
   }
 
   private parseGroups(

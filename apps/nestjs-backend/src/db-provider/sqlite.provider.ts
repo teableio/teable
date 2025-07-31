@@ -5,8 +5,11 @@ import { DriverClient, parseFormulaToSQL, SqlConversionVisitor } from '@teable/c
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
+import {
+  SqliteDatabaseColumnVisitor,
+  type IDatabaseColumnContext,
+} from '../features/field/database-column-visitor.sqlite';
 import type { IFieldInstance } from '../features/field/model/factory';
-import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -105,13 +108,67 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
-  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
-    return [
-      this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery(),
-      this.knex
-        .raw(`ALTER TABLE ?? ADD COLUMN ?? ??`, [tableName, columnName, schemaType])
-        .toQuery(),
-    ];
+  modifyColumnSchema(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    fieldMap: IFormulaConversionContext['fieldMap']
+  ): string[] {
+    const queries: string[] = [];
+
+    // First, drop ALL columns associated with the field (including generated columns)
+    const columnNames = fieldInstance.dbFieldNames;
+    for (const columnName of columnNames) {
+      queries.push(
+        this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()
+      );
+    }
+
+    const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
+      const context: IDatabaseColumnContext = {
+        table,
+        fieldId: fieldInstance.id,
+        dbFieldName: fieldInstance.dbFieldName,
+        unique: fieldInstance.unique,
+        notNull: fieldInstance.notNull,
+        dbProvider: this,
+        fieldMap,
+      };
+
+      // Use visitor pattern to recreate columns
+      const visitor = new SqliteDatabaseColumnVisitor(context);
+      fieldInstance.accept(visitor);
+    });
+
+    const alterTableQuery = alterTableBuilder.toQuery();
+    queries.push(alterTableQuery);
+
+    return queries;
+  }
+
+  createColumnSchema(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    fieldMap: IFormulaConversionContext['fieldMap'],
+    isNewTable?: boolean
+  ): string {
+    const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
+      const context: IDatabaseColumnContext = {
+        table,
+        fieldId: fieldInstance.id,
+        dbFieldName: fieldInstance.dbFieldName,
+        unique: fieldInstance.unique,
+        notNull: fieldInstance.notNull,
+        dbProvider: this,
+        fieldMap,
+        isNewTable,
+      };
+
+      // Use visitor pattern to create columns
+      const visitor = new SqliteDatabaseColumnVisitor(context);
+      fieldInstance.accept(visitor);
+    });
+
+    return alterTableBuilder.toQuery();
   }
 
   splitTableName(tableName: string): string[] {

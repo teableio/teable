@@ -3,20 +3,19 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import { match } from 'ts-pattern';
 import { FunctionName } from './functions/common';
-import type {
-  BinaryOpContext,
+import {
   BooleanLiteralContext,
-  BracketsContext,
   DecimalLiteralContext,
-  FunctionCallContext,
   IntegerLiteralContext,
-  LeftWhitespaceOrCommentsContext,
-  RightWhitespaceOrCommentsContext,
-  RootContext,
   StringLiteralContext,
   FieldReferenceCurlyContext,
-  UnaryOpContext,
+  BinaryOpContext,
+  BracketsContext,
+  FunctionCallContext,
+  LeftWhitespaceOrCommentsContext,
+  RightWhitespaceOrCommentsContext,
 } from './parser/Formula';
+import type { ExprContext, RootContext, UnaryOpContext } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 
 /**
@@ -264,7 +263,17 @@ export class SqlConversionVisitor
     const operator = ctx._op;
 
     return match(operator.text)
-      .with('+', () => this.formulaQuery.add(left, right))
+      .with('+', () => {
+        // Check if either operand is a string type for concatenation
+        const leftType = this.inferExpressionType(ctx.expr(0));
+        const rightType = this.inferExpressionType(ctx.expr(1));
+
+        if (leftType === 'string' || rightType === 'string') {
+          return this.formulaQuery.concatenate([left, right]);
+        }
+
+        return this.formulaQuery.add(left, right);
+      })
       .with('-', () => this.formulaQuery.subtract(left, right))
       .with('*', () => this.formulaQuery.multiply(left, right))
       .with('/', () => this.formulaQuery.divide(left, right))
@@ -428,6 +437,213 @@ export class SqlConversionVisitor
           throw new Error(`Unsupported function: ${fn}`);
         })
     );
+  }
+
+  /**
+   * Infer the type of an expression for type-aware operations
+   */
+  private inferExpressionType(ctx: ExprContext): 'string' | 'number' | 'boolean' | 'unknown' {
+    // Handle literals
+    const literalType = this.inferLiteralType(ctx);
+    if (literalType !== 'unknown') {
+      return literalType;
+    }
+
+    // Handle field references
+    if (ctx instanceof FieldReferenceCurlyContext) {
+      return this.inferFieldReferenceType(ctx);
+    }
+
+    // Handle function calls
+    if (ctx instanceof FunctionCallContext) {
+      return this.inferFunctionReturnType(ctx);
+    }
+
+    // Handle binary operations
+    if (ctx instanceof BinaryOpContext) {
+      return this.inferBinaryOperationType(ctx);
+    }
+
+    // Handle parentheses - infer from inner expression
+    if (ctx instanceof BracketsContext) {
+      return this.inferExpressionType(ctx.expr());
+    }
+
+    // Handle whitespace/comments - infer from inner expression
+    if (
+      ctx instanceof LeftWhitespaceOrCommentsContext ||
+      ctx instanceof RightWhitespaceOrCommentsContext
+    ) {
+      return this.inferExpressionType(ctx.expr());
+    }
+
+    // Default to unknown for unhandled cases
+    return 'unknown';
+  }
+
+  /**
+   * Infer type from literal contexts
+   */
+  private inferLiteralType(ctx: ExprContext): 'string' | 'number' | 'boolean' | 'unknown' {
+    if (ctx instanceof StringLiteralContext) {
+      return 'string';
+    }
+
+    if (ctx instanceof IntegerLiteralContext || ctx instanceof DecimalLiteralContext) {
+      return 'number';
+    }
+
+    if (ctx instanceof BooleanLiteralContext) {
+      return 'boolean';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Infer type from field reference
+   */
+  private inferFieldReferenceType(
+    ctx: FieldReferenceCurlyContext
+  ): 'string' | 'number' | 'boolean' | 'unknown' {
+    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+    const fieldInfo = this.context.fieldMap[fieldId];
+
+    if (!fieldInfo?.fieldType) {
+      return 'unknown';
+    }
+
+    return this.mapFieldTypeToBasicType(fieldInfo.fieldType);
+  }
+
+  /**
+   * Map field types to basic types
+   */
+  private mapFieldTypeToBasicType(fieldType: string): 'string' | 'number' | 'boolean' | 'unknown' {
+    const stringTypes = [
+      'singleLineText',
+      'longText',
+      'singleSelect',
+      'multipleSelect',
+      'user',
+      'createdBy',
+      'lastModifiedBy',
+      'attachment',
+      'link',
+      'date',
+      'createdTime',
+      'lastModifiedTime', // Dates are typically handled as strings in SQL
+    ];
+
+    const numberTypes = ['number', 'rating', 'autoNumber', 'count', 'rollup'];
+
+    if (stringTypes.includes(fieldType)) {
+      return 'string';
+    }
+
+    if (numberTypes.includes(fieldType)) {
+      return 'number';
+    }
+
+    if (fieldType === 'checkbox') {
+      return 'boolean';
+    }
+
+    if (fieldType === 'formula') {
+      // For formula fields, we can't easily determine the type without recursion
+      // Default to unknown to be safe
+      return 'unknown';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Infer return type from function calls
+   */
+  private inferFunctionReturnType(
+    ctx: FunctionCallContext
+  ): 'string' | 'number' | 'boolean' | 'unknown' {
+    const fnName = ctx.func_name().text.toUpperCase();
+
+    const stringFunctions = [
+      'CONCATENATE',
+      'LEFT',
+      'RIGHT',
+      'MID',
+      'UPPER',
+      'LOWER',
+      'TRIM',
+      'SUBSTITUTE',
+      'REPLACE',
+      'T',
+      'DATESTR',
+      'TIMESTR',
+    ];
+
+    const numberFunctions = [
+      'SUM',
+      'AVERAGE',
+      'MAX',
+      'MIN',
+      'ROUND',
+      'ROUNDUP',
+      'ROUNDDOWN',
+      'CEILING',
+      'FLOOR',
+      'ABS',
+      'SQRT',
+      'POWER',
+      'EXP',
+      'LOG',
+      'MOD',
+      'VALUE',
+      'LEN',
+      'COUNT',
+      'COUNTA',
+    ];
+
+    const booleanFunctions = ['AND', 'OR', 'NOT', 'XOR'];
+
+    if (stringFunctions.includes(fnName)) {
+      return 'string';
+    }
+
+    if (numberFunctions.includes(fnName)) {
+      return 'number';
+    }
+
+    if (booleanFunctions.includes(fnName)) {
+      return 'boolean';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Infer type from binary operations
+   */
+  private inferBinaryOperationType(
+    ctx: BinaryOpContext
+  ): 'string' | 'number' | 'boolean' | 'unknown' {
+    const operator = ctx._op?.text;
+
+    if (!operator) {
+      return 'unknown';
+    }
+
+    const arithmeticOperators = ['+', '-', '*', '/', '%'];
+    const comparisonOperators = ['>', '<', '>=', '<=', '=', '!=', '<>', '&&', '||'];
+
+    if (arithmeticOperators.includes(operator)) {
+      return 'number';
+    }
+
+    if (comparisonOperators.includes(operator)) {
+      return 'boolean';
+    }
+
+    return 'unknown';
   }
 
   private unescapeString(str: string): string {

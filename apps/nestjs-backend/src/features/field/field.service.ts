@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   getGeneratedColumnName,
   FieldOpBuilder,
@@ -7,7 +7,6 @@ import {
   OpName,
   checkFieldUniqueValidationEnabled,
   checkFieldValidationEnabled,
-  DriverClient,
   FieldType,
 } from '@teable/core';
 import type {
@@ -34,32 +33,34 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { getDriverName } from '../../utils/db-helpers';
+
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
-import {
-  PostgresDatabaseColumnVisitor,
-  type IDatabaseColumnContext,
-} from './database-column-visitor.postgres';
-import { SqliteDatabaseColumnVisitor } from './database-column-visitor.sqlite';
+
+import { FormulaFieldService } from './field-calculate/formula-field.service';
 import { FormulaExpansionService } from './formula-expansion.service';
 import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
-import { dbType2knexFormat } from './util';
+import {
+  createFieldInstanceByVo,
+  createFieldInstanceByRaw,
+  rawField2FieldObj,
+} from './model/factory';
 
 type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IReadonlyAdapterService {
+  private logger = new Logger(FieldService.name);
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly formulaExpansionService: FormulaExpansionService
+    private readonly formulaExpansionService: FormulaExpansionService,
+    private readonly formulaFieldService: FormulaFieldService
   ) {}
 
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
@@ -262,31 +263,14 @@ export class FieldService implements IReadonlyAdapterService {
     for (const fieldInstance of fieldInstances) {
       const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
 
-      const alterTableQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          // Create database column context
-          const context: IDatabaseColumnContext = {
-            table,
-            fieldId,
-            dbFieldName,
-            unique,
-            notNull,
-            dbProvider: this.dbProvider,
-            fieldMap,
-            isNewTable, // Pass the isNewTable parameter
-          };
+      const alterTableQuery = this.dbProvider.createColumnSchema(
+        dbTableName,
+        fieldInstance,
+        fieldMap,
+        isNewTable
+      );
 
-          // Create appropriate visitor based on database driver
-          const driverName = getDriverName(this.knex);
-          const visitor =
-            driverName === DriverClient.Pg
-              ? new PostgresDatabaseColumnVisitor(context)
-              : new SqliteDatabaseColumnVisitor(context);
-
-          // Use visitor pattern to create columns
-          fieldInstance.accept(visitor);
-        })
-        .toQuery();
+      this.logger.log('alterTableQuery', alterTableQuery);
 
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
 
@@ -374,30 +358,44 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   private async alterTableModifyFieldType(fieldId: string, newDbFieldType: DbFieldType) {
+    // Get complete field information
+    const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: fieldId, deletedTime: null },
+    });
+
     const {
       dbFieldName,
       name: fieldName,
       table,
+      tableId,
     } = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { id: fieldId, deletedTime: null },
       select: {
         dbFieldName: true,
         name: true,
+        tableId: true,
         table: { select: { dbTableName: true, name: true } },
       },
     });
 
     const dbTableName = table.dbTableName;
-    const schemaType = dbType2knexFormat(this.knex, newDbFieldType);
+
+    // Create field instance with updated dbFieldType
+    const updatedFieldRaw = { ...fieldRaw, dbFieldType: newDbFieldType };
+    const fieldInstance = createFieldInstanceByRaw(updatedFieldRaw);
+
+    // Build field map for formula conversion context
+    const fieldMap = await this.buildFieldMapForTable(tableId);
 
     const resetFieldQuery = this.knex(dbTableName)
       .update({ [dbFieldName]: null })
       .toQuery();
 
+    // Use the new modifyColumnSchema method with visitor pattern
     const modifyColumnSql = this.dbProvider.modifyColumnSchema(
       dbTableName,
-      dbFieldName,
-      schemaType
+      fieldInstance,
+      fieldMap
     );
 
     await handleDBValidationErrors({
@@ -848,6 +846,10 @@ export class FieldService implements IReadonlyAdapterService {
           },
         });
       }
+
+      // Check if this is a formula field options update that affects generated columns
+      await this.handleFormulaOptionsUpdate(fieldId, newValue);
+
       return { options: JSON.stringify(newValue) };
     }
 
@@ -911,6 +913,9 @@ export class FieldService implements IReadonlyAdapterService {
       where: { id: fieldId, tableId },
       data: result,
     });
+
+    // Handle dependent formula fields after field update
+    await this.handleDependentFormulaFields(tableId, fieldId, opContexts);
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IFieldVo>[]> {
@@ -1056,5 +1061,142 @@ export class FieldService implements IReadonlyAdapterService {
     const uniqueKeySuffix = `___${fieldId}_unique`;
     const uniqueKeyPrefix = `${schema}_${tableName}`.slice(0, 63 - uniqueKeySuffix.length);
     return `${uniqueKeyPrefix.toLowerCase()}${uniqueKeySuffix.toLowerCase()}`;
+  }
+
+  /**
+   * Handle formula field options update that may affect generated columns
+   */
+  private async handleFormulaOptionsUpdate(fieldId: string, newOptions: unknown): Promise<void> {
+    // Get field information to check if it's a formula field
+    const field = await this.prismaService.txClient().field.findUnique({
+      where: { id: fieldId, deletedTime: null },
+      select: {
+        id: true,
+        type: true,
+        tableId: true,
+        table: {
+          select: { dbTableName: true },
+        },
+      },
+    });
+
+    if (!field || field.type !== FieldType.Formula) {
+      return;
+    }
+
+    // Check if the new options affect generated columns
+    const formulaOptions = newOptions as IFormulaFieldOptions;
+    if (!formulaOptions.dbGenerated && !formulaOptions.expression) {
+      return;
+    }
+
+    // Get complete field information for recreation
+    const fieldRaw = await this.prismaService.txClient().field.findUniqueOrThrow({
+      where: { id: fieldId, deletedTime: null },
+    });
+
+    // Create field instance with updated options
+    const updatedFieldRaw = { ...fieldRaw, options: JSON.stringify(newOptions) };
+    const fieldInstance = createFieldInstanceByRaw(updatedFieldRaw);
+
+    // Build field map for formula conversion context
+    const fieldMap = await this.buildFieldMapForTable(field.tableId);
+
+    // Use modifyColumnSchema to recreate the field with updated options
+    const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+      field.table.dbTableName,
+      fieldInstance,
+      fieldMap
+    );
+
+    // Execute the column modification
+    for (const sql of modifyColumnSql) {
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
+  }
+
+  /**
+   * Handle dependent formula fields when updating a regular field
+   * This ensures that formula fields referencing the updated field are properly updated
+   */
+  private async handleDependentFormulaFields(
+    tableId: string,
+    fieldId: string,
+    opContexts: IOpContext[]
+  ): Promise<void> {
+    // Check if any of the operations affect dependent formula fields
+    const affectsDependentFields = opContexts.some((ctx) => {
+      const { key } = ctx as ISetFieldPropertyOpContext;
+      // These property changes can affect dependent formula fields
+      return ['dbFieldType', 'dbFieldName', 'options'].includes(key);
+    });
+
+    if (!affectsDependentFields) {
+      return;
+    }
+
+    try {
+      // Get all formula fields that depend on this field
+      const dependentFields =
+        await this.formulaFieldService.getDependentFormulaFieldsInOrder(fieldId);
+
+      if (dependentFields.length === 0) {
+        return;
+      }
+
+      // Build field map for formula conversion context
+      const fieldMap = await this.buildFieldMapForTable(tableId);
+
+      // Process dependent fields in dependency order (deepest first for deletion, then reverse for creation)
+      const fieldsToProcess = [...dependentFields].reverse(); // Reverse to get shallowest first
+
+      // Process each dependent formula field
+      for (const { id: dependentFieldId, tableId: dependentTableId } of fieldsToProcess) {
+        // Get complete field information
+        const dependentFieldRaw = await this.prismaService.txClient().field.findUnique({
+          where: { id: dependentFieldId, tableId: dependentTableId, deletedTime: null },
+        });
+
+        if (!dependentFieldRaw || dependentFieldRaw.type !== FieldType.Formula) {
+          continue;
+        }
+
+        // Check if this formula field has generated columns
+        const options = dependentFieldRaw.options
+          ? (JSON.parse(dependentFieldRaw.options) as IFormulaFieldOptions)
+          : null;
+        if (!options?.dbGenerated) {
+          continue;
+        }
+
+        // Create field instance
+        const fieldInstance = createFieldInstanceByRaw(dependentFieldRaw);
+
+        // Get table name for dependent field
+        const dependentTableMeta = await this.prismaService.txClient().tableMeta.findUnique({
+          where: { id: dependentTableId },
+          select: { dbTableName: true },
+        });
+
+        if (!dependentTableMeta) {
+          continue;
+        }
+
+        // Use modifyColumnSchema to recreate the dependent formula field
+        const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+          dependentTableMeta.dbTableName,
+          fieldInstance,
+          fieldMap
+        );
+
+        // Execute the column modification
+        for (const sql of modifyColumnSql) {
+          await this.prismaService.txClient().$executeRawUnsafe(sql);
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to handle dependent formula fields for field ${fieldId}:`, error);
+      // Don't throw error to avoid breaking the field update operation
+    }
   }
 }

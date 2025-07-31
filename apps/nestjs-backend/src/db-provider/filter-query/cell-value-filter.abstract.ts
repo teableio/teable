@@ -32,6 +32,7 @@ import {
   isOnOrBefore,
   isWithIn,
   literalValueListSchema,
+  FieldType,
 } from '@teable/core';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -43,9 +44,13 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   protected tableColumnRef: string;
 
   constructor(protected readonly field: IFieldInstance) {
-    const { dbFieldName } = this.field;
+    const { dbFieldName, type } = field;
 
-    this.tableColumnRef = dbFieldName;
+    if (type === FieldType.Formula && field.options.dbGenerated) {
+      this.tableColumnRef = field.getGeneratedColumnName();
+    } else {
+      this.tableColumnRef = dbFieldName;
+    }
   }
 
   compiler(builderClient: Knex.QueryBuilder, operator: IFilterOperator, value: IFilterValue) {
