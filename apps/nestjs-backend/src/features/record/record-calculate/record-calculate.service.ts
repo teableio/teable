@@ -118,9 +118,9 @@ export class RecordCalculateService {
       }
     }
 
-    await this.batchService.updateRecords(manualOpsMap);
+    const oldRecords = await this.batchService.updateRecords(manualOpsMap);
 
-    await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.fkRecordMap);
+    await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.fkRecordMap, oldRecords);
   }
 
   async calculateDeletedRecord(tableId: string, records: IRecord[]) {

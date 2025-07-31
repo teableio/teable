@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
+import { RecordQueryService } from '../record/record-query.service';
 import { BatchService } from './batch.service';
 import { FieldCalculationService } from './field-calculation.service';
 import { LinkService } from './link.service';
@@ -9,6 +10,7 @@ import { SystemFieldService } from './system-field.service';
 @Module({
   providers: [
     DbProvider,
+    RecordQueryService,
     BatchService,
     ReferenceService,
     LinkService,
@@ -21,6 +23,7 @@ import { SystemFieldService } from './system-field.service';
     LinkService,
     FieldCalculationService,
     SystemFieldService,
+    RecordQueryService,
   ],
 })
 export class CalculationModule {}

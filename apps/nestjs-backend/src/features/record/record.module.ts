@@ -4,6 +4,7 @@ import { AttachmentsStorageModule } from '../attachments/attachments-storage.mod
 import { CalculationModule } from '../calculation/calculation.module';
 import { TableIndexService } from '../table/table-index.service';
 import { RecordPermissionService } from './record-permission.service';
+import { RecordQueryService } from './record-query.service';
 import { RecordService } from './record.service';
 import { UserNameListener } from './user-name.listener.service';
 
@@ -12,10 +13,11 @@ import { UserNameListener } from './user-name.listener.service';
   providers: [
     UserNameListener,
     RecordService,
+    RecordQueryService,
     DbProvider,
     TableIndexService,
     RecordPermissionService,
   ],
-  exports: [RecordService],
+  exports: [RecordService, RecordQueryService],
 })
 export class RecordModule {}
