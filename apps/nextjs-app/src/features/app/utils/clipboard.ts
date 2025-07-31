@@ -117,7 +117,10 @@ export const parseNormalHtml = (html: string) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const table = doc.querySelector('table');
-  const rows = Array.from(table?.rows || []);
+  if (!table) {
+    return [[doc.body.textContent || '']];
+  }
+  const rows = Array.from(table.rows);
   return rows.map((row) => {
     const cells = Array.from(row.cells);
     return cells.map((cell) => cell.textContent || '');
