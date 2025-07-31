@@ -1,6 +1,7 @@
 import type { ISort } from '@teable/core';
-import { SortFunc } from '@teable/core';
+import { FieldType, SortFunc } from '@teable/core';
 import { useMemo } from 'react';
+import { useFields } from '../../hooks';
 import { FieldCommand } from '../field/FieldCommand';
 import { DraggableSortList } from './DraggableSortList';
 import { SortFieldAddButton } from './SortFieldAddButton';
@@ -14,6 +15,9 @@ interface ISortProps {
 
 export function SortContent(props: ISortProps) {
   const { onChange, sortValues = [], addBtnText, limit = Infinity } = props;
+
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
 
   const selectedFieldIds = useMemo(
     () => sortValues.map((sort) => sort.fieldId) || [],
@@ -43,7 +47,7 @@ export function SortContent(props: ISortProps) {
   };
 
   if (!sortValues.length) {
-    return <FieldCommand onSelect={onFieldSelect} />;
+    return <FieldCommand fields={fields} onSelect={onFieldSelect} />;
   }
 
   return (

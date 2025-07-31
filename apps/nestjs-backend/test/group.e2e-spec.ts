@@ -1,11 +1,18 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IGroupItem } from '@teable/core';
-import { CellValueType, FieldKeyType, SortFunc } from '@teable/core';
+import type { IFieldRo, IGroup, IGroupItem, IViewGroupRo } from '@teable/core';
+import { CellValueType, FieldKeyType, FieldType, SortFunc } from '@teable/core';
 import type { ITableFullVo, IGetRecordsRo } from '@teable/openapi';
 import { updateViewGroup, updateViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import { x_20 } from './data-helpers/20x';
-import { createTable, permanentDeleteTable, getRecords, getView, initApp } from './utils/init-app';
+import {
+  createTable,
+  permanentDeleteTable,
+  getRecords,
+  getView,
+  initApp,
+  createField,
+} from './utils/init-app';
 
 let app: INestApplication;
 
@@ -85,6 +92,23 @@ describe('OpenAPI ViewController view group (e2e)', () => {
     const updatedView = await getView(tableId, viewId);
     const viewGroup = updatedView.group;
     expect(viewGroup).toEqual(assertGroup.group);
+  });
+
+  it('should not allow to modify group for button field', async () => {
+    const buttonField = await createField(tableId, {
+      type: FieldType.Button,
+    });
+
+    const assertGroup: IViewGroupRo = {
+      group: [
+        {
+          fieldId: buttonField.id,
+          order: SortFunc.Asc,
+        },
+      ],
+    };
+
+    await expect(updateViewGroup(tableId, viewId, assertGroup)).rejects.toThrow();
   });
 });
 

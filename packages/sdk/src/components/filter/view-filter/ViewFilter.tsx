@@ -1,4 +1,4 @@
-import type { IFilter } from '@teable/core';
+import { FieldType, type IFilter } from '@teable/core';
 import { Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useState } from 'react';
@@ -24,7 +24,8 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const { t } = useTranslation();
   const title = t('filter.tips.scope');
   const emptyText = t('filter.default.empty');
-  const fields = useFields({ withHidden: true, withDenied: true });
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
   const { text, isActive } = useFilterNode(filters, fields);
   const latestValue = useLatest(filters);
   const [filter, setFilter] = useState(latestValue.current);

@@ -10,13 +10,15 @@ import type {
   IViewRo,
   IViewVo,
   IColumnMetaRo,
-  IViewPropertyKeys,
   IViewOptions,
   IGridColumnMeta,
   IFilter,
   IFilterItem,
   ILinkFieldOptions,
   IPluginViewOptions,
+  IViewPropertyKeys,
+  ISort,
+  IGroup,
 } from '@teable/core';
 import {
   ViewType,
@@ -29,6 +31,7 @@ import {
   IdPrefix,
   generatePluginInstallId,
   generateOperationId,
+  extractFieldIdsFromFilter,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, PluginStatus } from '@teable/openapi';
@@ -251,6 +254,51 @@ export class ViewOpenApiService {
     return this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
   }
 
+  async validateFilter(tableId: string, filter: IFilter) {
+    const fieldIds = extractFieldIdsFromFilter(filter);
+    if (fieldIds.length > 0) {
+      const unsupportedFields = await this.prismaService.field.findMany({
+        where: { tableId, id: { in: fieldIds }, type: FieldType.Button },
+        select: { id: true },
+      });
+      if (unsupportedFields.length > 0) {
+        throw new BadRequestException(
+          `Cannot modify filter for unsupported button field ${unsupportedFields.map((f) => f.id).join(', ')}`
+        );
+      }
+    }
+  }
+
+  async validateSort(tableId: string, sort: ISort) {
+    const fieldIds = sort?.sortObjs?.map(({ fieldId }) => fieldId) || [];
+    if (fieldIds.length > 0) {
+      const unsupportedFields = await this.prismaService.field.findMany({
+        where: { tableId, id: { in: fieldIds }, type: FieldType.Button },
+        select: { id: true },
+      });
+      if (unsupportedFields.length > 0) {
+        throw new BadRequestException(
+          `Cannot modify sort for unsupported button field ${unsupportedFields.map((f) => f.id).join(', ')}`
+        );
+      }
+    }
+  }
+
+  async validateGroup(tableId: string, group: IGroup) {
+    const fieldIds = group?.map(({ fieldId }) => fieldId) || [];
+    if (fieldIds.length > 0) {
+      const unsupportedFields = await this.prismaService.field.findMany({
+        where: { tableId, id: { in: fieldIds }, type: FieldType.Button },
+        select: { id: true },
+      });
+      if (unsupportedFields.length > 0) {
+        throw new BadRequestException(
+          `Cannot modify group for unsupported button field ${unsupportedFields.map((f) => f.id).join(', ')}`
+        );
+      }
+    }
+  }
+
   async setViewProperty(
     tableId: string,
     viewId: string,
@@ -266,6 +314,19 @@ export class ViewOpenApiService {
       .catch(() => {
         throw new BadRequestException('View not found');
       });
+
+    if (key === 'filter') {
+      await this.validateFilter(tableId, newValue as IFilter);
+    }
+
+    if (key === 'sort') {
+      await this.validateSort(tableId, newValue as ISort);
+    }
+
+    if (key === 'group') {
+      await this.validateGroup(tableId, newValue as IGroup);
+    }
+
     const oldValue =
       curView[key] != null && VIEW_JSON_KEYS.includes(key)
         ? JSON.parse(curView[key])

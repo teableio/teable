@@ -19,7 +19,7 @@ import {
   TimeFormatting,
   FieldKeyType,
 } from '@teable/core';
-import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
+import type { IGetRecordsRo, ITableFullVo, IViewSortRo } from '@teable/openapi';
 import {
   updateViewSort as apiSetViewSort,
   convertField,
@@ -376,6 +376,19 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     const assertRecordIds = orderBy(records.records, [`fields.${singleSelectField.name}`], ['asc']);
 
     expect(records.records.map((r) => r.id)).toEqual(assertRecordIds.map((r) => r.id));
+  });
+
+  it('should not allow to modify sort for button field', async () => {
+    const buttonField = await createField(tableId, {
+      type: FieldType.Button,
+    });
+    const assertSort: IViewSortRo = {
+      sort: {
+        sortObjs: [{ fieldId: buttonField.id, order: SortFunc.Asc }],
+      },
+    };
+
+    await expect(apiSetViewSort(tableId, viewId, assertSort)).rejects.toThrow();
   });
 });
 

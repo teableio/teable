@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, IFilterRo } from '@teable/core';
+import { FieldType, isEmpty, type IFieldVo, type IFilterRo } from '@teable/core';
 import { updateViewFilter as apiSetViewFilter } from '@teable/openapi';
-import { initApp, getView, createTable, permanentDeleteTable } from './utils/init-app';
+import { initApp, getView, createTable, permanentDeleteTable, createField } from './utils/init-app';
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
@@ -57,5 +57,24 @@ describe('OpenAPI ViewController (e2e) option (PUT)', () => {
     const updatedView = await getView(tableId, viewId);
     const viewFilter = updatedView.filter;
     expect(viewFilter).toEqual(assertFilter.filter);
+  });
+
+  it('should not allow to modify filter for button field', async () => {
+    const buttonField = await createField(tableId, {
+      type: FieldType.Button,
+    });
+    const assertFilter: IFilterRo = {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: buttonField.id,
+            operator: isEmpty.value,
+            value: null,
+          },
+        ],
+      },
+    };
+    await expect(apiSetViewFilter(tableId, viewId, assertFilter)).rejects.toThrow();
   });
 });

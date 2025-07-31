@@ -1,4 +1,5 @@
-import type { ISortItem } from '@teable/core';
+import { FieldType, type ISortItem } from '@teable/core';
+import { useFields } from '../../hooks';
 import { FieldSelector } from '../field/FieldSelector';
 import { OrderSelect } from './OrderSelect';
 
@@ -23,11 +24,15 @@ function SortItem(props: ISortItemProps) {
     onSelect?.(index, { ...value, [_key]: _value });
   };
 
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
+
   return (
     <div className="flex">
       <FieldSelector
         value={fieldId}
         onSelect={(value) => selectHandler(ISortKey.FieldId, value)}
+        fields={fields}
         excludedIds={selectedFields}
         className="w-40"
         {...restProps}
