@@ -192,7 +192,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: t('field.title.button'),
             defaultOptions: {
-              label: t('table:field.default.button.click'),
+              label: t('common.click'),
               color: Colors.Teal,
             },
             Icon: getIcon(MousePointerClick),
