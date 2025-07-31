@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type {
+  IButtonFieldCellValue,
   IButtonFieldOptions,
   IFieldRo,
   IFieldVo,
@@ -29,9 +30,10 @@ import {
   DriverClient,
   CellFormat,
   FieldAIActionType,
+  generateWorkflowId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { type ITableFullVo } from '@teable/openapi';
+import { buttonClick, type ITableFullVo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
@@ -633,7 +635,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           label: 'buttonField2',
           color: Colors.Red,
           workflow: {
-            id: '123',
+            id: generateWorkflowId(),
             name: 'workflow1',
             isActive: true,
           },
@@ -4046,6 +4048,47 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         globalThis.testConfig.userId,
         globalThis.testConfig.userId,
       ]);
+    });
+  });
+
+  describe('convert button field', () => {
+    bfAf();
+
+    it('should convert button field to text', async () => {
+      const buttonFieldRo: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'buttonField2',
+          color: Colors.Red,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'workflow1',
+            isActive: true,
+          },
+        },
+      };
+      const buttonField = await createField(table1.id, buttonFieldRo);
+
+      const clickRes = await buttonClick(table1.id, table1.records[0].id, buttonField.id);
+      const clickValue = clickRes.data.record.fields[buttonField.id] as IButtonFieldCellValue;
+      expect(clickValue.count).toEqual(1);
+
+      const newFieldRo: IFieldRo = {
+        ...buttonFieldRo,
+        options: {
+          ...buttonFieldRo.options,
+          workflow: null,
+        },
+      };
+
+      await convertField(table1.id, buttonField.id, newFieldRo);
+
+      const { records: newRecords } = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        projection: [buttonField.id],
+      });
+
+      expect(newRecords[0].fields[buttonField.id]).toBeUndefined();
     });
   });
 

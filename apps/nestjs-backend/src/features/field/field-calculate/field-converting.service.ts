@@ -49,6 +49,7 @@ import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
+import type { ButtonFieldDto } from '../model/field-dto/button-field.dto';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-field.dto';
@@ -693,6 +694,47 @@ export class FieldConvertingService {
     return await this.updateOptionsFromUserField(tableId, newField);
   }
 
+  private async updateOptionsFromButtonField(tableId: string, field: ButtonFieldDto) {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
+    const nativeSql = this.knex(dbTableName)
+      .select('__id', field.dbFieldName)
+      .whereNotNull(field.dbFieldName);
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+    for (const row of result) {
+      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]);
+      opsMap[row.__id] = [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: field.id,
+          oldCellValue,
+          newCellValue: null,
+        }),
+      ];
+    }
+
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
+  }
+
+  private async modifyButtonOptions(
+    tableId: string,
+    newField: ButtonFieldDto,
+    oldField: ButtonFieldDto
+  ) {
+    const oldWorkflow = oldField.options.workflow;
+    const newWorkflow = newField.options.workflow;
+
+    if (oldWorkflow?.id === newWorkflow?.id) return;
+
+    return await this.updateOptionsFromButtonField(tableId, newField);
+  }
+
   private async modifyOptions(
     tableId: string,
     newField: IFieldInstance,
@@ -729,6 +771,13 @@ export class FieldConvertingService {
           tableId,
           newField as UserFieldDto,
           oldField as UserFieldDto
+        );
+      }
+      case FieldType.Button: {
+        return await this.modifyButtonOptions(
+          tableId,
+          newField as ButtonFieldDto,
+          oldField as ButtonFieldDto
         );
       }
     }

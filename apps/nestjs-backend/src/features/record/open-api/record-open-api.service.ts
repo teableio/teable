@@ -6,7 +6,7 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
+import { FieldKeyType, FieldType, generateOperationId, IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ICreateRecordsRo } from '@teable/openapi';
 import type {
@@ -646,9 +646,15 @@ export class RecordOpenApiService {
 
     const fieldInstance = createFieldInstanceByRaw(fieldRaw);
     const options = fieldInstance.options as IButtonFieldOptions;
-    const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
+    const isActive =
+      options.workflow &&
+      options.workflow.id &&
+      options.workflow.id.startsWith(IdPrefix.Workflow) &&
+      options.workflow.isActive;
     if (!isActive) {
-      throw new BadRequestException('Button field is not active');
+      throw new BadRequestException(
+        `Button field's workflow ${options.workflow?.id} is not active`
+      );
     }
 
     const maxCount = options.maxCount || 0;
@@ -659,7 +665,7 @@ export class RecordOpenApiService {
     const fieldValue = record.fields[fieldId] as IButtonFieldCellValue;
     const count = fieldValue?.count || 0;
     if (maxCount > 0 && count >= maxCount) {
-      throw new BadRequestException('Button click count reached max count');
+      throw new BadRequestException(`Button click count ${count} reached max count ${maxCount}`);
     }
     const updatedRecord: IRecord = await this.updateRecord(tableId, recordId, {
       record: {

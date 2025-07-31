@@ -1,10 +1,17 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
-import { FieldType, ViewType } from '@teable/core';
+import type { IButtonFieldCellValue, IFieldRo, ILinkFieldOptions } from '@teable/core';
+import { Colors, FieldType, generateWorkflowId, ViewType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { createField, getFields, duplicateField, createView, getView } from '@teable/openapi';
+import {
+  createField,
+  getFields,
+  duplicateField,
+  createView,
+  getView,
+  buttonClick,
+} from '@teable/openapi';
 import { omit, pick } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
@@ -49,7 +56,12 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
       table.fields = (await getFields(table.id)).data;
       subTable.fields = (await getFields(subTable.id)).data;
 
-      const nonCommonFieldType = [FieldType.Link, FieldType.Rollup, FieldType.Formula];
+      const nonCommonFieldType = [
+        FieldType.Link,
+        FieldType.Rollup,
+        FieldType.Formula,
+        FieldType.Button,
+      ];
       const commonFields = table.fields.filter((field) => !nonCommonFieldType.includes(field.type));
 
       for (const field of commonFields) {
@@ -267,6 +279,60 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     afterAll(async () => {
       await permanentDeleteTable(baseId, table.id);
       await permanentDeleteTable(baseId, subTable.id);
+    });
+  });
+
+  describe('duplicate button field', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should duplicate button field', async () => {
+      const buttonFieldRo: IFieldRo = {
+        name: 'button',
+        type: FieldType.Button,
+        options: {
+          label: 'button label',
+          color: Colors.Red,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'workflow1',
+            isActive: true,
+          },
+        },
+      };
+      const buttonField = (await createField(table1.id, buttonFieldRo)).data;
+
+      const clickRes = await buttonClick(table1.id, table1.records[0].id, buttonField.id);
+      const clickValue = clickRes.data.record.fields[buttonField.id] as IButtonFieldCellValue;
+      expect(clickValue.count).toEqual(1);
+
+      const copiedButtonField = (
+        await duplicateField(table1.id, buttonField.id, {
+          name: `${buttonField.name}_copy`,
+        })
+      ).data;
+
+      expect(copiedButtonField.name).toBe(`${buttonField.name}_copy`);
+      const expectedButtonField = {
+        ...buttonField,
+        options: {
+          ...buttonField.options,
+          workflow: undefined,
+        },
+      };
+
+      const keys = ['name', 'dbFieldName', 'id', 'isPrimary'];
+      expect(omit(expectedButtonField, keys)).toEqual(omit(copiedButtonField, keys));
     });
   });
 

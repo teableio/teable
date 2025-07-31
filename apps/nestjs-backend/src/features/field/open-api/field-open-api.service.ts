@@ -583,6 +583,10 @@ export class FieldOpenApiService {
     delete newFieldInstance.notNull;
     delete newFieldInstance.unique;
 
+    if (fieldInstance.type === FieldType.Button) {
+      newFieldInstance.options = omit(fieldInstance.options, ['workflow']);
+    }
+
     if (FieldType.Link === fieldInstance.type && !fieldInstance.isLookup) {
       newFieldInstance.options = {
         ...pick(fieldInstance.options, [
@@ -613,7 +617,7 @@ export class FieldOpenApiService {
       ...omit(newFieldInstance, ['notNull', 'unique']),
     });
 
-    if (!fieldInstance.isComputed) {
+    if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
       // do not async duplicate records
       this.duplicateFieldData(
         sourceTableId,

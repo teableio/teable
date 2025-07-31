@@ -33,6 +33,7 @@ export const CellButton = (props: ICellButton) => {
   return (
     <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
       <Button
+        variant="outline"
         className={cn('flex w-24 h-6 cursor-default', itemClassName)}
         style={{
           backgroundColor: button.bgColor,

@@ -37,6 +37,7 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
   return (
     <div className={cn('flex items-center h-8')}>
       <Button
+        variant="outline"
         onClick={() => {
           if (!recordId || !isClickable) {
             return;

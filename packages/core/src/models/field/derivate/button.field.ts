@@ -15,6 +15,7 @@ export const buttonFieldOptionsSchema = z.object({
       isActive: z.boolean().optional().openapi({ description: 'Workflow is active' }),
     })
     .optional()
+    .nullable()
     .openapi({ description: 'Workflow' }),
 });
 
@@ -61,6 +62,10 @@ export class ButtonFieldCore extends FieldCore {
   }
 
   validateCellValue(value: unknown) {
+    if (this.isMultipleCellValue) {
+      return z.array(buttonFieldCelValueSchema).nonempty().nullable().safeParse(value);
+    }
+
     return buttonFieldCelValueSchema.nullable().safeParse(value);
   }
 }
