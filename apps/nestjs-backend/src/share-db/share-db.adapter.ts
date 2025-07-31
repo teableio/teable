@@ -323,6 +323,11 @@ export class ShareDbAdapter extends ShareDb.DB {
         return;
       }
 
+      if (from > version) {
+        safeCallback(null, []);
+        return;
+      }
+
       const snapshotData = await this.getSnapshotData(
         docType as IdPrefix,
         collectionId,
@@ -350,7 +355,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       }
 
       const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
-      const editOps = new Array(Math.min((to || baseRaw.v + 1) - from, 1)).fill(0).map((_, i) => {
+      const editOps = new Array(Math.min((to || baseRaw.v + 1) - from, 0)).fill(0).map((_, i) => {
         return {
           ...baseRaw,
           v: from + i,
