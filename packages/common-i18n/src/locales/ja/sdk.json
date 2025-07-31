@@ -28,7 +28,8 @@
       "failed": "{{name}} 失敗",
       "running": "{{name}} 実行中"
     },
-    "resetSuccess": "リセット成功"
+    "resetSuccess": "リセット成功",
+    "click": "クリック"
   },
   "preview": {
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",

@@ -28,7 +28,8 @@
       "failed": "{{name}} fehlgeschlagen",
       "running": "{{name}} läuft"
     },
-    "resetSuccess": "Erfolgreich zurückgesetzt"
+    "resetSuccess": "Erfolgreich zurückgesetzt",
+    "click": "Klicken"
   },
   "preview": {
     "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",

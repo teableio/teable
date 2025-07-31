@@ -28,7 +28,8 @@
       "failed": "{{name}} başarısız",
       "running": "{{name}} çalışıyor"
     },
-    "resetSuccess": "Sıfırlama başarılı"
+    "resetSuccess": "Sıfırlama başarılı",
+    "click": "Tıkla"
   },
   "preview": {
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",

@@ -28,7 +28,8 @@
       "failed": "{{name}} 执行失败",
       "running": "{{name}} 运行中"
     },
-    "resetSuccess": "重置成功"
+    "resetSuccess": "重置成功",
+    "click": "点击"
   },
   "noun": {
     "table": "表格",

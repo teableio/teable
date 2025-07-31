@@ -28,7 +28,8 @@
       "failed": "{{name}} fallito",
       "running": "{{name}} in corso"
     },
-    "resetSuccess": "Rimesso riuscito"
+    "resetSuccess": "Rimesso riuscito",
+    "click": "Clicca"
   },
   "preview": {
     "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",

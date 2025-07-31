@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { FieldType } from '@teable/core';
+import { Colors, FieldType } from '@teable/core';
 
 import {
   Calendar as CalendarIcon,
@@ -45,7 +45,6 @@ import {
   SingleSelectField,
   UserField,
 } from '../model';
-import { ButtonField } from '../model/field/button.field';
 
 export interface IFieldStatic {
   title: string;
@@ -192,7 +191,10 @@ export const useFieldStaticGetter = () => {
         case FieldType.Button:
           return {
             title: t('field.title.button'),
-            defaultOptions: ButtonField.defaultOptions(),
+            defaultOptions: {
+              label: t('table:field.default.button.click'),
+              color: Colors.Teal,
+            },
             Icon: getIcon(MousePointerClick),
           };
         default:

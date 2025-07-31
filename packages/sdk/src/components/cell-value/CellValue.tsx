@@ -34,7 +34,7 @@ interface ICellValueContainer extends ICellValue<unknown> {
 
 export const CellValue = (props: ICellValueContainer) => {
   const { field, value, ellipsis, className, itemClassName, formatImageUrl, readonly } = props;
-  const { type, options, cellValueType } = field;
+  const { type, options, cellValueType, isLookup } = field;
 
   switch (type) {
     case FieldType.LongText: {
@@ -129,6 +129,7 @@ export const CellValue = (props: ICellValueContainer) => {
           className={className}
           options={options as IButtonFieldOptions}
           readonly={readonly}
+          isLookup={isLookup}
         />
       );
     }

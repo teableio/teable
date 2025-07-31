@@ -9,14 +9,23 @@ interface ICellButton extends ICellValue<IButtonFieldCellValue> {
   options: IButtonFieldOptions;
   itemClassName?: string;
   readonly?: boolean;
+  isLookup?: boolean;
 }
 
 export const CellButton = (props: ICellButton) => {
-  const { className, style, itemClassName, options: fieldOptions, value, readonly } = props;
+  const {
+    className,
+    style,
+    itemClassName,
+    options: fieldOptions,
+    value,
+    readonly,
+    isLookup,
+  } = props;
 
   const isClickable = useMemo(() => {
-    return !readonly && checkButtonClickable(fieldOptions, value);
-  }, [fieldOptions, value, readonly]);
+    return !readonly && !isLookup && checkButtonClickable(fieldOptions, value);
+  }, [fieldOptions, value, readonly, isLookup]);
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
@@ -40,6 +49,7 @@ export const CellButton = (props: ICellButton) => {
           borderColor: button.bgColor,
           color: button.textColor,
         }}
+        disabled={!isClickable}
       >
         <span className="w-full truncate text-sm" style={{ color: button.textColor }}>
           {button.label}

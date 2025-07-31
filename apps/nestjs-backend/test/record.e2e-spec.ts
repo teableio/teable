@@ -7,6 +7,7 @@ import {
   DriverClient,
   FieldKeyType,
   FieldType,
+  generateWorkflowId,
   Relationship,
 } from '@teable/core';
 import { buttonClick, buttonReset, updateRecords, type ITableFullVo } from '@teable/openapi';
@@ -1051,7 +1052,7 @@ describe('OpenAPI RecordController (e2e)', () => {
           label: 'Button',
           color: Colors.Teal,
           workflow: {
-            id: '123',
+            id: generateWorkflowId(),
             name: 'Workflow',
             isActive: true,
           },
@@ -1083,7 +1084,7 @@ describe('OpenAPI RecordController (e2e)', () => {
           color: Colors.Teal,
           maxCount: 1,
           workflow: {
-            id: '123',
+            id: generateWorkflowId(),
             name: 'Workflow',
             isActive: true,
           },
@@ -1105,7 +1106,7 @@ describe('OpenAPI RecordController (e2e)', () => {
           color: Colors.Teal,
           resetCount: true,
           workflow: {
-            id: '123',
+            id: generateWorkflowId(),
             name: 'Workflow',
             isActive: true,
           },
@@ -1128,7 +1129,7 @@ describe('OpenAPI RecordController (e2e)', () => {
           label: 'Button',
           color: Colors.Teal,
           workflow: {
-            id: '123',
+            id: generateWorkflowId(),
             name: 'Workflow',
             isActive: true,
           },
