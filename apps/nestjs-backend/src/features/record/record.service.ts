@@ -1560,6 +1560,12 @@ export class RecordService {
             }
             return true;
           })
+          .filter((field) => {
+            if (field.type === FieldType.Button) {
+              return false;
+            }
+            return true;
+          })
           .map((field) => {
             return {
               ...field,
