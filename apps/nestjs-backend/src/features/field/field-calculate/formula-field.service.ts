@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { FieldType } from '@teable/core';
+import { FieldType, getGeneratedColumnName } from '@teable/core';
+import type { IFormulaFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
 @Injectable()
@@ -54,5 +55,49 @@ export class FormulaFieldService {
       tableId: row.table_id,
       level: row.level,
     }));
+  }
+
+  /**
+   * Build field map for formula conversion context
+   * For formula fields with dbGenerated=true, use the generated column name
+   */
+  async buildFieldMapForTable(tableId: string): Promise<{
+    [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
+  }> {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, dbFieldName: true, type: true, options: true },
+    });
+
+    const fieldMap: {
+      [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
+    } = {};
+
+    for (const field of fields) {
+      let columnName = field.dbFieldName;
+      let dbGenerated = false;
+
+      // For formula fields with dbGenerated=true, use the generated column name
+      if (field.type === FieldType.Formula && field.options) {
+        try {
+          const options = JSON.parse(field.options as string) as IFormulaFieldOptions;
+          if (options.dbGenerated) {
+            columnName = getGeneratedColumnName(field.dbFieldName);
+            dbGenerated = true;
+          }
+        } catch (error) {
+          // If JSON parsing fails, use default values
+          console.warn(`Failed to parse options for field ${field.id}:`, error);
+        }
+      }
+
+      fieldMap[field.id] = {
+        columnName,
+        fieldType: field.type,
+        dbGenerated,
+      };
+    }
+
+    return fieldMap;
   }
 }
