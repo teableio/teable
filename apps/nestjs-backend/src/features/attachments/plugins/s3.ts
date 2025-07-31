@@ -10,7 +10,6 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
@@ -215,22 +214,19 @@ export class S3Storage implements StorageAdapter {
     stream: Buffer | Readable,
     metadata?: Record<string, unknown>
   ) {
-    const upload = new Upload({
-      client: this.s3Client,
-      params: {
-        Bucket: bucket,
-        Key: path,
-        Body: stream,
-        ContentType: metadata?.['Content-Type'] as string,
-        ContentLength: metadata?.['Content-Length'] as number,
-        ContentDisposition: metadata?.['Content-Disposition'] as string,
-        ContentEncoding: metadata?.['Content-Encoding'] as string,
-        ContentLanguage: metadata?.['Content-Language'] as string,
-        ContentMD5: metadata?.['Content-MD5'] as string,
-      },
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: path,
+      Body: stream,
+      ContentType: metadata?.['Content-Type'] as string,
+      ContentLength: metadata?.['Content-Length'] as number,
+      ContentDisposition: metadata?.['Content-Disposition'] as string,
+      ContentEncoding: metadata?.['Content-Encoding'] as string,
+      ContentLanguage: metadata?.['Content-Language'] as string,
+      ContentMD5: metadata?.['Content-MD5'] as string,
     });
 
-    return upload.done().then((res) => ({
+    return this.s3Client.send(command).then((res) => ({
       hash: res.ETag!,
       path,
     }));
