@@ -135,7 +135,8 @@
         "title": "ボタン",
         "label": "ボタンラベル",
         "color": "ボタンカラー",
-        "resetCount": "クリック数リセット",
+        "limitCount": "クリック数制限",
+        "resetCount": "クリック数のリセットを許可",
         "maxCount": "最大クリック数",
         "automation": "自動化",
         "customAutomation": "カスタマイズされた自動化"

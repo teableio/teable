@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { PencilIcon, PlusIcon } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
@@ -83,6 +84,7 @@ export const ButtonOptions = (props: {
   const { isLookup, options, onChange, onSave } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const bgColor = ColorUtils.getHexForColor(options?.color ?? Colors.Teal);
+  const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
 
   return (
     <div className="form-control space-y-2">
@@ -112,33 +114,48 @@ export const ButtonOptions = (props: {
 
               <Input
                 className="h-8 flex-1"
-                value={options?.label}
+                value={options?.label ?? '123'}
                 onChange={(e) => onChange?.({ ...options, label: e.target.value })}
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label className="font-normal">{t('table:field.default.button.maxCount')}</Label>
-            <Input
-              className="h-8"
-              type="number"
-              value={options?.maxCount}
-              onChange={(e) =>
-                onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label className="font-normal">{t('table:field.default.button.resetCount')}</Label>
-            <Switch
-              checked={Boolean(options?.resetCount)}
-              onCheckedChange={(checked) => onChange?.({ ...options, resetCount: checked })}
-            />
-          </div>
-
           <WorkflowAction options={options} onSave={onSave} />
+
+          <div className="flex flex-col gap-2">
+            <Label className="font-normal">{t('table:field.default.button.limitCount')}</Label>
+            <Switch
+              checked={limitClickCount}
+              onCheckedChange={(checked) => {
+                setLimitClickCount(checked);
+                onChange?.({ ...options, maxCount: checked ? 1 : 0 });
+              }}
+            />
+          </div>
+
+          {limitClickCount && (
+            <div className="flex flex-col gap-2">
+              <Label className="font-normal">{t('table:field.default.button.resetCount')}</Label>
+              <Switch
+                checked={Boolean(options?.resetCount)}
+                onCheckedChange={(checked) => onChange?.({ ...options, resetCount: checked })}
+              />
+            </div>
+          )}
+
+          {limitClickCount && (
+            <div className="flex flex-col gap-2">
+              <Label className="font-normal">{t('table:field.default.button.maxCount')}</Label>
+              <Input
+                className="h-8"
+                type="number"
+                value={options?.maxCount}
+                onChange={(e) =>
+                  onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
+                }
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

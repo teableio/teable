@@ -138,7 +138,8 @@
         "title": "按钮",
         "label": "按钮文字",
         "color": "按钮颜色",
-        "resetCount": "重置点击计数",
+        "limitCount": "限制点击次数",
+        "resetCount": "允许重置点击计数",
         "maxCount": "最大点击计数",
         "automation": "自动化",
         "customAutomation": "自定义自动化"

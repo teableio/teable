@@ -137,7 +137,8 @@
         "title": "Botón",
         "label": "Texto del botón",
         "color": "Color del botón",
-        "resetCount": "Restablecer contador de clics",
+        "limitCount": "Limitar contador de clics",
+        "resetCount": "Permitir restablecer contador de clics",
         "maxCount": "Máximo de clics",
         "automation": "Automatización",
         "customAutomation": "Automatización personalizada"

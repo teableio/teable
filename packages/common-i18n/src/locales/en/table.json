@@ -137,7 +137,8 @@
         "title": "Button",
         "label": "Button label",
         "color": "Button color",
-        "resetCount": "Reset click count",
+        "limitCount": "Limit click count",
+        "resetCount": "Allow resetting click count",
         "maxCount": "Max click count",
         "automation": "Automation",
         "customAutomation": "Custom automation"

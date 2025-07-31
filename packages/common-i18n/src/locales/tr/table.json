@@ -127,7 +127,8 @@
         "title": "Düğme",
         "label": "Düğme metni",
         "color": "Düğme rengi",
-        "resetCount": "Tıklama sayısını sıfırla",
+        "limitCount": "Tıklama sayısını sınırla",
+        "resetCount": "Tıklama sayısını sıfırlamaya izin ver",
         "maxCount": "Maksimum tıklama sayısı",
         "automation": "Otomasyon",
         "customAutomation": "Özel otomasyon"

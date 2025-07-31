@@ -137,7 +137,8 @@
         "title": "Pulsante",
         "label": "Testo del pulsante",
         "color": "Colore del pulsante",
-        "resetCount": "Reimposta conteggio clic",
+        "limitCount": "Limita conteggio clic",
+        "resetCount": "Consenti reimpostazione conteggio clic",
         "maxCount": "Massimo di clic",
         "automation": "Automazione",
         "customAutomation": "Automazione personalizzata"

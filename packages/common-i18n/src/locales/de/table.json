@@ -137,7 +137,8 @@
         "title": "Schaltfläche",
         "label": "Schaltflächentext",
         "color": "Schaltflächencolor",
-        "resetCount": "Klickzähler zurücksetzen",
+        "limitCount": "Klickzähler begrenzen",
+        "resetCount": "Zurücksetzen des Klickzählers erlauben",
         "maxCount": "Maximale Klickzahl",
         "automation": "Automatisierung",
         "customAutomation": "Benutzerdefinierte Automatisierung"
