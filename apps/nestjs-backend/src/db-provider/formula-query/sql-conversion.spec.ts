@@ -12,12 +12,12 @@ describe('Formula Query End-to-End Tests', () => {
   beforeEach(() => {
     mockContext = {
       fieldMap: {
-        fld1: { columnName: 'column_a' },
-        fld2: { columnName: 'column_b' },
-        fld3: { columnName: 'column_c' },
-        fld4: { columnName: 'column_d' },
-        fld5: { columnName: 'column_e' },
-        fld6: { columnName: 'column_f' },
+        fld1: { columnName: 'column_a', fieldType: 'number' },
+        fld2: { columnName: 'column_b', fieldType: 'singleLineText' },
+        fld3: { columnName: 'column_c', fieldType: 'number' },
+        fld4: { columnName: 'column_d', fieldType: 'singleLineText' },
+        fld5: { columnName: 'column_e', fieldType: 'checkbox' },
+        fld6: { columnName: 'column_f', fieldType: 'date' },
       },
       timeZone: 'UTC',
     };
@@ -49,25 +49,25 @@ describe('Formula Query End-to-End Tests', () => {
 
   describe('Simple Nested Functions (2-3 levels)', () => {
     it('should convert nested arithmetic functions - PostgreSQL', () => {
-      // Teable formula: SUM({fld1} + {fld2}, {fld5} * 2)
-      const formula = 'SUM({fld1} + {fld2}, {fld5} * 2)';
+      // Teable formula: SUM({fld1} + {fld3}, {fld5} * 2) - using two number fields for addition
+      const formula = 'SUM({fld1} + {fld3}, {fld5} * 2)';
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"SUM(("column_a" + "column_b"), ("column_e" * 2))"`
+        `"SUM(("column_a" + "column_c"), ("column_e" * 2))"`
       );
-      expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
+      expect(result.dependencies).toEqual(['fld1', 'fld3', 'fld5']);
     });
 
     it('should convert nested arithmetic functions - SQLite', () => {
-      // Teable formula: SUM({fld1} + {fld2}, {fld5} * 2)
-      const formula = 'SUM({fld1} + {fld2}, {fld5} * 2)';
+      // Teable formula: SUM({fld1} + {fld3}, {fld5} * 2) - using two number fields for addition
+      const formula = 'SUM({fld1} + {fld3}, {fld5} * 2)';
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"SUM((\`column_a\` + \`column_b\`), (\`column_e\` * 2))"`
+        `"SUM((\`column_a\` + \`column_c\`), (\`column_e\` * 2))"`
       );
-      expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
+      expect(result.dependencies).toEqual(['fld1', 'fld3', 'fld5']);
     });
 
     it('should convert nested conditional with arithmetic - PostgreSQL', () => {
@@ -98,7 +98,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"UPPER(CONCAT(LEFT("column_c", 5::integer), RIGHT("column_f", 3::integer)))"`
+        `"UPPER((LEFT("column_c", 5::integer) || RIGHT("column_f", 3::integer)))"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -169,7 +169,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (LENGTH(CONCAT("column_c", "column_f")) > 10) THEN UPPER(LEFT(TRIM(CONCAT("column_c", ' - ', "column_f")), 15::integer)) ELSE LOWER(RIGHT(REPLACE("column_c", 'old', 'new'), 8::integer)) END"`
+        `"CASE WHEN (LENGTH(("column_c" || "column_f")) > 10) THEN UPPER(LEFT(TRIM(("column_c" || ' - ' || "column_f")), 15::integer)) ELSE LOWER(RIGHT(REPLACE("column_c", 'old', 'new'), 8::integer)) END"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -195,7 +195,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) AND (SUM("column_a", "column_b") > 100)) THEN CONCAT(UPPER("column_c"), ' - ', ROUND(AVG("column_a", "column_e")::numeric, 2::integer)) ELSE LOWER(REPLACE("column_f", 'old', NOW()::date::text)) END"`
+        `"CASE WHEN ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) AND (SUM("column_a", "column_b") > 100)) THEN (UPPER("column_c") || ' - ' || ROUND(AVG("column_a", "column_e")::numeric, 2::integer)) ELSE LOWER(REPLACE("column_f", 'old', NOW()::date::text)) END"`
       );
       expect(result.dependencies).toEqual(['fld4', 'fld1', 'fld2', 'fld3', 'fld5', 'fld6']);
     });
@@ -255,7 +255,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((ROUND(AVG(SUM(POWER("column_a"::numeric, 2::numeric), SQRT("column_b"::numeric)), ("column_e" * 3.14))::numeric, 2::integer) > 100) AND ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) OR NOT ((EXTRACT(MONTH FROM NOW()::timestamp) = 12)))) THEN CONCAT(UPPER(LEFT(TRIM("column_c"), 10::integer)), ' - Score: ', ROUND((SUM("column_a", "column_b", "column_e") / 3)::numeric, 1::integer)) ELSE CASE WHEN ("column_a" < 0) THEN 'NEGATIVE' ELSE LOWER("column_f") END END"`
+        `"CASE WHEN ((ROUND(AVG(SUM(POWER("column_a"::numeric, 2::numeric), SQRT("column_b"::numeric)), ("column_e" * 3.14))::numeric, 2::integer) > 100) AND ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) OR NOT ((EXTRACT(MONTH FROM NOW()::timestamp) = 12)))) THEN (UPPER(LEFT(TRIM("column_c"), 10::integer)) || ' - Score: ' || ROUND((SUM("column_a", "column_b", "column_e") / 3)::numeric, 1::integer)) ELSE CASE WHEN ("column_a" < 0) THEN 'NEGATIVE' ELSE LOWER("column_f") END END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5', 'fld4', 'fld3', 'fld6']);
     });
@@ -329,6 +329,93 @@ describe('Formula Query End-to-End Tests', () => {
       expect(result.sql).toContain('CASE WHEN');
       expect(result.sql.split('CASE WHEN').length - 1).toBe(4); // 4 nested IF statements
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
+    });
+  });
+
+  describe('Type-aware + operator', () => {
+    it('should use numeric addition for number + number', () => {
+      const expression = '{fld1} + {fld3}'; // number + number
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('("column_a" + "column_c")');
+    });
+
+    it('should use string concatenation for string + string', () => {
+      const expression = '{fld2} + {fld4}'; // string + string
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('("column_b" || "column_d")');
+    });
+
+    it('should use string concatenation for string + number', () => {
+      const expression = '{fld2} + {fld1}'; // string + number
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('("column_b" || "column_a")');
+    });
+
+    it('should use string concatenation for number + string', () => {
+      const expression = '{fld1} + {fld2}'; // number + string
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('("column_a" || "column_b")');
+    });
+
+    it('should use string concatenation for string literal + field', () => {
+      const expression = '"Hello " + {fld2}'; // string literal + string field
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('(\'Hello \' || "column_b")');
+    });
+
+    it('should use numeric addition for number literal + number field', () => {
+      const expression = '10 + {fld1}'; // number literal + number field
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('(10 + "column_a")');
+    });
+
+    it('should use string concatenation for string literal + number field', () => {
+      const expression = '"Value: " + {fld1}'; // string literal + number field
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('(\'Value: \' || "column_a")');
+    });
+  });
+
+  describe('SQLite Type-aware + operator', () => {
+    it('should use numeric addition for number + number', () => {
+      const expression = '{fld1} + {fld3}'; // number + number
+      const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
+      expect(result.sql).toBe('(`column_a` + `column_c`)');
+    });
+
+    it('should use string concatenation for string + string', () => {
+      const expression = '{fld2} + {fld4}'; // string + string
+      const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
+      expect(result.sql).toBe('(`column_b` || `column_d`)');
+    });
+
+    it('should use string concatenation for string + number', () => {
+      const expression = '{fld2} + {fld1}'; // string + number
+      const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
+      expect(result.sql).toBe('(`column_b` || `column_a`)');
+    });
+  });
+
+  describe('Real-world examples', () => {
+    it('should handle mixed type expressions correctly', () => {
+      // Example: Concatenate a label with a number
+      const expression = '"Total: " + {fld1}'; // string + number
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('(\'Total: \' || "column_a")');
+    });
+
+    it('should handle pure numeric calculations', () => {
+      // Example: Calculate percentage
+      const expression = '({fld1} + {fld3}) * 100'; // (number + number) * number
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('((("column_a" + "column_c")) * 100)');
+    });
+
+    it('should handle string concatenation with multiple fields', () => {
+      // Example: Create full name
+      const expression = '{fld2} + " " + {fld4}'; // string + string + string
+      const result = convertFormulaToSQL(expression, mockContext, 'postgres');
+      expect(result.sql).toBe('(("column_b" || \' \') || "column_d")');
     });
   });
 });

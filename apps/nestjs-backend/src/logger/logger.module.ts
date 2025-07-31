@@ -16,6 +16,8 @@ export class LoggerModule {
       useFactory: (cls: ClsService<IClsStore>, config: ConfigService) => {
         const { level } = config.getOrThrow<ILoggerConfig>('logger');
 
+        const autoLogging = process.env.NODE_ENV === 'production' || level === 'debug';
+
         return {
           pinoHttp: {
             serializers: {
@@ -30,7 +32,19 @@ export class LoggerModule {
             },
             name: 'teable',
             level: level,
-            autoLogging: process.env.NODE_ENV === 'production',
+            autoLogging: {
+              ignore: (req) => {
+                const url = req.url;
+                if (!url) return autoLogging;
+
+                if (url.startsWith('/_next/')) return true;
+                if (url === '/favicon.ico') return true;
+                if (url.startsWith('/.well-known/')) return true;
+                if (url === '/health' || url === '/ping') return true;
+                if (req.headers.upgrade === 'websocket') return true;
+                return autoLogging;
+              },
+            },
             genReqId: (req, res) => {
               const existingID = req.id ?? req.headers[X_REQUEST_ID];
               if (existingID) return existingID;

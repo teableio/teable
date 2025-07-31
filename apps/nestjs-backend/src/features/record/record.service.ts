@@ -556,7 +556,7 @@ export class RecordService {
       | 'collapsedGroupIds'
       | 'selectedRecordIds'
     >
-  ) {
+  ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
     const { dbTableName, queryBuilder, viewCte, filter, search, orderBy, groupBy, fieldMap } =
       await this.prepareQuery(tableId, query);

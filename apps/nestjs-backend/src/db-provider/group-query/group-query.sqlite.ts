@@ -26,20 +26,21 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   string(field: IFieldInstance): Knex.QueryBuilder {
     if (!field) return this.originQueryBuilder;
 
-    const { dbFieldName } = field;
-    const column = this.knex.ref(dbFieldName);
+    const columnName = this.getTableColumnName(field);
+    const column = this.knex.ref(columnName);
 
     if (this.isDistinct) {
-      return this.originQueryBuilder.countDistinct(dbFieldName);
+      return this.originQueryBuilder.countDistinct(columnName);
     }
-    return this.originQueryBuilder.select(column).groupBy(dbFieldName);
+    return this.originQueryBuilder.select(column).groupBy(columnName);
   }
 
   number(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldName, options } = field;
+    const columnName = this.getTableColumnName(field);
+    const { options } = field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    const column = this.knex.raw('ROUND(??, ?) as ??', [dbFieldName, precision, dbFieldName]);
-    const groupByColumn = this.knex.raw('ROUND(??, ?)', [dbFieldName, precision]);
+    const column = this.knex.raw('ROUND(??, ?) as ??', [columnName, precision, columnName]);
+    const groupByColumn = this.knex.raw('ROUND(??, ?)', [columnName, precision]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
@@ -48,19 +49,20 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   }
 
   date(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldName, options } = field;
+    const columnName = this.getTableColumnName(field);
+    const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
     const offsetStr = `${getOffset(timeZone)} hour`;
     const column = this.knex.raw('strftime(?, DATETIME(??, ?)) as ??', [
       formatString,
-      dbFieldName,
+      columnName,
       offsetStr,
-      dbFieldName,
+      columnName,
     ]);
     const groupByColumn = this.knex.raw('strftime(?, DATETIME(??, ?))', [
       formatString,
-      dbFieldName,
+      columnName,
       offsetStr,
     ]);
 
@@ -71,46 +73,48 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   }
 
   json(field: IFieldInstance): Knex.QueryBuilder {
-    const { type, dbFieldName, isMultipleCellValue } = field;
+    const { type, isMultipleCellValue } = field;
+    const columnName = this.getTableColumnName(field);
 
     if (this.isDistinct) {
       if (isUserOrLink(type)) {
         if (!isMultipleCellValue) {
           const groupByColumn = this.knex.raw(
             `json_extract(??, '$.id') || json_extract(??, '$.title')`,
-            [dbFieldName, dbFieldName]
+            [columnName, columnName]
           );
           return this.originQueryBuilder.countDistinct(groupByColumn);
         }
         const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
-          dbFieldName,
+          columnName,
         ]);
         return this.originQueryBuilder.countDistinct(groupByColumn);
       }
-      return this.originQueryBuilder.countDistinct(dbFieldName);
+      return this.originQueryBuilder.countDistinct(columnName);
     }
 
     if (isUserOrLink(type)) {
       if (!isMultipleCellValue) {
         const groupByColumn = this.knex.raw(
           `json_extract(??, '$.id') || json_extract(??, '$.title')`,
-          [dbFieldName, dbFieldName]
+          [columnName, columnName]
         );
-        return this.originQueryBuilder.select(dbFieldName).groupBy(groupByColumn);
+        return this.originQueryBuilder.select(columnName).groupBy(groupByColumn);
       }
 
       const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
-        dbFieldName,
+        columnName,
       ]);
-      return this.originQueryBuilder.select(dbFieldName).groupBy(groupByColumn);
+      return this.originQueryBuilder.select(columnName).groupBy(groupByColumn);
     }
 
-    const column = this.knex.raw(`CAST(?? as text) as ??`, [dbFieldName, dbFieldName]);
-    return this.originQueryBuilder.select(column).groupBy(dbFieldName);
+    const column = this.knex.raw(`CAST(?? as text) as ??`, [columnName, columnName]);
+    return this.originQueryBuilder.select(column).groupBy(columnName);
   }
 
   multipleDate(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldName, options } = field;
+    const columnName = this.getTableColumnName(field);
+    const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
 
@@ -122,7 +126,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
         FROM json_each(??)
       ) as ??
       `,
-      [formatString, offsetStr, dbFieldName, dbFieldName]
+      [formatString, offsetStr, columnName, columnName]
     );
     const groupByColumn = this.knex.raw(
       `
@@ -131,7 +135,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
         FROM json_each(??)
       )
       `,
-      [formatString, offsetStr, dbFieldName]
+      [formatString, offsetStr, columnName]
     );
 
     if (this.isDistinct) {
@@ -141,7 +145,8 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   }
 
   multipleNumber(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldName, options } = field;
+    const columnName = this.getTableColumnName(field);
+    const { options } = field;
     const { precision } = (options as INumberFieldOptions).formatting;
     const column = this.knex.raw(
       `
@@ -150,7 +155,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
         FROM json_each(??)
       ) as ??
       `,
-      [precision, dbFieldName, dbFieldName]
+      [precision, columnName, columnName]
     );
     const groupByColumn = this.knex.raw(
       `
@@ -159,7 +164,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
         FROM json_each(??)
       )
       `,
-      [precision, dbFieldName]
+      [precision, columnName]
     );
 
     if (this.isDistinct) {

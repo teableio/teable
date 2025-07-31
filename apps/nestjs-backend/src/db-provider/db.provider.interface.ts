@@ -88,7 +88,18 @@ export interface IDbProvider {
 
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[];
 
-  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
+  modifyColumnSchema(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    fieldMap: IFormulaConversionContext['fieldMap']
+  ): string[];
+
+  createColumnSchema(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    fieldMap: IFormulaConversionContext['fieldMap'],
+    isNewTable?: boolean
+  ): string;
 
   duplicateTable(
     fromSchema: string,

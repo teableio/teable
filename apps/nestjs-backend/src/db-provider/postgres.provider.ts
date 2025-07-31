@@ -5,8 +5,11 @@ import { DriverClient, parseFormulaToSQL, SqlConversionVisitor } from '@teable/c
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
+import {
+  PostgresDatabaseColumnVisitor,
+  type IDatabaseColumnContext,
+} from '../features/field/database-column-visitor.postgres';
 import type { IFieldInstance } from '../features/field/model/factory';
-import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -23,8 +26,8 @@ import { DuplicateTableQueryPostgres } from './duplicate-table/duplicate-query.p
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type {
-  IFormulaQueryInterface,
   IFormulaConversionContext,
+  IFormulaQueryInterface,
   IFormulaConversionResult,
 } from './formula-query/formula-query.interface';
 import { FormulaQueryPostgres } from './formula-query/postgres/formula-query.postgres';
@@ -213,19 +216,71 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       .toQuery();
   }
 
-  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
-    return [
-      this.knex.schema
-        .alterTable(tableName, (table) => {
-          table.dropColumn(columnName);
-        })
-        .toQuery(),
-      this.knex.schema
-        .alterTable(tableName, (table) => {
-          table[schemaType](columnName);
-        })
-        .toQuery(),
-    ];
+  modifyColumnSchema(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    fieldMap: IFormulaConversionContext['fieldMap']
+  ): string[] {
+    const queries: string[] = [];
+
+    // First, drop ALL columns associated with the field (including generated columns)
+    const columnNames = fieldInstance.dbFieldNames;
+    for (const columnName of columnNames) {
+      queries.push(
+        this.knex.schema
+          .alterTable(tableName, (table) => {
+            table.dropColumn(columnName);
+          })
+          .toQuery()
+      );
+    }
+
+    const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
+      const context: IDatabaseColumnContext = {
+        table,
+        fieldId: fieldInstance.id,
+        dbFieldName: fieldInstance.dbFieldName,
+        unique: fieldInstance.unique,
+        notNull: fieldInstance.notNull,
+        dbProvider: this,
+        fieldMap,
+      };
+
+      // Use visitor pattern to recreate columns
+      const visitor = new PostgresDatabaseColumnVisitor(context);
+      fieldInstance.accept(visitor);
+    });
+
+    const alterTableQuery = alterTableBuilder.toQuery();
+    queries.push(alterTableQuery);
+
+    return queries;
+  }
+
+  createColumnSchema(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    fieldMap: IFormulaConversionContext['fieldMap'],
+    isNewTable?: boolean
+  ): string {
+    const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
+      const context: IDatabaseColumnContext = {
+        table,
+        fieldId: fieldInstance.id,
+        dbFieldName: fieldInstance.dbFieldName,
+        unique: fieldInstance.unique,
+        notNull: fieldInstance.notNull,
+        dbProvider: this,
+        fieldMap,
+        isNewTable,
+      };
+
+      // Use visitor pattern to create columns
+      const visitor = new PostgresDatabaseColumnVisitor(context);
+      fieldInstance.accept(visitor);
+    });
+
+    return alterTableBuilder.toQuery();
   }
 
   splitTableName(tableName: string): string[] {

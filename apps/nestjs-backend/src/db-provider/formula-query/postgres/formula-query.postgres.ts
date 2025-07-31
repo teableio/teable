@@ -97,7 +97,9 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
 
   // Text Functions
   concatenate(params: string[]): string {
-    return `CONCAT(${this.joinParams(params)})`;
+    // Use || operator instead of CONCAT for immutable generated columns
+    // CONCAT is stable, not immutable, which causes issues with generated columns
+    return `(${this.joinParams(params, ' || ')})`;
   }
 
   find(searchText: string, withinText: string, startNum?: string): string {

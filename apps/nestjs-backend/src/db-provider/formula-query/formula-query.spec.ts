@@ -16,7 +16,7 @@ describe('FormulaQuery', () => {
 
     it('should implement CONCATENATE function', () => {
       const result = formulaQuery.concatenate(['column_a', "' - '", 'column_b']);
-      expect(result).toBe("CONCAT(column_a, ' - ', column_b)");
+      expect(result).toBe("(column_a || ' - ' || column_b)");
     });
 
     it('should implement IF function', () => {
