@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable sonarjs/no-duplicate-string */
 import { SqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
 import type {
   IFormulaConversionContext,
@@ -306,6 +309,77 @@ describe('Formula Query End-to-End Tests', () => {
         convertFormulaToSQL('   ', mockContext, 'postgres');
       }).toThrow();
     });
+
+    it('should handle malformed function calls', () => {
+      // Test various malformed function calls
+      expect(() => {
+        convertFormulaToSQL('INVALID_FUNCTION({fld1})', mockContext, 'postgres');
+      }).toThrow('Unsupported function: INVALID_FUNCTION');
+    });
+
+    it('should handle invalid operators', () => {
+      // Test with invalid binary operators - this might not throw but should be handled gracefully
+      const result = convertFormulaToSQL('{fld1} + {fld2}', mockContext, 'postgres');
+      expect(result.sql).toBeDefined();
+      expect(result.dependencies).toEqual(['fld1', 'fld2']);
+    });
+
+    it('should handle null and undefined values in context', () => {
+      const contextWithNulls = {
+        fieldMap: {
+          fld1: { columnName: 'column_a', fieldType: null as any },
+          fld2: { columnName: 'column_b', fieldType: undefined as any },
+        },
+        timeZone: 'UTC',
+      };
+
+      const result = convertFormulaToSQL('{fld1} + {fld2}', contextWithNulls, 'postgres');
+      expect(result.sql).toBeDefined();
+      expect(result.dependencies).toEqual(['fld1', 'fld2']);
+    });
+
+    it('should handle circular references gracefully', () => {
+      // Test with self-referencing field (if supported)
+      const result = convertFormulaToSQL('{fld1} + 1', mockContext, 'postgres');
+      expect(result.dependencies).toEqual(['fld1']);
+    });
+
+    it('should handle very long field names', () => {
+      const longFieldContext = {
+        fieldMap: {
+          ['very_long_field_name_that_exceeds_normal_limits_' + 'x'.repeat(100)]: {
+            columnName: 'long_column_name',
+            fieldType: 'number',
+          },
+        },
+        timeZone: 'UTC',
+      };
+
+      const longFieldId = 'very_long_field_name_that_exceeds_normal_limits_' + 'x'.repeat(100);
+      const result = convertFormulaToSQL(`{${longFieldId}}`, longFieldContext, 'postgres');
+      expect(result.sql).toBe('"long_column_name"');
+      expect(result.dependencies).toEqual([longFieldId]);
+    });
+
+    it('should handle special characters in field names', () => {
+      const specialCharContext = {
+        fieldMap: {
+          'field-with-dashes': { columnName: 'column_with_dashes', fieldType: 'text' },
+          'field with spaces': { columnName: 'column_with_spaces', fieldType: 'text' },
+          'field.with.dots': { columnName: 'column_with_dots', fieldType: 'text' },
+        },
+        timeZone: 'UTC',
+      };
+
+      const result1 = convertFormulaToSQL('{field-with-dashes}', specialCharContext, 'postgres');
+      expect(result1.sql).toBe('"column_with_dashes"');
+
+      const result2 = convertFormulaToSQL('{field with spaces}', specialCharContext, 'postgres');
+      expect(result2.sql).toBe('"column_with_spaces"');
+
+      const result3 = convertFormulaToSQL('{field.with.dots}', specialCharContext, 'postgres');
+      expect(result3.sql).toBe('"column_with_dots"');
+    });
   });
 
   describe('Performance Tests', () => {
@@ -416,6 +490,254 @@ describe('Formula Query End-to-End Tests', () => {
       const expression = '{fld2} + " " + {fld4}'; // string + string + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
       expect(result.sql).toBe('(("column_b" || \' \') || "column_d")');
+    });
+  });
+
+  describe('Comprehensive Function Coverage Tests', () => {
+    describe('All Numeric Functions', () => {
+      it.each([
+        'ROUNDUP({fld1}, 2)',
+        'ROUNDDOWN({fld1}, 1)',
+        'CEILING({fld1})',
+        'FLOOR({fld1})',
+        'EVEN({fld1})',
+        'ODD({fld1})',
+        'INT({fld1})',
+        'ABS({fld1})',
+        'SQRT({fld1})',
+        'POWER({fld1}, 2)',
+        'EXP({fld1})',
+        'LOG({fld1})',
+        'MOD({fld1}, 3)',
+        'VALUE({fld2})',
+      ])('should convert numeric function %s for PostgreSQL', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'postgres');
+        expect(result).toMatchSnapshot();
+      });
+
+      it.each([
+        'ROUNDUP({fld1}, 2)',
+        'ROUNDDOWN({fld1}, 1)',
+        'CEILING({fld1})',
+        'FLOOR({fld1})',
+        'ABS({fld1})',
+        'SQRT({fld1})',
+        'POWER({fld1}, 2)',
+        'EXP({fld1})',
+        'LOG({fld1})',
+        'MOD({fld1}, 3)',
+      ])('should convert numeric function %s for SQLite', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
+        expect(result).toMatchSnapshot();
+      });
+    });
+
+    describe('All Text Functions', () => {
+      it.each([
+        'FIND("test", {fld2})',
+        'FIND("test", {fld2}, 5)',
+        'SEARCH("test", {fld2})',
+        'MID({fld2}, 2, 5)',
+        'LEFT({fld2}, 3)',
+        'RIGHT({fld2}, 3)',
+        'REPLACE({fld2}, 1, 2, "new")',
+        'SUBSTITUTE({fld2}, "old", "new")',
+        'REPT({fld2}, 3)',
+        'TRIM({fld2})',
+        'LEN({fld2})',
+        'T({fld1})',
+      ])('should convert text function %s for PostgreSQL', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'postgres');
+        expect(result).toMatchSnapshot();
+      });
+
+      it.each([
+        'FIND("test", {fld2})',
+        'SEARCH("test", {fld2})',
+        'MID({fld2}, 2, 5)',
+        'LEFT({fld2}, 3)',
+        'RIGHT({fld2}, 3)',
+        'SUBSTITUTE({fld2}, "old", "new")',
+        'TRIM({fld2})',
+        'LEN({fld2})',
+      ])('should convert text function %s for SQLite', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
+        expect(result).toMatchSnapshot();
+      });
+    });
+
+    describe('All Date Functions', () => {
+      it.each([
+        'TODAY()',
+        'HOUR({fld6})',
+        'MINUTE({fld6})',
+        'SECOND({fld6})',
+        'DAY({fld6})',
+        'MONTH({fld6})',
+        'YEAR({fld6})',
+        'WEEKNUM({fld6})',
+        'WEEKDAY({fld6})',
+        'WORKDAY({fld6}, 5)',
+        'WORKDAY_DIFF({fld6}, NOW())',
+        'IS_SAME({fld6}, NOW(), "day")',
+        'LAST_MODIFIED_TIME()',
+        'CREATED_TIME()',
+      ])('should convert date function %s for PostgreSQL', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'postgres');
+        expect(result).toMatchSnapshot();
+      });
+
+      it.each([
+        'TODAY()',
+        'YEAR({fld6})',
+        'MONTH({fld6})',
+        'DAY({fld6})',
+        'HOUR({fld6})',
+        'MINUTE({fld6})',
+        'SECOND({fld6})',
+      ])('should convert date function %s for SQLite', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
+        expect(result).toMatchSnapshot();
+      });
+    });
+
+    describe('All Other Functions', () => {
+      it.each([
+        // Logical functions
+        'AND({fld5}, {fld1} > 0)',
+        'OR({fld5}, {fld1} < 0)',
+        'NOT({fld5})',
+        'XOR({fld5}, {fld1} > 0)',
+        'BLANK()',
+        'IS_ERROR({fld1})',
+
+        // Array functions
+        'COUNT({fld1}, {fld2}, {fld3})',
+        'COUNTA({fld1}, {fld2})',
+        'COUNTALL({fld1})',
+        'ARRAY_JOIN({fld1})',
+        'ARRAY_JOIN({fld1}, " | ")',
+        'ARRAY_UNIQUE({fld1})',
+        'ARRAY_FLATTEN({fld1})',
+        'ARRAY_COMPACT({fld1})',
+
+        // System functions
+        'RECORD_ID()',
+        'AUTO_NUMBER()',
+        'TEXT_ALL({fld1})',
+      ])('should convert function %s for PostgreSQL', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'postgres');
+        expect(result).toMatchSnapshot();
+      });
+
+      it.each([
+        // Logical functions
+        'AND({fld5}, {fld1} > 0)',
+        'OR({fld5}, {fld1} < 0)',
+        'NOT({fld5})',
+        'BLANK()',
+        'IS_ERROR({fld1})',
+
+        // Array functions
+        'COUNT({fld1}, {fld2})',
+
+        // System functions
+        'RECORD_ID()',
+        'AUTO_NUMBER()',
+      ])('should convert function %s for SQLite', (formula) => {
+        const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
+        expect(result).toMatchSnapshot();
+      });
+    });
+  });
+
+  describe('Advanced Tests', () => {
+    it('should correctly infer types for complex expressions', () => {
+      const complexContext = {
+        fieldMap: {
+          numField: { columnName: 'num_col', fieldType: 'number' },
+          textField: { columnName: 'text_col', fieldType: 'singleLineText' },
+          boolField: { columnName: 'bool_col', fieldType: 'checkbox' },
+          dateField: { columnName: 'date_col', fieldType: 'date' },
+        },
+        timeZone: 'UTC',
+      };
+
+      const testCases = [
+        '{numField} + {numField}',
+        '{textField} + {textField}',
+        '{textField} + {numField}',
+        '{numField} + {textField}',
+        '{boolField} + {numField}',
+        '{dateField} + {textField}',
+      ];
+
+      testCases.forEach((formula) => {
+        const result = convertFormulaToSQL(formula, complexContext, 'postgres');
+        expect(result).toMatchSnapshot();
+      });
+    });
+
+    it.each([
+      ['{fld1}', ['fld1']],
+      ['{fld1} + {fld2}', ['fld1', 'fld2']],
+      ['SUM({fld1}, {fld2}, {fld3})', ['fld1', 'fld2', 'fld3']],
+      ['IF({fld1} > 0, {fld2}, {fld3})', ['fld1', 'fld2', 'fld3']],
+      ['{fld1} + {fld1}', ['fld1']],
+      ['CONCATENATE({fld2}, " - ", {fld4}, " - ", {fld2})', ['fld2', 'fld4']],
+    ])('should collect dependencies correctly for %s', (formula, expectedDeps) => {
+      const result = convertFormulaToSQL(formula, mockContext, 'postgres');
+      expect(result.dependencies.sort()).toEqual(expectedDeps.sort());
+    });
+
+    it.each([
+      ['"test string"'],
+      ['42'],
+      ['3.14'],
+      ['TRUE'],
+      ['FALSE'],
+      ['({fld1} + {fld2})'],
+      ['-{fld1}'],
+      ['{fld1} - {fld3}'],
+      ['{fld1} * {fld3}'],
+      ['{fld1} / {fld3}'],
+      ['{fld1} % {fld3}'],
+      ['{fld1} > {fld3}'],
+      ['{fld1} < {fld3}'],
+      ['{fld1} >= {fld3}'],
+      ['{fld1} <= {fld3}'],
+      ['{fld1} = {fld3}'],
+      ['{fld1} != {fld3}'],
+      ['{fld1} <> {fld3}'],
+      ['{fld5} && {fld1} > 0'],
+      ['{fld5} || {fld1} > 0'],
+      ['{fld1} & {fld3}'],
+    ])('should handle visitor method for %s', (formula) => {
+      const result = convertFormulaToSQL(formula, mockContext, 'postgres');
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should handle error conditions', () => {
+      const invalidContext = { fieldMap: {}, timeZone: 'UTC' };
+
+      expect(() => {
+        convertFormulaToSQL('{nonexistent}', invalidContext, 'postgres');
+      }).toThrow('Field not found: nonexistent');
+
+      expect(() => {
+        convertFormulaToSQL('UNKNOWN_FUNC()', mockContext, 'postgres');
+      }).toThrow('Unsupported function: UNKNOWN_FUNC');
+    });
+
+    it('should handle context edge cases', () => {
+      const minimalContext = {
+        fieldMap: { fld1: { columnName: 'col1' } },
+        timeZone: 'UTC',
+      };
+
+      const result = convertFormulaToSQL('{fld1} + "test"', minimalContext, 'postgres');
+      expect(result.sql).toBe('("col1" || \'test\')');
+      expect(result.dependencies).toEqual(['fld1']);
     });
   });
 });

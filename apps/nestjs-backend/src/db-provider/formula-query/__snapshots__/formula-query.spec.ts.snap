@@ -1,0 +1,359 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement arrayCompact function 1`] = `"ARRAY(SELECT x FROM UNNEST(column_a) AS x WHERE x IS NOT NULL)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement arrayFlatten function 1`] = `"ARRAY(SELECT UNNEST(column_a))"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement arrayJoin function with optional separator 1`] = `"ARRAY_TO_STRING(column_a, ', ')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement arrayJoin function with optional separator 2`] = `"ARRAY_TO_STRING(column_a, ' | ')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement arrayUnique function 1`] = `"ARRAY(SELECT DISTINCT UNNEST(column_a))"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement count function 1`] = `"(CASE WHEN column_a IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN column_b IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN column_c IS NOT NULL THEN 1 ELSE 0 END)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement countA function 1`] = `"(CASE WHEN column_a IS NOT NULL AND column_a <> '' THEN 1 ELSE 0 END + CASE WHEN column_b IS NOT NULL AND column_b <> '' THEN 1 ELSE 0 END)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Array Functions > should implement countAll function 1`] = `"CASE WHEN column_a IS NULL THEN 0 ELSE 1 END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle complex nested function calls 1`] = `"CASE WHEN (SUM(a, b) > 100) THEN ROUND((a / b)::numeric, 2::integer) ELSE (UPPER(c) || ' - ' || LOWER(d)) END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle complex nested function calls 2`] = `"CASE WHEN (SUM(a, b) > 100) THEN ROUND((a / b), 2) ELSE (UPPER(c) || ' - ' || LOWER(d)) END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle deeply nested expressions 1`] = `"(((((base)))))"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for PostgreSQL 1`] = `"SUM()"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for PostgreSQL 2`] = `"SUM(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for PostgreSQL 3`] = `"'test''quote'"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for PostgreSQL 4`] = `"'test"double'"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for PostgreSQL 5`] = `"0"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for PostgreSQL 6`] = `"-3.14"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for SQLite 1`] = `"SUM()"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for SQLite 2`] = `"SUM(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for SQLite 3`] = `"'test''quote'"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for SQLite 4`] = `"'test"double'"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for SQLite 5`] = `"0"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle edge cases for SQLite 6`] = `"-3.14"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle field references differently 1`] = `""column_a""`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Common Interface and Edge Cases > should handle field references differently 2`] = `"\`column_a\`"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement createdTime function 1`] = `"__created_time__"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement dateAdd function with parameters 1`] = `"column_a::timestamp + INTERVAL 'days' * 5::integer"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement datestr function with parameters 1`] = `"column_a::date::text"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement datetimeDiff function with parameters 1`] = `"EXTRACT(DAY FROM column_b::timestamp - column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement datetimeFormat function with parameters 1`] = `"TO_CHAR(column_a::timestamp, 'YYYY-MM-DD')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement datetimeParse function with parameters 1`] = `"TO_TIMESTAMP(column_a, 'YYYY-MM-DD')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement day function 1`] = `"EXTRACT(DAY FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement hour function 1`] = `"EXTRACT(HOUR FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement isSame function with different units 1`] = `"column_a::timestamp = column_b::timestamp"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement isSame function with different units 2`] = `"DATE_TRUNC('day', column_a::timestamp) = DATE_TRUNC('day', column_b::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement isSame function with different units 3`] = `"DATE_TRUNC('month', column_a::timestamp) = DATE_TRUNC('month', column_b::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement isSame function with different units 4`] = `"DATE_TRUNC('year', column_a::timestamp) = DATE_TRUNC('year', column_b::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement lastModifiedTime function 1`] = `"__last_modified_time__"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement minute function 1`] = `"EXTRACT(MINUTE FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement month function 1`] = `"EXTRACT(MONTH FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement now function 1`] = `"NOW()"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement second function 1`] = `"EXTRACT(SECOND FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement today function 1`] = `"CURRENT_DATE"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement weekNum function 1`] = `"EXTRACT(WEEK FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement weekday function 1`] = `"EXTRACT(DOW FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement workday function with parameters 1`] = `"column_a::date + INTERVAL '1 day' * 5::integer"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement workdayDiff function with parameters 1`] = `"column_b::date - column_a::date"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Date Functions > should implement year function 1`] = `"EXTRACT(YEAR FROM column_a::timestamp)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Field References and Context > should handle field references 1`] = `""column_a""`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Field References and Context > should set and use context 1`] = `""test_column""`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement booleanLiteral 1`] = `"TRUE"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement booleanLiteral 2`] = `"FALSE"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement nullLiteral 1`] = `"NULL"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement numberLiteral 1`] = `"42"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement numberLiteral 2`] = `"-3.14"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement stringLiteral 1`] = `"'hello'"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Literal Values > should implement stringLiteral 2`] = `"'it''s'"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement SWITCH function 1`] = `"CASE WHEN column_a = 1 THEN 'One' WHEN column_a = 2 THEN 'Two' END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement SWITCH function 2`] = `"CASE WHEN column_a = 1 THEN 'One' WHEN column_a = 2 THEN 'Two' ELSE 'Default' END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement XOR function with different parameter counts 1`] = `"((condition1) AND NOT (condition2)) OR (NOT (condition1) AND (condition2))"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement XOR function with different parameter counts 2`] = `"(condition1 + condition2 + condition3) % 2 = 1"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement and function 1`] = `"(condition1 AND condition2 AND condition3)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement blank function 1`] = `"NULL"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement if function 1`] = `"CASE WHEN column_a > 0 THEN column_b ELSE 'N/A' END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement isError function 1`] = `"CASE WHEN column_a IS NULL THEN TRUE ELSE FALSE END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement not function 1`] = `"NOT (condition)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Logical Functions > should implement or function 1`] = `"(condition1 OR condition2)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement abs function 1`] = `"ABS(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement average function 1`] = `"AVG(column_a, column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement ceiling function 1`] = `"CEIL(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement even function 1`] = `"CASE WHEN column_a::integer % 2 = 0 THEN column_a::integer ELSE column_a::integer + 1 END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement exp function 1`] = `"EXP(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement floor function 1`] = `"FLOOR(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement int function 1`] = `"FLOOR(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement log function 1`] = `"LN(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement max function 1`] = `"GREATEST(column_a, column_b, 100)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement min function 1`] = `"LEAST(column_a, column_b, 0)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement mod function with parameters 1`] = `"MOD(column_a::numeric, 3::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement odd function 1`] = `"CASE WHEN column_a::integer % 2 = 1 THEN column_a::integer ELSE column_a::integer + 1 END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement power function with parameters 1`] = `"POWER(column_a::numeric, 2::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement round function with parameters 1`] = `"ROUND(column_a::numeric, 2::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement round function with parameters 2`] = `"ROUND(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement roundDown function with parameters 1`] = `"FLOOR(column_a::numeric * POWER(10, 2::integer)) / POWER(10, 2::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement roundDown function with parameters 2`] = `"FLOOR(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement roundUp function with parameters 1`] = `"CEIL(column_a::numeric * POWER(10, 2::integer)) / POWER(10, 2::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement roundUp function with parameters 2`] = `"CEIL(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement sqrt function 1`] = `"SQRT(column_a::numeric)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement sum function 1`] = `"SUM(column_a, column_b, 10)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Numeric Functions > should implement value function 1`] = `"column_a::numeric"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement SWITCH function for SQLite 1`] = `"CASE WHEN column_a = 1 THEN 'One' WHEN column_a = 2 THEN 'Two' END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement SWITCH function for SQLite 2`] = `"CASE WHEN column_a = 1 THEN 'One' WHEN column_a = 2 THEN 'Two' ELSE 'Default' END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement abs function for SQLite 1`] = `"ABS(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement average function for SQLite 1`] = `"AVG(column_a, column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement boolean literals correctly for SQLite 1`] = `"1"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement boolean literals correctly for SQLite 2`] = `"0"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement castToBoolean function for SQLite 1`] = `"CAST(column_a AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement castToDate function for SQLite 1`] = `"DATETIME(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement castToNumber function for SQLite 1`] = `"CAST(column_a AS REAL)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement castToString function for SQLite 1`] = `"CAST(column_a AS TEXT)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement ceiling function for SQLite 1`] = `"CAST(CEIL(column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement concatenate function for SQLite 1`] = `"(column_a || ' - ' || column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement count function for SQLite 1`] = `"(CASE WHEN column_a IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN column_b IS NOT NULL THEN 1 ELSE 0 END)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement day function for SQLite 1`] = `"CAST(STRFTIME('%d', column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement exp function for SQLite 1`] = `"EXP(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement fieldReference function for SQLite 1`] = `"\`column_a\`"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement find function for SQLite 1`] = `"INSTR(column_a, 'text')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement find function for SQLite 2`] = `"CASE WHEN INSTR(SUBSTR(column_a, 5), 'text') > 0 THEN INSTR(SUBSTR(column_a, 5), 'text') + 5 - 1 ELSE 0 END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement floor function for SQLite 1`] = `"CAST(FLOOR(column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement if function for SQLite 1`] = `"CASE WHEN column_a > 0 THEN column_b ELSE 'N/A' END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement isError function for SQLite 1`] = `"CASE WHEN column_a IS NULL THEN 1 ELSE 0 END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement left function for SQLite 1`] = `"SUBSTR(column_a, 1, 5)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement len function for SQLite 1`] = `"LENGTH(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement log function for SQLite 1`] = `"LOG(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement lower function for SQLite 1`] = `"LOWER(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement max function for SQLite 1`] = `"MAX(column_a, column_b, 100)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement mid function for SQLite 1`] = `"SUBSTR(column_a, 2, 5)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement min function for SQLite 1`] = `"MIN(column_a, column_b, 0)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement mod function for SQLite 1`] = `"(column_a % 3)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement month function for SQLite 1`] = `"CAST(STRFTIME('%m', column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement now function for SQLite 1`] = `"DATETIME('now')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement power function for SQLite 1`] = `"POWER(column_a, 2)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement right function for SQLite 1`] = `"SUBSTR(column_a, -3)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement round function for SQLite 1`] = `"ROUND(column_a, 2)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement round function for SQLite 2`] = `"ROUND(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement roundDown function for SQLite 1`] = `"CAST(FLOOR(column_a * POWER(10, 2)) / POWER(10, 2) AS REAL)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement roundDown function for SQLite 2`] = `"CAST(FLOOR(column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement roundUp function for SQLite 1`] = `"CAST(CEIL(column_a * POWER(10, 2)) / POWER(10, 2) AS REAL)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement roundUp function for SQLite 2`] = `"CAST(CEIL(column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement search function for SQLite 1`] = `"INSTR(UPPER(column_a), UPPER('text'))"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement search function for SQLite 2`] = `"CASE WHEN INSTR(UPPER(SUBSTR(column_a, 3)), UPPER('text')) > 0 THEN INSTR(UPPER(SUBSTR(column_a, 3)), UPPER('text')) + 3 - 1 ELSE 0 END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement sqrt function for SQLite 1`] = `"SQRT(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement substitute function for SQLite 1`] = `"REPLACE(column_a, 'old', 'new')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement sum function for SQLite 1`] = `"SUM(column_a, column_b, 10)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement today function for SQLite 1`] = `"DATE('now')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement trim function for SQLite 1`] = `"TRIM(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement upper function for SQLite 1`] = `"UPPER(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > SQLite Formula Functions > All Functions > should implement year function for SQLite 1`] = `"CAST(STRFTIME('%Y', column_a) AS INTEGER)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > System Functions > should implement autoNumber function 1`] = `"__auto_number__"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > System Functions > should implement recordId function 1`] = `"__id__"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > System Functions > should implement textAll function 1`] = `"ARRAY_TO_STRING(column_a, ', ')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement concatenate function 1`] = `"(column_a || ' - ' || column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement encodeUrlComponent function 1`] = `"encode(column_a::bytea, 'escape')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement find function with optional parameters 1`] = `"POSITION('text' IN column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement find function with optional parameters 2`] = `"POSITION('text' IN SUBSTRING(column_a FROM 5::integer)) + 5::integer - 1"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement left function 1`] = `"LEFT(column_a, 5::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement len function 1`] = `"LENGTH(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement lower function 1`] = `"LOWER(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement mid function 1`] = `"SUBSTRING(column_a FROM 2::integer FOR 5::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement regexpReplace function 1`] = `"REGEXP_REPLACE(column_a, 'pattern', 'replacement', 'g')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement replace function 1`] = `"OVERLAY(column_a PLACING 'new' FROM 2::integer FOR 3::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement rept function 1`] = `"REPEAT(column_a, 3::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement right function 1`] = `"RIGHT(column_a, 3::integer)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement search function with optional parameters 1`] = `"POSITION(UPPER('text') IN UPPER(column_a))"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement search function with optional parameters 2`] = `"POSITION(UPPER('text') IN UPPER(SUBSTRING(column_a FROM 3::integer))) + 3::integer - 1"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement substitute function with optional parameters 1`] = `"REPLACE(column_a, 'old', 'new')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement substitute function with optional parameters 2`] = `"REPLACE(column_a, 'old', 'new')"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement t function 1`] = `"CASE WHEN column_a IS NULL THEN '' ELSE column_a::text END"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement trim function 1`] = `"TRIM(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Text Functions > should implement upper function 1`] = `"UPPER(column_a)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement add operation 1`] = `"(column_a + column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement bitwiseAnd operation 1`] = `"(column_a & column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement castToBoolean operation 1`] = `"column_a::boolean"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement castToDate operation 1`] = `"column_a::timestamp"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement castToNumber operation 1`] = `"column_a::numeric"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement castToString operation 1`] = `"column_a::text"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement divide operation 1`] = `"(column_a / column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement equal operation 1`] = `"(column_a = column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement greaterThan operation 1`] = `"(column_a > 0)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement greaterThanOrEqual operation 1`] = `"(column_a >= 0)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement lessThan operation 1`] = `"(column_a < 100)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement lessThanOrEqual operation 1`] = `"(column_a <= 100)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement logicalAnd operation 1`] = `"(condition1 AND condition2)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement logicalOr operation 1`] = `"(condition1 OR condition2)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement modulo operation 1`] = `"(column_a % column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement multiply operation 1`] = `"(column_a * column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement notEqual operation 1`] = `"(column_a <> column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement parentheses operation 1`] = `"(expression)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement subtract operation 1`] = `"(column_a - column_b)"`;
+
+exports[`FormulaQuery > PostgreSQL Formula Functions > Type Casting and Operations > should implement unaryMinus operation 1`] = `"(-column_a)"`;
