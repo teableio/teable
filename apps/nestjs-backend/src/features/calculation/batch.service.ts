@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { IOtOperation } from '@teable/core';
+import type { IOtOperation, IRecord } from '@teable/core';
 import { HttpErrorCode, IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -21,6 +21,7 @@ import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { dbType2knexFormat, SchemaType } from '../field/util';
+import { RecordQueryService } from '../record/record-query.service';
 import { IOpsMap } from './utils/compose-maps';
 
 export interface IOpsData {
@@ -39,7 +40,8 @@ export class BatchService {
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly recordQueryService: RecordQueryService
   ) {}
 
   private async completeMissingCtx(
@@ -141,11 +143,32 @@ export class BatchService {
     opsMap: IOpsMap,
     fieldMap: { [fieldId: string]: IFieldInstance } = {},
     tableId2DbTableName: { [tableId: string]: string } = {}
-  ) {
+  ): Promise<{ [tableId: string]: { [recordId: string]: IRecord } }> {
     const result = await this.completeMissingCtx(opsMap, fieldMap, tableId2DbTableName);
     fieldMap = result.fieldMap;
     tableId2DbTableName = result.tableId2DbTableName;
 
+    // Get old records before updating
+    const oldRecords: { [tableId: string]: { [recordId: string]: IRecord } } = {};
+
+    for (const tableId in opsMap) {
+      const recordIds = Object.keys(opsMap[tableId]);
+      if (recordIds.length === 0) continue;
+
+      try {
+        // Use RecordQueryService to get old records
+        const snapshots = await this.recordQueryService.getSnapshotBulk(tableId, recordIds);
+        oldRecords[tableId] = {};
+        for (const snapshot of snapshots) {
+          oldRecords[tableId][snapshot.id] = snapshot.data;
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to get old records for table ${tableId}: ${error}`);
+        oldRecords[tableId] = {};
+      }
+    }
+
+    // Perform the actual updates
     for (const tableId in opsMap) {
       const dbTableName = tableId2DbTableName[tableId];
       const recordOpsMap = opsMap[tableId];
@@ -164,6 +187,8 @@ export class BatchService {
         )
       );
     }
+
+    return oldRecords;
   }
 
   // @Timing()

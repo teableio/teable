@@ -111,8 +111,12 @@ export class ReferenceService {
    *
    * saveForeignKeyToDb a method of foreignKey update operation. we should call it after delete operation.
    */
-  async calculateOpsMap(opsMap: IOpsMap, fkRecordMap?: IFkRecordMap) {
-    await this.calculateRecordData(this.opsMap2RecordData(opsMap), fkRecordMap);
+  async calculateOpsMap(
+    opsMap: IOpsMap,
+    fkRecordMap?: IFkRecordMap,
+    oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } }
+  ) {
+    await this.calculateRecordData(this.opsMap2RecordData(opsMap), fkRecordMap, oldRecords);
   }
 
   async prepareCalculation(recordData: IRecordData[]) {
@@ -160,6 +164,7 @@ export class ReferenceService {
     tableId2DbTableName: Record<string, string>;
     fieldId2TableId: Record<string, string>;
     dbTableName2fields: Record<string, IFieldInstance[]>;
+    oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } };
   }) {
     const {
       field,
@@ -169,6 +174,7 @@ export class ReferenceService {
       fieldId2TableId,
       relatedRecordItems,
       dbTableName2fields,
+      oldRecords,
     } = props;
     const dbTableName = fieldId2DbTableName[field.id];
 
@@ -217,7 +223,14 @@ export class ReferenceService {
         }
       }
 
-      const change = this.collectChanges({ record, dependencies }, tableId, field, fieldMap);
+      const change = this.collectChanges(
+        { record, dependencies },
+        tableId,
+        field,
+        fieldMap,
+        undefined,
+        oldRecords
+      );
 
       if (change) {
         pre.push(change);
@@ -260,6 +273,7 @@ export class ReferenceService {
     tableId2DbTableName: Record<string, string>;
     fieldId2TableId: Record<string, string>;
     dbTableName2fields: Record<string, IFieldInstance[]>;
+    oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } };
   }) {
     const {
       field,
@@ -269,6 +283,7 @@ export class ReferenceService {
       tableId2DbTableName,
       fieldId2TableId,
       dbTableName2fields,
+      oldRecords,
     } = props;
 
     const dbTableName = fieldId2DbTableName[field.id];
@@ -292,7 +307,7 @@ export class ReferenceService {
 
     const changes = recordIds.reduce<ICellChange[]>((pre, recordId) => {
       const record = recordMap[recordId];
-      const change = this.collectChanges({ record }, tableId, field, fieldMap, userMap);
+      const change = this.collectChanges({ record }, tableId, field, fieldMap, userMap, oldRecords);
       if (change) {
         pre.push(change);
       }
@@ -304,12 +319,16 @@ export class ReferenceService {
     await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
-  async calculateRecordData(recordData: IRecordData[], fkRecordMap?: IFkRecordMap) {
+  async calculateRecordData(
+    recordData: IRecordData[],
+    fkRecordMap?: IFkRecordMap,
+    oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } }
+  ) {
     const result = await this.prepareCalculation(recordData);
     if (!result) {
       return;
     }
-    await this.calculate({ ...result, fkRecordMap });
+    await this.calculate({ ...result, fkRecordMap, oldRecords });
   }
 
   @Timing()
@@ -322,6 +341,7 @@ export class ReferenceService {
     fieldId2TableId: Record<string, string>;
     dbTableName2fields: Record<string, IFieldInstance[]>;
     fkRecordMap?: IFkRecordMap;
+    oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } };
   }) {
     const {
       startZone,
@@ -332,6 +352,7 @@ export class ReferenceService {
       fieldId2TableId,
       dbTableName2fields,
       fkRecordMap,
+      oldRecords,
     } = props;
 
     const recordIdsMap = { ...startZone };
@@ -366,6 +387,7 @@ export class ReferenceService {
           fieldId2TableId,
           dbTableName2fields,
           relatedRecordItems,
+          oldRecords,
         });
       } else {
         await this.calculateInTableRecords({
@@ -376,6 +398,7 @@ export class ReferenceService {
           tableId2DbTableName,
           fieldId2TableId,
           dbTableName2fields,
+          oldRecords,
         });
       }
 
@@ -906,7 +929,8 @@ export class ReferenceService {
     tableId: string,
     field: IFieldInstance,
     fieldMap: IFieldMap,
-    userMap?: { [userId: string]: IUserInfoVo }
+    userMap?: { [userId: string]: IUserInfoVo },
+    oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } }
   ): ICellChange | undefined {
     const record = recordItem.record;
     if (!field.isComputed && field.type !== FieldType.Link) {
@@ -915,11 +939,15 @@ export class ReferenceService {
 
     const value = this.calculateComputeField(field, fieldMap, recordItem, userMap);
 
-    const oldValue = record.fields[field.id];
+    // Use old record value if available, otherwise use current record value
+    let oldValue = record.fields[field.id];
+    if (oldRecords && oldRecords[tableId] && oldRecords[tableId][record.id]) {
+      oldValue = oldRecords[tableId][record.id].fields[field.id];
+    }
 
-    // if (isEqual(oldValue, value)) {
-    //   return;
-    // }
+    if (isEqual(oldValue, value)) {
+      return;
+    }
 
     return {
       tableId,

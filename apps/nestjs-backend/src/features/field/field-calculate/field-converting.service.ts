@@ -862,9 +862,9 @@ export class FieldConvertingService {
       recordOpsMap = composeOpMaps([recordOpsMap, result.opsMapByLink]);
     }
 
-    await this.batchService.updateRecords(recordOpsMap);
+    const oldRecords = await this.batchService.updateRecords(recordOpsMap);
 
-    await this.referenceService.calculateOpsMap(recordOpsMap);
+    await this.referenceService.calculateOpsMap(recordOpsMap, undefined, oldRecords);
   }
 
   private async getExistRecords(tableId: string, newField: IFieldInstance) {
