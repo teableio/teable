@@ -1,20 +1,18 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { FieldType, DbFieldType, CellValueType, getGeneratedColumnName } from '@teable/core';
+import { FieldType, getGeneratedColumnName } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
 import { DB_PROVIDER_SYMBOL } from '../../db-provider/db.provider';
-import type { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IFormulaConversionContext } from '../../db-provider/formula-query/formula-query.interface';
 import { BatchService } from '../calculation/batch.service';
+import { FormulaFieldService } from './field-calculate/formula-field.service';
 import { FieldService } from './field.service';
 import { FormulaExpansionService } from './formula-expansion.service';
 
 describe('Formula Generated Column References', () => {
-  let service: FieldService;
-  let prismaService: PrismaService;
-  let dbProvider: IDbProvider;
+  let formulaFieldService: FormulaFieldService;
 
   const mockFieldFindMany = vi.fn();
   const mockPrismaService = {
@@ -37,6 +35,7 @@ describe('Formula Generated Column References', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FieldService,
+        FormulaFieldService,
         FormulaExpansionService,
         {
           provide: BatchService,
@@ -61,9 +60,7 @@ describe('Formula Generated Column References', () => {
       ],
     }).compile();
 
-    service = module.get<FieldService>(FieldService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    dbProvider = module.get<IDbProvider>(DB_PROVIDER_SYMBOL);
+    formulaFieldService = module.get<FormulaFieldService>(FormulaFieldService);
   });
 
   afterEach(() => {
@@ -96,9 +93,8 @@ describe('Formula Generated Column References', () => {
 
       mockFieldFindMany.mockResolvedValue(mockFields);
 
-      // Use reflection to access private method
-      const buildFieldMapForTable = (service as any).buildFieldMapForTable.bind(service);
-      const fieldMap = await buildFieldMapForTable('tbl123');
+      // Call the public method directly
+      const fieldMap = await formulaFieldService.buildFieldMapForTable('tbl123');
 
       expect(fieldMap).toEqual({
         fld1: {
@@ -131,8 +127,7 @@ describe('Formula Generated Column References', () => {
 
       mockFieldFindMany.mockResolvedValue(mockFields);
 
-      const buildFieldMapForTable = (service as any).buildFieldMapForTable.bind(service);
-      const fieldMap = await buildFieldMapForTable('tbl123');
+      const fieldMap = await formulaFieldService.buildFieldMapForTable('tbl123');
 
       expect(fieldMap).toEqual({
         fld1: {
@@ -155,8 +150,7 @@ describe('Formula Generated Column References', () => {
 
       mockFieldFindMany.mockResolvedValue(mockFields);
 
-      const buildFieldMapForTable = (service as any).buildFieldMapForTable.bind(service);
-      const fieldMap = await buildFieldMapForTable('tbl123');
+      const fieldMap = await formulaFieldService.buildFieldMapForTable('tbl123');
 
       expect(fieldMap).toEqual({
         fld1: {
@@ -204,8 +198,7 @@ describe('Formula Generated Column References', () => {
         }
       );
 
-      const buildFieldMapForTable = (service as any).buildFieldMapForTable.bind(service);
-      const fieldMap = await buildFieldMapForTable('tbl123');
+      const fieldMap = await formulaFieldService.buildFieldMapForTable('tbl123');
 
       // Verify that field2 uses generated column name in the field map
       expect(fieldMap.fld2.columnName).toBe(getGeneratedColumnName('field2'));

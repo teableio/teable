@@ -17,10 +17,10 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { extractFieldReferences } from '../../../utils';
 import { DEFAULT_EXPRESSION } from '../../base/constant';
 import { replaceStringByMap } from '../../base/utils';
+import { FormulaFieldService } from '../field-calculate/formula-field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw } from '../model/factory';
 import { FieldOpenApiService } from '../open-api/field-open-api.service';
-import { dbType2knexFormat } from '../util';
 
 @Injectable()
 export class FieldDuplicateService {
@@ -29,6 +29,7 @@ export class FieldDuplicateService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly formulaFieldService: FormulaFieldService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
@@ -141,15 +142,7 @@ export class FieldDuplicateService {
     fieldMap: Record<string, string>
   ) {
     for (const field of primaryFormulaFields) {
-      const {
-        id,
-        options,
-        dbFieldType,
-        targetTableId,
-        dbFieldName,
-        cellValueType,
-        isMultipleCellValue,
-      } = field;
+      const { id, options, dbFieldType, targetTableId, cellValueType, isMultipleCellValue } = field;
       const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
         where: {
           id: targetTableId,
@@ -169,11 +162,24 @@ export class FieldDuplicateService {
         },
       });
       if (currentDbFieldType !== dbFieldType) {
-        const schemaType = dbType2knexFormat(this.knex, dbFieldType);
+        // Create field instance for the updated field
+        const updatedFieldRaw = await this.prismaService.txClient().field.findUniqueOrThrow({
+          where: { id: fieldMap[id] },
+        });
+        const fieldInstance = createFieldInstanceByRaw({
+          ...updatedFieldRaw,
+          dbFieldType,
+          cellValueType,
+          isMultipleCellValue: isMultipleCellValue ?? null,
+        });
+
+        // Build field map for formula conversion context
+        const formulaFieldMap = await this.formulaFieldService.buildFieldMapForTable(targetTableId);
+
         const modifyColumnSql = this.dbProvider.modifyColumnSchema(
           dbTableName,
-          dbFieldName,
-          schemaType
+          fieldInstance,
+          formulaFieldMap
         );
 
         for (const alterTableQuery of modifyColumnSql) {
@@ -1016,11 +1022,25 @@ export class FieldDuplicateService {
           dbTableName: true,
         },
       });
-      const schemaType = dbType2knexFormat(this.knex, dbFieldType);
+
+      // Create field instance for the updated field
+      const updatedFieldRaw = await this.prismaService.txClient().field.findUniqueOrThrow({
+        where: { id: newField.id },
+      });
+      const fieldInstance = createFieldInstanceByRaw({
+        ...updatedFieldRaw,
+        dbFieldType,
+        cellValueType,
+        isMultipleCellValue: isMultipleCellValue ?? null,
+      });
+
+      // Build field map for formula conversion context
+      const formulaFieldMap = await this.formulaFieldService.buildFieldMapForTable(targetTableId);
+
       const modifyColumnSql = this.dbProvider.modifyColumnSchema(
         dbTableName,
-        dbFieldName,
-        schemaType
+        fieldInstance,
+        formulaFieldMap
       );
 
       for (const alterTableQuery of modifyColumnSql) {

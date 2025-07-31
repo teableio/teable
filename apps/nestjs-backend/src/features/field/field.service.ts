@@ -385,7 +385,7 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldInstance = createFieldInstanceByRaw(updatedFieldRaw);
 
     // Build field map for formula conversion context
-    const fieldMap = await this.buildFieldMapForTable(tableId);
+    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
 
     const resetFieldQuery = this.knex(dbTableName)
       .update({ [dbFieldName]: null })
@@ -944,50 +944,6 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   /**
-   * Build field map for formula conversion context
-   * For formula fields with dbGenerated=true, use the generated column name
-   */
-  private async buildFieldMapForTable(tableId: string): Promise<{
-    [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
-  }> {
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, dbFieldName: true, type: true, options: true },
-    });
-
-    const fieldMap: {
-      [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
-    } = {};
-
-    for (const field of fields) {
-      let columnName = field.dbFieldName;
-      let dbGenerated = false;
-
-      // For formula fields with dbGenerated=true, use the generated column name
-      if (field.type === FieldType.Formula && field.options) {
-        try {
-          const options = JSON.parse(field.options as string) as { dbGenerated?: boolean };
-          if (options.dbGenerated) {
-            columnName = getGeneratedColumnName(field.dbFieldName);
-            dbGenerated = true;
-          }
-        } catch (error) {
-          // If JSON parsing fails, use default values
-          console.warn(`Failed to parse options for field ${field.id}:`, error);
-        }
-      }
-
-      fieldMap[field.id] = {
-        columnName,
-        fieldType: field.type,
-        dbGenerated,
-      };
-    }
-
-    return fieldMap;
-  }
-
-  /**
    * Build field map for formula conversion with expansion support
    * This method handles formula expansion to avoid PostgreSQL generated column limitations
    */
@@ -1100,7 +1056,7 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldInstance = createFieldInstanceByRaw(updatedFieldRaw);
 
     // Build field map for formula conversion context
-    const fieldMap = await this.buildFieldMapForTable(field.tableId);
+    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(field.tableId);
 
     // Use modifyColumnSchema to recreate the field with updated options
     const modifyColumnSql = this.dbProvider.modifyColumnSchema(
@@ -1145,7 +1101,7 @@ export class FieldService implements IReadonlyAdapterService {
       }
 
       // Build field map for formula conversion context
-      const fieldMap = await this.buildFieldMapForTable(tableId);
+      const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
 
       // Process dependent fields in dependency order (deepest first for deletion, then reverse for creation)
       const fieldsToProcess = [...dependentFields].reverse(); // Reverse to get shallowest first
