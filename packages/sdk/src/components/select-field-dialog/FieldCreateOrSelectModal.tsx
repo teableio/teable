@@ -94,7 +94,7 @@ export const FieldCreateOrSelectModal = forwardRef<
   const filteredFields = useMemo(() => {
     return totalFields.filter((field) => {
       const { type } = field;
-      if (type === FieldType.Attachment) {
+      if (type === FieldType.Attachment || type === FieldType.Button) {
         return false;
       }
       return true;

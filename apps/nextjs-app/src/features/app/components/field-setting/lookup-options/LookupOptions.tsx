@@ -14,7 +14,8 @@ export const SelectFieldByTableId: React.FC<{
   selectedId?: string;
   onChange: (lookupField: IFieldInstance) => void;
 }> = ({ selectedId, onChange }) => {
-  const fields = useFields({ withHidden: true, withDenied: true });
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 

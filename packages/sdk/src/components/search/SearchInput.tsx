@@ -1,3 +1,4 @@
+import { FieldType } from '@teable/core';
 import { Search, X } from '@teable/icons';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +16,8 @@ export function SearchInput({
   container?: HTMLElement;
 }) {
   const fields = useFields();
+  const filterFields = fields.filter((f) => f.type !== FieldType.Button);
+
   const { fieldId, value, setFieldId, setValue, reset, setHideNotMatchRow } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
@@ -65,6 +68,7 @@ export function SearchInput({
       <FieldSelector
         className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-sm font-normal"
         value={fieldId}
+        fields={filterFields}
         container={container}
         onSelect={(value) => {
           setFieldId(value);

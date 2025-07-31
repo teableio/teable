@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { useDroppable } from '@dnd-kit/core';
-import type { FieldType } from '@teable/core';
+import { FieldType } from '@teable/core';
 import { DraggableHandle, Plus } from '@teable/icons';
 import { useView } from '@teable/sdk';
 import type { IFieldStatic } from '@teable/sdk/hooks';
@@ -106,8 +106,8 @@ export const FormSidebar: FC<IFormSidebarProps> = (props) => {
     const visibleFields: IFieldInstance[] = [];
     const unavailableFields: IFieldInstance[] = [];
     allFields.forEach((field) => {
-      const { isComputed, isLookup, id } = field;
-      if (isComputed || isLookup) {
+      const { isComputed, isLookup, id, type } = field;
+      if (isComputed || isLookup || type === FieldType.Button) {
         return unavailableFields.push(field);
       }
       if (view.columnMeta?.[id]?.visible) {
