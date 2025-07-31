@@ -4,7 +4,10 @@ export const checkButtonClickable = (
   fieldOptions: IButtonFieldOptions,
   cellValue?: IButtonFieldCellValue
 ) => {
-  const { workflow = {} } = fieldOptions;
+  const workflow = fieldOptions.workflow;
+  if (!workflow) {
+    return false;
+  }
   const { id: workflowId, isActive = false } = workflow;
   if (!workflowId || !isActive) {
     return false;

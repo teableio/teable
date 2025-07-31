@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdPrefix } from '../../../utils';
 import { Colors } from '../colors';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
@@ -10,7 +11,11 @@ export const buttonFieldOptionsSchema = z.object({
   resetCount: z.boolean().optional().openapi({ description: 'Reset count' }),
   workflow: z
     .object({
-      id: z.string().optional().openapi({ description: 'Workflow ID' }),
+      id: z
+        .string()
+        .startsWith(IdPrefix.Workflow)
+        .optional()
+        .openapi({ description: 'Workflow ID' }),
       name: z.string().optional().openapi({ description: 'Workflow Name' }),
       isActive: z.boolean().optional().openapi({ description: 'Workflow is active' }),
     })
