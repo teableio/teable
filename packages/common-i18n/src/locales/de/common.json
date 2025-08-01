@@ -42,7 +42,9 @@
     "showAllRow": "Zeige alle Reihen",
     "hideNotMatchRow": "Nicht übereinstimmende Zeile ausblenden",
     "more": "Mehr",
-    "move": "Verschieben nach"
+    "move": "Verschieben nach",
+    "turnOn": "Einschalten",
+    "exit": "Ausloggen"
   },
   "quickAction": {
     "title": "Schnelle Aktionen...",
@@ -373,5 +375,8 @@
     "pluginEmpty": {
       "title": "Noch keine Plugins"
     }
+  },
+  "automation": {
+    "turnOnTip": "Möchten Sie die aktuelle Automatisierung einschalten?"
   }
 }

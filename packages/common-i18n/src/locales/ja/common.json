@@ -34,7 +34,9 @@
     "restore": "復元",
     "permanentDelete": "永久削除",
     "more": "もっと",
-    "move": "移動先"
+    "move": "移動先",
+    "turnOn": "有効にする",
+    "exit": "ログアウト"
   },
   "quickAction": {
     "title": "クイックアクション...",
@@ -324,5 +326,8 @@
     "fromSpace": "「{{name}}」スペースから",
     "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？",
     "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？"
+  },
+  "automation": {
+    "turnOnTip": "現在のオートメーションを有効にしますか？"
   }
 }

@@ -38,7 +38,9 @@
     "fieldSearch": "Alan Ara",
     "showAllRow": "Tüm satırları göster",
     "hideNotMatchRow": "Eşleşmeyen satırları gizle",
-    "move": "Taşı"
+    "move": "Taşı",
+    "turnOn": "Aç",
+    "exit": "Çıkış"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",
@@ -289,5 +291,8 @@
     "pluginEmpty": {
       "title": "Henüz Eklenti Yok"
     }
+  },
+  "automation": {
+    "turnOnTip": "Mevcut otomasyonu açmak istediğinizden emin misiniz?"
   }
 }

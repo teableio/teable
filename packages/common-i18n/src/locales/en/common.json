@@ -45,7 +45,9 @@
     "more": "More",
     "expand": "Expand",
     "deleteTip": "Are you sure you want to delete \"{{name}}\"?",
-    "move": "Move to"
+    "move": "Move to",
+    "turnOn": "Turn on",
+    "exit": "Exit"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -472,5 +474,8 @@
     "pluginEmpty": {
       "title": "No Plugins Yet"
     }
+  },
+  "automation": {
+    "turnOnTip": "Do you want to turn on the current automation?"
   }
 }

@@ -42,7 +42,9 @@
     "showAllRow": "Mostrar todas las filas",
     "hideNotMatchRow": "Ocultar filas sin coincidencia",
     "more": "Más",
-    "move": "Mover a"
+    "move": "Mover a",
+    "turnOn": "Activar",
+    "exit": "Cerrar sesión"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
@@ -353,5 +355,8 @@
     "pluginEmpty": {
       "title": "Todavía no hay complementos"
     }
+  },
+  "automation": {
+    "turnOnTip": "¿Desea activar la automatización actual?"
   }
 }

@@ -42,7 +42,9 @@
     "showAllRow": "Mostra tutte le righe",
     "hideNotMatchRow": "Nascondi righe non corrispondenti",
     "more": "Altro",
-    "move": "Sposta in"
+    "move": "Sposta in",
+    "turnOn": "Attiva",
+    "exit": "Esci"
   },
   "quickAction": {
     "title": "Azioni rapide...",
@@ -352,5 +354,8 @@
     "pluginEmpty": {
       "title": "Nessun plugin ancora"
     }
+  },
+  "automation": {
+    "turnOnTip": "Vuoi attivare l'automazione corrente?"
   }
 }

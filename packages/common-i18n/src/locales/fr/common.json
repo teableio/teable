@@ -35,7 +35,9 @@
     "restore": "Récupérer",
     "permanentDelete": "Suppression permanente",
     "more": "Plus",
-    "move": "Déplacer vers"
+    "move": "Déplacer vers",
+    "turnOn": "Activer",
+    "exit": "Déconnexion"
   },
   "quickAction": {
     "title": "Actions rapides...",
@@ -303,5 +305,8 @@
     "fromSpace": "De l'espace \"{{name}}\"",
     "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?"
+  },
+  "automation": {
+    "turnOnTip": "Voulez-vous activer l'automatisation actuelle?"
   }
 }
