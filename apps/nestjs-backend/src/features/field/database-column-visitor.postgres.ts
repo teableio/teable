@@ -123,7 +123,7 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
             isGeneratedColumn: true, // Mark this as a generated column context
           };
 
-          const conversionResult = this.context.dbProvider.convertFormula(
+          const conversionResult = this.context.dbProvider.convertFormulaToGeneratedColumn(
             expressionToConvert,
             conversionContext
           );

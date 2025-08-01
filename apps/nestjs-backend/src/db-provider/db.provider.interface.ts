@@ -213,5 +213,8 @@ export interface IDbProvider {
 
   generatedColumnQuery(): IGeneratedColumnQueryInterface;
 
-  convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult;
+  convertFormulaToGeneratedColumn(
+    expression: string,
+    context: IFormulaConversionContext
+  ): IFormulaConversionResult;
 }

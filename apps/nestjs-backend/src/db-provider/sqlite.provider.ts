@@ -39,6 +39,7 @@ import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
 import { IndexBuilderSqlite } from './search-query/search-index-builder.sqlite';
 import { SearchQuerySqliteBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
+import { SelectQuerySqlite } from './select-query/sqlite/select-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
@@ -576,7 +577,14 @@ ORDER BY
     return new GeneratedColumnQuerySqlite();
   }
 
-  convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult {
+  selectQuery(): IGeneratedColumnQueryInterface {
+    return new SelectQuerySqlite();
+  }
+
+  convertFormulaToGeneratedColumn(
+    expression: string,
+    context: IFormulaConversionContext
+  ): IFormulaConversionResult {
     try {
       const generatedColumnQuery = this.generatedColumnQuery();
       // Set the context on the generated column query instance

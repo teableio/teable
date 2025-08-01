@@ -183,6 +183,15 @@ export interface IFormulaConversionResult {
 export interface IGeneratedColumnQueryInterface extends ITeableToDbFunctionConverter<string> {}
 
 /**
+ * Interface for database-specific SELECT query implementations
+ * Each database provider (PostgreSQL, SQLite) should implement this interface
+ * to provide SQL translations for Teable formula functions that will be used
+ * in SELECT statements as computed columns. Unlike generated columns, these
+ * expressions can use mutable functions and have different optimization strategies.
+ */
+export interface ISelectQueryInterface extends ITeableToDbFunctionConverter<string> {}
+
+/**
  * Interface for validating whether Teable formula functions convert to generated column are supported
  * by a specific database provider. Each method returns a boolean indicating
  * whether the corresponding function can be converted to a valid database expression.
