@@ -1151,7 +1151,7 @@ export class FieldService implements IReadonlyAdapterService {
         }
       }
     } catch (error) {
-      console.warn(`Failed to handle dependent formula fields for field ${fieldId}:`, error);
+      console.warn(`Failed to handle dependent formula fields for field %s:`, fieldId, error);
       // Don't throw error to avoid breaking the field update operation
     }
   }
