@@ -7,14 +7,12 @@ import type {
   ITablePropertyKey,
 } from '@teable/core';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, TableOpBuilder } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableVo } from '@teable/openapi';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
+import { TableService } from '../features/table/table.service';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
 import {
@@ -49,8 +47,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly recordService: RecordReadonlyServiceAdapter,
     private readonly fieldService: FieldReadonlyServiceAdapter,
     private readonly viewService: ViewReadonlyServiceAdapter,
-    private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly tableServiceInner: TableService
   ) {
     super();
     this.closed = false;
@@ -251,6 +248,9 @@ export class ShareDbAdapter extends ShareDb.DB {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async getSnapshotData(docType: IdPrefix, collectionId: string, id: string, options: any) {
+    if (docType === IdPrefix.Table) {
+      return await this.tableServiceInner.getSnapshotBulk(collectionId, [id]);
+    }
     const { cookie, shareId } = this.getCookieAndShareId(options);
     return await this.cls.runWith(
       {
