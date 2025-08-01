@@ -95,15 +95,29 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 id,
               })) || [];
 
+          const buttonFields =
+            table?.fields
+              ?.filter(({ type }) => type === FieldType.Button)
+              .map(({ dbFieldName, id }) => ({
+                dbFieldName,
+                id,
+              })) || [];
+          const buttonDbFieldNames = buttonFields.map(({ dbFieldName }) => dbFieldName);
+
+          const excludeDbFieldNames = [...EXCLUDE_SYSTEM_FIELDS, ...buttonDbFieldNames];
           const batchProcessor = new BatchProcessor<Record<string, unknown>>((chunk) =>
-            this.handleChunk(chunk, {
-              tableId: tableIdMap[tableId],
-              userId,
-              fieldIdMap,
-              viewIdMap,
-              fkMap,
-              attachmentsFields,
-            })
+            this.handleChunk(
+              chunk,
+              {
+                tableId: tableIdMap[tableId],
+                userId,
+                fieldIdMap,
+                viewIdMap,
+                fkMap,
+                attachmentsFields,
+              },
+              excludeDbFieldNames
+            )
           );
 
           entry
@@ -164,7 +178,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       viewIdMap: Record<string, string>;
       fkMap: Record<string, string>;
       attachmentsFields: { dbFieldName: string; id: string }[];
-    }
+    },
+    excludeDbFieldNames: string[]
   ) {
     const { tableId, userId, fieldIdMap, attachmentsFields, fkMap } = config;
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
@@ -226,7 +241,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       const newResult = [...results].map((res) => {
         const newRes = { ...res };
 
-        EXCLUDE_SYSTEM_FIELDS.forEach((header) => {
+        excludeDbFieldNames.forEach((header) => {
           delete newRes[header];
         });
 

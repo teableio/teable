@@ -293,7 +293,12 @@ export class BaseImportService {
       }, [] as IFieldWithTableIdJson[])
       .sort((a, b) => a.createdTime.localeCompare(b.createdTime));
 
-    const nonCommonFieldTypes = [FieldType.Link, FieldType.Rollup, FieldType.Formula];
+    const nonCommonFieldTypes = [
+      FieldType.Link,
+      FieldType.Rollup,
+      FieldType.Formula,
+      FieldType.Button,
+    ];
 
     const commonFields = allFields.filter(
       ({ type, isLookup, aiConfig }) =>
@@ -310,6 +315,10 @@ export class BaseImportService {
       ({ type, isLookup }) => type === FieldType.Link && !isLookup
     );
 
+    const buttonFields = allFields.filter(
+      ({ type, isLookup }) => type === FieldType.Button && !isLookup
+    );
+
     // rest fields, like formula, rollup, lookup fields
     const dependencyFields = allFields.filter(
       ({ id }) =>
@@ -317,6 +326,8 @@ export class BaseImportService {
     );
 
     await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap);
+
+    await this.fieldDuplicateService.createButtonFields(buttonFields, fieldMap);
 
     await this.fieldDuplicateService.createTmpPrimaryFormulaFields(primaryFormulaFields, fieldMap);
 

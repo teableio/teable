@@ -193,7 +193,21 @@ export class BaseExportService {
       const crossBaseFieldRaws = crossBaseRelativeFieldsRaws.filter(
         ({ tableId }) => tableId === tableRaw.id
       );
-      await this.appendTableDataCsv('tables', tableRaw, crossBaseFieldRaws, archive);
+      const buttonDbFieldNames = fieldRaws
+        .filter(
+          ({ type, isLookup, tableId }) =>
+            type === FieldType.Button && !isLookup && tableId === tableRaw.id
+        )
+        .map((f) => f.dbFieldName);
+
+      const excludeDbFieldNames = [...EXCLUDE_SYSTEM_FIELDS, ...buttonDbFieldNames];
+      await this.appendTableDataCsv(
+        archive,
+        'tables',
+        tableRaw,
+        crossBaseFieldRaws,
+        excludeDbFieldNames
+      );
     }
 
     const linkFieldInstances = fieldRaws
@@ -364,10 +378,11 @@ export class BaseExportService {
   }
 
   private async appendTableDataCsv(
+    archive: archiver.Archiver,
     filePath: string,
     tableRaw: TableMeta,
     crossBaseRelativeFields: Field[],
-    archive: archiver.Archiver
+    excludeDbFieldNames: string[]
   ) {
     const { dbTableName, id } = tableRaw;
     const csvStream = new PassThrough();
@@ -383,7 +398,7 @@ export class BaseExportService {
     const columnHeader = columnInfo
       .map(({ name }) => name)
       // exclude system fields
-      .filter((name) => !EXCLUDE_SYSTEM_FIELDS.includes(name))
+      .filter((name) => !excludeDbFieldNames.includes(name))
       // exclude fk fields which are cross base link fields
       .filter((name) => !fkNames.includes(name));
     // write the column header
@@ -418,7 +433,7 @@ export class BaseExportService {
         dbTableName,
         offset,
         crossBaseRelativeFields,
-        EXCLUDE_SYSTEM_FIELDS
+        excludeDbFieldNames
       );
       if (csvChunk.length === 0) {
         hasMoreData = false;
@@ -577,7 +592,7 @@ export class BaseExportService {
     excludeFieldNames: string[]
   ) {
     const rawRecords = await this.getChunkRecords(dbTableName, offset);
-    // 1. clear unless system fields
+    // 1. clear unless fields
     const records = rawRecords.map((record) => omit(record, excludeFieldNames));
     // 2. convert to csv value
     return records.map((record) =>
