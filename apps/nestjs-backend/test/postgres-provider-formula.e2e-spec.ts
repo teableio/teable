@@ -5,7 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import type { Knex } from 'knex';
 import { vi, describe, beforeAll, afterAll, beforeEach, it, expect } from 'vitest';
-import type { IFormulaConversionContext } from '../src/db-provider/formula-query/formula-query.interface';
+import type { IFormulaConversionContext } from '../src/db-provider/generated-column-query/generated-column-query.interface';
 import { PostgresProvider } from '../src/db-provider/postgres.provider';
 import { FormulaFieldDto } from '../src/features/field/model/field-dto/formula-field.dto';
 

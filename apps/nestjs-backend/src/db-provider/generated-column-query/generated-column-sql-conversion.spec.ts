@@ -5,11 +5,11 @@ import { SqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
 import type {
   IFormulaConversionContext,
   IFormulaConversionResult,
-} from './formula-query.interface';
-import { FormulaQueryPostgres } from './postgres/formula-query.postgres';
-import { FormulaQuerySqlite } from './sqlite/formula-query.sqlite';
+} from './generated-column-query.interface';
+import { GeneratedColumnQueryPostgres } from './postgres/generated-column-query.postgres';
+import { GeneratedColumnQuerySqlite } from './sqlite/generated-column-query.sqlite';
 
-describe('Formula Query End-to-End Tests', () => {
+describe('Generated Column Query End-to-End Tests', () => {
   let mockContext: IFormulaConversionContext;
 
   beforeEach(() => {
@@ -33,9 +33,11 @@ describe('Formula Query End-to-End Tests', () => {
     dbType: 'postgres' | 'sqlite'
   ): IFormulaConversionResult => {
     try {
-      // Get the appropriate formula query implementation
+      // Get the appropriate generated column query implementation
       const formulaQuery =
-        dbType === 'postgres' ? new FormulaQueryPostgres() : new FormulaQuerySqlite();
+        dbType === 'postgres'
+          ? new GeneratedColumnQueryPostgres()
+          : new GeneratedColumnQuerySqlite();
 
       // Create the SQL conversion visitor
       const visitor = new SqlConversionVisitor(formulaQuery, context);

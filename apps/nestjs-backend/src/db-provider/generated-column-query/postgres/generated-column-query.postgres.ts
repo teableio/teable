@@ -1,11 +1,12 @@
-import { FormulaQueryAbstract } from '../formula-query.abstract';
-import type { IFormulaConversionContext } from '../formula-query.interface';
+import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
+import type { IFormulaConversionContext } from '../generated-column-query.interface';
 
 /**
- * PostgreSQL-specific implementation of formula functions
- * Converts Teable formula functions to PostgreSQL SQL expressions
+ * PostgreSQL-specific implementation of generated column query functions
+ * Converts Teable formula functions to PostgreSQL SQL expressions suitable
+ * for use in generated columns. All generated SQL must be immutable.
  */
-export class FormulaQueryPostgres extends FormulaQueryAbstract {
+export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
     return `SUM(${this.joinParams(params)})`;

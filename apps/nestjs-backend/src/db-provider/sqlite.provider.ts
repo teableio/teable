@@ -26,11 +26,11 @@ import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sql
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type {
-  IFormulaQueryInterface,
+  IGeneratedColumnQueryInterface,
   IFormulaConversionContext,
   IFormulaConversionResult,
-} from './formula-query/formula-query.interface';
-import { FormulaQuerySqlite } from './formula-query/sqlite/formula-query.sqlite';
+} from './generated-column-query/generated-column-query.interface';
+import { GeneratedColumnQuerySqlite } from './generated-column-query/sqlite/generated-column-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
@@ -572,17 +572,17 @@ ORDER BY
       .toQuery();
   }
 
-  formulaQuery(): IFormulaQueryInterface {
-    return new FormulaQuerySqlite();
+  generatedColumnQuery(): IGeneratedColumnQueryInterface {
+    return new GeneratedColumnQuerySqlite();
   }
 
   convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult {
     try {
-      const formulaQuery = this.formulaQuery();
-      // Set the context on the formula query instance
-      formulaQuery.setContext(context);
+      const generatedColumnQuery = this.generatedColumnQuery();
+      // Set the context on the generated column query instance
+      generatedColumnQuery.setContext(context);
 
-      const visitor = new SqlConversionVisitor(formulaQuery, context);
+      const visitor = new SqlConversionVisitor(generatedColumnQuery, context);
 
       const sql = parseFormulaToSQL(expression, visitor);
 

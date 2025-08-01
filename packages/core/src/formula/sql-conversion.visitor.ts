@@ -19,9 +19,13 @@ import type { ExprContext, RootContext, UnaryOpContext } from './parser/Formula'
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 
 /**
- * Interface for database-specific formula function implementations
+ * Interface for database-specific generated column query implementations
+ * Used to convert Teable formula functions to database-specific SQL
+ * expressions suitable for generated columns
  */
-export interface IFormulaQueryInterface {
+export interface IGeneratedColumnQueryInterface {
+  // Context management
+  setContext(context: IFormulaConversionContext): void;
   // Numeric Functions
   sum(params: string[]): string;
   average(params: string[]): string;
@@ -45,6 +49,7 @@ export interface IFormulaQueryInterface {
 
   // Text Functions
   concatenate(params: string[]): string;
+  stringConcat(left: string, right: string): string;
   find(searchText: string, withinText: string, startNum?: string): string;
   search(searchText: string, withinText: string, startNum?: string): string;
   mid(text: string, startNum: string, numChars: string): string;
@@ -95,6 +100,7 @@ export interface IFormulaQueryInterface {
   not(value: string): string;
   xor(params: string[]): string;
   blank(): string;
+  error(message: string): string;
   isError(value: string): string;
   switch(
     expression: string,
@@ -148,6 +154,16 @@ export interface IFormulaQueryInterface {
   booleanLiteral(value: boolean): string;
   nullLiteral(): string;
 
+  // Utility methods for type conversion and validation
+  castToNumber(value: string): string;
+  castToString(value: string): string;
+  castToBoolean(value: string): string;
+  castToDate(value: string): string;
+
+  // Handle null values and type checking
+  isNull(value: string): string;
+  coalesce(params: string[]): string;
+
   // Parentheses for grouping
   parentheses(expression: string): string;
 }
@@ -189,7 +205,7 @@ export class SqlConversionVisitor
   private dependencies: string[] = [];
 
   constructor(
-    private formulaQuery: IFormulaQueryInterface,
+    private formulaQuery: IGeneratedColumnQueryInterface,
     private context: IFormulaConversionContext
   ) {
     super();
