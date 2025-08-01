@@ -18,12 +18,12 @@ import type {
   SingleSelectFieldCore,
   UserFieldCore,
   IFieldVisitor,
+  IFormulaConversionContext,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IFormulaConversionContext } from '../../db-provider/generated-column-query/generated-column-query.interface';
-import { GeneratedColumnQuerySupportValidatorSqlite } from '../../db-provider/generated-column-query/generated-column-query.interface';
+import { GeneratedColumnQuerySupportValidatorSqlite } from '../../db-provider/generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
 import { FormulaSupportValidator } from './formula-support-validator';
 import { SchemaType } from './util';
 

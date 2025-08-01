@@ -1,5 +1,5 @@
+import type { IFormulaConversionContext } from '@teable/core';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
-import type { IFormulaConversionContext } from '../generated-column-query.interface';
 
 /**
  * PostgreSQL-specific implementation of generated column query functions

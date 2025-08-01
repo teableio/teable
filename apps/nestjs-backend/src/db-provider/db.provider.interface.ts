@@ -1,20 +1,24 @@
-import type { DriverClient, FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type {
+  DriverClient,
+  FieldType,
+  IFilter,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+  IGeneratedColumnQueryInterface,
+  ILookupOptionsVo,
+  ISelectQueryInterface,
+  ISortItem,
+} from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
-import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
 import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
 import type { DuplicateAttachmentTableQueryAbstract } from './duplicate-table/duplicate-attachment-table-query.abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
-import type {
-  IGeneratedColumnQueryInterface,
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-} from './generated-column-query/generated-column-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
@@ -217,4 +221,8 @@ export interface IDbProvider {
     expression: string,
     context: IFormulaConversionContext
   ): IFormulaConversionResult;
+
+  selectQuery(): ISelectQueryInterface;
+
+  convertFormulaToSelectQuery(expression: string, context: IFormulaConversionContext): string;
 }

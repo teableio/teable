@@ -3,9 +3,9 @@
  * This interface defines the contract for translating Teable functions to database functions
  * with a generic return type to support different use cases (SQL strings, boolean validation, etc.)
  */
-export interface ITeableToDbFunctionConverter<TReturn> {
+export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   // Context management
-  setContext(context: IFormulaConversionContext): void;
+  setContext(context: TContext): void;
   // Numeric Functions
   sum(params: string[]): TReturn;
   average(params: string[]): TReturn;
@@ -126,7 +126,7 @@ export interface ITeableToDbFunctionConverter<TReturn> {
   unaryMinus(value: string): TReturn;
 
   // Field Reference
-  fieldReference(fieldId: string, columnName: string, context?: IFormulaConversionContext): TReturn;
+  fieldReference(fieldId: string, columnName: string, context?: TContext): TReturn;
 
   // Literals
   stringLiteral(value: string): TReturn;
@@ -180,7 +180,8 @@ export interface IFormulaConversionResult {
  * in database generated columns. This interface ensures formula expressions
  * are converted to immutable SQL expressions suitable for generated columns.
  */
-export interface IGeneratedColumnQueryInterface extends ITeableToDbFunctionConverter<string> {}
+export interface IGeneratedColumnQueryInterface
+  extends ITeableToDbFunctionConverter<string, IFormulaConversionContext> {}
 
 /**
  * Interface for database-specific SELECT query implementations
@@ -189,7 +190,8 @@ export interface IGeneratedColumnQueryInterface extends ITeableToDbFunctionConve
  * in SELECT statements as computed columns. Unlike generated columns, these
  * expressions can use mutable functions and have different optimization strategies.
  */
-export interface ISelectQueryInterface extends ITeableToDbFunctionConverter<string> {}
+export interface ISelectQueryInterface
+  extends ITeableToDbFunctionConverter<string, IFormulaConversionContext> {}
 
 /**
  * Interface for validating whether Teable formula functions convert to generated column are supported
@@ -197,8 +199,4 @@ export interface ISelectQueryInterface extends ITeableToDbFunctionConverter<stri
  * whether the corresponding function can be converted to a valid database expression.
  */
 export interface IGeneratedColumnQuerySupportValidator
-  extends ITeableToDbFunctionConverter<boolean> {}
-
-// Export concrete implementations
-export { GeneratedColumnQuerySupportValidatorPostgres } from './postgres/generated-column-query-support-validator.postgres';
-export { GeneratedColumnQuerySupportValidatorSqlite } from './sqlite/generated-column-query-support-validator.sqlite';
+  extends ITeableToDbFunctionConverter<boolean, IFormulaConversionContext> {}

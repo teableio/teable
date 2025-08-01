@@ -19,3 +19,9 @@ export type {
   StringLiteralContext,
 } from './parser/Formula';
 export type { FormulaVisitor } from './parser/FormulaVisitor';
+export type {
+  IGeneratedColumnQueryInterface,
+  ISelectQueryInterface,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+} from './function-convertor.interface';

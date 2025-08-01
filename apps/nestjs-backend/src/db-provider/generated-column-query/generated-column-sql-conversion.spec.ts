@@ -1,11 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { SqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
-import type {
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-} from './generated-column-query.interface';
+import type { IFormulaConversionContext, IFormulaConversionResult } from '@teable/core';
+import { GeneratedColumnSqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
 import { GeneratedColumnQueryPostgres } from './postgres/generated-column-query.postgres';
 import { GeneratedColumnQuerySqlite } from './sqlite/generated-column-query.sqlite';
 
@@ -40,7 +37,7 @@ describe('Generated Column Query End-to-End Tests', () => {
           : new GeneratedColumnQuerySqlite();
 
       // Create the SQL conversion visitor
-      const visitor = new SqlConversionVisitor(formulaQuery, context);
+      const visitor = new GeneratedColumnSqlConversionVisitor(formulaQuery, context);
 
       // Parse the formula and convert to SQL using the public API
       const sql = parseFormulaToSQL(expression, visitor);

@@ -1,4 +1,4 @@
-import type { IFormulaConversionContext } from '../../generated-column-query/generated-column-query.interface';
+import type { IFormulaConversionContext } from '@teable/core';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**

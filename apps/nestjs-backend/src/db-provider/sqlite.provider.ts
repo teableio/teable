@@ -1,7 +1,21 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
-import { DriverClient, parseFormulaToSQL, SqlConversionVisitor } from '@teable/core';
+import type {
+  FieldType,
+  IFilter,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+  IGeneratedColumnQueryInterface,
+  ILookupOptionsVo,
+  ISelectQueryInterface,
+  ISortItem,
+} from '@teable/core';
+import {
+  DriverClient,
+  parseFormulaToSQL,
+  GeneratedColumnSqlConversionVisitor,
+  SelectColumnSqlConversionVisitor,
+} from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -25,12 +39,6 @@ import { DuplicateAttachmentTableQuerySqlite } from './duplicate-table/duplicate
 import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
-import type {
-  IGeneratedColumnQueryInterface,
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-  ISelectQueryInterface,
-} from './generated-column-query/generated-column-query.interface';
 import { GeneratedColumnQuerySqlite } from './generated-column-query/sqlite/generated-column-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
@@ -577,11 +585,6 @@ ORDER BY
   generatedColumnQuery(): IGeneratedColumnQueryInterface {
     return new GeneratedColumnQuerySqlite();
   }
-
-  selectQuery(): ISelectQueryInterface {
-    return new SelectQuerySqlite();
-  }
-
   convertFormulaToGeneratedColumn(
     expression: string,
     context: IFormulaConversionContext
@@ -591,11 +594,28 @@ ORDER BY
       // Set the context on the generated column query instance
       generatedColumnQuery.setContext(context);
 
-      const visitor = new SqlConversionVisitor(generatedColumnQuery, context);
+      const visitor = new GeneratedColumnSqlConversionVisitor(generatedColumnQuery, context);
 
       const sql = parseFormulaToSQL(expression, visitor);
 
       return visitor.getResult(sql);
+    } catch (error) {
+      throw new Error(`Failed to convert formula: ${(error as Error).message}`);
+    }
+  }
+
+  selectQuery(): ISelectQueryInterface {
+    return new SelectQuerySqlite();
+  }
+
+  convertFormulaToSelectQuery(expression: string, context: IFormulaConversionContext): string {
+    try {
+      const selectQuery = this.selectQuery();
+      selectQuery.setContext(context);
+
+      const visitor = new SelectColumnSqlConversionVisitor(selectQuery, context);
+
+      return parseFormulaToSQL(expression, visitor);
     } catch (error) {
       throw new Error(`Failed to convert formula: ${(error as Error).message}`);
     }
