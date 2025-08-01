@@ -531,11 +531,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
 
   // System Functions
   recordId(): string {
-    return '__id__';
+    return '__id';
   }
 
   autoNumber(): string {
-    return '__auto_number__';
+    return '__auto_number';
   }
 
   textAll(value: string): string {

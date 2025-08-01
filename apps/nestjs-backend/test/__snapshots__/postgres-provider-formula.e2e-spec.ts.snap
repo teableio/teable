@@ -1,0 +1,139 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should fail ARRAY_COMPACT function due to subquery restriction > PostgreSQL SQL for ARRAY_COMPACT({fld_array}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_69" text, add column "fld_test_field_69___generated" TEXT GENERATED ALWAYS AS (ARRAY(SELECT x FROM UNNEST("array_col") AS x WHERE x IS NOT NULL)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should fail ARRAY_FLATTEN function due to subquery restriction > PostgreSQL SQL for ARRAY_FLATTEN({fld_array}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_70" text, add column "fld_test_field_70___generated" TEXT GENERATED ALWAYS AS (ARRAY(SELECT UNNEST("array_col"))) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should fail ARRAY_JOIN function due to JSONB type mismatch > PostgreSQL SQL for ARRAY_JOIN({fld_array}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_67" text, add column "fld_test_field_67___generated" TEXT GENERATED ALWAYS AS (ARRAY_TO_STRING("array_col", ', ')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should fail ARRAY_UNIQUE function due to subquery restriction > PostgreSQL SQL for ARRAY_UNIQUE({fld_array}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_68" text, add column "fld_test_field_68___generated" TEXT GENERATED ALWAYS AS (ARRAY(SELECT DISTINCT UNNEST("array_col"))) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNT functions > PostgreSQL SQL for COUNT({fld_number}, {fld_number_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_63" text, add column "fld_test_field_63___generated" TEXT GENERATED ALWAYS AS ((CASE WHEN "number_col" IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN "number_col_2" IS NOT NULL THEN 1 ELSE 0 END)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNT functions > PostgreSQL SQL for COUNTA({fld_text}, {fld_text_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_64" text, add column "fld_test_field_64___generated" TEXT GENERATED ALWAYS AS ((CASE WHEN "text_col" IS NOT NULL AND "text_col" <> '' THEN 1 ELSE 0 END + CASE WHEN "text_col_2" IS NOT NULL AND "text_col_2" <> '' THEN 1 ELSE 0 END)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNTALL function > PostgreSQL SQL for COUNTALL({fld_number}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_65" text, add column "fld_test_field_65___generated" TEXT GENERATED ALWAYS AS (CASE WHEN "number_col" IS NULL THEN 0 ELSE 1 END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNTALL function > PostgreSQL SQL for COUNTALL({fld_text_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_66" text, add column "fld_test_field_66___generated" TEXT GENERATED ALWAYS AS (CASE WHEN "text_col_2" IS NULL THEN 0 ELSE 1 END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle ABS function > PostgreSQL SQL for ABS({fld_number_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_6" text, add column "fld_test_field_6___generated" TEXT GENERATED ALWAYS AS (ABS("number_col_2"::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle ABS function > PostgreSQL SQL for ABS({fld_number}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_5" text, add column "fld_test_field_5___generated" TEXT GENERATED ALWAYS AS (ABS("number_col"::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle AVERAGE function > PostgreSQL SQL for AVERAGE({fld_number}, {fld_number_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_17" text, add column "fld_test_field_17___generated" TEXT GENERATED ALWAYS AS (AVG("number_col", "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle CEILING and FLOOR functions > PostgreSQL SQL for CEILING(3.14) 1`] = `"alter table "test_formula_table" add column "fld_test_field_8" text, add column "fld_test_field_8___generated" TEXT GENERATED ALWAYS AS (CEIL(3.14::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle EVEN and ODD functions > PostgreSQL SQL for EVEN(3) 1`] = `"alter table "test_formula_table" add column "fld_test_field_12" text, add column "fld_test_field_12___generated" TEXT GENERATED ALWAYS AS (CASE WHEN 3::integer % 2 = 0 THEN 3::integer ELSE 3::integer + 1 END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle EXP and LOG functions > PostgreSQL SQL for EXP(1) 1`] = `"alter table "test_formula_table" add column "fld_test_field_14" text, add column "fld_test_field_14___generated" TEXT GENERATED ALWAYS AS (EXP(1::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle INT function > PostgreSQL SQL for INT(3.99) 1`] = `"alter table "test_formula_table" add column "fld_test_field_13" text, add column "fld_test_field_13___generated" TEXT GENERATED ALWAYS AS (FLOOR(3.99::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle MAX and MIN functions > PostgreSQL SQL for MAX({fld_number}, {fld_number_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_10" text, add column "fld_test_field_10___generated" TEXT GENERATED ALWAYS AS (GREATEST("number_col", "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle MOD function > PostgreSQL SQL for MOD(10, 3) 1`] = `"alter table "test_formula_table" add column "fld_test_field_15" text, add column "fld_test_field_15___generated" TEXT GENERATED ALWAYS AS (MOD(10::numeric, 3::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle ROUND function > PostgreSQL SQL for ROUND(3.14159, 2) 1`] = `"alter table "test_formula_table" add column "fld_test_field_7" text, add column "fld_test_field_7___generated" TEXT GENERATED ALWAYS AS (ROUND(3.14159::numeric, 2::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle ROUNDUP and ROUNDDOWN functions > PostgreSQL SQL for ROUNDUP(3.14159, 2) 1`] = `"alter table "test_formula_table" add column "fld_test_field_11" text, add column "fld_test_field_11___generated" TEXT GENERATED ALWAYS AS (CEIL(3.14159::numeric * POWER(10, 2::integer)) / POWER(10, 2::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle SQRT and POWER functions > PostgreSQL SQL for SQRT(16) 1`] = `"alter table "test_formula_table" add column "fld_test_field_9" text, add column "fld_test_field_9___generated" TEXT GENERATED ALWAYS AS (SQRT(16::numeric)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle SUM function > PostgreSQL SQL for SUM({fld_number}, {fld_number_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_16" text, add column "fld_test_field_16___generated" TEXT GENERATED ALWAYS AS (SUM("number_col", "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle VALUE function > PostgreSQL SQL for VALUE("123") 1`] = `"alter table "test_formula_table" add column "fld_test_field_18" text, add column "fld_test_field_18___generated" TEXT GENERATED ALWAYS AS ('123'::numeric) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > PostgreSQL SQL for {fld_number} * {fld_number_2} 1`] = `"alter table "test_formula_table" add column "fld_test_field_3" text, add column "fld_test_field_3___generated" TEXT GENERATED ALWAYS AS (("number_col" * "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > PostgreSQL SQL for {fld_number} + {fld_number_2} 1`] = `"alter table "test_formula_table" add column "fld_test_field_1" text, add column "fld_test_field_1___generated" TEXT GENERATED ALWAYS AS (("number_col" + "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > PostgreSQL SQL for {fld_number} / {fld_number_2} 1`] = `"alter table "test_formula_table" add column "fld_test_field_4" text, add column "fld_test_field_4___generated" TEXT GENERATED ALWAYS AS (("number_col" / "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > PostgreSQL SQL for {fld_number} - {fld_number_2} 1`] = `"alter table "test_formula_table" add column "fld_test_field_2" text, add column "fld_test_field_2___generated" TEXT GENERATED ALWAYS AS (("number_col" - "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Column References > should handle arithmetic with column references > PostgreSQL SQL for {fld_number} + {fld_number_2} 1`] = `"alter table "test_formula_table" add column "fld_test_field_44" text, add column "fld_test_field_44___generated" TEXT GENERATED ALWAYS AS (("number_col" + "number_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Column References > should handle single column references > PostgreSQL SQL for {fld_number} 1`] = `"alter table "test_formula_table" add column "fld_test_field_43" text, add column "fld_test_field_43___generated" TEXT GENERATED ALWAYS AS ("number_col") STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Column References > should handle string operations with column references > PostgreSQL SQL for CONCATENATE({fld_text}, "-", {fld_text_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_45" text, add column "fld_test_field_45___generated" TEXT GENERATED ALWAYS AS (("text_col" || '-' || "text_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle CREATED_TIME and LAST_MODIFIED_TIME functions > PostgreSQL SQL for CREATED_TIME() 1`] = `"alter table "test_formula_table" add column "fld_test_field_60" text, add column "fld_test_field_60___generated" TEXT GENERATED ALWAYS AS (__created_time__) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle DATE_ADD function > PostgreSQL SQL for DATE_ADD({fld_date}, 5, "days") 1`] = `"alter table "test_formula_table" add column "fld_test_field_58" text, add column "fld_test_field_58___generated" TEXT GENERATED ALWAYS AS ("date_col"::timestamp + INTERVAL 'days' * 5::integer) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle DATESTR function > PostgreSQL SQL for DATESTR({fld_date}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_54" text, add column "fld_test_field_54___generated" TEXT GENERATED ALWAYS AS ("date_col"::date::text) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_DIFF function > PostgreSQL SQL for DATETIME_DIFF("2024-01-01", {fld_date}, "days") 1`] = `"alter table "test_formula_table" add column "fld_test_field_55" text, add column "fld_test_field_55___generated" TEXT GENERATED ALWAYS AS (EXTRACT(DAY FROM "date_col"::timestamp - '2024-01-01'::timestamp)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_FORMAT function > PostgreSQL SQL for DATETIME_FORMAT({fld_date}, "YYYY-MM-DD") 1`] = `"alter table "test_formula_table" add column "fld_test_field_57" text, add column "fld_test_field_57___generated" TEXT GENERATED ALWAYS AS (TO_CHAR("date_col"::timestamp, 'YYYY-MM-DD')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_PARSE function > PostgreSQL SQL for DATETIME_PARSE("2024-01-10 08:00:00", "YYYY-MM-DD HH:mm:ss") 1`] = `"alter table "test_formula_table" add column "fld_test_field_59" text, add column "fld_test_field_59___generated" TEXT GENERATED ALWAYS AS (TO_TIMESTAMP('2024-01-10 08:00:00', 'YYYY-MM-DD HH:mm:ss')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > PostgreSQL SQL for IS_AFTER({fld_date}, "2024-01-01") 1`] = `"alter table "test_formula_table" add column "fld_test_field_56" text, add column "fld_test_field_56___generated" TEXT GENERATED ALWAYS AS ("date_col"::timestamp > '2024-01-01'::timestamp) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle NOW and TODAY functions with fixed time > PostgreSQL SQL for NOW() 1`] = `"alter table "test_formula_table" add column "fld_test_field_47" text, add column "fld_test_field_47___generated" TEXT GENERATED ALWAYS AS ('2024-01-15 10:30:00.000'::timestamp) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle NOW and TODAY functions with fixed time > PostgreSQL SQL for TODAY() 1`] = `"alter table "test_formula_table" add column "fld_test_field_46" text, add column "fld_test_field_46___generated" TEXT GENERATED ALWAYS AS ('2024-01-15'::date) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle RECORD_ID and AUTO_NUMBER functions > PostgreSQL SQL for AUTO_NUMBER() 1`] = `"alter table "test_formula_table" add column "fld_test_field_62" text, add column "fld_test_field_62___generated" TEXT GENERATED ALWAYS AS (__auto_number) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle RECORD_ID and AUTO_NUMBER functions > PostgreSQL SQL for RECORD_ID() 1`] = `"alter table "test_formula_table" add column "fld_test_field_61" text, add column "fld_test_field_61___generated" TEXT GENERATED ALWAYS AS (__id) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle TIMESTR function > PostgreSQL SQL for TIMESTR({fld_date}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_53" text, add column "fld_test_field_53___generated" TEXT GENERATED ALWAYS AS ("date_col"::time::text) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle WEEKDAY function > PostgreSQL SQL for WEEKDAY({fld_date}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_51" text, add column "fld_test_field_51___generated" TEXT GENERATED ALWAYS AS (EXTRACT(DOW FROM "date_col"::timestamp)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle WEEKNUM function > PostgreSQL SQL for WEEKNUM({fld_date}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_52" text, add column "fld_test_field_52___generated" TEXT GENERATED ALWAYS AS (EXTRACT(WEEK FROM "date_col"::timestamp)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > PostgreSQL SQL for YEAR({fld_date}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_49" text, add column "fld_test_field_49___generated" TEXT GENERATED ALWAYS AS (EXTRACT(YEAR FROM "date_col"::timestamp)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > PostgreSQL SQL for YEAR("2024-01-15") 1`] = `"alter table "test_formula_table" add column "fld_test_field_48" text, add column "fld_test_field_48___generated" TEXT GENERATED ALWAYS AS (EXTRACT(YEAR FROM '2024-01-15'::timestamp)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > PostgreSQL SQL for HOUR({fld_date}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_50" text, add column "fld_test_field_50___generated" TEXT GENERATED ALWAYS AS (EXTRACT(HOUR FROM "date_col"::timestamp)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Logical Functions > should handle AND and OR functions > PostgreSQL SQL for AND({fld_boolean}, {fld_number} > 0) 1`] = `"alter table "test_formula_table" add column "fld_test_field_36" text, add column "fld_test_field_36___generated" TEXT GENERATED ALWAYS AS (("boolean_col" AND ("number_col" > 0))) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Logical Functions > should handle BLANK function > PostgreSQL SQL for BLANK() 1`] = `"alter table "test_formula_table" add column "fld_test_field_40" text, add column "fld_test_field_40___generated" TEXT GENERATED ALWAYS AS (NULL) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Logical Functions > should handle IF function > PostgreSQL SQL for IF({fld_number} > 0, "positive", "non-positive") 1`] = `"alter table "test_formula_table" add column "fld_test_field_35" text, add column "fld_test_field_35___generated" TEXT GENERATED ALWAYS AS (CASE WHEN ("number_col" > 0) THEN 'positive' ELSE 'non-positive' END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Logical Functions > should handle NOT function > PostgreSQL SQL for NOT({fld_boolean}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_37" text, add column "fld_test_field_37___generated" TEXT GENERATED ALWAYS AS (NOT ("boolean_col")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Logical Functions > should handle SWITCH function > PostgreSQL SQL for SWITCH({fld_number}, 10, "ten", -3, "negative three", 0, "zero", "other") 1`] = `"alter table "test_formula_table" add column "fld_test_field_39" text, add column "fld_test_field_39___generated" TEXT GENERATED ALWAYS AS (CASE WHEN "number_col" = 10 THEN 'ten' WHEN "number_col" = (-3) THEN 'negative three' WHEN "number_col" = 0 THEN 'zero' ELSE 'other' END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > Logical Functions > should handle XOR function > PostgreSQL SQL for XOR({fld_boolean}, {fld_number} > 0) 1`] = `"alter table "test_formula_table" add column "fld_test_field_38" text, add column "fld_test_field_38___generated" TEXT GENERATED ALWAYS AS ((("boolean_col") AND NOT (("number_col" > 0))) OR (NOT ("boolean_col") AND (("number_col" > 0)))) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle CONCATENATE function > PostgreSQL SQL for CONCATENATE({fld_text}, " ", {fld_text_2}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_19" text, add column "fld_test_field_19___generated" TEXT GENERATED ALWAYS AS (("text_col" || ' ' || "text_col_2")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle ENCODE_URL_COMPONENT function > PostgreSQL SQL for ENCODE_URL_COMPONENT("hello world") 1`] = `"alter table "test_formula_table" add column "fld_test_field_32" text, add column "fld_test_field_32___generated" TEXT GENERATED ALWAYS AS (encode('hello world'::bytea, 'escape')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle FIND and SEARCH functions > PostgreSQL SQL for FIND("l", "hello") 1`] = `"alter table "test_formula_table" add column "fld_test_field_27" text, add column "fld_test_field_27___generated" TEXT GENERATED ALWAYS AS (POSITION('l' IN 'hello')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > PostgreSQL SQL for LEFT("hello", 3) 1`] = `"alter table "test_formula_table" add column "fld_test_field_20" text, add column "fld_test_field_20___generated" TEXT GENERATED ALWAYS AS (LEFT('hello', 3::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > PostgreSQL SQL for MID("hello", 2, 3) 1`] = `"alter table "test_formula_table" add column "fld_test_field_22" text, add column "fld_test_field_22___generated" TEXT GENERATED ALWAYS AS (SUBSTRING('hello' FROM 2::integer FOR 3::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > PostgreSQL SQL for RIGHT("hello", 3) 1`] = `"alter table "test_formula_table" add column "fld_test_field_21" text, add column "fld_test_field_21___generated" TEXT GENERATED ALWAYS AS (RIGHT('hello', 3::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle LEN function > PostgreSQL SQL for LEN({fld_text}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_23" text, add column "fld_test_field_23___generated" TEXT GENERATED ALWAYS AS (LENGTH("text_col")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle REGEXP_REPLACE function > PostgreSQL SQL for REGEXP_REPLACE("hello123", "[0-9]+", "world") 1`] = `"alter table "test_formula_table" add column "fld_test_field_31" text, add column "fld_test_field_31___generated" TEXT GENERATED ALWAYS AS (REGEXP_REPLACE('hello123', '[0-9]+', 'world', 'g')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle REPLACE function > PostgreSQL SQL for REPLACE("hello", 2, 2, "i") 1`] = `"alter table "test_formula_table" add column "fld_test_field_28" text, add column "fld_test_field_28___generated" TEXT GENERATED ALWAYS AS (OVERLAY('hello' PLACING 'i' FROM 2::integer FOR 2::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle REPT function > PostgreSQL SQL for REPT("a", 3) 1`] = `"alter table "test_formula_table" add column "fld_test_field_30" text, add column "fld_test_field_30___generated" TEXT GENERATED ALWAYS AS (REPEAT('a', 3::integer)) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle SUBSTITUTE function > PostgreSQL SQL for SUBSTITUTE("hello world", "l", "x") 1`] = `"alter table "test_formula_table" add column "fld_test_field_29" text, add column "fld_test_field_29___generated" TEXT GENERATED ALWAYS AS (REPLACE('hello world', 'l', 'x')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle T function > PostgreSQL SQL for T({fld_number}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_34" text, add column "fld_test_field_34___generated" TEXT GENERATED ALWAYS AS (CASE WHEN "number_col" IS NULL THEN '' ELSE "number_col"::text END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle T function > PostgreSQL SQL for T({fld_text}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_33" text, add column "fld_test_field_33___generated" TEXT GENERATED ALWAYS AS (CASE WHEN "text_col" IS NULL THEN '' ELSE "text_col"::text END) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle TRIM function > PostgreSQL SQL for TRIM("  hello  ") 1`] = `"alter table "test_formula_table" add column "fld_test_field_26" text, add column "fld_test_field_26___generated" TEXT GENERATED ALWAYS AS (TRIM('  hello  ')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle UPPER and LOWER functions > PostgreSQL SQL for LOWER("HELLO") 1`] = `"alter table "test_formula_table" add column "fld_test_field_25" text, add column "fld_test_field_25___generated" TEXT GENERATED ALWAYS AS (LOWER('HELLO')) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle UPPER and LOWER functions > PostgreSQL SQL for UPPER({fld_text}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_24" text, add column "fld_test_field_24___generated" TEXT GENERATED ALWAYS AS (UPPER("text_col")) STORED"`;
+
+exports[`PostgreSQL Provider Formula Integration Tests > System Functions > should handle TEXT_ALL function > PostgreSQL SQL for TEXT_ALL({fld_number}) 1`] = `"alter table "test_formula_table" add column "fld_test_field_71" text, add column "fld_test_field_71___generated" TEXT GENERATED ALWAYS AS (ARRAY_TO_STRING("number_col", ', ')) STORED"`;
