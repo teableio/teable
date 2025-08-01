@@ -24,7 +24,7 @@ export const ResetClickCountButton = forwardRef<
   const permission = useTablePermission();
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
-  const record = activeCell?.rowIndex ? recordMap[activeCell.rowIndex] : undefined;
+  const record = activeCell?.rowIndex !== undefined ? recordMap[activeCell.rowIndex] : undefined;
   const { fieldId } = activeCell || {};
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const field = fields.find((f) => f.id === fieldId);
@@ -78,6 +78,12 @@ export const ResetClickCountButton = forwardRef<
     },
   }));
 
+  const resetClickCount = useCallback(async () => {
+    if (!activeCell || !field || !record) return;
+    await buttonReset(field.tableId, record.id, field.id);
+    toast.success(t('sdk:common.resetSuccess'));
+  }, [activeCell, field, record, t]);
+
   useEffect(() => {
     return () => {
       if (scrollTimeoutRef.current) {
@@ -85,13 +91,6 @@ export const ResetClickCountButton = forwardRef<
       }
     };
   }, []);
-
-  const resetClickCount = async () => {
-    if (!activeCell || !field || !record) return;
-    await buttonReset(field.tableId, record.id, field.id);
-    // await record.updateCell(fieldId, null);
-    toast.success(t('sdk:common.resetSuccess'));
-  };
 
   if (!style) return null;
 
