@@ -674,7 +674,8 @@
       "viewOperatorAgent": "视图工具",
       "fieldOperatorAgent": "字段工具",
       "recordOperatorAgent": "记录工具",
-      "buildBaseAgent": "构建数据库工具"
+      "buildBaseAgent": "构建数据库工具",
+      "buildAutomationAgent": "构建自动化工具"
     },
     "action": {
       "createTable": "创建表格",
@@ -700,7 +701,13 @@
       "generateAIFields": "生成 AI 字段",
       "generateLinkFields": "生成关联字段",
       "generateLookupFields": "生成查找字段",
-      "generateLinkFieldsRecords": "生成关联字段记录"
+      "generateLinkFieldsRecords": "生成关联字段记录",
+
+      "generateWorkflow": "生成工作流",
+      "generateTrigger": "生成触发器",
+      "generateScriptAction": "生成 script 节点",
+      "generateSendMailAction": "生成发送邮件节点",
+      "generateAction": "生成节点"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
