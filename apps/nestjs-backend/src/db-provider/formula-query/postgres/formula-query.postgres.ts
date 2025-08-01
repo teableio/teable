@@ -102,6 +102,11 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
     return `(${this.joinParams(params, ' || ')})`;
   }
 
+  // String concatenation for + operator (preserves NULL behavior)
+  stringConcat(left: string, right: string): string {
+    return `(${left} || ${right})`;
+  }
+
   find(searchText: string, withinText: string, startNum?: string): string {
     if (startNum) {
       return `POSITION(${searchText} IN SUBSTRING(${withinText} FROM ${startNum}::integer)) + ${startNum}::integer - 1`;
@@ -359,6 +364,12 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
   }
 
   blank(): string {
+    return 'NULL';
+  }
+
+  error(_message: string): string {
+    // ERROR function in PostgreSQL generated columns should return NULL
+    // since we can't throw actual errors in generated columns
     return 'NULL';
   }
 

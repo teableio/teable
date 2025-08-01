@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-identical-functions */
 import { FormulaQueryAbstract } from '../formula-query.abstract';
 import type { IFormulaConversionContext } from '../formula-query.interface';
 
@@ -8,19 +9,47 @@ import type { IFormulaConversionContext } from '../formula-query.interface';
 export class FormulaQuerySqlite extends FormulaQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
-    return `SUM(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return 'NULL';
+    }
+    if (params.length === 1) {
+      return `${params[0]}`;
+    }
+    // SQLite doesn't have SUM() for multiple values, use addition
+    return `(${this.joinParams(params, ' + ')})`;
   }
 
   average(params: string[]): string {
-    return `AVG(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return 'NULL';
+    }
+    if (params.length === 1) {
+      return `${params[0]}`;
+    }
+    // Calculate average as sum divided by count
+    return `((${this.joinParams(params, ' + ')}) / ${params.length})`;
   }
 
   max(params: string[]): string {
-    return `MAX(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return 'NULL';
+    }
+    if (params.length === 1) {
+      return `${params[0]}`;
+    }
+    // Use nested MAX functions for multiple values
+    return params.reduce((acc, param) => `MAX(${acc}, ${param})`);
   }
 
   min(params: string[]): string {
-    return `MIN(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return 'NULL';
+    }
+    if (params.length === 1) {
+      return `${params[0]}`;
+    }
+    // Use nested MIN functions for multiple values
+    return params.reduce((acc, param) => `MIN(${acc}, ${param})`);
   }
 
   round(value: string, precision?: string): string {
@@ -86,7 +115,8 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
     if (base) {
       return `(LOG(${value}) / LOG(${base}))`;
     }
-    return `LOG(${value})`;
+    // SQLite LOG is base 10, but formula LOG should be natural log (base e)
+    return `LN(${value})`;
   }
 
   mod(dividend: string, divisor: string): string {
@@ -99,7 +129,15 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
 
   // Text Functions
   concatenate(params: string[]): string {
-    return `(${this.joinParams(params, ' || ')})`;
+    // Handle NULL values by converting them to empty strings for CONCATENATE function
+    // This matches the behavior expected by most spreadsheet applications
+    const nullSafeParams = params.map((param) => `COALESCE(${param}, '')`);
+    return `(${this.joinParams(nullSafeParams, ' || ')})`;
+  }
+
+  // String concatenation for + operator (preserves NULL behavior)
+  stringConcat(left: string, right: string): string {
+    return `(${left} || ${right})`;
   }
 
   find(searchText: string, withinText: string, startNum?: string): string {
@@ -165,7 +203,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   t(value: string): string {
-    return `CASE WHEN ${value} IS NULL THEN '' ELSE CAST(${value} AS TEXT) END`;
+    return `CASE
+      WHEN ${value} IS NULL THEN ''
+      WHEN ${value} = CAST(${value} AS INTEGER) THEN CAST(${value} AS INTEGER)
+      ELSE CAST(${value} AS TEXT)
+    END`;
   }
 
   encodeUrlComponent(text: string): string {
@@ -177,7 +219,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   now(): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
-      const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      const currentTimestamp = new Date()
+        .toISOString()
+        .replace('T', ' ')
+        .replace('Z', '')
+        .replace(/\.\d{3}$/, '');
       return `'${currentTimestamp}'`;
     }
     return "DATETIME('now')";
@@ -243,10 +289,20 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    return `STRFTIME(${format}, ${date})`;
+    // Convert common format patterns to SQLite STRFTIME format
+    const cleanFormat = format.replace(/^'|'$/g, '');
+    const sqliteFormat = cleanFormat
+      .replace(/YYYY/g, '%Y')
+      .replace(/MM/g, '%m')
+      .replace(/DD/g, '%d')
+      .replace(/HH/g, '%H')
+      .replace(/mm/g, '%M')
+      .replace(/ss/g, '%S');
+
+    return `STRFTIME('${sqliteFormat}', ${date})`;
   }
 
-  datetimeParse(dateString: string, format: string): string {
+  datetimeParse(dateString: string, _format: string): string {
     // SQLite doesn't have direct parsing with custom format
     return `DATETIME(${dateString})`;
   }
@@ -294,7 +350,7 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   lastModifiedTime(): string {
-    return '__last_modified_time__';
+    return '__last_modified_time';
   }
 
   minute(date: string): string {
@@ -327,7 +383,8 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   weekday(date: string): string {
-    return `CAST(STRFTIME('%w', ${date}) AS INTEGER)`;
+    // Convert SQLite's 0-based weekday (0=Sunday) to 1-based (1=Sunday)
+    return `(CAST(STRFTIME('%w', ${date}) AS INTEGER) + 1)`;
   }
 
   workday(startDate: string, days: string): string {
@@ -343,7 +400,7 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   createdTime(): string {
-    return '__created_time__';
+    return '__created_time';
   }
 
   // Logical Functions
@@ -379,6 +436,12 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
     return 'NULL';
   }
 
+  error(_message: string): string {
+    // ERROR function in SQLite generated columns should return NULL
+    // since we can't throw actual errors in generated columns
+    return 'NULL';
+  }
+
   isError(value: string): string {
     // SQLite doesn't have a direct ISERROR function
     return `CASE WHEN ${value} IS NULL THEN 1 ELSE 0 END`;
@@ -410,7 +473,7 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   countA(params: string[]): string {
-    // Count non-empty values (including zeros)
+    // Count non-empty values (excluding empty strings)
     return `(${params.map((p) => `CASE WHEN ${p} IS NOT NULL AND ${p} <> '' THEN 1 ELSE 0 END`).join(' + ')})`;
   }
 
@@ -420,26 +483,50 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   arrayJoin(array: string, separator?: string): string {
-    // SQLite doesn't have built-in array functions
-    // This would need custom implementation or JSON functions
-    const sep = separator || ', ';
-    return `REPLACE(${array}, ',', ${this.stringLiteral(sep)})`;
+    // SQLite generated columns don't support subqueries, so we'll use simple string manipulation
+    // This assumes arrays are stored as JSON strings like ["a","b","c"] or ["a", "b", "c"]
+    const sep = separator ? this.stringLiteral(separator) : this.stringLiteral(', ');
+    return `(
+      CASE
+        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN
+          REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(${array}, '[', ''), ']', ''), '"', ''), ', ', ','), ',', ${sep})
+        WHEN ${array} IS NOT NULL THEN CAST(${array} AS TEXT)
+        ELSE NULL
+      END
+    )`;
   }
 
   arrayUnique(array: string): string {
-    // SQLite doesn't have built-in array functions
-    // This would need custom implementation
-    return array;
+    // SQLite generated columns don't support complex operations for uniqueness
+    // For now, return the array as-is (this is a limitation)
+    return `(
+      CASE
+        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN ${array}
+        ELSE ${array}
+      END
+    )`;
   }
 
   arrayFlatten(array: string): string {
-    // SQLite doesn't have built-in array functions
-    return array;
+    // For SQLite generated columns, flattening is complex without subqueries
+    // Return the array as-is (this is a limitation)
+    return `(
+      CASE
+        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN ${array}
+        ELSE ${array}
+      END
+    )`;
   }
 
   arrayCompact(array: string): string {
-    // SQLite doesn't have built-in array functions
-    return array;
+    // SQLite generated columns don't support complex filtering without subqueries
+    // For now, return the array as-is (this is a limitation)
+    return `(
+      CASE
+        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN ${array}
+        ELSE ${array}
+      END
+    )`;
   }
 
   // System Functions
@@ -452,7 +539,11 @@ export class FormulaQuerySqlite extends FormulaQueryAbstract {
   }
 
   textAll(value: string): string {
-    return `CAST(${value} AS TEXT)`;
+    // Use same logic as t() function to handle integer formatting
+    return `CASE
+      WHEN ${value} = CAST(${value} AS INTEGER) THEN CAST(${value} AS INTEGER)
+      ELSE CAST(${value} AS TEXT)
+    END`;
   }
 
   // Field Reference - SQLite uses backticks for identifiers

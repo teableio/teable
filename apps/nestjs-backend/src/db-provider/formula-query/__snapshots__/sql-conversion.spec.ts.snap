@@ -536,7 +536,7 @@ exports[`Formula Query End-to-End Tests > Comprehensive Function Coverage Tests 
   "dependencies": [
     "fld1",
   ],
-  "sql": "LOG(\`column_a\`)",
+  "sql": "LN(\`column_a\`)",
 }
 `;
 
