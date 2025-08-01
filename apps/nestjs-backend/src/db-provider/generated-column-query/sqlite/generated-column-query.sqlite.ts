@@ -1,12 +1,13 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import { FormulaQueryAbstract } from '../formula-query.abstract';
-import type { IFormulaConversionContext } from '../formula-query.interface';
+import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
+import type { IFormulaConversionContext } from '../generated-column-query.interface';
 
 /**
- * SQLite-specific implementation of formula functions
- * Converts Teable formula functions to SQLite SQL expressions
+ * SQLite-specific implementation of generated column query functions
+ * Converts Teable formula functions to SQLite SQL expressions suitable
+ * for use in generated columns. All generated SQL must be immutable.
  */
-export class FormulaQuerySqlite extends FormulaQueryAbstract {
+export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
     if (params.length === 0) {

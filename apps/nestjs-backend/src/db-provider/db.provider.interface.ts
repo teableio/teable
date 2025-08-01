@@ -11,10 +11,10 @@ import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
 import type { DuplicateAttachmentTableQueryAbstract } from './duplicate-table/duplicate-attachment-table-query.abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type {
-  IFormulaQueryInterface,
+  IGeneratedColumnQueryInterface,
   IFormulaConversionContext,
   IFormulaConversionResult,
-} from './formula-query/formula-query.interface';
+} from './generated-column-query/generated-column-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
@@ -211,7 +211,7 @@ export interface IDbProvider {
 
   getTableIndexes(dbTableName: string): string;
 
-  formulaQuery(): IFormulaQueryInterface;
+  generatedColumnQuery(): IGeneratedColumnQueryInterface;
 
   convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult;
 }

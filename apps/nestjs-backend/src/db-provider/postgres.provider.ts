@@ -27,10 +27,10 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type {
   IFormulaConversionContext,
-  IFormulaQueryInterface,
+  IGeneratedColumnQueryInterface,
   IFormulaConversionResult,
-} from './formula-query/formula-query.interface';
-import { FormulaQueryPostgres } from './formula-query/postgres/formula-query.postgres';
+} from './generated-column-query/generated-column-query.interface';
+import { GeneratedColumnQueryPostgres } from './generated-column-query/postgres/generated-column-query.postgres';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQueryPostgres } from './group-query/group-query.postgres';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
@@ -647,17 +647,17 @@ ORDER BY
       .toQuery();
   }
 
-  formulaQuery(): IFormulaQueryInterface {
-    return new FormulaQueryPostgres();
+  generatedColumnQuery(): IGeneratedColumnQueryInterface {
+    return new GeneratedColumnQueryPostgres();
   }
 
   convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult {
     try {
-      const formulaQuery = this.formulaQuery();
-      // Set the context on the formula query instance
-      formulaQuery.setContext(context);
+      const generatedColumnQuery = this.generatedColumnQuery();
+      // Set the context on the generated column query instance
+      generatedColumnQuery.setContext(context);
 
-      const visitor = new SqlConversionVisitor(formulaQuery, context);
+      const visitor = new SqlConversionVisitor(generatedColumnQuery, context);
 
       const sql = parseFormulaToSQL(expression, visitor);
 

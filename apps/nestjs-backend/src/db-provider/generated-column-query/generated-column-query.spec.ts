@@ -1,14 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { FormulaQueryPostgres } from './postgres/formula-query.postgres';
-import { FormulaQuerySqlite } from './sqlite/formula-query.sqlite';
+import { GeneratedColumnQueryPostgres } from './postgres/generated-column-query.postgres';
+import { GeneratedColumnQuerySqlite } from './sqlite/generated-column-query.sqlite';
 
-describe('FormulaQuery', () => {
-  describe('PostgreSQL Formula Functions', () => {
-    let formulaQuery: FormulaQueryPostgres;
+describe('GeneratedColumnQuery', () => {
+  describe('PostgreSQL Generated Column Functions', () => {
+    let generatedColumnQuery: GeneratedColumnQueryPostgres;
 
     beforeEach(() => {
-      formulaQuery = new FormulaQueryPostgres();
+      generatedColumnQuery = new GeneratedColumnQueryPostgres();
     });
 
     describe('Numeric Functions', () => {
@@ -28,7 +28,7 @@ describe('FormulaQuery', () => {
         ['log', ['column_a']],
         ['value', ['column_a']],
       ])('should implement %s function', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
 
@@ -42,7 +42,7 @@ describe('FormulaQuery', () => {
         ['power', ['column_a', '2']],
         ['mod', ['column_a', '3']],
       ])('should implement %s function with parameters', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
@@ -63,7 +63,7 @@ describe('FormulaQuery', () => {
         ['t', ['column_a']],
         ['encodeUrlComponent', ['column_a']],
       ])('should implement %s function', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
 
@@ -75,7 +75,7 @@ describe('FormulaQuery', () => {
         ['substitute', ['column_a', "'old'", "'new'"]],
         ['substitute', ['column_a', "'old'", "'new'", '1']],
       ])('should implement %s function with optional parameters', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
@@ -95,7 +95,7 @@ describe('FormulaQuery', () => {
         ['lastModifiedTime', []],
         ['createdTime', []],
       ])('should implement %s function', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
 
@@ -108,7 +108,7 @@ describe('FormulaQuery', () => {
         ['workday', ['column_a', '5']],
         ['workdayDiff', ['column_a', 'column_b']],
       ])('should implement %s function with parameters', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
 
@@ -118,7 +118,7 @@ describe('FormulaQuery', () => {
         ['isSame', ['column_a', 'column_b', "'month'"]],
         ['isSame', ['column_a', 'column_b', "'year'"]],
       ])('should implement isSame function with different units', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
@@ -132,7 +132,7 @@ describe('FormulaQuery', () => {
         ['blank', []],
         ['isError', ['column_a']],
       ])('should implement %s function', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
 
@@ -142,7 +142,7 @@ describe('FormulaQuery', () => {
       ])(
         'should implement XOR function with different parameter counts',
         (functionName, params) => {
-          const result = (formulaQuery as any)[functionName](...params);
+          const result = (generatedColumnQuery as any)[functionName](...params);
           expect(result).toMatchSnapshot();
         }
       );
@@ -152,8 +152,8 @@ describe('FormulaQuery', () => {
           { case: '1', result: "'One'" },
           { case: '2', result: "'Two'" },
         ];
-        expect(formulaQuery.switch('column_a', cases)).toMatchSnapshot();
-        expect(formulaQuery.switch('column_a', cases, "'Default'")).toMatchSnapshot();
+        expect(generatedColumnQuery.switch('column_a', cases)).toMatchSnapshot();
+        expect(generatedColumnQuery.switch('column_a', cases, "'Default'")).toMatchSnapshot();
       });
     });
 
@@ -166,7 +166,7 @@ describe('FormulaQuery', () => {
         ['arrayFlatten', ['column_a']],
         ['arrayCompact', ['column_a']],
       ])('should implement %s function', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
 
@@ -174,7 +174,7 @@ describe('FormulaQuery', () => {
         ['arrayJoin', ['column_a']],
         ['arrayJoin', ['column_a', "' | '"]],
       ])('should implement arrayJoin function with optional separator', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
@@ -185,7 +185,7 @@ describe('FormulaQuery', () => {
         ['autoNumber', []],
         ['textAll', ['column_a']],
       ])('should implement %s function', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
@@ -213,7 +213,7 @@ describe('FormulaQuery', () => {
         ['unaryMinus', ['column_a']],
         ['parentheses', ['expression']],
       ])('should implement %s operation', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
@@ -228,14 +228,14 @@ describe('FormulaQuery', () => {
         ['booleanLiteral', [false]],
         ['nullLiteral', []],
       ])('should implement %s', (functionName, params) => {
-        const result = (formulaQuery as any)[functionName](...params);
+        const result = (generatedColumnQuery as any)[functionName](...params);
         expect(result).toMatchSnapshot();
       });
     });
 
     describe('Field References and Context', () => {
       it('should handle field references', () => {
-        expect(formulaQuery.fieldReference('fld1', 'column_a')).toMatchSnapshot();
+        expect(generatedColumnQuery.fieldReference('fld1', 'column_a')).toMatchSnapshot();
       });
 
       it('should set and use context', () => {
@@ -244,16 +244,16 @@ describe('FormulaQuery', () => {
           timeZone: 'UTC',
           isGeneratedColumn: true,
         };
-        formulaQuery.setContext(context);
-        expect(formulaQuery.fieldReference('fld1', 'test_column')).toMatchSnapshot();
+        generatedColumnQuery.setContext(context);
+        expect(generatedColumnQuery.fieldReference('fld1', 'test_column')).toMatchSnapshot();
       });
     });
 
-    describe('SQLite Formula Functions', () => {
-      let formulaQuery: FormulaQuerySqlite;
+    describe('SQLite Generated Column Functions', () => {
+      let generatedColumnQuery: GeneratedColumnQuerySqlite;
 
       beforeEach(() => {
-        formulaQuery = new FormulaQuerySqlite();
+        generatedColumnQuery = new GeneratedColumnQuerySqlite();
       });
 
       describe('All Functions', () => {
@@ -316,7 +316,7 @@ describe('FormulaQuery', () => {
           // Field references
           ['fieldReference', ['fld1', 'column_a']],
         ])('should implement %s function for SQLite', (functionName, params) => {
-          const result = (formulaQuery as any)[functionName](...params);
+          const result = (generatedColumnQuery as any)[functionName](...params);
           expect(result).toMatchSnapshot();
         });
 
@@ -324,7 +324,7 @@ describe('FormulaQuery', () => {
           ['booleanLiteral', [true]],
           ['booleanLiteral', [false]],
         ])('should implement boolean literals correctly for SQLite', (functionName, params) => {
-          const result = (formulaQuery as any)[functionName](...params);
+          const result = (generatedColumnQuery as any)[functionName](...params);
           expect(result).toMatchSnapshot();
         });
 
@@ -333,16 +333,16 @@ describe('FormulaQuery', () => {
             { case: '1', result: "'One'" },
             { case: '2', result: "'Two'" },
           ];
-          expect(formulaQuery.switch('column_a', cases)).toMatchSnapshot();
-          expect(formulaQuery.switch('column_a', cases, "'Default'")).toMatchSnapshot();
+          expect(generatedColumnQuery.switch('column_a', cases)).toMatchSnapshot();
+          expect(generatedColumnQuery.switch('column_a', cases, "'Default'")).toMatchSnapshot();
         });
       });
     });
 
     describe('Common Interface and Edge Cases', () => {
       it('should have consistent interface between PostgreSQL and SQLite', () => {
-        const pgQuery = new FormulaQueryPostgres();
-        const sqliteQuery = new FormulaQuerySqlite();
+        const pgQuery = new GeneratedColumnQueryPostgres();
+        const sqliteQuery = new GeneratedColumnQuerySqlite();
 
         const commonMethods = ['sum', 'concatenate', 'if', 'now'];
         commonMethods.forEach((method) => {
@@ -352,16 +352,16 @@ describe('FormulaQuery', () => {
       });
 
       it('should handle field references differently', () => {
-        const pgQuery = new FormulaQueryPostgres();
-        const sqliteQuery = new FormulaQuerySqlite();
+        const pgQuery = new GeneratedColumnQueryPostgres();
+        const sqliteQuery = new GeneratedColumnQuerySqlite();
 
         expect(pgQuery.fieldReference('fld1', 'column_a')).toMatchSnapshot();
         expect(sqliteQuery.fieldReference('fld1', 'column_a')).toMatchSnapshot();
       });
 
       it.each([
-        ['PostgreSQL', () => new FormulaQueryPostgres()],
-        ['SQLite', () => new FormulaQuerySqlite()],
+        ['PostgreSQL', () => new GeneratedColumnQueryPostgres()],
+        ['SQLite', () => new GeneratedColumnQuerySqlite()],
       ])('should handle edge cases for %s', (dbType, createQuery) => {
         const query = createQuery();
 
@@ -381,8 +381,8 @@ describe('FormulaQuery', () => {
       });
 
       it('should handle complex nested function calls', () => {
-        const pgQuery = new FormulaQueryPostgres();
-        const sqliteQuery = new FormulaQuerySqlite();
+        const pgQuery = new GeneratedColumnQueryPostgres();
+        const sqliteQuery = new GeneratedColumnQuerySqlite();
 
         const createNestedExpression = (query: any) =>
           query.if(
@@ -396,7 +396,7 @@ describe('FormulaQuery', () => {
       });
 
       it('should handle large parameter arrays', () => {
-        const pgQuery = new FormulaQueryPostgres();
+        const pgQuery = new GeneratedColumnQueryPostgres();
         const largeArray = Array.from({ length: 50 }, (_, i) => `col_${i}`);
 
         const result = pgQuery.sum(largeArray);
@@ -406,7 +406,7 @@ describe('FormulaQuery', () => {
       });
 
       it('should handle deeply nested expressions', () => {
-        const pgQuery = new FormulaQueryPostgres();
+        const pgQuery = new GeneratedColumnQueryPostgres();
 
         let expression = 'base';
         for (let i = 0; i < 5; i++) {

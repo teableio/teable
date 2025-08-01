@@ -1,9 +1,11 @@
 /**
- * Interface for database-specific formula function implementations
+ * Interface for database-specific generated column query implementations
  * Each database provider (PostgreSQL, SQLite) should implement this interface
- * to provide SQL translations for Teable formula functions
+ * to provide SQL translations for Teable formula functions that will be used
+ * in database generated columns. This interface ensures formula expressions
+ * are converted to immutable SQL expressions suitable for generated columns.
  */
-export interface IFormulaQueryInterface {
+export interface IGeneratedColumnQueryInterface {
   // Context management
   setContext(context: IFormulaConversionContext): void;
   // Numeric Functions

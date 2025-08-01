@@ -1,10 +1,14 @@
-import type { IFormulaQueryInterface, IFormulaConversionContext } from './formula-query.interface';
+import type {
+  IGeneratedColumnQueryInterface,
+  IFormulaConversionContext,
+} from './generated-column-query.interface';
 
 /**
- * Abstract base class for formula query implementations
- * Provides common functionality and default implementations
+ * Abstract base class for generated column query implementations
+ * Provides common functionality and default implementations for converting
+ * Teable formula expressions to database-specific SQL suitable for generated columns
  */
-export abstract class FormulaQueryAbstract implements IFormulaQueryInterface {
+export abstract class GeneratedColumnQueryAbstract implements IGeneratedColumnQueryInterface {
   /** Current conversion context */
   protected context?: IFormulaConversionContext;
 
