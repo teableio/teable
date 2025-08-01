@@ -122,9 +122,10 @@ export class S3Storage implements StorageAdapter {
     });
     const {
       ContentLength: size,
-      ContentType: mimetype,
+      ContentType: s3Mimetype = 'application/octet-stream',
       ETag: hash,
     } = await this.s3Client.send(command);
+    const mimetype = s3Mimetype || 'application/octet-stream';
     if (!size || !mimetype || !hash) {
       throw new BadRequestException('Invalid object meta');
     }
