@@ -437,13 +437,13 @@ export class FormulaQueryPostgres extends FormulaQueryAbstract {
 
   // System Functions
   recordId(): string {
-    // This would typically reference the primary key column
-    return '__id__';
+    // Reference the primary key column
+    return '__id';
   }
 
   autoNumber(): string {
-    // This would typically reference an auto-increment column
-    return '__auto_number__';
+    // Reference the auto-increment column
+    return '__auto_number';
   }
 
   textAll(value: string): string {

@@ -34,6 +34,7 @@ import { FormulaFieldService } from './formula-field.service';
     FieldSupplementService,
     FieldViewSyncService,
     FieldConvertingLinkService,
+    FormulaFieldService,
   ],
 })
 export class FieldCalculateModule {}

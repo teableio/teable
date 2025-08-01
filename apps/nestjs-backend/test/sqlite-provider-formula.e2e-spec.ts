@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { FieldType, DbFieldType, CellValueType, generateFieldId } from '@teable/core';
+import { FieldType, DbFieldType, CellValueType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import type { Knex } from 'knex';
@@ -44,6 +44,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
       table.text('array_col'); // JSON array stored as text
       table.datetime('__created_time').defaultTo(knexInstance.fn.now());
       table.datetime('__last_modified_time').defaultTo(knexInstance.fn.now());
+      table.string('__id'); // System record ID column
+      table.integer('__auto_number'); // System auto number column
     });
   });
 
@@ -69,6 +71,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
         array_col: '["apple", "banana", "cherry"]',
         __created_time: '2024-01-10 08:00:00',
         __last_modified_time: '2024-01-10 08:00:00',
+        __id: 'rec1',
+        __auto_number: 1,
       },
       {
         id: 'row2',
@@ -81,6 +85,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
         array_col: '["apple", "banana", "apple"]',
         __created_time: '2024-01-12 15:30:00',
         __last_modified_time: '2024-01-12 16:00:00',
+        __id: 'rec2',
+        __auto_number: 2,
       },
       {
         id: 'row3',
@@ -93,20 +99,26 @@ describe('SQLite Provider Formula Integration Tests', () => {
         array_col: '["", "test", null, "valid"]',
         __created_time: '2024-01-15 10:30:00',
         __last_modified_time: '2024-01-15 11:00:00',
+        __id: 'rec3',
+        __auto_number: 3,
       },
     ]);
   });
+
+  // Counter for unique field IDs
+  let fieldCounter = 0;
 
   // Helper function to create formula field instance
   function createFormulaField(
     expression: string,
     cellValueType: CellValueType = CellValueType.Number
   ): FormulaFieldDto {
-    const fieldId = generateFieldId();
+    // Use a counter-based field ID for consistent but unique snapshots
+    const fieldId = `test_field_${++fieldCounter}`;
     return plainToInstance(FormulaFieldDto, {
       id: fieldId,
       name: 'test_formula',
-      dbFieldName: `fld_${fieldId.slice(-8)}`, // Generate a unique db field name
+      dbFieldName: `fld_${fieldId}`,
       type: FieldType.Formula,
       dbFieldType:
         cellValueType === CellValueType.Number
@@ -149,7 +161,7 @@ describe('SQLite Provider Formula Integration Tests', () => {
     try {
       // Generate SQL for creating the formula column
       const sql = sqliteProvider.createColumnSchema(testTableName, formulaField, fieldMap);
-      console.log(`Generated SQL for expression "${expression}":`, sql);
+      expect(sql).toMatchSnapshot(`SQLite SQL for ${expression}`);
 
       // Split SQL statements and execute them separately
       const sqlStatements = sql.split(';').filter((stmt) => stmt.trim());
@@ -522,6 +534,12 @@ describe('SQLite Provider Formula Integration Tests', () => {
         ['2024-01-10 08:00:00', '2024-01-12 16:00:00', '2024-01-15 11:00:00'],
         CellValueType.String
       );
+    });
+
+    it('should handle RECORD_ID and AUTO_NUMBER functions', async () => {
+      // These functions return system values from __id and __auto_number columns
+      await testFormulaExecution('RECORD_ID()', ['rec1', 'rec2', 'rec3'], CellValueType.String);
+      await testFormulaExecution('AUTO_NUMBER()', [1, 2, 3]);
     });
   });
 
