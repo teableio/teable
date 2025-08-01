@@ -1,7 +1,4 @@
-import type {
-  IGeneratedColumnQueryInterface,
-  IFormulaConversionContext,
-} from './generated-column-query.interface';
+import type { IFormulaConversionContext, IGeneratedColumnQueryInterface } from '@teable/core';
 
 /**
  * Abstract base class for generated column query implementations

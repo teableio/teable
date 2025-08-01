@@ -5,7 +5,10 @@ import { FieldType, type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Timing } from '../../utils/timing';
+import { FieldSelectVisitor } from '../field/field-select-visitor';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
@@ -20,7 +23,8 @@ export class RecordQueryService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   /**
@@ -63,12 +67,34 @@ export class RecordQueryService {
       });
 
       const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-      const dbFieldNames = fields.map((field) => this.getQueryColumnName(field));
+
+      const qb = this.knex(table.dbTableName);
+
+      const context = {
+        fieldMap: fields.reduce(
+          (acc, field) => {
+            acc[field.id] = {
+              columnName: field.dbFieldName,
+              fieldType: field.type,
+              dbGenerated: field.type === FieldType.Formula && field.options.dbGenerated,
+            };
+
+            return acc;
+          },
+          {} as Record<string, { columnName: string; fieldType: string; dbGenerated: boolean }>
+        ),
+      };
+
+      const visitor = new FieldSelectVisitor(this.knex, qb, this.dbProvider, context);
+
+      qb.select(['__id', '__version', '__created_time', '__last_modified_time']);
+
+      for (const field of fields) {
+        field.accept(visitor);
+      }
 
       // Query records from database
-      const query = this.knex(table.dbTableName)
-        .select(['__id', '__version', '__created_time', '__last_modified_time', ...dbFieldNames])
-        .whereIn('__id', recordIds);
+      const query = qb.whereIn('__id', recordIds);
 
       this.logger.debug(`Querying records: ${query.toQuery()}`);
 

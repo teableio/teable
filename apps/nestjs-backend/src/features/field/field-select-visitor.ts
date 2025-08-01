@@ -1,0 +1,143 @@
+import type {
+  AttachmentFieldCore,
+  AutoNumberFieldCore,
+  CheckboxFieldCore,
+  CreatedByFieldCore,
+  CreatedTimeFieldCore,
+  DateFieldCore,
+  FormulaFieldCore,
+  LastModifiedByFieldCore,
+  LastModifiedTimeFieldCore,
+  LinkFieldCore,
+  LongTextFieldCore,
+  MultipleSelectFieldCore,
+  NumberFieldCore,
+  RatingFieldCore,
+  RollupFieldCore,
+  SingleLineTextFieldCore,
+  SingleSelectFieldCore,
+  UserFieldCore,
+  IFieldVisitor,
+  IFormulaConversionContext,
+} from '@teable/core';
+import type { Knex } from 'knex';
+import type { IDbProvider } from '../../db-provider/db.provider.interface';
+
+/**
+ * Field visitor that returns appropriate database column selectors for knex.select()
+ *
+ * For regular fields: returns the dbFieldName as string
+ * For formula fields with dbGenerated=true: returns the generated column name
+ * For formula fields with dbGenerated=false: returns the original dbFieldName
+ *
+ * The returned value can be used directly with knex.select() or knex.raw()
+ */
+export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
+  constructor(
+    private readonly knex: Knex,
+    private readonly qb: Knex.QueryBuilder,
+    private readonly dbProvider: IDbProvider,
+    private readonly context: IFormulaConversionContext
+  ) {}
+  /**
+   * Returns the appropriate column selector for a field
+   * @param field The field to get the selector for
+   * @returns String column name
+   */
+  private getColumnSelector(field: { dbFieldName: string }): Knex.QueryBuilder {
+    return this.qb.select(field.dbFieldName);
+  }
+
+  /**
+   * Returns the generated column selector for formula fields
+   * @param field The formula field
+   * @returns Generated column name if dbGenerated=true, otherwise regular dbFieldName
+   */
+  private getFormulaColumnSelector(field: FormulaFieldCore): Knex.QueryBuilder {
+    if (field.options.dbGenerated && !field.isLookup) {
+      // TODO: if field is not allow to use generated column, use the following code
+      // const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
+      //   fieldMap: this.context.fieldMap,
+      // });
+      // return this.qb.select(this.knex.raw(`${sql} as ??`, [field.getGeneratedColumnName()]));
+      return this.qb.select(field.getGeneratedColumnName());
+    }
+    return this.qb.select(field.dbFieldName);
+  }
+
+  // Basic field types
+  visitNumberField(field: NumberFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitSingleLineTextField(field: SingleLineTextFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitLongTextField(field: LongTextFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitAttachmentField(field: AttachmentFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitCheckboxField(field: CheckboxFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitDateField(field: DateFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitRatingField(field: RatingFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitAutoNumberField(field: AutoNumberFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitLinkField(field: LinkFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitRollupField(field: RollupFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  // Select field types
+  visitSingleSelectField(field: SingleSelectFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitMultipleSelectField(field: MultipleSelectFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  // Formula field types - these may use generated columns
+  visitFormulaField(field: FormulaFieldCore): Knex.QueryBuilder {
+    return this.getFormulaColumnSelector(field);
+  }
+
+  visitCreatedTimeField(field: CreatedTimeFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  // User field types
+  visitUserField(field: UserFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitCreatedByField(field: CreatedByFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+
+  visitLastModifiedByField(field: LastModifiedByFieldCore): Knex.QueryBuilder {
+    return this.getColumnSelector(field);
+  }
+}

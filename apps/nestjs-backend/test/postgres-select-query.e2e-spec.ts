@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { parseFormulaToSQL, SqlConversionVisitor } from '@teable/core';
+import type { IFormulaConversionContext } from '@teable/core';
+import { parseFormulaToSQL, GeneratedColumnSqlConversionVisitor } from '@teable/core';
 import knex from 'knex';
 import type { Knex } from 'knex';
 import { vi, describe, beforeAll, afterAll, beforeEach, it, expect } from 'vitest';
-import type { IFormulaConversionContext } from '../src/db-provider/generated-column-query/generated-column-query.interface';
 import { PostgresProvider } from '../src/db-provider/postgres.provider';
 import { SelectQueryPostgres } from '../src/db-provider/select-query/postgres/select-query.postgres';
 
@@ -141,7 +141,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
         selectQuery.setContext(context);
 
         // Convert the formula to SQL using SelectQueryPostgres directly
-        const visitor = new SqlConversionVisitor(selectQuery, context);
+        const visitor = new GeneratedColumnSqlConversionVisitor(selectQuery, context);
         const generatedSql = parseFormulaToSQL(expression, visitor);
 
         // Execute SELECT query with the generated SQL

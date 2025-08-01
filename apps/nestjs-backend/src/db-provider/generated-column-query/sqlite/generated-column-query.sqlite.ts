@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-identical-functions */
+import type { IFormulaConversionContext } from '@teable/core';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
-import type { IFormulaConversionContext } from '../generated-column-query.interface';
 
 /**
  * SQLite-specific implementation of generated column query functions

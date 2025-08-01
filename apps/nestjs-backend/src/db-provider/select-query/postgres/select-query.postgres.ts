@@ -1,4 +1,3 @@
-import type { IFormulaConversionContext } from '../../generated-column-query/generated-column-query.interface';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**
@@ -477,11 +476,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   // Field Reference
-  fieldReference(
-    _fieldId: string,
-    columnName: string,
-    _context?: IFormulaConversionContext
-  ): string {
+  fieldReference(_fieldId: string, columnName: string, _context?: undefined): string {
     return `"${columnName}"`;
   }
 
