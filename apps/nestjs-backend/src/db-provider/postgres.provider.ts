@@ -41,6 +41,7 @@ import {
   SearchQueryPostgresBuilder,
   SearchQueryPostgres,
 } from './search-query/search-query.postgres';
+import { SelectQueryPostgres } from './select-query/postgres/select-query.postgres';
 import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
@@ -651,7 +652,14 @@ ORDER BY
     return new GeneratedColumnQueryPostgres();
   }
 
-  convertFormula(expression: string, context: IFormulaConversionContext): IFormulaConversionResult {
+  selectQuery(): IGeneratedColumnQueryInterface {
+    return new SelectQueryPostgres();
+  }
+
+  convertFormulaToGeneratedColumn(
+    expression: string,
+    context: IFormulaConversionContext
+  ): IFormulaConversionResult {
     try {
       const generatedColumnQuery = this.generatedColumnQuery();
       // Set the context on the generated column query instance
