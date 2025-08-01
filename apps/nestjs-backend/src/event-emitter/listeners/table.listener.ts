@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { IdPrefix, TableOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -28,6 +28,8 @@ type ITableLastModifiedTimeEvent = IViewEvent | IRecordEvent | IFieldEvent;
 
 @Injectable()
 export class TableListener {
+  private readonly logger = new Logger(TableListener.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
@@ -42,7 +44,9 @@ export class TableListener {
     if (isSQLite(this.knex)) {
       return;
     }
+
     const tableId = await this.getTableId(event);
+    this.logger.log(`handleTableLastModifiedTimeEvent: ${tableId}`);
     if (!tableId) {
       return;
     }
