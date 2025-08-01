@@ -269,7 +269,7 @@ export class SqlConversionVisitor
         const rightType = this.inferExpressionType(ctx.expr(1));
 
         if (leftType === 'string' || rightType === 'string') {
-          return this.formulaQuery.concatenate([left, right]);
+          return this.formulaQuery.stringConcat(left, right);
         }
 
         return this.formulaQuery.add(left, right);

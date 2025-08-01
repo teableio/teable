@@ -40,6 +40,7 @@ export abstract class FormulaQueryAbstract implements IFormulaQueryInterface {
 
   // Text Functions
   abstract concatenate(params: string[]): string;
+  abstract stringConcat(left: string, right: string): string;
   abstract find(searchText: string, withinText: string, startNum?: string): string;
   abstract search(searchText: string, withinText: string, startNum?: string): string;
   abstract mid(text: string, startNum: string, numChars: string): string;
@@ -90,6 +91,7 @@ export abstract class FormulaQueryAbstract implements IFormulaQueryInterface {
   abstract not(value: string): string;
   abstract xor(params: string[]): string;
   abstract blank(): string;
+  abstract error(message: string): string;
   abstract isError(value: string): string;
   abstract switch(
     expression: string,

@@ -68,7 +68,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"SUM((\`column_a\` + \`column_c\`), (\`column_e\` * 2))"`
+        `"((\`column_a\` + \`column_c\`) + (\`column_e\` * 2))"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld3', 'fld5']);
     });
@@ -90,7 +90,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (SUM(\`column_a\`, \`column_b\`) > 100) THEN ROUND(\`column_e\`, 2) ELSE 0 END"`
+        `"CASE WHEN ((\`column_a\` + \`column_b\`) > 100) THEN ROUND(\`column_e\`, 2) ELSE 0 END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
     });
@@ -112,7 +112,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"UPPER((SUBSTR(\`column_c\`, 1, 5) || SUBSTR(\`column_f\`, -3)))"`
+        `"UPPER((COALESCE(SUBSTR(\`column_c\`, 1, 5), '') || COALESCE(SUBSTR(\`column_f\`, -3), '')))"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -160,7 +160,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (AVG(SUM(\`column_a\`, \`column_b\`), (\`column_e\` * 3)) > 50) THEN ROUND((MAX(\`column_a\`, \`column_e\`) / MIN(\`column_b\`, \`column_e\`)), 2) ELSE ABS((\`column_a\` - \`column_b\`)) END"`
+        `"CASE WHEN ((((\`column_a\` + \`column_b\`) + (\`column_e\` * 3)) / 2) > 50) THEN ROUND((MAX(\`column_a\`, \`column_e\`) / MIN(\`column_b\`, \`column_e\`)), 2) ELSE ABS((\`column_a\` - \`column_b\`)) END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
     });
@@ -184,7 +184,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (LENGTH((\`column_c\` || \`column_f\`)) > 10) THEN UPPER(SUBSTR(TRIM((\`column_c\` || ' - ' || \`column_f\`)), 1, 15)) ELSE LOWER(SUBSTR(REPLACE(\`column_c\`, 'old', 'new'), -8)) END"`
+        `"CASE WHEN (LENGTH((COALESCE(\`column_c\`, '') || COALESCE(\`column_f\`, ''))) > 10) THEN UPPER(SUBSTR(TRIM((COALESCE(\`column_c\`, '') || COALESCE(' - ', '') || COALESCE(\`column_f\`, ''))), 1, 15)) ELSE LOWER(SUBSTR(REPLACE(\`column_c\`, 'old', 'new'), -8)) END"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -210,7 +210,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) AND (SUM(\`column_a\`, \`column_b\`) > 100)) THEN (UPPER(\`column_c\`) || ' - ' || ROUND(AVG(\`column_a\`, \`column_e\`), 2)) ELSE LOWER(REPLACE(\`column_f\`, 'old', DATE(DATETIME('now')))) END"`
+        `"CASE WHEN ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) AND ((\`column_a\` + \`column_b\`) > 100)) THEN (COALESCE(UPPER(\`column_c\`), '') || COALESCE(' - ', '') || COALESCE(ROUND(((\`column_a\` + \`column_e\`) / 2), 2), '')) ELSE LOWER(REPLACE(\`column_f\`, 'old', DATE(DATETIME('now')))) END"`
       );
       expect(result.dependencies).toEqual(['fld4', 'fld1', 'fld2', 'fld3', 'fld5', 'fld6']);
     });
@@ -270,7 +270,7 @@ describe('Formula Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((ROUND(AVG(SUM(POWER(\`column_a\`, 2), SQRT(\`column_b\`)), (\`column_e\` * 3.14)), 2) > 100) AND ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) OR NOT ((CAST(STRFTIME('%m', DATETIME('now')) AS INTEGER) = 12)))) THEN (UPPER(SUBSTR(TRIM(\`column_c\`), 1, 10)) || ' - Score: ' || ROUND((SUM(\`column_a\`, \`column_b\`, \`column_e\`) / 3), 1)) ELSE CASE WHEN (\`column_a\` < 0) THEN 'NEGATIVE' ELSE LOWER(\`column_f\`) END END"`
+        `"CASE WHEN ((ROUND((((POWER(\`column_a\`, 2) + SQRT(\`column_b\`)) + (\`column_e\` * 3.14)) / 2), 2) > 100) AND ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) OR NOT ((CAST(STRFTIME('%m', DATETIME('now')) AS INTEGER) = 12)))) THEN (COALESCE(UPPER(SUBSTR(TRIM(\`column_c\`), 1, 10)), '') || COALESCE(' - Score: ', '') || COALESCE(ROUND(((\`column_a\` + \`column_b\` + \`column_e\`) / 3), 1), '')) ELSE CASE WHEN (\`column_a\` < 0) THEN 'NEGATIVE' ELSE LOWER(\`column_f\`) END END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5', 'fld4', 'fld3', 'fld6']);
     });

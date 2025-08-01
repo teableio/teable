@@ -29,6 +29,7 @@ export interface IFormulaQueryInterface {
 
   // Text Functions
   concatenate(params: string[]): string;
+  stringConcat(left: string, right: string): string;
   find(searchText: string, withinText: string, startNum?: string): string;
   search(searchText: string, withinText: string, startNum?: string): string;
   mid(text: string, startNum: string, numChars: string): string;
@@ -79,6 +80,7 @@ export interface IFormulaQueryInterface {
   not(value: string): string;
   xor(params: string[]): string;
   blank(): string;
+  error(message: string): string;
   isError(value: string): string;
   switch(
     expression: string,
