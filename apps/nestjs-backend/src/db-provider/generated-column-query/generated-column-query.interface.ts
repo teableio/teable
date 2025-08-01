@@ -1,153 +1,151 @@
 /**
- * Interface for database-specific generated column query implementations
- * Each database provider (PostgreSQL, SQLite) should implement this interface
- * to provide SQL translations for Teable formula functions that will be used
- * in database generated columns. This interface ensures formula expressions
- * are converted to immutable SQL expressions suitable for generated columns.
+ * Base interface for converting Teable formula functions to database-specific implementations
+ * This interface defines the contract for translating Teable functions to database functions
+ * with a generic return type to support different use cases (SQL strings, boolean validation, etc.)
  */
-export interface IGeneratedColumnQueryInterface {
+export interface ITeableToDbFunctionConverter<TReturn> {
   // Context management
   setContext(context: IFormulaConversionContext): void;
   // Numeric Functions
-  sum(params: string[]): string;
-  average(params: string[]): string;
-  max(params: string[]): string;
-  min(params: string[]): string;
-  round(value: string, precision?: string): string;
-  roundUp(value: string, precision?: string): string;
-  roundDown(value: string, precision?: string): string;
-  ceiling(value: string): string;
-  floor(value: string): string;
-  even(value: string): string;
-  odd(value: string): string;
-  int(value: string): string;
-  abs(value: string): string;
-  sqrt(value: string): string;
-  power(base: string, exponent: string): string;
-  exp(value: string): string;
-  log(value: string, base?: string): string;
-  mod(dividend: string, divisor: string): string;
-  value(text: string): string;
+  sum(params: string[]): TReturn;
+  average(params: string[]): TReturn;
+  max(params: string[]): TReturn;
+  min(params: string[]): TReturn;
+  round(value: string, precision?: string): TReturn;
+  roundUp(value: string, precision?: string): TReturn;
+  roundDown(value: string, precision?: string): TReturn;
+  ceiling(value: string): TReturn;
+  floor(value: string): TReturn;
+  even(value: string): TReturn;
+  odd(value: string): TReturn;
+  int(value: string): TReturn;
+  abs(value: string): TReturn;
+  sqrt(value: string): TReturn;
+  power(base: string, exponent: string): TReturn;
+  exp(value: string): TReturn;
+  log(value: string, base?: string): TReturn;
+  mod(dividend: string, divisor: string): TReturn;
+  value(text: string): TReturn;
 
   // Text Functions
-  concatenate(params: string[]): string;
-  stringConcat(left: string, right: string): string;
-  find(searchText: string, withinText: string, startNum?: string): string;
-  search(searchText: string, withinText: string, startNum?: string): string;
-  mid(text: string, startNum: string, numChars: string): string;
-  left(text: string, numChars: string): string;
-  right(text: string, numChars: string): string;
-  replace(oldText: string, startNum: string, numChars: string, newText: string): string;
-  regexpReplace(text: string, pattern: string, replacement: string): string;
-  substitute(text: string, oldText: string, newText: string, instanceNum?: string): string;
-  lower(text: string): string;
-  upper(text: string): string;
-  rept(text: string, numTimes: string): string;
-  trim(text: string): string;
-  len(text: string): string;
-  t(value: string): string;
-  encodeUrlComponent(text: string): string;
+  concatenate(params: string[]): TReturn;
+  stringConcat(left: string, right: string): TReturn;
+  find(searchText: string, withinText: string, startNum?: string): TReturn;
+  search(searchText: string, withinText: string, startNum?: string): TReturn;
+  mid(text: string, startNum: string, numChars: string): TReturn;
+  left(text: string, numChars: string): TReturn;
+  right(text: string, numChars: string): TReturn;
+  replace(oldText: string, startNum: string, numChars: string, newText: string): TReturn;
+  regexpReplace(text: string, pattern: string, replacement: string): TReturn;
+  substitute(text: string, oldText: string, newText: string, instanceNum?: string): TReturn;
+  lower(text: string): TReturn;
+  upper(text: string): TReturn;
+  rept(text: string, numTimes: string): TReturn;
+  trim(text: string): TReturn;
+  len(text: string): TReturn;
+  t(value: string): TReturn;
+  encodeUrlComponent(text: string): TReturn;
 
   // DateTime Functions
-  now(): string;
-  today(): string;
-  dateAdd(date: string, count: string, unit: string): string;
-  datestr(date: string): string;
-  datetimeDiff(startDate: string, endDate: string, unit: string): string;
-  datetimeFormat(date: string, format: string): string;
-  datetimeParse(dateString: string, format: string): string;
-  day(date: string): string;
-  fromNow(date: string): string;
-  hour(date: string): string;
-  isAfter(date1: string, date2: string): string;
-  isBefore(date1: string, date2: string): string;
-  isSame(date1: string, date2: string, unit?: string): string;
-  lastModifiedTime(): string;
-  minute(date: string): string;
-  month(date: string): string;
-  second(date: string): string;
-  timestr(date: string): string;
-  toNow(date: string): string;
-  weekNum(date: string): string;
-  weekday(date: string): string;
-  workday(startDate: string, days: string): string;
-  workdayDiff(startDate: string, endDate: string): string;
-  year(date: string): string;
-  createdTime(): string;
+  now(): TReturn;
+  today(): TReturn;
+  dateAdd(date: string, count: string, unit: string): TReturn;
+  datestr(date: string): TReturn;
+  datetimeDiff(startDate: string, endDate: string, unit: string): TReturn;
+  datetimeFormat(date: string, format: string): TReturn;
+  datetimeParse(dateString: string, format: string): TReturn;
+  day(date: string): TReturn;
+  fromNow(date: string): TReturn;
+  hour(date: string): TReturn;
+  isAfter(date1: string, date2: string): TReturn;
+  isBefore(date1: string, date2: string): TReturn;
+  isSame(date1: string, date2: string, unit?: string): TReturn;
+  lastModifiedTime(): TReturn;
+  minute(date: string): TReturn;
+  month(date: string): TReturn;
+  second(date: string): TReturn;
+  timestr(date: string): TReturn;
+  toNow(date: string): TReturn;
+  weekNum(date: string): TReturn;
+  weekday(date: string): TReturn;
+  workday(startDate: string, days: string): TReturn;
+  workdayDiff(startDate: string, endDate: string): TReturn;
+  year(date: string): TReturn;
+  createdTime(): TReturn;
 
   // Logical Functions
-  if(condition: string, valueIfTrue: string, valueIfFalse: string): string;
-  and(params: string[]): string;
-  or(params: string[]): string;
-  not(value: string): string;
-  xor(params: string[]): string;
-  blank(): string;
-  error(message: string): string;
-  isError(value: string): string;
+  if(condition: string, valueIfTrue: string, valueIfFalse: string): TReturn;
+  and(params: string[]): TReturn;
+  or(params: string[]): TReturn;
+  not(value: string): TReturn;
+  xor(params: string[]): TReturn;
+  blank(): TReturn;
+  error(message: string): TReturn;
+  isError(value: string): TReturn;
   switch(
     expression: string,
     cases: Array<{ case: string; result: string }>,
     defaultResult?: string
-  ): string;
+  ): TReturn;
 
   // Array Functions
-  count(params: string[]): string;
-  countA(params: string[]): string;
-  countAll(value: string): string;
-  arrayJoin(array: string, separator?: string): string;
-  arrayUnique(array: string): string;
-  arrayFlatten(array: string): string;
-  arrayCompact(array: string): string;
+  count(params: string[]): TReturn;
+  countA(params: string[]): TReturn;
+  countAll(value: string): TReturn;
+  arrayJoin(array: string, separator?: string): TReturn;
+  arrayUnique(array: string): TReturn;
+  arrayFlatten(array: string): TReturn;
+  arrayCompact(array: string): TReturn;
 
   // System Functions
-  recordId(): string;
-  autoNumber(): string;
-  textAll(value: string): string;
+  recordId(): TReturn;
+  autoNumber(): TReturn;
+  textAll(value: string): TReturn;
 
   // Binary Operations
-  add(left: string, right: string): string;
-  subtract(left: string, right: string): string;
-  multiply(left: string, right: string): string;
-  divide(left: string, right: string): string;
-  modulo(left: string, right: string): string;
+  add(left: string, right: string): TReturn;
+  subtract(left: string, right: string): TReturn;
+  multiply(left: string, right: string): TReturn;
+  divide(left: string, right: string): TReturn;
+  modulo(left: string, right: string): TReturn;
 
   // Comparison Operations
-  equal(left: string, right: string): string;
-  notEqual(left: string, right: string): string;
-  greaterThan(left: string, right: string): string;
-  lessThan(left: string, right: string): string;
-  greaterThanOrEqual(left: string, right: string): string;
-  lessThanOrEqual(left: string, right: string): string;
+  equal(left: string, right: string): TReturn;
+  notEqual(left: string, right: string): TReturn;
+  greaterThan(left: string, right: string): TReturn;
+  lessThan(left: string, right: string): TReturn;
+  greaterThanOrEqual(left: string, right: string): TReturn;
+  lessThanOrEqual(left: string, right: string): TReturn;
 
   // Logical Operations
-  logicalAnd(left: string, right: string): string;
-  logicalOr(left: string, right: string): string;
-  bitwiseAnd(left: string, right: string): string;
+  logicalAnd(left: string, right: string): TReturn;
+  logicalOr(left: string, right: string): TReturn;
+  bitwiseAnd(left: string, right: string): TReturn;
 
   // Unary Operations
-  unaryMinus(value: string): string;
+  unaryMinus(value: string): TReturn;
 
   // Field Reference
-  fieldReference(fieldId: string, columnName: string, context?: IFormulaConversionContext): string;
+  fieldReference(fieldId: string, columnName: string, context?: IFormulaConversionContext): TReturn;
 
   // Literals
-  stringLiteral(value: string): string;
-  numberLiteral(value: number): string;
-  booleanLiteral(value: boolean): string;
-  nullLiteral(): string;
+  stringLiteral(value: string): TReturn;
+  numberLiteral(value: number): TReturn;
+  booleanLiteral(value: boolean): TReturn;
+  nullLiteral(): TReturn;
 
   // Utility methods for type conversion and validation
-  castToNumber(value: string): string;
-  castToString(value: string): string;
-  castToBoolean(value: string): string;
-  castToDate(value: string): string;
+  castToNumber(value: string): TReturn;
+  castToString(value: string): TReturn;
+  castToBoolean(value: string): TReturn;
+  castToDate(value: string): TReturn;
 
   // Handle null values and type checking
-  isNull(value: string): string;
-  coalesce(params: string[]): string;
+  isNull(value: string): TReturn;
+  coalesce(params: string[]): TReturn;
 
   // Parentheses for grouping
-  parentheses(expression: string): string;
+  parentheses(expression: string): TReturn;
 }
 
 /**
@@ -174,3 +172,24 @@ export interface IFormulaConversionResult {
   sql: string;
   dependencies: string[]; // field IDs that this formula depends on
 }
+
+/**
+ * Interface for database-specific generated column query implementations
+ * Each database provider (PostgreSQL, SQLite) should implement this interface
+ * to provide SQL translations for Teable formula functions that will be used
+ * in database generated columns. This interface ensures formula expressions
+ * are converted to immutable SQL expressions suitable for generated columns.
+ */
+export interface IGeneratedColumnQueryInterface extends ITeableToDbFunctionConverter<string> {}
+
+/**
+ * Interface for validating whether Teable formula functions convert to generated column are supported
+ * by a specific database provider. Each method returns a boolean indicating
+ * whether the corresponding function can be converted to a valid database expression.
+ */
+export interface IGeneratedColumnQuerySupportValidator
+  extends ITeableToDbFunctionConverter<boolean> {}
+
+// Export concrete implementations
+export { GeneratedColumnQuerySupportValidatorPostgres } from './postgres/generated-column-query-support-validator.postgres';
+export { GeneratedColumnQuerySupportValidatorSqlite } from './sqlite/generated-column-query-support-validator.sqlite';

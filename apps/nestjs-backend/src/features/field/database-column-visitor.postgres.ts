@@ -22,7 +22,9 @@ import type {
 import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IFormulaConversionContext } from '../../db-provider/formula-query/formula-query.interface';
+import type { IFormulaConversionContext } from '../../db-provider/generated-column-query/generated-column-query.interface';
+import { GeneratedColumnQuerySupportValidatorPostgres } from '../../db-provider/generated-column-query/generated-column-query.interface';
+import { FormulaSupportValidator } from './formula-support-validator';
 import { SchemaType } from './util';
 
 /**
@@ -100,37 +102,63 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
     // Create the standard formula column
     this.createStandardColumn(field);
 
-    // If dbGenerated is enabled, create a generated column
+    // If dbGenerated is enabled, create a generated column or fallback column
     if (field.options.dbGenerated && this.context.dbProvider && this.context.fieldMap) {
-      try {
-        const generatedColumnName = field.getGeneratedColumnName();
+      const generatedColumnName = field.getGeneratedColumnName();
+      const columnType = this.getPostgresColumnType(field.dbFieldType);
 
-        const conversionContext: IFormulaConversionContext = {
-          fieldMap: this.context.fieldMap,
-          isGeneratedColumn: true, // Mark this as a generated column context
-        };
+      // Use expanded expression if available, otherwise use original expression
+      const fieldInfo = this.context.fieldMap[field.id];
+      const expressionToConvert = fieldInfo?.expandedExpression || field.options.expression;
 
-        // Use expanded expression if available, otherwise use original expression
-        const fieldInfo = this.context.fieldMap[field.id];
-        const expressionToConvert = fieldInfo?.expandedExpression || field.options.expression;
+      // Check if the formula is supported for generated columns
+      const supportValidator = new GeneratedColumnQuerySupportValidatorPostgres();
+      const formulaValidator = new FormulaSupportValidator(supportValidator);
+      const isSupported = formulaValidator.validateFormula(expressionToConvert);
 
-        const conversionResult = this.context.dbProvider.convertFormula(
-          expressionToConvert,
-          conversionContext
+      if (isSupported) {
+        try {
+          const conversionContext: IFormulaConversionContext = {
+            fieldMap: this.context.fieldMap,
+            isGeneratedColumn: true, // Mark this as a generated column context
+          };
+
+          const conversionResult = this.context.dbProvider.convertFormula(
+            expressionToConvert,
+            conversionContext
+          );
+
+          // Create generated column using specificType
+          // PostgreSQL syntax: GENERATED ALWAYS AS (expression) STORED
+          const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) STORED`;
+
+          this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
+        } catch (error) {
+          // If formula conversion fails, create fallback column
+          console.warn(
+            `Failed to create generated column for formula field ${field.id}, creating fallback column:`,
+            error
+          );
+          this.createFallbackColumn(generatedColumnName, columnType);
+        }
+      } else {
+        // Formula contains unsupported functions, create fallback column
+        console.info(
+          `Formula contains unsupported functions for generated column, creating fallback column for field ${field.id}`
         );
-
-        // Create generated column using specificType
-        // PostgreSQL syntax: GENERATED ALWAYS AS (expression) STORED
-        const columnType = this.getPostgresColumnType(field.dbFieldType);
-        const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) STORED`;
-
-        this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
-      } catch (error) {
-        // If formula conversion fails, skip generated column creation
-        // The standard column will still be created for manual calculation
-        console.warn(`Failed to create generated column for formula field ${field.id}:`, error);
+        this.createFallbackColumn(generatedColumnName, columnType);
       }
     }
+  }
+
+  /**
+   * Creates a fallback column when generated column creation is not supported
+   * @param columnName The name of the column to create
+   * @param columnType The PostgreSQL column type
+   */
+  private createFallbackColumn(columnName: string, columnType: string): void {
+    // Create a regular column with the same name and type as the generated column would have
+    this.context.table.specificType(columnName, columnType);
   }
 
   private getPostgresColumnType(dbFieldType: DbFieldType): string {
