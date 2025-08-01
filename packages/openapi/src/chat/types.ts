@@ -121,4 +121,15 @@ export const BuildBaseOperator = {
   generateLinkFieldsRecords: 'generate-link-fields-records',
 } as const;
 
+export const BuildAutomationOperator = {
+  generateWorkflow: 'generate-workflow',
+  generateTrigger: 'generate-trigger',
+  generateAction: 'generate-action',
+  generateScriptAction: 'generate-script-action',
+  generateSendMailAction: 'generate-send-mail-action',
+} as const;
+
 export type IBuildBaseOperator = (typeof BuildBaseOperator)[keyof typeof BuildBaseOperator];
+
+export type IBuildAutomationOperator =
+  (typeof BuildAutomationOperator)[keyof typeof BuildAutomationOperator];

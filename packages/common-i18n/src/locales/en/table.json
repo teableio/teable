@@ -674,7 +674,8 @@
       "viewOperatorAgent": "View Agent",
       "fieldOperatorAgent": "Field Agent",
       "recordOperatorAgent": "Record Agent",
-      "buildBaseAgent": "Build Base Agent"
+      "buildBaseAgent": "Build Base Agent",
+      "buildAutomationAgent": "Build Automation Agent"
     },
     "action": {
       "createTable": "Create table",
@@ -700,7 +701,13 @@
       "generateAIFields": "Generate AI fields",
       "generateLinkFields": "Generate link fields",
       "generateLookupFields": "Generate lookup fields",
-      "generateLinkFieldsRecords": "Generate link fields records"
+      "generateLinkFieldsRecords": "Generate link fields records",
+
+      "generateWorkflow": "Generate workflow",
+      "generateTrigger": "Generate trigger",
+      "generateScriptAction": "Generate script action node",
+      "generateSendMailAction": "Generate send mail action node",
+      "generateAction": "Generate action node"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",

@@ -592,9 +592,6 @@ importers:
 
   apps/nextjs-app:
     dependencies:
-      '@ai-sdk/react':
-        specifier: 1.2.5
-        version: 1.2.5(react@18.3.1)(zod@3.23.8)
       '@antv/g6':
         specifier: 4.8.24
         version: 4.8.24
@@ -769,9 +766,6 @@ importers:
       lucide-react:
         specifier: 0.363.0
         version: 0.363.0(react@18.3.1)
-      marked:
-        specifier: 14.1.3
-        version: 14.1.3
       next:
         specifier: 14.2.14
         version: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2236,12 +2230,6 @@ packages:
       zod:
         optional: true
 
-  '@ai-sdk/provider-utils@2.2.3':
-    resolution: {integrity: sha512-o3fWTzkxzI5Af7U7y794MZkYNEsxbjLam2nxyoUZSScqkacb7vZ3EYHLh21+xCcSSzEC161C7pZAGHtC0hTUMw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.23.8
-
   '@ai-sdk/provider-utils@2.2.7':
     resolution: {integrity: sha512-kM0xS3GWg3aMChh9zfeM+80vEZfXzR3JEUBdycZLtbRZ2TRT8xOj3WodGHPb06sUK5yD7pAXC/P7ctsi2fvUGQ==}
     engines: {node: '>=18'}
@@ -2262,26 +2250,12 @@ packages:
     resolution: {integrity: sha512-jie6ZJT2ZR0uVOVCDc9R2xCX5I/Dum/wEK28lx21PJx6ZnFAN9EzD2WsPhcDWfCgGx3OAZZ0GyM3CEobXpa9LA==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/provider@1.1.0':
-    resolution: {integrity: sha512-0M+qjp+clUD0R1E5eWQFhxEvWLNaOtGQRUaBn8CUABnSKredagq92hUS9VjOzGsTm37xLfpaxl97AVtbeOsHew==}
-    engines: {node: '>=18'}
-
   '@ai-sdk/provider@1.1.3':
     resolution: {integrity: sha512-qZMxYJ0qqX/RfnuIaab+zp8UAeJn/ygXXAffR5I4N0n1IrvA6qBsjc8hXLmBiMV2zoXlifkacF7sEFnYnjBcqg==}
     engines: {node: '>=18'}
 
   '@ai-sdk/react@1.2.12':
     resolution: {integrity: sha512-jK1IZZ22evPZoQW3vlkZ7wvjYGYF+tRBKXtrcolduIkQ/m/sOAVcVeVDUDvh1T91xCnWCdUGCPZg2avZ90mv3g==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      react: ^18 || ^19 || ^19.0.0-rc
-      zod: ^3.23.8
-    peerDependenciesMeta:
-      zod:
-        optional: true
-
-  '@ai-sdk/react@1.2.5':
-    resolution: {integrity: sha512-0jOop3S2WkDOdO4X5I+5fTGqZlNX8/h1T1eYokpkR9xh8Vmrxqw8SsovqGvrddTsZykH8uXRsvI+G4FTyy894A==}
     engines: {node: '>=18'}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
@@ -2298,12 +2272,6 @@ packages:
 
   '@ai-sdk/ui-utils@1.2.11':
     resolution: {integrity: sha512-3zcwCc8ezzFlwp3ZD15wAPjf2Au4s3vAbKsXQVyhxODHcmu0iyPO2Eua6D/vicq/AUm/BAo60r97O6HU+EI0+w==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.23.8
-
-  '@ai-sdk/ui-utils@1.2.4':
-    resolution: {integrity: sha512-wLTxEZrKZRyBmlVZv8nGXgLBg5tASlqXwbuhoDu0MhZa467ZFREEnosH/OC/novyEHTQXko2zC606xoVbMrUcA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.23.8
@@ -18071,13 +18039,6 @@ snapshots:
     optionalDependencies:
       zod: 3.23.8
 
-  '@ai-sdk/provider-utils@2.2.3(zod@3.23.8)':
-    dependencies:
-      '@ai-sdk/provider': 1.1.0
-      nanoid: 3.3.8
-      secure-json-parse: 2.7.0
-      zod: 3.23.8
-
   '@ai-sdk/provider-utils@2.2.7(zod@3.23.8)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
@@ -18100,10 +18061,6 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/provider@1.1.0':
-    dependencies:
-      json-schema: 0.4.0
-
   '@ai-sdk/provider@1.1.3':
     dependencies:
       json-schema: 0.4.0
@@ -18112,16 +18069,6 @@ snapshots:
     dependencies:
       '@ai-sdk/provider-utils': 2.2.8(zod@3.23.8)
       '@ai-sdk/ui-utils': 1.2.11(zod@3.23.8)
-      react: 18.3.1
-      swr: 2.3.2(react@18.3.1)
-      throttleit: 2.1.0
-    optionalDependencies:
-      zod: 3.23.8
-
-  '@ai-sdk/react@1.2.5(react@18.3.1)(zod@3.23.8)':
-    dependencies:
-      '@ai-sdk/provider-utils': 2.2.3(zod@3.23.8)
-      '@ai-sdk/ui-utils': 1.2.4(zod@3.23.8)
       react: 18.3.1
       swr: 2.3.2(react@18.3.1)
       throttleit: 2.1.0
@@ -18139,13 +18086,6 @@ snapshots:
     dependencies:
       '@ai-sdk/provider': 1.1.3
       '@ai-sdk/provider-utils': 2.2.8(zod@3.23.8)
-      zod: 3.23.8
-      zod-to-json-schema: 3.24.1(zod@3.23.8)
-
-  '@ai-sdk/ui-utils@1.2.4(zod@3.23.8)':
-    dependencies:
-      '@ai-sdk/provider': 1.1.0
-      '@ai-sdk/provider-utils': 2.2.3(zod@3.23.8)
       zod: 3.23.8
       zod-to-json-schema: 3.24.1(zod@3.23.8)
 
