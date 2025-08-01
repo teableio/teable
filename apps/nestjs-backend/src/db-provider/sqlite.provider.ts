@@ -29,6 +29,7 @@ import type {
   IGeneratedColumnQueryInterface,
   IFormulaConversionContext,
   IFormulaConversionResult,
+  ISelectQueryInterface,
 } from './generated-column-query/generated-column-query.interface';
 import { GeneratedColumnQuerySqlite } from './generated-column-query/sqlite/generated-column-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
@@ -577,7 +578,7 @@ ORDER BY
     return new GeneratedColumnQuerySqlite();
   }
 
-  selectQuery(): IGeneratedColumnQueryInterface {
+  selectQuery(): ISelectQueryInterface {
     return new SelectQuerySqlite();
   }
 
