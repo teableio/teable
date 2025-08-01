@@ -70,6 +70,20 @@ export class FieldDuplicateService {
     }
   }
 
+  async createButtonFields(fields: IFieldWithTableIdJson[], fieldMap: Record<string, string>) {
+    const newFields = fields.map((field) => {
+      const { options } = field;
+      return {
+        ...field,
+        options: {
+          ...options,
+          workflow: undefined,
+        },
+      };
+    });
+    return await this.createCommonFields(newFields, fieldMap);
+  }
+
   async createTmpPrimaryFormulaFields(
     primaryFormulaFields: IFieldWithTableIdJson[],
     fieldMap: Record<string, string>

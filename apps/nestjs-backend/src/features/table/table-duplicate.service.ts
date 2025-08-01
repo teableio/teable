@@ -185,17 +185,31 @@ export class TableDuplicateService {
       '__last_modified_by',
     ];
 
+    const excludeFields = await this.prismaService.txClient().field.findMany({
+      where: {
+        id: {
+          in: Object.keys(sourceToTargetFieldMap),
+        },
+        type: FieldType.Button,
+      },
+      select: {
+        dbFieldName: true,
+      },
+    });
+    const excludeDbFieldNames = excludeFields.map(({ dbFieldName }) => dbFieldName);
+    const excludeColumnsSet = new Set([...systemColumns, ...excludeDbFieldNames]);
+
     // use new table field columns info
     // old table contains ghost columns or customer columns
     const oldColumns = newFieldColumns
       .concat(oldRowColumns)
       .concat(oldFkColumns)
-      .filter((dbFieldName) => !systemColumns.includes(dbFieldName));
+      .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
 
     const newColumns = newFieldColumns
       .concat(newRowColumns)
       .concat(newFkColumns)
-      .filter((dbFieldName) => !systemColumns.includes(dbFieldName));
+      .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
 
     const sql = this.dbProvider
       .duplicateTableQuery(qb)
@@ -288,7 +302,13 @@ export class TableDuplicateService {
     const tableIdMap: Record<string, string> = {
       [sourceTableId]: targetTableId,
     };
-    const nonCommonFieldTypes = [FieldType.Link, FieldType.Rollup, FieldType.Formula];
+
+    const nonCommonFieldTypes = [
+      FieldType.Link,
+      FieldType.Rollup,
+      FieldType.Formula,
+      FieldType.Button,
+    ];
 
     const commonFields = fieldsInstances.filter(
       ({ type, isLookup, aiConfig }) =>
@@ -305,13 +325,21 @@ export class TableDuplicateService {
       ({ type, isLookup }) => type === FieldType.Link && !isLookup
     );
 
+    const buttonFields = fieldsInstances.filter(
+      ({ type, isLookup }) => type === FieldType.Button && !isLookup
+    );
+
     // rest fields, like formula, rollup, lookup fields
     const dependencyFields = fieldsInstances.filter(
       ({ id }) =>
-        ![...primaryFormulaFields, ...linkFields, ...commonFields].map(({ id }) => id).includes(id)
+        ![...primaryFormulaFields, ...linkFields, ...buttonFields, ...commonFields]
+          .map(({ id }) => id)
+          .includes(id)
     );
 
     await this.fieldDuplicateService.createCommonFields(commonFields, sourceToTargetFieldMap);
+
+    await this.fieldDuplicateService.createButtonFields(buttonFields, sourceToTargetFieldMap);
 
     await this.fieldDuplicateService.createTmpPrimaryFormulaFields(
       primaryFormulaFields,
