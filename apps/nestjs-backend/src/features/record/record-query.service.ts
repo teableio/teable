@@ -12,6 +12,7 @@ import { FieldSelectVisitor } from '../field/field-select-visitor';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 
 /**
  * Service for querying record data
@@ -24,7 +25,8 @@ export class RecordQueryService {
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
 
   /**
@@ -70,37 +72,18 @@ export class RecordQueryService {
 
       const qb = this.knex(table.dbTableName);
 
-      const context = {
-        fieldMap: fields.reduce(
-          (acc, field) => {
-            acc[field.id] = {
-              columnName: field.dbFieldName,
-              fieldType: field.type,
-              dbGenerated: field.type === FieldType.Formula && field.options.dbGenerated,
-            };
-
-            return acc;
-          },
-          {} as Record<string, { columnName: string; fieldType: string; dbGenerated: boolean }>
-        ),
-      };
-
-      const visitor = new FieldSelectVisitor(this.knex, qb, this.dbProvider, context);
-
-      qb.select(['__id', '__version', '__created_time', '__last_modified_time']);
-
-      for (const field of fields) {
-        field.accept(visitor);
-      }
+      const sql = this.recordQueryBuilder
+        .buildQuery(qb, tableId, undefined, fields)
+        .whereIn('__id', recordIds)
+        .toQuery();
 
       // Query records from database
-      const query = qb.whereIn('__id', recordIds);
 
-      this.logger.debug(`Querying records: ${query.toQuery()}`);
+      this.logger.debug(`Querying records: ${sql}`);
 
       const rawRecords = await this.prismaService
         .txClient()
-        .$queryRawUnsafe<{ [key: string]: unknown }[]>(query.toQuery());
+        .$queryRawUnsafe<{ [key: string]: unknown }[]>(sql);
 
       // Convert raw records to IRecord format
       const snapshots: { id: string; data: IRecord }[] = [];
