@@ -3,11 +3,10 @@ import { DbProvider } from '../../db-provider/db.provider';
 import { CalculationModule } from '../calculation/calculation.module';
 import { FormulaFieldService } from './field-calculate/formula-field.service';
 import { FieldService } from './field.service';
-import { FormulaExpansionService } from './formula-expansion.service';
 
 @Module({
   imports: [CalculationModule],
-  providers: [FieldService, DbProvider, FormulaExpansionService, FormulaFieldService],
+  providers: [FieldService, DbProvider, FormulaFieldService],
   exports: [FieldService],
 })
 export class FieldModule {}

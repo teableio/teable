@@ -3,6 +3,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import { match } from 'ts-pattern';
+import { FormulaFieldCore } from '../models/field/derivate/formula.field';
+import { CircularReferenceError } from './errors/circular-reference.error';
 import type {
   IFormulaConversionContext,
   IFormulaConversionResult,
@@ -48,6 +50,8 @@ abstract class BaseSqlConversionVisitor<
   extends AbstractParseTreeVisitor<string>
   implements FormulaVisitor<string>
 {
+  protected expansionStack: Set<string> = new Set();
+
   protected defaultResult(): string {
     throw new Error('Method not implemented.');
   }
@@ -121,7 +125,81 @@ abstract class BaseSqlConversionVisitor<
       throw new Error(`Field not found: ${fieldId}`);
     }
 
+    // Check if this is a formula field that needs recursive expansion
+    if (fieldInfo.fieldType === 'formula' && fieldInfo.options) {
+      // Parse options to check if dbGenerated is true
+      try {
+        const options = JSON.parse(fieldInfo.options);
+        if (options.dbGenerated) {
+          return this.expandFormulaField(fieldId, fieldInfo);
+        }
+      } catch (error) {
+        // If this is a circular reference error or other expansion error, re-throw it
+        if (error instanceof CircularReferenceError) {
+          throw error;
+        }
+        // If options parsing fails but we're trying to expand, throw error
+        if (this.expansionStack.size > 0) {
+          throw new Error(`Failed to parse options for field ${fieldId}: ${error}`);
+        }
+        // Otherwise, fall back to normal field reference
+      }
+    }
+
     return this.formulaQuery.fieldReference(fieldId, fieldInfo.columnName, this.context);
+  }
+
+  /**
+   * Recursively expand a formula field reference
+   * @param fieldId The field ID to expand
+   * @param fieldInfo The field information
+   * @returns The expanded SQL expression
+   */
+  protected expandFormulaField(fieldId: string, fieldInfo: any): string {
+    // Initialize expansion cache if not present
+    if (!this.context.expansionCache) {
+      this.context.expansionCache = new Map();
+    }
+
+    // Check cache first
+    if (this.context.expansionCache.has(fieldId)) {
+      return this.context.expansionCache.get(fieldId)!;
+    }
+
+    // Check for circular references
+    if (this.expansionStack.has(fieldId)) {
+      throw new CircularReferenceError(fieldId, Array.from(this.expansionStack));
+    }
+
+    // Parse field options to get expression
+    let expression: string;
+    try {
+      const options = JSON.parse(fieldInfo.options || '{}');
+      expression = options.expression;
+    } catch (error) {
+      throw new Error(`Failed to parse options for field ${fieldId}: ${error}`);
+    }
+
+    if (!expression) {
+      throw new Error(`No expression found for formula field ${fieldId}`);
+    }
+
+    // Add to expansion stack to detect circular references
+    this.expansionStack.add(fieldId);
+
+    try {
+      // Recursively expand the expression by parsing and visiting it
+      const tree = FormulaFieldCore.parse(expression);
+      const expandedSql = tree.accept(this);
+
+      // Cache the result
+      this.context.expansionCache.set(fieldId, expandedSql);
+
+      return expandedSql;
+    } finally {
+      // Remove from expansion stack
+      this.expansionStack.delete(fieldId);
+    }
   }
 
   visitFunctionCall(ctx: FunctionCallContext): string {

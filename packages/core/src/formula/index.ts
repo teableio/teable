@@ -3,7 +3,8 @@ export * from './typed-value';
 export * from './visitor';
 export * from './field-reference.visitor';
 export * from './conversion.visitor';
-export * from './expansion.visitor';
+export * from './errors';
+
 export * from './sql-conversion.visitor';
 export * from './function-call-collector.visitor';
 export * from './parse-formula';
@@ -24,4 +25,5 @@ export type {
   ISelectQueryInterface,
   IFormulaConversionContext,
   IFormulaConversionResult,
+  IGeneratedColumnQuerySupportValidator,
 } from './function-convertor.interface';

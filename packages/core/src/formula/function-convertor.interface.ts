@@ -156,13 +156,15 @@ export interface IFormulaConversionContext {
     [fieldId: string]: {
       columnName: string;
       fieldType?: string;
-      dbGenerated?: boolean;
-      expandedExpression?: string;
+      /** Field options for formula fields (needed for recursive expansion) */
+      options?: string | null;
     };
   };
   timeZone?: string;
   /** Whether this conversion is for a generated column (affects immutable function handling) */
   isGeneratedColumn?: boolean;
+  /** Cache for expanded expressions (shared across visitor instances) */
+  expansionCache?: Map<string, string>;
 }
 
 /**
