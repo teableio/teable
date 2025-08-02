@@ -40,7 +40,7 @@ import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
 
 import { FormulaFieldService } from './field-calculate/formula-field.service';
-import { FormulaExpansionService } from './formula-expansion.service';
+
 import type { IFieldInstance } from './model/factory';
 import {
   createFieldInstanceByVo,
@@ -59,7 +59,7 @@ export class FieldService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly formulaExpansionService: FormulaExpansionService,
+
     private readonly formulaFieldService: FormulaFieldService
   ) {}
 
@@ -944,15 +944,14 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   /**
-   * Build field map for formula conversion with expansion support
-   * This method handles formula expansion to avoid PostgreSQL generated column limitations
+   * Build field map for formula conversion
+   * Now uses recursive expansion in SQL conversion visitor instead of pre-computed expansion
    */
   private async buildFieldMapForTableWithExpansion(tableId: string): Promise<{
     [fieldId: string]: {
       columnName: string;
       fieldType?: string;
-      dbGenerated?: boolean;
-      expandedExpression?: string;
+      options?: string | null;
     };
   }> {
     const fields = await this.prismaService.txClient().field.findMany({
@@ -960,40 +959,23 @@ export class FieldService implements IReadonlyAdapterService {
       select: { id: true, dbFieldName: true, type: true, options: true },
     });
 
-    // Create expansion context
-    const expansionContext = this.formulaExpansionService.createExpansionContext(fields);
-
     const fieldMap: {
       [fieldId: string]: {
         columnName: string;
         fieldType?: string;
-        dbGenerated?: boolean;
-        expandedExpression?: string;
+        options?: string | null;
       };
     } = {};
 
     for (const field of fields) {
       let columnName = field.dbFieldName;
-      let dbGenerated = false;
-      let expandedExpression: string | undefined;
 
+      // For formula fields with dbGenerated=true, use generated column name
       if (field.type === FieldType.Formula && field.options) {
         try {
           const options = JSON.parse(field.options as string) as IFormulaFieldOptions;
           if (options.dbGenerated) {
-            // Check if this formula should be expanded
-            if (this.formulaExpansionService.shouldExpandFormula(field, expansionContext)) {
-              // Use expansion instead of generated column reference
-              expandedExpression = this.formulaExpansionService.expandFormulaExpression(
-                options.expression,
-                expansionContext
-              );
-              columnName = field.dbFieldName; // Use original column name for expanded formulas
-            } else {
-              // Use generated column name for formulas that don't need expansion
-              columnName = getGeneratedColumnName(field.dbFieldName);
-            }
-            dbGenerated = true;
+            columnName = getGeneratedColumnName(field.dbFieldName);
           }
         } catch (error) {
           console.warn(`Failed to process formula field ${field.id}:`, error);
@@ -1003,8 +985,7 @@ export class FieldService implements IReadonlyAdapterService {
       fieldMap[field.id] = {
         columnName,
         fieldType: field.type,
-        dbGenerated,
-        expandedExpression,
+        options: field.type === FieldType.Formula ? field.options : null,
       };
     }
 

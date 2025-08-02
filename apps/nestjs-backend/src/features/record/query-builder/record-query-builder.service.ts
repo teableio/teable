@@ -97,7 +97,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
           acc[field.id] = {
             columnName: field.dbFieldName,
             fieldType: field.type,
-            dbGenerated: field.type === FieldType.Formula && field.options.dbGenerated,
+            options: field.type === FieldType.Formula ? JSON.stringify(field.options) : null,
           };
           return acc;
         },

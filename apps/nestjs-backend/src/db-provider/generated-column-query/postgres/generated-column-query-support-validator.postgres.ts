@@ -1,7 +1,7 @@
 import type {
   IFormulaConversionContext,
   IGeneratedColumnQuerySupportValidator,
-} from '../generated-column-query.interface';
+} from '@teable/core';
 
 /**
  * PostgreSQL-specific implementation for validating generated column function support
