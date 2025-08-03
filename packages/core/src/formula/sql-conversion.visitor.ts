@@ -115,8 +115,6 @@ abstract class BaseSqlConversionVisitor<
     return operand;
   }
 
-  abstract visitBinaryOp(ctx: BinaryOpContext): string;
-
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
     const fieldId = ctx.text.slice(1, -1); // Remove curly braces
 
@@ -336,29 +334,6 @@ abstract class BaseSqlConversionVisitor<
         })
     );
   }
-}
-
-/**
- * Visitor that converts Teable formula AST to SQL expressions for generated columns
- * Uses dependency injection to get database-specific SQL implementations
- * Tracks field dependencies for generated column updates
- */
-export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisitor<IGeneratedColumnQueryInterface> {
-  private dependencies: string[] = [];
-
-  constructor(formulaQuery: IGeneratedColumnQueryInterface, context: IFormulaConversionContext) {
-    super(formulaQuery, context);
-  }
-
-  /**
-   * Get the conversion result with SQL and dependencies
-   */
-  getResult(sql: string): IFormulaConversionResult {
-    return {
-      sql,
-      dependencies: Array.from(new Set(this.dependencies)),
-    };
-  }
 
   visitBinaryOp(ctx: BinaryOpContext): string {
     const left = ctx.expr(0).accept(this);
@@ -394,13 +369,6 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
         throw new Error(`Unsupported binary operator: ${op}`);
       });
   }
-
-  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
-    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
-    this.dependencies.push(fieldId);
-    return super.visitFieldReferenceCurly(ctx);
-  }
-
   /**
    * Infer the type of an expression for type-aware operations
    */
@@ -610,6 +578,35 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
 }
 
 /**
+ * Visitor that converts Teable formula AST to SQL expressions for generated columns
+ * Uses dependency injection to get database-specific SQL implementations
+ * Tracks field dependencies for generated column updates
+ */
+export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisitor<IGeneratedColumnQueryInterface> {
+  private dependencies: string[] = [];
+
+  constructor(formulaQuery: IGeneratedColumnQueryInterface, context: IFormulaConversionContext) {
+    super(formulaQuery, context);
+  }
+
+  /**
+   * Get the conversion result with SQL and dependencies
+   */
+  getResult(sql: string): IFormulaConversionResult {
+    return {
+      sql,
+      dependencies: Array.from(new Set(this.dependencies)),
+    };
+  }
+
+  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
+    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+    this.dependencies.push(fieldId);
+    return super.visitFieldReferenceCurly(ctx);
+  }
+}
+
+/**
  * Visitor that converts Teable formula AST to SQL expressions for select queries
  * Uses dependency injection to get database-specific SQL implementations
  * Does not track dependencies as it's used for runtime queries
@@ -617,30 +614,5 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
 export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<ISelectQueryInterface> {
   constructor(formulaQuery: ISelectQueryInterface, context: IFormulaConversionContext) {
     super(formulaQuery, context);
-  }
-
-  visitBinaryOp(ctx: BinaryOpContext): string {
-    const left = ctx.expr(0).accept(this);
-    const right = ctx.expr(1).accept(this);
-    const operator = ctx._op;
-
-    return match(operator.text)
-      .with('+', () => this.formulaQuery.add(left, right))
-      .with('-', () => this.formulaQuery.subtract(left, right))
-      .with('*', () => this.formulaQuery.multiply(left, right))
-      .with('/', () => this.formulaQuery.divide(left, right))
-      .with('%', () => this.formulaQuery.modulo(left, right))
-      .with('>', () => this.formulaQuery.greaterThan(left, right))
-      .with('<', () => this.formulaQuery.lessThan(left, right))
-      .with('>=', () => this.formulaQuery.greaterThanOrEqual(left, right))
-      .with('<=', () => this.formulaQuery.lessThanOrEqual(left, right))
-      .with('=', () => this.formulaQuery.equal(left, right))
-      .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
-      .with('&&', () => this.formulaQuery.logicalAnd(left, right))
-      .with('||', () => this.formulaQuery.logicalOr(left, right))
-      .with('&', () => this.formulaQuery.bitwiseAnd(left, right))
-      .otherwise((op) => {
-        throw new Error(`Unsupported binary operator: ${op}`);
-      });
   }
 }
