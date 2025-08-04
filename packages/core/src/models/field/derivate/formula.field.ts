@@ -24,10 +24,6 @@ export const formulaFieldOptionsSchema = z.object({
   timeZone: timeZoneStringSchema.optional(),
   formatting: unionFormattingSchema.optional(),
   showAs: unionShowAsSchema.optional(),
-  dbGenerated: z.boolean().optional().default(false).openapi({
-    description:
-      'Whether to create a database generated column for this formula field. When true, creates both the original formula column and a generated column with computed values.',
-  }),
 });
 
 export type IFormulaFieldOptions = z.infer<typeof formulaFieldOptionsSchema>;
@@ -51,7 +47,6 @@ export class FormulaFieldCore extends FormulaAbstractCore {
       expression: '',
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       formatting: getDefaultFormatting(cellValueType),
-      dbGenerated: true,
     };
   }
 

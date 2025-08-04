@@ -13,7 +13,7 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
   ) {
     const { dbFieldName, type } = field;
 
-    if (type === FieldType.Formula && field.options.dbGenerated) {
+    if (type === FieldType.Formula) {
       this.columnName = field.getGeneratedColumnName();
     } else {
       this.columnName = dbFieldName;

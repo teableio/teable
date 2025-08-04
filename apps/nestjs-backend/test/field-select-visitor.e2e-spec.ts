@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { IFormulaConversionContext, IFieldVo } from '@teable/core';
-import {
-  FieldType,
-  DbFieldType,
-  CellValueType,
-  isGeneratedFormulaField,
-  DriverClient,
-} from '@teable/core';
+import { FieldType, DbFieldType, CellValueType } from '@teable/core';
 import knex from 'knex';
 import type { Knex } from 'knex';
 import { describe, beforeAll, afterAll, beforeEach, it, expect } from 'vitest';
@@ -249,185 +243,6 @@ describe('FieldSelectVisitor E2E Tests', () => {
     });
   });
 
-  describe('Formula Fields', () => {
-    it('should select regular formula field (dbGenerated=false)', async () => {
-      const formulaFieldVo: IFieldVo = {
-        id: 'fld_formula',
-        name: 'Formula Field',
-        type: FieldType.Formula,
-        dbFieldType: DbFieldType.Text,
-        cellValueType: CellValueType.String,
-        dbFieldName: 'formula_field',
-        options: {
-          expression: '{fld_text} & {fld_number}',
-          dbGenerated: false,
-        },
-      };
-      const formulaField = createFieldInstanceByVo(formulaFieldVo);
-
-      // Verify that this is NOT a generated formula field
-      expect(isGeneratedFormulaField(formulaField)).toBe(false);
-
-      const qb = knexInstance(testTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
-      const result = formulaField.accept(visitor);
-
-      // Capture the generated SQL query
-      const sql = result.toSQL();
-      expect(sql.sql).toMatchSnapshot('regular-formula-field-query');
-
-      const rows = await result;
-      expect(rows).toHaveLength(2);
-      expect(rows[0].formula_field).toBe('hello10');
-      expect(rows[1].formula_field).toBe('world20');
-    });
-
-    it('should select generated column for supported formula (dbGenerated=true)', async () => {
-      // First, let's create a table with an actual generated column for this test
-      const generatedTableName = 'test_generated_column';
-      await knexInstance.schema.dropTableIfExists(generatedTableName);
-
-      // Create table with generated column (PostgreSQL syntax)
-      if (isPostgres) {
-        await knexInstance.schema.raw(`
-          CREATE TABLE ${generatedTableName} (
-            id TEXT PRIMARY KEY,
-            text_field TEXT,
-            number_field DOUBLE PRECISION,
-            formula_field___generated TEXT GENERATED ALWAYS AS (text_field || number_field::text) STORED
-          )
-        `);
-      } else {
-        // For SQLite, create a regular table since generated columns might not be supported
-        await knexInstance.schema.createTable(generatedTableName, (table) => {
-          table.string('id').primary();
-          table.text('text_field');
-          table.double('number_field');
-          table.text('formula_field___generated');
-        });
-      }
-
-      // Insert test data
-      await knexInstance(generatedTableName).insert([
-        {
-          id: 'row1',
-          text_field: 'hello',
-          number_field: 10,
-          ...(isSqlite && { formula_field___generated: 'hello10' }),
-        },
-        {
-          id: 'row2',
-          text_field: 'world',
-          number_field: 20,
-          ...(isSqlite && { formula_field___generated: 'world20' }),
-        },
-      ]);
-
-      const formulaFieldVo: IFieldVo = {
-        id: 'fld_formula_generated',
-        name: 'Generated Formula Field',
-        type: FieldType.Formula,
-        dbFieldType: DbFieldType.Text,
-        cellValueType: CellValueType.String,
-        dbFieldName: 'formula_field',
-        options: {
-          expression: '{fld_text} & {fld_number}', // Simple concatenation - should be supported
-          dbGenerated: true,
-        },
-      };
-      const formulaField = createFieldInstanceByVo(formulaFieldVo);
-
-      // Check if this is a generated formula field
-      expect(isGeneratedFormulaField(formulaField)).toBe(true);
-
-      // Check if the formula is supported for generated columns
-      const driverName = getDriverName(knexInstance) as string;
-      // Map knex client names to DriverClient enum values
-      const driverClient =
-        driverName === 'pg'
-          ? DriverClient.Pg
-          : driverName === 'sqlite3'
-            ? DriverClient.Sqlite
-            : (driverName as DriverClient);
-      const supportValidator = createGeneratedColumnQuerySupportValidator(driverClient);
-      const isSupported = (formulaField as FormulaFieldDto).validateGeneratedColumnSupport(
-        supportValidator
-      );
-
-      const qb = knexInstance(generatedTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
-      const result = formulaField.accept(visitor);
-
-      // Capture the generated SQL query
-      const sql = result.toSQL();
-      if (isSupported && isPostgres) {
-        // Should select from generated column directly
-        expect(sql.sql).toMatchSnapshot('generated-column-supported-query');
-      } else {
-        // Should fall back to computed SQL
-        expect(sql.sql).toMatchSnapshot('generated-column-fallback-query');
-      }
-
-      const rows = await result;
-      expect(rows).toHaveLength(2);
-
-      if (isSupported && isPostgres) {
-        // Should select from generated column
-        expect(rows[0].formula_field___generated).toBe('hello10');
-        expect(rows[1].formula_field___generated).toBe('world20');
-      } else {
-        // Should fall back to computed SQL or use regular column
-        expect(rows[0]).toBeDefined();
-        expect(rows[1]).toBeDefined();
-      }
-
-      // Clean up
-      await knexInstance.schema.dropTableIfExists(generatedTableName);
-    });
-
-    it('should use computed SQL for unsupported formula (dbGenerated=true but not supported)', async () => {
-      const formulaFieldVo: IFieldVo = {
-        id: 'fld_formula_unsupported',
-        name: 'Unsupported Formula Field',
-        type: FieldType.Formula,
-        dbFieldType: DbFieldType.Text,
-        cellValueType: CellValueType.String,
-        dbFieldName: 'formula_field_unsupported',
-        options: {
-          expression: 'ARRAY_JOIN({fld_text}, ",")', // ARRAY_JOIN function is not supported for generated columns
-          dbGenerated: true,
-        },
-      };
-      const formulaField = createFieldInstanceByVo(formulaFieldVo);
-
-      // Check if this is a generated formula field
-      expect(isGeneratedFormulaField(formulaField)).toBe(true);
-
-      // Check if the formula is supported for generated columns
-      const driverName = getDriverName(knexInstance);
-      const supportValidator = createGeneratedColumnQuerySupportValidator(driverName);
-      const isSupported = (formulaField as FormulaFieldDto).validateGeneratedColumnSupport(
-        supportValidator
-      );
-
-      // ARRAY_JOIN function should not be supported
-      expect(isSupported).toBe(false);
-
-      const qb = knexInstance(testTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
-
-      // This should use computed SQL instead of generated column
-      const result = formulaField.accept(visitor);
-
-      // Capture the generated SQL query - should use computed SQL since ARRAY_JOIN is not supported
-      const sql = result.toSQL();
-      expect(sql.sql).toMatchSnapshot('unsupported-formula-computed-sql-query');
-
-      // The query should be constructed
-      expect(result).toBeDefined();
-    });
-  });
-
   describe('Generated Column Support Detection', () => {
     it('should correctly detect supported vs unsupported formulas', () => {
       const supportedFormulaVo: IFieldVo = {
@@ -439,7 +254,6 @@ describe('FieldSelectVisitor E2E Tests', () => {
         dbFieldName: 'supported_field',
         options: {
           expression: '{fld_text} & {fld_number}', // Simple concatenation
-          dbGenerated: true,
         },
       };
       const supportedFormula = createFieldInstanceByVo(supportedFormulaVo);
@@ -453,7 +267,6 @@ describe('FieldSelectVisitor E2E Tests', () => {
         dbFieldName: 'unsupported_field',
         options: {
           expression: 'ARRAY_JOIN({fld_text}, ",")', // ARRAY_JOIN function
-          dbGenerated: true,
         },
       };
       const unsupportedFormula = createFieldInstanceByVo(unsupportedFormulaVo);
