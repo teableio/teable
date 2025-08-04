@@ -1,16 +1,13 @@
 // TODO: move record service read related to record-query.service.ts
 
 import { Injectable, Logger } from '@nestjs/common';
-import { FieldType, type IRecord } from '@teable/core';
+import { type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
-import { InjectDbProvider } from '../../db-provider/db.provider';
-import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 
 /**
@@ -24,7 +21,6 @@ export class RecordQueryService {
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
 
@@ -82,7 +78,6 @@ export class RecordQueryService {
 
       for (const rawRecord of rawRecords) {
         const recordId = rawRecord.__id as string;
-        const version = rawRecord.__version as number;
         const createdTime = rawRecord.__created_time as string;
         const lastModifiedTime = rawRecord.__last_modified_time as string;
 
