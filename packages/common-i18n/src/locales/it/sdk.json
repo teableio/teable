@@ -29,7 +29,8 @@
       "running": "{{name}} in corso"
     },
     "resetSuccess": "Rimesso riuscito",
-    "click": "Clicca"
+    "click": "Clicca",
+    "clickedCount": "{{label}}: Cliccato {{text}} volte"
   },
   "preview": {
     "previewFileLimit": "Limite dimensione file di anteprima: {{size}}MB, per favore scarica per visualizzare.",

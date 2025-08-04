@@ -33,6 +33,7 @@ import type {
   IInnerCell,
   ILinearRow,
   IMouseState,
+  IRectangle,
   IRowControlItem,
   IScrollState,
 } from './interface';
@@ -584,15 +585,35 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       cellRenderer;
     const isActive = type === RegionType.ActiveCell;
     if ((needsHoverPosition || (needsHoverPositionWhenActive && isActive)) && hoverCellPosition) {
-      const { type } =
-        cellRenderer.checkRegion?.(cell as never, {
-          width: coordInstance.getColumnWidth(columnIndex),
-          height: coordInstance.getRowHeight(rowIndex),
-          theme,
-          isActive,
-          activeCellBound,
-          hoverCellPosition,
-        }) ?? {};
+      const region = cellRenderer.checkRegion?.(cell as never, {
+        width: coordInstance.getColumnWidth(columnIndex),
+        height: coordInstance.getRowHeight(rowIndex),
+        theme,
+        isActive,
+        activeCellBound,
+        hoverCellPosition,
+      }) ?? { type: CellRegionType.Blank };
+      const { type } = region;
+
+      if (type === CellRegionType.Hover) {
+        const { x, y, width, height } = region.data as IRectangle;
+        const offsetX = coordInstance.getColumnOffset(columnIndex);
+        const offsetY = coordInstance.getRowOffset(rowIndex);
+        onItemHovered?.(
+          RegionType.CellValue,
+          {
+            x:
+              columnIndex < coordInstance.freezeColumnCount
+                ? x + offsetX
+                : x + offsetX - scrollLeft,
+            y: y + offsetY - scrollTop,
+            width,
+            height,
+          },
+          [columnIndex, realIndex]
+        );
+      }
+
       return type !== CellRegionType.Blank ? setCursor('pointer') : undefined;
     }
     if (needsHover || (needsHoverWhenActive && isActive)) {

@@ -218,6 +218,7 @@ export enum CellRegionType {
   Update = 'update',
   Preview = 'preview',
   ToggleEditing = 'toggleEditing',
+  Hover = 'hover',
 }
 
 export interface ICellRegionWithBlank {
@@ -225,7 +226,12 @@ export interface ICellRegionWithBlank {
 }
 
 export interface ICellRegionWithData {
-  type: CellRegionType.Update | CellRegionType.ToggleEditing | CellRegionType.Preview;
+  type:
+    | CellRegionType.Update
+    | CellRegionType.ToggleEditing
+    | CellRegionType.Preview
+    | CellRegionType.Blank
+    | CellRegionType.Hover;
   data: unknown;
 }
 

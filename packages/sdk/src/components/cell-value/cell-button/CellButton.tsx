@@ -1,8 +1,16 @@
 import { checkButtonClickable, Colors, ColorUtils } from '@teable/core';
 import type { IButtonFieldCellValue, IButtonFieldOptions } from '@teable/core';
-import { Button, cn } from '@teable/ui-lib';
+import {
+  Button,
+  cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
+import { useTranslation } from '../../../context/app/i18n';
 import type { ICellValue } from '../type';
 
 interface ICellButton extends ICellValue<IButtonFieldCellValue> {
@@ -22,7 +30,9 @@ export const CellButton = (props: ICellButton) => {
     readonly,
     isLookup,
   } = props;
-
+  const { t } = useTranslation();
+  const count = value?.count ?? 0;
+  const maxCount = fieldOptions.maxCount ?? 0;
   const isClickable = useMemo(() => {
     return !readonly && !isLookup && checkButtonClickable(fieldOptions, value);
   }, [fieldOptions, value, readonly, isLookup]);
@@ -41,20 +51,33 @@ export const CellButton = (props: ICellButton) => {
 
   return (
     <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
-      <Button
-        variant="outline"
-        className={cn('flex w-24 h-6 cursor-default', itemClassName)}
-        style={{
-          backgroundColor: button.bgColor,
-          borderColor: button.bgColor,
-          color: button.textColor,
-        }}
-        disabled={!isClickable}
-      >
-        <span className="w-full truncate text-sm" style={{ color: button.textColor }}>
-          {button.label}
-        </span>
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn('flex w-24 h-5 cursor-default', itemClassName)}
+              style={{
+                backgroundColor: button.bgColor,
+                borderColor: button.bgColor,
+                color: button.textColor,
+              }}
+            >
+              <span className="w-full truncate text-xs" style={{ color: button.textColor }}>
+                {button.label}
+              </span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span>
+              {t('common.clickedCount', {
+                label: button.label,
+                text: maxCount > 0 ? `${count}/${maxCount}` : `${count}`,
+              })}
+            </span>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };

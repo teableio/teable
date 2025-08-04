@@ -22,6 +22,7 @@ import type {
   IUseTablePermissionAction,
   IRange,
   Record,
+  IButtonCell,
 } from '@teable/sdk';
 import {
   Grid,
@@ -752,6 +753,29 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const componentId = useMemo(() => uniqueId('grid-view-'), []);
 
+  const onCellValueHovered = (bounds: IRectangle, cellItem: ICellItem) => {
+    const cellInfo = getCellContent(cellItem);
+    if (!cellInfo?.id) {
+      return;
+    }
+
+    if (cellInfo.type === CellType.Button) {
+      const { data } = cellInfo as IButtonCell;
+      const { fieldOptions, cellValue } = data;
+      const { label } = fieldOptions;
+      const count = cellValue?.count ?? 0;
+      const maxCount = fieldOptions?.maxCount ?? 0;
+      openTooltip({
+        id: componentId,
+        text: t('sdk:common.clickedCount', {
+          label,
+          text: maxCount > 0 ? `${count}/${maxCount}` : `${count}`,
+        }),
+        position: bounds,
+      });
+    }
+  };
+
   const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
     const [columnIndex] = cellItem;
     const { description } = columns[columnIndex] ?? {};
@@ -823,6 +847,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             ),
           },
         });
+    }
+
+    if (type === RegionType.CellValue) {
+      onCellValueHovered(bounds, cellItem);
     }
   };
 

@@ -29,7 +29,8 @@
       "running": "{{name}} 実行中"
     },
     "resetSuccess": "リセット成功",
-    "click": "クリック"
+    "click": "クリック",
+    "clickedCount": "{{label}}: クリック {{text}} 回"
   },
   "preview": {
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",

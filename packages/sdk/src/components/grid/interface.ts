@@ -36,6 +36,7 @@ export enum SelectionRegionType {
 export enum RegionType {
   Cell = 'Cell',
   ActiveCell = 'ActiveCell',
+  CellValue = 'CellValue',
   AppendRow = 'AppendRow',
   AppendColumn = 'AppendColumn',
   ColumnHeader = 'ColumnHeader',

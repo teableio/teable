@@ -29,7 +29,8 @@
       "running": "{{name}} çalışıyor"
     },
     "resetSuccess": "Sıfırlama başarılı",
-    "click": "Tıkla"
+    "click": "Tıkla",
+    "clickedCount": "{{label}}: Tıklanma sayısı {{text}}"
   },
   "preview": {
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",

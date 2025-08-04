@@ -29,7 +29,8 @@
       "running": "{{name}} en cours"
     },
     "resetSuccess": "Réinitialisation réussie",
-    "click": "Cliquer"
+    "click": "Cliquer",
+    "clickedCount": "{{label}}: Cliquer {{text}} fois"
   },
   "preview": {
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",

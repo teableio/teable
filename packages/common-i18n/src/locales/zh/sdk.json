@@ -29,7 +29,8 @@
       "running": "{{name}} 运行中"
     },
     "resetSuccess": "重置成功",
-    "click": "点击"
+    "click": "点击",
+    "clickedCount": "{{label}}: 已点击 {{text}} 次"
   },
   "noun": {
     "table": "表格",
