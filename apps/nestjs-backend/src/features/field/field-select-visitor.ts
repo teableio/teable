@@ -1,27 +1,30 @@
-import type {
-  AttachmentFieldCore,
-  AutoNumberFieldCore,
-  CheckboxFieldCore,
-  CreatedByFieldCore,
-  CreatedTimeFieldCore,
-  DateFieldCore,
-  FormulaFieldCore,
-  LastModifiedByFieldCore,
-  LastModifiedTimeFieldCore,
-  LinkFieldCore,
-  LongTextFieldCore,
-  MultipleSelectFieldCore,
-  NumberFieldCore,
-  RatingFieldCore,
-  RollupFieldCore,
-  SingleLineTextFieldCore,
-  SingleSelectFieldCore,
-  UserFieldCore,
-  IFieldVisitor,
-  IFormulaConversionContext,
+import {
+  type AttachmentFieldCore,
+  type AutoNumberFieldCore,
+  type CheckboxFieldCore,
+  type CreatedByFieldCore,
+  type CreatedTimeFieldCore,
+  type DateFieldCore,
+  type FormulaFieldCore,
+  type LastModifiedByFieldCore,
+  type LastModifiedTimeFieldCore,
+  type LinkFieldCore,
+  type LongTextFieldCore,
+  type MultipleSelectFieldCore,
+  type NumberFieldCore,
+  type RatingFieldCore,
+  type RollupFieldCore,
+  type SingleLineTextFieldCore,
+  type SingleSelectFieldCore,
+  type UserFieldCore,
+  type IFieldVisitor,
+  type IFormulaConversionContext,
+  isGeneratedFormulaField,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
+import { createGeneratedColumnQuerySupportValidator } from '../../db-provider/generated-column-query';
+import { getDriverName } from '../../utils/db-helpers';
 
 /**
  * Field visitor that returns appropriate database column selectors for knex.select()
@@ -54,12 +57,16 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
    * @returns Generated column name if dbGenerated=true, otherwise regular dbFieldName
    */
   private getFormulaColumnSelector(field: FormulaFieldCore): Knex.QueryBuilder {
-    if (field.options.dbGenerated && !field.isLookup) {
-      // TODO: if field is not allow to use generated column, use the following code
-      // const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
-      //   fieldMap: this.context.fieldMap,
-      // });
-      // return this.qb.select(this.knex.raw(`${sql} as ??`, [field.getGeneratedColumnName()]));
+    if (isGeneratedFormulaField(field) && !field.isLookup) {
+      const provider = getDriverName(this.knex);
+      const visitor = createGeneratedColumnQuerySupportValidator(provider);
+      const isSupported = field.validateGeneratedColumnSupport(visitor);
+      if (!isSupported) {
+        const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
+          fieldMap: this.context.fieldMap,
+        });
+        return this.qb.select(this.knex.raw(`${sql} as ??`, [field.getGeneratedColumnName()]));
+      }
       return this.qb.select(field.getGeneratedColumnName());
     }
     return this.qb.select(field.dbFieldName);

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FieldType, type IFormulaConversionContext } from '@teable/core';
+import { type IFormulaConversionContext } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';

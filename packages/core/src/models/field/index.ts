@@ -13,3 +13,4 @@ export * from './ai-config';
 export * from './options.schema';
 export * from './button-utils';
 export * from './zod-error';
+export * from './field.util';
