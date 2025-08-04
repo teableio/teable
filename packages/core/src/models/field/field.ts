@@ -36,6 +36,8 @@ export abstract class FieldCore implements IFieldVo {
 
   abstract options: IFieldVo['options'];
 
+  abstract meta?: IFieldVo['meta'];
+
   // cellValue type enum (string, number, boolean, datetime)
   abstract cellValueType: CellValueType;
 

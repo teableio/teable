@@ -22,6 +22,8 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
 
   declare options: IAutoNumberFieldOptions;
 
+  meta?: undefined;
+
   declare cellValueType: CellValueType.Number;
 
   static defaultOptions(): IAutoNumberFieldOptionsRo {

@@ -18,6 +18,8 @@ export class CheckboxFieldCore extends FieldCore {
 
   options!: ICheckboxFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.Boolean;
 
   static defaultOptions(): ICheckboxFieldOptions {

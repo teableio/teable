@@ -26,6 +26,8 @@ export class CreatedTimeFieldCore extends FormulaAbstractCore {
 
   declare options: ICreatedTimeFieldOptions;
 
+  meta?: undefined;
+
   declare cellValueType: CellValueType.DateTime;
 
   static defaultOptions(): ICreatedTimeFieldOptionsRo {

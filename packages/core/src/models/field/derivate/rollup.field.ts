@@ -78,6 +78,8 @@ export class RollupFieldCore extends FormulaAbstractCore {
 
   declare options: IRollupFieldOptions;
 
+  meta?: undefined;
+
   declare lookupOptions: ILookupOptionsVo;
 
   validateOptions() {

@@ -1,9 +1,14 @@
+import type { IFormulaFieldMeta } from '@teable/core';
 import { FormulaFieldCore } from '@teable/core';
 import type { FieldBase } from '../field-base';
 
 export class FormulaFieldDto extends FormulaFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
+  }
+
+  setMetadata(meta: IFormulaFieldMeta) {
+    this.meta = meta;
   }
 
   convertCellValue2DBValue(value: unknown): unknown {

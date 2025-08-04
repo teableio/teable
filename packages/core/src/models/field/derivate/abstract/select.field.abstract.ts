@@ -37,6 +37,8 @@ export type ISelectFieldOptionsRo = z.infer<typeof selectFieldOptionsRoSchema>;
 export abstract class SelectFieldCore extends FieldCore {
   private _innerChoicesMap: Record<string, ISelectFieldChoice> = {};
 
+  meta?: undefined;
+
   static defaultOptions(): ISelectFieldOptions {
     return {
       choices: [],

@@ -23,6 +23,8 @@ export class LongTextFieldCore extends FieldCore {
 
   options!: ILongTextFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.String;
 
   static defaultOptions(): ILongTextFieldOptions {

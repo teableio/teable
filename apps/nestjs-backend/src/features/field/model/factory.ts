@@ -30,6 +30,7 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     type: fieldRaw.type as FieldType,
     description: fieldRaw.description || undefined,
     options: fieldRaw.options && JSON.parse(fieldRaw.options as string),
+    meta: (fieldRaw.meta && JSON.parse(fieldRaw.meta as string)) || undefined,
     aiConfig: (fieldRaw.aiConfig && JSON.parse(fieldRaw.aiConfig as string)) || undefined,
     notNull: fieldRaw.notNull || undefined,
     unique: fieldRaw.unique || undefined,

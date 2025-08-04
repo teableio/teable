@@ -42,6 +42,9 @@ describe('FormulaFieldCore', () => {
       timeZone: 'Asia/Shanghai',
       showAs: singleNumberShowAsProps,
     },
+    meta: {
+      persistedAsGeneratedColumn: true,
+    },
     cellValueType: CellValueType.Number,
     isComputed: true,
   };
@@ -359,6 +362,43 @@ describe('FormulaFieldCore', () => {
           precision: 2,
         },
       });
+    });
+  });
+
+  describe('meta field', () => {
+    it('should support meta field with persistedAsGeneratedColumn', () => {
+      const formulaWithMeta = plainToInstance(FormulaFieldCore, {
+        ...numberFormulaJson,
+        meta: {
+          persistedAsGeneratedColumn: true,
+        },
+      });
+
+      expect(formulaWithMeta.meta).toEqual({
+        persistedAsGeneratedColumn: true,
+      });
+    });
+
+    it('should support meta field with default value', () => {
+      const formulaWithMeta = plainToInstance(FormulaFieldCore, {
+        ...numberFormulaJson,
+        meta: {
+          persistedAsGeneratedColumn: false,
+        },
+      });
+
+      expect(formulaWithMeta.meta).toEqual({
+        persistedAsGeneratedColumn: false,
+      });
+    });
+
+    it('should work without meta field', () => {
+      const formulaWithoutMeta = plainToInstance(FormulaFieldCore, {
+        ...numberFormulaJson,
+        meta: undefined,
+      });
+
+      expect(formulaWithoutMeta.meta).toBeUndefined();
     });
   });
 });

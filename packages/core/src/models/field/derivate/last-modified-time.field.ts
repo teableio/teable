@@ -26,6 +26,8 @@ export class LastModifiedTimeFieldCore extends FormulaAbstractCore {
 
   declare options: ILastModifiedTimeFieldOptions;
 
+  meta?: undefined;
+
   declare cellValueType: CellValueType.DateTime;
 
   static defaultOptions(): ILastModifiedTimeFieldOptionsRo {

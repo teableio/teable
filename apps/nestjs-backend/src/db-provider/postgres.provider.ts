@@ -21,7 +21,7 @@ import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teab
 import type { Knex } from 'knex';
 import {
   PostgresDatabaseColumnVisitor,
-  type IDatabaseColumnContext,
+  type IDatabaseAddColumnContext,
 } from '../features/field/database-column-visitor.postgres';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
@@ -246,8 +246,9 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     }
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: IDatabaseColumnContext = {
+      const context: IDatabaseAddColumnContext = {
         table,
+        field: fieldInstance,
         fieldId: fieldInstance.id,
         dbFieldName: fieldInstance.dbFieldName,
         unique: fieldInstance.unique,
@@ -274,8 +275,9 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     isNewTable?: boolean
   ): string {
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: IDatabaseColumnContext = {
+      const context: IDatabaseAddColumnContext = {
         table,
+        field: fieldInstance,
         fieldId: fieldInstance.id,
         dbFieldName: fieldInstance.dbFieldName,
         unique: fieldInstance.unique,
@@ -290,7 +292,11 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       fieldInstance.accept(visitor);
     });
 
-    return alterTableBuilder.toQuery();
+    const sql = alterTableBuilder.toQuery();
+
+    this.logger.debug('createColumnSchema', sql);
+
+    return sql;
   }
 
   splitTableName(tableName: string): string[] {

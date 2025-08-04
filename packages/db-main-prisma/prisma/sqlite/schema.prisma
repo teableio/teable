@@ -86,6 +86,7 @@ model Field {
   name                String
   description         String?
   options             String?
+  meta                String?
   aiConfig            String?   @map("ai_config")
   type                String
   cellValueType       String    @map("cell_value_type")

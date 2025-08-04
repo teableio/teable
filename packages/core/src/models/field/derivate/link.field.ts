@@ -89,6 +89,8 @@ export class LinkFieldCore extends FieldCore {
 
   options!: ILinkFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.String;
 
   declare isMultipleCellValue?: boolean | undefined;
