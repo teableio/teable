@@ -1,12 +1,19 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { IFormulaConversionContext } from '@teable/core';
-import { parseFormulaToSQL, GeneratedColumnSqlConversionVisitor } from '@teable/core';
+import {
+  parseFormulaToSQL,
+  SelectColumnSqlConversionVisitor,
+  FieldType,
+  DbFieldType,
+  CellValueType,
+} from '@teable/core';
 import knex from 'knex';
 import type { Knex } from 'knex';
 import { vi, describe, beforeAll, afterAll, beforeEach, it, expect } from 'vitest';
 import { SelectQuerySqlite } from '../src/db-provider/select-query/sqlite/select-query.sqlite';
 import { SqliteProvider } from '../src/db-provider/sqlite.provider';
+import { createFieldInstanceByVo } from '../src/features/field/model/factory';
 
 describe('SQLite SELECT Query Integration Tests', () => {
   let knexInstance: Knex;
@@ -91,33 +98,77 @@ describe('SQLite SELECT Query Integration Tests', () => {
 
   // Helper function to create conversion context
   function createContext(): IFormulaConversionContext {
+    const fieldMap = new Map();
+
+    // Create field instances using createFieldInstanceByVo
+    const fieldA = createFieldInstanceByVo({
+      id: 'fld_a',
+      name: 'Field A',
+      type: FieldType.Number,
+      dbFieldName: 'a',
+      dbFieldType: DbFieldType.Real,
+      cellValueType: CellValueType.Number,
+      options: { formatting: { type: 'decimal', precision: 2 } },
+    });
+    fieldMap.set('fld_a', fieldA);
+
+    const fieldB = createFieldInstanceByVo({
+      id: 'fld_b',
+      name: 'Field B',
+      type: FieldType.Number,
+      dbFieldName: 'b',
+      dbFieldType: DbFieldType.Real,
+      cellValueType: CellValueType.Number,
+      options: { formatting: { type: 'decimal', precision: 2 } },
+    });
+    fieldMap.set('fld_b', fieldB);
+
+    const textField = createFieldInstanceByVo({
+      id: 'fld_text',
+      name: 'Text Field',
+      type: FieldType.SingleLineText,
+      dbFieldName: 'text_col',
+      dbFieldType: DbFieldType.Text,
+      cellValueType: CellValueType.String,
+      options: {},
+    });
+    fieldMap.set('fld_text', textField);
+
+    const dateField = createFieldInstanceByVo({
+      id: 'fld_date',
+      name: 'Date Field',
+      type: FieldType.Date,
+      dbFieldName: 'date_col',
+      dbFieldType: DbFieldType.DateTime,
+      cellValueType: CellValueType.DateTime,
+      options: { formatting: { date: 'YYYY-MM-DD', time: 'HH:mm:ss' } },
+    });
+    fieldMap.set('fld_date', dateField);
+
+    const booleanField = createFieldInstanceByVo({
+      id: 'fld_boolean',
+      name: 'Boolean Field',
+      type: FieldType.Checkbox,
+      dbFieldName: 'boolean_col',
+      dbFieldType: DbFieldType.Boolean,
+      cellValueType: CellValueType.Boolean,
+      options: {},
+    });
+    fieldMap.set('fld_boolean', booleanField);
+
+    const arrayField = createFieldInstanceByVo({
+      id: 'fld_array',
+      name: 'Array Field',
+      type: FieldType.LongText,
+      dbFieldName: 'array_col',
+      dbFieldType: DbFieldType.Json,
+      cellValueType: CellValueType.String,
+      options: {},
+    });
+    fieldMap.set('fld_array', arrayField);
+
     return {
-      fieldMap: {
-        fld_a: {
-          columnName: 'a',
-          fieldType: 'Number',
-        },
-        fld_b: {
-          columnName: 'b',
-          fieldType: 'Number',
-        },
-        fld_text: {
-          columnName: 'text_col',
-          fieldType: 'SingleLineText',
-        },
-        fld_date: {
-          columnName: 'date_col',
-          fieldType: 'DateTime',
-        },
-        fld_boolean: {
-          columnName: 'boolean_col',
-          fieldType: 'Checkbox',
-        },
-        fld_array: {
-          columnName: 'array_col',
-          fieldType: 'JSON', // JSON field for array operations
-        },
-      },
+      fieldMap,
       timeZone: 'UTC',
       isGeneratedColumn: false, // SELECT queries are not generated columns
     };
@@ -135,7 +186,7 @@ describe('SQLite SELECT Query Integration Tests', () => {
       selectQuery.setContext(context);
 
       // Convert the formula to SQL using SelectQuerySqlite directly
-      const visitor = new GeneratedColumnSqlConversionVisitor(selectQuery, context);
+      const visitor = new SelectColumnSqlConversionVisitor(selectQuery, context);
       const generatedSql = parseFormulaToSQL(expression, visitor);
 
       // Execute SELECT query with the generated SQL

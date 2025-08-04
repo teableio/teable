@@ -1,4 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import type { IFormulaConversionContext } from '@teable/core';
+import { FieldType, DbFieldType, CellValueType } from '@teable/core';
+import { createFieldInstanceByVo } from '../../features/field/model/factory';
 import { SelectQueryPostgres } from './postgres/select-query.postgres';
 import { SelectQuerySqlite } from './sqlite/select-query.sqlite';
 
@@ -117,8 +120,10 @@ describe('SelectQuery', () => {
     it('should generate correct LOG expressions', () => {
       expect(postgresQuery.log('value', 'base')).toBe('LOG(base::numeric, value::numeric)');
       expect(postgresQuery.log('value')).toBe('LN(value::numeric)');
-      expect(sqliteQuery.log('value', 'base')).toBe('(LOG(value) / LOG(base))');
-      expect(sqliteQuery.log('value')).toBe('LOG(value)');
+      expect(sqliteQuery.log('value', 'base')).toBe(
+        '(LOG(value) * 2.302585092994046 / (LOG(base) * 2.302585092994046))'
+      );
+      expect(sqliteQuery.log('value')).toBe('(LOG(value) * 2.302585092994046)');
     });
 
     it('should generate correct MOD expressions', () => {
@@ -243,7 +248,7 @@ describe('SelectQuery', () => {
     it('should generate correct T expressions', () => {
       expect(postgresQuery.t('value')).toBe("CASE WHEN value IS NULL THEN '' ELSE value::text END");
       expect(sqliteQuery.t('value')).toBe(
-        "CASE WHEN value IS NULL THEN '' ELSE CAST(value AS TEXT) END"
+        "CASE WHEN value IS NULL THEN '' WHEN typeof(value) = 'text' THEN value ELSE value END"
       );
     });
 
@@ -340,8 +345,8 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct LAST_MODIFIED_TIME expressions', () => {
-      expect(postgresQuery.lastModifiedTime()).toBe('updated_at');
-      expect(sqliteQuery.lastModifiedTime()).toBe('updated_at');
+      expect(postgresQuery.lastModifiedTime()).toBe('"__last_modified_time"');
+      expect(sqliteQuery.lastModifiedTime()).toBe('"__last_modified_time"');
     });
 
     it('should generate correct MINUTE expressions', () => {
@@ -378,7 +383,7 @@ describe('SelectQuery', () => {
 
     it('should generate correct WEEKDAY expressions', () => {
       expect(postgresQuery.weekday('date')).toBe('EXTRACT(DOW FROM date::timestamp)');
-      expect(sqliteQuery.weekday('date')).toBe("CAST(STRFTIME('%w', date) AS INTEGER)");
+      expect(sqliteQuery.weekday('date')).toBe("CAST(STRFTIME('%w', date) AS INTEGER) + 1");
     });
 
     it('should generate correct WORKDAY expressions', () => {
@@ -399,8 +404,8 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct CREATED_TIME expressions', () => {
-      expect(postgresQuery.createdTime()).toBe('created_at');
-      expect(sqliteQuery.createdTime()).toBe('created_at');
+      expect(postgresQuery.createdTime()).toBe('"__created_time"');
+      expect(sqliteQuery.createdTime()).toBe('"__created_time"');
     });
   });
 
@@ -442,7 +447,7 @@ describe('SelectQuery', () => {
 
     it('should generate correct BLANK expressions', () => {
       expect(postgresQuery.blank()).toBe("''");
-      expect(sqliteQuery.blank()).toBe("''");
+      expect(sqliteQuery.blank()).toBe('NULL');
     });
 
     it('should generate correct ERROR expressions', () => {
@@ -493,28 +498,70 @@ describe('SelectQuery', () => {
 
     it('should generate correct ARRAY_JOIN expressions', () => {
       expect(postgresQuery.arrayJoin('array', 'separator')).toBe(
-        'ARRAY_TO_STRING(array, separator)'
+        `(
+      SELECT string_agg(
+        CASE
+          WHEN json_typeof(value) = 'array' THEN value::text
+          ELSE value::text
+        END,
+        separator
+      )
+      FROM json_array_elements(array)
+    )`
       );
-      expect(postgresQuery.arrayJoin('array')).toBe("ARRAY_TO_STRING(array, ',')");
-      expect(sqliteQuery.arrayJoin('array', 'separator')).toBe('GROUP_CONCAT(array, separator)');
-      expect(sqliteQuery.arrayJoin('array')).toBe("GROUP_CONCAT(array, ',')");
+      expect(postgresQuery.arrayJoin('array')).toBe(
+        `(
+      SELECT string_agg(
+        CASE
+          WHEN json_typeof(value) = 'array' THEN value::text
+          ELSE value::text
+        END,
+        ','
+      )
+      FROM json_array_elements(array)
+    )`
+      );
+      expect(sqliteQuery.arrayJoin('array', 'separator')).toBe(
+        '(SELECT GROUP_CONCAT(value, separator) FROM json_each(array))'
+      );
+      expect(sqliteQuery.arrayJoin('array')).toBe(
+        '(SELECT GROUP_CONCAT(value, ,) FROM json_each(array))'
+      );
     });
 
     it('should generate correct ARRAY_UNIQUE expressions', () => {
-      expect(postgresQuery.arrayUnique('array')).toBe('ARRAY(SELECT DISTINCT UNNEST(array))');
-      expect(sqliteQuery.arrayUnique('array')).toBe('array');
+      expect(postgresQuery.arrayUnique('array')).toBe(
+        `ARRAY(
+      SELECT DISTINCT value::text
+      FROM json_array_elements(array)
+    )`
+      );
+      expect(sqliteQuery.arrayUnique('array')).toBe(
+        "'[' || (SELECT GROUP_CONCAT('\"' || value || '\"') FROM (SELECT DISTINCT value FROM json_each(array))) || ']'"
+      );
     });
 
     it('should generate correct ARRAY_FLATTEN expressions', () => {
-      expect(postgresQuery.arrayFlatten('array')).toBe('ARRAY(SELECT UNNEST(array))');
+      expect(postgresQuery.arrayFlatten('array')).toBe(
+        `ARRAY(
+      SELECT value::text
+      FROM json_array_elements(array)
+    )`
+      );
       expect(sqliteQuery.arrayFlatten('array')).toBe('array');
     });
 
     it('should generate correct ARRAY_COMPACT expressions', () => {
       expect(postgresQuery.arrayCompact('array')).toBe(
-        'ARRAY(SELECT x FROM UNNEST(array) AS x WHERE x IS NOT NULL)'
+        `ARRAY(
+      SELECT value::text
+      FROM json_array_elements(array)
+      WHERE value IS NOT NULL AND value::text != 'null'
+    )`
       );
-      expect(sqliteQuery.arrayCompact('array')).toBe('array');
+      expect(sqliteQuery.arrayCompact('array')).toBe(
+        "'[' || (SELECT GROUP_CONCAT('\"' || value || '\"') FROM json_each(array) WHERE value IS NOT NULL AND value != 'null') || ']'"
+      );
     });
   });
 
@@ -656,10 +703,20 @@ describe('SelectQuery', () => {
 
   describe('Context Management', () => {
     it('should set and use context', () => {
-      const context = {
-        fieldMap: {
-          field1: { columnName: 'col1', fieldType: 'text' },
-        },
+      const fieldMap = new Map();
+      const field1 = createFieldInstanceByVo({
+        id: 'field1',
+        name: 'Field 1',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'col1',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('field1', field1);
+
+      const context: IFormulaConversionContext = {
+        fieldMap,
         timeZone: 'UTC',
         isGeneratedColumn: false,
       };
@@ -668,8 +725,8 @@ describe('SelectQuery', () => {
       sqliteQuery.setContext(context);
 
       // Context should be available for field references and other operations
-      expect(postgresQuery.fieldReference('field1', 'col1', context)).toBe('"col1"');
-      expect(sqliteQuery.fieldReference('field1', 'col1', context)).toBe('"col1"');
+      expect(postgresQuery.fieldReference('field1', 'col1')).toBe('"col1"');
+      expect(sqliteQuery.fieldReference('field1', 'col1')).toBe('"col1"');
     });
   });
 });

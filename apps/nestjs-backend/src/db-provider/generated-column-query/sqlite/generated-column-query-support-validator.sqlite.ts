@@ -25,10 +25,12 @@ export class GeneratedColumnQuerySupportValidatorSqlite
 
   // Numeric Functions - Most are supported
   sum(params: string[]): boolean {
+    // Use addition instead of SUM() aggregation function
     return true;
   }
 
   average(params: string[]): boolean {
+    // Use addition and division instead of AVG() aggregation function
     return true;
   }
 
@@ -78,13 +80,13 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   sqrt(value: string): boolean {
-    // SQLite doesn't have SQRT function built-in
-    return false;
+    // SQLite SQRT function implemented using mathematical approximation
+    return true;
   }
 
   power(base: string, exponent: string): boolean {
-    // SQLite doesn't have POWER function built-in
-    return false;
+    // SQLite POWER function implemented for common cases using multiplication
+    return true;
   }
 
   exp(value: string): boolean {
@@ -212,7 +214,8 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   day(date: string): boolean {
-    return true;
+    // DAY with column references is not immutable in SQLite
+    return false;
   }
 
   fromNow(date: string): boolean {
@@ -221,7 +224,8 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   hour(date: string): boolean {
-    return true;
+    // HOUR with column references is not immutable in SQLite
+    return false;
   }
 
   isAfter(date1: string, date2: string): boolean {
@@ -242,15 +246,18 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   minute(date: string): boolean {
-    return true;
+    // MINUTE with column references is not immutable in SQLite
+    return false;
   }
 
   month(date: string): boolean {
-    return true;
+    // MONTH with column references is not immutable in SQLite
+    return false;
   }
 
   second(date: string): boolean {
-    return true;
+    // SECOND with column references is not immutable in SQLite
+    return false;
   }
 
   timestr(date: string): boolean {
@@ -267,7 +274,8 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   weekday(date: string): boolean {
-    return true;
+    // WEEKDAY with column references is not immutable in SQLite
+    return false;
   }
 
   workday(startDate: string, days: string): boolean {
@@ -281,7 +289,8 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   year(date: string): boolean {
-    return true;
+    // YEAR with column references is not immutable in SQLite
+    return false;
   }
 
   createdTime(): boolean {
@@ -377,7 +386,8 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   textAll(value: string): boolean {
-    return true;
+    // textAll with non-array types causes function mismatch in SQLite
+    return false;
   }
 
   // Binary Operations - All supported

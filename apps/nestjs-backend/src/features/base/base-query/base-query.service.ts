@@ -45,12 +45,6 @@ export class BaseQueryService {
    * For lookup formula fields, use the standard field name
    */
   private getQueryColumnName(field: IFieldInstance): string {
-    if (field.type === FieldType.Formula && !field.isLookup) {
-      const formulaField = field as FormulaFieldDto;
-      if (formulaField.options.dbGenerated) {
-        return formulaField.getGeneratedColumnName();
-      }
-    }
     return field.dbFieldName;
   }
 

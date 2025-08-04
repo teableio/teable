@@ -2,7 +2,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { IFormulaConversionContext, IFormulaConversionResult } from '@teable/core';
-import { GeneratedColumnSqlConversionVisitor, parseFormulaToSQL } from '@teable/core';
+import {
+  GeneratedColumnSqlConversionVisitor,
+  parseFormulaToSQL,
+  FieldType,
+  DbFieldType,
+  CellValueType,
+} from '@teable/core';
+import { createFieldInstanceByVo } from '../../features/field/model/factory';
 import { GeneratedColumnQueryPostgres } from './postgres/generated-column-query.postgres';
 import { GeneratedColumnQuerySqlite } from './sqlite/generated-column-query.sqlite';
 
@@ -10,15 +17,77 @@ describe('Generated Column Query End-to-End Tests', () => {
   let mockContext: IFormulaConversionContext;
 
   beforeEach(() => {
+    const fieldMap = new Map();
+
+    // Create field instances using createFieldInstanceByVo
+    const field1 = createFieldInstanceByVo({
+      id: 'fld1',
+      name: 'Field 1',
+      type: FieldType.Number,
+      dbFieldName: 'column_a',
+      dbFieldType: DbFieldType.Real,
+      cellValueType: CellValueType.Number,
+      options: { formatting: { type: 'decimal', precision: 2 } },
+    });
+    fieldMap.set('fld1', field1);
+
+    const field2 = createFieldInstanceByVo({
+      id: 'fld2',
+      name: 'Field 2',
+      type: FieldType.SingleLineText,
+      dbFieldName: 'column_b',
+      dbFieldType: DbFieldType.Text,
+      cellValueType: CellValueType.String,
+      options: {},
+    });
+    fieldMap.set('fld2', field2);
+
+    const field3 = createFieldInstanceByVo({
+      id: 'fld3',
+      name: 'Field 3',
+      type: FieldType.Number,
+      dbFieldName: 'column_c',
+      dbFieldType: DbFieldType.Real,
+      cellValueType: CellValueType.Number,
+      options: { formatting: { type: 'decimal', precision: 2 } },
+    });
+    fieldMap.set('fld3', field3);
+
+    const field4 = createFieldInstanceByVo({
+      id: 'fld4',
+      name: 'Field 4',
+      type: FieldType.SingleLineText,
+      dbFieldName: 'column_d',
+      dbFieldType: DbFieldType.Text,
+      cellValueType: CellValueType.String,
+      options: {},
+    });
+    fieldMap.set('fld4', field4);
+
+    const field5 = createFieldInstanceByVo({
+      id: 'fld5',
+      name: 'Field 5',
+      type: FieldType.Checkbox,
+      dbFieldName: 'column_e',
+      dbFieldType: DbFieldType.Boolean,
+      cellValueType: CellValueType.Boolean,
+      options: {},
+    });
+    fieldMap.set('fld5', field5);
+
+    const field6 = createFieldInstanceByVo({
+      id: 'fld6',
+      name: 'Field 6',
+      type: FieldType.Date,
+      dbFieldName: 'column_f',
+      dbFieldType: DbFieldType.DateTime,
+      cellValueType: CellValueType.DateTime,
+      options: { formatting: { date: 'YYYY-MM-DD', time: 'HH:mm:ss' } },
+    });
+    fieldMap.set('fld6', field6);
+
     mockContext = {
-      fieldMap: {
-        fld1: { columnName: 'column_a', fieldType: 'number' },
-        fld2: { columnName: 'column_b', fieldType: 'singleLineText' },
-        fld3: { columnName: 'column_c', fieldType: 'number' },
-        fld4: { columnName: 'column_d', fieldType: 'singleLineText' },
-        fld5: { columnName: 'column_e', fieldType: 'checkbox' },
-        fld6: { columnName: 'column_f', fieldType: 'date' },
-      },
+      fieldMap,
       timeZone: 'UTC',
     };
   });
@@ -324,11 +393,32 @@ describe('Generated Column Query End-to-End Tests', () => {
     });
 
     it('should handle null and undefined values in context', () => {
-      const contextWithNulls = {
-        fieldMap: {
-          fld1: { columnName: 'column_a', fieldType: null as any },
-          fld2: { columnName: 'column_b', fieldType: undefined as any },
-        },
+      const fieldMap = new Map();
+
+      const field1 = createFieldInstanceByVo({
+        id: 'fld1',
+        name: 'Field 1',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'column_a',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('fld1', field1);
+
+      const field2 = createFieldInstanceByVo({
+        id: 'fld2',
+        name: 'Field 2',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'column_b',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('fld2', field2);
+
+      const contextWithNulls: IFormulaConversionContext = {
+        fieldMap,
         timeZone: 'UTC',
       };
 
@@ -344,29 +434,68 @@ describe('Generated Column Query End-to-End Tests', () => {
     });
 
     it('should handle very long field names', () => {
-      const longFieldContext = {
-        fieldMap: {
-          ['very_long_field_name_that_exceeds_normal_limits_' + 'x'.repeat(100)]: {
-            columnName: 'long_column_name',
-            fieldType: 'number',
-          },
-        },
+      const fieldMap = new Map();
+      const longFieldId = 'very_long_field_name_that_exceeds_normal_limits_' + 'x'.repeat(100);
+
+      const longField = createFieldInstanceByVo({
+        id: longFieldId,
+        name: 'Long Field',
+        type: FieldType.Number,
+        dbFieldName: 'long_column_name',
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+        options: { formatting: { type: 'decimal', precision: 2 } },
+      });
+      fieldMap.set(longFieldId, longField);
+
+      const longFieldContext: IFormulaConversionContext = {
+        fieldMap,
         timeZone: 'UTC',
       };
 
-      const longFieldId = 'very_long_field_name_that_exceeds_normal_limits_' + 'x'.repeat(100);
       const result = convertFormulaToSQL(`{${longFieldId}}`, longFieldContext, 'postgres');
       expect(result.sql).toBe('"long_column_name"');
       expect(result.dependencies).toEqual([longFieldId]);
     });
 
     it('should handle special characters in field names', () => {
-      const specialCharContext = {
-        fieldMap: {
-          'field-with-dashes': { columnName: 'column_with_dashes', fieldType: 'text' },
-          'field with spaces': { columnName: 'column_with_spaces', fieldType: 'text' },
-          'field.with.dots': { columnName: 'column_with_dots', fieldType: 'text' },
-        },
+      const fieldMap = new Map();
+
+      const field1 = createFieldInstanceByVo({
+        id: 'field-with-dashes',
+        name: 'Field with Dashes',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'column_with_dashes',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('field-with-dashes', field1);
+
+      const field2 = createFieldInstanceByVo({
+        id: 'field with spaces',
+        name: 'Field with Spaces',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'column_with_spaces',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('field with spaces', field2);
+
+      const field3 = createFieldInstanceByVo({
+        id: 'field.with.dots',
+        name: 'Field with Dots',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'column_with_dots',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('field.with.dots', field3);
+
+      const specialCharContext: IFormulaConversionContext = {
+        fieldMap,
         timeZone: 'UTC',
       };
 
@@ -652,13 +781,54 @@ describe('Generated Column Query End-to-End Tests', () => {
 
   describe('Advanced Tests', () => {
     it('should correctly infer types for complex expressions', () => {
-      const complexContext = {
-        fieldMap: {
-          numField: { columnName: 'num_col', fieldType: 'number' },
-          textField: { columnName: 'text_col', fieldType: 'singleLineText' },
-          boolField: { columnName: 'bool_col', fieldType: 'checkbox' },
-          dateField: { columnName: 'date_col', fieldType: 'date' },
-        },
+      const fieldMap = new Map();
+
+      const numField = createFieldInstanceByVo({
+        id: 'numField',
+        name: 'Number Field',
+        type: FieldType.Number,
+        dbFieldName: 'num_col',
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+        options: { formatting: { type: 'decimal', precision: 2 } },
+      });
+      fieldMap.set('numField', numField);
+
+      const textField = createFieldInstanceByVo({
+        id: 'textField',
+        name: 'Text Field',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'text_col',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('textField', textField);
+
+      const boolField = createFieldInstanceByVo({
+        id: 'boolField',
+        name: 'Bool Field',
+        type: FieldType.Checkbox,
+        dbFieldName: 'bool_col',
+        dbFieldType: DbFieldType.Boolean,
+        cellValueType: CellValueType.Boolean,
+        options: {},
+      });
+      fieldMap.set('boolField', boolField);
+
+      const dateField = createFieldInstanceByVo({
+        id: 'dateField',
+        name: 'Date Field',
+        type: FieldType.Date,
+        dbFieldName: 'date_col',
+        dbFieldType: DbFieldType.DateTime,
+        cellValueType: CellValueType.DateTime,
+        options: { formatting: { date: 'YYYY-MM-DD', time: 'HH:mm:ss' } },
+      });
+      fieldMap.set('dateField', dateField);
+
+      const complexContext: IFormulaConversionContext = {
+        fieldMap,
         timeZone: 'UTC',
       };
 
@@ -717,7 +887,10 @@ describe('Generated Column Query End-to-End Tests', () => {
     });
 
     it('should handle error conditions', () => {
-      const invalidContext = { fieldMap: {}, timeZone: 'UTC' };
+      const invalidContext: IFormulaConversionContext = {
+        fieldMap: new Map(),
+        timeZone: 'UTC',
+      };
 
       expect(() => {
         convertFormulaToSQL('{nonexistent}', invalidContext, 'postgres');
@@ -729,8 +902,20 @@ describe('Generated Column Query End-to-End Tests', () => {
     });
 
     it('should handle context edge cases', () => {
-      const minimalContext = {
-        fieldMap: { fld1: { columnName: 'col1' } },
+      const fieldMap = new Map();
+      const field1 = createFieldInstanceByVo({
+        id: 'fld1',
+        name: 'Field 1',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'col1',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        options: {},
+      });
+      fieldMap.set('fld1', field1);
+
+      const minimalContext: IFormulaConversionContext = {
+        fieldMap,
         timeZone: 'UTC',
       };
 

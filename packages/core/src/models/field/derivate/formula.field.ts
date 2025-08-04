@@ -3,7 +3,6 @@ import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
 import type { IGeneratedColumnQuerySupportValidator } from '../../../formula/function-convertor.interface';
 import { validateFormulaSupport } from '../../../utils/formula-validation';
-import { getGeneratedColumnName } from '../../../utils/generated-column';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
@@ -38,12 +37,6 @@ const formulaFieldCellValueSchema = z.any();
 export type IFormulaCellValue = z.infer<typeof formulaFieldCellValueSchema>;
 
 export class FormulaFieldCore extends FormulaAbstractCore {
-  override get dbFieldNames() {
-    return this.options.dbGenerated
-      ? [this.dbFieldName, this.getGeneratedColumnName()]
-      : [this.dbFieldName];
-  }
-
   static defaultOptions(cellValueType: CellValueType): IFormulaFieldOptions {
     return {
       expression: '',
@@ -121,7 +114,7 @@ export class FormulaFieldCore extends FormulaAbstractCore {
    * This should match the naming convention used in database-column-visitor
    */
   getGeneratedColumnName(): string {
-    return getGeneratedColumnName(this.dbFieldName);
+    return this.dbFieldName;
   }
 
   /**

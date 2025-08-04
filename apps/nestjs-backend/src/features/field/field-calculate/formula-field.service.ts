@@ -50,7 +50,7 @@ export class FormulaFieldService {
       { id: string; table_id: string; level: number }[]
     >(recursiveCTE, fieldId, FieldType.Formula);
 
-    return result.map((row) => ({
+    return (result || []).map((row) => ({
       id: row.id,
       tableId: row.table_id,
       level: row.level,
