@@ -12,3 +12,4 @@ export * from './cell-value-validation';
 export * from './ai-config';
 export * from './options.schema';
 export * from './button-utils';
+export * from './field.util';
