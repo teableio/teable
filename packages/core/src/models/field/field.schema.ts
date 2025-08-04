@@ -11,6 +11,7 @@ import {
   selectFieldOptionsSchema,
   singlelineTextFieldOptionsSchema,
   formulaFieldOptionsSchema,
+  formulaFieldMetaSchema,
   linkFieldOptionsSchema,
   dateFieldOptionsSchema,
   attachmentFieldOptionsSchema,
@@ -108,6 +109,10 @@ export const commonOptionsSchema = z.object({
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
 export type IFieldOptionsVo = z.infer<typeof unionFieldOptionsVoSchema>;
 
+export const unionFieldMetaVoSchema = formulaFieldMetaSchema.optional();
+
+export type IFieldMetaVo = z.infer<typeof unionFieldMetaVoSchema>;
+
 export const fieldVoSchema = z.object({
   id: z.string().startsWith(IdPrefix.Field).openapi({
     description: 'The id of the field.',
@@ -131,6 +136,11 @@ export const fieldVoSchema = z.object({
   options: unionFieldOptionsVoSchema.openapi({
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
+  }),
+
+  meta: unionFieldMetaVoSchema.optional().openapi({
+    description:
+      "The metadata of the field. The structure of the field's meta depend on the field's type. Currently only formula fields have meta.",
   }),
 
   aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
@@ -217,12 +227,14 @@ export const FIELD_RO_PROPERTIES = [
   'description',
   'lookupOptions',
   'options',
+  'meta',
 ] as const;
 
 export const FIELD_VO_PROPERTIES = [
   'type',
   'description',
   'options',
+  'meta',
   'aiConfig',
   'name',
   'isLookup',
@@ -340,6 +352,10 @@ const baseFieldRoSchema = fieldVoSchema
       options: unionFieldOptionsRoSchema.optional().openapi({
         description:
           "The options of the field. The configuration of the field's options depend on the it's specific type.",
+      }),
+      meta: unionFieldMetaVoSchema.optional().openapi({
+        description:
+          "The metadata of the field. The structure of the field's meta depend on the field's type. Currently only formula fields have meta.",
       }),
       aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
         description: 'The AI configuration of the field.',

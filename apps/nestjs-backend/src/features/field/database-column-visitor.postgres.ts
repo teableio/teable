@@ -25,16 +25,20 @@ import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
 import { GeneratedColumnQuerySupportValidatorPostgres } from '../../db-provider/generated-column-query/postgres/generated-column-query-support-validator.postgres';
+import type { IFieldInstance } from './model/factory';
+import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import { SchemaType } from './util';
 
 /**
  * Context interface for database column creation
  */
-export interface IDatabaseColumnContext {
+export interface IDatabaseAddColumnContext {
   /** Knex table builder instance */
   table: Knex.CreateTableBuilder;
   /** Field ID */
   fieldId: string;
+  /** the Field instance to add */
+  field: IFieldInstance;
   /** Database field name */
   dbFieldName: string;
   /** Whether the field is unique */
@@ -54,7 +58,7 @@ export interface IDatabaseColumnContext {
  * Supports STORED generated columns for formula fields with dbGenerated=true.
  */
 export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
-  constructor(private readonly context: IDatabaseColumnContext) {}
+  constructor(private readonly context: IDatabaseAddColumnContext) {}
 
   private getSchemaType(dbFieldType: DbFieldType): SchemaType {
     switch (dbFieldType) {
@@ -120,6 +124,7 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
         const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) STORED`;
 
         this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
+        (this.context.field as FormulaFieldDto).setMetadata({ persistedAsGeneratedColumn: true });
       }
     } else {
       // Create the standard formula column

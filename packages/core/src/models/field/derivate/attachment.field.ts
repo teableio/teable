@@ -33,6 +33,8 @@ export class AttachmentFieldCore extends FieldCore {
 
   options!: IAttachmentFieldOptions;
 
+  meta?: undefined;
+
   cellValueType = CellValueType.String;
 
   isMultipleCellValue = true;

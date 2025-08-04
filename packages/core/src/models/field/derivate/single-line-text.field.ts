@@ -23,6 +23,8 @@ export class SingleLineTextFieldCore extends FieldCore {
 
   options!: ISingleLineTextFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.String;
 
   static defaultOptions(): ISingleLineTextFieldOptions {

@@ -99,6 +99,7 @@ export class FieldService implements IReadonlyAdapterService {
       description,
       type,
       options,
+      meta,
       aiConfig,
       lookupOptions,
       notNull,
@@ -131,6 +132,7 @@ export class FieldService implements IReadonlyAdapterService {
       type,
       aiConfig: aiConfig && JSON.stringify(aiConfig),
       options: JSON.stringify(options),
+      meta: meta && JSON.stringify(meta),
       notNull,
       unique,
       isPrimary,
@@ -766,11 +768,11 @@ export class FieldService implements IReadonlyAdapterService {
       };
     });
 
-    // 1. save field meta in db
-    await this.dbCreateMultipleField(tableId, fields);
-
-    // 2. alter table with real field in visual table
+    // 1. alter table with real field in visual table
     await this.alterTableAddField(dbTableName, fields);
+
+    // 2. save field meta in db
+    await this.dbCreateMultipleField(tableId, fields);
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
@@ -788,11 +790,11 @@ export class FieldService implements IReadonlyAdapterService {
       };
     });
 
-    // 1. save field meta in db
-    await this.dbCreateMultipleFields(tableId, fields);
-
-    // 2. alter table with real field in visual table
+    // 1. alter table with real field in visual table
     await this.alterTableAddField(dbTableName, fields, true); // This is new table creation
+
+    // 2. save field meta in db
+    await this.dbCreateMultipleFields(tableId, fields);
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
@@ -801,11 +803,11 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldInstance = createFieldInstanceByVo(snapshot);
     const dbTableName = await this.getDbTableName(tableId);
 
-    // 1. save field meta in db
-    await this.dbCreateMultipleField(tableId, [fieldInstance]);
-
-    // 2. alter table with real field in visual table
+    // 1. alter table with real field in visual table
     await this.alterTableAddField(dbTableName, [fieldInstance]);
+
+    // 2. save field meta in db
+    await this.dbCreateMultipleField(tableId, [fieldInstance]);
   }
 
   private async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {

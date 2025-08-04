@@ -41,6 +41,8 @@ export class RatingFieldCore extends FieldCore {
 
   options!: IRatingFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.Number;
 
   static defaultOptions(): IRatingFieldOptions {

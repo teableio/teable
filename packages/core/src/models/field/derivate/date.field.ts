@@ -41,6 +41,8 @@ export class DateFieldCore extends FieldCore {
 
   options!: IDateFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.DateTime;
 
   static defaultOptions(): IDateFieldOptions {

@@ -360,6 +360,10 @@ export class ReferenceService {
     for (const order of topoOrders) {
       const fieldId = order.id;
       const field = fieldMap[fieldId];
+      if (field.type === FieldType.Formula && field.getIsPersistedAsGeneratedColumn()) {
+        continue;
+      }
+
       const fromRecordIds = order.dependencies
         ?.map((item) => recordIdsMap[item])
         .filter(Boolean)
@@ -606,6 +610,9 @@ export class ReferenceService {
     recordItem: IRecordItem
   ) {
     if (field.hasError) {
+      return null;
+    }
+    if (field.type === FieldType.Formula && field.getIsPersistedAsGeneratedColumn()) {
       return null;
     }
 

@@ -36,6 +36,8 @@ export class NumberFieldCore extends FieldCore {
 
   options!: INumberFieldOptions;
 
+  meta?: undefined;
+
   cellValueType!: CellValueType.Number;
 
   static defaultOptions(): INumberFieldOptions {
