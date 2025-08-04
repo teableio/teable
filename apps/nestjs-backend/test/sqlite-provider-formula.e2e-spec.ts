@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
+import type { IFormulaConversionContext } from '@teable/core';
 import { FieldType, DbFieldType, CellValueType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import type { Knex } from 'knex';
 import { vi, describe, beforeAll, afterAll, beforeEach, it, expect } from 'vitest';
-import type { IFormulaConversionContext } from '../src/db-provider/formula-query/formula-query.interface';
 import { SqliteProvider } from '../src/db-provider/sqlite.provider';
 import { FormulaFieldDto } from '../src/features/field/model/field-dto/formula-field.dto';
 
