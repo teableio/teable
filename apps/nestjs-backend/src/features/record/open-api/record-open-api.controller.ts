@@ -230,7 +230,7 @@ export class RecordOpenApiController {
   }
 
   @Permissions('record|update')
-  @Patch(':recordId/:fieldId/button-reset')
+  @Post(':recordId/:fieldId/button-reset')
   async buttonReset(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
