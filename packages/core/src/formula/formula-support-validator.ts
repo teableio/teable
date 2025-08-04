@@ -143,7 +143,7 @@ export class FormulaSupportValidator {
     return match(funcName)
       .with('NOW', () => this.supportValidator.now())
       .with('TODAY', () => this.supportValidator.today())
-      .with('DATEADD', () => this.supportValidator.dateAdd(dummyParam, dummyParam, dummyParam))
+      .with('DATE_ADD', () => this.supportValidator.dateAdd(dummyParam, dummyParam, dummyParam))
       .with('DATESTR', () => this.supportValidator.datestr(dummyParam))
       .with('DATETIME_DIFF', () =>
         this.supportValidator.datetimeDiff(dummyParam, dummyParam, dummyParam)
@@ -216,7 +216,7 @@ export class FormulaSupportValidator {
 
     return match(funcName)
       .with('RECORD_ID', () => this.supportValidator.recordId())
-      .with('AUTONUMBER', () => this.supportValidator.autoNumber())
+      .with('AUTO_NUMBER', () => this.supportValidator.autoNumber())
       .with('TEXT_ALL', () => this.supportValidator.textAll(dummyParam))
       .otherwise(() => false);
   }

@@ -1,5 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { IFormulaConversionContext } from '@teable/core';
+import { FieldType, DbFieldType, CellValueType } from '@teable/core';
+import { createFieldInstanceByVo } from '../../features/field/model/factory';
 import { GeneratedColumnQueryPostgres } from './postgres/generated-column-query.postgres';
 import { GeneratedColumnQuerySqlite } from './sqlite/generated-column-query.sqlite';
 
@@ -239,8 +242,20 @@ describe('GeneratedColumnQuery', () => {
       });
 
       it('should set and use context', () => {
-        const context = {
-          fieldMap: { fld1: { columnName: 'test_column' } },
+        const fieldMap = new Map();
+        const field1 = createFieldInstanceByVo({
+          id: 'fld1',
+          name: 'Field 1',
+          type: FieldType.SingleLineText,
+          dbFieldName: 'test_column',
+          dbFieldType: DbFieldType.Text,
+          cellValueType: CellValueType.String,
+          options: {},
+        });
+        fieldMap.set('fld1', field1);
+
+        const context: IFormulaConversionContext = {
+          fieldMap,
           timeZone: 'UTC',
           isGeneratedColumn: true,
         };

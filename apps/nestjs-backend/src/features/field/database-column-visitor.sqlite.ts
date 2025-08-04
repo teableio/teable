@@ -93,7 +93,6 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
 
   private createFormulaColumns(field: FormulaFieldCore): void {
     // Create the standard formula column
-    this.createStandardColumn(field);
 
     // If dbGenerated is enabled, create a generated column or fallback column
     if (field.options.dbGenerated && this.context.dbProvider && this.context.fieldMap) {
@@ -108,52 +107,28 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
       const isSupported = field.validateGeneratedColumnSupport(supportValidator);
 
       if (isSupported) {
-        try {
-          const conversionContext: IFormulaConversionContext = {
-            fieldMap: this.context.fieldMap || new Map(),
-            isGeneratedColumn: true, // Mark this as a generated column context
-          };
+        const conversionContext: IFormulaConversionContext = {
+          fieldMap: this.context.fieldMap || new Map(),
+          isGeneratedColumn: true, // Mark this as a generated column context
+        };
 
-          const conversionResult = this.context.dbProvider.convertFormulaToGeneratedColumn(
-            expressionToConvert,
-            conversionContext
-          );
-
-          // Create generated column using specificType
-          // SQLite syntax: GENERATED ALWAYS AS (expression) VIRTUAL/STORED
-          // Note: For ALTER TABLE operations, SQLite doesn't support STORED generated columns
-          const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
-          const notNullClause = this.context.notNull ? ' NOT NULL' : '';
-          const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) ${storageType}${notNullClause}`;
-
-          this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
-        } catch (error) {
-          // If formula conversion fails, create fallback column
-          console.warn(
-            `Failed to create generated column for formula field ${field.id}, creating fallback column:`,
-            error
-          );
-          this.createFallbackColumn(generatedColumnName, columnType);
-        }
-      } else {
-        // Formula contains unsupported functions, create fallback column
-        console.info(
-          `Formula contains unsupported functions for generated column, creating fallback column for field ${field.id}`
+        const conversionResult = this.context.dbProvider.convertFormulaToGeneratedColumn(
+          expressionToConvert,
+          conversionContext
         );
-        this.createFallbackColumn(generatedColumnName, columnType);
-      }
-    }
-  }
 
-  /**
-   * Creates a fallback column when generated column creation is not supported
-   * @param columnName The name of the column to create
-   * @param columnType The SQLite column type
-   */
-  private createFallbackColumn(columnName: string, columnType: string): void {
-    // Create a regular column with the same name and type as the generated column would have
-    const notNullClause = this.context.notNull ? ' NOT NULL' : '';
-    this.context.table.specificType(columnName, `${columnType}${notNullClause}`);
+        // Create generated column using specificType
+        // SQLite syntax: GENERATED ALWAYS AS (expression) VIRTUAL/STORED
+        // Note: For ALTER TABLE operations, SQLite doesn't support STORED generated columns
+        const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+        const notNullClause = this.context.notNull ? ' NOT NULL' : '';
+        const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) ${storageType}${notNullClause}`;
+
+        this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
+      }
+    } else {
+      this.createStandardColumn(field);
+    }
   }
 
   private getSqliteColumnType(dbFieldType: DbFieldType): string {

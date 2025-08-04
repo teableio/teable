@@ -9,11 +9,13 @@ import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract
 export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
-    return `SUM(${this.joinParams(params)})`;
+    // Use addition instead of SUM() aggregation function for generated columns
+    return `(${params.join(' + ')})`;
   }
 
   average(params: string[]): string {
-    return `AVG(${this.joinParams(params)})`;
+    // Use addition and division instead of AVG() aggregation function for generated columns
+    return `(${params.join(' + ')}) / ${params.length}`;
   }
 
   max(params: string[]): string {
@@ -282,7 +284,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   lastModifiedTime(): string {
     // This would typically reference a system column
-    return '__last_modified_time__';
+    return '"__last_modified_time"';
   }
 
   minute(date: string): string {
@@ -334,7 +336,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   createdTime(): string {
     // This would typically reference a system column
-    return '__created_time__';
+    return '"__created_time"';
   }
 
   // Logical Functions
@@ -439,12 +441,12 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // System Functions
   recordId(): string {
     // Reference the primary key column
-    return '__id';
+    return '"__id"';
   }
 
   autoNumber(): string {
     // Reference the auto-increment column
-    return '__auto_number';
+    return '"__auto_number"';
   }
 
   textAll(value: string): string {

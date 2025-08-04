@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable/core';
@@ -29,17 +30,7 @@ describe('FormulaFieldService', () => {
         {
           provide: PrismaService,
           useValue: {
-            txClient: () => ({
-              $queryRawUnsafe: vi.fn(),
-              field: {
-                create: vi.fn(),
-                deleteMany: vi.fn(),
-              },
-              reference: {
-                create: vi.fn(),
-                deleteMany: vi.fn(),
-              },
-            }),
+            txClient: vi.fn(),
           },
         },
       ],
@@ -54,19 +45,32 @@ describe('FormulaFieldService', () => {
   });
 
   describe('getDependentFormulaFieldsInOrder', () => {
+    let mockQueryRawUnsafe: any;
+
     beforeEach(() => {
-      vi.clearAllMocks();
+      mockQueryRawUnsafe = vi.fn();
+      vi.mocked(prismaService.txClient).mockReturnValue({
+        $queryRawUnsafe: mockQueryRawUnsafe,
+        field: {
+          create: vi.fn(),
+          deleteMany: vi.fn(),
+        },
+        reference: {
+          create: vi.fn(),
+          deleteMany: vi.fn(),
+        },
+      } as any);
     });
 
     it('should return empty array when no dependencies exist', async () => {
       // Mock empty result
       const mockQueryResult: any[] = [];
-      vi.mocked(prismaService.txClient().$queryRawUnsafe).mockResolvedValue(mockQueryResult);
+      mockQueryRawUnsafe.mockResolvedValue(mockQueryResult);
 
       const result = await service.getDependentFormulaFieldsInOrder(fieldIds.textA);
 
       expect(result).toEqual([]);
-      expect(prismaService.txClient().$queryRawUnsafe).toHaveBeenCalledWith(
+      expect(mockQueryRawUnsafe).toHaveBeenCalledWith(
         expect.stringContaining('WITH RECURSIVE dependent_fields'),
         fieldIds.textA,
         FieldType.Formula
@@ -76,7 +80,7 @@ describe('FormulaFieldService', () => {
     it('should handle single level dependencies (A → B)', async () => {
       // Mock result: textA → formulaB
       const mockQueryResult = [{ id: fieldIds.formulaB, table_id: testTableId, level: 1 }];
-      vi.mocked(prismaService.txClient().$queryRawUnsafe).mockResolvedValue(mockQueryResult);
+      mockQueryRawUnsafe.mockResolvedValue(mockQueryResult);
 
       const result = await service.getDependentFormulaFieldsInOrder(fieldIds.textA);
 
@@ -90,7 +94,7 @@ describe('FormulaFieldService', () => {
         { id: fieldIds.formulaC, table_id: testTableId, level: 2 },
         { id: fieldIds.formulaB, table_id: testTableId, level: 1 },
       ];
-      vi.mocked(prismaService.txClient().$queryRawUnsafe).mockResolvedValue(mockQueryResult);
+      mockQueryRawUnsafe.mockResolvedValue(mockQueryResult);
 
       const result = await service.getDependentFormulaFieldsInOrder(fieldIds.textA);
 
@@ -109,7 +113,7 @@ describe('FormulaFieldService', () => {
         { id: fieldIds.formulaB, table_id: testTableId, level: 1 },
         { id: fieldIds.formulaC, table_id: testTableId, level: 1 },
       ];
-      vi.mocked(prismaService.txClient().$queryRawUnsafe).mockResolvedValue(mockQueryResult);
+      mockQueryRawUnsafe.mockResolvedValue(mockQueryResult);
 
       const result = await service.getDependentFormulaFieldsInOrder(fieldIds.textA);
 
@@ -133,7 +137,7 @@ describe('FormulaFieldService', () => {
         { id: fieldIds.formulaB, table_id: testTableId, level: 1 }, // A → B
         { id: fieldIds.formulaC, table_id: testTableId, level: 1 }, // A → C
       ];
-      vi.mocked(prismaService.txClient().$queryRawUnsafe).mockResolvedValue(mockQueryResult);
+      mockQueryRawUnsafe.mockResolvedValue(mockQueryResult);
 
       const result = await service.getDependentFormulaFieldsInOrder(fieldIds.textA);
 

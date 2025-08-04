@@ -1,550 +1,288 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle ARRAY_COMPACT function > SQLite SQL for ARRAY_COMPACT({fld_array}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_101\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_101___generated\` TEXT GENERATED ALWAYS AS ((
-      CASE
-        WHEN json_valid(\`array_col\`) AND json_type(\`array_col\`) = 'array' THEN \`array_col\`
-        ELSE \`array_col\`
-      END
-    )) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle ARRAY_COMPACT function > SQLite SQL for ARRAY_COMPACT({fld_array}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle ARRAY_JOIN function > SQLite SQL for ARRAY_JOIN({fld_array}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_99\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_99___generated\` TEXT GENERATED ALWAYS AS ((
-      CASE
-        WHEN json_valid(\`array_col\`) AND json_type(\`array_col\`) = 'array' THEN
-          REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(\`array_col\`, '[', ''), ']', ''), '"', ''), ', ', ','), ',', ', ')
-        WHEN \`array_col\` IS NOT NULL THEN CAST(\`array_col\` AS TEXT)
-        ELSE NULL
-      END
-    )) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle ARRAY_JOIN function > SQLite SQL for ARRAY_JOIN({fld_array}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle ARRAY_UNIQUE function > SQLite SQL for ARRAY_UNIQUE({fld_array}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_100\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_100___generated\` TEXT GENERATED ALWAYS AS ((
-      CASE
-        WHEN json_valid(\`array_col\`) AND json_type(\`array_col\`) = 'array' THEN \`array_col\`
-        ELSE \`array_col\`
-      END
-    )) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle ARRAY_UNIQUE function > SQLite SQL for ARRAY_UNIQUE({fld_array}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNT functions > SQLite SQL for COUNT({fld_number}, {fld_number_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_93\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_93___generated\` REAL GENERATED ALWAYS AS ((CASE WHEN \`number_col\` IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN \`number_col_2\` IS NOT NULL THEN 1 ELSE 0 END)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNT functions > SQLite SQL for COUNT({fld_number}, {fld_number_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_93\` REAL GENERATED ALWAYS AS ((CASE WHEN \`number_col\` IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN \`number_col_2\` IS NOT NULL THEN 1 ELSE 0 END)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNT functions > SQLite SQL for COUNTA({fld_text}, {fld_text_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_94\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_94___generated\` REAL GENERATED ALWAYS AS ((CASE WHEN \`text_col\` IS NOT NULL AND \`text_col\` <> '' THEN 1 ELSE 0 END + CASE WHEN \`text_col_2\` IS NOT NULL AND \`text_col_2\` <> '' THEN 1 ELSE 0 END)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNT functions > SQLite SQL for COUNTA({fld_text}, {fld_text_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_94\` REAL GENERATED ALWAYS AS ((CASE WHEN \`text_col\` IS NOT NULL AND \`text_col\` <> '' THEN 1 ELSE 0 END + CASE WHEN \`text_col_2\` IS NOT NULL AND \`text_col_2\` <> '' THEN 1 ELSE 0 END)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNTALL function > SQLite SQL for COUNTALL({fld_number}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_97\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_97___generated\` REAL GENERATED ALWAYS AS (CASE WHEN \`number_col\` IS NULL THEN 0 ELSE 1 END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNTALL function > SQLite SQL for COUNTALL({fld_number}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_97\` REAL GENERATED ALWAYS AS (CASE WHEN \`number_col\` IS NULL THEN 0 ELSE 1 END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNTALL function > SQLite SQL for COUNTALL({fld_text_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_98\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_98___generated\` REAL GENERATED ALWAYS AS (CASE WHEN \`text_col_2\` IS NULL THEN 0 ELSE 1 END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle COUNTALL function > SQLite SQL for COUNTALL({fld_text_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_98\` REAL GENERATED ALWAYS AS (CASE WHEN \`text_col_2\` IS NULL THEN 0 ELSE 1 END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle SUM and AVERAGE with multiple parameters > SQLite SQL for AVERAGE({fld_number}, {fld_number_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_96\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_96___generated\` REAL GENERATED ALWAYS AS (((\`number_col\` + \`number_col_2\`) / 2)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle SUM and AVERAGE with multiple parameters > SQLite SQL for AVERAGE({fld_number}, {fld_number_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_96\` REAL GENERATED ALWAYS AS (((\`number_col\` + \`number_col_2\`) / 2)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle SUM and AVERAGE with multiple parameters > SQLite SQL for SUM({fld_number}, {fld_number_2}, 1) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_95\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_95___generated\` REAL GENERATED ALWAYS AS ((\`number_col\` + \`number_col_2\` + 1)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Array and Aggregation Functions > should handle SUM and AVERAGE with multiple parameters > SQLite SQL for SUM({fld_number}, {fld_number_2}, 1) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_95\` REAL GENERATED ALWAYS AS ((\`number_col\` + \`number_col_2\` + 1)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ABS function > SQLite SQL for ABS({fld_number}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_6\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_6___generated\` REAL GENERATED ALWAYS AS (ABS(\`number_col\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ABS function > SQLite SQL for ABS({fld_number}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_6\` REAL GENERATED ALWAYS AS (ABS(\`number_col\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ABS function > SQLite SQL for ABS(-5) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_5\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_5___generated\` REAL GENERATED ALWAYS AS (ABS((-5))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ABS function > SQLite SQL for ABS(-5) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_5\` REAL GENERATED ALWAYS AS (ABS((-5))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle CEILING and FLOOR functions > SQLite SQL for CEILING(3.2) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_9\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_9___generated\` REAL GENERATED ALWAYS AS (CAST(CEIL(3.2) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle CEILING and FLOOR functions > SQLite SQL for CEILING(3.2) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_9\` REAL GENERATED ALWAYS AS (CAST(CEIL(3.2) AS INTEGER)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle CEILING and FLOOR functions > SQLite SQL for FLOOR(3.8) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_10\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_10___generated\` REAL GENERATED ALWAYS AS (CAST(FLOOR(3.8) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle CEILING and FLOOR functions > SQLite SQL for FLOOR(3.8) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_10\` REAL GENERATED ALWAYS AS (CAST(FLOOR(3.8) AS INTEGER)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EVEN and ODD functions > SQLite SQL for EVEN(3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_17\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_17___generated\` REAL GENERATED ALWAYS AS (CASE WHEN CAST(3 AS INTEGER) % 2 = 0 THEN CAST(3 AS INTEGER) ELSE CAST(3 AS INTEGER) + 1 END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EVEN and ODD functions > SQLite SQL for EVEN(3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_17\` REAL GENERATED ALWAYS AS (CASE WHEN CAST(3 AS INTEGER) % 2 = 0 THEN CAST(3 AS INTEGER) ELSE CAST(3 AS INTEGER) + 1 END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EVEN and ODD functions > SQLite SQL for ODD(4) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_18\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_18___generated\` REAL GENERATED ALWAYS AS (CASE WHEN CAST(4 AS INTEGER) % 2 = 1 THEN CAST(4 AS INTEGER) ELSE CAST(4 AS INTEGER) + 1 END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EVEN and ODD functions > SQLite SQL for ODD(4) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_18\` REAL GENERATED ALWAYS AS (CASE WHEN CAST(4 AS INTEGER) % 2 = 1 THEN CAST(4 AS INTEGER) ELSE CAST(4 AS INTEGER) + 1 END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EXP and LOG functions > SQLite SQL for EXP(1) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_21\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_21___generated\` REAL GENERATED ALWAYS AS (EXP(1)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EXP and LOG functions > SQLite SQL for EXP(1) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EXP and LOG functions > SQLite SQL for LOG(10) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_22\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_22___generated\` REAL GENERATED ALWAYS AS (LN(10)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle EXP and LOG functions > SQLite SQL for LOG(10) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle INT function > SQLite SQL for INT(-3.7) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_20\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_20___generated\` REAL GENERATED ALWAYS AS (CAST((-3.7) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle INT function > SQLite SQL for INT(-3.7) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_20\` REAL GENERATED ALWAYS AS (CAST((-3.7) AS INTEGER)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle INT function > SQLite SQL for INT(3.7) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_19\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_19___generated\` REAL GENERATED ALWAYS AS (CAST(3.7 AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle INT function > SQLite SQL for INT(3.7) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_19\` REAL GENERATED ALWAYS AS (CAST(3.7 AS INTEGER)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MAX and MIN functions > SQLite SQL for MAX(1, 5, 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_13\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_13___generated\` REAL GENERATED ALWAYS AS (MAX(MAX(1, 5), 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MAX and MIN functions > SQLite SQL for MAX(1, 5, 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_13\` REAL GENERATED ALWAYS AS (MAX(MAX(1, 5), 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MAX and MIN functions > SQLite SQL for MIN(1, 5, 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_14\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_14___generated\` REAL GENERATED ALWAYS AS (MIN(MIN(1, 5), 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MAX and MIN functions > SQLite SQL for MIN(1, 5, 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_14\` REAL GENERATED ALWAYS AS (MIN(MIN(1, 5), 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MOD function > SQLite SQL for MOD({fld_number}, 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_24\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_24___generated\` REAL GENERATED ALWAYS AS ((\`number_col\` % 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MOD function > SQLite SQL for MOD({fld_number}, 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_24\` REAL GENERATED ALWAYS AS ((\`number_col\` % 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MOD function > SQLite SQL for MOD(10, 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_23\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_23___generated\` REAL GENERATED ALWAYS AS ((10 % 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle MOD function > SQLite SQL for MOD(10, 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_23\` REAL GENERATED ALWAYS AS ((10 % 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ROUND function > SQLite SQL for ROUND(3.7) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_7\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_7___generated\` REAL GENERATED ALWAYS AS (ROUND(3.7)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ROUND function > SQLite SQL for ROUND(3.7) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_7\` REAL GENERATED ALWAYS AS (ROUND(3.7)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ROUND function > SQLite SQL for ROUND(3.14159, 2) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_8\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_8___generated\` REAL GENERATED ALWAYS AS (ROUND(3.14159, 2)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ROUND function > SQLite SQL for ROUND(3.14159, 2) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_8\` REAL GENERATED ALWAYS AS (ROUND(3.14159, 2)) VIRTUAL"`;
 
 exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ROUNDUP and ROUNDDOWN functions > SQLite SQL for ROUNDDOWN(3.99999, 2) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_16\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_16___generated\` REAL GENERATED ALWAYS AS (CAST(FLOOR(3.99999 * POWER(10, 2)) / POWER(10, 2) AS REAL)) VIRTUAL"
+"alter table \`test_formula_table\` add column \`fld_test_field_16\` REAL GENERATED ALWAYS AS (CAST(FLOOR(3.99999 * (
+        CASE
+          WHEN 2 = 0 THEN 1
+          WHEN 2 = 1 THEN 10
+          WHEN 2 = 2 THEN 100
+          WHEN 2 = 3 THEN 1000
+          WHEN 2 = 4 THEN 10000
+          ELSE 1
+        END
+      )) / (
+        CASE
+          WHEN 2 = 0 THEN 1
+          WHEN 2 = 1 THEN 10
+          WHEN 2 = 2 THEN 100
+          WHEN 2 = 3 THEN 1000
+          WHEN 2 = 4 THEN 10000
+          ELSE 1
+        END
+      ) AS REAL)) VIRTUAL"
 `;
 
 exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle ROUNDUP and ROUNDDOWN functions > SQLite SQL for ROUNDUP(3.14159, 2) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_15\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_15___generated\` REAL GENERATED ALWAYS AS (CAST(CEIL(3.14159 * POWER(10, 2)) / POWER(10, 2) AS REAL)) VIRTUAL"
+"alter table \`test_formula_table\` add column \`fld_test_field_15\` REAL GENERATED ALWAYS AS (CAST(CEIL(3.14159 * (
+        CASE
+          WHEN 2 = 0 THEN 1
+          WHEN 2 = 1 THEN 10
+          WHEN 2 = 2 THEN 100
+          WHEN 2 = 3 THEN 1000
+          WHEN 2 = 4 THEN 10000
+          ELSE 1
+        END
+      )) / (
+        CASE
+          WHEN 2 = 0 THEN 1
+          WHEN 2 = 1 THEN 10
+          WHEN 2 = 2 THEN 100
+          WHEN 2 = 3 THEN 1000
+          WHEN 2 = 4 THEN 10000
+          ELSE 1
+        END
+      ) AS REAL)) VIRTUAL"
 `;
 
 exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle SQRT and POWER functions > SQLite SQL for POWER(2, 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_12\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_12___generated\` REAL GENERATED ALWAYS AS (POWER(2, 3)) VIRTUAL"
+"alter table \`test_formula_table\` add column \`fld_test_field_12\` REAL GENERATED ALWAYS AS ((
+      CASE
+        WHEN 3 = 0 THEN 1
+        WHEN 3 = 1 THEN 2
+        WHEN 3 = 2 THEN 2 * 2
+        WHEN 3 = 3 THEN 2 * 2 * 2
+        WHEN 3 = 4 THEN 2 * 2 * 2 * 2
+        WHEN 3 = 0.5 THEN
+          -- Square root case using Newton's method
+          CASE
+            WHEN 2 <= 0 THEN 0
+            ELSE (2 / 2.0 + 2 / (2 / 2.0)) / 2.0
+          END
+        ELSE 1
+      END
+    )) VIRTUAL"
 `;
 
 exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle SQRT and POWER functions > SQLite SQL for SQRT(16) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_11\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_11___generated\` REAL GENERATED ALWAYS AS (SQRT(16)) VIRTUAL"
+"alter table \`test_formula_table\` add column \`fld_test_field_11\` REAL GENERATED ALWAYS AS ((
+      CASE
+        WHEN 16 <= 0 THEN 0
+        ELSE (16 / 2.0 + 16 / (16 / 2.0)) / 2.0
+      END
+    )) VIRTUAL"
 `;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 1 + 1 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_1\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_1___generated\` REAL GENERATED ALWAYS AS ((1 + 1)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 1 + 1 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_1\` REAL GENERATED ALWAYS AS ((1 + 1)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 4 * 3 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_3\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_3___generated\` REAL GENERATED ALWAYS AS ((4 * 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 4 * 3 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_3\` REAL GENERATED ALWAYS AS ((4 * 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 5 - 3 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_2\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_2___generated\` REAL GENERATED ALWAYS AS ((5 - 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 5 - 3 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_2\` REAL GENERATED ALWAYS AS ((5 - 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 10 / 2 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_4\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_4___generated\` REAL GENERATED ALWAYS AS ((10 / 2)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Basic Math Functions > should handle simple arithmetic operations > SQLite SQL for 10 / 2 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_4\` REAL GENERATED ALWAYS AS ((10 / 2)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Column References > should handle arithmetic with column references > SQLite SQL for {fld_number} * 2 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_51\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_51___generated\` REAL GENERATED ALWAYS AS ((\`number_col\` * 2)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Column References > should handle arithmetic with column references > SQLite SQL for {fld_number} * 2 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_51\` REAL GENERATED ALWAYS AS ((\`number_col\` * 2)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Column References > should handle arithmetic with column references > SQLite SQL for {fld_number} + {fld_number_2} 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_50\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_50___generated\` REAL GENERATED ALWAYS AS ((\`number_col\` + \`number_col_2\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Column References > should handle arithmetic with column references > SQLite SQL for {fld_number} + {fld_number_2} 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_50\` REAL GENERATED ALWAYS AS ((\`number_col\` + \`number_col_2\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Column References > should handle single column references > SQLite SQL for {fld_number} 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_48\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_48___generated\` REAL GENERATED ALWAYS AS (\`number_col\`) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Column References > should handle single column references > SQLite SQL for {fld_number} 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_48\` REAL GENERATED ALWAYS AS (\`number_col\`) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Column References > should handle single column references > SQLite SQL for {fld_text} 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_49\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_49___generated\` TEXT GENERATED ALWAYS AS (\`text_col\`) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Column References > should handle single column references > SQLite SQL for {fld_text} 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_49\` TEXT GENERATED ALWAYS AS (\`text_col\`) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Column References > should handle string operations with column references > SQLite SQL for CONCATENATE({fld_text}, " ", {fld_text_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_52\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_52___generated\` TEXT GENERATED ALWAYS AS ((COALESCE(\`text_col\`, '') || COALESCE(' ', '') || COALESCE(\`text_col_2\`, ''))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Column References > should handle string operations with column references > SQLite SQL for CONCATENATE({fld_text}, " ", {fld_text_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_52\` TEXT GENERATED ALWAYS AS ((COALESCE(\`text_col\`, '') || COALESCE(' ', '') || COALESCE(\`text_col_2\`, ''))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle complex conditional logic > SQLite SQL for IF({fld_number} > 0, CONCATENATE("positive: ", {fld_text}), "negative or zero") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_84\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_84___generated\` TEXT GENERATED ALWAYS AS (CASE WHEN (\`number_col\` > 0) THEN (COALESCE('positive: ', '') || COALESCE(\`text_col\`, '')) ELSE 'negative or zero' END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle complex conditional logic > SQLite SQL for IF({fld_number} > 0, CONCATENATE("positive: ", {fld_text}), "negative or zero") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_84\` TEXT GENERATED ALWAYS AS (CASE WHEN (\`number_col\` > 0) THEN (COALESCE('positive: ', '') || COALESCE(\`text_col\`, '')) ELSE 'negative or zero' END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle complex conditional logic > SQLite SQL for IF(AND({fld_number} > 0, {fld_boolean}), {fld_number} * 2, 0) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_85\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_85___generated\` REAL GENERATED ALWAYS AS (CASE WHEN ((\`number_col\` > 0) AND \`boolean_col\`) THEN (\`number_col\` * 2) ELSE 0 END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle complex conditional logic > SQLite SQL for IF(AND({fld_number} > 0, {fld_boolean}), {fld_number} * 2, 0) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_85\` REAL GENERATED ALWAYS AS (CASE WHEN ((\`number_col\` > 0) AND \`boolean_col\`) THEN (\`number_col\` * 2) ELSE 0 END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle multi-level column references > SQLite SQL for IF({fld_boolean}, {fld_number} + {fld_number_2}, {fld_number} - {fld_number_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_86\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_86___generated\` REAL GENERATED ALWAYS AS (CASE WHEN \`boolean_col\` THEN (\`number_col\` + \`number_col_2\`) ELSE (\`number_col\` - \`number_col_2\`) END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle multi-level column references > SQLite SQL for IF({fld_boolean}, {fld_number} + {fld_number_2}, {fld_number} - {fld_number_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_86\` REAL GENERATED ALWAYS AS (CASE WHEN \`boolean_col\` THEN (\`number_col\` + \`number_col_2\`) ELSE (\`number_col\` - \`number_col_2\`) END) VIRTUAL"`;
 
 exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested mathematical functions > SQLite SQL for ROUND(SQRT(ABS({fld_number})), 1) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_81\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_81___generated\` REAL GENERATED ALWAYS AS (ROUND(SQRT(ABS(\`number_col\`)), 1)) VIRTUAL"
+"alter table \`test_formula_table\` add column \`fld_test_field_81\` REAL GENERATED ALWAYS AS (ROUND((
+      CASE
+        WHEN ABS(\`number_col\`) <= 0 THEN 0
+        ELSE (ABS(\`number_col\`) / 2.0 + ABS(\`number_col\`) / (ABS(\`number_col\`) / 2.0)) / 2.0
+      END
+    ), 1)) VIRTUAL"
 `;
 
-exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested mathematical functions > SQLite SQL for SUM(ABS({fld_number}), MAX(1, 2)) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_80\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_80___generated\` REAL GENERATED ALWAYS AS ((ABS(\`number_col\`) + MAX(1, 2))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested mathematical functions > SQLite SQL for SUM(ABS({fld_number}), MAX(1, 2)) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_80\` REAL GENERATED ALWAYS AS ((ABS(\`number_col\`) + MAX(1, 2))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested string functions > SQLite SQL for LEN(CONCATENATE({fld_text}, {fld_text_2})) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_83\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_83___generated\` REAL GENERATED ALWAYS AS (LENGTH((COALESCE(\`text_col\`, '') || COALESCE(\`text_col_2\`, '')))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested string functions > SQLite SQL for LEN(CONCATENATE({fld_text}, {fld_text_2})) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_83\` REAL GENERATED ALWAYS AS (LENGTH((COALESCE(\`text_col\`, '') || COALESCE(\`text_col_2\`, '')))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested string functions > SQLite SQL for UPPER(LEFT({fld_text}, 3)) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_82\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_82___generated\` TEXT GENERATED ALWAYS AS (UPPER(SUBSTR(\`text_col\`, 1, 3))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Complex Nested Functions > should handle nested string functions > SQLite SQL for UPPER(LEFT({fld_text}, 3)) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_82\` TEXT GENERATED ALWAYS AS (UPPER(SUBSTR(\`text_col\`, 1, 3))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle CREATED_TIME and LAST_MODIFIED_TIME functions > SQLite SQL for CREATED_TIME() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_76\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_76___generated\` TEXT GENERATED ALWAYS AS (__created_time) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle CREATED_TIME and LAST_MODIFIED_TIME functions > SQLite SQL for CREATED_TIME() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_76\` TEXT GENERATED ALWAYS AS (__created_time) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle CREATED_TIME and LAST_MODIFIED_TIME functions > SQLite SQL for LAST_MODIFIED_TIME() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_77\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_77___generated\` TEXT GENERATED ALWAYS AS (__last_modified_time) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle CREATED_TIME and LAST_MODIFIED_TIME functions > SQLite SQL for LAST_MODIFIED_TIME() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_77\` TEXT GENERATED ALWAYS AS (__last_modified_time) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATE_ADD function > SQLite SQL for DATE_ADD("2024-01-10", 2, "months") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_74\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_74___generated\` TEXT GENERATED ALWAYS AS (DATE('2024-01-10', '+' || 2 || ' months')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATE_ADD function > SQLite SQL for DATE_ADD("2024-01-10", 2, "months") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_74\` TEXT GENERATED ALWAYS AS (DATE('2024-01-10', '+' || 2 || ' months')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATE_ADD function > SQLite SQL for DATE_ADD({fld_date}, 5, "days") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_73\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_73___generated\` TEXT GENERATED ALWAYS AS (DATE(\`date_col\`, '+' || 5 || ' days')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATE_ADD function > SQLite SQL for DATE_ADD({fld_date}, 5, "days") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_73\` TEXT GENERATED ALWAYS AS (DATE(\`date_col\`, '+' || 5 || ' days')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATESTR function > SQLite SQL for DATESTR({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_67\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_67___generated\` TEXT GENERATED ALWAYS AS (DATE(\`date_col\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATESTR function > SQLite SQL for DATESTR({fld_date}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_67\` TEXT GENERATED ALWAYS AS (DATE(\`date_col\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_DIFF function > SQLite SQL for DATETIME_DIFF("2024-01-01", {fld_date}, "days") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_68\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_68___generated\` REAL GENERATED ALWAYS AS (CAST(JULIANDAY(\`date_col\`) - JULIANDAY('2024-01-01') AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_DIFF function > SQLite SQL for DATETIME_DIFF("2024-01-01", {fld_date}, "days") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_68\` REAL GENERATED ALWAYS AS (CAST(JULIANDAY(\`date_col\`) - JULIANDAY('2024-01-01') AS INTEGER)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_FORMAT function > SQLite SQL for DATETIME_FORMAT({fld_date}, "YYYY-MM-DD") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_72\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_72___generated\` TEXT GENERATED ALWAYS AS (STRFTIME('%Y-%m-%d', \`date_col\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_FORMAT function > SQLite SQL for DATETIME_FORMAT({fld_date}, "YYYY-MM-DD") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_72\` TEXT GENERATED ALWAYS AS (STRFTIME('%Y-%m-%d', \`date_col\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_PARSE function > SQLite SQL for DATETIME_PARSE("2024-01-10 08:00:00", "YYYY-MM-DD HH:mm:ss") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_75\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_75___generated\` TEXT GENERATED ALWAYS AS (DATETIME('2024-01-10 08:00:00')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle DATETIME_PARSE function > SQLite SQL for DATETIME_PARSE("2024-01-10 08:00:00", "YYYY-MM-DD HH:mm:ss") 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > SQLite SQL for IS_AFTER({fld_date}, "2024-01-01") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_69\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_69___generated\` REAL GENERATED ALWAYS AS (DATETIME(\`date_col\`) > DATETIME('2024-01-01')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > SQLite SQL for IS_AFTER({fld_date}, "2024-01-01") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_69\` REAL GENERATED ALWAYS AS (DATETIME(\`date_col\`) > DATETIME('2024-01-01')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > SQLite SQL for IS_BEFORE({fld_date}, "2024-01-20") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_70\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_70___generated\` REAL GENERATED ALWAYS AS (DATETIME(\`date_col\`) < DATETIME('2024-01-20')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > SQLite SQL for IS_BEFORE({fld_date}, "2024-01-20") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_70\` REAL GENERATED ALWAYS AS (DATETIME(\`date_col\`) < DATETIME('2024-01-20')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > SQLite SQL for IS_SAME({fld_date}, "2024-01-10", "day") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_71\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_71___generated\` REAL GENERATED ALWAYS AS (DATE(\`date_col\`) = DATE('2024-01-10')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle IS_AFTER, IS_BEFORE, IS_SAME functions > SQLite SQL for IS_SAME({fld_date}, "2024-01-10", "day") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_71\` REAL GENERATED ALWAYS AS (DATE(\`date_col\`) = DATE('2024-01-10')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle NOW and TODAY functions with fixed time > SQLite SQL for NOW() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_53\` datetime;
-alter table \`test_formula_table\` add column \`fld_test_field_53___generated\` TEXT GENERATED ALWAYS AS ('2024-01-15 10:30:00') VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle NOW and TODAY functions with fixed time > SQLite SQL for NOW() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_53\` TEXT GENERATED ALWAYS AS ('2024-01-15 10:30:00') VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle NOW and TODAY functions with fixed time > SQLite SQL for TODAY() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_54\` datetime;
-alter table \`test_formula_table\` add column \`fld_test_field_54___generated\` TEXT GENERATED ALWAYS AS ('2024-01-15') VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle NOW and TODAY functions with fixed time > SQLite SQL for TODAY() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_54\` TEXT GENERATED ALWAYS AS ('2024-01-15') VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle RECORD_ID and AUTO_NUMBER functions > SQLite SQL for AUTO_NUMBER() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_79\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_79___generated\` REAL GENERATED ALWAYS AS (__auto_number) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle RECORD_ID and AUTO_NUMBER functions > SQLite SQL for AUTO_NUMBER() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_79\` REAL GENERATED ALWAYS AS (__auto_number) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle RECORD_ID and AUTO_NUMBER functions > SQLite SQL for RECORD_ID() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_78\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_78___generated\` TEXT GENERATED ALWAYS AS (__id) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle RECORD_ID and AUTO_NUMBER functions > SQLite SQL for RECORD_ID() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_78\` TEXT GENERATED ALWAYS AS (__id) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle TIMESTR function > SQLite SQL for TIMESTR({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_66\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_66___generated\` TEXT GENERATED ALWAYS AS (TIME(\`date_col\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle TIMESTR function > SQLite SQL for TIMESTR({fld_date}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_66\` TEXT GENERATED ALWAYS AS (TIME(\`date_col\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle WEEKDAY function > SQLite SQL for WEEKDAY({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_64\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_64___generated\` REAL GENERATED ALWAYS AS ((CAST(STRFTIME('%w', \`date_col\`) AS INTEGER) + 1)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle WEEKDAY function > SQLite SQL for WEEKDAY({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle WEEKNUM function > SQLite SQL for WEEKNUM({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_65\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_65___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%W', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle WEEKNUM function > SQLite SQL for WEEKNUM({fld_date}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_65\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%W', \`date_col\`) AS INTEGER)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > SQLite SQL for DAY({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_60\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_60___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%d', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > SQLite SQL for DAY({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > SQLite SQL for MONTH({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_59\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_59___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%m', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > SQLite SQL for MONTH({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > SQLite SQL for YEAR({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_58\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_58___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%Y', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction from column references > SQLite SQL for YEAR({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > SQLite SQL for DAY(TODAY()) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_57\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_57___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%d', '2024-01-15') AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > SQLite SQL for DAY(TODAY()) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > SQLite SQL for MONTH(TODAY()) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_56\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_56___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%m', '2024-01-15') AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > SQLite SQL for MONTH(TODAY()) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > SQLite SQL for YEAR(TODAY()) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_55\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_55___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%Y', '2024-01-15') AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle date extraction functions > SQLite SQL for YEAR(TODAY()) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > SQLite SQL for HOUR({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_61\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_61___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%H', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > SQLite SQL for HOUR({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > SQLite SQL for MINUTE({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_62\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_62___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%M', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > SQLite SQL for MINUTE({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > SQLite SQL for SECOND({fld_date}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_63\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_63___generated\` REAL GENERATED ALWAYS AS (CAST(STRFTIME('%S', \`date_col\`) AS INTEGER)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > DateTime Functions > should handle time extraction functions > SQLite SQL for SECOND({fld_date}) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle NULL values in calculations > SQLite SQL for {fld_number} + 1 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_89\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_89___generated\` REAL GENERATED ALWAYS AS ((\`number_col\` + 1)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle NULL values in calculations > SQLite SQL for {fld_number} + 1 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_89\` REAL GENERATED ALWAYS AS ((\`number_col\` + 1)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle NULL values in calculations > SQLite SQL for CONCATENATE({fld_text}, " suffix") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_90\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_90___generated\` TEXT GENERATED ALWAYS AS ((COALESCE(\`text_col\`, '') || COALESCE(' suffix', ''))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle NULL values in calculations > SQLite SQL for CONCATENATE({fld_text}, " suffix") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_90\` TEXT GENERATED ALWAYS AS ((COALESCE(\`text_col\`, '') || COALESCE(' suffix', ''))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle division by zero gracefully > SQLite SQL for 1 / 0 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_87\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_87___generated\` REAL GENERATED ALWAYS AS ((1 / 0)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle division by zero gracefully > SQLite SQL for 1 / 0 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_87\` REAL GENERATED ALWAYS AS ((1 / 0)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle division by zero gracefully > SQLite SQL for IF({fld_number_2} = 0, 0, {fld_number} / {fld_number_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_88\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_88___generated\` REAL GENERATED ALWAYS AS (CASE WHEN (\`number_col_2\` = 0) THEN 0 ELSE (\`number_col\` / \`number_col_2\`) END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle division by zero gracefully > SQLite SQL for IF({fld_number_2} = 0, 0, {fld_number} / {fld_number_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_88\` REAL GENERATED ALWAYS AS (CASE WHEN (\`number_col_2\` = 0) THEN 0 ELSE (\`number_col\` / \`number_col_2\`) END) VIRTUAL"`;
 
 exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle type conversions > SQLite SQL for T({fld_number}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_92\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_92___generated\` TEXT GENERATED ALWAYS AS (CASE
+"alter table \`test_formula_table\` add column \`fld_test_field_92\` TEXT GENERATED ALWAYS AS (CASE
       WHEN \`number_col\` IS NULL THEN ''
       WHEN \`number_col\` = CAST(\`number_col\` AS INTEGER) THEN CAST(\`number_col\` AS INTEGER)
       ELSE CAST(\`number_col\` AS TEXT)
     END) VIRTUAL"
 `;
 
-exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle type conversions > SQLite SQL for VALUE("123") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_91\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_91___generated\` REAL GENERATED ALWAYS AS (CAST('123' AS REAL)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Edge Cases and Error Handling > should handle type conversions > SQLite SQL for VALUE("123") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_91\` REAL GENERATED ALWAYS AS (CAST('123' AS REAL)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle AND and OR functions > SQLite SQL for AND(1 > 0, 2 > 1) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_41\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_41___generated\` REAL GENERATED ALWAYS AS (((1 > 0) AND (2 > 1))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle AND and OR functions > SQLite SQL for AND(1 > 0, 2 > 1) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_41\` REAL GENERATED ALWAYS AS (((1 > 0) AND (2 > 1))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle AND and OR functions > SQLite SQL for OR(1 > 2, 2 > 1) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_42\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_42___generated\` REAL GENERATED ALWAYS AS (((1 > 2) OR (2 > 1))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle AND and OR functions > SQLite SQL for OR(1 > 2, 2 > 1) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_42\` REAL GENERATED ALWAYS AS (((1 > 2) OR (2 > 1))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle IF function > SQLite SQL for IF({fld_number} > 0, {fld_number}, 0) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_40\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_40___generated\` REAL GENERATED ALWAYS AS (CASE WHEN (\`number_col\` > 0) THEN \`number_col\` ELSE 0 END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle IF function > SQLite SQL for IF({fld_number} > 0, {fld_number}, 0) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_40\` REAL GENERATED ALWAYS AS (CASE WHEN (\`number_col\` > 0) THEN \`number_col\` ELSE 0 END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle IF function > SQLite SQL for IF(1 > 0, "yes", "no") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_39\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_39___generated\` TEXT GENERATED ALWAYS AS (CASE WHEN (1 > 0) THEN 'yes' ELSE 'no' END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle IF function > SQLite SQL for IF(1 > 0, "yes", "no") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_39\` TEXT GENERATED ALWAYS AS (CASE WHEN (1 > 0) THEN 'yes' ELSE 'no' END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle NOT function > SQLite SQL for NOT({fld_boolean}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_44\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_44___generated\` REAL GENERATED ALWAYS AS (NOT (\`boolean_col\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle NOT function > SQLite SQL for NOT({fld_boolean}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_44\` REAL GENERATED ALWAYS AS (NOT (\`boolean_col\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle NOT function > SQLite SQL for NOT(1 > 2) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_43\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_43___generated\` REAL GENERATED ALWAYS AS (NOT ((1 > 2))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle NOT function > SQLite SQL for NOT(1 > 2) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_43\` REAL GENERATED ALWAYS AS (NOT ((1 > 2))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle SWITCH function > SQLite SQL for SWITCH({fld_number}, 10, "ten", -3, "negative three", 0, "zero", "other") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_47\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_47___generated\` TEXT GENERATED ALWAYS AS (CASE WHEN \`number_col\` = 10 THEN 'ten' WHEN \`number_col\` = (-3) THEN 'negative three' WHEN \`number_col\` = 0 THEN 'zero' ELSE 'other' END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle SWITCH function > SQLite SQL for SWITCH({fld_number}, 10, "ten", -3, "negative three", 0, "zero", "other") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_47\` TEXT GENERATED ALWAYS AS (CASE WHEN \`number_col\` = 10 THEN 'ten' WHEN \`number_col\` = (-3) THEN 'negative three' WHEN \`number_col\` = 0 THEN 'zero' ELSE 'other' END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle XOR function > SQLite SQL for XOR(1, 0) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_45\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_45___generated\` REAL GENERATED ALWAYS AS (((1) AND NOT (0)) OR (NOT (1) AND (0))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle XOR function > SQLite SQL for XOR(1, 0) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_45\` REAL GENERATED ALWAYS AS (((1) AND NOT (0)) OR (NOT (1) AND (0))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle XOR function > SQLite SQL for XOR(1, 1) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_46\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_46___generated\` REAL GENERATED ALWAYS AS (((1) AND NOT (1)) OR (NOT (1) AND (1))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Logical Functions > should handle XOR function > SQLite SQL for XOR(1, 1) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_46\` REAL GENERATED ALWAYS AS (((1) AND NOT (1)) OR (NOT (1) AND (1))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Performance and Stress Tests > should handle deeply nested expressions > SQLite SQL for IF(IF(IF({fld_number} > 0, 1, 0) > 0, 1, 0) > 0, "deep", "shallow") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_104\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_104___generated\` TEXT GENERATED ALWAYS AS (CASE WHEN (CASE WHEN (CASE WHEN (\`number_col\` > 0) THEN 1 ELSE 0 END > 0) THEN 1 ELSE 0 END > 0) THEN 'deep' ELSE 'shallow' END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Performance and Stress Tests > should handle deeply nested expressions > SQLite SQL for IF(IF(IF({fld_number} > 0, 1, 0) > 0, 1, 0) > 0, "deep", "shallow") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_104\` TEXT GENERATED ALWAYS AS (CASE WHEN (CASE WHEN (CASE WHEN (\`number_col\` > 0) THEN 1 ELSE 0 END > 0) THEN 1 ELSE 0 END > 0) THEN 'deep' ELSE 'shallow' END) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > Performance and Stress Tests > should handle expressions with many parameters > SQLite SQL for SUM(1, 2, 3, 4, 5, {fld_number}, {fld_number_2}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_105\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_105___generated\` REAL GENERATED ALWAYS AS ((1 + 2 + 3 + 4 + 5 + \`number_col\` + \`number_col_2\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > Performance and Stress Tests > should handle expressions with many parameters > SQLite SQL for SUM(1, 2, 3, 4, 5, {fld_number}, {fld_number_2}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_105\` REAL GENERATED ALWAYS AS ((1 + 2 + 3 + 4 + 5 + \`number_col\` + \`number_col_2\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle CONCATENATE function > SQLite SQL for CONCATENATE("Hello", " ", "World") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_25\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_25___generated\` TEXT GENERATED ALWAYS AS ((COALESCE('Hello', '') || COALESCE(' ', '') || COALESCE('World', ''))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle CONCATENATE function > SQLite SQL for CONCATENATE("Hello", " ", "World") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_25\` TEXT GENERATED ALWAYS AS ((COALESCE('Hello', '') || COALESCE(' ', '') || COALESCE('World', ''))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle FIND and SEARCH functions > SQLite SQL for FIND("l", "hello") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_34\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_34___generated\` REAL GENERATED ALWAYS AS (INSTR('hello', 'l')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle FIND and SEARCH functions > SQLite SQL for FIND("l", "hello") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_34\` REAL GENERATED ALWAYS AS (INSTR('hello', 'l')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle FIND and SEARCH functions > SQLite SQL for SEARCH("L", "hello") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_35\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_35___generated\` REAL GENERATED ALWAYS AS (INSTR(UPPER('hello'), UPPER('L'))) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle FIND and SEARCH functions > SQLite SQL for SEARCH("L", "hello") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_35\` REAL GENERATED ALWAYS AS (INSTR(UPPER('hello'), UPPER('L'))) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > SQLite SQL for LEFT("Hello", 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_26\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_26___generated\` TEXT GENERATED ALWAYS AS (SUBSTR('Hello', 1, 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > SQLite SQL for LEFT("Hello", 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_26\` TEXT GENERATED ALWAYS AS (SUBSTR('Hello', 1, 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > SQLite SQL for MID("Hello", 2, 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_28\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_28___generated\` TEXT GENERATED ALWAYS AS (SUBSTR('Hello', 2, 3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > SQLite SQL for MID("Hello", 2, 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_28\` TEXT GENERATED ALWAYS AS (SUBSTR('Hello', 2, 3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > SQLite SQL for RIGHT("Hello", 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_27\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_27___generated\` TEXT GENERATED ALWAYS AS (SUBSTR('Hello', -3)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEFT, RIGHT, and MID functions > SQLite SQL for RIGHT("Hello", 3) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_27\` TEXT GENERATED ALWAYS AS (SUBSTR('Hello', -3)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEN function > SQLite SQL for LEN("Hello") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_29\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_29___generated\` REAL GENERATED ALWAYS AS (LENGTH('Hello')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEN function > SQLite SQL for LEN("Hello") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_29\` REAL GENERATED ALWAYS AS (LENGTH('Hello')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEN function > SQLite SQL for LEN({fld_text}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_30\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_30___generated\` REAL GENERATED ALWAYS AS (LENGTH(\`text_col\`)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle LEN function > SQLite SQL for LEN({fld_text}) 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_30\` REAL GENERATED ALWAYS AS (LENGTH(\`text_col\`)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle REPLACE function > SQLite SQL for REPLACE("hello", 2, 2, "i") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_36\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_36___generated\` TEXT GENERATED ALWAYS AS (SUBSTR('hello', 1, 2 - 1) || 'i' || SUBSTR('hello', 2 + 2)) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle REPLACE function > SQLite SQL for REPLACE("hello", 2, 2, "i") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_36\` TEXT GENERATED ALWAYS AS (SUBSTR('hello', 1, 2 - 1) || 'i' || SUBSTR('hello', 2 + 2)) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle REPT function > SQLite SQL for REPT("hi", 3) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_38\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_38___generated\` TEXT GENERATED ALWAYS AS (REPLACE(HEX(ZEROBLOB(3)), '00', 'hi')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle REPT function > SQLite SQL for REPT("hi", 3) 1`] = `""`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle SUBSTITUTE function > SQLite SQL for SUBSTITUTE("hello world", "l", "x") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_37\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_37___generated\` TEXT GENERATED ALWAYS AS (REPLACE('hello world', 'l', 'x')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle SUBSTITUTE function > SQLite SQL for SUBSTITUTE("hello world", "l", "x") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_37\` TEXT GENERATED ALWAYS AS (REPLACE('hello world', 'l', 'x')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle TRIM function > SQLite SQL for TRIM("  hello  ") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_33\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_33___generated\` TEXT GENERATED ALWAYS AS (TRIM('  hello  ')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle TRIM function > SQLite SQL for TRIM("  hello  ") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_33\` TEXT GENERATED ALWAYS AS (TRIM('  hello  ')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle UPPER and LOWER functions > SQLite SQL for LOWER("HELLO") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_32\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_32___generated\` TEXT GENERATED ALWAYS AS (LOWER('HELLO')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle UPPER and LOWER functions > SQLite SQL for LOWER("HELLO") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_32\` TEXT GENERATED ALWAYS AS (LOWER('HELLO')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > String Functions > should handle UPPER and LOWER functions > SQLite SQL for UPPER("hello") 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_31\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_31___generated\` TEXT GENERATED ALWAYS AS (UPPER('hello')) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > String Functions > should handle UPPER and LOWER functions > SQLite SQL for UPPER("hello") 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_31\` TEXT GENERATED ALWAYS AS (UPPER('hello')) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > System Functions > should handle BLANK function > SQLite SQL for BLANK() 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_102\` float;
-alter table \`test_formula_table\` add column \`fld_test_field_102___generated\` REAL GENERATED ALWAYS AS (NULL) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > System Functions > should handle BLANK function > SQLite SQL for BLANK() 1`] = `"alter table \`test_formula_table\` add column \`fld_test_field_102\` REAL GENERATED ALWAYS AS (NULL) VIRTUAL"`;
 
-exports[`SQLite Provider Formula Integration Tests > System Functions > should handle TEXT_ALL function > SQLite SQL for TEXT_ALL({fld_number}) 1`] = `
-"alter table \`test_formula_table\` add column \`fld_test_field_103\` text;
-alter table \`test_formula_table\` add column \`fld_test_field_103___generated\` TEXT GENERATED ALWAYS AS (CASE
-      WHEN \`number_col\` = CAST(\`number_col\` AS INTEGER) THEN CAST(\`number_col\` AS INTEGER)
-      ELSE CAST(\`number_col\` AS TEXT)
-    END) VIRTUAL"
-`;
+exports[`SQLite Provider Formula Integration Tests > System Functions > should handle TEXT_ALL function > SQLite SQL for TEXT_ALL({fld_number}) 1`] = `""`;

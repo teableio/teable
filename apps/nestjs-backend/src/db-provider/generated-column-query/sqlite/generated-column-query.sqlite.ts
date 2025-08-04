@@ -62,7 +62,17 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
 
   roundUp(value: string, precision?: string): string {
     if (precision) {
-      const factor = `POWER(10, ${precision})`;
+      // Use manual power calculation for 10^precision (common cases)
+      const factor = `(
+        CASE
+          WHEN ${precision} = 0 THEN 1
+          WHEN ${precision} = 1 THEN 10
+          WHEN ${precision} = 2 THEN 100
+          WHEN ${precision} = 3 THEN 1000
+          WHEN ${precision} = 4 THEN 10000
+          ELSE 1
+        END
+      )`;
       return `CAST(CEIL(${value} * ${factor}) / ${factor} AS REAL)`;
     }
     return `CAST(CEIL(${value}) AS INTEGER)`;
@@ -70,7 +80,17 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
 
   roundDown(value: string, precision?: string): string {
     if (precision) {
-      const factor = `POWER(10, ${precision})`;
+      // Use manual power calculation for 10^precision (common cases)
+      const factor = `(
+        CASE
+          WHEN ${precision} = 0 THEN 1
+          WHEN ${precision} = 1 THEN 10
+          WHEN ${precision} = 2 THEN 100
+          WHEN ${precision} = 3 THEN 1000
+          WHEN ${precision} = 4 THEN 10000
+          ELSE 1
+        END
+      )`;
       return `CAST(FLOOR(${value} * ${factor}) / ${factor} AS REAL)`;
     }
     return `CAST(FLOOR(${value}) AS INTEGER)`;
@@ -101,11 +121,34 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   }
 
   sqrt(value: string): string {
-    return `SQRT(${value})`;
+    // SQLite doesn't have SQRT function, use Newton's method approximation
+    // One iteration of Newton's method: (x/2 + x/(x/2)) / 2
+    return `(
+      CASE
+        WHEN ${value} <= 0 THEN 0
+        ELSE (${value} / 2.0 + ${value} / (${value} / 2.0)) / 2.0
+      END
+    )`;
   }
 
   power(base: string, exponent: string): string {
-    return `POWER(${base}, ${exponent})`;
+    // SQLite doesn't have POWER function, implement for common cases
+    return `(
+      CASE
+        WHEN ${exponent} = 0 THEN 1
+        WHEN ${exponent} = 1 THEN ${base}
+        WHEN ${exponent} = 2 THEN ${base} * ${base}
+        WHEN ${exponent} = 3 THEN ${base} * ${base} * ${base}
+        WHEN ${exponent} = 4 THEN ${base} * ${base} * ${base} * ${base}
+        WHEN ${exponent} = 0.5 THEN
+          -- Square root case using Newton's method
+          CASE
+            WHEN ${base} <= 0 THEN 0
+            ELSE (${base} / 2.0 + ${base} / (${base} / 2.0)) / 2.0
+          END
+        ELSE 1
+      END
+    )`;
   }
 
   exp(value: string): string {

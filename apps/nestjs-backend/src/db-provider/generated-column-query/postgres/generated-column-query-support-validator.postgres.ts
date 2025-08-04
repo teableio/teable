@@ -19,10 +19,12 @@ export class GeneratedColumnQuerySupportValidatorPostgres
 
   // Numeric Functions - PostgreSQL supports all basic numeric functions
   sum(params: string[]): boolean {
+    // Use addition instead of SUM() aggregation function
     return true;
   }
 
   average(params: string[]): boolean {
+    // Use addition and division instead of AVG() aggregation function
     return true;
   }
 
@@ -104,11 +106,13 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   find(searchText: string, withinText: string, startNum?: string): boolean {
-    return true;
+    // POSITION function requires collation in PostgreSQL
+    return false;
   }
 
   search(searchText: string, withinText: string, startNum?: string): boolean {
-    return true;
+    // POSITION function requires collation in PostgreSQL
+    return false;
   }
 
   mid(text: string, startNum: string, numChars: string): boolean {
@@ -128,19 +132,25 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   regexpReplace(text: string, pattern: string, replacement: string): boolean {
-    return true;
+    // REGEXP_REPLACE is not supported in generated columns
+    return false;
   }
 
   substitute(text: string, oldText: string, newText: string, instanceNum?: string): boolean {
-    return true;
+    // REPLACE function requires collation in PostgreSQL
+    return false;
   }
 
   lower(text: string): boolean {
-    return true;
+    // LOWER function requires collation for string literals in PostgreSQL
+    // Only supported when used with column references
+    return false;
   }
 
   upper(text: string): boolean {
-    return true;
+    // UPPER function requires collation for string literals in PostgreSQL
+    // Only supported when used with column references
+    return false;
   }
 
   rept(text: string, numTimes: string): boolean {
@@ -156,11 +166,13 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   t(value: string): boolean {
-    return true;
+    // T function implementation doesn't work correctly in PostgreSQL
+    return false;
   }
 
   encodeUrlComponent(text: string): boolean {
-    return true;
+    // URL encoding is not supported in PostgreSQL generated columns
+    return false;
   }
 
   // DateTime Functions - Most are supported, some have limitations but are still usable
@@ -179,23 +191,28 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   datestr(date: string): boolean {
-    return true;
+    // DATESTR with column references is not immutable in PostgreSQL
+    return false;
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): boolean {
-    return true;
+    // DATETIME_DIFF is not immutable in PostgreSQL
+    return false;
   }
 
   datetimeFormat(date: string, format: string): boolean {
-    return true;
+    // DATETIME_FORMAT is not immutable in PostgreSQL
+    return false;
   }
 
   datetimeParse(dateString: string, format: string): boolean {
-    return true;
+    // DATETIME_PARSE is not immutable in PostgreSQL
+    return false;
   }
 
   day(date: string): boolean {
-    return true;
+    // DAY with column references is not immutable in PostgreSQL
+    return false;
   }
 
   fromNow(date: string): boolean {
@@ -204,40 +221,48 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   hour(date: string): boolean {
-    return true;
+    // HOUR with column references is not immutable in PostgreSQL
+    return false;
   }
 
   isAfter(date1: string, date2: string): boolean {
-    return true;
+    // IS_AFTER is not immutable in PostgreSQL
+    return false;
   }
 
   isBefore(date1: string, date2: string): boolean {
-    return true;
+    // IS_BEFORE is not immutable in PostgreSQL
+    return false;
   }
 
   isSame(date1: string, date2: string, unit?: string): boolean {
-    return true;
+    // IS_SAME is not immutable in PostgreSQL
+    return false;
   }
 
   lastModifiedTime(): boolean {
-    // lastModifiedTime is supported
+    // lastModifiedTime references system column, supported
     return true;
   }
 
   minute(date: string): boolean {
-    return true;
+    // MINUTE with column references is not immutable in PostgreSQL
+    return false;
   }
 
   month(date: string): boolean {
-    return true;
+    // MONTH with column references is not immutable in PostgreSQL
+    return false;
   }
 
   second(date: string): boolean {
-    return true;
+    // SECOND with column references is not immutable in PostgreSQL
+    return false;
   }
 
   timestr(date: string): boolean {
-    return true;
+    // TIMESTR with column references is not immutable in PostgreSQL
+    return false;
   }
 
   toNow(date: string): boolean {
@@ -246,11 +271,13 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   weekNum(date: string): boolean {
-    return true;
+    // WEEKNUM with column references is not immutable in PostgreSQL
+    return false;
   }
 
   weekday(date: string): boolean {
-    return true;
+    // WEEKDAY with column references is not immutable in PostgreSQL
+    return false;
   }
 
   workday(startDate: string, days: string): boolean {
@@ -264,11 +291,12 @@ export class GeneratedColumnQuerySupportValidatorPostgres
   }
 
   year(date: string): boolean {
-    return true;
+    // YEAR with column references is not immutable in PostgreSQL
+    return false;
   }
 
   createdTime(): boolean {
-    // createdTime is supported
+    // createdTime references system column, supported
     return true;
   }
 
@@ -348,19 +376,20 @@ export class GeneratedColumnQuerySupportValidatorPostgres
     return false;
   }
 
-  // System Functions - Supported
+  // System Functions - Supported (reference system columns)
   recordId(): boolean {
-    // recordId is supported
+    // recordId references system column, supported
     return true;
   }
 
   autoNumber(): boolean {
-    // autoNumber is supported
+    // autoNumber references system column, supported
     return true;
   }
 
   textAll(value: string): boolean {
-    return true;
+    // textAll with non-array types causes function mismatch
+    return false;
   }
 
   // Binary Operations - All supported

@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
-  getGeneratedColumnName,
   FieldOpBuilder,
   HttpErrorCode,
   IdPrefix,
