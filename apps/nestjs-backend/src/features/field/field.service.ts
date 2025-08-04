@@ -945,48 +945,20 @@ export class FieldService implements IReadonlyAdapterService {
 
   /**
    * Build field map for formula conversion
-   * Now uses recursive expansion in SQL conversion visitor instead of pre-computed expansion
+   * Returns a Map of field instances for formula conversion
    */
-  private async buildFieldMapForTableWithExpansion(tableId: string): Promise<{
-    [fieldId: string]: {
-      columnName: string;
-      fieldType?: string;
-      options?: string | null;
-    };
-  }> {
-    const fields = await this.prismaService.txClient().field.findMany({
+  private async buildFieldMapForTableWithExpansion(
+    tableId: string
+  ): Promise<Map<string, IFieldInstance>> {
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, dbFieldName: true, type: true, options: true },
     });
 
-    const fieldMap: {
-      [fieldId: string]: {
-        columnName: string;
-        fieldType?: string;
-        options?: string | null;
-      };
-    } = {};
+    const fieldMap = new Map<string, IFieldInstance>();
 
-    for (const field of fields) {
-      let columnName = field.dbFieldName;
-
-      // For formula fields with dbGenerated=true, use generated column name
-      if (field.type === FieldType.Formula && field.options) {
-        try {
-          const options = JSON.parse(field.options as string) as IFormulaFieldOptions;
-          if (options.dbGenerated) {
-            columnName = getGeneratedColumnName(field.dbFieldName);
-          }
-        } catch (error) {
-          console.warn(`Failed to process formula field ${field.id}:`, error);
-        }
-      }
-
-      fieldMap[field.id] = {
-        columnName,
-        fieldType: field.type,
-        options: field.type === FieldType.Formula ? field.options : null,
-      };
+    for (const fieldRaw of fieldRaws) {
+      const fieldInstance = createFieldInstanceByRaw(fieldRaw);
+      fieldMap.set(fieldInstance.id, fieldInstance);
     }
 
     return fieldMap;

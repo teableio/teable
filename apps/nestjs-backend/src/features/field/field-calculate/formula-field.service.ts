@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { FieldType, getGeneratedColumnName } from '@teable/core';
-import type { IFormulaFieldOptions } from '@teable/core';
+import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { createFieldInstanceByRaw, type IFieldInstance } from '../model/factory';
 
 @Injectable()
 export class FormulaFieldService {
@@ -59,43 +59,18 @@ export class FormulaFieldService {
 
   /**
    * Build field map for formula conversion context
-   * For formula fields with dbGenerated=true, use the generated column name
+   * Returns a Map of field instances for formula conversion
    */
-  async buildFieldMapForTable(tableId: string): Promise<{
-    [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
-  }> {
-    const fields = await this.prismaService.txClient().field.findMany({
+  async buildFieldMapForTable(tableId: string): Promise<Map<string, IFieldInstance>> {
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, dbFieldName: true, type: true, options: true },
     });
 
-    const fieldMap: {
-      [fieldId: string]: { columnName: string; fieldType?: string; dbGenerated?: boolean };
-    } = {};
+    const fieldMap = new Map<string, IFieldInstance>();
 
-    for (const field of fields) {
-      let columnName = field.dbFieldName;
-      let dbGenerated = false;
-
-      // For formula fields with dbGenerated=true, use the generated column name
-      if (field.type === FieldType.Formula && field.options) {
-        try {
-          const options = JSON.parse(field.options as string) as IFormulaFieldOptions;
-          if (options.dbGenerated) {
-            columnName = getGeneratedColumnName(field.dbFieldName);
-            dbGenerated = true;
-          }
-        } catch (error) {
-          // If JSON parsing fails, use default values
-          console.warn(`Failed to parse options for field ${field.id}:`, error);
-        }
-      }
-
-      fieldMap[field.id] = {
-        columnName,
-        fieldType: field.type,
-        dbGenerated,
-      };
+    for (const fieldRaw of fieldRaws) {
+      const fieldInstance = createFieldInstanceByRaw(fieldRaw);
+      fieldMap.set(fieldInstance.id, fieldInstance);
     }
 
     return fieldMap;

@@ -26,4 +26,6 @@ export type {
   IFormulaConversionContext,
   IFormulaConversionResult,
   IGeneratedColumnQuerySupportValidator,
+  IFieldMap,
 } from './function-convertor.interface';
+export { FormulaSupportValidator } from './formula-support-validator';

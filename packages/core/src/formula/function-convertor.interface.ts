@@ -1,3 +1,10 @@
+import type { FieldCore } from '../models/field/field';
+
+/**
+ * Generic field map type for formula conversion contexts
+ */
+export type IFieldMap<T extends FieldCore = FieldCore> = Map<string, T>;
+
 /**
  * Base interface for converting Teable formula functions to database-specific implementations
  * This interface defines the contract for translating Teable functions to database functions
@@ -152,14 +159,7 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
  * Context information for formula conversion
  */
 export interface IFormulaConversionContext {
-  fieldMap: {
-    [fieldId: string]: {
-      columnName: string;
-      fieldType?: string;
-      /** Field options for formula fields (needed for recursive expansion) */
-      options?: string | null;
-    };
-  };
+  fieldMap: IFieldMap;
   timeZone?: string;
   /** Whether this conversion is for a generated column (affects immutable function handling) */
   isGeneratedColumn?: boolean;

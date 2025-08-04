@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
+import type { IGeneratedColumnQuerySupportValidator } from '../../../formula/function-convertor.interface';
+import { validateFormulaSupport } from '../../../utils/formula-validation';
 import { getGeneratedColumnName } from '../../../utils/generated-column';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
@@ -105,6 +107,10 @@ export class FormulaFieldCore extends FormulaAbstractCore {
 
   declare options: IFormulaFieldOptions;
 
+  getExpression(): string {
+    return this.options.expression;
+  }
+
   getReferenceFieldIds() {
     const visitor = new FieldReferenceVisitor();
     return Array.from(new Set(visitor.visit(this.tree)));
@@ -116,6 +122,16 @@ export class FormulaFieldCore extends FormulaAbstractCore {
    */
   getGeneratedColumnName(): string {
     return getGeneratedColumnName(this.dbFieldName);
+  }
+
+  /**
+   * Validates whether this formula field's expression is supported for generated columns
+   * @param supportValidator The database-specific support validator
+   * @returns true if the formula is supported for generated columns, false otherwise
+   */
+  validateGeneratedColumnSupport(supportValidator: IGeneratedColumnQuerySupportValidator): boolean {
+    const expression = this.getExpression();
+    return validateFormulaSupport(supportValidator, expression);
   }
 
   validateOptions() {

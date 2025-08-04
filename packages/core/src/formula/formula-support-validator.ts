@@ -1,7 +1,7 @@
-import { parseFormula, FunctionCallCollectorVisitor } from '@teable/core';
-import type { IFunctionCallInfo } from '@teable/core';
 import { match } from 'ts-pattern';
-import type { IGeneratedColumnQuerySupportValidator } from '../../db-provider/generated-column-query/generated-column-query.interface';
+import type { IFunctionCallInfo } from './function-call-collector.visitor';
+import type { IGeneratedColumnQuerySupportValidator } from './function-convertor.interface';
+import { parseFormula, FunctionCallCollectorVisitor } from './index';
 
 /**
  * Validates whether a formula expression is supported for generated column creation
