@@ -1,13 +1,46 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
+import { plainToInstance } from 'class-transformer';
 import { describe, it, expect } from 'vitest';
+import { FieldType, CellValueType, DbFieldType } from '../models';
 import { FormulaFieldCore } from '../models/field/derivate/formula.field';
+import { NumberFieldCore } from '../models/field/derivate/number.field';
 import { CircularReferenceError } from './errors/circular-reference.error';
 import type { IFormulaConversionContext } from './function-convertor.interface';
 import {
   GeneratedColumnSqlConversionVisitor,
   SelectColumnSqlConversionVisitor,
 } from './sql-conversion.visitor';
+
+// Helper functions to create field instances
+function createNumberField(id: string, dbFieldName: string = id): NumberFieldCore {
+  return plainToInstance(NumberFieldCore, {
+    id,
+    name: id,
+    type: FieldType.Number,
+    dbFieldName,
+    dbFieldType: DbFieldType.Real,
+    cellValueType: CellValueType.Number,
+    options: { formatting: { type: 'decimal', precision: 2 } },
+  });
+}
+
+function createFormulaField(
+  id: string,
+  expression: string,
+  dbGenerated: boolean = true,
+  dbFieldName: string = id
+): FormulaFieldCore {
+  return plainToInstance(FormulaFieldCore, {
+    id,
+    name: id,
+    type: FieldType.Formula,
+    dbFieldName,
+    dbFieldType: DbFieldType.Real,
+    cellValueType: CellValueType.Number,
+    options: { expression, dbGenerated },
+  });
+}
 
 // Mock implementation of IGeneratedColumnQueryInterface for testing
 class MockGeneratedColumnQuery {
@@ -76,10 +109,10 @@ describe('SQL Conversion Visitor', () => {
 
   describe('basic field references', () => {
     it('should handle simple field references', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-        },
+        fieldMap,
       };
 
       const result = parseAndConvertGenerated('{field1} + 10', context);
@@ -87,11 +120,11 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should handle multiple field references', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createNumberField('field2'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: { columnName: 'field2', fieldType: 'number' },
-        },
+        fieldMap,
       };
 
       const result = parseAndConvertGenerated('{field1} + {field2}', context);
@@ -101,15 +134,11 @@ describe('SQL Conversion Visitor', () => {
 
   describe('recursive formula expansion', () => {
     it('should expand a simple formula field reference', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       const result = parseAndConvertGenerated('{field2} * 2', context);
@@ -117,20 +146,12 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should handle nested formula references', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10'));
+      fieldMap.set('field3', createFormulaField('field3', '{field2} * 2'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": true}',
-          },
-          field3: {
-            columnName: 'field3',
-            fieldType: 'formula',
-            options: '{"expression": "{field2} * 2", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       const result = parseAndConvertGenerated('{field3} + 5', context);
@@ -138,15 +159,11 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should preserve non-formula field references', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       const result = parseAndConvertGenerated('{field1} + {field2}', context);
@@ -154,15 +171,11 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should handle formula fields without dbGenerated flag', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10', false));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": false}',
-          },
-        },
+        fieldMap,
       };
 
       const result = parseAndConvertGenerated('{field1} + {field2}', context);
@@ -170,15 +183,11 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should cache expanded expressions', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       // First expansion
@@ -196,14 +205,20 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should handle invalid field options gracefully', () => {
+      const fieldMap = new Map();
+      // Create a formula field with invalid options (this would be handled by the system)
+      const invalidFormulaField = plainToInstance(FormulaFieldCore, {
+        id: 'field1',
+        name: 'field1',
+        type: FieldType.Formula,
+        dbFieldName: 'field1',
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+        options: { expression: '', dbGenerated: false }, // Invalid/empty expression
+      });
+      fieldMap.set('field1', invalidFormulaField);
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: {
-            columnName: 'field1',
-            fieldType: 'formula',
-            options: 'invalid json',
-          },
-        },
+        fieldMap,
       };
 
       // Since options parsing fails in the dbGenerated check, it falls back to normal field reference
@@ -212,19 +227,17 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should detect circular references', () => {
+      const fieldMap = new Map();
+      fieldMap.set(
+        'field1',
+        createFormulaField('field1', '{field2} + 1', true, '__generated_field1')
+      );
+      fieldMap.set(
+        'field2',
+        createFormulaField('field2', '{field1} + 1', true, '__generated_field2')
+      );
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: {
-            columnName: '__generated_field1',
-            fieldType: 'formula',
-            options: '{"expression": "{field2} + 1", "dbGenerated": true}',
-          },
-          field2: {
-            columnName: '__generated_field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 1", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       try {
@@ -240,24 +253,21 @@ describe('SQL Conversion Visitor', () => {
     });
 
     it('should detect complex circular references', () => {
+      const fieldMap = new Map();
+      fieldMap.set(
+        'field1',
+        createFormulaField('field1', '{field2} + 1', true, '__generated_field1')
+      );
+      fieldMap.set(
+        'field2',
+        createFormulaField('field2', '{field3} * 2', true, '__generated_field2')
+      );
+      fieldMap.set(
+        'field3',
+        createFormulaField('field3', '{field1} / 2', true, '__generated_field3')
+      );
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: {
-            columnName: '__generated_field1',
-            fieldType: 'formula',
-            options: '{"expression": "{field2} + 1", "dbGenerated": true}',
-          },
-          field2: {
-            columnName: '__generated_field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field3} * 2", "dbGenerated": true}',
-          },
-          field3: {
-            columnName: '__generated_field3',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} / 2", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       try {
@@ -278,15 +288,11 @@ describe('SQL Conversion Visitor', () => {
 
   describe('both visitor types should work the same', () => {
     it('should work for both GeneratedColumnSqlConversionVisitor and SelectColumnSqlConversionVisitor', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       const generatedResult = parseAndConvertGenerated('{field2} * 2', context);
@@ -303,15 +309,11 @@ describe('SQL Conversion Visitor', () => {
 
   describe('dependency tracking', () => {
     it('should track dependencies in GeneratedColumnSqlConversionVisitor', () => {
+      const fieldMap = new Map();
+      fieldMap.set('field1', createNumberField('field1'));
+      fieldMap.set('field2', createFormulaField('field2', '{field1} + 10'));
       const context: IFormulaConversionContext = {
-        fieldMap: {
-          field1: { columnName: 'field1', fieldType: 'number' },
-          field2: {
-            columnName: 'field2',
-            fieldType: 'formula',
-            options: '{"expression": "{field1} + 10", "dbGenerated": true}',
-          },
-        },
+        fieldMap,
       };
 
       const visitor = new GeneratedColumnSqlConversionVisitor(mockGeneratedQuery, context);

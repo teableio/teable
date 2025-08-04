@@ -91,18 +91,12 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
    * Build formula conversion context from fields
    */
   private buildFormulaContext(fields: IFieldInstance[]): IFormulaConversionContext {
+    const fieldMap = new Map();
+    fields.forEach((field) => {
+      fieldMap.set(field.id, field);
+    });
     return {
-      fieldMap: fields.reduce(
-        (acc, field) => {
-          acc[field.id] = {
-            columnName: field.dbFieldName,
-            fieldType: field.type,
-            options: field.type === FieldType.Formula ? JSON.stringify(field.options) : null,
-          };
-          return acc;
-        },
-        {} as Record<string, IFormulaConversionContext['fieldMap'][string]>
-      ),
+      fieldMap,
     };
   }
 }

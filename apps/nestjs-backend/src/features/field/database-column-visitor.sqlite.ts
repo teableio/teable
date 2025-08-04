@@ -19,12 +19,12 @@ import type {
   UserFieldCore,
   IFieldVisitor,
   IFormulaConversionContext,
+  IFieldMap,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
 import { GeneratedColumnQuerySupportValidatorSqlite } from '../../db-provider/generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
-import { FormulaSupportValidator } from './formula-support-validator';
 import { SchemaType } from './util';
 
 /**
@@ -44,14 +44,7 @@ export interface IDatabaseColumnContext {
   /** Database provider for formula conversion */
   dbProvider?: IDbProvider;
   /** Field map for formula conversion context */
-  fieldMap?: {
-    [fieldId: string]: {
-      columnName: string;
-      fieldType?: string;
-      dbGenerated?: boolean;
-      expandedExpression?: string;
-    };
-  };
+  fieldMap?: IFieldMap;
   /** Whether this is a new table creation (affects SQLite generated columns) */
   isNewTable?: boolean;
 }
@@ -107,19 +100,17 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getSqliteColumnType(field.dbFieldType);
 
-      // Use expanded expression if available, otherwise use original expression
-      const fieldInfo = this.context.fieldMap[field.id];
-      const expressionToConvert = fieldInfo?.expandedExpression || field.options.expression;
+      // Use original expression since expansion logic has been moved
+      const expressionToConvert = field.options.expression;
 
       // Check if the formula is supported for generated columns
       const supportValidator = new GeneratedColumnQuerySupportValidatorSqlite();
-      const formulaValidator = new FormulaSupportValidator(supportValidator);
-      const isSupported = formulaValidator.validateFormula(expressionToConvert);
+      const isSupported = field.validateGeneratedColumnSupport(supportValidator);
 
       if (isSupported) {
         try {
           const conversionContext: IFormulaConversionContext = {
-            fieldMap: this.context.fieldMap,
+            fieldMap: this.context.fieldMap || new Map(),
             isGeneratedColumn: true, // Mark this as a generated column context
           };
 

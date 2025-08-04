@@ -6,6 +6,7 @@ import type { Knex } from 'knex';
 import knex from 'knex';
 import { describe, bench } from 'vitest';
 import { SqliteProvider } from '../src/db-provider/sqlite.provider';
+import { createFieldInstanceByVo } from '../src/features/field/model/factory';
 import { FormulaFieldDto } from '../src/features/field/model/field-dto/formula-field.dto';
 
 // Test configuration
@@ -102,13 +103,19 @@ function createFormulaField(expression: string): FormulaFieldDto {
 
 // Helper function to create context
 function createContext(): IFormulaConversionContext {
+  const fieldMap = new Map();
+  const numberField = createFieldInstanceByVo({
+    id: 'fld_number',
+    name: 'fld_number',
+    type: FieldType.Number,
+    dbFieldName: 'fld_number',
+    dbFieldType: DbFieldType.Real,
+    cellValueType: CellValueType.Number,
+    options: { formatting: { type: 'decimal', precision: 2 } },
+  });
+  fieldMap.set('fld_number', numberField);
   return {
-    fieldMap: {
-      fld_number: {
-        columnName: 'fld_number',
-        fieldType: 'Number',
-      },
-    },
+    fieldMap,
   };
 }
 
