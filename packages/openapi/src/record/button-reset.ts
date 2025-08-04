@@ -9,7 +9,7 @@ import { registerRoute, urlBuilder } from '../utils';
 export const BUTTON_RESET = '/table/{tableId}/record/{recordId}/{fieldId}/button-reset';
 
 export const ButtonResetRoute: RouteConfig = registerRoute({
-  method: 'patch',
+  method: 'post',
   path: BUTTON_RESET,
   summary: 'Button reset',
   description: 'Button reset',
@@ -38,5 +38,5 @@ export async function buttonReset(
   recordId: string,
   fieldId: string
 ): Promise<AxiosResponse<IRecord>> {
-  return axios.patch<IRecord>(urlBuilder(BUTTON_RESET, { tableId, recordId, fieldId }));
+  return axios.post<IRecord>(urlBuilder(BUTTON_RESET, { tableId, recordId, fieldId }));
 }
