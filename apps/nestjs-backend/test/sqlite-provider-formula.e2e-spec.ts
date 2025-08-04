@@ -341,10 +341,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
       await testFormulaExecution('INT(-3.7)', [-3, -3, -3]);
     });
 
-    it('should handle EXP and LOG functions', async () => {
-      // EXP and LOG functions are not supported in SQLite
-      await testUnsupportedFormula('EXP(1)');
-      await testUnsupportedFormula('LOG(10)');
+    it.skip('should handle EXP and LOG functions', async () => {
+      // EXP and LOG functions are not supported in SQLite - tested in Unsupported Functions section
     });
 
     it('should handle MOD function', async () => {
@@ -415,9 +413,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
       );
     });
 
-    it('should handle REPT function', async () => {
-      // REPT function is not supported in SQLite
-      await testUnsupportedFormula('REPT("hi", 3)', CellValueType.String);
+    it.skip('should handle REPT function', async () => {
+      // REPT function is not supported in SQLite - tested in Unsupported Functions section
     });
 
     it.skip('should handle REGEXP_REPLACE function', async () => {
@@ -514,30 +511,20 @@ describe('SQLite Provider Formula Integration Tests', () => {
       );
     });
 
-    it('should handle date extraction functions', async () => {
-      // Date extraction functions with column references are not supported in SQLite
-      await testUnsupportedFormula('YEAR(TODAY())');
-      await testUnsupportedFormula('MONTH(TODAY())');
-      await testUnsupportedFormula('DAY(TODAY())');
+    it.skip('should handle date extraction functions', async () => {
+      // Date extraction functions are not supported in SQLite - tested in Unsupported Functions section
     });
 
-    it('should handle date extraction from column references', async () => {
-      // Date extraction functions with column references are not supported in SQLite
-      await testUnsupportedFormula('YEAR({fld_date})');
-      await testUnsupportedFormula('MONTH({fld_date})');
-      await testUnsupportedFormula('DAY({fld_date})');
+    it.skip('should handle date extraction from column references', async () => {
+      // Date extraction functions with column references are not supported in SQLite - tested in Unsupported Functions section
     });
 
-    it('should handle time extraction functions', async () => {
-      // Time extraction functions with column references are not supported in SQLite
-      await testUnsupportedFormula('HOUR({fld_date})');
-      await testUnsupportedFormula('MINUTE({fld_date})');
-      await testUnsupportedFormula('SECOND({fld_date})');
+    it.skip('should handle time extraction functions', async () => {
+      // Time extraction functions with column references are not supported in SQLite - tested in Unsupported Functions section
     });
 
-    it('should handle WEEKDAY function', async () => {
-      // WEEKDAY function with column references is not supported in SQLite
-      await testUnsupportedFormula('WEEKDAY({fld_date})');
+    it.skip('should handle WEEKDAY function', async () => {
+      // WEEKDAY function with column references is not supported in SQLite - tested in Unsupported Functions section
     });
 
     it('should handle WEEKNUM function', async () => {
@@ -609,12 +596,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
       );
     });
 
-    it('should handle DATETIME_PARSE function', async () => {
-      // DATETIME_PARSE function is not supported in SQLite
-      await testUnsupportedFormula(
-        'DATETIME_PARSE("2024-01-10 08:00:00", "YYYY-MM-DD HH:mm:ss")',
-        CellValueType.String
-      );
+    it.skip('should handle DATETIME_PARSE function', async () => {
+      // DATETIME_PARSE function is not supported in SQLite - tested in Unsupported Functions section
     });
 
     it('should handle CREATED_TIME and LAST_MODIFIED_TIME functions', async () => {
@@ -730,19 +713,16 @@ describe('SQLite Provider Formula Integration Tests', () => {
       await testFormulaExecution('COUNTALL({fld_text_2})', [1, 1, 0]);
     });
 
-    it('should handle ARRAY_JOIN function', async () => {
-      // ARRAY_JOIN function is not supported in SQLite
-      await testUnsupportedFormula('ARRAY_JOIN({fld_array})', CellValueType.String);
+    it.skip('should handle ARRAY_JOIN function', async () => {
+      // ARRAY_JOIN function is not supported in SQLite - tested in Unsupported Functions section
     });
 
-    it('should handle ARRAY_UNIQUE function', async () => {
-      // ARRAY_UNIQUE function is not supported in SQLite
-      await testUnsupportedFormula('ARRAY_UNIQUE({fld_array})', CellValueType.String);
+    it.skip('should handle ARRAY_UNIQUE function', async () => {
+      // ARRAY_UNIQUE function is not supported in SQLite - tested in Unsupported Functions section
     });
 
-    it('should handle ARRAY_COMPACT function', async () => {
-      // ARRAY_COMPACT function is not supported in SQLite
-      await testUnsupportedFormula('ARRAY_COMPACT({fld_array})', CellValueType.String);
+    it.skip('should handle ARRAY_COMPACT function', async () => {
+      // ARRAY_COMPACT function is not supported in SQLite - tested in Unsupported Functions section
     });
   });
 
@@ -757,10 +737,57 @@ describe('SQLite Provider Formula Integration Tests', () => {
       await testFormulaExecution('BLANK()', [null, null, null]);
     });
 
-    it('should handle TEXT_ALL function', async () => {
-      // TEXT_ALL function is not supported in SQLite
-      await testUnsupportedFormula('TEXT_ALL({fld_number})', CellValueType.String);
+    it.skip('should handle TEXT_ALL function', async () => {
+      // TEXT_ALL function is not supported in SQLite - tested in Unsupported Functions section
     });
+  });
+
+  describe('Unsupported Functions', () => {
+    const unsupportedFormulas = [
+      // Math functions not supported in SQLite
+      { formula: 'EXP(1)', type: CellValueType.Number },
+      { formula: 'LOG(10)', type: CellValueType.Number },
+
+      // String functions not supported in SQLite
+      { formula: 'REPT("hi", 3)', type: CellValueType.String },
+
+      // Date extraction functions with column references are not supported
+      { formula: 'YEAR(TODAY())', type: CellValueType.Number },
+      { formula: 'MONTH(TODAY())', type: CellValueType.Number },
+      { formula: 'DAY(TODAY())', type: CellValueType.Number },
+      { formula: 'YEAR({fld_date})', type: CellValueType.Number },
+      { formula: 'MONTH({fld_date})', type: CellValueType.Number },
+      { formula: 'DAY({fld_date})', type: CellValueType.Number },
+
+      // Time extraction functions with column references are not supported
+      { formula: 'HOUR({fld_date})', type: CellValueType.Number },
+      { formula: 'MINUTE({fld_date})', type: CellValueType.Number },
+      { formula: 'SECOND({fld_date})', type: CellValueType.Number },
+
+      // WEEKDAY function with column references is not supported
+      { formula: 'WEEKDAY({fld_date})', type: CellValueType.Number },
+
+      // DATETIME_PARSE function is not supported
+      {
+        formula: 'DATETIME_PARSE("2024-01-10 08:00:00", "YYYY-MM-DD HH:mm:ss")',
+        type: CellValueType.String,
+      },
+
+      // Array functions are not supported
+      { formula: 'ARRAY_JOIN({fld_array})', type: CellValueType.String },
+      { formula: 'ARRAY_UNIQUE({fld_array})', type: CellValueType.String },
+      { formula: 'ARRAY_COMPACT({fld_array})', type: CellValueType.String },
+
+      // TEXT_ALL function is not supported
+      { formula: 'TEXT_ALL({fld_number})', type: CellValueType.String },
+    ];
+
+    test.each(unsupportedFormulas)(
+      'should return empty SQL for $formula',
+      async ({ formula, type }) => {
+        await testUnsupportedFormula(formula, type);
+      }
+    );
   });
 
   describe('Performance and Stress Tests', () => {

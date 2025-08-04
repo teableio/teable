@@ -138,56 +138,56 @@ exports[`PostgreSQL Provider Formula Integration Tests > String Functions > shou
 
 exports[`PostgreSQL Provider Formula Integration Tests > String Functions > should handle TRIM function > PostgreSQL SQL for TRIM("  hello  ") 1`] = `"alter table "test_formula_table" add column "fld_test_field_37" TEXT GENERATED ALWAYS AS (TRIM('  hello  ')) STORED"`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for ARRAY_COMPACT({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_COMPACT({fld_text})' > PostgreSQL SQL for ARRAY_COMPACT({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for ARRAY_FLATTEN({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_FLATTEN({fld_text})' > PostgreSQL SQL for ARRAY_FLATTEN({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for ARRAY_JOIN({fld_text}, ",") 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_JOIN({fld_text}, ",")' > PostgreSQL SQL for ARRAY_JOIN({fld_text}, ",") 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for ARRAY_UNIQUE({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_UNIQUE({fld_text})' > PostgreSQL SQL for ARRAY_UNIQUE({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for DATESTR({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DATESTR({fld_date})' > PostgreSQL SQL for DATESTR({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for DATETIME_DIFF({fld_date}, {fld_date_2}, "days") 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DATETIME_DIFF({fld_date}, {fld_date_2…' > PostgreSQL SQL for DATETIME_DIFF({fld_date}, {fld_date_2}, "days") 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for DATETIME_FORMAT({fld_date}, "YYYY-MM-DD") 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DATETIME_FORMAT({fld_date}, "YYYY-MM-…' > PostgreSQL SQL for DATETIME_FORMAT({fld_date}, "YYYY-MM-DD") 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for DATETIME_PARSE("2024-01-01", "YYYY-MM-DD") 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DATETIME_PARSE("2024-01-01", "YYYY-MM…' > PostgreSQL SQL for DATETIME_PARSE("2024-01-01", "YYYY-MM-DD") 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for DAY({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DAY({fld_date})' > PostgreSQL SQL for DAY({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for ENCODE_URL_COMPONENT({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ENCODE_URL_COMPONENT({fld_text})' > PostgreSQL SQL for ENCODE_URL_COMPONENT({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for FIND("e", {fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'FIND("e", {fld_text})' > PostgreSQL SQL for FIND("e", {fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for HOUR({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'HOUR({fld_date})' > PostgreSQL SQL for HOUR({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for IS_AFTER({fld_date}, {fld_date_2}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'IS_AFTER({fld_date}, {fld_date_2})' > PostgreSQL SQL for IS_AFTER({fld_date}, {fld_date_2}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for LOWER({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'LOWER({fld_text})' > PostgreSQL SQL for LOWER({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for MINUTE({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'MINUTE({fld_date})' > PostgreSQL SQL for MINUTE({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for MONTH({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'MONTH({fld_date})' > PostgreSQL SQL for MONTH({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for REGEXP_REPLACE({fld_text}, "l+", "L") 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'REGEXP_REPLACE({fld_text}, "l+", "L")' > PostgreSQL SQL for REGEXP_REPLACE({fld_text}, "l+", "L") 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for SECOND({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'SECOND({fld_date})' > PostgreSQL SQL for SECOND({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for SUBSTITUTE({fld_text}, "e", "E") 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'SUBSTITUTE({fld_text}, "e", "E")' > PostgreSQL SQL for SUBSTITUTE({fld_text}, "e", "E") 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for T({fld_number}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'T({fld_number})' > PostgreSQL SQL for T({fld_number}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for TEXT_ALL({fld_number}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'TEXT_ALL({fld_number})' > PostgreSQL SQL for TEXT_ALL({fld_number}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for TEXT_ALL({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'TEXT_ALL({fld_text})' > PostgreSQL SQL for TEXT_ALL({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for TIMESTR({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'TIMESTR({fld_date})' > PostgreSQL SQL for TIMESTR({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for UPPER({fld_text}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'UPPER({fld_text})' > PostgreSQL SQL for UPPER({fld_text}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for WEEKDAY({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'WEEKDAY({fld_date})' > PostgreSQL SQL for WEEKDAY({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for WEEKNUM({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'WEEKNUM({fld_date})' > PostgreSQL SQL for WEEKNUM({fld_date}) 1`] = `""`;
 
-exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should throw errors for unsupported functions > PostgreSQL SQL for YEAR({fld_date}) 1`] = `""`;
+exports[`PostgreSQL Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'YEAR({fld_date})' > PostgreSQL SQL for YEAR({fld_date}) 1`] = `""`;

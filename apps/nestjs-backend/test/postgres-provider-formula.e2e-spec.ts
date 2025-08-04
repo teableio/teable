@@ -695,130 +695,51 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
     });
 
     describe('Unsupported Functions', () => {
-      it('should throw errors for unsupported functions', async () => {
+      const unsupportedFormulas = [
         // Date functions with column references are not immutable
-        await expect(
-          testFormulaExecution('YEAR({fld_date})', [2024, 2024, 2024])
-        ).rejects.toThrow();
-        await expect(testFormulaExecution('MONTH({fld_date})', [1, 1, 1])).rejects.toThrow();
-        await expect(testFormulaExecution('DAY({fld_date})', [10, 12, 15])).rejects.toThrow();
-        await expect(testFormulaExecution('HOUR({fld_date})', [8, 15, 10])).rejects.toThrow();
-        await expect(testFormulaExecution('MINUTE({fld_date})', [0, 30, 30])).rejects.toThrow();
-        await expect(testFormulaExecution('SECOND({fld_date})', [0, 0, 0])).rejects.toThrow();
-        await expect(testFormulaExecution('WEEKDAY({fld_date})', [4, 6, 2])).rejects.toThrow();
-        await expect(testFormulaExecution('WEEKNUM({fld_date})', [2, 2, 3])).rejects.toThrow();
+        { formula: 'YEAR({fld_date})', type: CellValueType.Number },
+        { formula: 'MONTH({fld_date})', type: CellValueType.Number },
+        { formula: 'DAY({fld_date})', type: CellValueType.Number },
+        { formula: 'HOUR({fld_date})', type: CellValueType.Number },
+        { formula: 'MINUTE({fld_date})', type: CellValueType.Number },
+        { formula: 'SECOND({fld_date})', type: CellValueType.Number },
+        { formula: 'WEEKDAY({fld_date})', type: CellValueType.Number },
+        { formula: 'WEEKNUM({fld_date})', type: CellValueType.Number },
 
         // Date formatting functions are not immutable
-        await expect(
-          testFormulaExecution(
-            'TIMESTR({fld_date})',
-            ['08:00:00', '15:30:00', '10:30:00'],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'DATESTR({fld_date})',
-            ['2024-01-10', '2024-01-12', '2024-01-15'],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution('DATETIME_DIFF({fld_date}, {fld_date_2}, "days")', [2, -2, 10])
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution('IS_AFTER({fld_date}, {fld_date_2})', [true, false, false])
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'DATETIME_FORMAT({fld_date}, "YYYY-MM-DD")',
-            ['2024-01-10', '2024-01-12', '2024-01-15'],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'DATETIME_PARSE("2024-01-01", "YYYY-MM-DD")',
-            ['2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z'],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
+        { formula: 'TIMESTR({fld_date})', type: CellValueType.String },
+        { formula: 'DATESTR({fld_date})', type: CellValueType.String },
+        { formula: 'DATETIME_DIFF({fld_date}, {fld_date_2}, "days")', type: CellValueType.Number },
+        { formula: 'IS_AFTER({fld_date}, {fld_date_2})', type: CellValueType.Number },
+        { formula: 'DATETIME_FORMAT({fld_date}, "YYYY-MM-DD")', type: CellValueType.String },
+        { formula: 'DATETIME_PARSE("2024-01-01", "YYYY-MM-DD")', type: CellValueType.String },
 
         // Array functions cause type mismatches
-        await expect(
-          testFormulaExecution(
-            'ARRAY_JOIN({fld_text}, ",")',
-            ['hello', 'test', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'ARRAY_UNIQUE({fld_text})',
-            ['hello', 'test', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'ARRAY_COMPACT({fld_text})',
-            ['hello', 'test', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'ARRAY_FLATTEN({fld_text})',
-            ['hello', 'test', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
+        { formula: 'ARRAY_JOIN({fld_text}, ",")', type: CellValueType.String },
+        { formula: 'ARRAY_UNIQUE({fld_text})', type: CellValueType.String },
+        { formula: 'ARRAY_COMPACT({fld_text})', type: CellValueType.String },
+        { formula: 'ARRAY_FLATTEN({fld_text})', type: CellValueType.String },
 
         // String functions requiring collation are not supported
-        await expect(
-          testFormulaExecution('UPPER({fld_text})', ['HELLO', 'TEST', ''], CellValueType.String)
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution('LOWER({fld_text})', ['hello', 'test', ''], CellValueType.String)
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution('FIND("e", {fld_text})', ['2', '2', '0'], CellValueType.String)
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'SUBSTITUTE({fld_text}, "e", "E")',
-            ['hEllo', 'tEst', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution(
-            'REGEXP_REPLACE({fld_text}, "l+", "L")',
-            ['heLo', 'test', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
+        { formula: 'UPPER({fld_text})', type: CellValueType.String },
+        { formula: 'LOWER({fld_text})', type: CellValueType.String },
+        { formula: 'FIND("e", {fld_text})', type: CellValueType.String },
+        { formula: 'SUBSTITUTE({fld_text}, "e", "E")', type: CellValueType.String },
+        { formula: 'REGEXP_REPLACE({fld_text}, "l+", "L")', type: CellValueType.String },
 
         // Other unsupported functions
-        await expect(
-          testFormulaExecution(
-            'ENCODE_URL_COMPONENT({fld_text})',
-            ['hello', 'test', ''],
-            CellValueType.String
-          )
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution('T({fld_number})', ['10', '-3', '0'], CellValueType.String)
-        ).rejects.toThrow();
+        { formula: 'ENCODE_URL_COMPONENT({fld_text})', type: CellValueType.String },
+        { formula: 'T({fld_number})', type: CellValueType.String },
+        { formula: 'TEXT_ALL({fld_number})', type: CellValueType.String },
+        { formula: 'TEXT_ALL({fld_text})', type: CellValueType.String },
+      ];
 
-        // TEXT_ALL with non-array types causes function mismatch
-        await expect(
-          testFormulaExecution('TEXT_ALL({fld_number})', ['10', '-3', '0'], CellValueType.String)
-        ).rejects.toThrow();
-        await expect(
-          testFormulaExecution('TEXT_ALL({fld_text})', ['hello', 'test', ''], CellValueType.String)
-        ).rejects.toThrow();
-      });
+      test.each(unsupportedFormulas)(
+        'should return empty SQL for $formula',
+        async ({ formula, type }) => {
+          await testUnsupportedFormula(formula, type);
+        }
+      );
     });
   }
 );
