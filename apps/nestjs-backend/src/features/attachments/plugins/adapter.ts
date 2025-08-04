@@ -121,6 +121,13 @@ export default abstract class StorageAdapter {
     metadata?: Record<string, unknown>
   ): Promise<{ hash: string; path: string }>;
 
+  abstract uploadFileStream(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    metadata?: Record<string, unknown>
+  ): Promise<{ hash: string; path: string }>;
+
   /**
    * cut image
    * @param bucket bucket name

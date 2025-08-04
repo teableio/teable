@@ -173,6 +173,15 @@ export class MinioStorage implements StorageAdapter {
     };
   }
 
+  async uploadFileStream(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    metadata: Record<string, string | number>
+  ) {
+    return this.uploadFile(bucket, path, stream, metadata);
+  }
+
   // minio file exists
   private async fileExists(bucket: string, path: string) {
     try {

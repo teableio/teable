@@ -180,7 +180,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
                 return;
               }
               // update attachment
-              await this.storageAdapter.uploadFile(bucket, finalPath, passThrough, {
+              await this.storageAdapter.uploadFileStream(bucket, finalPath, passThrough, {
                 // eslint-disable-next-line @typescript-eslint/naming-convention
                 'Content-Type': mimeTypeFromExtension,
               });

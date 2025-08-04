@@ -219,7 +219,7 @@ export class BaseExportService {
 
     archive.finalize();
 
-    const uploadResult = await this.storageAdapter.uploadFile(
+    const uploadResult = await this.storageAdapter.uploadFileStream(
       bucket,
       `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
       passThrough,

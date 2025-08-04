@@ -301,6 +301,15 @@ export class LocalStorage implements StorageAdapter {
     };
   }
 
+  async uploadFileStream(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    _metadata?: Record<string, unknown>
+  ) {
+    return this.uploadFile(bucket, path, stream, _metadata);
+  }
+
   async cropImage(
     bucket: string,
     path: string,

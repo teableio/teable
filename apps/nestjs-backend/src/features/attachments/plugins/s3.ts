@@ -216,6 +216,30 @@ export class S3Storage implements StorageAdapter {
     stream: Buffer | Readable,
     metadata?: Record<string, unknown>
   ) {
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: path,
+      Body: stream,
+      ContentType: metadata?.['Content-Type'] as string,
+      ContentLength: metadata?.['Content-Length'] as number,
+      ContentDisposition: metadata?.['Content-Disposition'] as string,
+      ContentEncoding: metadata?.['Content-Encoding'] as string,
+      ContentLanguage: metadata?.['Content-Language'] as string,
+      ContentMD5: metadata?.['Content-MD5'] as string,
+    });
+
+    return this.s3Client.send(command).then((res) => ({
+      hash: res.ETag!,
+      path,
+    }));
+  }
+
+  uploadFileStream(
+    bucket: string,
+    path: string,
+    stream: Buffer | Readable,
+    metadata?: Record<string, unknown>
+  ) {
     const upload = new Upload({
       client: this.s3Client,
       params: {
