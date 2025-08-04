@@ -38,7 +38,6 @@ export class RouteTracingInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(() => {
-        // 在请求完成时添加响应信息
         if (span) {
           span.setAttributes({
             'http.status_code': response.statusCode,
