@@ -5,6 +5,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { preservedDbFieldNames } from '../../field/constant';
 import { FieldSelectVisitor } from '../../field/field-select-visitor';
 import type { IFieldInstance } from '../../field/model/factory';
 import type { IRecordQueryBuilder, IRecordQueryParams } from './record-query-builder.interface';
@@ -65,7 +66,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const visitor = new FieldSelectVisitor(this.knex, qb, this.dbProvider, context);
 
     // Add default system fields
-    qb.select(['__id', '__version', '__created_time', '__last_modified_time']);
+    qb.select(Array.from(preservedDbFieldNames));
 
     // Add field-specific selections using visitor pattern
     for (const field of fields) {

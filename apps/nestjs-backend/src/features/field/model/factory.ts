@@ -22,6 +22,7 @@ import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
 import { UserFieldDto } from './field-dto/user-field.dto';
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
   return {
     id: fieldRaw.id,

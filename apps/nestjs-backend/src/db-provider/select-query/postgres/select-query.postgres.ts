@@ -209,7 +209,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   day(date: string): string {
-    return `EXTRACT(DAY FROM ${date}::timestamp)`;
+    return `EXTRACT(DAY FROM ${date}::timestamp)::int`;
   }
 
   fromNow(date: string): string {
@@ -217,7 +217,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   hour(date: string): string {
-    return `EXTRACT(HOUR FROM ${date}::timestamp)`;
+    return `EXTRACT(HOUR FROM ${date}::timestamp)::int`;
   }
 
   isAfter(date1: string, date2: string): string {
@@ -241,15 +241,15 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   minute(date: string): string {
-    return `EXTRACT(MINUTE FROM ${date}::timestamp)`;
+    return `EXTRACT(MINUTE FROM ${date}::timestamp)::int`;
   }
 
   month(date: string): string {
-    return `EXTRACT(MONTH FROM ${date}::timestamp)`;
+    return `EXTRACT(MONTH FROM ${date}::timestamp)::int`;
   }
 
   second(date: string): string {
-    return `EXTRACT(SECOND FROM ${date}::timestamp)`;
+    return `EXTRACT(SECOND FROM ${date}::timestamp)::int`;
   }
 
   timestr(date: string): string {
@@ -261,11 +261,11 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   weekNum(date: string): string {
-    return `EXTRACT(WEEK FROM ${date}::timestamp)`;
+    return `EXTRACT(WEEK FROM ${date}::timestamp)::int`;
   }
 
   weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${date}::timestamp)`;
+    return `EXTRACT(DOW FROM ${date}::timestamp)::int`;
   }
 
   workday(startDate: string, days: string): string {
@@ -279,7 +279,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   year(date: string): string {
-    return `EXTRACT(YEAR FROM ${date}::timestamp)`;
+    return `EXTRACT(YEAR FROM ${date}::timestamp)::int`;
   }
 
   createdTime(): string {

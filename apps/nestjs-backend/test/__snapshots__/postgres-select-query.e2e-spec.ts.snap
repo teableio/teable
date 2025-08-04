@@ -260,50 +260,50 @@ exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutabl
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute DAY function > postgres-results-DAY__fld_date__ 1`] = `
 [
-  "10",
-  "12",
+  10,
+  12,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute DAY function > postgres-select-DAY__fld_date__ 1`] = `"select "id", EXTRACT(DAY FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute DAY function > postgres-select-DAY__fld_date__ 1`] = `"select "id", EXTRACT(DAY FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute HOUR function > postgres-results-HOUR__fld_date__ 1`] = `
 [
-  "8",
-  "15",
+  8,
+  15,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute HOUR function > postgres-select-HOUR__fld_date__ 1`] = `"select "id", EXTRACT(HOUR FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute HOUR function > postgres-select-HOUR__fld_date__ 1`] = `"select "id", EXTRACT(HOUR FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute MINUTE function > postgres-results-MINUTE__fld_date__ 1`] = `
 [
-  "0",
-  "30",
+  0,
+  30,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute MINUTE function > postgres-select-MINUTE__fld_date__ 1`] = `"select "id", EXTRACT(MINUTE FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute MINUTE function > postgres-select-MINUTE__fld_date__ 1`] = `"select "id", EXTRACT(MINUTE FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute MONTH function > postgres-results-MONTH__fld_date__ 1`] = `
 [
-  "1",
-  "1",
+  1,
+  1,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute MONTH function > postgres-select-MONTH__fld_date__ 1`] = `"select "id", EXTRACT(MONTH FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute MONTH function > postgres-select-MONTH__fld_date__ 1`] = `"select "id", EXTRACT(MONTH FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute NOW function (mutable) > postgres-select-NOW___ 1`] = `"NOW()"`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute SECOND function > postgres-results-SECOND__fld_date__ 1`] = `
 [
-  "0.000000",
-  "0.000000",
+  0,
+  0,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute SECOND function > postgres-select-SECOND__fld_date__ 1`] = `"select "id", EXTRACT(SECOND FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute SECOND function > postgres-select-SECOND__fld_date__ 1`] = `"select "id", EXTRACT(SECOND FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute TIMESTR function > postgres-results-TIMESTR__fld_date__ 1`] = `
 [
@@ -318,30 +318,30 @@ exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutabl
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute WEEKDAY function > postgres-results-WEEKDAY__fld_date__ 1`] = `
 [
-  "3",
-  "5",
+  3,
+  5,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute WEEKDAY function > postgres-select-WEEKDAY__fld_date__ 1`] = `"select "id", EXTRACT(DOW FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute WEEKDAY function > postgres-select-WEEKDAY__fld_date__ 1`] = `"select "id", EXTRACT(DOW FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute WEEKNUM function > postgres-results-WEEKNUM__fld_date__ 1`] = `
 [
-  "2",
-  "2",
+  2,
+  2,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute WEEKNUM function > postgres-select-WEEKNUM__fld_date__ 1`] = `"select "id", EXTRACT(WEEK FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute WEEKNUM function > postgres-select-WEEKNUM__fld_date__ 1`] = `"select "id", EXTRACT(WEEK FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute YEAR function > postgres-results-YEAR__fld_date__ 1`] = `
 [
-  "2024",
-  "2024",
+  2024,
+  2024,
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute YEAR function > postgres-select-YEAR__fld_date__ 1`] = `"select "id", EXTRACT(YEAR FROM "date_col"::timestamp) as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Date/Time Functions (Mutable) > should compute YEAR function > postgres-select-YEAR__fld_date__ 1`] = `"select "id", EXTRACT(YEAR FROM "date_col"::timestamp)::int as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Logical Functions > should compute AND function > postgres-results-AND__fld_a____0___fld_b____0_ 1`] = `
 [

@@ -1,5 +1,13 @@
 import { FieldType } from '@teable/core';
 
+export const ID_FIELD_NAME = '__id';
+export const VERSION_FIELD_NAME = '__version';
+export const AUTO_NUMBER_FIELD_NAME = '__auto_number';
+export const CREATED_TIME_FIELD_NAME = '__created_time';
+export const LAST_MODIFIED_TIME_FIELD_NAME = '__last_modified_time';
+export const CREATED_BY_FIELD_NAME = '__created_by';
+export const LAST_MODIFIED_BY_FIELD_NAME = '__last_modified_by';
+
 /* eslint-disable @typescript-eslint/naming-convention */
 export interface IVisualTableDefaultField {
   __id: string;
@@ -13,22 +21,22 @@ export interface IVisualTableDefaultField {
 /* eslint-enable @typescript-eslint/naming-convention */
 
 export const preservedDbFieldNames = new Set([
-  '__id',
-  '__version',
-  '__auto_number',
-  '__created_time',
-  '__last_modified_time',
-  '__created_by',
-  '__last_modified_by',
+  ID_FIELD_NAME,
+  VERSION_FIELD_NAME,
+  AUTO_NUMBER_FIELD_NAME,
+  CREATED_TIME_FIELD_NAME,
+  LAST_MODIFIED_TIME_FIELD_NAME,
+  CREATED_BY_FIELD_NAME,
+  LAST_MODIFIED_BY_FIELD_NAME,
 ]);
 
 export const systemDbFieldNames = new Set([
-  '__id',
-  '__auto_number',
-  '__created_time',
-  '__last_modified_time',
-  '__created_by',
-  '__last_modified_by',
+  ID_FIELD_NAME,
+  AUTO_NUMBER_FIELD_NAME,
+  CREATED_TIME_FIELD_NAME,
+  LAST_MODIFIED_TIME_FIELD_NAME,
+  CREATED_BY_FIELD_NAME,
+  LAST_MODIFIED_BY_FIELD_NAME,
 ]);
 
 export const systemFieldTypes = new Set([
