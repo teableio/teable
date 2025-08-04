@@ -66,13 +66,7 @@ export function createFieldInstanceByVo(field: IFieldVo) {
     case FieldType.Link:
       return plainToInstance(LinkFieldDto, field);
     case FieldType.Formula:
-      return plainToInstance(FormulaFieldDto, {
-        ...field,
-        options: {
-          ...field.options,
-          dbGenerated: true,
-        },
-      });
+      return plainToInstance(FormulaFieldDto, field);
     case FieldType.Attachment:
       return plainToInstance(AttachmentFieldDto, field);
     case FieldType.Date:

@@ -46,7 +46,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   constructor(protected readonly field: IFieldInstance) {
     const { dbFieldName, type } = field;
 
-    if (type === FieldType.Formula && field.options.dbGenerated) {
+    if (type === FieldType.Formula) {
       this.tableColumnRef = field.getGeneratedColumnName();
     } else {
       this.tableColumnRef = dbFieldName;

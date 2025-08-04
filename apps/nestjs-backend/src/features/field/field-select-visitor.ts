@@ -19,19 +19,14 @@ import {
   type UserFieldCore,
   type IFieldVisitor,
   type IFormulaConversionContext,
-  isGeneratedFormulaField,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import { createGeneratedColumnQuerySupportValidator } from '../../db-provider/generated-column-query';
-import { getDriverName } from '../../utils/db-helpers';
 
 /**
  * Field visitor that returns appropriate database column selectors for knex.select()
  *
  * For regular fields: returns the dbFieldName as string
- * For formula fields with dbGenerated=true: returns the generated column name
- * For formula fields with dbGenerated=false: returns the original dbFieldName
  *
  * The returned value can be used directly with knex.select() or knex.raw()
  */
@@ -54,14 +49,11 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
   /**
    * Returns the generated column selector for formula fields
    * @param field The formula field
-   * @returns Generated column name if dbGenerated=true, otherwise regular dbFieldName
    */
   private getFormulaColumnSelector(field: FormulaFieldCore): Knex.QueryBuilder {
-    if (isGeneratedFormulaField(field) && !field.isLookup) {
-      const provider = getDriverName(this.knex);
-      const visitor = createGeneratedColumnQuerySupportValidator(provider);
-      const isSupported = field.validateGeneratedColumnSupport(visitor);
-      if (!isSupported) {
+    if (!field.isLookup) {
+      const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
+      if (!isPersistedAsGeneratedColumn) {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           fieldMap: this.context.fieldMap,
         });

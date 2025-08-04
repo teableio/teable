@@ -39,11 +39,6 @@ export class BaseQueryService {
     private readonly recordService: RecordService
   ) {}
 
-  /**
-   * Get the database column name to query for a field
-   * For formula fields with dbGenerated=true, use the generated column name
-   * For lookup formula fields, use the standard field name
-   */
   private getQueryColumnName(field: IFieldInstance): string {
     return field.dbFieldName;
   }

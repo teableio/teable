@@ -20,11 +20,6 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
     return this.parseGroups(this.originQueryBuilder, this.groupFieldIds);
   }
 
-  /**
-   * Get the database column name to query for a field
-   * For formula fields with dbGenerated=true, use the generated column name
-   * Otherwise, use the standard dbFieldName
-   */
   protected getTableColumnName(field: IFieldInstance): string {
     return field.dbFieldName;
   }

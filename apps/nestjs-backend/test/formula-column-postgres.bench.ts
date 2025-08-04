@@ -92,7 +92,6 @@ function createFormulaField(expression: string): FormulaFieldDto {
     name: 'test_formula',
     type: FieldType.Formula,
     options: {
-      dbGenerated: true,
       expression,
     },
     cellValueType: CellValueType.Number,

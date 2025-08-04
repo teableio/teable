@@ -3,8 +3,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import { match } from 'ts-pattern';
+import { isFormulaField } from '../models';
 import { FormulaFieldCore } from '../models/field/derivate/formula.field';
-import { isGeneratedFormulaField } from '../models/field/field.util';
 import { CircularReferenceError } from './errors/circular-reference.error';
 import type {
   IFormulaConversionContext,
@@ -125,7 +125,7 @@ abstract class BaseSqlConversionVisitor<
     }
 
     // Check if this is a formula field that needs recursive expansion
-    if (isGeneratedFormulaField(fieldInfo)) {
+    if (isFormulaField(fieldInfo)) {
       return this.expandFormulaField(fieldId, fieldInfo);
     }
 

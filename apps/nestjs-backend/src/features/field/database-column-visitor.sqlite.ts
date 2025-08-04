@@ -51,7 +51,6 @@ export interface IDatabaseColumnContext {
 
 /**
  * SQLite implementation of database column visitor.
- * Supports VIRTUAL generated columns for formula fields with dbGenerated=true.
  */
 export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
   constructor(private readonly context: IDatabaseColumnContext) {}
@@ -94,8 +93,7 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
   private createFormulaColumns(field: FormulaFieldCore): void {
     // Create the standard formula column
 
-    // If dbGenerated is enabled, create a generated column or fallback column
-    if (field.options.dbGenerated && this.context.dbProvider && this.context.fieldMap) {
+    if (this.context.dbProvider && this.context.fieldMap) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getSqliteColumnType(field.dbFieldType);
 

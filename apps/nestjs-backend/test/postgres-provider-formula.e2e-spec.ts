@@ -127,7 +127,6 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
         name: 'test_formula',
         type: FieldType.Formula,
         options: {
-          dbGenerated: true,
           expression,
         },
         cellValueType,

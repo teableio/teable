@@ -132,7 +132,6 @@ describe('SQLite Provider Formula Integration Tests', () => {
       cellValueType,
       options: {
         expression,
-        dbGenerated: true,
       },
     });
   }

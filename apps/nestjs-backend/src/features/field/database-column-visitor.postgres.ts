@@ -55,7 +55,6 @@ export interface IDatabaseAddColumnContext {
 
 /**
  * PostgreSQL implementation of database column visitor.
- * Supports STORED generated columns for formula fields with dbGenerated=true.
  */
 export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
   constructor(private readonly context: IDatabaseAddColumnContext) {}
@@ -96,8 +95,7 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
-    // If dbGenerated is enabled, create a generated column or fallback column
-    if (field.options.dbGenerated && this.context.dbProvider && this.context.fieldMap) {
+    if (this.context.dbProvider && this.context.fieldMap) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getPostgresColumnType(field.dbFieldType);
 

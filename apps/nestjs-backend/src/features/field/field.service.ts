@@ -996,7 +996,7 @@ export class FieldService implements IReadonlyAdapterService {
 
     // Check if the new options affect generated columns
     const formulaOptions = newOptions as IFormulaFieldOptions;
-    if (!formulaOptions.dbGenerated && !formulaOptions.expression) {
+    if (!formulaOptions.expression) {
       return;
     }
 
@@ -1067,15 +1067,16 @@ export class FieldService implements IReadonlyAdapterService {
           where: { id: dependentFieldId, tableId: dependentTableId, deletedTime: null },
         });
 
-        if (!dependentFieldRaw || dependentFieldRaw.type !== FieldType.Formula) {
+        if (!dependentFieldRaw) {
           continue;
         }
 
-        // Check if this formula field has generated columns
-        const options = dependentFieldRaw.options
-          ? (JSON.parse(dependentFieldRaw.options) as IFormulaFieldOptions)
-          : null;
-        if (!options?.dbGenerated) {
+        const dependentFieldInstance = createFieldInstanceByRaw(dependentFieldRaw);
+        if (dependentFieldInstance.type !== FieldType.Formula) {
+          continue;
+        }
+
+        if (!dependentFieldInstance.getIsPersistedAsGeneratedColumn()) {
           continue;
         }
 
