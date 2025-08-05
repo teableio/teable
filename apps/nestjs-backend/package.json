@@ -103,6 +103,7 @@
     "istanbul-merge": "2.0.0",
     "npm-run-all2": "6.1.2",
     "nyc": "15.1.0",
+    "pg-mem": "3.0.5",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "swc-loader": "0.2.6",
