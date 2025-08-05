@@ -285,7 +285,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: unknown, data?: unknown) => void
   ) {
     const time = Date.now();
-    this.logger.log(`getOps: ${collection}, ${id}, ${from}, ${to}`);
     let callbackCalled = false;
     const safeCallback = (error: unknown, data?: unknown) => {
       if (callbackCalled) {
