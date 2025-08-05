@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type {
   ILinkFieldOptions,
+  ILookupOptionsVo,
   IFieldVisitor,
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -21,7 +22,7 @@ import type {
   SingleSelectFieldCore,
   UserFieldCore,
 } from '@teable/core';
-import { DriverClient, Relationship } from '@teable/core';
+import { FieldType, DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IFieldInstance } from './model/factory';
@@ -49,17 +50,12 @@ export interface IFieldCteContext {
  */
 export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   private logger = new Logger(FieldCteVisitor.name);
+  private readonly processedForeignTables = new Set<string>();
+
   constructor(
     private readonly dbProvider: IDbProvider,
     private readonly context: IFieldCteContext
   ) {}
-
-  /**
-   * Generate CTE name for a field
-   */
-  private getCteNameForField(fieldId: string): string {
-    return `cte_${fieldId.replace(/[^a-z0-9]/gi, '_')}`;
-  }
 
   /**
    * Generate JSON aggregation function based on database type
@@ -81,183 +77,257 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   /**
-   * Generate single JSON object function based on database type
+   * Check if field is a Lookup field and generate CTE if needed
    */
-  private getSingleJsonObjectFunction(tableAlias: string, lookupFieldName: string): string {
-    const driver = this.dbProvider.driver;
+  private checkAndGenerateLookupCte(field: {
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+    id: string;
+  }): ICteResult {
+    if (field.isLookup && field.lookupOptions) {
+      return this.generateForeignTableCte(field.lookupOptions.foreignTableId);
+    }
+    return { hasChanges: false };
+  }
 
-    // Use table alias for cleaner SQL
-    const recordIdRef = `${tableAlias}."__id"`;
-    const titleRef = `${tableAlias}."${lookupFieldName}"`;
+  /**
+   * Generate CTE for a foreign table (shared by multiple Lookup fields)
+   */
+  private generateForeignTableCte(foreignTableId: string): ICteResult {
+    // Check if we've already processed this foreign table
+    if (this.processedForeignTables.has(foreignTableId)) {
+      // Return existing CTE info
+      const cteName = this.getCteNameForForeignTable(foreignTableId);
+      return { cteName, hasChanges: false }; // Already processed
+    }
+
+    // Mark as processed
+    this.processedForeignTables.add(foreignTableId);
+
+    // Get foreign table name from context
+    const foreignTableName = this.context.tableNameMap.get(foreignTableId);
+    if (!foreignTableName) {
+      this.logger.debug(`Foreign table not found: ${foreignTableId}`);
+      return { hasChanges: false };
+    }
+
+    // Collect all Lookup fields that reference this foreign table
+    const lookupFields = this.collectLookupFieldsForForeignTable(foreignTableId);
+    if (lookupFields.length === 0) {
+      return { hasChanges: false };
+    }
+
+    const cteName = this.getCteNameForForeignTable(foreignTableId);
+    const { mainTableName } = this.context;
+
+    // Create CTE callback function
+    const cteCallback = (qb: Knex.QueryBuilder) => {
+      const mainAlias = 'm';
+      const junctionAlias = 'j';
+      const foreignAlias = 'f';
+
+      // Build select columns
+      const selectColumns = [`${mainAlias}.__id as main_record_id`];
+
+      // Add Link field JSON aggregation if there's a Link field for this foreign table
+      const linkField = this.findLinkFieldForForeignTable(foreignTableId);
+      if (linkField) {
+        const linkOptions = linkField.options as ILinkFieldOptions;
+        const linkLookupField = this.context.fieldMap.get(linkOptions.lookupFieldId);
+        if (linkLookupField) {
+          const jsonAggFunction = this.getJsonAggregationFunction(
+            foreignAlias,
+            linkLookupField.dbFieldName
+          );
+          selectColumns.push(qb.client.raw(`${jsonAggFunction} as link_value`));
+        }
+      }
+
+      // Add Lookup field selections
+      for (const lookupField of lookupFields) {
+        const targetField = this.context.fieldMap.get(lookupField.lookupOptions!.lookupFieldId);
+        if (targetField) {
+          if (lookupField.isMultipleCellValue) {
+            const concatFunction = this.getConcatenationFunction(
+              foreignAlias,
+              targetField.dbFieldName
+            );
+            selectColumns.push(qb.client.raw(`${concatFunction} as "lookup_${lookupField.id}"`));
+          } else {
+            selectColumns.push(
+              `${foreignAlias}.${targetField.dbFieldName} as "lookup_${lookupField.id}"`
+            );
+          }
+        }
+      }
+
+      // Get JOIN information from the first Lookup field (they should all have the same JOIN logic for the same foreign table)
+      const firstLookup = lookupFields[0];
+      const { fkHostTableName, selfKeyName, foreignKeyName } = firstLookup.lookupOptions!;
+
+      qb.select(selectColumns)
+        .from(`${mainTableName} as ${mainAlias}`)
+        .leftJoin(
+          `${fkHostTableName} as ${junctionAlias}`,
+          `${mainAlias}.__id`,
+          `${junctionAlias}.${selfKeyName}`
+        )
+        .leftJoin(
+          `${foreignTableName} as ${foreignAlias}`,
+          `${junctionAlias}.${foreignKeyName}`,
+          `${foreignAlias}.__id`
+        )
+        .groupBy(`${mainAlias}.__id`);
+    };
+
+    this.logger.debug(`Generated foreign table CTE for ${foreignTableId} with name ${cteName}`);
+
+    return { cteName, hasChanges: true, cteCallback };
+  }
+
+  /**
+   * Generate CTE name for a foreign table
+   */
+  private getCteNameForForeignTable(foreignTableId: string): string {
+    return `cte_${foreignTableId.replace(/[^a-z0-9]/gi, '_')}`;
+  }
+
+  /**
+   * Collect all Lookup fields that reference a specific foreign table
+   */
+  private collectLookupFieldsForForeignTable(foreignTableId: string): Array<{
+    id: string;
+    isMultipleCellValue?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+  }> {
+    const lookupFields: Array<{
+      id: string;
+      isMultipleCellValue?: boolean;
+      lookupOptions?: ILookupOptionsVo;
+    }> = [];
+
+    // Iterate through all fields in context to find Lookup fields for this foreign table
+    for (const [fieldId, field] of this.context.fieldMap) {
+      if (field.isLookup && field.lookupOptions?.foreignTableId === foreignTableId) {
+        lookupFields.push({
+          id: fieldId,
+          isMultipleCellValue: field.isMultipleCellValue,
+          lookupOptions: field.lookupOptions,
+        });
+      }
+    }
+
+    return lookupFields;
+  }
+
+  /**
+   * Find Link field that references the same foreign table
+   */
+  private findLinkFieldForForeignTable(foreignTableId: string): IFieldInstance | null {
+    for (const [, field] of this.context.fieldMap) {
+      if (field.type === FieldType.Link && !field.isLookup) {
+        const options = field.options as ILinkFieldOptions;
+        if (options.foreignTableId === foreignTableId) {
+          return field;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Generate JSON array aggregation function for multiple values based on database type
+   */
+  private getConcatenationFunction(tableAlias: string, fieldName: string): string {
+    const driver = this.dbProvider.driver;
+    const fieldRef = `${tableAlias}."${fieldName}"`;
 
     if (driver === DriverClient.Pg) {
-      return `json_build_object('id', ${recordIdRef}, 'title', ${titleRef})`;
+      return `json_agg(${fieldRef})`;
     } else if (driver === DriverClient.Sqlite) {
-      return `json_object('id', ${recordIdRef}, 'title', ${titleRef})`;
+      return `json_group_array(${fieldRef})`;
     }
 
     throw new Error(`Unsupported database driver: ${driver}`);
   }
 
-  /**
-   * Generate CTE for Link field based on relationship type
-   */
-  private generateLinkFieldCte(field: LinkFieldCore): ICteResult {
-    const options = field.options as ILinkFieldOptions;
-    const {
-      relationship,
-      fkHostTableName,
-      selfKeyName,
-      foreignKeyName,
-      foreignTableId,
-      lookupFieldId,
-    } = options;
-
-    const cteName = this.getCteNameForField(field.id);
-    const mainTableName = this.context.mainTableName;
-    const foreignTableName = this.context.tableNameMap.get(foreignTableId);
-    const lookupField = this.context.fieldMap.get(lookupFieldId);
-
-    if (!foreignTableName || !lookupField) {
-      return { hasChanges: false };
-    }
-
-    // Create CTE callback function
-    const cteCallback = (qb: Knex.QueryBuilder) => {
-      // Use aliases to avoid table name conflicts and make SQL more readable
-      const mainAlias = 'm';
-      const junctionAlias = 'j';
-      const foreignAlias = 'f';
-
-      if (
-        relationship === Relationship.ManyMany ||
-        (relationship === Relationship.OneMany && field.isMultipleCellValue)
-      ) {
-        // Multiple values - use JSON aggregation
-        const jsonAggFunction = this.getJsonAggregationFunction(
-          foreignAlias,
-          lookupField.dbFieldName
-        );
-
-        qb.select([
-          `${mainAlias}.__id as main_record_id`,
-          qb.client.raw(`${jsonAggFunction} as link_value`),
-        ])
-          .from(`${mainTableName} as ${mainAlias}`)
-          .leftJoin(
-            `${fkHostTableName} as ${junctionAlias}`,
-            `${mainAlias}.__id`,
-            `${junctionAlias}.${selfKeyName}`
-          )
-          .leftJoin(
-            `${foreignTableName} as ${foreignAlias}`,
-            `${junctionAlias}.${foreignKeyName}`,
-            `${foreignAlias}.__id`
-          )
-          .groupBy(`${mainAlias}.__id`);
-      } else {
-        // Single value - use single JSON object
-        const jsonObjectFunction = this.getSingleJsonObjectFunction(
-          foreignAlias,
-          lookupField.dbFieldName
-        );
-
-        qb.select([
-          `${mainAlias}.__id as main_record_id`,
-          qb.client.raw(`${jsonObjectFunction} as link_value`),
-        ])
-          .from(`${mainTableName} as ${mainAlias}`)
-          .leftJoin(
-            `${fkHostTableName} as ${junctionAlias}`,
-            `${mainAlias}.__id`,
-            `${junctionAlias}.${selfKeyName}`
-          )
-          .leftJoin(
-            `${foreignTableName} as ${foreignAlias}`,
-            `${junctionAlias}.${foreignKeyName}`,
-            `${foreignAlias}.__id`
-          );
-      }
-    };
-
-    return { cteName, hasChanges: true, cteCallback };
-  }
-
   // Field visitor methods - most fields don't need CTEs
-  visitNumberField(_field: NumberFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitNumberField(field: NumberFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitSingleLineTextField(_field: SingleLineTextFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitSingleLineTextField(field: SingleLineTextFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitLongTextField(_field: LongTextFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitLongTextField(field: LongTextFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitAttachmentField(_field: AttachmentFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitAttachmentField(field: AttachmentFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitCheckboxField(_field: CheckboxFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitCheckboxField(field: CheckboxFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitDateField(_field: DateFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitDateField(field: DateFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitRatingField(_field: RatingFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitRatingField(field: RatingFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitAutoNumberField(_field: AutoNumberFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitAutoNumberField(field: AutoNumberFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
   visitLinkField(field: LinkFieldCore): ICteResult {
-    // Skip lookup Link fields - they use pre-computed values
+    // Check if this is a Lookup field first
     if (field.isLookup) {
-      return { hasChanges: false };
+      return this.checkAndGenerateLookupCte(field);
     }
 
-    return this.generateLinkFieldCte(field);
+    // For non-Lookup Link fields, use the new foreign table CTE approach
+    const options = field.options as ILinkFieldOptions;
+    return this.generateForeignTableCte(options.foreignTableId);
   }
 
-  visitRollupField(_field: RollupFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitRollupField(field: RollupFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitSingleSelectField(_field: SingleSelectFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitSingleSelectField(field: SingleSelectFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitMultipleSelectField(_field: MultipleSelectFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitMultipleSelectField(field: MultipleSelectFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitFormulaField(_field: FormulaFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitFormulaField(field: FormulaFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitCreatedTimeField(_field: CreatedTimeFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitCreatedTimeField(field: CreatedTimeFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitLastModifiedTimeField(_field: LastModifiedTimeFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitUserField(_field: UserFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitUserField(field: UserFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitCreatedByField(_field: CreatedByFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitCreatedByField(field: CreatedByFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 
-  visitLastModifiedByField(_field: LastModifiedByFieldCore): ICteResult {
-    return { hasChanges: false };
+  visitLastModifiedByField(field: LastModifiedByFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
   }
 }

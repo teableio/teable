@@ -1,24 +1,25 @@
-import {
-  type AttachmentFieldCore,
-  type AutoNumberFieldCore,
-  type CheckboxFieldCore,
-  type CreatedByFieldCore,
-  type CreatedTimeFieldCore,
-  type DateFieldCore,
-  type FormulaFieldCore,
-  type LastModifiedByFieldCore,
-  type LastModifiedTimeFieldCore,
-  type LinkFieldCore,
-  type LongTextFieldCore,
-  type MultipleSelectFieldCore,
-  type NumberFieldCore,
-  type RatingFieldCore,
-  type RollupFieldCore,
-  type SingleLineTextFieldCore,
-  type SingleSelectFieldCore,
-  type UserFieldCore,
-  type IFieldVisitor,
-  type IFormulaConversionContext,
+import type {
+  FieldCore,
+  AttachmentFieldCore,
+  AutoNumberFieldCore,
+  CheckboxFieldCore,
+  CreatedByFieldCore,
+  CreatedTimeFieldCore,
+  DateFieldCore,
+  FormulaFieldCore,
+  LastModifiedByFieldCore,
+  LastModifiedTimeFieldCore,
+  LinkFieldCore,
+  LongTextFieldCore,
+  MultipleSelectFieldCore,
+  NumberFieldCore,
+  RatingFieldCore,
+  RollupFieldCore,
+  SingleLineTextFieldCore,
+  SingleSelectFieldCore,
+  UserFieldCore,
+  IFieldVisitor,
+  IFormulaConversionContext,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -47,6 +48,34 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
   }
 
   /**
+   * Check if field is a Lookup field and return appropriate selector
+   */
+  private checkAndSelectLookupField(field: FieldCore): Knex.QueryBuilder {
+    // Check if this is a Lookup field
+    if (field.isLookup && field.lookupOptions && this.fieldCteMap) {
+      // Use the linkFieldId to find the CTE (since CTE is generated for the Link field)
+      const linkFieldId = field.lookupOptions.linkFieldId;
+      if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
+        const cteName = this.fieldCteMap.get(linkFieldId)!;
+        // Select from the CTE using the field-specific column name
+        return this.qb.select(
+          this.qb.client.raw(`??."lookup_${field.id}" as ??`, [cteName, field.dbFieldName])
+        );
+      }
+    }
+
+    // Fallback to the original column
+    return this.getColumnSelector(field);
+  }
+
+  /**
+   * Generate CTE name for a foreign table
+   */
+  private getCteNameForForeignTable(foreignTableId: string): string {
+    return `cte_${foreignTableId.replace(/[^a-z0-9]/gi, '_')}`;
+  }
+
+  /**
    * Returns the generated column selector for formula fields
    * @param field The formula field
    */
@@ -66,39 +95,44 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
 
   // Basic field types
   visitNumberField(field: NumberFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitSingleLineTextField(field: SingleLineTextFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitLongTextField(field: LongTextFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitAttachmentField(field: AttachmentFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitCheckboxField(field: CheckboxFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitDateField(field: DateFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitRatingField(field: RatingFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitAutoNumberField(field: AutoNumberFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitLinkField(field: LinkFieldCore): Knex.QueryBuilder {
-    // Check if we have a CTE for this Link field
+    // Check if this is a Lookup field first
+    if (field.isLookup) {
+      return this.checkAndSelectLookupField(field);
+    }
+
+    // For non-Lookup Link fields, check if we have a CTE for this field
     if (this.fieldCteMap && this.fieldCteMap.has(field.id)) {
       const cteName = this.fieldCteMap.get(field.id)!;
       // Select from the CTE instead of the pre-computed column
@@ -112,41 +146,45 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
   }
 
   visitRollupField(field: RollupFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   // Select field types
   visitSingleSelectField(field: SingleSelectFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitMultipleSelectField(field: MultipleSelectFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   // Formula field types - these may use generated columns
   visitFormulaField(field: FormulaFieldCore): Knex.QueryBuilder {
+    // For Formula fields, check Lookup first, then use formula logic
+    if (field.isLookup) {
+      return this.checkAndSelectLookupField(field);
+    }
     return this.getFormulaColumnSelector(field);
   }
 
   visitCreatedTimeField(field: CreatedTimeFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   // User field types
   visitUserField(field: UserFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitCreatedByField(field: CreatedByFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 
   visitLastModifiedByField(field: LastModifiedByFieldCore): Knex.QueryBuilder {
-    return this.getColumnSelector(field);
+    return this.checkAndSelectLookupField(field);
   }
 }
