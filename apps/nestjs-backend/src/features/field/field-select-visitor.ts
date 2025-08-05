@@ -32,10 +32,10 @@ import type { IDbProvider } from '../../db-provider/db.provider.interface';
  */
 export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
   constructor(
-    private readonly knex: Knex,
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
-    private readonly context: IFormulaConversionContext
+    private readonly context: IFormulaConversionContext,
+    private readonly fieldCteMap?: Map<string, string>
   ) {}
   /**
    * Returns the appropriate column selector for a field
@@ -57,7 +57,7 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           fieldMap: this.context.fieldMap,
         });
-        return this.qb.select(this.knex.raw(`${sql} as ??`, [field.getGeneratedColumnName()]));
+        return this.qb.select(this.qb.client.raw(`${sql} as ??`, [field.getGeneratedColumnName()]));
       }
       return this.qb.select(field.getGeneratedColumnName());
     }
@@ -98,6 +98,16 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
   }
 
   visitLinkField(field: LinkFieldCore): Knex.QueryBuilder {
+    // Check if we have a CTE for this Link field
+    if (this.fieldCteMap && this.fieldCteMap.has(field.id)) {
+      const cteName = this.fieldCteMap.get(field.id)!;
+      // Select from the CTE instead of the pre-computed column
+      return this.qb.select(
+        this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName])
+      );
+    }
+
+    // Fallback to the original pre-computed column for backward compatibility
     return this.getColumnSelector(field);
   }
 

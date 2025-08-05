@@ -1318,8 +1318,14 @@ export class RecordService {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const qb = builder.from(viewQueryDbTableName);
+    const mainTableName = await this.getDbTableName(tableId);
+    const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
+      fields,
+      tableId,
+      mainTableName
+    );
     const nativeQuery = this.recordQueryBuilder
-      .buildQuery(qb, tableId, undefined, fields)
+      .buildQuery(qb, tableId, undefined, fields, linkFieldCteContext)
       .whereIn('__id', recordIds)
       .toQuery();
 
@@ -1707,7 +1713,19 @@ export class RecordService {
       filterLinkCellCandidate,
       filterLinkCellSelected,
     });
-    queryBuilder = this.recordQueryBuilder.buildQuery(queryBuilder, tableId, viewId, fields);
+    const mainTableName = await this.getDbTableName(tableId);
+    const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
+      fields,
+      tableId,
+      mainTableName
+    );
+    queryBuilder = this.recordQueryBuilder.buildQuery(
+      queryBuilder,
+      tableId,
+      viewId,
+      fields,
+      linkFieldCteContext
+    );
     skip && queryBuilder.offset(skip);
     take !== -1 && take && queryBuilder.limit(take);
     const sql = queryBuilder.toQuery();
