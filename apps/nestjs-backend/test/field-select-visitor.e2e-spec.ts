@@ -162,7 +162,7 @@ describe('FieldSelectVisitor E2E Tests', () => {
       const textField = createFieldInstanceByVo(textFieldVo);
 
       const qb = knexInstance(testTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
+      const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
       const result = textField.accept(visitor);
 
       // Capture the generated SQL query for basic text field
@@ -189,7 +189,7 @@ describe('FieldSelectVisitor E2E Tests', () => {
       const numberField = createFieldInstanceByVo(numberFieldVo);
 
       const qb = knexInstance(testTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
+      const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
       const result = numberField.accept(visitor);
 
       const rows = await result;
@@ -211,7 +211,7 @@ describe('FieldSelectVisitor E2E Tests', () => {
       const checkboxField = createFieldInstanceByVo(checkboxFieldVo);
 
       const qb = knexInstance(testTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
+      const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
       const result = checkboxField.accept(visitor);
 
       const rows = await result;
@@ -233,7 +233,7 @@ describe('FieldSelectVisitor E2E Tests', () => {
       const dateField = createFieldInstanceByVo(dateFieldVo);
 
       const qb = knexInstance(testTableName);
-      const visitor = new FieldSelectVisitor(knexInstance, qb, dbProvider, createContext());
+      const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
       const result = dateField.accept(visitor);
 
       const rows = await result;

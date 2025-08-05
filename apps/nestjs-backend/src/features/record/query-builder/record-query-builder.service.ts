@@ -1,14 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { type IFormulaConversionContext } from '@teable/core';
+import { type IFormulaConversionContext, FieldType, type ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
+import type { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { preservedDbFieldNames } from '../../field/constant';
+import { FieldCteVisitor, type IFieldCteContext } from '../../field/field-cte-visitor';
 import { FieldSelectVisitor } from '../../field/field-select-visitor';
 import type { IFieldInstance } from '../../field/model/factory';
-import type { IRecordQueryBuilder, IRecordQueryParams } from './record-query-builder.interface';
+import { createFieldInstanceByRaw } from '../../field/model/factory';
+import type {
+  IRecordQueryBuilder,
+  IRecordQueryParams,
+  ILinkFieldContext,
+  ILinkFieldCteContext,
+} from './record-query-builder.interface';
 
 /**
  * Service for building table record queries
@@ -19,7 +25,6 @@ import type { IRecordQueryBuilder, IRecordQueryParams } from './record-query-bui
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -30,29 +35,56 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
     viewId: string | undefined,
-    fields: IFieldInstance[]
+    fields: IFieldInstance[],
+    linkFieldCteContext: ILinkFieldCteContext
   ): Knex.QueryBuilder {
     const params: IRecordQueryParams = {
       tableId,
       viewId,
       fields,
       queryBuilder,
+      linkFieldContexts: linkFieldCteContext.linkFieldContexts,
     };
 
-    return this.buildQueryWithParams(params);
+    return this.buildQueryWithParams(params, linkFieldCteContext.mainTableName);
+  }
+
+  /**
+   * Build query with Link field contexts (async version for external use)
+   */
+  async buildQueryWithLinkContexts(
+    queryBuilder: Knex.QueryBuilder,
+    tableId: string,
+    viewId: string | undefined,
+    fields: IFieldInstance[]
+  ): Promise<Knex.QueryBuilder> {
+    const mainTableName = await this.getDbTableName(tableId);
+    const linkFieldCteContext = await this.createLinkFieldContexts(fields, tableId, mainTableName);
+    return this.buildQuery(queryBuilder, tableId, viewId, fields, linkFieldCteContext);
   }
 
   /**
    * Build query with detailed parameters
    */
-  private buildQueryWithParams(params: IRecordQueryParams): Knex.QueryBuilder {
-    const { fields, queryBuilder } = params;
+  private buildQueryWithParams(
+    params: IRecordQueryParams,
+    mainTableName: string
+  ): Knex.QueryBuilder {
+    const { fields, queryBuilder, linkFieldContexts } = params;
 
     // Build formula conversion context
     const context = this.buildFormulaContext(fields);
 
+    // Add field CTEs if Link field contexts are provided
+    const fieldCteMap = this.addFieldCtesSync(
+      queryBuilder,
+      fields,
+      mainTableName,
+      linkFieldContexts
+    );
+
     // Build select fields
-    return this.buildSelect(queryBuilder, fields, context);
+    return this.buildSelect(queryBuilder, fields, context, fieldCteMap);
   }
 
   /**
@@ -61,9 +93,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   private buildSelect(
     qb: Knex.QueryBuilder,
     fields: IFieldInstance[],
-    context: IFormulaConversionContext
+    context: IFormulaConversionContext,
+    fieldCteMap?: Map<string, string>
   ): Knex.QueryBuilder {
-    const visitor = new FieldSelectVisitor(this.knex, qb, this.dbProvider, context);
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, context, fieldCteMap);
 
     // Add default system fields
     qb.select(Array.from(preservedDbFieldNames));
@@ -86,6 +119,94 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     });
 
     return table.dbTableName;
+  }
+
+  /**
+   * Add field CTEs to the query builder (synchronous version)
+   */
+  private addFieldCtesSync(
+    queryBuilder: Knex.QueryBuilder,
+    fields: IFieldInstance[],
+    mainTableName: string,
+    linkFieldContexts?: ILinkFieldContext[]
+  ): Map<string, string> {
+    const fieldCteMap = new Map<string, string>();
+
+    if (!linkFieldContexts?.length) return fieldCteMap;
+
+    const fieldMap = new Map<string, IFieldInstance>();
+    const tableNameMap = new Map<string, string>();
+
+    fields.forEach((field) => fieldMap.set(field.id, field));
+
+    for (const linkContext of linkFieldContexts) {
+      fieldMap.set(linkContext.lookupField.id, linkContext.lookupField);
+      const options = linkContext.linkField.options as ILinkFieldOptions;
+      tableNameMap.set(options.foreignTableId, linkContext.foreignTableName);
+    }
+
+    const context: IFieldCteContext = { mainTableName, fieldMap, tableNameMap };
+    const cteVisitor = new FieldCteVisitor(this.dbProvider, context);
+
+    for (const field of fields) {
+      if (field.type === FieldType.Link && !field.isLookup) {
+        const result = field.accept(cteVisitor);
+        if (result.hasChanges && result.cteName && result.cteCallback) {
+          queryBuilder.with(result.cteName, result.cteCallback);
+          queryBuilder.leftJoin(
+            result.cteName,
+            `${mainTableName}.__id`,
+            `${result.cteName}.main_record_id`
+          );
+          fieldCteMap.set(field.id, result.cteName);
+        }
+      }
+    }
+
+    return fieldCteMap;
+  }
+
+  /**
+   * Create Link field contexts for CTE generation
+   */
+  async createLinkFieldContexts(
+    fields: IFieldInstance[],
+    tableId: string,
+    mainTableName: string
+  ): Promise<ILinkFieldCteContext> {
+    const linkFieldContexts: ILinkFieldContext[] = [];
+
+    for (const field of fields) {
+      if (field.type === FieldType.Link && !field.isLookup) {
+        const options = field.options as ILinkFieldOptions;
+        const [lookupField, foreignTableName] = await Promise.all([
+          this.getLookupField(options.lookupFieldId),
+          this.getDbTableName(options.foreignTableId),
+        ]);
+
+        linkFieldContexts.push({
+          linkField: field,
+          lookupField,
+          foreignTableName,
+        });
+      }
+    }
+
+    return {
+      linkFieldContexts,
+      mainTableName,
+    };
+  }
+
+  /**
+   * Get lookup field instance by ID
+   */
+  private async getLookupField(lookupFieldId: string): Promise<IFieldInstance> {
+    const fieldRaw = await this.prismaService.txClient().field.findUniqueOrThrow({
+      where: { id: lookupFieldId },
+    });
+
+    return createFieldInstanceByRaw(fieldRaw);
   }
 
   /**

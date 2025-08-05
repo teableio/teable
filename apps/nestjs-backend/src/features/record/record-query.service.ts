@@ -60,8 +60,13 @@ export class RecordQueryService {
 
       const qb = this.knex(table.dbTableName);
 
+      const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
+        fields,
+        tableId,
+        table.dbTableName
+      );
       const sql = this.recordQueryBuilder
-        .buildQuery(qb, tableId, undefined, fields)
+        .buildQuery(qb, tableId, undefined, fields, linkFieldCteContext)
         .whereIn('__id', recordIds)
         .toQuery();
 
