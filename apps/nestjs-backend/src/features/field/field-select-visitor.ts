@@ -31,36 +31,38 @@ import type { IDbProvider } from '../../db-provider/db.provider.interface';
  *
  * The returned value can be used directly with knex.select() or knex.raw()
  */
-export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
+export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
   constructor(
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly context: IFormulaConversionContext,
-    private readonly fieldCteMap?: Map<string, string>
+    private readonly fieldCteMap?: Map<string, string>,
+    private readonly tableAlias?: string
   ) {}
   /**
    * Returns the appropriate column selector for a field
    * @param field The field to get the selector for
-   * @returns String column name
+   * @returns String column name with table alias or Raw expression
    */
-  private getColumnSelector(field: { dbFieldName: string }): Knex.QueryBuilder {
-    return this.qb.select(field.dbFieldName);
+  private getColumnSelector(field: { dbFieldName: string }): string {
+    if (this.tableAlias) {
+      return `${this.tableAlias}."${field.dbFieldName}"`;
+    }
+    return field.dbFieldName;
   }
 
   /**
    * Check if field is a Lookup field and return appropriate selector
    */
-  private checkAndSelectLookupField(field: FieldCore): Knex.QueryBuilder {
+  private checkAndSelectLookupField(field: FieldCore): string | Knex.Raw {
     // Check if this is a Lookup field
     if (field.isLookup && field.lookupOptions && this.fieldCteMap) {
       // Use the linkFieldId to find the CTE (since CTE is generated for the Link field)
       const linkFieldId = field.lookupOptions.linkFieldId;
       if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
         const cteName = this.fieldCteMap.get(linkFieldId)!;
-        // Select from the CTE using the field-specific column name
-        return this.qb.select(
-          this.qb.client.raw(`??."lookup_${field.id}" as ??`, [cteName, field.dbFieldName])
-        );
+        // Return Raw expression for selecting from CTE
+        return this.qb.client.raw(`??."lookup_${field.id}" as ??`, [cteName, field.dbFieldName]);
       }
     }
 
@@ -69,64 +71,62 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
   }
 
   /**
-   * Generate CTE name for a foreign table
-   */
-  private getCteNameForForeignTable(foreignTableId: string): string {
-    return `cte_${foreignTableId.replace(/[^a-z0-9]/gi, '_')}`;
-  }
-
-  /**
    * Returns the generated column selector for formula fields
    * @param field The formula field
    */
-  private getFormulaColumnSelector(field: FormulaFieldCore): Knex.QueryBuilder {
+  private getFormulaColumnSelector(field: FormulaFieldCore): string | Knex.Raw {
     if (!field.isLookup) {
       const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
       if (!isPersistedAsGeneratedColumn) {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           fieldMap: this.context.fieldMap,
         });
-        return this.qb.select(this.qb.client.raw(`${sql} as ??`, [field.getGeneratedColumnName()]));
+        // Apply table alias to the formula expression if provided
+        const finalSql = this.tableAlias ? sql.replace(/\b\w+\./g, `${this.tableAlias}.`) : sql;
+        return this.qb.client.raw(`${finalSql} as ??`, [field.getGeneratedColumnName()]);
       }
-      return this.qb.select(field.getGeneratedColumnName());
+      // For generated columns, use table alias if provided
+      const columnName = field.getGeneratedColumnName();
+      return this.tableAlias ? `${this.tableAlias}."${columnName}"` : columnName;
     }
-    return this.qb.select(field.dbFieldName);
+    // For lookup formula fields, use table alias if provided
+    return this.tableAlias ? `${this.tableAlias}."${field.dbFieldName}"` : field.dbFieldName;
   }
 
   // Basic field types
-  visitNumberField(field: NumberFieldCore): Knex.QueryBuilder {
+  visitNumberField(field: NumberFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitSingleLineTextField(field: SingleLineTextFieldCore): Knex.QueryBuilder {
+  visitSingleLineTextField(field: SingleLineTextFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitLongTextField(field: LongTextFieldCore): Knex.QueryBuilder {
+  visitLongTextField(field: LongTextFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitAttachmentField(field: AttachmentFieldCore): Knex.QueryBuilder {
+  visitAttachmentField(field: AttachmentFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitCheckboxField(field: CheckboxFieldCore): Knex.QueryBuilder {
+  visitCheckboxField(field: CheckboxFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitDateField(field: DateFieldCore): Knex.QueryBuilder {
+  visitDateField(field: DateFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitRatingField(field: RatingFieldCore): Knex.QueryBuilder {
+  visitRatingField(field: RatingFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitAutoNumberField(field: AutoNumberFieldCore): Knex.QueryBuilder {
+  visitAutoNumberField(field: AutoNumberFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitLinkField(field: LinkFieldCore): Knex.QueryBuilder {
+  visitLinkField(field: LinkFieldCore): string | Knex.Raw {
     // Check if this is a Lookup field first
     if (field.isLookup) {
       return this.checkAndSelectLookupField(field);
@@ -135,31 +135,29 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
     // For non-Lookup Link fields, check if we have a CTE for this field
     if (this.fieldCteMap && this.fieldCteMap.has(field.id)) {
       const cteName = this.fieldCteMap.get(field.id)!;
-      // Select from the CTE instead of the pre-computed column
-      return this.qb.select(
-        this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName])
-      );
+      // Return Raw expression for selecting from CTE
+      return this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName]);
     }
 
     // Fallback to the original pre-computed column for backward compatibility
     return this.getColumnSelector(field);
   }
 
-  visitRollupField(field: RollupFieldCore): Knex.QueryBuilder {
+  visitRollupField(field: RollupFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
   // Select field types
-  visitSingleSelectField(field: SingleSelectFieldCore): Knex.QueryBuilder {
+  visitSingleSelectField(field: SingleSelectFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitMultipleSelectField(field: MultipleSelectFieldCore): Knex.QueryBuilder {
+  visitMultipleSelectField(field: MultipleSelectFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
   // Formula field types - these may use generated columns
-  visitFormulaField(field: FormulaFieldCore): Knex.QueryBuilder {
+  visitFormulaField(field: FormulaFieldCore): string | Knex.Raw {
     // For Formula fields, check Lookup first, then use formula logic
     if (field.isLookup) {
       return this.checkAndSelectLookupField(field);
@@ -167,24 +165,24 @@ export class FieldSelectVisitor implements IFieldVisitor<Knex.QueryBuilder> {
     return this.getFormulaColumnSelector(field);
   }
 
-  visitCreatedTimeField(field: CreatedTimeFieldCore): Knex.QueryBuilder {
+  visitCreatedTimeField(field: CreatedTimeFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): Knex.QueryBuilder {
+  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
   // User field types
-  visitUserField(field: UserFieldCore): Knex.QueryBuilder {
+  visitUserField(field: UserFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitCreatedByField(field: CreatedByFieldCore): Knex.QueryBuilder {
+  visitCreatedByField(field: CreatedByFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 
-  visitLastModifiedByField(field: LastModifiedByFieldCore): Knex.QueryBuilder {
+  visitLastModifiedByField(field: LastModifiedByFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 }
