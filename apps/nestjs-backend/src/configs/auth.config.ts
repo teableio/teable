@@ -49,6 +49,7 @@ export const authConfig = registerAs('auth', () => ({
   github: {
     clientID: process.env.BACKEND_GITHUB_CLIENT_ID,
     clientSecret: process.env.BACKEND_GITHUB_CLIENT_SECRET,
+    callbackURL: process.env.BACKEND_GITHUB_CALLBACK_URL,
   },
   google: {
     clientID: process.env.BACKEND_GOOGLE_CLIENT_ID,

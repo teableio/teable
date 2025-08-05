@@ -16,12 +16,13 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     private userService: UserService,
     oauthStoreService: OauthStoreService
   ) {
-    const { clientID, clientSecret } = config.github;
+    const { clientID, clientSecret, callbackURL } = config.github;
     super({
       clientID,
       clientSecret,
       state: true,
       store: oauthStoreService,
+      callbackURL,
     });
   }
 
