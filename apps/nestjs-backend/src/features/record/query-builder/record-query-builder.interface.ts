@@ -5,7 +5,7 @@ import type { IFieldInstance } from '../../field/model/factory';
  * Context information for Link fields needed for CTE generation
  */
 export interface ILinkFieldContext {
-  linkField: IFieldInstance;
+  linkField: IFieldInstance; // Can be Link field or any Lookup field
   lookupField: IFieldInstance;
   foreignTableName: string;
 }

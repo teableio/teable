@@ -149,7 +149,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const cteVisitor = new FieldCteVisitor(this.dbProvider, context);
 
     for (const field of fields) {
-      if (field.type === FieldType.Link && !field.isLookup) {
+      // Process Link fields (non-Lookup) and Lookup fields
+      if ((field.type === FieldType.Link && !field.isLookup) || field.isLookup) {
         const result = field.accept(cteVisitor);
         if (result.hasChanges && result.cteName && result.cteCallback) {
           queryBuilder.with(result.cteName, result.cteCallback);
@@ -177,6 +178,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const linkFieldContexts: ILinkFieldContext[] = [];
 
     for (const field of fields) {
+      // Handle Link fields (non-Lookup)
       if (field.type === FieldType.Link && !field.isLookup) {
         const options = field.options as ILinkFieldOptions;
         const [lookupField, foreignTableName] = await Promise.all([
@@ -184,6 +186,21 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
           this.getDbTableName(options.foreignTableId),
         ]);
 
+        linkFieldContexts.push({
+          linkField: field,
+          lookupField,
+          foreignTableName,
+        });
+      }
+      // Handle Lookup fields (any field type with isLookup: true)
+      else if (field.isLookup && field.lookupOptions) {
+        const { lookupOptions } = field;
+        const [lookupField, foreignTableName] = await Promise.all([
+          this.getLookupField(lookupOptions.lookupFieldId),
+          this.getDbTableName(lookupOptions.foreignTableId),
+        ]);
+
+        // Create a Link field context for Lookup fields
         linkFieldContexts.push({
           linkField: field,
           lookupField,
