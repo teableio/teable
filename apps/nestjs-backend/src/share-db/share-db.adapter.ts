@@ -344,7 +344,7 @@ export class ShareDbAdapter extends ShareDb.DB {
 
       if (type === RawOpType.Create) {
         this.logger.log(
-          `getOps create: ${collection}, ${id}, ${from}, ${to}, ${Date.now() - time}ms`
+          `getOps create: ${collection}, ${id}, ${from}, ${to}, version: ${version}, ${Date.now() - time}ms`
         );
         safeCallback(null, [
           {
@@ -366,7 +366,9 @@ export class ShareDbAdapter extends ShareDb.DB {
           op: editOp,
         } as IEditOp;
       });
-      this.logger.log(`getOps edit: ${collection}, ${id}, ${from}, ${to}, ${Date.now() - time}ms`);
+      this.logger.log(
+        `getOps edit: ${collection}, ${id}, ${from}, ${to}, version: ${version}, ${Date.now() - time}ms ${editOps.length}`
+      );
       safeCallback(null, editOps);
     } catch (err) {
       this.logger.error(err);
