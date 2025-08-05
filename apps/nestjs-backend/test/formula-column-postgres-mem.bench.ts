@@ -4,6 +4,7 @@ import { FieldType, DbFieldType, CellValueType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import type { Knex } from 'knex';
 import knex from 'knex';
+import { newDb } from 'pg-mem';
 import { describe, bench } from 'vitest';
 import { PostgresProvider } from '../src/db-provider/postgres.provider';
 import { createFieldInstanceByVo } from '../src/features/field/model/factory';
@@ -11,7 +12,7 @@ import { FormulaFieldDto } from '../src/features/field/model/field-dto/formula-f
 
 // Test configuration
 const RECORD_COUNT = 50000;
-const PG_TABLE_NAME = 'perf_test_table_pg';
+const PG_TABLE_NAME = 'perf_test_table_pg_mem';
 
 // Helper function to create test data ONCE
 async function setupDatabase(
@@ -19,7 +20,7 @@ async function setupDatabase(
   recordCount: number,
   knexInstance: Knex
 ): Promise<void> {
-  console.log(`🚀 Setting up PostgreSQL bench test...`);
+  console.log(`🚀 Setting up PostgreSQL (pg-mem) bench test...`);
 
   try {
     // Clean up existing table
@@ -39,7 +40,7 @@ async function setupDatabase(
     });
 
     console.log(`📋 Created table ${tableName}`);
-    console.log(`Creating ${recordCount} records for PostgreSQL performance test...`);
+    console.log(`Creating ${recordCount} records for PostgreSQL (pg-mem) performance test...`);
 
     // Insert test data in batches
     const batchSize = 1000;
@@ -77,7 +78,7 @@ async function setupDatabase(
       throw new Error(`Expected ${recordCount} records, but found ${count} in table ${tableName}`);
     }
 
-    console.log(`✅ Successfully created ${recordCount} records for PostgreSQL test`);
+    console.log(`✅ Successfully created ${recordCount} records for PostgreSQL (pg-mem) test`);
   } catch (error) {
     console.error(`❌ Failed to setup database for ${tableName}:`, error);
     throw error;
@@ -118,37 +119,40 @@ function createContext(): IFormulaConversionContext {
   };
 }
 
-// Helper function to get PostgreSQL connection
-function getPgKnex(): Knex {
-  return knex({
-    client: 'pg',
-    connection: process.env.PRISMA_DATABASE_URL,
-  });
+// Helper function to get PostgreSQL (pg-mem) connection
+async function getPgMemKnex(): Promise<Knex> {
+  // Create a new in-memory PostgreSQL database
+  const db = newDb();
+
+  // Use the official pg-mem knex adapter
+  const knexInstance = await db.adapters.createKnex();
+
+  return knexInstance as Knex;
 }
 
 // Global setup state
 let isSetupComplete = false;
-let globalPgKnex: Knex;
+let globalPgMemKnex: Knex;
 const tableName = PG_TABLE_NAME + '_bench';
 
 // Ensure setup runs only once
 async function ensureSetup() {
   if (!isSetupComplete) {
-    globalPgKnex = getPgKnex();
-    await setupDatabase(tableName, RECORD_COUNT, globalPgKnex);
-    console.log(`🚀 PostgreSQL setup complete: ${tableName} with ${RECORD_COUNT} records`);
+    globalPgMemKnex = await getPgMemKnex();
+    await setupDatabase(tableName, RECORD_COUNT, globalPgMemKnex);
+    console.log(`🚀 PostgreSQL (pg-mem) setup complete: ${tableName} with ${RECORD_COUNT} records`);
     isSetupComplete = true;
   }
-  return globalPgKnex;
+  return globalPgMemKnex;
 }
 
-describe('Generated Column Performance Benchmarks', () => {
-  describe('PostgreSQL Generated Column Performance', () => {
+describe('Generated Column Performance Benchmarks (pg-mem)', () => {
+  describe('PostgreSQL (pg-mem) Generated Column Performance', () => {
     bench(
       'Create generated column with simple addition formula',
       async () => {
-        const pgKnex = await ensureSetup();
-        const provider = new PostgresProvider(pgKnex);
+        const pgMemKnex = await ensureSetup();
+        const provider = new PostgresProvider(pgMemKnex);
         const formulaField = createFormulaField('{fld_number} + 1');
         const context = createContext();
 
@@ -156,25 +160,27 @@ describe('Generated Column Performance Benchmarks', () => {
         const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
 
         // This is what we're actually benchmarking - the ALTER TABLE command
-        await pgKnex.raw(sql);
+        await pgMemKnex.raw(sql);
 
-        // Clean up: PostgreSQL can handle more columns, but we still clean up for consistency
+        // Clean up: pg-mem can handle more columns, but we still clean up for consistency
         const columnName = formulaField.getGeneratedColumnName();
         const mainColumnName = formulaField.dbFieldName;
 
-        await pgKnex.schema.alterTable(tableName, (t) => t.dropColumns(columnName, mainColumnName));
+        await pgMemKnex.schema.alterTable(tableName, (t) =>
+          t.dropColumns(columnName, mainColumnName)
+        );
       },
       {
-        iterations: 1,
-        time: 5000,
+        iterations: 50,
+        time: 10000,
       }
     );
 
     bench(
       'Create generated column with multiplication formula',
       async () => {
-        const pgKnex = await ensureSetup();
-        const provider = new PostgresProvider(pgKnex);
+        const pgMemKnex = await ensureSetup();
+        const provider = new PostgresProvider(pgMemKnex);
         const formulaField = createFormulaField('{fld_number} * 2');
         const context = createContext();
 
@@ -182,25 +188,27 @@ describe('Generated Column Performance Benchmarks', () => {
         const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
 
         // This is what we're actually benchmarking - the ALTER TABLE command
-        await pgKnex.raw(sql);
+        await pgMemKnex.raw(sql);
 
-        // Clean up: PostgreSQL can handle more columns, but we still clean up for consistency
+        // Clean up: pg-mem can handle more columns, but we still clean up for consistency
         const columnName = formulaField.getGeneratedColumnName();
         const mainColumnName = formulaField.dbFieldName;
 
-        await pgKnex.schema.alterTable(tableName, (t) => t.dropColumns(columnName, mainColumnName));
+        await pgMemKnex.schema.alterTable(tableName, (t) =>
+          t.dropColumns(columnName, mainColumnName)
+        );
       },
       {
-        iterations: 1,
-        time: 5000,
+        iterations: 50,
+        time: 10000,
       }
     );
 
     bench(
       'Create generated column with complex formula',
       async () => {
-        const pgKnex = await ensureSetup();
-        const provider = new PostgresProvider(pgKnex);
+        const pgMemKnex = await ensureSetup();
+        const provider = new PostgresProvider(pgMemKnex);
         const formulaField = createFormulaField('({fld_number} + 10) * 2');
         const context = createContext();
 
@@ -208,25 +216,27 @@ describe('Generated Column Performance Benchmarks', () => {
         const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
 
         // This is what we're actually benchmarking - the ALTER TABLE command
-        await pgKnex.raw(sql);
+        await pgMemKnex.raw(sql);
 
-        // Clean up: PostgreSQL can handle more columns, but we still clean up for consistency
+        // Clean up: pg-mem can handle more columns, but we still clean up for consistency
         const columnName = formulaField.getGeneratedColumnName();
         const mainColumnName = formulaField.dbFieldName;
 
-        await pgKnex.schema.alterTable(tableName, (t) => t.dropColumns(columnName, mainColumnName));
+        await pgMemKnex.schema.alterTable(tableName, (t) =>
+          t.dropColumns(columnName, mainColumnName)
+        );
       },
       {
-        iterations: 1,
-        time: 5000,
+        iterations: 50,
+        time: 10000,
       }
     );
 
     bench(
       'Create generated column with very complex nested formula',
       async () => {
-        const pgKnex = await ensureSetup();
-        const provider = new PostgresProvider(pgKnex);
+        const pgMemKnex = await ensureSetup();
+        const provider = new PostgresProvider(pgMemKnex);
         const formulaField = createFormulaField(
           'IF({fld_number} > 500, ({fld_number} * 2) + 100, ({fld_number} / 2) - 50)'
         );
@@ -236,17 +246,19 @@ describe('Generated Column Performance Benchmarks', () => {
         const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
 
         // This is what we're actually benchmarking - the ALTER TABLE command
-        await pgKnex.raw(sql);
+        await pgMemKnex.raw(sql);
 
-        // Clean up: PostgreSQL can handle more columns, but we still clean up for consistency
+        // Clean up: pg-mem can handle more columns, but we still clean up for consistency
         const columnName = formulaField.getGeneratedColumnName();
         const mainColumnName = formulaField.dbFieldName;
 
-        await pgKnex.schema.alterTable(tableName, (t) => t.dropColumns(columnName, mainColumnName));
+        await pgMemKnex.schema.alterTable(tableName, (t) =>
+          t.dropColumns(columnName, mainColumnName)
+        );
       },
       {
-        iterations: 1,
-        time: 5000,
+        iterations: 50,
+        time: 10000,
       }
     );
   });
