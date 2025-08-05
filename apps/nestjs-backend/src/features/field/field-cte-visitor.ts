@@ -25,6 +25,8 @@ import type {
 import { FieldType, DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
+
+import { FieldSelectVisitor } from './field-select-visitor';
 import type { IFieldInstance } from './model/factory';
 
 export interface ICteResult {
@@ -58,14 +60,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   ) {}
 
   /**
-   * Generate JSON aggregation function based on database type
+   * Generate JSON aggregation function for Link fields (creates objects with id and title)
    */
-  private getJsonAggregationFunction(tableAlias: string, lookupFieldName: string): string {
+  private getLinkJsonAggregationFunction(tableAlias: string, fieldExpression: string): string {
     const driver = this.dbProvider.driver;
 
     // Use table alias for cleaner SQL
     const recordIdRef = `${tableAlias}."__id"`;
-    const titleRef = `${tableAlias}."${lookupFieldName}"`;
+    const titleRef = fieldExpression;
 
     if (driver === DriverClient.Pg) {
       return `json_agg(json_build_object('id', ${recordIdRef}, 'title', ${titleRef}))`;
@@ -121,6 +123,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const { mainTableName } = this.context;
 
     // Create CTE callback function
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     const cteCallback = (qb: Knex.QueryBuilder) => {
       const mainAlias = 'm';
       const junctionAlias = 'j';
@@ -135,28 +138,53 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const linkOptions = linkField.options as ILinkFieldOptions;
         const linkLookupField = this.context.fieldMap.get(linkOptions.lookupFieldId);
         if (linkLookupField) {
-          const jsonAggFunction = this.getJsonAggregationFunction(
+          // Create FieldSelectVisitor with table alias
+          const tempQb = qb.client.queryBuilder();
+          const fieldSelectVisitor = new FieldSelectVisitor(
+            tempQb,
+            this.dbProvider,
+            { fieldMap: this.context.fieldMap },
+            undefined, // No fieldCteMap to prevent recursive Lookup processing
+            foreignAlias
+          );
+
+          // Use the visitor to get the correct field selection
+          const fieldResult = linkLookupField.accept(fieldSelectVisitor);
+          const fieldExpression =
+            typeof fieldResult === 'string' ? fieldResult : fieldResult.toSQL().sql;
+
+          const jsonAggFunction = this.getLinkJsonAggregationFunction(
             foreignAlias,
-            linkLookupField.dbFieldName
+            fieldExpression
           );
           selectColumns.push(qb.client.raw(`${jsonAggFunction} as link_value`));
         }
       }
 
-      // Add Lookup field selections
+      // Add Lookup field selections using FieldSelectVisitor
       for (const lookupField of lookupFields) {
         const targetField = this.context.fieldMap.get(lookupField.lookupOptions!.lookupFieldId);
         if (targetField) {
+          // Create FieldSelectVisitor with table alias
+          const tempQb = qb.client.queryBuilder();
+          const fieldSelectVisitor = new FieldSelectVisitor(
+            tempQb,
+            this.dbProvider,
+            { fieldMap: this.context.fieldMap },
+            undefined, // No fieldCteMap to prevent recursive Lookup processing
+            foreignAlias
+          );
+
+          // Use the visitor to get the correct field selection
+          const fieldResult = targetField.accept(fieldSelectVisitor);
+          const fieldExpression =
+            typeof fieldResult === 'string' ? fieldResult : fieldResult.toSQL().sql;
+
           if (lookupField.isMultipleCellValue) {
-            const concatFunction = this.getConcatenationFunction(
-              foreignAlias,
-              targetField.dbFieldName
-            );
-            selectColumns.push(qb.client.raw(`${concatFunction} as "lookup_${lookupField.id}"`));
+            const jsonAggFunction = this.getJsonAggregationFunction(fieldExpression);
+            selectColumns.push(qb.client.raw(`${jsonAggFunction} as "lookup_${lookupField.id}"`));
           } else {
-            selectColumns.push(
-              `${foreignAlias}.${targetField.dbFieldName} as "lookup_${lookupField.id}"`
-            );
+            selectColumns.push(qb.client.raw(`${fieldExpression} as "lookup_${lookupField.id}"`));
           }
         }
       }
@@ -238,14 +266,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   /**
    * Generate JSON array aggregation function for multiple values based on database type
    */
-  private getConcatenationFunction(tableAlias: string, fieldName: string): string {
+  private getJsonAggregationFunction(fieldReference: string): string {
     const driver = this.dbProvider.driver;
-    const fieldRef = `${tableAlias}."${fieldName}"`;
 
     if (driver === DriverClient.Pg) {
-      return `json_agg(${fieldRef})`;
+      return `json_agg(${fieldReference})`;
     } else if (driver === DriverClient.Sqlite) {
-      return `json_group_array(${fieldRef})`;
+      return `json_group_array(${fieldReference})`;
     }
 
     throw new Error(`Unsupported database driver: ${driver}`);

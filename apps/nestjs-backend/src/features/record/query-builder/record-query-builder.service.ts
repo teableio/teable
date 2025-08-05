@@ -75,7 +75,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     // Build formula conversion context
     const context = this.buildFormulaContext(fields);
 
-    // Add field CTEs if Link field contexts are provided
+    // Add field CTEs and their JOINs if Link field contexts are provided
     const fieldCteMap = this.addFieldCtesSync(
       queryBuilder,
       fields,
@@ -103,7 +103,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     // Add field-specific selections using visitor pattern
     for (const field of fields) {
-      field.accept(visitor);
+      const result = field.accept(visitor);
+      if (result) {
+        qb.select(result);
+      }
     }
 
     return qb;
@@ -122,7 +125,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   }
 
   /**
-   * Add field CTEs to the query builder (synchronous version)
+   * Add field CTEs and their JOINs to the query builder (synchronous version)
    */
   private addFieldCtesSync(
     queryBuilder: Knex.QueryBuilder,
@@ -154,6 +157,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         const result = field.accept(cteVisitor);
         if (result.hasChanges && result.cteName && result.cteCallback) {
           queryBuilder.with(result.cteName, result.cteCallback);
+          // Add LEFT JOIN for the CTE
           queryBuilder.leftJoin(
             result.cteName,
             `${mainTableName}.__id`,
