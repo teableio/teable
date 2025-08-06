@@ -83,7 +83,7 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
   }
 
   private createStandardColumn(field: FieldCore): void {
-    if (field.isLookup && field.lookupOptions) {
+    if (field.isLookup) {
       return;
     }
 

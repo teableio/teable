@@ -20,6 +20,7 @@ import type {
   IFieldVisitor,
   IFormulaConversionContext,
   IFieldMap,
+  FieldCore,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
@@ -77,7 +78,10 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
     }
   }
 
-  private createStandardColumn(field: { dbFieldType: DbFieldType }): void {
+  private createStandardColumn(field: FieldCore): void {
+    if (field.isLookup) {
+      return;
+    }
     const schemaType = this.getSchemaType(field.dbFieldType);
     const column = this.context.table[schemaType](this.context.dbFieldName);
 
@@ -91,6 +95,9 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
+    if (field.isLookup) {
+      return;
+    }
     // Create the standard formula column
 
     if (this.context.dbProvider && this.context.fieldMap) {
