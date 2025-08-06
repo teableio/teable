@@ -81,7 +81,8 @@ describe('FieldCteVisitor', () => {
     it('should generate SQLite JSON aggregation for multi-value relationships', () => {
       const sqliteDbProvider = {
         driver: DriverClient.Sqlite,
-      };
+        createColumnSchema: jest.fn().mockReturnValue([]),
+      } as any;
 
       const visitor = new FieldCteVisitor(sqliteDbProvider, context);
       const method = (visitor as any).getLinkJsonAggregationFunction;
@@ -96,7 +97,8 @@ describe('FieldCteVisitor', () => {
     it('should generate SQLite JSON aggregation for single-value relationships', () => {
       const sqliteDbProvider = {
         driver: DriverClient.Sqlite,
-      };
+        createColumnSchema: jest.fn().mockReturnValue([]),
+      } as any;
 
       const visitor = new FieldCteVisitor(sqliteDbProvider, context);
       const method = (visitor as any).getLinkJsonAggregationFunction;
@@ -111,7 +113,8 @@ describe('FieldCteVisitor', () => {
     it('should throw error for unsupported database driver', () => {
       const unsupportedDbProvider = {
         driver: 'mysql' as any,
-      };
+        createColumnSchema: jest.fn().mockReturnValue([]),
+      } as any;
 
       const visitor = new FieldCteVisitor(unsupportedDbProvider, context);
       const method = (visitor as any).getLinkJsonAggregationFunction;

@@ -103,8 +103,11 @@ export interface IDbProvider {
     tableName: string,
     fieldInstance: IFieldInstance,
     fieldMap: IFormulaConversionContext['fieldMap'],
-    isNewTable?: boolean
-  ): string;
+    isNewTable?: boolean,
+    tableId?: string,
+    tableNameMap?: Map<string, string>,
+    isSymmetricField?: boolean
+  ): string[];
 
   duplicateTable(
     fromSchema: string,

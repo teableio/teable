@@ -156,27 +156,39 @@ export class SqliteProvider implements IDbProvider {
     tableName: string,
     fieldInstance: IFieldInstance,
     fieldMap: IFormulaConversionContext['fieldMap'],
-    isNewTable?: boolean
-  ): string {
-    const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: ICreateDatabaseColumnContext = {
-        table,
-        field: fieldInstance,
-        fieldId: fieldInstance.id,
-        dbFieldName: fieldInstance.dbFieldName,
-        unique: fieldInstance.unique,
-        notNull: fieldInstance.notNull,
-        dbProvider: this,
-        fieldMap,
-        isNewTable,
-      };
+    isNewTable?: boolean,
+    tableId?: string,
+    tableNameMap?: Map<string, string>,
+    isSymmetricField?: boolean
+  ): string[] {
+    const context: ICreateDatabaseColumnContext = {
+      table: {} as any, // Will be set in alterTable callback
+      field: fieldInstance,
+      fieldId: fieldInstance.id,
+      dbFieldName: fieldInstance.dbFieldName,
+      unique: fieldInstance.unique,
+      notNull: fieldInstance.notNull,
+      dbProvider: this,
+      fieldMap,
+      isNewTable,
+      tableId,
+      tableName,
+      knex: this.knex,
+      tableNameMap,
+      isSymmetricField,
+    };
 
-      // Use visitor pattern to create columns
-      const visitor = new CreateSqliteDatabaseColumnFieldVisitor(context);
+    const visitor = new CreateSqliteDatabaseColumnFieldVisitor(context);
+
+    const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
+      context.table = table;
       fieldInstance.accept(visitor);
     });
 
-    return alterTableBuilder.toQuery();
+    const mainSql = alterTableBuilder.toQuery();
+    const additionalSqls = visitor.getSql();
+
+    return [mainSql, ...additionalSqls];
   }
 
   splitTableName(tableName: string): string[] {
