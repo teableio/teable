@@ -63,17 +63,37 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   /**
    * Generate JSON aggregation function for Link fields (creates objects with id and title)
    */
-  private getLinkJsonAggregationFunction(tableAlias: string, fieldExpression: string): string {
+  private getLinkJsonAggregationFunction(
+    tableAlias: string,
+    fieldExpression: string,
+    relationship: Relationship
+  ): string {
     const driver = this.dbProvider.driver;
 
     // Use table alias for cleaner SQL
     const recordIdRef = `${tableAlias}."__id"`;
     const titleRef = fieldExpression;
 
+    // Determine if this relationship should return multiple values (array) or single value (object)
+    const isMultiValue =
+      relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
+
     if (driver === DriverClient.Pg) {
-      return `json_agg(json_build_object('id', ${recordIdRef}, 'title', ${titleRef}))`;
+      if (isMultiValue) {
+        // Filter out null records and return empty array if no valid records exist
+        return `COALESCE(json_agg(json_build_object('id', ${recordIdRef}, 'title', ${titleRef})) FILTER (WHERE ${recordIdRef} IS NOT NULL), '[]'::json)`;
+      } else {
+        // For single value relationships (ManyOne, OneOne), return single object or null
+        return `CASE WHEN ${recordIdRef} IS NOT NULL THEN json_build_object('id', ${recordIdRef}, 'title', ${titleRef}) ELSE NULL END`;
+      }
     } else if (driver === DriverClient.Sqlite) {
-      return `json_group_array(json_object('id', ${recordIdRef}, 'title', ${titleRef}))`;
+      if (isMultiValue) {
+        // For SQLite, we need to handle null filtering differently
+        return `CASE WHEN COUNT(${recordIdRef}) > 0 THEN json_group_array(json_object('id', ${recordIdRef}, 'title', ${titleRef})) ELSE '[]' END`;
+      } else {
+        // For single value relationships, return single object or null
+        return `CASE WHEN ${recordIdRef} IS NOT NULL THEN json_object('id', ${recordIdRef}, 'title', ${titleRef}) ELSE NULL END`;
+      }
     }
 
     throw new Error(`Unsupported database driver: ${driver}`);
@@ -145,7 +165,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const fieldExpression =
         typeof fieldResult === 'string' ? fieldResult : fieldResult.toSQL().sql;
 
-      const jsonAggFunction = this.getLinkJsonAggregationFunction(foreignAlias, fieldExpression);
+      const jsonAggFunction = this.getLinkJsonAggregationFunction(
+        foreignAlias,
+        fieldExpression,
+        options.relationship
+      );
       selectColumns.push(qb.client.raw(`${jsonAggFunction} as link_value`));
 
       // Add lookup field selections for fields that reference this link field
@@ -228,14 +252,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           .groupBy(`${mainAlias}.__id`);
       } else if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
         // Direct join for many-to-one and one-to-one relationships
+        // No GROUP BY needed for single-value relationships
         qb.select(selectColumns)
           .from(`${mainTableName} as ${mainAlias}`)
           .leftJoin(
             `${foreignTableName} as ${foreignAlias}`,
             `${mainAlias}.${foreignKeyName}`,
             `${foreignAlias}.__id`
-          )
-          .groupBy(`${mainAlias}.__id`);
+          );
       }
     };
 
@@ -286,6 +310,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
       // Add Link field JSON aggregation if there's a Link field for this foreign table
       const linkField = this.findLinkFieldForForeignTable(foreignTableId);
+      let needsGroupBy = false;
+
       if (linkField) {
         const linkOptions = linkField.options as ILinkFieldOptions;
         const linkLookupField = this.context.fieldMap.get(linkOptions.lookupFieldId);
@@ -305,9 +331,16 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           const fieldExpression =
             typeof fieldResult === 'string' ? fieldResult : fieldResult.toSQL().sql;
 
+          // Determine if this relationship needs aggregation
+          const isMultiValue =
+            linkOptions.relationship === Relationship.ManyMany ||
+            linkOptions.relationship === Relationship.OneMany;
+          needsGroupBy ||= isMultiValue;
+
           const jsonAggFunction = this.getLinkJsonAggregationFunction(
             foreignAlias,
-            fieldExpression
+            fieldExpression,
+            linkOptions.relationship
           );
           selectColumns.push(qb.client.raw(`${jsonAggFunction} as link_value`));
         }
@@ -335,6 +368,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           if (lookupField.isMultipleCellValue) {
             const jsonAggFunction = this.getJsonAggregationFunction(fieldExpression);
             selectColumns.push(qb.client.raw(`${jsonAggFunction} as "lookup_${lookupField.id}"`));
+            needsGroupBy ||= true; // Multi-value lookup fields also need GROUP BY
           } else {
             selectColumns.push(qb.client.raw(`${fieldExpression} as "lookup_${lookupField.id}"`));
           }
@@ -345,7 +379,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const firstLookup = lookupFields[0];
       const { fkHostTableName, selfKeyName, foreignKeyName } = firstLookup.lookupOptions!;
 
-      qb.select(selectColumns)
+      const query = qb
+        .select(selectColumns)
         .from(`${mainTableName} as ${mainAlias}`)
         .leftJoin(
           `${fkHostTableName} as ${junctionAlias}`,
@@ -356,8 +391,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           `${foreignTableName} as ${foreignAlias}`,
           `${junctionAlias}.${foreignKeyName}`,
           `${foreignAlias}.__id`
-        )
-        .groupBy(`${mainAlias}.__id`);
+        );
+
+      // Only add GROUP BY if we need aggregation (for multi-value relationships)
+      if (needsGroupBy) {
+        query.groupBy(`${mainAlias}.__id`);
+      }
     };
 
     this.logger.debug(`Generated foreign table CTE for ${foreignTableId} with name ${cteName}`);
