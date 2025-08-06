@@ -314,9 +314,9 @@ export class FieldService implements IReadonlyAdapterService {
     }
   }
 
-  async alterTableDeleteField(dbTableName: string, dbFieldNames: string[]) {
-    for (const dbFieldName of dbFieldNames) {
-      const alterTableSql = this.dbProvider.dropColumn(dbTableName, dbFieldName);
+  async alterTableDeleteField(dbTableName: string, fieldInstances: IFieldInstance[]) {
+    for (const fieldInstance of fieldInstances) {
+      const alterTableSql = this.dbProvider.dropColumn(dbTableName, fieldInstance);
 
       for (const alterTableQuery of alterTableSql) {
         await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
@@ -824,12 +824,9 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldIds = fieldData.map((data) => data.docId);
     const fieldsRaw = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds } },
-      select: { dbFieldName: true },
     });
-    await this.alterTableDeleteField(
-      dbTableName,
-      fieldsRaw.map((field) => field.dbFieldName)
-    );
+    const fieldInstances = fieldsRaw.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    await this.alterTableDeleteField(dbTableName, fieldInstances);
   }
 
   async del(version: number, tableId: string, fieldId: string) {
