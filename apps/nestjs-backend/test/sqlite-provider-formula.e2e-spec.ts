@@ -242,7 +242,9 @@ describe('SQLite Provider Formula Integration Tests', () => {
         testTableName,
         formulaField,
         fieldMap,
-        false
+        false,
+        'test-table-id',
+        new Map()
       );
       expect(sqlQueries).toMatchSnapshot(`SQLite SQL for ${expression}`);
 
@@ -287,7 +289,14 @@ describe('SQLite Provider Formula Integration Tests', () => {
 
     try {
       // Generate SQL for creating the formula column
-      const sql = sqliteProvider.createColumnSchema(testTableName, formulaField, fieldMap);
+      const sql = sqliteProvider.createColumnSchema(
+        testTableName,
+        formulaField,
+        fieldMap,
+        false,
+        'test-table-id',
+        new Map()
+      );
 
       // For unsupported functions, we expect an empty SQL string
       expect(sql).toBe('');

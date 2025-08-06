@@ -210,7 +210,14 @@ describe('Generated Column Performance Benchmarks', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false,
+          'test-table-id',
+          new Map()
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await sqliteKnex.raw(sql);

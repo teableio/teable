@@ -13,6 +13,7 @@ import { FieldDeletingService } from './field-deleting.service';
 import { FieldSupplementService } from './field-supplement.service';
 import { FieldViewSyncService } from './field-view-sync.service';
 import { FormulaFieldService } from './formula-field.service';
+import { LinkFieldQueryService } from './link-field-query.service';
 
 @Module({
   imports: [FieldModule, CalculationModule, RecordCalculateModule, ViewModule, CollaboratorModule],
@@ -26,6 +27,7 @@ import { FormulaFieldService } from './formula-field.service';
     TableIndexService,
     FieldViewSyncService,
     FormulaFieldService,
+    LinkFieldQueryService,
   ],
   exports: [
     FieldDeletingService,
@@ -35,6 +37,7 @@ import { FormulaFieldService } from './formula-field.service';
     FieldViewSyncService,
     FieldConvertingLinkService,
     FormulaFieldService,
+    LinkFieldQueryService,
   ],
 })
 export class FieldCalculateModule {}
