@@ -20,6 +20,7 @@ import type {
   IFieldVisitor,
   IFormulaConversionContext,
   IFieldMap,
+  FieldCore,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
@@ -81,7 +82,11 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
     }
   }
 
-  private createStandardColumn(field: { dbFieldType: DbFieldType }): void {
+  private createStandardColumn(field: FieldCore): void {
+    if (field.isLookup && field.lookupOptions) {
+      return;
+    }
+
     const schemaType = this.getSchemaType(field.dbFieldType);
     const column = this.context.table[schemaType](this.context.dbFieldName);
 
@@ -95,6 +100,10 @@ export class PostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
+    if (field.isLookup) {
+      return;
+    }
+
     if (this.context.dbProvider && this.context.fieldMap) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getPostgresColumnType(field.dbFieldType);
