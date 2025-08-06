@@ -170,7 +170,7 @@ export class CreatePostgresDatabaseColumnVisitor implements IFieldVisitor<void> 
     this.createStandardColumn(field);
   }
 
-  visitRollupField(field: RollupFieldCore): void {
+  visitRollupField(_field: RollupFieldCore): void {
     return;
   }
 

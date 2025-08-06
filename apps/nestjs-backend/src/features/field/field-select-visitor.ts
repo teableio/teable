@@ -144,7 +144,21 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
   }
 
   visitRollupField(field: RollupFieldCore): string | Knex.Raw {
-    return this.checkAndSelectLookupField(field);
+    // Rollup fields use the link field's CTE with pre-computed rollup values
+    if (field.lookupOptions && this.fieldCteMap) {
+      const { linkFieldId } = field.lookupOptions;
+
+      // Check if we have a CTE for the link field
+      if (this.fieldCteMap.has(linkFieldId)) {
+        const cteName = this.fieldCteMap.get(linkFieldId)!;
+
+        // Return Raw expression for selecting pre-computed rollup value from link CTE
+        return this.qb.client.raw(`??."rollup_${field.id}" as ??`, [cteName, field.dbFieldName]);
+      }
+    }
+
+    // Fallback to the original pre-computed column for backward compatibility
+    return this.getColumnSelector(field);
   }
 
   // Select field types

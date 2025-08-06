@@ -3,6 +3,7 @@ import type {
   ILinkFieldOptions,
   ILookupOptionsVo,
   IFieldVisitor,
+  IRollupFieldOptions,
   AttachmentFieldCore,
   AutoNumberFieldCore,
   CheckboxFieldCore,
@@ -120,6 +121,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const { mainTableName } = this.context;
 
     // Create CTE callback function
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     const cteCallback = (qb: Knex.QueryBuilder) => {
       const mainAlias = 'm';
       const junctionAlias = 'j';
@@ -172,6 +174,36 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           } else {
             selectColumns.push(qb.client.raw(`${fieldExpression2} as "lookup_${lookupField.id}"`));
           }
+        }
+      }
+
+      // Add rollup field selections for fields that reference this link field
+      const rollupFields = this.collectRollupFieldsForLinkField(field.id);
+      for (const rollupField of rollupFields) {
+        const targetField = this.context.fieldMap.get(rollupField.lookupOptions!.lookupFieldId);
+        if (targetField) {
+          // Create FieldSelectVisitor with table alias
+          const tempQb3 = qb.client.queryBuilder();
+          const fieldSelectVisitor3 = new FieldSelectVisitor(
+            tempQb3,
+            this.dbProvider,
+            { fieldMap: this.context.fieldMap },
+            undefined, // No fieldCteMap to prevent recursive processing
+            foreignAlias
+          );
+
+          // Use the visitor to get the correct field selection
+          const fieldResult3 = targetField.accept(fieldSelectVisitor3);
+          const fieldExpression3 =
+            typeof fieldResult3 === 'string' ? fieldResult3 : fieldResult3.toSQL().sql;
+
+          // Generate rollup aggregation expression
+          const rollupOptions = rollupField.options as IRollupFieldOptions;
+          const rollupAggregation = this.generateRollupAggregation(
+            rollupOptions.expression,
+            fieldExpression3
+          );
+          selectColumns.push(qb.client.raw(`${rollupAggregation} as "rollup_${rollupField.id}"`));
         }
       }
 
@@ -401,6 +433,23 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   /**
+   * Collect all Rollup fields that reference a specific Link field
+   */
+  private collectRollupFieldsForLinkField(linkFieldId: string): IFieldInstance[] {
+    const rollupFields: IFieldInstance[] = [];
+    for (const [, field] of this.context.fieldMap) {
+      if (
+        field.type === FieldType.Rollup &&
+        field.lookupOptions &&
+        field.lookupOptions.linkFieldId === linkFieldId
+      ) {
+        rollupFields.push(field);
+      }
+    }
+    return rollupFields;
+  }
+
+  /**
    * Generate JSON array aggregation function for multiple values based on database type
    */
   private getJsonAggregationFunction(fieldReference: string): string {
@@ -413,6 +462,67 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
 
     throw new Error(`Unsupported database driver: ${driver}`);
+  }
+
+  /**
+   * Generate rollup aggregation expression based on rollup function
+   */
+  private generateRollupAggregation(expression: string, fieldExpression: string): string {
+    // Parse the rollup function from expression like 'sum({values})'
+    const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
+    if (!functionMatch) {
+      throw new Error(`Invalid rollup expression: ${expression}`);
+    }
+
+    const functionName = functionMatch[1].toLowerCase();
+
+    switch (functionName) {
+      case 'sum':
+        return `SUM(${fieldExpression})`;
+      case 'count':
+        return `COUNT(${fieldExpression})`;
+      case 'countall':
+        return `COUNT(*)`;
+      case 'counta':
+        return `COUNT(${fieldExpression})`;
+      case 'max':
+        return `MAX(${fieldExpression})`;
+      case 'min':
+        return `MIN(${fieldExpression})`;
+      case 'and':
+        // For boolean AND, all values must be true (non-zero/non-null)
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `BOOL_AND(${fieldExpression}::boolean)`
+          : `MIN(${fieldExpression})`;
+      case 'or':
+        // For boolean OR, at least one value must be true
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `BOOL_OR(${fieldExpression}::boolean)`
+          : `MAX(${fieldExpression})`;
+      case 'xor':
+        // XOR is more complex, we'll use a custom expression
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COUNT(CASE WHEN ${fieldExpression}::boolean THEN 1 END) % 2 = 1)`
+          : `(COUNT(CASE WHEN ${fieldExpression} THEN 1 END) % 2 = 1)`;
+      case 'array_join':
+      case 'concatenate':
+        // Join all values into a single string
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `STRING_AGG(${fieldExpression}::text, ', ')`
+          : `GROUP_CONCAT(${fieldExpression}, ', ')`;
+      case 'array_unique':
+        // Get unique values as JSON array
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `json_agg(DISTINCT ${fieldExpression})`
+          : `json_group_array(DISTINCT ${fieldExpression})`;
+      case 'array_compact':
+        // Get non-null values as JSON array
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `json_agg(${fieldExpression}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`
+          : `json_group_array(${fieldExpression}) WHERE ${fieldExpression} IS NOT NULL`;
+      default:
+        throw new Error(`Unsupported rollup function: ${functionName}`);
+    }
   }
 
   // Field visitor methods - most fields don't need CTEs
@@ -458,8 +568,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return this.generateLinkFieldCte(field);
   }
 
-  visitRollupField(field: RollupFieldCore): ICteResult {
-    return this.checkAndGenerateLookupCte(field);
+  visitRollupField(_field: RollupFieldCore): ICteResult {
+    // Rollup fields don't need their own CTE, they use the link field's CTE
+    return { hasChanges: false };
   }
 
   visitSingleSelectField(field: SingleSelectFieldCore): ICteResult {
