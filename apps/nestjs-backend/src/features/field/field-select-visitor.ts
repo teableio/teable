@@ -57,11 +57,11 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
   private checkAndSelectLookupField(field: FieldCore): string | Knex.Raw {
     // Check if this is a Lookup field
     if (field.isLookup && field.lookupOptions && this.fieldCteMap) {
-      // Use the linkFieldId to find the CTE (since CTE is generated for the Link field)
-      const linkFieldId = field.lookupOptions.linkFieldId;
+      // For lookup fields, use the corresponding link field CTE
+      const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
         const cteName = this.fieldCteMap.get(linkFieldId)!;
-        // Return Raw expression for selecting from CTE
+        // Return Raw expression for selecting from link field CTE
         return this.qb.client.raw(`??."lookup_${field.id}" as ??`, [cteName, field.dbFieldName]);
       }
     }
