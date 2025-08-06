@@ -119,6 +119,7 @@ export const BuildBaseOperator = {
   generateLinkFields: 'generate-link-fields',
   generateLookupFields: 'generate-lookup-fields',
   generateLinkFieldsRecords: 'generate-link-fields-records',
+  finishBuildBase: 'finish-build-base',
 } as const;
 
 export const BuildAutomationOperator = {
