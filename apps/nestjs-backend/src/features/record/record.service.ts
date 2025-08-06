@@ -199,15 +199,25 @@ export class RecordService {
 
   private async getLinkCellIds(tableId: string, field: IFieldInstance, recordId: string) {
     const prisma = this.prismaService.txClient();
-    const dbTableName = await prisma.tableMeta.findFirstOrThrow({
+    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
-    const linkCellQuery = this.knex(dbTableName)
-      .select({
-        id: '__id',
-        linkField: field.dbFieldName,
-      })
+
+    // Get field info
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+    });
+
+    const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    const qb = this.knex(dbTableName);
+    const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
+      fields,
+      tableId,
+      dbTableName
+    );
+    const sql = this.recordQueryBuilder
+      .buildQuery(qb, tableId, undefined, fields, linkFieldCteContext)
       .where('__id', recordId)
       .toQuery();
 
@@ -216,7 +226,7 @@ export class RecordService {
         id: string;
         linkField: string | null;
       }[]
-    >(linkCellQuery);
+    >(sql);
     return result
       .map(
         (item) =>
