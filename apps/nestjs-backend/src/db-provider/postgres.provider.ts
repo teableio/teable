@@ -19,10 +19,8 @@ import {
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
-import {
-  PostgresDatabaseColumnVisitor,
-  type IDatabaseAddColumnContext,
-} from '../features/field/database-column-visitor.postgres';
+import type { ICreateDatabaseColumnContext } from '../features/field/create-database-column-visitor.interface';
+import { CreatePostgresDatabaseColumnVisitor } from '../features/field/create-database-column-visitor.postgres';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
@@ -246,7 +244,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     }
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: IDatabaseAddColumnContext = {
+      const context: ICreateDatabaseColumnContext = {
         table,
         field: fieldInstance,
         fieldId: fieldInstance.id,
@@ -258,7 +256,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       };
 
       // Use visitor pattern to recreate columns
-      const visitor = new PostgresDatabaseColumnVisitor(context);
+      const visitor = new CreatePostgresDatabaseColumnVisitor(context);
       fieldInstance.accept(visitor);
     });
 
@@ -275,7 +273,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     isNewTable?: boolean
   ): string {
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: IDatabaseAddColumnContext = {
+      const context: ICreateDatabaseColumnContext = {
         table,
         field: fieldInstance,
         fieldId: fieldInstance.id,
@@ -288,7 +286,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       };
 
       // Use visitor pattern to create columns
-      const visitor = new PostgresDatabaseColumnVisitor(context);
+      const visitor = new CreatePostgresDatabaseColumnVisitor(context);
       fieldInstance.accept(visitor);
     });
 

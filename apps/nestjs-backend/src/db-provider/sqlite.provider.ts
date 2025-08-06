@@ -19,10 +19,8 @@ import {
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
-import {
-  SqliteDatabaseColumnVisitor,
-  type IDatabaseColumnContext,
-} from '../features/field/database-column-visitor.sqlite';
+import type { ICreateDatabaseColumnContext } from '../features/field/create-database-column-visitor.interface';
+import { CreateSqliteDatabaseColumnVisitor } from '../features/field/create-database-column-visitor.sqlite';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
@@ -134,8 +132,9 @@ export class SqliteProvider implements IDbProvider {
     }
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: IDatabaseColumnContext = {
+      const context: ICreateDatabaseColumnContext = {
         table,
+        field: fieldInstance,
         fieldId: fieldInstance.id,
         dbFieldName: fieldInstance.dbFieldName,
         unique: fieldInstance.unique,
@@ -145,7 +144,7 @@ export class SqliteProvider implements IDbProvider {
       };
 
       // Use visitor pattern to recreate columns
-      const visitor = new SqliteDatabaseColumnVisitor(context);
+      const visitor = new CreateSqliteDatabaseColumnVisitor(context);
       fieldInstance.accept(visitor);
     });
 
@@ -162,8 +161,9 @@ export class SqliteProvider implements IDbProvider {
     isNewTable?: boolean
   ): string {
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: IDatabaseColumnContext = {
+      const context: ICreateDatabaseColumnContext = {
         table,
+        field: fieldInstance,
         fieldId: fieldInstance.id,
         dbFieldName: fieldInstance.dbFieldName,
         unique: fieldInstance.unique,
@@ -174,7 +174,7 @@ export class SqliteProvider implements IDbProvider {
       };
 
       // Use visitor pattern to create columns
-      const visitor = new SqliteDatabaseColumnVisitor(context);
+      const visitor = new CreateSqliteDatabaseColumnVisitor(context);
       fieldInstance.accept(visitor);
     });
 

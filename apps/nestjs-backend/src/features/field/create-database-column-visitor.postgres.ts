@@ -19,42 +19,19 @@ import type {
   UserFieldCore,
   IFieldVisitor,
   IFormulaConversionContext,
-  IFieldMap,
   FieldCore,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
-import type { Knex } from 'knex';
-import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import { GeneratedColumnQuerySupportValidatorSqlite } from '../../db-provider/generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
+import { GeneratedColumnQuerySupportValidatorPostgres } from '../../db-provider/generated-column-query/postgres/generated-column-query-support-validator.postgres';
+import type { ICreateDatabaseColumnContext } from './create-database-column-visitor.interface';
+import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import { SchemaType } from './util';
 
 /**
- * Context interface for database column creation
+ * PostgreSQL implementation of database column visitor.
  */
-export interface IDatabaseColumnContext {
-  /** Knex table builder instance */
-  table: Knex.CreateTableBuilder;
-  /** Field ID */
-  fieldId: string;
-  /** Database field name */
-  dbFieldName: string;
-  /** Whether the field is unique */
-  unique?: boolean;
-  /** Whether the field is not null */
-  notNull?: boolean;
-  /** Database provider for formula conversion */
-  dbProvider?: IDbProvider;
-  /** Field map for formula conversion context */
-  fieldMap?: IFieldMap;
-  /** Whether this is a new table creation (affects SQLite generated columns) */
-  isNewTable?: boolean;
-}
-
-/**
- * SQLite implementation of database column visitor.
- */
-export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
-  constructor(private readonly context: IDatabaseColumnContext) {}
+export class CreatePostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
+  constructor(private readonly context: ICreateDatabaseColumnContext) {}
 
   private getSchemaType(dbFieldType: DbFieldType): SchemaType {
     switch (dbFieldType) {
@@ -63,8 +40,8 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
       case DbFieldType.Integer:
         return SchemaType.Integer;
       case DbFieldType.Json:
-        // SQLite stores JSON as TEXT
-        return SchemaType.Text;
+        // PostgreSQL supports native JSONB
+        return SchemaType.Jsonb;
       case DbFieldType.Real:
         return SchemaType.Double;
       case DbFieldType.Text:
@@ -82,6 +59,7 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
     if (field.isLookup) {
       return;
     }
+
     const schemaType = this.getSchemaType(field.dbFieldType);
     const column = this.context.table[schemaType](this.context.dbFieldName);
 
@@ -98,17 +76,16 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
     if (field.isLookup) {
       return;
     }
-    // Create the standard formula column
 
     if (this.context.dbProvider && this.context.fieldMap) {
       const generatedColumnName = field.getGeneratedColumnName();
-      const columnType = this.getSqliteColumnType(field.dbFieldType);
+      const columnType = this.getPostgresColumnType(field.dbFieldType);
 
       // Use original expression since expansion logic has been moved
       const expressionToConvert = field.options.expression;
 
       // Check if the formula is supported for generated columns
-      const supportValidator = new GeneratedColumnQuerySupportValidatorSqlite();
+      const supportValidator = new GeneratedColumnQuerySupportValidatorPostgres();
       const isSupported = field.validateGeneratedColumnSupport(supportValidator);
 
       if (isSupported) {
@@ -123,35 +100,34 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
         );
 
         // Create generated column using specificType
-        // SQLite syntax: GENERATED ALWAYS AS (expression) VIRTUAL/STORED
-        // Note: For ALTER TABLE operations, SQLite doesn't support STORED generated columns
-        const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
-        const notNullClause = this.context.notNull ? ' NOT NULL' : '';
-        const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) ${storageType}${notNullClause}`;
+        // PostgreSQL syntax: GENERATED ALWAYS AS (expression) STORED
+        const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) STORED`;
 
         this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
+        (this.context.field as FormulaFieldDto).setMetadata({ persistedAsGeneratedColumn: true });
       }
     } else {
+      // Create the standard formula column
       this.createStandardColumn(field);
     }
   }
 
-  private getSqliteColumnType(dbFieldType: DbFieldType): string {
+  private getPostgresColumnType(dbFieldType: DbFieldType): string {
     switch (dbFieldType) {
       case DbFieldType.Text:
         return 'TEXT';
       case DbFieldType.Integer:
         return 'INTEGER';
       case DbFieldType.Real:
-        return 'REAL';
+        return 'DOUBLE PRECISION';
       case DbFieldType.Boolean:
-        return 'INTEGER'; // SQLite uses INTEGER for boolean
+        return 'BOOLEAN';
       case DbFieldType.DateTime:
-        return 'TEXT'; // SQLite stores datetime as TEXT
+        return 'TIMESTAMP';
       case DbFieldType.Json:
-        return 'TEXT'; // SQLite stores JSON as TEXT
+        return 'JSONB';
       case DbFieldType.Blob:
-        return 'BLOB';
+        return 'BYTEA';
       default:
         return 'TEXT';
     }
@@ -195,7 +171,7 @@ export class SqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
   }
 
   visitRollupField(field: RollupFieldCore): void {
-    this.createStandardColumn(field);
+    return;
   }
 
   // Select field types
