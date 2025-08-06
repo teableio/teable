@@ -41,7 +41,10 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
       // Use CASCADE to automatically drop dependent objects (like generated columns)
       // This is safe because we handle application-level dependencies separately
       const dropQuery = this.context.knex
-        .raw('ALTER TABLE ?? DROP COLUMN ?? CASCADE', [this.context.tableName, columnName])
+        .raw('ALTER TABLE ?? DROP COLUMN IF EXISTS ?? CASCADE', [
+          this.context.tableName,
+          columnName,
+        ])
         .toQuery();
 
       queries.push(dropQuery);
@@ -55,11 +58,7 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
       return [];
     }
 
-    if (field.getIsPersistedAsGeneratedColumn()) {
-      return this.dropStandardColumn(field);
-    }
-
-    return [];
+    return this.dropStandardColumn(field);
   }
 
   // Basic field types

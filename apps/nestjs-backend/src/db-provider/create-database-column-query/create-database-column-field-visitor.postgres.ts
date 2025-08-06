@@ -84,6 +84,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       // Use original expression since expansion logic has been moved
       const expressionToConvert = field.options.expression;
 
+      // Skip if no expression
+      if (!expressionToConvert) {
+        return;
+      }
+
       // Check if the formula is supported for generated columns
       const supportValidator = new GeneratedColumnQuerySupportValidatorPostgres();
       const isSupported = field.validateGeneratedColumnSupport(supportValidator);
