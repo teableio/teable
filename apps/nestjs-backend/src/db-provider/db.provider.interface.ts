@@ -61,7 +61,7 @@ export interface IDbProvider {
 
   renameColumn(tableName: string, oldName: string, newName: string): string[];
 
-  dropColumn(tableName: string, columnName: string): string[];
+  dropColumn(tableName: string, fieldInstance: IFieldInstance): string[];
 
   updateJsonColumn(
     tableName: string,

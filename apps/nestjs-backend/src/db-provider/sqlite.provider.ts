@@ -33,6 +33,8 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
+import type { IDropDatabaseColumnContext } from './drop-database-column-query/drop-database-column-field-visitor.interface';
+import { DropSqliteDatabaseColumnFieldVisitor } from './drop-database-column-query/drop-database-column-field-visitor.sqlite';
 import { DuplicateAttachmentTableQuerySqlite } from './duplicate-table/duplicate-attachment-table-query.sqlite';
 import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
@@ -124,10 +126,7 @@ export class SqliteProvider implements IDbProvider {
     const queries: string[] = [];
 
     // First, drop ALL columns associated with the field (including generated columns)
-    const columnNames = fieldInstance.dbFieldNames;
-    for (const columnName of columnNames) {
-      queries.push(...this.dropColumn(tableName, columnName));
-    }
+    queries.push(...this.dropColumn(tableName, fieldInstance));
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
       const context: ICreateDatabaseColumnContext = {
@@ -187,8 +186,15 @@ export class SqliteProvider implements IDbProvider {
     return `${schemaName}_${dbTableName}`;
   }
 
-  dropColumn(tableName: string, columnName: string): string[] {
-    return [this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()];
+  dropColumn(tableName: string, fieldInstance: IFieldInstance): string[] {
+    const context: IDropDatabaseColumnContext = {
+      tableName,
+      knex: this.knex,
+    };
+
+    // Use visitor pattern to drop columns
+    const visitor = new DropSqliteDatabaseColumnFieldVisitor(context);
+    return fieldInstance.accept(visitor);
   }
 
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[] {

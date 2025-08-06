@@ -33,6 +33,8 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
+import type { IDropDatabaseColumnContext } from './drop-database-column-query/drop-database-column-field-visitor.interface';
+import { DropPostgresDatabaseColumnFieldVisitor } from './drop-database-column-query/drop-database-column-field-visitor.postgres';
 import { DuplicateAttachmentTableQueryPostgres } from './duplicate-table/duplicate-attachment-table-query.postgres';
 import { DuplicateTableQueryPostgres } from './duplicate-table/duplicate-query.postgres';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
@@ -145,17 +147,24 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       .map((item) => item.sql);
   }
 
-  dropColumn(tableName: string, columnName: string): string[] {
+  dropColumn(tableName: string, fieldInstance: IFieldInstance): string[] {
+    const context: IDropDatabaseColumnContext = {
+      tableName,
+      knex: this.knex,
+    };
+
+    // Use visitor pattern to drop columns
+    const visitor = new DropPostgresDatabaseColumnFieldVisitor(context);
+    return fieldInstance.accept(visitor);
+  }
+
+  // postgres drop index with column automatically
+  dropColumnAndIndex(tableName: string, columnName: string, _indexName: string): string[] {
     // Use CASCADE to automatically drop dependent objects (like generated columns)
     // This is safe because we handle application-level dependencies separately
     return [
       this.knex.raw('ALTER TABLE ?? DROP COLUMN ?? CASCADE', [tableName, columnName]).toQuery(),
     ];
-  }
-
-  // postgres drop index with column automatically
-  dropColumnAndIndex(tableName: string, columnName: string, _indexName: string): string[] {
-    return this.dropColumn(tableName, columnName);
   }
 
   columnInfo(tableName: string): string {
@@ -232,10 +241,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     const queries: string[] = [];
 
     // First, drop ALL columns associated with the field (including generated columns)
-    const columnNames = fieldInstance.dbFieldNames;
-    for (const columnName of columnNames) {
-      queries.push(...this.dropColumn(tableName, columnName));
-    }
+    queries.push(...this.dropColumn(tableName, fieldInstance));
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
       const context: ICreateDatabaseColumnContext = {
