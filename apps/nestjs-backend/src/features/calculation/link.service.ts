@@ -157,10 +157,13 @@ export class LinkService {
       toDelete.forEach((foreignRecordId) => {
         const foreignCellValue = foreignRecordMap[foreignRecordId][symmetricFieldId] as
           | ILinkCellValue[]
+          | ILinkCellValue
           | null;
 
         if (foreignCellValue) {
-          const filteredCellValue = foreignCellValue.filter((item) => item.id !== recordId);
+          const filteredCellValue = [foreignCellValue]
+            .flat()
+            .filter((item) => item.id !== recordId);
           foreignRecordMap[foreignRecordId][symmetricFieldId] = filteredCellValue.length
             ? filteredCellValue
             : null;
@@ -179,9 +182,12 @@ export class LinkService {
             `Consistency error, recordId ${foreignRecordId} is not exist`
           );
         }
-        const foreignCellValue = newForeignRecord[symmetricFieldId] as ILinkCellValue[] | null;
+        const foreignCellValue = newForeignRecord[symmetricFieldId] as
+          | ILinkCellValue[]
+          | ILinkCellValue
+          | null;
         if (foreignCellValue) {
-          newForeignRecord[symmetricFieldId] = foreignCellValue.concat({
+          newForeignRecord[symmetricFieldId] = [foreignCellValue].flat().concat({
             id: recordId,
             title: sourceRecordTitle,
           });
@@ -216,10 +222,13 @@ export class LinkService {
       oldKey.forEach((foreignRecordId) => {
         const foreignCellValue = foreignRecordMap[foreignRecordId][symmetricFieldId] as
           | ILinkCellValue[]
+          | ILinkCellValue
           | null;
 
         if (foreignCellValue) {
-          const filteredCellValue = foreignCellValue.filter((item) => item.id !== recordId);
+          const filteredCellValue = [foreignCellValue]
+            .flat()
+            .filter((item) => item.id !== recordId);
 
           foreignRecordMap[foreignRecordId][symmetricFieldId] = filteredCellValue.length
             ? filteredCellValue
@@ -238,9 +247,12 @@ export class LinkService {
       if (!newForeignRecord) {
         throw new BadRequestException(`Consistency error, recordId ${newKey} is not exist`);
       }
-      const foreignCellValue = newForeignRecord[symmetricFieldId] as ILinkCellValue[] | null;
+      const foreignCellValue = newForeignRecord[symmetricFieldId] as
+        | ILinkCellValue[]
+        | ILinkCellValue
+        | null;
       if (foreignCellValue) {
-        newForeignRecord[symmetricFieldId] = foreignCellValue.concat({
+        newForeignRecord[symmetricFieldId] = [foreignCellValue].flat().concat({
           id: recordId,
           title: sourceRecordTitle,
         });
@@ -563,11 +575,7 @@ export class LinkService {
       const id = cellContext.recordId;
       const foreignKeys = foreignKeysIndexed[id];
       if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
-        const oldCellValue = Array.isArray(cellContext.oldValue)
-          ? cellContext.oldValue
-          : cellContext.oldValue
-            ? [cellContext.oldValue]
-            : null;
+        const oldCellValue = cellContext.oldValue as ILinkCellValue | ILinkCellValue[] | undefined;
         const newCellValue = cellContext.newValue as ILinkCellValue | undefined;
         if (Array.isArray(newCellValue)) {
           throw new BadRequestException(
@@ -579,9 +587,9 @@ export class LinkService {
           throw new Error('duplicate foreign key from database');
         }
 
-        const oldKey = oldCellValue?.map((key) => key.id) || null;
+        const oldKey = oldCellValue ? [oldCellValue].flat().map((key) => key.id) : null;
         const newKey = newCellValue?.id || null;
-        if (isEqual(oldKey, [newKey])) {
+        if (oldCellValue && !Array.isArray(oldCellValue) && isEqual(oldCellValue.id, newKey)) {
           return acc;
         }
 
@@ -866,7 +874,6 @@ export class LinkService {
     const fieldMap = fieldMapByTableId[tableId];
     const recordMapStruct = this.getRecordMapStruct(tableId, fieldMapByTableId, linkContexts);
 
-    // console.log('fieldMapByTableId', fieldMapByTableId);
     const fkRecordMap = await this.getFkRecordMap(fieldMap, linkContexts);
 
     const originRecordMapByTableId = await this.fetchRecordMap(

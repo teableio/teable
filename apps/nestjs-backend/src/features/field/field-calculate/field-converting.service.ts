@@ -809,16 +809,14 @@ export class FieldConvertingService {
         }
 
         // when changing link relationship, old value used to clean link cellValue
-        let oldValue = null;
         if (isLinkCellValue(context.oldCellValue)) {
           fromReset = false;
-          oldValue = context.oldCellValue;
         }
 
         changes.push({
           recordId,
           fieldId: context.fieldId,
-          oldValue,
+          oldValue: isLinkCellValue(context.oldCellValue) ? context.oldCellValue : null,
           newValue: context.newCellValue,
         });
       }
