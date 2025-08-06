@@ -27,15 +27,13 @@ export interface ICreateDatabaseColumnContext {
   /** Whether this is a new table creation (affects SQLite generated columns) */
   isNewTable?: boolean;
   /** Current table ID (for link field foreign key creation) */
-  tableId?: string;
+  tableId: string;
   /** Current table name (for link field foreign key creation) */
-  tableName?: string;
+  tableName: string;
   /** Knex instance (for link field foreign key creation) */
-  knex?: Knex;
-  /** Prisma service for database operations */
-  prismaService?: PrismaService;
+  knex: Knex;
   /** Table name mapping for foreign key creation (tableId -> dbTableName) */
-  tableNameMap?: Map<string, string>;
+  tableNameMap: Map<string, string>;
   /** Whether this is a symmetric field (should not create foreign key structures) */
   isSymmetricField?: boolean;
 }

@@ -1,3 +1,4 @@
+import { Relationship } from '@teable/core';
 import type {
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -19,6 +20,7 @@ import type {
   UserFieldCore,
   IFieldVisitor,
   FieldCore,
+  ILinkFieldOptions,
 } from '@teable/core';
 import type { IDropDatabaseColumnContext } from './drop-database-column-field-visitor.interface';
 
@@ -60,6 +62,60 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
     return [];
   }
 
+  private dropForeignKeyForLinkField(field: LinkFieldCore): string[] {
+    const options = field.options as ILinkFieldOptions;
+    const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
+    const queries: string[] = [];
+
+    // Helper function to drop table
+    const dropTable = (tableName: string): string => {
+      return this.context.knex.raw('DROP TABLE IF EXISTS ??', [tableName]).toQuery();
+    };
+
+    // Helper function to drop column with index
+    const dropColumn = (tableName: string, columnName: string): string[] => {
+      const dropQueries: string[] = [];
+
+      // Drop index first
+      dropQueries.push(
+        this.context.knex.raw('DROP INDEX IF EXISTS ??', [`index_${columnName}`]).toQuery()
+      );
+
+      // Drop column
+      dropQueries.push(
+        this.context.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()
+      );
+
+      return dropQueries;
+    };
+
+    // Handle different relationship types
+    if (relationship === Relationship.ManyMany && fkHostTableName.includes('junction_')) {
+      queries.push(dropTable(fkHostTableName));
+    }
+
+    if (relationship === Relationship.ManyOne) {
+      queries.push(...dropColumn(fkHostTableName, foreignKeyName));
+    }
+
+    if (relationship === Relationship.OneMany) {
+      if (isOneWay) {
+        if (fkHostTableName.includes('junction_')) {
+          queries.push(dropTable(fkHostTableName));
+        }
+      } else {
+        queries.push(...dropColumn(fkHostTableName, selfKeyName));
+      }
+    }
+
+    if (relationship === Relationship.OneOne) {
+      const columnToDrop = foreignKeyName === '__id' ? selfKeyName : foreignKeyName;
+      queries.push(...dropColumn(fkHostTableName, columnToDrop));
+    }
+
+    return queries;
+  }
+
   // Basic field types
   visitNumberField(field: NumberFieldCore): string[] {
     return this.dropStandardColumn(field);
@@ -94,7 +150,17 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
   }
 
   visitLinkField(field: LinkFieldCore): string[] {
-    return this.dropStandardColumn(field);
+    if (field.isLookup) {
+      return [];
+    }
+
+    // Handle foreign key cleanup for link fields
+    const queries = this.dropForeignKeyForLinkField(field);
+
+    // Also drop the standard column
+    queries.push(...this.dropStandardColumn(field));
+
+    return queries;
   }
 
   visitRollupField(_field: RollupFieldCore): string[] {

@@ -18,6 +18,7 @@ import { extractFieldReferences } from '../../../utils';
 import { DEFAULT_EXPRESSION } from '../../base/constant';
 import { replaceStringByMap } from '../../base/utils';
 import { FormulaFieldService } from '../field-calculate/formula-field.service';
+import { LinkFieldQueryService } from '../field-calculate/link-field-query.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw } from '../model/factory';
 import { FieldOpenApiService } from '../open-api/field-open-api.service';
@@ -30,6 +31,7 @@ export class FieldDuplicateService {
     private readonly prismaService: PrismaService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly formulaFieldService: FormulaFieldService,
+    private readonly linkFieldQueryService: LinkFieldQueryService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
@@ -176,11 +178,22 @@ export class FieldDuplicateService {
         // Build field map for formula conversion context
         const formulaFieldMap = await this.formulaFieldService.buildFieldMapForTable(targetTableId);
 
+        // Build table name map for link field operations
+        const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
+          targetTableId,
+          [fieldInstance]
+        );
+
+        // Check if we need link context
+        const needsLinkContext = fieldInstance.type === FieldType.Link && !fieldInstance.isLookup;
+        const linkContext = needsLinkContext ? { tableId: targetTableId, tableNameMap } : undefined;
+
         const modifyColumnSql = this.dbProvider.modifyColumnSchema(
           dbTableName,
           fieldInstance,
           fieldInstance,
-          formulaFieldMap
+          formulaFieldMap,
+          linkContext
         );
 
         for (const alterTableQuery of modifyColumnSql) {
@@ -1038,11 +1051,22 @@ export class FieldDuplicateService {
       // Build field map for formula conversion context
       const formulaFieldMap = await this.formulaFieldService.buildFieldMapForTable(targetTableId);
 
+      // Build table name map for link field operations
+      const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
+        targetTableId,
+        [fieldInstance]
+      );
+
+      // Check if we need link context
+      const needsLinkContext = fieldInstance.type === FieldType.Link && !fieldInstance.isLookup;
+      const linkContext = needsLinkContext ? { tableId: targetTableId, tableNameMap } : undefined;
+
       const modifyColumnSql = this.dbProvider.modifyColumnSchema(
         dbTableName,
         fieldInstance,
         fieldInstance,
-        formulaFieldMap
+        formulaFieldMap,
+        linkContext
       );
 
       for (const alterTableQuery of modifyColumnSql) {

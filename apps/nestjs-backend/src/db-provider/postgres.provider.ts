@@ -147,10 +147,15 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       .map((item) => item.sql);
   }
 
-  dropColumn(tableName: string, fieldInstance: IFieldInstance): string[] {
+  dropColumn(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
+  ): string[] {
     const context: IDropDatabaseColumnContext = {
       tableName,
       knex: this.knex,
+      linkContext,
     };
 
     // Use visitor pattern to drop columns
@@ -237,15 +242,16 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap']
+    fieldMap: IFormulaConversionContext['fieldMap'],
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[] {
     const queries: string[] = [];
 
     // First, drop ALL columns associated with the field (including generated columns)
-    queries.push(...this.dropColumn(tableName, oldFieldInstance));
+    queries.push(...this.dropColumn(tableName, oldFieldInstance, linkContext));
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      const context: ICreateDatabaseColumnContext = {
+      const createContext: ICreateDatabaseColumnContext = {
         table,
         field: fieldInstance,
         fieldId: fieldInstance.id,
@@ -254,10 +260,14 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         notNull: fieldInstance.notNull,
         dbProvider: this,
         fieldMap,
+        tableId: linkContext?.tableId || '',
+        tableName,
+        knex: this.knex,
+        tableNameMap: linkContext?.tableNameMap || new Map(),
       };
 
       // Use visitor pattern to recreate columns
-      const visitor = new CreatePostgresDatabaseColumnFieldVisitor(context);
+      const visitor = new CreatePostgresDatabaseColumnFieldVisitor(createContext);
       fieldInstance.accept(visitor);
     });
 
@@ -271,37 +281,37 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     tableName: string,
     fieldInstance: IFieldInstance,
     fieldMap: IFormulaConversionContext['fieldMap'],
-    isNewTable?: boolean,
-    tableId?: string,
-    tableNameMap?: Map<string, string>,
+    isNewTable: boolean,
+    tableId: string,
+    tableNameMap: Map<string, string>,
     isSymmetricField?: boolean
   ): string[] {
-    const context: ICreateDatabaseColumnContext = {
-      table: {} as any, // Will be set in alterTable callback
-      field: fieldInstance,
-      fieldId: fieldInstance.id,
-      dbFieldName: fieldInstance.dbFieldName,
-      unique: fieldInstance.unique,
-      notNull: fieldInstance.notNull,
-      dbProvider: this,
-      fieldMap,
-      isNewTable,
-      tableId,
-      tableName,
-      knex: this.knex,
-      tableNameMap,
-      isSymmetricField,
-    };
-
-    const visitor = new CreatePostgresDatabaseColumnFieldVisitor(context);
+    let visitor: CreatePostgresDatabaseColumnFieldVisitor | undefined = undefined;
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
-      context.table = table;
+      const context: ICreateDatabaseColumnContext = {
+        table,
+        field: fieldInstance,
+        fieldId: fieldInstance.id,
+        dbFieldName: fieldInstance.dbFieldName,
+        unique: fieldInstance.unique,
+        notNull: fieldInstance.notNull,
+        dbProvider: this,
+        fieldMap,
+        isNewTable,
+        tableId,
+        tableName,
+        knex: this.knex,
+        tableNameMap,
+        isSymmetricField,
+      };
+      visitor = new CreatePostgresDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);
     });
 
     const mainSql = alterTableBuilder.toQuery();
-    const additionalSqls = visitor.getSql();
+    const additionalSqls =
+      (visitor as CreatePostgresDatabaseColumnFieldVisitor | undefined)?.getSql() ?? [];
 
     this.logger.debug('createColumnSchema main:', mainSql);
     this.logger.debug('createColumnSchema additional:', additionalSqls);

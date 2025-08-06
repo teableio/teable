@@ -61,7 +61,11 @@ export interface IDbProvider {
 
   renameColumn(tableName: string, oldName: string, newName: string): string[];
 
-  dropColumn(tableName: string, fieldInstance: IFieldInstance): string[];
+  dropColumn(
+    tableName: string,
+    fieldInstance: IFieldInstance,
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
+  ): string[];
 
   updateJsonColumn(
     tableName: string,
@@ -96,16 +100,17 @@ export interface IDbProvider {
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap']
+    fieldMap: IFormulaConversionContext['fieldMap'],
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[];
 
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
     fieldMap: IFormulaConversionContext['fieldMap'],
-    isNewTable?: boolean,
-    tableId?: string,
-    tableNameMap?: Map<string, string>,
+    isNewTable: boolean,
+    tableId: string,
+    tableNameMap: Map<string, string>,
     isSymmetricField?: boolean
   ): string[];
 

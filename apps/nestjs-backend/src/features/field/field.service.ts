@@ -13,11 +13,9 @@ import type {
   IGetFieldsQuery,
   ISnapshotBase,
   ISetFieldPropertyOpContext,
-  DbFieldType,
   ILookupOptionsVo,
   IOtOperation,
   ViewType,
-  IFormulaFieldOptions,
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -39,6 +37,7 @@ import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
 
 import { FormulaFieldService } from './field-calculate/formula-field.service';
+import { LinkFieldQueryService } from './field-calculate/link-field-query.service';
 
 import type { IFieldInstance } from './model/factory';
 import {
@@ -60,7 +59,8 @@ export class FieldService implements IReadonlyAdapterService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
 
-    private readonly formulaFieldService: FormulaFieldService
+    private readonly formulaFieldService: FormulaFieldService,
+    private readonly linkFieldQueryService: LinkFieldQueryService
   ) {}
 
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
@@ -266,26 +266,11 @@ export class FieldService implements IReadonlyAdapterService {
     for (const fieldInstance of fieldInstances) {
       const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
 
-      // For Link fields, we need to get table name mapping
-      let tableNameMap: Map<string, string> | undefined;
-      if (fieldInstance.type === FieldType.Link && !fieldInstance.isLookup) {
-        const linkOptions = fieldInstance.options as any;
-        const foreignTableId = linkOptions.foreignTableId;
-
-        if (foreignTableId) {
-          const tables = await this.prismaService.txClient().tableMeta.findMany({
-            where: { id: { in: [tableMeta.id, foreignTableId] } },
-            select: { id: true, dbTableName: true },
-          });
-
-          tableNameMap = new Map<string, string>();
-          tables.forEach((table) => {
-            tableNameMap!.set(table.id, table.dbTableName);
-          });
-
-          this.logger.debug('tableNameMap for Link field:', Object.fromEntries(tableNameMap));
-        }
-      }
+      // Build table name map for all field operations
+      const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
+        tableMeta.id,
+        [fieldInstance]
+      );
 
       const alterTableQueries = this.dbProvider.createColumnSchema(
         dbTableName,
@@ -344,8 +329,26 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   async alterTableDeleteField(dbTableName: string, fieldInstances: IFieldInstance[]) {
+    // Get table ID from dbTableName
+    const tableId = await this.linkFieldQueryService.getTableIdFromDbTableName(dbTableName);
+    if (!tableId) {
+      throw new Error(`Table not found for dbTableName: ${dbTableName}`);
+    }
+
+    // Build table name map for all related tables
+    const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
+      tableId,
+      fieldInstances
+    );
+
     for (const fieldInstance of fieldInstances) {
-      const alterTableSql = this.dbProvider.dropColumn(dbTableName, fieldInstance);
+      // Only pass link context for link fields
+      const linkContext =
+        fieldInstance.type === FieldType.Link && !fieldInstance.isLookup
+          ? { tableId, tableNameMap }
+          : undefined;
+
+      const alterTableSql = this.dbProvider.dropColumn(dbTableName, fieldInstance, linkContext);
 
       for (const alterTableQuery of alterTableSql) {
         await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
@@ -412,6 +415,12 @@ export class FieldService implements IReadonlyAdapterService {
     // Build field map for formula conversion context
     const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
 
+    // Build table name map for link field operations
+    const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(tableId, [
+      oldField,
+      newField,
+    ]);
+
     // TODO: move to field visitor
     let resetFieldQuery: string | undefined = '';
     function shouldUpdateRecords(field: IFieldInstance) {
@@ -423,12 +432,20 @@ export class FieldService implements IReadonlyAdapterService {
         .toQuery();
     }
 
+    // Check if we need link context
+    const needsLinkContext =
+      (oldField.type === FieldType.Link && !oldField.isLookup) ||
+      (newField.type === FieldType.Link && !newField.isLookup);
+
+    const linkContext = needsLinkContext ? { tableId, tableNameMap } : undefined;
+
     // Use the new modifyColumnSchema method with visitor pattern
     const modifyColumnSql = this.dbProvider.modifyColumnSchema(
       dbTableName,
       oldField,
       newField,
-      fieldMap
+      fieldMap,
+      linkContext
     );
 
     await handleDBValidationErrors({

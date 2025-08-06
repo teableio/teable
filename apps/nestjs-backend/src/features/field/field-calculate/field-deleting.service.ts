@@ -278,7 +278,7 @@ export class FieldDeletingService {
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions = field.options;
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
-      await this.fieldSupplementService.cleanForeignKey(linkFieldOptions);
+      // Foreign key cleanup is now handled in the drop visitor during deleteFieldItem
       await this.deleteFieldItem(tableId, field);
 
       if (symmetricFieldId) {

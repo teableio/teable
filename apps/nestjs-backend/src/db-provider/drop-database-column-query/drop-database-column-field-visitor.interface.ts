@@ -8,4 +8,5 @@ export interface IDropDatabaseColumnContext {
   tableName: string;
   /** Knex instance for building queries */
   knex: Knex;
+  linkContext?: { tableId: string; tableNameMap: Map<string, string> };
 }
