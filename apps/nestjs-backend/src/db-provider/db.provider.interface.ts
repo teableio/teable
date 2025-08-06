@@ -94,6 +94,7 @@ export interface IDbProvider {
 
   modifyColumnSchema(
     tableName: string,
+    oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
     fieldMap: IFormulaConversionContext['fieldMap']
   ): string[];

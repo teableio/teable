@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, IRecord } from '@teable/core';
-import { HttpErrorCode, IdPrefix, RecordOpBuilder } from '@teable/core';
+import { HttpErrorCode, IdPrefix, RecordOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
@@ -380,9 +380,14 @@ export class BatchService {
       return;
     }
 
-    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam)))).filter(
-      (id) => fieldMap[id]
-    );
+    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))))
+      .filter((id) => fieldMap[id])
+      .filter(
+        (id) =>
+          fieldMap[id].type !== FieldType.Formula &&
+          fieldMap[id].type !== FieldType.Rollup &&
+          !fieldMap[id].isLookup
+      );
     const data = opsData.map((data) => {
       const { recordId, updateParam, version } = data;
 
@@ -393,6 +398,13 @@ export class BatchService {
             (pre, [fieldId, value]) => {
               const field = fieldMap[fieldId];
               if (!field) {
+                return pre;
+              }
+              if (
+                field.type === FieldType.Formula ||
+                field.type === FieldType.Rollup ||
+                field.isLookup
+              ) {
                 return pre;
               }
               const { dbFieldName } = field;

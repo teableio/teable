@@ -45,6 +45,7 @@ import {
   createFieldInstanceByVo,
   createFieldInstanceByRaw,
   rawField2FieldObj,
+  applyFieldPropertyOpsAndCreateInstance,
 } from './model/factory';
 
 type IOpContext = ISetFieldPropertyOpContext;
@@ -358,12 +359,11 @@ export class FieldService implements IReadonlyAdapterService {
     }
   }
 
-  private async alterTableModifyFieldType(fieldId: string, newDbFieldType: DbFieldType) {
-    // Get complete field information
-    const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
-      where: { id: fieldId, deletedTime: null },
-    });
-
+  private async alterTableModifyFieldType(
+    fieldId: string,
+    oldField: IFieldInstance,
+    newField: IFieldInstance
+  ) {
     const {
       dbFieldName,
       name: fieldName,
@@ -381,27 +381,33 @@ export class FieldService implements IReadonlyAdapterService {
 
     const dbTableName = table.dbTableName;
 
-    // Create field instance with updated dbFieldType
-    const updatedFieldRaw = { ...fieldRaw, dbFieldType: newDbFieldType };
-    const fieldInstance = createFieldInstanceByRaw(updatedFieldRaw);
-
     // Build field map for formula conversion context
     const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
 
-    const resetFieldQuery = this.knex(dbTableName)
-      .update({ [dbFieldName]: null })
-      .toQuery();
+    // TODO: move to field visitor
+    let resetFieldQuery: string | undefined = '';
+    function shouldUpdateRecords(field: IFieldInstance) {
+      return field.type !== FieldType.Formula && field.type !== FieldType.Rollup && !field.isLookup;
+    }
+    if (shouldUpdateRecords(oldField) && shouldUpdateRecords(newField)) {
+      resetFieldQuery = this.knex(dbTableName)
+        .update({ [dbFieldName]: null })
+        .toQuery();
+    }
 
     // Use the new modifyColumnSchema method with visitor pattern
     const modifyColumnSql = this.dbProvider.modifyColumnSchema(
       dbTableName,
-      fieldInstance,
+      oldField,
+      newField,
       fieldMap
     );
 
     await handleDBValidationErrors({
       fn: async () => {
-        await this.prismaService.txClient().$executeRawUnsafe(resetFieldQuery);
+        if (resetFieldQuery) {
+          await this.prismaService.txClient().$executeRawUnsafe(resetFieldQuery);
+        }
 
         for (const alterTableQuery of modifyColumnSql) {
           await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
@@ -688,13 +694,19 @@ export class FieldService implements IReadonlyAdapterService {
 
     const fieldRaw = await this.prismaService.txClient().field.findMany({
       where: { tableId, id: { in: opData.map((data) => data.fieldId) }, deletedTime: null },
-      select: { id: true, version: true },
     });
+    const dbTableName = await this.getDbTableName(tableId);
 
-    const fieldMap = keyBy(fieldRaw, 'id');
+    const fields = fieldRaw.map(createFieldInstanceByRaw);
+    const fieldsRawMap = keyBy(fieldRaw, 'id');
+    const fieldMap = new Map(fields.map((field) => [field.id, field]));
 
     // console.log('opData', JSON.stringify(opData, null, 2));
     for (const { fieldId, ops } of opData) {
+      const field = fieldMap.get(fieldId);
+      if (!field) {
+        continue;
+      }
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);
         if (!ctx) {
@@ -708,12 +720,12 @@ export class FieldService implements IReadonlyAdapterService {
         await this.checkFieldName(tableId, fieldId, nameCtx.newValue as string);
       }
 
-      await this.update(fieldMap[fieldId].version + 1, tableId, fieldId, opContext);
+      await this.update(fieldsRawMap[fieldId].version + 1, tableId, dbTableName, field, opContext);
     }
 
     const dataList = opData.map((data) => ({
       docId: data.fieldId,
-      version: fieldMap[data.fieldId].version,
+      version: fieldsRawMap[data.fieldId].version,
       data: data.ops,
     }));
 
@@ -833,8 +845,20 @@ export class FieldService implements IReadonlyAdapterService {
     await this.deleteMany(tableId, [{ docId: fieldId, version }]);
   }
 
-  private async handleFieldProperty(fieldId: string, opContext: IOpContext) {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async handleFieldProperty(
+    tableId: string,
+    dbTableName: string,
+    fieldId: string,
+    oldField: IFieldInstance,
+    newField: IFieldInstance,
+    opContext: IOpContext
+  ) {
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
+
+    if (key === 'type') {
+      await this.handleFieldTypeChange(tableId, dbTableName, oldField, newField);
+    }
 
     if (key === 'options') {
       if (!newValue) {
@@ -846,7 +870,7 @@ export class FieldService implements IReadonlyAdapterService {
       }
 
       // Check if this is a formula field options update that affects generated columns
-      await this.handleFormulaOptionsUpdate(fieldId, newValue);
+      await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
 
       return { options: JSON.stringify(newValue) };
     }
@@ -866,7 +890,7 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'dbFieldType') {
-      await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
+      await this.alterTableModifyFieldType(fieldId, oldField, newField);
     }
 
     if (key === 'dbFieldName') {
@@ -880,7 +904,14 @@ export class FieldService implements IReadonlyAdapterService {
     return { [key]: newValue ?? null };
   }
 
-  private async updateStrategies(fieldId: string, opContext: IOpContext) {
+  private async updateStrategies(
+    fieldId: string,
+    tableId: string,
+    dbTableName: string,
+    oldField: IFieldInstance,
+    newField: IFieldInstance,
+    opContext: IOpContext
+  ) {
     const opHandlers = {
       [OpName.SetFieldProperty]: this.handleFieldProperty.bind(this),
     };
@@ -895,15 +926,34 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     return handler.constructor.name === 'AsyncFunction'
-      ? await handler(fieldId, opContext)
-      : handler(fieldId, opContext);
+      ? await handler(tableId, dbTableName, fieldId, oldField, newField, opContext)
+      : handler(tableId, dbTableName, fieldId, oldField, newField, opContext);
   }
 
-  async update(version: number, tableId: string, fieldId: string, opContexts: IOpContext[]) {
+  async update(
+    version: number,
+    tableId: string,
+    dbTableName: string,
+    oldField: IFieldInstance,
+    opContexts: IOpContext[]
+  ) {
+    const fieldId = oldField.id;
+    const newField = applyFieldPropertyOpsAndCreateInstance(oldField, opContexts);
     const userId = this.cls.get('user.id');
-    const result: Prisma.FieldUpdateInput = { version, lastModifiedBy: userId };
+    const result: Prisma.FieldUpdateInput = {
+      version,
+      lastModifiedBy: userId,
+      meta: newField.meta ? JSON.stringify(newField.meta) : undefined,
+    };
     for (const opContext of opContexts) {
-      const updatedResult = await this.updateStrategies(fieldId, opContext);
+      const updatedResult = await this.updateStrategies(
+        fieldId,
+        tableId,
+        dbTableName,
+        oldField,
+        newField,
+        opContext
+      );
       Object.assign(result, updatedResult);
     }
 
@@ -970,49 +1020,39 @@ export class FieldService implements IReadonlyAdapterService {
     return `${uniqueKeyPrefix.toLowerCase()}${uniqueKeySuffix.toLowerCase()}`;
   }
 
+  private async handleFieldTypeChange(
+    tableId: string,
+    dbTableName: string,
+    oldField: IFieldInstance,
+    newField: IFieldInstance
+  ) {
+    if (oldField.type === newField.type) {
+      return;
+    }
+    await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
+  }
+
   /**
    * Handle formula field options update that may affect generated columns
    */
-  private async handleFormulaOptionsUpdate(fieldId: string, newOptions: unknown): Promise<void> {
-    // Get field information to check if it's a formula field
-    const field = await this.prismaService.txClient().field.findUnique({
-      where: { id: fieldId, deletedTime: null },
-      select: {
-        id: true,
-        type: true,
-        tableId: true,
-        table: {
-          select: { dbTableName: true },
-        },
-      },
-    });
-
-    if (!field || field.type !== FieldType.Formula) {
+  private async handleFormulaUpdate(
+    tableId: string,
+    dbTableName: string,
+    oldField: IFieldInstance,
+    newField: IFieldInstance
+  ): Promise<void> {
+    if (newField.type !== FieldType.Formula) {
       return;
     }
-
-    // Check if the new options affect generated columns
-    const formulaOptions = newOptions as IFormulaFieldOptions;
-    if (!formulaOptions.expression) {
-      return;
-    }
-
-    // Get complete field information for recreation
-    const fieldRaw = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: { id: fieldId, deletedTime: null },
-    });
-
-    // Create field instance with updated options
-    const updatedFieldRaw = { ...fieldRaw, options: JSON.stringify(newOptions) };
-    const fieldInstance = createFieldInstanceByRaw(updatedFieldRaw);
 
     // Build field map for formula conversion context
-    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(field.tableId);
+    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
 
     // Use modifyColumnSchema to recreate the field with updated options
     const modifyColumnSql = this.dbProvider.modifyColumnSchema(
-      field.table.dbTableName,
-      fieldInstance,
+      dbTableName,
+      oldField,
+      newField,
       fieldMap
     );
 
@@ -1093,6 +1133,7 @@ export class FieldService implements IReadonlyAdapterService {
         // Use modifyColumnSchema to recreate the dependent formula field
         const modifyColumnSql = this.dbProvider.modifyColumnSchema(
           dependentTableMeta.dbTableName,
+          fieldInstance,
           fieldInstance,
           fieldMap
         );

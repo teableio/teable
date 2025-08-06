@@ -1,5 +1,10 @@
-import type { IFieldVo, DbFieldType, CellValueType } from '@teable/core';
-import { assertNever, FieldType } from '@teable/core';
+import type {
+  IFieldVo,
+  DbFieldType,
+  CellValueType,
+  ISetFieldPropertyOpContext,
+} from '@teable/core';
+import { assertNever, FieldType, applyFieldPropertyOps } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
@@ -105,4 +110,23 @@ export interface IFieldMap {
 
 export function convertFieldInstanceToFieldVo(fieldInstance: IFieldInstance): IFieldVo {
   return instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as IFieldVo;
+}
+
+/**
+ * Apply field property operations to a field VO and return a field instance.
+ * This function combines the pure applyFieldPropertyOps function with createFieldInstanceByVo.
+ *
+ * @param fieldVo - The existing field VO to base the new field on
+ * @param ops - Array of field property operations to apply
+ * @returns A new field instance with the operations applied
+ */
+export function applyFieldPropertyOpsAndCreateInstance(
+  fieldVo: IFieldVo,
+  ops: ISetFieldPropertyOpContext[]
+): IFieldInstance {
+  // Apply operations to get a new field VO
+  const newFieldVo = applyFieldPropertyOps(fieldVo, ops);
+
+  // Create and return a field instance from the modified VO
+  return createFieldInstanceByVo(newFieldVo);
 }

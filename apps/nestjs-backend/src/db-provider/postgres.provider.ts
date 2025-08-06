@@ -235,13 +235,14 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   modifyColumnSchema(
     tableName: string,
+    oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
     fieldMap: IFormulaConversionContext['fieldMap']
   ): string[] {
     const queries: string[] = [];
 
     // First, drop ALL columns associated with the field (including generated columns)
-    queries.push(...this.dropColumn(tableName, fieldInstance));
+    queries.push(...this.dropColumn(tableName, oldFieldInstance));
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
       const context: ICreateDatabaseColumnContext = {
