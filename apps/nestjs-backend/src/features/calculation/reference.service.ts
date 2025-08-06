@@ -343,71 +343,66 @@ export class ReferenceService {
     fkRecordMap?: IFkRecordMap;
     oldRecords?: { [tableId: string]: { [recordId: string]: IRecord } };
   }) {
-    const {
-      startZone,
-      fieldMap,
-      topoOrders,
-      fieldId2DbTableName,
-      tableId2DbTableName,
-      fieldId2TableId,
-      dbTableName2fields,
-      fkRecordMap,
-      oldRecords,
-    } = props;
-
-    const recordIdsMap = { ...startZone };
-
-    for (const order of topoOrders) {
-      const fieldId = order.id;
-      const field = fieldMap[fieldId];
-      if (field.type === FieldType.Formula && field.getIsPersistedAsGeneratedColumn()) {
-        continue;
-      }
-
-      const fromRecordIds = order.dependencies
-        ?.map((item) => recordIdsMap[item])
-        .filter(Boolean)
-        .flat();
-      const toRecordIds = recordIdsMap[fieldId];
-      if (!fromRecordIds?.length && !toRecordIds?.length) {
-        continue;
-      }
-
-      const relatedRecordItems = await this.getAffectedRecordItems({
-        fieldId,
-        fieldMap,
-        fromRecordIds,
-        toRecordIds,
-        fkRecordMap,
-        tableId2DbTableName,
-      });
-
-      if (field.lookupOptions || field.type === FieldType.Link) {
-        await this.calculateLinkRelatedRecords({
-          field,
-          fieldMap,
-          fieldId2DbTableName,
-          tableId2DbTableName,
-          fieldId2TableId,
-          dbTableName2fields,
-          relatedRecordItems,
-          oldRecords,
-        });
-      } else {
-        await this.calculateInTableRecords({
-          field,
-          fieldMap,
-          relatedRecordItems,
-          fieldId2DbTableName,
-          tableId2DbTableName,
-          fieldId2TableId,
-          dbTableName2fields,
-          oldRecords,
-        });
-      }
-
-      recordIdsMap[fieldId] = uniq(relatedRecordItems.map((item) => item.toId));
-    }
+    // TODO: remove calculation
+    // const {
+    //   startZone,
+    //   fieldMap,
+    //   topoOrders,
+    //   fieldId2DbTableName,
+    //   tableId2DbTableName,
+    //   fieldId2TableId,
+    //   dbTableName2fields,
+    //   fkRecordMap,
+    //   oldRecords,
+    // } = props;
+    // const recordIdsMap = { ...startZone };
+    // for (const order of topoOrders) {
+    //   const fieldId = order.id;
+    //   const field = fieldMap[fieldId];
+    //   if (field.type === FieldType.Formula && field.getIsPersistedAsGeneratedColumn()) {
+    //     continue;
+    //   }
+    //   const fromRecordIds = order.dependencies
+    //     ?.map((item) => recordIdsMap[item])
+    //     .filter(Boolean)
+    //     .flat();
+    //   const toRecordIds = recordIdsMap[fieldId];
+    //   if (!fromRecordIds?.length && !toRecordIds?.length) {
+    //     continue;
+    //   }
+    //   const relatedRecordItems = await this.getAffectedRecordItems({
+    //     fieldId,
+    //     fieldMap,
+    //     fromRecordIds,
+    //     toRecordIds,
+    //     fkRecordMap,
+    //     tableId2DbTableName,
+    //   });
+    //   if (field.lookupOptions || field.type === FieldType.Link) {
+    //     await this.calculateLinkRelatedRecords({
+    //       field,
+    //       fieldMap,
+    //       fieldId2DbTableName,
+    //       tableId2DbTableName,
+    //       fieldId2TableId,
+    //       dbTableName2fields,
+    //       relatedRecordItems,
+    //       oldRecords,
+    //     });
+    //   } else {
+    //     await this.calculateInTableRecords({
+    //       field,
+    //       fieldMap,
+    //       relatedRecordItems,
+    //       fieldId2DbTableName,
+    //       tableId2DbTableName,
+    //       fieldId2TableId,
+    //       dbTableName2fields,
+    //       oldRecords,
+    //     });
+    //   }
+    //   recordIdsMap[fieldId] = uniq(relatedRecordItems.map((item) => item.toId));
+    // }
   }
 
   private opsMap2RecordData(opsMap: IOpsMap) {
