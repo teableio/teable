@@ -19,13 +19,13 @@ import {
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
-import type { ICreateDatabaseColumnContext } from '../features/field/create-database-column-visitor.interface';
-import { CreateSqliteDatabaseColumnVisitor } from '../features/field/create-database-column-visitor.sqlite';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
 import type { BaseQueryAbstract } from './base-query/abstract';
 import { BaseQuerySqlite } from './base-query/base-query.sqlite';
+import type { ICreateDatabaseColumnContext } from './create-database-column-query/create-database-column-field-visitor.interface';
+import { CreateSqliteDatabaseColumnFieldVisitor } from './create-database-column-query/create-database-column-field-visitor.sqlite';
 import type {
   IAggregationQueryExtra,
   ICalendarDailyCollectionQueryProps,
@@ -126,9 +126,7 @@ export class SqliteProvider implements IDbProvider {
     // First, drop ALL columns associated with the field (including generated columns)
     const columnNames = fieldInstance.dbFieldNames;
     for (const columnName of columnNames) {
-      queries.push(
-        this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()
-      );
+      queries.push(...this.dropColumn(tableName, columnName));
     }
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
@@ -144,7 +142,7 @@ export class SqliteProvider implements IDbProvider {
       };
 
       // Use visitor pattern to recreate columns
-      const visitor = new CreateSqliteDatabaseColumnVisitor(context);
+      const visitor = new CreateSqliteDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);
     });
 
@@ -174,7 +172,7 @@ export class SqliteProvider implements IDbProvider {
       };
 
       // Use visitor pattern to create columns
-      const visitor = new CreateSqliteDatabaseColumnVisitor(context);
+      const visitor = new CreateSqliteDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);
     });
 

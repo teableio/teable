@@ -22,14 +22,14 @@ import type {
   FieldCore,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
-import { GeneratedColumnQuerySupportValidatorSqlite } from '../../db-provider/generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
-import type { ICreateDatabaseColumnContext } from './create-database-column-visitor.interface';
-import { SchemaType } from './util';
+import { SchemaType } from '../../features/field/util';
+import { GeneratedColumnQuerySupportValidatorSqlite } from '../generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
+import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
 
 /**
  * SQLite implementation of database column visitor.
  */
-export class CreateSqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
+export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<void> {
   constructor(private readonly context: ICreateDatabaseColumnContext) {}
 
   private getSchemaType(dbFieldType: DbFieldType): SchemaType {

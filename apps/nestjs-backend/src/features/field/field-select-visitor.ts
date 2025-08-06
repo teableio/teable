@@ -39,6 +39,7 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
     private readonly fieldCteMap?: Map<string, string>,
     private readonly tableAlias?: string
   ) {}
+
   /**
    * Returns the appropriate column selector for a field
    * @param field The field to get the selector for

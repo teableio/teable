@@ -22,15 +22,15 @@ import type {
   FieldCore,
 } from '@teable/core';
 import { DbFieldType } from '@teable/core';
-import { GeneratedColumnQuerySupportValidatorPostgres } from '../../db-provider/generated-column-query/postgres/generated-column-query-support-validator.postgres';
-import type { ICreateDatabaseColumnContext } from './create-database-column-visitor.interface';
-import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
-import { SchemaType } from './util';
+import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
+import { SchemaType } from '../../features/field/util';
+import { GeneratedColumnQuerySupportValidatorPostgres } from '../generated-column-query/postgres/generated-column-query-support-validator.postgres';
+import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
 
 /**
  * PostgreSQL implementation of database column visitor.
  */
-export class CreatePostgresDatabaseColumnVisitor implements IFieldVisitor<void> {
+export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<void> {
   constructor(private readonly context: ICreateDatabaseColumnContext) {}
 
   private getSchemaType(dbFieldType: DbFieldType): SchemaType {
