@@ -247,7 +247,8 @@ export class FieldService implements IReadonlyAdapterService {
   private async alterTableAddField(
     dbTableName: string,
     fieldInstances: IFieldInstance[],
-    isNewTable: boolean = false
+    isNewTable: boolean = false,
+    isSymmetricField?: boolean
   ) {
     // Get table ID from dbTableName for field map construction
     const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
@@ -265,16 +266,43 @@ export class FieldService implements IReadonlyAdapterService {
     for (const fieldInstance of fieldInstances) {
       const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
 
-      const alterTableQuery = this.dbProvider.createColumnSchema(
+      // For Link fields, we need to get table name mapping
+      let tableNameMap: Map<string, string> | undefined;
+      if (fieldInstance.type === FieldType.Link && !fieldInstance.isLookup) {
+        const linkOptions = fieldInstance.options as any;
+        const foreignTableId = linkOptions.foreignTableId;
+
+        if (foreignTableId) {
+          const tables = await this.prismaService.txClient().tableMeta.findMany({
+            where: { id: { in: [tableMeta.id, foreignTableId] } },
+            select: { id: true, dbTableName: true },
+          });
+
+          tableNameMap = new Map<string, string>();
+          tables.forEach((table) => {
+            tableNameMap!.set(table.id, table.dbTableName);
+          });
+
+          this.logger.debug('tableNameMap for Link field:', Object.fromEntries(tableNameMap));
+        }
+      }
+
+      const alterTableQueries = this.dbProvider.createColumnSchema(
         dbTableName,
         fieldInstance,
         fieldMap,
-        isNewTable
+        isNewTable,
+        tableMeta.id,
+        tableNameMap,
+        isSymmetricField
       );
 
-      this.logger.log('alterTableQuery', alterTableQuery);
+      this.logger.log('alterTableQueries', alterTableQueries);
 
-      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      // Execute all queries (main table alteration + any additional queries like junction tables)
+      for (const query of alterTableQueries) {
+        await this.prismaService.txClient().$executeRawUnsafe(query);
+      }
 
       if (unique) {
         if (!checkFieldUniqueValidationEnabled(type, isLookup)) {
@@ -768,7 +796,12 @@ export class FieldService implements IReadonlyAdapterService {
     );
   }
 
-  async batchCreateFields(tableId: string, dbTableName: string, fields: IFieldInstance[]) {
+  async batchCreateFields(
+    tableId: string,
+    dbTableName: string,
+    fields: IFieldInstance[],
+    isSymmetricField?: boolean
+  ) {
     if (!fields.length) return;
 
     const dataList = fields.map((field) => {
@@ -781,7 +814,7 @@ export class FieldService implements IReadonlyAdapterService {
     });
 
     // 1. alter table with real field in visual table
-    await this.alterTableAddField(dbTableName, fields);
+    await this.alterTableAddField(dbTableName, fields, false, isSymmetricField);
 
     // 2. save field meta in db
     await this.dbCreateMultipleField(tableId, fields);

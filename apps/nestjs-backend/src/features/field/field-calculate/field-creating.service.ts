@@ -22,7 +22,8 @@ export class FieldCreatingService {
   async createFieldItem(
     tableId: string,
     field: IFieldInstance,
-    initViewColumnMap?: Record<string, IColumn>
+    initViewColumnMap?: Record<string, IColumn>,
+    isSymmetricField?: boolean
   ) {
     const fieldId = field.id;
 
@@ -34,7 +35,7 @@ export class FieldCreatingService {
       select: { dbTableName: true },
     });
 
-    await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
+    await this.fieldService.batchCreateFields(tableId, dbTableName, [field], isSymmetricField);
 
     await this.viewService.initViewColumnMeta(
       tableId,
@@ -70,7 +71,7 @@ export class FieldCreatingService {
   async alterCreateField(tableId: string, field: IFieldInstance, columnMeta?: IColumnMeta) {
     const newFields: { tableId: string; field: IFieldInstance }[] = [];
     if (field.type === FieldType.Link && !field.isLookup) {
-      await this.fieldSupplementService.createForeignKey(tableId, field);
+      // Foreign key creation is now handled by the visitor in createFieldItem
       await this.createFieldItem(tableId, field, columnMeta);
       newFields.push({ tableId, field });
 
@@ -80,7 +81,7 @@ export class FieldCreatingService {
           field
         );
 
-        await this.createFieldItem(field.options.foreignTableId, symmetricField);
+        await this.createFieldItem(field.options.foreignTableId, symmetricField, columnMeta, true);
         newFields.push({ tableId: field.options.foreignTableId, field: symmetricField });
       }
 
@@ -110,7 +111,7 @@ export class FieldCreatingService {
     ) as LinkFieldDto[];
 
     for (const field of linkFields) {
-      await this.fieldSupplementService.createForeignKey(tableId, field);
+      // Foreign key creation is now handled by the visitor in createFieldItem
       await this.createFieldItem(tableId, field, columnMeta);
       if (field.options.symmetricFieldId) {
         const symmetricField = await this.fieldSupplementService.generateSymmetricField(
@@ -118,7 +119,7 @@ export class FieldCreatingService {
           field
         );
 
-        await this.createFieldItem(field.options.foreignTableId, symmetricField);
+        await this.createFieldItem(field.options.foreignTableId, symmetricField, undefined, true);
         newFields.push({ tableId: field.options.foreignTableId, field: symmetricField });
       }
     }

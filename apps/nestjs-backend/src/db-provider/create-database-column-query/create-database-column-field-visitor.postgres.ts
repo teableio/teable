@@ -20,8 +20,10 @@ import type {
   IFieldVisitor,
   IFormulaConversionContext,
   FieldCore,
+  ILinkFieldOptions,
 } from '@teable/core';
-import { DbFieldType } from '@teable/core';
+import { DbFieldType, Relationship } from '@teable/core';
+import type { Knex } from 'knex';
 import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
 import { SchemaType } from '../../features/field/util';
 import { GeneratedColumnQuerySupportValidatorPostgres } from '../generated-column-query/postgres/generated-column-query-support-validator.postgres';
@@ -31,7 +33,13 @@ import type { ICreateDatabaseColumnContext } from './create-database-column-fiel
  * PostgreSQL implementation of database column visitor.
  */
 export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<void> {
+  private sql: string[] = [];
+
   constructor(private readonly context: ICreateDatabaseColumnContext) {}
+
+  getSql(): string[] {
+    return this.sql;
+  }
 
   private getSchemaType(dbFieldType: DbFieldType): SchemaType {
     switch (dbFieldType) {
@@ -172,7 +180,136 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   visitLinkField(field: LinkFieldCore): void {
-    this.createStandardColumn(field);
+    if (field.isLookup) {
+      return;
+    }
+
+    // Skip foreign key creation for symmetric fields
+    // A symmetric field is one that has a symmetricFieldId pointing to an existing field
+    if (this.context.isSymmetricField || this.isSymmetricField(field)) {
+      return;
+    }
+
+    // Handle foreign key creation (moved from createForeignKey method)
+    this.createForeignKeyForLinkField(field);
+  }
+
+  private isSymmetricField(_field: LinkFieldCore): boolean {
+    // A field is symmetric if it has a symmetricFieldId that points to an existing field
+    // In practice, when creating symmetric fields, they are created after the main field
+    // So we can check if this field's symmetricFieldId exists in the database
+    // For now, we'll rely on the isSymmetricField context flag
+    return false;
+  }
+
+  private createForeignKeyForLinkField(field: LinkFieldCore): void {
+    const options = field.options as ILinkFieldOptions;
+    const { relationship, fkHostTableName, selfKeyName, foreignKeyName, isOneWay, foreignTableId } =
+      options;
+
+    if (
+      !this.context.knex ||
+      !this.context.tableId ||
+      !this.context.tableName ||
+      !this.context.tableNameMap
+    ) {
+      return;
+    }
+
+    // Get table names from context
+    const dbTableName = this.context.tableName;
+    const foreignDbTableName = this.context.tableNameMap.get(foreignTableId);
+
+    console.log('Debug createForeignKeyForLinkField:', {
+      tableId: this.context.tableId,
+      foreignTableId,
+      dbTableName,
+      foreignDbTableName,
+      tableNameMap: Object.fromEntries(this.context.tableNameMap || new Map()),
+    });
+
+    if (!foreignDbTableName) {
+      throw new Error(`Foreign table not found: ${foreignTableId}`);
+    }
+
+    let alterTableSchema: Knex.SchemaBuilder | undefined;
+
+    if (relationship === Relationship.ManyMany) {
+      alterTableSchema = this.context.knex.schema.createTable(fkHostTableName, (table) => {
+        table.increments('__id').primary();
+        table
+          .string(selfKeyName)
+          .references('__id')
+          .inTable(dbTableName)
+          .withKeyName(`fk_${selfKeyName}`);
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
+      });
+    }
+
+    if (relationship === Relationship.ManyOne) {
+      alterTableSchema = this.context.knex.schema.alterTable(fkHostTableName, (table) => {
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
+      });
+    }
+
+    if (relationship === Relationship.OneMany) {
+      if (isOneWay) {
+        alterTableSchema = this.context.knex.schema.createTable(fkHostTableName, (table) => {
+          table.increments('__id').primary();
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
+          table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+          table.unique([selfKeyName, foreignKeyName], {
+            indexName: `index_${selfKeyName}_${foreignKeyName}`,
+          });
+        });
+      } else {
+        alterTableSchema = this.context.knex.schema.alterTable(fkHostTableName, (table) => {
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
+        });
+      }
+    }
+
+    // assume options is from the main field (user created one)
+    if (relationship === Relationship.OneOne) {
+      alterTableSchema = this.context.knex.schema.alterTable(fkHostTableName, (table) => {
+        if (foreignKeyName === '__id') {
+          throw new Error('can not use __id for foreignKeyName');
+        }
+        table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+        table.unique([foreignKeyName], {
+          indexName: `index_${foreignKeyName}`,
+        });
+      });
+    }
+
+    if (!alterTableSchema) {
+      throw new Error('alterTableSchema is undefined');
+    }
+
+    // Store the SQL queries to be executed later
+    for (const sql of alterTableSchema.toSQL()) {
+      // skip sqlite pragma
+      if (sql.sql.startsWith('PRAGMA')) {
+        continue;
+      }
+      this.sql.push(sql.sql);
+    }
   }
 
   visitRollupField(_field: RollupFieldCore): void {

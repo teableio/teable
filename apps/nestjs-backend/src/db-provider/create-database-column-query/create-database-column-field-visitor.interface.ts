@@ -1,4 +1,5 @@
 import type { IFieldMap } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IDbProvider } from '../db.provider.interface';
@@ -25,4 +26,16 @@ export interface ICreateDatabaseColumnContext {
   fieldMap?: IFieldMap;
   /** Whether this is a new table creation (affects SQLite generated columns) */
   isNewTable?: boolean;
+  /** Current table ID (for link field foreign key creation) */
+  tableId?: string;
+  /** Current table name (for link field foreign key creation) */
+  tableName?: string;
+  /** Knex instance (for link field foreign key creation) */
+  knex?: Knex;
+  /** Prisma service for database operations */
+  prismaService?: PrismaService;
+  /** Table name mapping for foreign key creation (tableId -> dbTableName) */
+  tableNameMap?: Map<string, string>;
+  /** Whether this is a symmetric field (should not create foreign key structures) */
+  isSymmetricField?: boolean;
 }

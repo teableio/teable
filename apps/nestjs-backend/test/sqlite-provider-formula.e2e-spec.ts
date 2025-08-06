@@ -238,14 +238,22 @@ describe('SQLite Provider Formula Integration Tests', () => {
 
     try {
       // Generate SQL for creating the formula column
-      const sql = sqliteProvider.createColumnSchema(testTableName, formulaField, fieldMap);
-      expect(sql).toMatchSnapshot(`SQLite SQL for ${expression}`);
+      const sqlQueries = sqliteProvider.createColumnSchema(
+        testTableName,
+        formulaField,
+        fieldMap,
+        false
+      );
+      expect(sqlQueries).toMatchSnapshot(`SQLite SQL for ${expression}`);
 
-      // Split SQL statements and execute them separately
-      const sqlStatements = sql.split(';').filter((stmt) => stmt.trim());
-      for (const statement of sqlStatements) {
-        if (statement.trim()) {
-          await knexInstance.raw(statement);
+      // Execute all SQL queries
+      for (const sql of sqlQueries) {
+        // Split SQL statements and execute them separately
+        const sqlStatements = sql.split(';').filter((stmt: string) => stmt.trim());
+        for (const statement of sqlStatements) {
+          if (statement.trim()) {
+            await knexInstance.raw(statement);
+          }
         }
       }
 

@@ -12,9 +12,12 @@ import {
 import { PrismaService } from '@teable/db-main-prisma';
 import { groupBy, isEqual } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
+import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import {
   createFieldInstanceByVo,
@@ -25,6 +28,7 @@ import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
 import { FieldSupplementService } from './field-supplement.service';
+import { FormulaFieldService } from './formula-field.service';
 
 const isLink = (field: IFieldInstance): field is LinkFieldDto =>
   !field.isLookup && field.type === FieldType.Link;
@@ -37,7 +41,10 @@ export class FieldConvertingLinkService {
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldCalculationService: FieldCalculationService
+    private readonly fieldCalculationService: FieldCalculationService,
+    private readonly fieldService: FieldService,
+    private readonly formulaFieldService: FormulaFieldService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   private async symLinkRelationshipChange(newField: LinkFieldDto) {
@@ -91,7 +98,9 @@ export class FieldConvertingLinkService {
       );
       await this.fieldCreatingService.createFieldItem(
         newField.options.foreignTableId,
-        symmetricField
+        symmetricField,
+        undefined,
+        true
       );
     }
   }
@@ -117,11 +126,12 @@ export class FieldConvertingLinkService {
       await this.fieldSupplementService.cleanForeignKey(oldField.options);
       await this.fieldDeletingService.cleanLookupRollupRef(tableId, newField.id);
 
-      await this.fieldSupplementService.createForeignKey(tableId, newField);
+      // Create foreign key using dbProvider (handled by visitor)
+      await this.createForeignKeyUsingDbProvider(tableId, newField);
       // change relationship, alter foreign key
     } else if (newField.options.relationship !== oldField.options.relationship) {
       await this.fieldSupplementService.cleanForeignKey(oldField.options);
-      await this.fieldSupplementService.createForeignKey(tableId, newField);
+      await this.createForeignKeyUsingDbProvider(tableId, newField);
     }
 
     // change one-way to two-way or two-way to one-way (symmetricFieldId add or delete, symmetricFieldId can not be change)
@@ -129,7 +139,7 @@ export class FieldConvertingLinkService {
   }
 
   private async otherToLink(tableId: string, newField: LinkFieldDto) {
-    await this.fieldSupplementService.createForeignKey(tableId, newField);
+    await this.createForeignKeyUsingDbProvider(tableId, newField);
     await this.fieldSupplementService.createReference(newField);
     if (newField.options.symmetricFieldId) {
       const symmetricField = await this.fieldSupplementService.generateSymmetricField(
@@ -138,8 +148,57 @@ export class FieldConvertingLinkService {
       );
       await this.fieldCreatingService.createFieldItem(
         newField.options.foreignTableId,
-        symmetricField
+        symmetricField,
+        undefined,
+        true
       );
+    }
+  }
+
+  private async createForeignKeyUsingDbProvider(tableId: string, field: LinkFieldDto) {
+    const { foreignTableId } = field.options;
+
+    // Get table information for both current and foreign tables
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: [tableId, foreignTableId] } },
+      select: { id: true, dbTableName: true },
+    });
+
+    const currentTable = tables.find((table) => table.id === tableId);
+    const foreignTable = tables.find((table) => table.id === foreignTableId);
+
+    if (!currentTable || !foreignTable) {
+      throw new Error(`Table not found: ${tableId} or ${foreignTableId}`);
+    }
+
+    // Create table name mapping for visitor
+    const tableNameMap = new Map<string, string>();
+    tableNameMap.set(tableId, currentTable.dbTableName);
+    tableNameMap.set(foreignTableId, foreignTable.dbTableName);
+
+    console.log('Debug createForeignKeyUsingDbProvider:', {
+      tableId,
+      foreignTableId,
+      currentTableName: currentTable.dbTableName,
+      foreignTableName: foreignTable.dbTableName,
+      tableNameMap: Object.fromEntries(tableNameMap),
+    });
+
+    // Use dbProvider to create foreign key (handled by visitor)
+    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
+    const createColumnQueries = this.dbProvider.createColumnSchema(
+      currentTable.dbTableName,
+      field,
+      fieldMap,
+      false,
+      tableId,
+      tableNameMap,
+      false // This is not a symmetric field in converting context
+    );
+
+    // Execute all queries (main table alteration + foreign key creation)
+    for (const query of createColumnQueries) {
+      await this.prismaService.txClient().$executeRawUnsafe(query);
     }
   }
 
