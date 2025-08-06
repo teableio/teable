@@ -163,14 +163,14 @@ describe('FieldSelectVisitor E2E Tests', () => {
 
       const qb = knexInstance(testTableName);
       const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
-      const result = textField.accept(visitor);
+      const selector = textField.accept(visitor);
 
-      // Capture the generated SQL query for basic text field
-      const sql = result.toSQL();
-      expect(sql.sql).toMatchSnapshot('text-field-query');
+      // FieldSelectVisitor should return the field selector, not a full query
+      expect(selector).toBe('text_field');
 
-      // Execute the query
-      const rows = await result;
+      // Test that the selector works in a real query
+      const query = qb.select(selector);
+      const rows = await query;
       expect(rows).toHaveLength(2);
       expect(rows[0].text_field).toBe('hello');
       expect(rows[1].text_field).toBe('world');
@@ -190,9 +190,14 @@ describe('FieldSelectVisitor E2E Tests', () => {
 
       const qb = knexInstance(testTableName);
       const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
-      const result = numberField.accept(visitor);
+      const selector = numberField.accept(visitor);
 
-      const rows = await result;
+      // FieldSelectVisitor should return the field selector
+      expect(selector).toBe('number_field');
+
+      // Test that the selector works in a real query
+      const query = qb.select(selector);
+      const rows = await query;
       expect(rows).toHaveLength(2);
       expect(rows[0].number_field).toBe(10);
       expect(rows[1].number_field).toBe(20);
@@ -212,9 +217,14 @@ describe('FieldSelectVisitor E2E Tests', () => {
 
       const qb = knexInstance(testTableName);
       const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
-      const result = checkboxField.accept(visitor);
+      const selector = checkboxField.accept(visitor);
 
-      const rows = await result;
+      // FieldSelectVisitor should return the field selector
+      expect(selector).toBe('checkbox_field');
+
+      // Test that the selector works in a real query
+      const query = qb.select(selector);
+      const rows = await query;
       expect(rows).toHaveLength(2);
       expect(rows[0].checkbox_field).toBe(true);
       expect(rows[1].checkbox_field).toBe(false);
@@ -234,9 +244,14 @@ describe('FieldSelectVisitor E2E Tests', () => {
 
       const qb = knexInstance(testTableName);
       const visitor = new FieldSelectVisitor(qb, dbProvider, createContext());
-      const result = dateField.accept(visitor);
+      const selector = dateField.accept(visitor);
 
-      const rows = await result;
+      // FieldSelectVisitor should return the field selector
+      expect(selector).toBe('date_field');
+
+      // Test that the selector works in a real query
+      const query = qb.select(selector);
+      const rows = await query;
       expect(rows).toHaveLength(2);
       expect(rows[0].date_field).toBeDefined();
       expect(rows[1].date_field).toBeDefined();

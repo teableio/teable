@@ -19,13 +19,13 @@ import {
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
-import type { ICreateDatabaseColumnContext } from '../features/field/create-database-column-visitor.interface';
-import { CreatePostgresDatabaseColumnVisitor } from '../features/field/create-database-column-visitor.postgres';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 import type { BaseQueryAbstract } from './base-query/abstract';
 import { BaseQueryPostgres } from './base-query/base-query.postgres';
+import type { ICreateDatabaseColumnContext } from './create-database-column-query/create-database-column-field-visitor.interface';
+import { CreatePostgresDatabaseColumnFieldVisitor } from './create-database-column-query/create-database-column-field-visitor.postgres';
 import type {
   IAggregationQueryExtra,
   ICalendarDailyCollectionQueryProps,
@@ -234,13 +234,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     // First, drop ALL columns associated with the field (including generated columns)
     const columnNames = fieldInstance.dbFieldNames;
     for (const columnName of columnNames) {
-      queries.push(
-        this.knex.schema
-          .alterTable(tableName, (table) => {
-            table.dropColumn(columnName);
-          })
-          .toQuery()
-      );
+      queries.push(...this.dropColumn(tableName, columnName));
     }
 
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
@@ -256,7 +250,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       };
 
       // Use visitor pattern to recreate columns
-      const visitor = new CreatePostgresDatabaseColumnVisitor(context);
+      const visitor = new CreatePostgresDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);
     });
 
@@ -286,7 +280,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       };
 
       // Use visitor pattern to create columns
-      const visitor = new CreatePostgresDatabaseColumnVisitor(context);
+      const visitor = new CreatePostgresDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);
     });
 

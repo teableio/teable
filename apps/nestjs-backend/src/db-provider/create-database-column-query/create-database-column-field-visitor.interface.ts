@@ -1,7 +1,7 @@
 import type { IFieldMap } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IFieldInstance } from './model/factory';
+import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IDbProvider } from '../db.provider.interface';
 
 /**
  * Context interface for database column creation
