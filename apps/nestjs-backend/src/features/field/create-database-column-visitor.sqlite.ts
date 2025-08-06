@@ -170,8 +170,8 @@ export class CreateSqliteDatabaseColumnVisitor implements IFieldVisitor<void> {
     this.createStandardColumn(field);
   }
 
-  visitRollupField(field: RollupFieldCore): void {
-    this.createStandardColumn(field);
+  visitRollupField(_field: RollupFieldCore): void {
+    return;
   }
 
   // Select field types
