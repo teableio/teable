@@ -81,7 +81,7 @@ describe('FieldCteVisitor', () => {
     it('should generate SQLite JSON aggregation for multi-value relationships', () => {
       const sqliteDbProvider = {
         driver: DriverClient.Sqlite,
-        createColumnSchema: jest.fn().mockReturnValue([]),
+        createColumnSchema: vi.fn().mockReturnValue([]),
       } as any;
 
       const visitor = new FieldCteVisitor(sqliteDbProvider, context);
@@ -97,7 +97,7 @@ describe('FieldCteVisitor', () => {
     it('should generate SQLite JSON aggregation for single-value relationships', () => {
       const sqliteDbProvider = {
         driver: DriverClient.Sqlite,
-        createColumnSchema: jest.fn().mockReturnValue([]),
+        createColumnSchema: vi.fn().mockReturnValue([]),
       } as any;
 
       const visitor = new FieldCteVisitor(sqliteDbProvider, context);
@@ -113,13 +113,52 @@ describe('FieldCteVisitor', () => {
     it('should throw error for unsupported database driver', () => {
       const unsupportedDbProvider = {
         driver: 'mysql' as any,
-        createColumnSchema: jest.fn().mockReturnValue([]),
+        createColumnSchema: vi.fn().mockReturnValue([]),
       } as any;
 
       const visitor = new FieldCteVisitor(unsupportedDbProvider, context);
       const method = (visitor as any).getLinkJsonAggregationFunction;
 
       expect(() => method.call(visitor, 'f', 'f."title"', Relationship.ManyOne)).toThrow(
+        'Unsupported database driver: mysql'
+      );
+    });
+  });
+
+  describe('getJsonAggregationFunction', () => {
+    it('should generate PostgreSQL JSON aggregation with null filtering', () => {
+      const visitor = new FieldCteVisitor(mockDbProvider, context);
+      const method = (visitor as any).getJsonAggregationFunction;
+
+      const result = method.call(visitor, 'f."status"');
+
+      expect(result).toBe('json_agg(f."status") FILTER (WHERE f."status" IS NOT NULL)');
+    });
+
+    it('should generate SQLite JSON aggregation with null filtering', () => {
+      const sqliteDbProvider = {
+        driver: DriverClient.Sqlite,
+        createColumnSchema: vi.fn().mockReturnValue([]),
+      } as any;
+
+      const visitor = new FieldCteVisitor(sqliteDbProvider, context);
+      const method = (visitor as any).getJsonAggregationFunction;
+
+      const result = method.call(visitor, 'f."status"');
+
+      expect(result).toBe('json_group_array(f."status") WHERE f."status" IS NOT NULL');
+    });
+
+    it('should throw error for unsupported database driver', () => {
+      const unsupportedDbProvider = {
+        driver: 'mysql' as any,
+        createColumnSchema: vi.fn().mockReturnValue([]),
+      } as any;
+
+      const visitor = new FieldCteVisitor(unsupportedDbProvider, context);
+      const method = (visitor as any).getJsonAggregationFunction;
+
+      expect(() => method.call(visitor, 'f."status"')).toThrow(
         'Unsupported database driver: mysql'
       );
     });

@@ -495,9 +495,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const driver = this.dbProvider.driver;
 
     if (driver === DriverClient.Pg) {
-      return `json_agg(${fieldReference})`;
+      // Filter out null values to prevent null entries in the JSON array
+      return `json_agg(${fieldReference}) FILTER (WHERE ${fieldReference} IS NOT NULL)`;
     } else if (driver === DriverClient.Sqlite) {
-      return `json_group_array(${fieldReference})`;
+      // For SQLite, we need to handle null filtering differently
+      return `json_group_array(${fieldReference}) WHERE ${fieldReference} IS NOT NULL`;
     }
 
     throw new Error(`Unsupported database driver: ${driver}`);
