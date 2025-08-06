@@ -386,6 +386,7 @@ export class BatchService {
         (id) =>
           fieldMap[id].type !== FieldType.Formula &&
           fieldMap[id].type !== FieldType.Rollup &&
+          fieldMap[id].type !== FieldType.Link &&
           !fieldMap[id].isLookup
       );
     const data = opsData.map((data) => {
@@ -403,6 +404,7 @@ export class BatchService {
               if (
                 field.type === FieldType.Formula ||
                 field.type === FieldType.Rollup ||
+                field.type === FieldType.Link ||
                 field.isLookup
               ) {
                 return pre;

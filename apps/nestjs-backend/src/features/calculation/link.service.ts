@@ -12,6 +12,7 @@ import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { SchemaType } from '../field/util';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import { BatchService } from './batch.service';
 import type { ICellChange, ICellContext } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
@@ -53,6 +54,7 @@ export class LinkService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -828,10 +830,17 @@ export class LinkService {
         return field.dbFieldName;
       });
 
-      const nativeQuery = this.knex(tableId2DbTableName[tableId])
-        .select(dbFieldNames.concat('__id'))
-        .whereIn('__id', recordIds)
-        .toQuery();
+      const queryBuilder = this.knex(tableId2DbTableName[tableId]);
+      const fields = fieldIds.map((fieldId) => fieldMapByTableId[tableId][fieldId]);
+
+      const { qb } = await this.recordQueryBuilder.buildQueryWithLinkContexts(
+        queryBuilder,
+        tableId,
+        undefined,
+        fields
+      );
+
+      const nativeQuery = qb.whereIn('__id', recordIds).toQuery();
 
       const recordRaw = await this.prismaService
         .txClient()
@@ -906,6 +915,9 @@ export class LinkService {
         const updatedFields = updatedRecords[recordId];
 
         for (const fieldId in originFields) {
+          if (!fieldMap[fieldId]) {
+            continue;
+          }
           if (fieldMap[fieldId].type !== FieldType.Link) {
             continue;
           }

@@ -57,10 +57,12 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     tableId: string,
     viewId: string | undefined,
     fields: IFieldInstance[]
-  ): Promise<Knex.QueryBuilder> {
+  ): Promise<{ qb: Knex.QueryBuilder }> {
     const mainTableName = await this.getDbTableName(tableId);
     const linkFieldCteContext = await this.createLinkFieldContexts(fields, tableId, mainTableName);
-    return this.buildQuery(queryBuilder, tableId, viewId, fields, linkFieldCteContext);
+
+    const qb = this.buildQuery(queryBuilder, tableId, viewId, fields, linkFieldCteContext);
+    return { qb };
   }
 
   /**

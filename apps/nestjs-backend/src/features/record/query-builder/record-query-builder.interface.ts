@@ -41,6 +41,21 @@ export interface IRecordQueryBuilder {
   ): Knex.QueryBuilder;
 
   /**
+   * Build a query builder with select fields for the given table and fields
+   * @param queryBuilder - existing query builder to use
+   * @param tableId - The table ID
+   * @param viewId - Optional view ID for filtering
+   * @param fields - Array of field instances to select
+   * @returns Knex.QueryBuilder - The configured query builder
+   */
+  buildQueryWithLinkContexts(
+    queryBuilder: Knex.QueryBuilder,
+    tableId: string,
+    viewId: string | undefined,
+    fields: IFieldInstance[]
+  ): Promise<{ qb: Knex.QueryBuilder }>;
+
+  /**
    * Create Link field contexts for CTE generation
    * @param fields - Array of field instances
    * @param tableId - Table ID for reference

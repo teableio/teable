@@ -424,7 +424,12 @@ export class FieldService implements IReadonlyAdapterService {
     // TODO: move to field visitor
     let resetFieldQuery: string | undefined = '';
     function shouldUpdateRecords(field: IFieldInstance) {
-      return field.type !== FieldType.Formula && field.type !== FieldType.Rollup && !field.isLookup;
+      return (
+        field.type !== FieldType.Formula &&
+        field.type !== FieldType.Rollup &&
+        field.type !== FieldType.Link &&
+        !field.isLookup
+      );
     }
     if (shouldUpdateRecords(oldField) && shouldUpdateRecords(newField)) {
       resetFieldQuery = this.knex(dbTableName)
