@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
 
@@ -10,8 +9,7 @@ export class UndoRedoService {
   logger = new Logger(UndoRedoService.name);
   constructor(
     private readonly undoRedoStackService: UndoRedoStackService,
-    private readonly undoRedoOperationService: UndoRedoOperationService,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly undoRedoOperationService: UndoRedoOperationService
   ) {}
 
   async undo(tableId: string, windowId: string): Promise<IUndoVo> {
