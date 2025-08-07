@@ -44,6 +44,7 @@ import {
   expandPreviewModal,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
+import { useBuildBaseAgentStore } from '../store/useBuildBaseAgentStore';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 
@@ -542,6 +543,7 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
   const permission = useTablePermission();
+  const { displayFieldIds, building } = useBuildBaseAgentStore();
 
   const fields = useMemo(() => {
     const hiddenSet = new Set(hiddenFieldIds ?? []);
@@ -575,6 +577,7 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
     permission['record|update']
   );
   const generateColumns = useGenerateColumns();
+
   return useMemo(
     () => ({
       columns: generateColumns({
@@ -585,10 +588,16 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
         sortFieldIds,
         groupFieldIds,
         filterFieldIds,
+      }).filter((column) => {
+        if (building) {
+          return displayFieldIds.includes(column.id);
+        }
+        return true;
       }),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields),
     }),
     [
+      generateColumns,
       fields,
       view,
       resolvedTheme,
@@ -596,8 +605,9 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
       sortFieldIds,
       groupFieldIds,
       filterFieldIds,
-      generateColumns,
       createCellValue2GridDisplay,
+      building,
+      displayFieldIds,
     ]
   );
 }
