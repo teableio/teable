@@ -1,27 +1,16 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type {
-  IFieldPropertyKey,
-  IFieldVo,
-  IOtOperation,
-  IRecord,
-  ITablePropertyKey,
-} from '@teable/core';
-import { FieldOpBuilder, IdPrefix, RecordOpBuilder, TableOpBuilder } from '@teable/core';
-import type { ITableVo } from '@teable/openapi';
+import { Injectable, Logger } from '@nestjs/common';
+import type { IRecord } from '@teable/core';
+import { IdPrefix } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
-import { TableService } from '../features/table/table.service';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
-import {
-  RawOpType,
-  type ICreateOp,
-  type IDeleteOp,
-  type IEditOp,
-  type IShareDbReadonlyAdapterService,
-} from './interface';
+import type { IReadonlyAdapterService } from './interface';
 import { FieldReadonlyServiceAdapter } from './readonly/field-readonly.service';
 import { RecordReadonlyServiceAdapter } from './readonly/record-readonly.service';
 import { TableReadonlyServiceAdapter } from './readonly/table-readonly.service';
@@ -47,13 +36,14 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly recordService: RecordReadonlyServiceAdapter,
     private readonly fieldService: FieldReadonlyServiceAdapter,
     private readonly viewService: ViewReadonlyServiceAdapter,
-    private readonly tableServiceInner: TableService
+    private readonly prismaService: PrismaService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {
     super();
     this.closed = false;
   }
 
-  getReadonlyService(type: IdPrefix): IShareDbReadonlyAdapterService {
+  getReadonlyService(type: IdPrefix): IReadonlyAdapterService {
     switch (type) {
       case IdPrefix.View:
         return this.viewService;
@@ -103,16 +93,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     });
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getCookieAndShareId(options: any) {
-    const cookie = options?.cookie || options?.agentCustom?.cookie;
-    const shareId = options?.shareId || options?.agentCustom?.shareId;
-    if (!cookie && !shareId) {
-      this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
-    }
-    return { cookie, shareId };
-  }
-
   async queryPoll(
     collection: string,
     query: unknown,
@@ -121,13 +101,15 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
-    const { cookie, shareId } = this.getCookieAndShareId(options);
+    if (!options.cookie) {
+      this.logger.error(`No cookie found in options: ${JSON.stringify(options)}`);
+    }
     try {
       await this.cls.runWith(
         {
           ...this.cls.get(),
-          cookie,
-          shareViewId: shareId,
+          cookie: options.cookie,
+          shareViewId: options.shareId,
         },
         async () => {
           const [docType, collectionId] = collection.split('_');
@@ -226,12 +208,14 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    const { cookie, shareId } = this.getCookieAndShareId(options);
+    if (!options.agentCustom.cookie) {
+      this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
+    }
     await this.cls.runWith(
       {
         ...this.cls.get(),
-        cookie,
-        shareViewId: shareId,
+        cookie: options.agentCustom.cookie,
+        shareViewId: options.agentCustom.shareId,
       },
       async () => {
         return this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
@@ -242,26 +226,6 @@ export class ShareDbAdapter extends ShareDb.DB {
             callback(null, data![id]);
           }
         });
-      }
-    );
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async getSnapshotData(docType: IdPrefix, collectionId: string, id: string, options: any) {
-    if (docType === IdPrefix.Table) {
-      return await this.tableServiceInner.getSnapshotBulk(collectionId, [id]);
-    }
-    const { cookie, shareId } = this.getCookieAndShareId(options);
-    return await this.cls.runWith(
-      {
-        ...this.cls.get(),
-        cookie,
-        shareViewId: shareId,
-      },
-      async () => {
-        return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(collectionId, [
-          id,
-        ]);
       }
     );
   }
@@ -280,134 +244,36 @@ export class ShareDbAdapter extends ShareDb.DB {
     id: string,
     from: number,
     to: number | null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    options: any,
+    options: unknown,
     callback: (error: unknown, data?: unknown) => void
   ) {
-    const time = Date.now();
-    let callbackCalled = false;
-    const safeCallback = (error: unknown, data?: unknown) => {
-      if (callbackCalled) {
-        this.logger.warn(
-          `Attempted to call callback multiple times for collection: ${collection}, id: ${id}`
-        );
-        return;
-      }
-      callbackCalled = true;
-      callback(error, data);
-    };
-
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [docType, collectionId] = collection.split('_');
-      const { version, type } = await this.getReadonlyService(
-        docType as IdPrefix
-      ).getVersionAndType(collectionId, id);
+      const [_, collectionId] = collection.split('_');
+      const query = this.knex('ops')
+        .select('operation')
+        .where({
+          collection: collectionId,
+          doc_id: id,
+        })
+        .andWhere('version', '>=', from)
+        .limit(1000);
 
-      const baseRaw = {
-        src: this.cls.getId() || 'unknown',
-        seq: 1,
-        m: {
-          ts: Date.now(),
-        },
-        v: version,
-      };
-
-      if (type === RawOpType.Del) {
-        safeCallback(null, [
-          {
-            ...baseRaw,
-            v: version < 0 ? from : version,
-            del: true,
-          } as IDeleteOp,
-        ]);
-        return;
+      if (to) {
+        query.andWhere('version', '<', to);
       }
 
-      if (from > version) {
-        safeCallback(null, []);
-        return;
-      }
+      const sql = query.toQuery();
 
-      const snapshotData = await this.getSnapshotData(
-        docType as IdPrefix,
-        collectionId,
-        id,
-        options
+      const res = await this.prismaService.txClient().$queryRawUnsafe<{ operation: string }[]>(sql);
+      callback(
+        null,
+        res.map(function (row) {
+          return JSON.parse(row.operation);
+        })
       );
-
-      if (!snapshotData.length) {
-        throw new NotFoundException(`docType: ${docType}, id: ${id} not found`);
-      }
-
-      const { data } = snapshotData[0];
-
-      if (type === RawOpType.Create) {
-        this.logger.log(
-          `getOps create: ${collection}, ${id}, ${from}, ${to}, version: ${version}, ${Date.now() - time}ms`
-        );
-        safeCallback(null, [
-          {
-            ...baseRaw,
-            create: {
-              type: 'json0',
-              data,
-            },
-          } as ICreateOp,
-        ]);
-        return;
-      }
-
-      const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
-      const editOps = new Array(Math.max((to || baseRaw.v + 1) - from, 0)).fill(0).map((_, i) => {
-        return {
-          ...baseRaw,
-          v: from + i,
-          op: editOp,
-        } as IEditOp;
-      });
-      this.logger.log(
-        `getOps edit: ${collection}, ${id}, ${from}, ${to}, version: ${version}, ${Date.now() - time}ms ${editOps.length}`
-      );
-      safeCallback(null, editOps);
     } catch (err) {
-      this.logger.error(err);
-      safeCallback(exceptionParse(err as Error));
-    }
-  }
-
-  private getOpsFromSnapshot(docType: IdPrefix, snapshot: unknown): IOtOperation[] {
-    switch (docType) {
-      case IdPrefix.Record:
-        return Object.entries((snapshot as IRecord).fields).map(([fieldId, fieldValue]) => {
-          return RecordOpBuilder.editor.setRecord.build({
-            fieldId,
-            newCellValue: fieldValue,
-            oldCellValue: undefined,
-          });
-        });
-      case IdPrefix.Field:
-        return Object.entries(snapshot as IFieldVo)
-          .filter(([key]) => key !== 'id')
-          .map(([key, value]) => {
-            return FieldOpBuilder.editor.setFieldProperty.build({
-              key: key as IFieldPropertyKey,
-              newValue: value,
-              oldValue: undefined,
-            });
-          });
-      case IdPrefix.Table:
-        return Object.entries(snapshot as ITableVo)
-          .filter(([key]) => key !== 'id')
-          .map(([key, value]) => {
-            return TableOpBuilder.editor.setTableProperty.build({
-              key: key as ITablePropertyKey,
-              newValue: value,
-              oldValue: undefined,
-            });
-          });
-      default:
-        return [];
+      callback(exceptionParse(err as Error));
     }
   }
 }

@@ -1,19 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import type { IShareDbReadonlyAdapterService } from '../interface';
+import type { IReadonlyAdapterService } from '../interface';
 import { ReadonlyService } from './readonly.service';
 
 @Injectable()
 export class TableReadonlyServiceAdapter
   extends ReadonlyService
-  implements IShareDbReadonlyAdapterService
+  implements IReadonlyAdapterService
 {
-  constructor(
-    private readonly cls: ClsService<IClsStore>,
-    private readonly prismaService: PrismaService
-  ) {
+  constructor(private readonly cls: ClsService<IClsStore>) {
     super(cls);
   }
 
@@ -37,22 +33,5 @@ export class TableReadonlyServiceAdapter
         },
       })
       .then((res) => res.data);
-  }
-
-  getVersionAndType(baseId: string, tableId: string) {
-    return this.prismaService.tableMeta
-      .findUnique({
-        where: {
-          id: tableId,
-          baseId,
-        },
-        select: {
-          version: true,
-          deletedTime: true,
-        },
-      })
-      .then((res) => {
-        return this.formatVersionAndType(res);
-      });
   }
 }

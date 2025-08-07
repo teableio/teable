@@ -19,6 +19,7 @@ import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { Timing } from '../../utils/timing';
 import { BatchService } from '../calculation/batch.service';
 
 @Injectable()
@@ -111,6 +112,37 @@ export class TableService implements IReadonlyAdapterService {
     return tableMeta;
   }
 
+  @Timing()
+  async getTableLastModifiedTime(tableIds: string[]) {
+    if (!tableIds.length) return [];
+
+    const nativeSql = this.knex
+      .select({
+        tableId: 'id',
+        lastModifiedTime: this.knex
+          .select('created_time')
+          .from('ops')
+          .whereRaw('ops.collection = table_meta.id')
+          .orderBy('created_time', 'desc')
+          .limit(1),
+      })
+      .from('table_meta')
+      .whereIn('id', tableIds)
+      .toSQL()
+      .toNative();
+
+    const results = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<
+        { tableId: string; lastModifiedTime: Date }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
+
+    return tableIds.map((tableId) => {
+      const item = results.find((result) => result.tableId === tableId);
+      return item?.lastModifiedTime?.toISOString();
+    });
+  }
+
   async getTableDefaultViewId(tableIds: string[]) {
     if (!tableIds.length) return [];
 
@@ -149,6 +181,7 @@ export class TableService implements IReadonlyAdapterService {
       throw new NotFoundException();
     }
 
+    const tableTime = await this.getTableLastModifiedTime([tableId]);
     const tableDefaultViewIds = await this.getTableDefaultViewId([tableId]);
     if (!tableDefaultViewIds[0]) {
       throw new Error('defaultViewId is not found');
@@ -158,8 +191,7 @@ export class TableService implements IReadonlyAdapterService {
       ...tableMeta,
       description: tableMeta.description ?? undefined,
       icon: tableMeta.icon ?? undefined,
-      lastModifiedTime:
-        tableMeta.lastModifiedTime?.toISOString() || tableMeta.createdTime.toISOString(),
+      lastModifiedTime: tableTime[0] || tableMeta.createdTime.toISOString(),
       defaultViewId: tableDefaultViewIds[0],
     };
   }
@@ -279,7 +311,7 @@ export class TableService implements IReadonlyAdapterService {
       ...input,
       version: tableRaw.version + 1,
       lastModifiedBy: this.cls.get('user.id'),
-      lastModifiedTime: new Date().toISOString(),
+      lastModifiedTime: new Date(),
     };
 
     const ops = Object.entries(updateInput)
@@ -304,6 +336,7 @@ export class TableService implements IReadonlyAdapterService {
         data: ops,
       },
     ]);
+
     return tableRawAfter;
   }
 
@@ -316,6 +349,7 @@ export class TableService implements IReadonlyAdapterService {
       where: { baseId, id: { in: ids }, deletedTime: null },
       orderBy: { order: 'asc' },
     });
+    const tableTime = await this.getTableLastModifiedTime(ids);
     const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
     return tables
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
@@ -328,8 +362,7 @@ export class TableService implements IReadonlyAdapterService {
             ...table,
             description: table.description ?? undefined,
             icon: table.icon ?? undefined,
-            lastModifiedTime:
-              table.lastModifiedTime?.toISOString() || table.createdTime.toISOString(),
+            lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
             defaultViewId: tableDefaultViewIds[i],
           },
         };

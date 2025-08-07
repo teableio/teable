@@ -2,7 +2,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events, RedoEvent, UndoEvent } from '../../../event-emitter/events';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
 
@@ -27,7 +26,6 @@ export class UndoRedoService {
     try {
       const newOperation = await this.undoRedoOperationService.undo(operation);
       await push(newOperation);
-      this.eventEmitterService.emit(Events.UNDO, new UndoEvent(newOperation));
     } catch (error: unknown) {
       if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
@@ -59,7 +57,6 @@ export class UndoRedoService {
     try {
       const newOperation = await this.undoRedoOperationService.redo(operation);
       await push(newOperation);
-      this.eventEmitterService.emit(Events.REDO, new RedoEvent(newOperation));
     } catch (error: unknown) {
       if (error instanceof Error) {
         this.logger.error(error.message, error.stack);

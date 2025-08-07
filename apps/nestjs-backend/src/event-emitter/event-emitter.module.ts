@@ -12,7 +12,6 @@ import { BasePermissionUpdateListener } from './listeners/base-permission-update
 import { CollaboratorNotificationListener } from './listeners/collaborator-notification.listener';
 import { PinListener } from './listeners/pin.listener';
 import { RecordHistoryListener } from './listeners/record-history.listener';
-import { TableListener } from './listeners/table.listener';
 import { TrashListener } from './listeners/trash.listener';
 
 export interface EventEmitterModuleOptions {
@@ -45,7 +44,6 @@ export class EventEmitterModule extends EventEmitterModuleClass {
         PinListener,
         RecordHistoryListener,
         TrashListener,
-        TableListener,
       ],
       exports: [EventEmitterService],
     };
