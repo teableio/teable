@@ -6,11 +6,11 @@ import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
-export type IChangeTable = Record<keyof Omit<ITableOp, 'id' | 'version'>, IChangeValue> & {
+export type IChangeTable = Record<keyof Omit<ITableOp, 'id' | 'lastModifiedTime'>, IChangeValue> & {
   id: string;
 };
 
-type ITableCreatePayload = { baseId: string; table: ITableOp & { id: string } };
+type ITableCreatePayload = { baseId: string; table: ITableOp };
 type ITableDeletePayload = { baseId: string; tableId: string };
 type ITableUpdatePayload = {
   baseId: string;
@@ -21,7 +21,7 @@ export class TableCreateEvent extends OpEvent<ITableCreatePayload> {
   public readonly name = Events.TABLE_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
-  constructor(baseId: string, table: ITableOp & { id: string }, context: IEventContext) {
+  constructor(baseId: string, table: ITableOp, context: IEventContext) {
     super({ baseId, table }, context);
   }
 }

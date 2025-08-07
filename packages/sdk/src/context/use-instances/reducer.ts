@@ -34,7 +34,7 @@ export function instanceReducer<T, R extends { id: string }>(
     case 'ready':
       return {
         ...state,
-        instances: action.results.filter((r) => r.data).map((r) => factory(r.data, r)),
+        instances: action.results.map((r) => factory(r.data, r)),
         extra: action.extra,
       };
     case 'insert':
