@@ -58,7 +58,17 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
   private checkAndSelectLookupField(field: FieldCore): string | Knex.Raw {
     // Check if this is a Lookup field
     if (field.isLookup && field.lookupOptions && this.fieldCteMap) {
-      // For lookup fields, use the corresponding link field CTE
+      // First check if this is a nested lookup field with its own CTE
+      const nestedCteName = `cte_nested_lookup_${field.id}`;
+      if (this.fieldCteMap.has(field.id) && this.fieldCteMap.get(field.id) === nestedCteName) {
+        // Return Raw expression for selecting from nested lookup CTE
+        return this.qb.client.raw(`??."nested_lookup_value" as ??`, [
+          nestedCteName,
+          field.dbFieldName,
+        ]);
+      }
+
+      // For regular lookup fields, use the corresponding link field CTE
       const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
         const cteName = this.fieldCteMap.get(linkFieldId)!;
