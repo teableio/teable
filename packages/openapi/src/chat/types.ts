@@ -97,12 +97,16 @@ export const RecordAgentOperator = {
 export type IRecordAgentOperator = (typeof RecordAgentOperator)[keyof typeof RecordAgentOperator];
 
 export const ConfirmOperators = [
+  TableAgentOperator.createTable,
   TableAgentOperator.deleteTable,
   TableAgentOperator.updateTableName,
+  ViewAgentOperator.createView,
   ViewAgentOperator.deleteView,
   ViewAgentOperator.updateViewName,
+  FieldAgentOperator.createFields,
   FieldAgentOperator.deleteField,
   FieldAgentOperator.updateField,
+  RecordAgentOperator.createRecords,
   RecordAgentOperator.deleteRecords,
   RecordAgentOperator.updateRecords,
 ] as const;
@@ -119,6 +123,7 @@ export const BuildBaseOperator = {
   generateLinkFields: 'generate-link-fields',
   generateLookupFields: 'generate-lookup-fields',
   generateLinkFieldsRecords: 'generate-link-fields-records',
+  finishBuildBase: 'finish-build-base',
 } as const;
 
 export const BuildAutomationOperator = {
