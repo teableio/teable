@@ -147,6 +147,7 @@ export interface IGridRef {
   scrollBy: (deltaX: number, deltaY: number) => void;
   scrollTo: (scrollLeft?: number, scrollTop?: number) => void;
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
+  setActiveCell: (cell: ICellItem | null) => void;
   getCellIndicesAtPosition: (x: number, y: number) => ICellItem | null;
   getContainer: () => HTMLDivElement | null;
   getCellBounds: (cell: ICellItem) => IRectangle | null;
@@ -241,6 +242,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollBy,
     scrollTo,
     scrollToItem,
+    setActiveCell,
     getScrollState: () => scrollState,
     getCellIndicesAtPosition: (x: number, y: number): ICellItem | null => {
       const { scrollLeft, scrollTop } = scrollState;

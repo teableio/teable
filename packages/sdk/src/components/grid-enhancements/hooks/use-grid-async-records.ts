@@ -1,11 +1,12 @@
 import type { IRecord } from '@teable/core';
 import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
-import { inRange, debounce, get } from 'lodash';
+import { inRange, debounce, get, pick, groupBy } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
-import { useSearch } from '../../../hooks';
+import { useFields, useSearch, useTableId } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
 import type { Record as IRecordInstance } from '../../../model';
+import { useBuildBaseAgentStore } from '../store/useBuildBaseAgentStore';
 
 // eslint-disable-next-line
 export const LOAD_PAGE_SIZE = 300;
@@ -86,8 +87,10 @@ export const useGridAsyncRecords = (
     take: LOAD_PAGE_SIZE,
     ...initQuery,
   });
+  const tableId = useTableId();
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
   const queryRef = useRef(query);
+  const { building, displayRecord, tableId: actionTableId } = useBuildBaseAgentStore();
   queryRef.current = query;
 
   const { searchQuery } = useSearch();
@@ -99,6 +102,25 @@ export const useGridAsyncRecords = (
       return acc;
     }, {} as IRecordIndexMap)
   );
+  const defaultRecordMap: IRecordIndexMap = useMemo(() => {
+    const res: IRecordIndexMap = {};
+    Object.entries(loadedRecordMap).forEach(([key, record]) => {
+      if (!record) {
+        res[key] = undefined as unknown as IRecordInstance;
+      } else {
+        const recordCopy = Object.create(Object.getPrototypeOf(record));
+        Object.assign(recordCopy, { ...record, fields: {} });
+        res[key] = recordCopy;
+      }
+    });
+    return res;
+  }, [loadedRecordMap]);
+
+  const fields = useFields();
+  const computedFieldIds = useMemo(() => {
+    return fields.filter((field) => field.isComputed).map((field) => field.id);
+  }, [fields]);
+
   const [loadedRecordSearchHitMap, setLoadedRecordSearchHitMap] = useState<
     IRecordSearchHitIndexMap | undefined
   >(() => {
@@ -227,11 +249,50 @@ export const useGridAsyncRecords = (
     setLoadedRecordSearchHitMap(undefined);
   }, [searchFields, searchValue]);
 
+  const finalRecordMap = useMemo(() => {
+    if (!building || tableId !== actionTableId) {
+      return loadedRecordMap;
+    }
+
+    if (displayRecord?.length && tableId === actionTableId) {
+      const res: IRecordIndexMap = {};
+      const group = groupBy(displayRecord, 0);
+      Object.entries(loadedRecordMap).forEach(([key, record]) => {
+        const originRecordFieldIds = group[key]?.map((item) => item?.[1]);
+        const recordFieldIds = originRecordFieldIds?.length
+          ? originRecordFieldIds.concat(computedFieldIds || [])
+          : computedFieldIds || [];
+        if (!record || !recordFieldIds.length) {
+          res[key] = undefined as unknown as IRecordInstance;
+        } else {
+          const recordCopy = Object.create(Object.getPrototypeOf(record));
+          Object.assign(recordCopy, record);
+
+          const newFields = pick(record?.fields, recordFieldIds) || undefined;
+          recordCopy.fields = newFields;
+
+          res[key] = recordCopy;
+        }
+      });
+      return res;
+    }
+
+    return defaultRecordMap;
+  }, [
+    actionTableId,
+    building,
+    computedFieldIds,
+    defaultRecordMap,
+    displayRecord,
+    loadedRecordMap,
+    tableId,
+  ]);
+
   return {
     groupPoints,
     allGroupHeaderRefs:
       (extra as { allGroupHeaderRefs: IGroupHeaderRef[] })?.allGroupHeaderRefs ?? null,
-    recordMap: loadedRecordMap,
+    recordMap: finalRecordMap,
     onVisibleRegionChanged,
     recordsQuery,
     onForceUpdate,
