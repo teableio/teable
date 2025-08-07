@@ -42,6 +42,24 @@ export interface IFieldCteContext {
   tableNameMap: Map<string, string>; // tableId -> dbTableName
 }
 
+export interface ILookupChainStep {
+  field: IFieldInstance;
+  linkField: IFieldInstance;
+  foreignTableId: string;
+  foreignTableName: string;
+  junctionInfo: {
+    fkHostTableName: string;
+    selfKeyName: string;
+    foreignKeyName: string;
+  };
+}
+
+export interface ILookupChain {
+  steps: ILookupChainStep[];
+  finalField: IFieldInstance; // 最终的非 lookup 字段
+  finalTableName: string;
+}
+
 /**
  * Field CTE Visitor
  *
@@ -108,12 +126,232 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     id: string;
   }): ICteResult {
     if (field.isLookup && field.lookupOptions) {
-      // For lookup fields, we no longer generate separate CTEs
-      // They will get their data from the corresponding link field CTE
+      // Check if this is a nested lookup field (lookup -> lookup)
+      if (this.isNestedLookup(field)) {
+        return this.generateNestedLookupCte(field);
+      }
+
+      // For regular lookup fields, they will get their data from the corresponding link field CTE
       // The link field CTE should already be generated when processing link fields
       return { hasChanges: false };
     }
     return { hasChanges: false };
+  }
+
+  /**
+   * Check if a lookup field is nested (lookup -> lookup)
+   */
+  private isNestedLookup(field: {
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+    id: string;
+  }): boolean {
+    if (!field.isLookup || !field.lookupOptions) {
+      return false;
+    }
+
+    // Get the target field that this lookup field is looking up
+    const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
+
+    // If the target field is also a lookup field, then this is a nested lookup
+    const isNested = targetField?.isLookup === true;
+
+    this.logger.debug(
+      `Checking nested lookup for field ${field.id}: target field ${field.lookupOptions.lookupFieldId} isLookup=${targetField?.isLookup}, result=${isNested}`
+    );
+
+    return isNested;
+  }
+
+  /**
+   * Generate CTE for nested lookup fields (lookup -> lookup -> ... -> field)
+   */
+  private generateNestedLookupCte(field: {
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+    id: string;
+  }): ICteResult {
+    if (!field.isLookup || !field.lookupOptions) {
+      return { hasChanges: false };
+    }
+
+    try {
+      // Build the lookup chain
+      const chain = this.buildLookupChain(field);
+      if (chain.steps.length === 0) {
+        this.logger.debug(`No lookup chain found for nested lookup field: ${field.id}`);
+        return { hasChanges: false };
+      }
+
+      const cteName = `cte_nested_lookup_${field.id}`;
+      const { mainTableName } = this.context;
+
+      // Create CTE callback function
+      const cteCallback = (qb: Knex.QueryBuilder) => {
+        this.buildNestedLookupQuery(qb, chain, mainTableName, field.id);
+      };
+
+      this.logger.debug(`Generated nested lookup CTE for ${field.id} with name ${cteName}`);
+      return { cteName, hasChanges: true, cteCallback };
+    } catch (error) {
+      this.logger.error(`Failed to generate nested lookup CTE for ${field.id}:`, error);
+      return { hasChanges: false };
+    }
+  }
+
+  /**
+   * Build lookup chain for nested lookup fields
+   */
+  private buildLookupChain(field: {
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+    id: string;
+  }): ILookupChain {
+    const steps: ILookupChainStep[] = [];
+    const visitedFields = new Set<string>(); // Prevent circular references
+
+    let currentField = field;
+
+    while (currentField.isLookup && currentField.lookupOptions) {
+      // Prevent circular references
+      if (visitedFields.has(currentField.id)) {
+        this.logger.warn(
+          `Circular reference detected in lookup chain for field: ${currentField.id}`
+        );
+        break;
+      }
+      visitedFields.add(currentField.id);
+
+      const { lookupOptions } = currentField;
+      const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
+
+      // Get link field
+      const linkField = this.context.fieldMap.get(linkFieldId);
+      if (!linkField) {
+        this.logger.debug(`Link field not found: ${linkFieldId}`);
+        break;
+      }
+
+      // Get foreign table name
+      const foreignTableName = this.context.tableNameMap.get(foreignTableId);
+      if (!foreignTableName) {
+        this.logger.debug(`Foreign table not found: ${foreignTableId}`);
+        break;
+      }
+
+      // Add step to chain
+      steps.push({
+        field: currentField as IFieldInstance,
+        linkField,
+        foreignTableId,
+        foreignTableName,
+        junctionInfo: {
+          fkHostTableName: lookupOptions.fkHostTableName!,
+          selfKeyName: lookupOptions.selfKeyName!,
+          foreignKeyName: lookupOptions.foreignKeyName!,
+        },
+      });
+
+      // Move to the next field in the chain
+      const nextField = this.context.fieldMap.get(lookupFieldId);
+      if (!nextField) {
+        this.logger.debug(`Target field not found: ${lookupFieldId}`);
+        break;
+      }
+
+      // If the next field is not a lookup field, we've reached the end
+      if (!nextField.isLookup) {
+        const finalTableName = this.context.tableNameMap.get(foreignTableId);
+        return {
+          steps,
+          finalField: nextField,
+          finalTableName: finalTableName || '',
+        };
+      }
+
+      currentField = nextField;
+    }
+
+    // If we exit the loop without finding a final non-lookup field, return empty chain
+    return { steps: [], finalField: {} as IFieldInstance, finalTableName: '' };
+  }
+
+  /**
+   * Build the nested lookup query with multiple JOINs
+   */
+  private buildNestedLookupQuery(
+    qb: Knex.QueryBuilder,
+    chain: ILookupChain,
+    mainTableName: string,
+    fieldId: string
+  ): void {
+    if (chain.steps.length === 0) {
+      return;
+    }
+
+    // Generate aliases for each step
+    const mainAlias = `m${chain.steps.length}`;
+    const aliases = chain.steps.map((_, index) => ({
+      junction: `j${index + 1}`,
+      table: `m${index}`,
+    }));
+    const finalAlias = 'f1';
+
+    // Build select columns
+    const selectColumns = [`${mainAlias}.__id as main_record_id`];
+
+    // Get the final field expression using the database field name
+    const fieldExpression = `${finalAlias}."${chain.finalField.dbFieldName}"`;
+
+    // Add aggregation for the final field
+    const jsonAggFunction = this.getJsonAggregationFunction(fieldExpression);
+    selectColumns.push(qb.client.raw(`${jsonAggFunction} as "nested_lookup_value"`));
+
+    // Start building the query from main table
+    let query = qb.select(selectColumns).from(`${mainTableName} as ${mainAlias}`);
+
+    // Add JOINs for each step in the chain
+    for (let i = 0; i < chain.steps.length; i++) {
+      const step = chain.steps[i];
+      const alias = aliases[i];
+
+      if (i === 0) {
+        // First JOIN: from main table to first junction table
+        query = query.leftJoin(
+          `${step.junctionInfo.fkHostTableName} as ${alias.junction}`,
+          `${mainAlias}.__id`,
+          `${alias.junction}.${step.junctionInfo.selfKeyName}`
+        );
+      } else {
+        // Subsequent JOINs: from previous table to current junction table
+        const prevAlias = aliases[i - 1];
+        query = query.leftJoin(
+          `${step.junctionInfo.fkHostTableName} as ${alias.junction}`,
+          `${prevAlias.table}.__id`,
+          `${alias.junction}.${step.junctionInfo.selfKeyName}`
+        );
+      }
+
+      // JOIN from junction table to target table
+      if (i === chain.steps.length - 1) {
+        // Last step: join to final table
+        query = query.leftJoin(
+          `${chain.finalTableName} as ${finalAlias}`,
+          `${alias.junction}.${step.junctionInfo.foreignKeyName}`,
+          `${finalAlias}.__id`
+        );
+      } else {
+        // Intermediate step: join to intermediate table
+        query = query.leftJoin(
+          `${step.foreignTableName} as ${alias.table}`,
+          `${alias.junction}.${step.junctionInfo.foreignKeyName}`,
+          `${alias.table}.__id`
+        );
+      }
+    }
+
+    // Add GROUP BY for aggregation
+    query.groupBy(`${mainAlias}.__id`);
   }
 
   /**
@@ -465,6 +703,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         field.lookupOptions &&
         field.lookupOptions.linkFieldId === linkFieldId
       ) {
+        // Skip nested lookup fields as they have their own dedicated CTE
+        if (this.isNestedLookup(field)) {
+          continue;
+        }
         lookupFields.push(field);
       }
     }

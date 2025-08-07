@@ -16,6 +16,7 @@ export interface ILinkFieldContext {
 export interface ILinkFieldCteContext {
   linkFieldContexts: ILinkFieldContext[];
   mainTableName: string;
+  tableNameMap?: Map<string, string>; // tableId -> dbTableName for nested lookup support
 }
 
 /**

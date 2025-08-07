@@ -46,7 +46,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       linkFieldContexts: linkFieldCteContext.linkFieldContexts,
     };
 
-    return this.buildQueryWithParams(params, linkFieldCteContext.mainTableName);
+    return this.buildQueryWithParams(params, linkFieldCteContext);
   }
 
   /**
@@ -70,9 +70,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
    */
   private buildQueryWithParams(
     params: IRecordQueryParams,
-    mainTableName: string
+    linkFieldCteContext: ILinkFieldCteContext
   ): Knex.QueryBuilder {
     const { fields, queryBuilder, linkFieldContexts } = params;
+    const { mainTableName } = linkFieldCteContext;
 
     // Build formula conversion context
     const context = this.buildFormulaContext(fields);
@@ -82,7 +83,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       queryBuilder,
       fields,
       mainTableName,
-      linkFieldContexts
+      linkFieldContexts,
+      linkFieldCteContext.tableNameMap
     );
 
     // Build select fields
@@ -133,7 +135,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     queryBuilder: Knex.QueryBuilder,
     fields: IFieldInstance[],
     mainTableName: string,
-    linkFieldContexts?: ILinkFieldContext[]
+    linkFieldContexts?: ILinkFieldContext[],
+    contextTableNameMap?: Map<string, string>
   ): Map<string, string> {
     const fieldCteMap = new Map<string, string>();
 
@@ -146,8 +149,17 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     for (const linkContext of linkFieldContexts) {
       fieldMap.set(linkContext.lookupField.id, linkContext.lookupField);
+      // Also add the link field to the field map for nested lookup support
+      fieldMap.set(linkContext.linkField.id, linkContext.linkField);
       const options = linkContext.linkField.options as ILinkFieldOptions;
       tableNameMap.set(options.foreignTableId, linkContext.foreignTableName);
+    }
+
+    // Merge with context table name map for nested lookup support
+    if (contextTableNameMap) {
+      for (const [tableId, tableName] of contextTableNameMap) {
+        tableNameMap.set(tableId, tableName);
+      }
     }
 
     const context: IFieldCteContext = { mainTableName, fieldMap, tableNameMap };
@@ -182,6 +194,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     mainTableName: string
   ): Promise<ILinkFieldCteContext> {
     const linkFieldContexts: ILinkFieldContext[] = [];
+    const tableNameMap = new Map<string, string>();
 
     for (const field of fields) {
       // Handle Link fields (non-Lookup)
@@ -197,28 +210,113 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
           lookupField,
           foreignTableName,
         });
+
+        // Store table name mapping for nested lookup processing
+        tableNameMap.set(options.foreignTableId, foreignTableName);
       }
       // Handle Lookup fields (any field type with isLookup: true)
       else if (field.isLookup && field.lookupOptions) {
         const { lookupOptions } = field;
-        const [lookupField, foreignTableName] = await Promise.all([
-          this.getLookupField(lookupOptions.lookupFieldId),
+
+        // For nested lookup fields, we need to collect all tables in the chain
+        await this.collectNestedLookupTables(field, tableNameMap, linkFieldContexts);
+
+        // For lookup fields, we need to get both the link field and the lookup target field
+        const [linkField, lookupField, foreignTableName] = await Promise.all([
+          this.getLookupField(lookupOptions.linkFieldId), // Get the link field
+          this.getLookupField(lookupOptions.lookupFieldId), // Get the target field
           this.getDbTableName(lookupOptions.foreignTableId),
         ]);
 
         // Create a Link field context for Lookup fields
         linkFieldContexts.push({
-          linkField: field,
+          linkField, // Use the actual link field, not the lookup field itself
           lookupField,
           foreignTableName,
         });
+
+        // Store table name mapping
+        tableNameMap.set(lookupOptions.foreignTableId, foreignTableName);
       }
     }
 
     return {
       linkFieldContexts,
       mainTableName,
+      tableNameMap,
     };
+  }
+
+  /**
+   * Collect all table names and link fields in a nested lookup chain
+   */
+  private async collectNestedLookupTables(
+    field: IFieldInstance,
+    tableNameMap: Map<string, string>,
+    linkFieldContexts: ILinkFieldContext[]
+  ): Promise<void> {
+    if (!field.isLookup || !field.lookupOptions) {
+      return;
+    }
+
+    const visitedFields = new Set<string>();
+    let currentField = field;
+
+    while (currentField.isLookup && currentField.lookupOptions) {
+      // Prevent circular references
+      if (visitedFields.has(currentField.id)) {
+        break;
+      }
+      visitedFields.add(currentField.id);
+
+      const { lookupOptions } = currentField;
+      const { lookupFieldId, linkFieldId, foreignTableId } = lookupOptions;
+
+      // Store the foreign table name
+      if (!tableNameMap.has(foreignTableId)) {
+        try {
+          const foreignTableName = await this.getDbTableName(foreignTableId);
+          tableNameMap.set(foreignTableId, foreignTableName);
+        } catch (error) {
+          // If we can't get the table name, skip this table
+          break;
+        }
+      }
+
+      // Get the link field for this lookup and add it to contexts
+      try {
+        const [linkField, lookupField, foreignTableName] = await Promise.all([
+          this.getLookupField(linkFieldId),
+          this.getLookupField(lookupFieldId),
+          this.getDbTableName(foreignTableId),
+        ]);
+
+        // Add link field context if not already present
+        const existingContext = linkFieldContexts.find((ctx) => ctx.linkField.id === linkField.id);
+        if (!existingContext) {
+          linkFieldContexts.push({
+            linkField,
+            lookupField,
+            foreignTableName,
+          });
+        }
+      } catch (error) {
+        // If we can't get the fields, continue to next
+      }
+
+      // Move to the next field in the chain
+      try {
+        const nextField = await this.getLookupField(lookupFieldId);
+        if (!nextField.isLookup) {
+          // We've reached the end of the chain
+          break;
+        }
+        currentField = nextField;
+      } catch (error) {
+        // If we can't get the next field, stop the chain
+        break;
+      }
+    }
   }
 
   /**
