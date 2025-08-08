@@ -30,7 +30,7 @@ If applicable, add screenshots to help explain your problem.
 - Version [e.g. 22]
 
 **Platform (Please tell us which deployment version you are using)**
-[eg. teable.io, docker-standalone, docker-swarm, docker-cluster]
+[eg. teable.ai, docker-standalone, docker-swarm, docker-cluster]
 
 **Additional context**
 Add any other context about the problem here.

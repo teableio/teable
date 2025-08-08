@@ -8,8 +8,8 @@ multipleSelect, type: string[], example: ["red", "green"]
 singleSelect, type: string, example: "In Progress"
 date, type: string, example: "2012/12/12"
 phoneNumber, type: string, example: "1234567890"
-email, type: string, example: "address@teable.io"
-url, type: string, example: "https://teable.io"
+email, type: string, example: "address@teable.ai"
+url, type: string, example: "https://teable.ai"
 number, type: number, example: 1
 currency, type: number, example: 1
 percent, type: number, example: 1

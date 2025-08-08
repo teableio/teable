@@ -63,7 +63,7 @@ describe('UserFieldCore', () => {
     const cellValue: IUserCellValue = {
       id: 'usrxxxxxxxxx',
       title: 'anonymous',
-      email: 'anonymous@teable.io',
+      email: 'anonymous@teable.ai',
     };
 
     expect(field.cellValue2String(null as any)).toBe('');
@@ -89,7 +89,7 @@ describe('UserFieldCore', () => {
         {
           id: 'usr1234567',
           name: 'anonymous',
-          email: 'anonymous@teable.io',
+          email: 'anonymous@teable.ai',
         },
       ],
     };
@@ -97,23 +97,23 @@ describe('UserFieldCore', () => {
     expect(field.convertStringToCellValue('anonymous', ctx)).toEqual({
       id: 'usr1234567',
       title: 'anonymous',
-      email: 'anonymous@teable.io',
+      email: 'anonymous@teable.ai',
     });
-    expect(field.convertStringToCellValue('anonymous@teable.io', ctx)).toEqual({
+    expect(field.convertStringToCellValue('anonymous@teable.ai', ctx)).toEqual({
       id: 'usr1234567',
       title: 'anonymous',
-      email: 'anonymous@teable.io',
+      email: 'anonymous@teable.ai',
     });
 
     ctx.userSets.push({
       id: 'usrA2',
       name: 'anonymous',
-      email: 'a2@teable.io',
+      email: 'a2@teable.ai',
     });
     expect(field.convertStringToCellValue('anonymous', ctx)).toEqual({
       id: 'usr1234567',
       title: 'anonymous',
-      email: 'anonymous@teable.io',
+      email: 'anonymous@teable.ai',
     });
     expect(field.convertStringToCellValue('name', ctx)).toBeNull();
   });
@@ -128,7 +128,7 @@ describe('UserFieldCore', () => {
     const cellValue: IUserCellValue = {
       id: 'usr',
       title: 'anonymous',
-      email: 'anonymous@teable.io',
+      email: 'anonymous@teable.ai',
     };
     expect(field.repair(cellValue)).toEqual(cellValue);
     expect(field.repair([{ id: 'usr' }])).toEqual(null);
@@ -147,13 +147,13 @@ describe('UserFieldCore', () => {
     const cellValue: IUserCellValue = {
       id: 'usr',
       title: 'anonymous',
-      email: 'anonymous@teable.io',
+      email: 'anonymous@teable.ai',
     };
 
     expect(field.validateCellValue(null as any).success).toBe(true);
     expect(field.validateCellValue(cellValue).success).toBe(true);
     expect(
-      field.validateCellValue({ id: 'usrxxxxxx ', title: '', email: 'anonymous@teable.io' }).success
+      field.validateCellValue({ id: 'usrxxxxxx ', title: '', email: 'anonymous@teable.ai' }).success
     ).toBe(true);
     expect(field.validateCellValue([cellValue]).success).toBe(false);
   });

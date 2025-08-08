@@ -5,8 +5,8 @@ export const sheetFormConfig = {
   name: 'Sheet Form',
   description: 'Design forms with spread sheet, then collect data into your table by sheet form',
   detailDesc:
-    'Create powerful and flexible forms using the familiar spread sheet interface. \n\nWith the sheet Form Designer plugin, you can: \n\n- Design form templates in spread sheet. \n\n- Share your forms easily. \n\n- Collect data directly into your multi-dimensional table. \n\nPerfect for surveys, data collection, and customized form needs. \n\n[Learn more](https://help.teable.io/en/basic/plugin/sheet-form)',
-  helpUrl: 'https://help.teable.io/en/basic/plugin/sheet-form',
+    'Create powerful and flexible forms using the familiar spread sheet interface. \n\nWith the sheet Form Designer plugin, you can: \n\n- Design form templates in spread sheet. \n\n- Share your forms easily. \n\n- Collect data directly into your multi-dimensional table. \n\nPerfect for surveys, data collection, and customized form needs. \n\n[Learn more](https://help.teable.ai/en/basic/plugin/sheet-form)',
+  helpUrl: 'https://help.teable.ai/en/basic/plugin/sheet-form',
   positions: [PluginPosition.View],
   i18n: {
     zh: {

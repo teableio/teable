@@ -243,7 +243,7 @@
       "enableValidateFieldUnique": "Forbid duplicate values",
       "enableValidateFieldNotNull": "Forbid non-empty values",
       "knowMore": "know more",
-      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Show records by field",
       "filterByView": "Filter records by view",
       "filter": "Filter records",
@@ -569,7 +569,7 @@
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
-    "helpLink": "https://help.teable.io/en/deploy/database-connection"
+    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Add record",
@@ -593,7 +593,7 @@
     },
     "crash": {
       "title": "Crash!",
-      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
+      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.ai"
     },
     "addPluginView": "Add Plugin View",
     "search": {

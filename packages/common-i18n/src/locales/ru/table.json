@@ -234,7 +234,7 @@
       "enableValidateFieldUnique": "Включить проверку на уникальность значения",
       "enableValidateFieldNotNull": "Включить проверку на ненулевое значение",
       "knowMore": "узнать больше",
-      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Показать записи по полю",
       "filterByView": "Фильтровать записи по представлению",
       "filter": "Фильтровать записи",
@@ -550,7 +550,7 @@
     "noPermission": "У вас нет разрешения на доступ к базе данных",
     "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
-    "helpLink": "https://help.teable.io/en/deploy/database-connection"
+    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Добавить запись",
@@ -574,7 +574,7 @@
     },
     "crash": {
       "title": "Сбой!",
-      "description": "Этот вид сломан. Если обновление все еще не помогает, пожалуйста, свяжитесь с нами. support@teable.io"
+      "description": "Этот вид сломан. Если обновление все еще не помогает, пожалуйста, свяжитесь с нами. support@teable.ai"
     },
     "locked": {
       "tip": "Этот вид заблокирован. Вы можете включить персональный режим для редактирования параметров вида, и изменения будут действовать только для вас."

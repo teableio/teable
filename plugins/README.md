@@ -119,7 +119,7 @@ export const myPluginConfig: IOfficialPluginConfig = {
   name: 'My Plugin',
   description: 'Plugin description',
   detailDesc: `Detailed description with markdown support`,
-  helpUrl: 'https://help.teable.io',
+  helpUrl: 'https://help.teable.ai',
   positions: [PluginPosition.Dashboard],
   i18n: {
     zh: {

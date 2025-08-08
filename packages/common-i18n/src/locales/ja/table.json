@@ -234,7 +234,7 @@
       "enableValidateFieldUnique": "固有の値の検証を有効にする",
       "enableValidateFieldNotNull": "NULLでない値の検証を有効にする",
       "knowMore": "さらに詳しく",
-      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "フィールドでレコードを表示する",
       "filterByView": "ビューでレコードをフィルターする",
       "filter": "レコードをフィルターする",
@@ -549,7 +549,7 @@
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
     "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
-    "helpLink": "https://help.teable.io/en/deploy/database-connection"
+    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "レコードを追加",
@@ -573,7 +573,7 @@
     },
     "crash": {
       "title": "クラッシュしました！",
-      "description": "このビューは壊れています。それでも更新が失敗する場合は、お問い合わせください。support@teable.io"
+      "description": "このビューは壊れています。それでも更新が失敗する場合は、お問い合わせください。support@teable.ai"
     },
     "locked": {
       "tip": "このビューはロックされています。個人モードを有効にしてビューオプションを編集し、変更は自分にのみ適用されます。"

@@ -7,7 +7,7 @@
   </h1>
   <h3 align="center"><strong>Manage Your Data & Connect Your Team</strong></h3>
   <p>Teable uses a simple, spreadsheet-like interface to create powerful database applications. Collaborate with your team in real-time, and scale to millions of rows
-  <p>Try out Teable using our hosted version at <a href="https://teable.io">teable.io</a></p>
+  <p>Try out Teable using our hosted version at <a href="https://teable.ai">teable.ai</a></p>
 </div>
 
 <div align="center">
@@ -15,7 +15,7 @@
 </div>
 
 <p align="center">
-  <a target="_blank" href="https://teable.io">Home</a> | <a target="_blank" href="https://help.teable.io">Help</a> | <a target="_blank" href="https://blog.teable.io">Blog</a> | <a target="_blank" href="https://app.teable.io/public/template">Template</a> | <a target="_blank" href="https://help.teable.io/en/api-doc/token">API</a> | <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/uZwp7tDE5W">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
+  <a target="_blank" href="https://teable.ai">Home</a> | <a target="_blank" href="https://help.teable.ai">Help</a> | <a target="_blank" href="https://blog.teable.ai">Blog</a> | <a target="_blank" href="https://app.teable.ai/public/template">Template</a> | <a target="_blank" href="https://help.teable.ai/en/api-doc/token">API</a> | <a target="_blank" href="https://app.teable.ai/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/uZwp7tDE5W">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
 </p>
 
 <p align="center">
@@ -50,8 +50,8 @@
 
 ## Quick Guide
 
-1. Looking for a quick experience? Select a scenario from the [template center](https://app.teable.io/public/template) and click "Use this template".
-2. Seeking high performance? Try the [1 million rows demo](https://app.teable.io/share/shrVgdLiOvNQABtW0yX/view) to feel the speed of Teable.
+1. Looking for a quick experience? Select a scenario from the [template center](https://app.teable.ai/public/template) and click "Use this template".
+2. Seeking high performance? Try the [1 million rows demo](https://app.teable.ai/share/shrVgdLiOvNQABtW0yX/view) to feel the speed of Teable.
 3. Interested in deploying it yourself? Click [Deploy on Railway](https://railway.app/template/wada5e?referralCode=rE4BjB)
 
 ## ✨Features
@@ -115,7 +115,7 @@ Visualize and interact with data in various ways best suited for their specific 
 
   <img alt="Teable Dashboard" width="100%" src="static/assets/images/dashboard.png">
 
-More features coming soon, see our <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a>
+More features coming soon, see our <a target="_blank" href="https://app.teable.ai/share/shr04TEw1u9EOQojPmG/view">Roadmap</a>
 
 ---
 
@@ -148,7 +148,7 @@ cd dockers/examples/standalone/
 docker-compose up -d
 ```
 
-for more details, see [install teable](https://help.teable.io/en/deploy/docker)
+for more details, see [install teable](https://help.teable.ai/en/deploy/docker)
 
 ### One Click Deployment
 
@@ -244,4 +244,4 @@ In essence, Teable isn't just another no-code solution, it's a comprehensive ans
 
 Teable Community Edition (CE) is free for self-hosting under the AGPL license. See [./LICENSE](./LICENSE) for details.
 
-Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://app.teable.io/public/pricing?host=self-hosted&billing=year).
+Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://app.teable.ai/public/pricing?host=self-hosted&billing=year).

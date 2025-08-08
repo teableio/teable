@@ -12,7 +12,7 @@ INSERT INTO "users" (
 SELECT 
   'automationRobot',
   'Automation Robot',
-  'automationRobot@system.teable.io',
+  'automationRobot@system.teable.ai',
   1,
   CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM "users" WHERE "id" = 'automationRobot');
@@ -27,7 +27,7 @@ INSERT INTO "users" (
 SELECT 
   'anonymous',
   'Anonymous',
-  'anonymous@system.teable.io',
+  'anonymous@system.teable.ai',
   1,
   CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM "users" WHERE "id" = 'anonymous');

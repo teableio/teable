@@ -304,9 +304,9 @@
   },
   "help": {
     "title": "Help",
-    "appLink": "https://app.teable.io",
-    "mainLink": "https://help.teable.io/en",
-    "apiLink": "https://help.teable.io/en/api-doc/token"
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai/en",
+    "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content.",
   "listEmptyTips": "The list is empty",

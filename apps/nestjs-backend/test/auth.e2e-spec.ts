@@ -80,7 +80,7 @@ describe('Auth Controller (e2e)', () => {
   it('api/auth/signup - system email', async () => {
     const error = await getError(() =>
       signup({
-        email: 'anonymous@system.teable.io',
+        email: 'anonymous@system.teable.ai',
         password: '12345678a',
       })
     );
@@ -185,7 +185,7 @@ describe('Auth Controller (e2e)', () => {
   });
 
   it('api/auth/send-signup-verification-code - system email', async () => {
-    const error = await getError(() => sendSignupVerificationCode('anonymous@system.teable.io'));
+    const error = await getError(() => sendSignupVerificationCode('anonymous@system.teable.ai'));
     expect(error?.status).toBe(400);
   });
 

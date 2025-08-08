@@ -13,10 +13,10 @@ export const chartConfig: IOfficialPluginConfig = {
   The chart app summarizes a table of records and turns it into an interactive bar, line, pie. 
   
 
-  [Learn more](https://teable.io)
+  [Learn more](https://teable.ai)
 
   `,
-  helpUrl: 'https://help.teable.io/en/basic/plugin/chart',
+  helpUrl: 'https://help.teable.ai/en/basic/plugin/chart',
   positions: [PluginPosition.Dashboard, PluginPosition.Panel],
   i18n: {
     zh: {

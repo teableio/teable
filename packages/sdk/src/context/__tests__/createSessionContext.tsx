@@ -8,7 +8,7 @@ export const createSessionContext = (context: Partial<ISessionContext> = {}) => 
     user: {
       id: 'usrxxxxxx',
       name: 'teable',
-      email: 'example@teable.io',
+      email: 'example@teable.ai',
       notifyMeta: {},
       hasPassword: true,
     },

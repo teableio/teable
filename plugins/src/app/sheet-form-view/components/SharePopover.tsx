@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
 
 const getShareUrl = ({ shareId, theme }: { shareId: string; theme?: string }) => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.teable.io';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.teable.ai';
   const url = new URL(`/share/${shareId}/view`, origin);
   if (theme && theme !== 'system') {
     url.searchParams.append('theme', theme);

@@ -27,7 +27,7 @@ const axios = createAxios();
  */
 export interface IAPIRequestConfig {
   /**
-   * API endpoint, defaults to 'https://app.teable.io'.
+   * API endpoint, defaults to 'https://app.teable.ai'.
    */
   endpoint?: string;
   /**
@@ -45,7 +45,7 @@ export interface IAPIRequestConfig {
  * @param config - Configuration options
  */
 export const configApi = (config: IAPIRequestConfig) => {
-  const { token, enableUndoRedo, endpoint = 'https://app.teable.io' } = config;
+  const { token, enableUndoRedo, endpoint = 'https://app.teable.ai' } = config;
   if (!token) {
     throw new Error(
       `token is required, visit ${endpoint}/setting/personal-access-token to get one`

@@ -199,7 +199,7 @@
   },
   "help": {
     "title": "ヘルプ",
-    "apiLink": "https://help.teable.io/en/api-doc/token"
+    "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
   "pagePermissionChangeTip": "ページの権限が更新されました。最新のコンテンツを表示するにはページを更新してください。",
   "listEmptyTips": "このリストは空です",

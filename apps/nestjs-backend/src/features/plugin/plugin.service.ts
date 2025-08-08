@@ -78,7 +78,7 @@ export class PluginService {
       ? {
           id: 'system',
           name: 'Teable',
-          email: 'support@teable.io',
+          email: 'support@teable.ai',
           avatar: undefined,
         }
       : undefined;
@@ -89,7 +89,7 @@ export class PluginService {
           acc[user.id] = {
             id: user.id,
             name: 'Teable',
-            email: 'support@teable.io',
+            email: 'support@teable.ai',
             avatar: undefined,
           };
           return acc;

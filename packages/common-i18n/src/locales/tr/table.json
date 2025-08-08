@@ -232,7 +232,7 @@
       "enableValidateFieldUnique": "Yinelenen değerleri yasakla",
       "enableValidateFieldNotNull": "Boş değerleri yasakla",
       "knowMore": "daha fazla bilgi",
-      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Alanlara göre kayıtları göster",
       "filterByView": "Görünüme göre kayıtları filtrele",
       "filter": "Kayıtları filtrele",
@@ -533,7 +533,7 @@
     "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
     "noPermission": "Veritabanına erişim izniniz yok",
     "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
-    "helpLink": "https://help.teable.io/en/deploy/database-connection"
+    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Kayıt ekle",
@@ -554,7 +554,7 @@
     },
     "crash": {
       "title": "Çöktü!",
-      "description": "Bu görünüm bozuk. Yenileme hala başarısız olursa, lütfen bizimle iletişime geçin. support@teable.io"
+      "description": "Bu görünüm bozuk. Yenileme hala başarısız olursa, lütfen bizimle iletişime geçin. support@teable.ai"
     },
     "addPluginView": "Eklenti Görünümü Ekle",
     "search": {

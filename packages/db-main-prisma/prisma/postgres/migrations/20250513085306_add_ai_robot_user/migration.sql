@@ -11,7 +11,7 @@ INSERT INTO "users" (
 SELECT 
   'aiRobot',
   'AI Robot',
-  'aiRobot@system.teable.io',
+  'aiRobot@system.teable.ai',
   true,
   CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM "users" WHERE "id" = 'aiRobot');

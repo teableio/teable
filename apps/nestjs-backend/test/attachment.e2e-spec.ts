@@ -73,7 +73,7 @@ describe('OpenAPI AttachmentController (e2e)', () => {
       table.id,
       table.records[0].id,
       field.id,
-      'https://app.teable.io/favicon.ico'
+      'https://app.teable.ai/favicon.ico'
     );
     expect(record2.status).toBe(201);
     expect((record2.data.fields[field.id] as Array<object>).length).toEqual(2);
