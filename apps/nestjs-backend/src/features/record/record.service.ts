@@ -221,16 +221,13 @@ export class RecordService {
       .where('__id', recordId)
       .toQuery();
 
-    const result = await prisma.$queryRawUnsafe<
-      {
-        id: string;
-        linkField: string | null;
-      }[]
-    >(sql);
+    const result = await prisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
     return result
       .map(
         (item) =>
-          field.convertDBValue2CellValue(item.linkField) as ILinkCellValue | ILinkCellValue[]
+          field.convertDBValue2CellValue(item[field.dbFieldName]) as
+            | ILinkCellValue
+            | ILinkCellValue[]
       )
       .filter(Boolean)
       .flat()
