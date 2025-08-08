@@ -68,6 +68,19 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
         ]);
       }
 
+      // Check if this is a lookup to link field with its own CTE
+      const lookupToLinkCteName = `cte_lookup_to_link_${field.id}`;
+      if (
+        this.fieldCteMap?.has(field.id) &&
+        this.fieldCteMap.get(field.id) === lookupToLinkCteName
+      ) {
+        // Return Raw expression for selecting from lookup to link CTE
+        return this.qb.client.raw(`??."lookup_link_value" as ??`, [
+          lookupToLinkCteName,
+          field.dbFieldName,
+        ]);
+      }
+
       // For regular lookup fields, use the corresponding link field CTE
       const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
