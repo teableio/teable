@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicated-branches */
 import { Logger } from '@nestjs/common';
 import type {
   ILinkFieldOptions,
@@ -461,10 +462,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
           // Generate rollup aggregation expression
           const rollupOptions = rollupField.options as IRollupFieldOptions;
-          const rollupAggregation = this.generateRollupAggregation(
-            rollupOptions.expression,
-            fieldExpression3
-          );
+          const isSingleValueRelationship =
+            options.relationship === Relationship.ManyOne ||
+            options.relationship === Relationship.OneOne;
+          const rollupAggregation = isSingleValueRelationship
+            ? this.generateSingleValueRollupAggregation(rollupOptions.expression, fieldExpression3)
+            : this.generateRollupAggregation(rollupOptions.expression, fieldExpression3);
           selectColumns.push(qb.client.raw(`${rollupAggregation} as "rollup_${rollupField.id}"`));
         }
       }
@@ -758,20 +761,22 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
 
     const functionName = functionMatch[1].toLowerCase();
+    const castIfPg = (sql: string) =>
+      this.dbProvider.driver === DriverClient.Pg ? `CAST(${sql} AS DOUBLE PRECISION)` : sql;
 
     switch (functionName) {
       case 'sum':
-        return `SUM(${fieldExpression})`;
+        return castIfPg(`SUM(${fieldExpression})`);
       case 'count':
-        return `COUNT(${fieldExpression})`;
+        return castIfPg(`COUNT(${fieldExpression})`);
       case 'countall':
-        return `COUNT(*)`;
+        return castIfPg(`COUNT(*)`);
       case 'counta':
-        return `COUNT(${fieldExpression})`;
+        return castIfPg(`COUNT(${fieldExpression})`);
       case 'max':
-        return `MAX(${fieldExpression})`;
+        return castIfPg(`MAX(${fieldExpression})`);
       case 'min':
-        return `MIN(${fieldExpression})`;
+        return castIfPg(`MIN(${fieldExpression})`);
       case 'and':
         // For boolean AND, all values must be true (non-zero/non-null)
         return this.dbProvider.driver === DriverClient.Pg
@@ -805,6 +810,59 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           : `json_group_array(${fieldExpression}) WHERE ${fieldExpression} IS NOT NULL`;
       default:
         throw new Error(`Unsupported rollup function: ${functionName}`);
+    }
+  }
+
+  /**
+   * Generate rollup expression for single-value relationships (ManyOne/OneOne)
+   * Avoids using aggregate functions so GROUP BY is not required.
+   */
+  private generateSingleValueRollupAggregation(
+    expression: string,
+    fieldExpression: string
+  ): string {
+    const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
+    if (!functionMatch) {
+      throw new Error(`Invalid rollup expression: ${expression}`);
+    }
+
+    const functionName = functionMatch[1].toLowerCase();
+
+    switch (functionName) {
+      case 'sum':
+      case 'max':
+      case 'min':
+      case 'array_join':
+      case 'concatenate':
+        // For single-value relationship, these reduce to the value itself
+        return `${fieldExpression}`;
+      case 'count':
+      case 'countall':
+      case 'counta':
+        // Presence check: 1 if not null, else 0
+        return `CASE WHEN ${fieldExpression} IS NULL THEN 0 ELSE 1 END`;
+      case 'and':
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COALESCE((${fieldExpression})::boolean, false))`
+          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
+      case 'or':
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COALESCE((${fieldExpression})::boolean, false))`
+          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
+      case 'xor':
+        // With a single value, XOR is equivalent to the value itself
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COALESCE((${fieldExpression})::boolean, false))`
+          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
+      case 'array_unique':
+      case 'array_compact':
+        // Wrap single value into JSON array if present else empty array
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::json ELSE json_build_array(${fieldExpression}) END)`
+          : `(CASE WHEN ${fieldExpression} IS NULL THEN json('[]') ELSE json_array(${fieldExpression}) END)`;
+      default:
+        // Fallback to the value to keep behavior sensible
+        return `${fieldExpression}`;
     }
   }
 
