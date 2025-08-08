@@ -759,15 +759,6 @@ export class LinkService {
       );
 
       const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
-      const dbFieldNames = fieldIds.map((fieldId) => {
-        const field = fieldMapByTableId[tableId][fieldId];
-        // dbForeignName is not exit in fieldMapByTableId
-        if (!field) {
-          return fieldId;
-        }
-        dbFieldName2FieldId[field.dbFieldName] = fieldId;
-        return field.dbFieldName;
-      });
 
       const queryBuilder = this.knex(tableId2DbTableName[tableId]);
       const fields = fieldIds.map((fieldId) => fieldMapByTableId[tableId][fieldId]);
@@ -837,6 +828,7 @@ export class LinkService {
     }, {});
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private diffLinkCellChange(
     fieldMapByTableId: { [tableId: string]: IFieldMap },
     originRecordMapByTableId: IRecordMapByTableId,
