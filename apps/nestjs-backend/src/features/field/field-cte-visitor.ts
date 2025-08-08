@@ -132,6 +132,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         return this.generateNestedLookupCte(field);
       }
 
+      // Check if this is a lookup to link field (lookup -> link)
+      const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
+      if (targetField?.type === FieldType.Link && !targetField.isLookup) {
+        return this.generateLookupToLinkCte(field);
+      }
+
       // For regular lookup fields, they will get their data from the corresponding link field CTE
       // The link field CTE should already be generated when processing link fields
       return { hasChanges: false };
@@ -155,13 +161,32 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
 
     // If the target field is also a lookup field, then this is a nested lookup
-    const isNested = targetField?.isLookup === true;
+    return targetField?.isLookup === true;
+  }
 
-    this.logger.debug(
-      `Checking nested lookup for field ${field.id}: target field ${field.lookupOptions.lookupFieldId} isLookup=${targetField?.isLookup}, result=${isNested}`
+  /**
+   * Check if a lookup field targets a link field (lookup -> link)
+   */
+  private isLookupToLink(field: {
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+    id: string;
+  }): boolean {
+    if (!field.isLookup || !field.lookupOptions) {
+      return false;
+    }
+
+    // Get the target field that this lookup field is looking up
+    const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
+
+    // If the target field is a link field (and not a lookup field), then this is a lookup to link
+    const isLookupToLink = targetField?.type === FieldType.Link && !targetField.isLookup;
+
+    this.logger.warn(
+      `[DEBUG] Checking lookup to link for field ${field.id}: target field ${field.lookupOptions.lookupFieldId} type=${targetField?.type}, isLookup=${targetField?.isLookup}, result=${isLookupToLink}`
     );
 
-    return isNested;
+    return isLookupToLink;
   }
 
   /**
@@ -180,7 +205,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Build the lookup chain
       const chain = this.buildLookupChain(field);
       if (chain.steps.length === 0) {
-        this.logger.debug(`No lookup chain found for nested lookup field: ${field.id}`);
         return { hasChanges: false };
       }
 
@@ -192,12 +216,160 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         this.buildNestedLookupQuery(qb, chain, mainTableName, field.id);
       };
 
-      this.logger.debug(`Generated nested lookup CTE for ${field.id} with name ${cteName}`);
       return { cteName, hasChanges: true, cteCallback };
     } catch (error) {
       this.logger.error(`Failed to generate nested lookup CTE for ${field.id}:`, error);
       return { hasChanges: false };
     }
+  }
+
+  /**
+   * Generate CTE for lookup fields that target link fields (lookup -> link)
+   * This creates a specialized CTE that handles the lookup -> link relationship
+   */
+  private generateLookupToLinkCte(field: {
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsVo;
+    id: string;
+  }): ICteResult {
+    if (!field.isLookup || !field.lookupOptions) {
+      return { hasChanges: false };
+    }
+
+    const { lookupOptions } = field;
+    const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
+
+    // Get the link field that this lookup field is targeting
+    const linkField = this.context.fieldMap.get(linkFieldId);
+    if (!linkField || linkField.type !== FieldType.Link) {
+      return { hasChanges: false };
+    }
+
+    // Get the target field in the foreign table that we want to lookup
+    // This should be the link field that we're looking up
+    const targetLinkField = this.context.fieldMap.get(lookupFieldId);
+    if (!targetLinkField || targetLinkField.type !== FieldType.Link) {
+      return { hasChanges: false };
+    }
+
+    // Get the link field's lookup field (the field that the link field displays)
+    const targetLinkOptions = targetLinkField.options as ILinkFieldOptions;
+    const linkLookupField = this.context.fieldMap.get(targetLinkOptions.lookupFieldId);
+    if (!linkLookupField) {
+      return { hasChanges: false };
+    }
+
+    // Get foreign table name from context
+    const foreignTableName = this.context.tableNameMap.get(foreignTableId);
+    if (!foreignTableName) {
+      return { hasChanges: false };
+    }
+
+    // Get target link field options to understand the relationship structure
+    const { fkHostTableName, selfKeyName, foreignKeyName, relationship } = targetLinkOptions;
+
+    const cteName = `cte_lookup_to_link_${field.id}`;
+    const { mainTableName } = this.context;
+
+    // Create CTE callback function
+    const cteCallback = (qb: Knex.QueryBuilder) => {
+      const mainAlias = 'm';
+      const junctionAlias = 'j';
+      const foreignAlias = 'f';
+      const linkTargetAlias = 'lt'; // alias for the table that link field points to
+
+      // Build select columns
+      const selectColumns = [`${mainAlias}.__id as main_record_id`];
+
+      // Create FieldSelectVisitor to get the correct field expression for the target field
+      const tempQb = qb.client.queryBuilder();
+      const fieldSelectVisitor = new FieldSelectVisitor(
+        tempQb,
+        this.dbProvider,
+        { fieldMap: this.context.fieldMap },
+        undefined, // No fieldCteMap to prevent recursive processing
+        linkTargetAlias
+      );
+
+      // Get the field expression for the link lookup field
+      const fieldResult = linkLookupField.accept(fieldSelectVisitor);
+      const fieldExpression =
+        typeof fieldResult === 'string' ? fieldResult : fieldResult.toSQL().sql;
+
+      // Generate JSON expression based on the TARGET LINK field's relationship (not the lookup field's relationship)
+      const targetLinkRelationship = relationship as Relationship;
+      let jsonExpression: string;
+
+      if (
+        targetLinkRelationship === Relationship.ManyMany ||
+        targetLinkRelationship === Relationship.OneMany
+      ) {
+        // For multi-value relationships, use aggregation
+        const jsonAggFunction = this.getLinkJsonAggregationFunction(
+          linkTargetAlias,
+          fieldExpression,
+          targetLinkRelationship
+        );
+        jsonExpression = jsonAggFunction;
+      } else {
+        // For single-value relationships, use direct CASE WHEN
+        jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN json_build_object('id', ${linkTargetAlias}.__id, 'title', ${fieldExpression}) ELSE NULL END`;
+      }
+
+      selectColumns.push(qb.client.raw(`${jsonExpression} as lookup_link_value`));
+
+      // Get the target table name for the link field
+      const linkTargetTableName = this.context.tableNameMap.get(targetLinkOptions.foreignTableId);
+      if (!linkTargetTableName) {
+        return;
+      }
+
+      // Build the query - we need to join through the lookup relationship first, then through the link relationship
+      let query = qb
+        .select(selectColumns)
+        .from(`${mainTableName} as ${mainAlias}`)
+        // First join: main table to lookup's junction table (using lookup field's relationship info)
+        .leftJoin(
+          `${lookupOptions.fkHostTableName} as ${junctionAlias}`,
+          `${mainAlias}.__id`,
+          `${junctionAlias}.${lookupOptions.selfKeyName}`
+        )
+        // Second join: lookup's junction table to foreign table (where the link field is located)
+        .leftJoin(
+          `${foreignTableName} as ${foreignAlias}`,
+          `${junctionAlias}.${lookupOptions.foreignKeyName}`,
+          `${foreignAlias}.__id`
+        );
+
+      // Now handle the link field's relationship to its target table
+      if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
+        // Link field uses junction table
+        query = query
+          .leftJoin(`${fkHostTableName} as j2`, `${foreignAlias}.__id`, `j2.${selfKeyName}`)
+          .leftJoin(
+            `${linkTargetTableName} as ${linkTargetAlias}`,
+            `j2.${foreignKeyName}`,
+            `${linkTargetAlias}.__id`
+          );
+      } else if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
+        // Link field uses direct foreign key
+        query = query.leftJoin(
+          `${linkTargetTableName} as ${linkTargetAlias}`,
+          `${foreignAlias}.${foreignKeyName}`,
+          `${linkTargetAlias}.__id`
+        );
+      }
+
+      // Only add GROUP BY when using aggregation (for multi-value relationships)
+      if (
+        targetLinkRelationship === Relationship.ManyMany ||
+        targetLinkRelationship === Relationship.OneMany
+      ) {
+        query = query.groupBy(`${mainAlias}.__id`);
+      }
+    };
+
+    return { cteName, hasChanges: true, cteCallback };
   }
 
   /**
@@ -229,14 +401,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Get link field
       const linkField = this.context.fieldMap.get(linkFieldId);
       if (!linkField) {
-        this.logger.debug(`Link field not found: ${linkFieldId}`);
         break;
       }
 
       // Get foreign table name
       const foreignTableName = this.context.tableNameMap.get(foreignTableId);
       if (!foreignTableName) {
-        this.logger.debug(`Foreign table not found: ${foreignTableId}`);
         break;
       }
 
@@ -256,7 +426,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Move to the next field in the chain
       const nextField = this.context.fieldMap.get(lookupFieldId);
       if (!nextField) {
-        this.logger.debug(`Target field not found: ${lookupFieldId}`);
         break;
       }
 
@@ -284,7 +453,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     qb: Knex.QueryBuilder,
     chain: ILookupChain,
     mainTableName: string,
-    fieldId: string
+    _fieldId: string
   ): void {
     if (chain.steps.length === 0) {
       return;
@@ -365,14 +534,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     // Get foreign table name from context
     const foreignTableName = this.context.tableNameMap.get(foreignTableId);
     if (!foreignTableName) {
-      this.logger.debug(`Foreign table not found: ${foreignTableId}`);
       return { hasChanges: false };
     }
 
     // Get lookup field for the link field
     const linkLookupField = this.context.fieldMap.get(options.lookupFieldId);
     if (!linkLookupField) {
-      this.logger.debug(`Lookup field not found: ${options.lookupFieldId}`);
       return { hasChanges: false };
     }
 
@@ -504,8 +671,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       }
     };
 
-    this.logger.debug(`Generated link field CTE for ${field.id} with name ${cteName}`);
-
     return { cteName, hasChanges: true, cteCallback };
   }
 
@@ -526,7 +691,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     // Get foreign table name from context
     const foreignTableName = this.context.tableNameMap.get(foreignTableId);
     if (!foreignTableName) {
-      this.logger.debug(`Foreign table not found: ${foreignTableId}`);
       return { hasChanges: false };
     }
 
@@ -640,8 +804,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       }
     };
 
-    this.logger.debug(`Generated foreign table CTE for ${foreignTableId} with name ${cteName}`);
-
     return { cteName, hasChanges: true, cteCallback };
   }
 
@@ -706,8 +868,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         field.lookupOptions &&
         field.lookupOptions.linkFieldId === linkFieldId
       ) {
-        // Skip nested lookup fields as they have their own dedicated CTE
-        if (this.isNestedLookup(field)) {
+        // Skip nested lookup fields and lookup to link fields as they have their own dedicated CTE
+        if (this.isNestedLookup(field) || this.isLookupToLink(field)) {
           continue;
         }
         lookupFields.push(field);

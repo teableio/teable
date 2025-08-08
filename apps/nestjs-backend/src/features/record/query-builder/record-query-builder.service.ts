@@ -200,6 +200,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   /**
    * Create Link field contexts for CTE generation
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async createLinkFieldContexts(
     fields: IFieldInstance[],
     tableId: string,
@@ -232,6 +233,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
         // For nested lookup fields, we need to collect all tables in the chain
         await this.collectNestedLookupTables(field, tableNameMap, linkFieldContexts);
+
+        // For lookup -> link fields, we need to collect the target link field's context
+        await this.collectLookupToLinkTables(field, tableNameMap, linkFieldContexts);
 
         // For lookup fields, we need to get both the link field and the lookup target field
         const [linkField, lookupField, foreignTableName] = await Promise.all([
@@ -350,6 +354,70 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         // If we can't get the next field, stop the chain
         break;
       }
+    }
+  }
+
+  /**
+   * Collect table names and link fields for lookup -> link fields
+   */
+  private async collectLookupToLinkTables(
+    field: IFieldInstance,
+    tableNameMap: Map<string, string>,
+    linkFieldContexts: ILinkFieldContext[]
+  ): Promise<void> {
+    if (!field.isLookup || !field.lookupOptions) {
+      return;
+    }
+
+    const { lookupOptions } = field;
+    const { lookupFieldId, foreignTableId } = lookupOptions;
+
+    try {
+      // Get the target field that the lookup is looking up
+      const targetField = await this.getLookupField(lookupFieldId);
+
+      // Check if the target field is a link field
+      if (targetField.type === FieldType.Link && !targetField.isLookup) {
+        console.log(
+          `[DEBUG] Found lookup -> link field ${field.id} targeting link field ${targetField.id}`
+        );
+
+        // Get the target link field's options
+        const targetLinkOptions = targetField.options as ILinkFieldOptions;
+
+        // Store the foreign table name for the lookup field
+        if (!tableNameMap.has(foreignTableId)) {
+          const foreignTableName = await this.getDbTableName(foreignTableId);
+          tableNameMap.set(foreignTableId, foreignTableName);
+        }
+
+        // Store the target link field's foreign table name
+        if (!tableNameMap.has(targetLinkOptions.foreignTableId)) {
+          const targetForeignTableName = await this.getDbTableName(
+            targetLinkOptions.foreignTableId
+          );
+          tableNameMap.set(targetLinkOptions.foreignTableId, targetForeignTableName);
+        }
+
+        // Get the target link field's lookup field
+        const targetLookupField = await this.getLookupField(targetLinkOptions.lookupFieldId);
+        const targetForeignTableName = await this.getDbTableName(targetLinkOptions.foreignTableId);
+
+        // Add the target link field context if not already present
+        const existingContext = linkFieldContexts.find(
+          (ctx) => ctx.linkField.id === targetField.id
+        );
+        if (!existingContext) {
+          linkFieldContexts.push({
+            linkField: targetField,
+            lookupField: targetLookupField,
+            foreignTableName: targetForeignTableName,
+          });
+          console.log(`[DEBUG] Added target link field context for ${targetField.id}`);
+        }
+      }
+    } catch (error) {
+      console.log(`[DEBUG] Failed to collect lookup -> link tables for ${field.id}:`, error);
     }
   }
 
