@@ -250,6 +250,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   /**
    * Collect all table names and link fields in a nested lookup chain
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async collectNestedLookupTables(
     field: IFieldInstance,
     tableNameMap: Map<string, string>,
