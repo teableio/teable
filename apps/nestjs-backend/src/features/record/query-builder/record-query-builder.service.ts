@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { type IFormulaConversionContext, FieldType, type ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
@@ -23,6 +23,8 @@ import type {
  */
 @Injectable()
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
+  private readonly logger = new Logger(RecordQueryBuilderService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
@@ -84,7 +86,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       fields,
       mainTableName,
       linkFieldContexts,
-      linkFieldCteContext.tableNameMap
+      linkFieldCteContext.tableNameMap,
+      linkFieldCteContext.additionalFields
     );
 
     // Build select fields
@@ -131,12 +134,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   /**
    * Add field CTEs and their JOINs to the query builder (synchronous version)
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private addFieldCtesSync(
     queryBuilder: Knex.QueryBuilder,
     fields: IFieldInstance[],
     mainTableName: string,
     linkFieldContexts?: ILinkFieldContext[],
-    contextTableNameMap?: Map<string, string>
+    contextTableNameMap?: Map<string, string>,
+    additionalFields?: Map<string, IFieldInstance>
   ): Map<string, string> {
     const fieldCteMap = new Map<string, string>();
 
@@ -153,6 +158,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       fieldMap.set(linkContext.linkField.id, linkContext.linkField);
       const options = linkContext.linkField.options as ILinkFieldOptions;
       tableNameMap.set(options.foreignTableId, linkContext.foreignTableName);
+    }
+
+    // Add additional fields (e.g., rollup target fields) to the field map
+    if (additionalFields) {
+      for (const [fieldId, field] of additionalFields) {
+        fieldMap.set(fieldId, field);
+      }
     }
 
     // Merge with context table name map for nested lookup support
@@ -240,10 +252,31 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       }
     }
 
+    // Collect additional fields needed for rollup fields
+    const additionalFields = new Map<string, IFieldInstance>();
+    for (const field of fields) {
+      if (field.type === FieldType.Rollup && field.lookupOptions) {
+        const { lookupFieldId } = field.lookupOptions;
+        // Check if this target field is not already in linkFieldContexts
+        const isAlreadyIncluded = linkFieldContexts.some(
+          (ctx) => ctx.lookupField.id === lookupFieldId
+        );
+        if (!isAlreadyIncluded && !additionalFields.has(lookupFieldId)) {
+          try {
+            const rollupTargetField = await this.getLookupField(lookupFieldId);
+            additionalFields.set(lookupFieldId, rollupTargetField);
+          } catch (error) {
+            this.logger.warn(`Failed to get rollup target field ${lookupFieldId}:`, error);
+          }
+        }
+      }
+    }
+
     return {
       linkFieldContexts,
       mainTableName,
       tableNameMap,
+      additionalFields: additionalFields.size > 0 ? additionalFields : undefined,
     };
   }
 
