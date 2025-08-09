@@ -64,6 +64,8 @@ export enum IdPrefix {
   ChatMessage = 'cmm',
 
   Query = 'qry',
+
+  App = 'app',
 }
 
 export enum RandomType {
@@ -257,4 +259,8 @@ export function generateChatMessageId() {
 
 export function generateQueryId() {
   return IdPrefix.Query + getRandomString(16);
+}
+
+export function generateAppId() {
+  return IdPrefix.App + getRandomString(16);
 }
