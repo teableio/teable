@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IFormulaConversionContext } from '@teable/core';
 import { FieldType, DbFieldType, CellValueType } from '@teable/core';
