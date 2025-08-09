@@ -66,11 +66,10 @@ export class AuthService {
     };
   }
 
-  async getTempAutomationToken(baseId: string) {
+  async getTempAutomationToken(baseId: string, expiresIn: string = '10m') {
     const payload: IJwtAuthAutomationInfo = {
       baseId,
     };
-    const expiresIn = '10m';
     return {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
       expiresTime: new Date(Date.now() + ms(expiresIn)).toISOString(),
