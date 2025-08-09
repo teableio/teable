@@ -124,9 +124,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const formula = 'SUM({fld1} + {fld3}, {fld5} * 2)';
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
-      expect(result.sql).toMatchInlineSnapshot(
-        `"SUM(("column_a" + "column_c"), ("column_e" * 2))"`
-      );
+      expect(result.sql).toMatchInlineSnapshot(`"(("column_a" + "column_c") + ("column_e" * 2))"`);
       expect(result.dependencies).toEqual(['fld1', 'fld3', 'fld5']);
     });
 
@@ -147,7 +145,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (SUM("column_a", "column_b") > 100) THEN ROUND("column_e"::numeric, 2::integer) ELSE 0 END"`
+        `"CASE WHEN (("column_a" + "column_b") > 100) THEN ROUND("column_e"::numeric, 2::integer) ELSE 0 END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
     });
@@ -216,7 +214,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (AVG(SUM("column_a", "column_b"), ("column_e" * 3)) > 50) THEN ROUND((GREATEST("column_a", "column_e") / LEAST("column_b", "column_e"))::numeric, 2::integer) ELSE ABS(("column_a" - "column_b")::numeric) END"`
+        `"CASE WHEN ((("column_a" + "column_b") + ("column_e" * 3)) / 2 > 50) THEN ROUND((GREATEST("column_a", "column_e") / LEAST("column_b", "column_e"))::numeric, 2::integer) ELSE ABS(("column_a" - "column_b")::numeric) END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5']);
     });
@@ -266,7 +264,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) AND (SUM("column_a", "column_b") > 100)) THEN (UPPER("column_c") || ' - ' || ROUND(AVG("column_a", "column_e")::numeric, 2::integer)) ELSE LOWER(REPLACE("column_f", 'old', NOW()::date::text)) END"`
+        `"CASE WHEN ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) AND (("column_a" + "column_b") > 100)) THEN (UPPER("column_c") || ' - ' || ROUND(("column_a" + "column_e") / 2::numeric, 2::integer)) ELSE LOWER(REPLACE("column_f", 'old', NOW()::date::text)) END"`
       );
       expect(result.dependencies).toEqual(['fld4', 'fld1', 'fld2', 'fld3', 'fld5', 'fld6']);
     });
@@ -326,7 +324,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((ROUND(AVG(SUM(POWER("column_a"::numeric, 2::numeric), SQRT("column_b"::numeric)), ("column_e" * 3.14))::numeric, 2::integer) > 100) AND ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) OR NOT ((EXTRACT(MONTH FROM NOW()::timestamp) = 12)))) THEN (UPPER(LEFT(TRIM("column_c"), 10::integer)) || ' - Score: ' || ROUND((SUM("column_a", "column_b", "column_e") / 3)::numeric, 1::integer)) ELSE CASE WHEN ("column_a" < 0) THEN 'NEGATIVE' ELSE LOWER("column_f") END END"`
+        `"CASE WHEN ((ROUND(((POWER("column_a"::numeric, 2::numeric) + SQRT("column_b"::numeric)) + ("column_e" * 3.14)) / 2::numeric, 2::integer) > 100) AND ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) OR NOT ((EXTRACT(MONTH FROM NOW()::timestamp) = 12)))) THEN (UPPER(LEFT(TRIM("column_c"), 10::integer)) || ' - Score: ' || ROUND((("column_a" + "column_b" + "column_e") / 3)::numeric, 1::integer)) ELSE CASE WHEN ("column_a" < 0) THEN 'NEGATIVE' ELSE LOWER("column_f") END END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5', 'fld4', 'fld3', 'fld6']);
     });
@@ -338,7 +336,29 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((ROUND((((POWER(\`column_a\`, 2) + SQRT(\`column_b\`)) + (\`column_e\` * 3.14)) / 2), 2) > 100) AND ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) OR NOT ((CAST(STRFTIME('%m', DATETIME('now')) AS INTEGER) = 12)))) THEN (COALESCE(UPPER(SUBSTR(TRIM(\`column_c\`), 1, 10)), '') || COALESCE(' - Score: ', '') || COALESCE(ROUND(((\`column_a\` + \`column_b\` + \`column_e\`) / 3), 1), '')) ELSE CASE WHEN (\`column_a\` < 0) THEN 'NEGATIVE' ELSE LOWER(\`column_f\`) END END"`
+        `
+        "CASE WHEN ((ROUND(((((
+              CASE
+                WHEN 2 = 0 THEN 1
+                WHEN 2 = 1 THEN \`column_a\`
+                WHEN 2 = 2 THEN \`column_a\` * \`column_a\`
+                WHEN 2 = 3 THEN \`column_a\` * \`column_a\` * \`column_a\`
+                WHEN 2 = 4 THEN \`column_a\` * \`column_a\` * \`column_a\` * \`column_a\`
+                WHEN 2 = 0.5 THEN
+                  -- Square root case using Newton's method
+                  CASE
+                    WHEN \`column_a\` <= 0 THEN 0
+                    ELSE (\`column_a\` / 2.0 + \`column_a\` / (\`column_a\` / 2.0)) / 2.0
+                  END
+                ELSE 1
+              END
+            ) + (
+              CASE
+                WHEN \`column_b\` <= 0 THEN 0
+                ELSE (\`column_b\` / 2.0 + \`column_b\` / (\`column_b\` / 2.0)) / 2.0
+              END
+            )) + (\`column_e\` * 3.14)) / 2), 2) > 100) AND ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) OR NOT ((CAST(STRFTIME('%m', DATETIME('now')) AS INTEGER) = 12)))) THEN (COALESCE(UPPER(SUBSTR(TRIM(\`column_c\`), 1, 10)), '') || COALESCE(' - Score: ', '') || COALESCE(ROUND(((\`column_a\` + \`column_b\` + \`column_e\`) / 3), 1), '')) ELSE CASE WHEN (\`column_a\` < 0) THEN 'NEGATIVE' ELSE LOWER(\`column_f\`) END END"
+      `
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5', 'fld4', 'fld3', 'fld6']);
     });

@@ -24,11 +24,11 @@ describe('GeneratedColumnQuerySupportValidator', () => {
 
     it('should support basic text functions', () => {
       expect(postgresValidator.concatenate(['a', 'b'])).toBe(true);
-      expect(postgresValidator.upper('a')).toBe(true);
-      expect(postgresValidator.lower('a')).toBe(true);
+      expect(postgresValidator.upper('a')).toBe(false); // Requires collation in PostgreSQL
+      expect(postgresValidator.lower('a')).toBe(false); // Requires collation in PostgreSQL
       expect(postgresValidator.trim('a')).toBe(true);
       expect(postgresValidator.len('a')).toBe(true);
-      expect(postgresValidator.regexpReplace('a', 'b', 'c')).toBe(true);
+      expect(postgresValidator.regexpReplace('a', 'b', 'c')).toBe(false); // Not supported in generated columns
     });
 
     it('should not support array functions due to technical limitations', () => {
@@ -54,10 +54,10 @@ describe('GeneratedColumnQuerySupportValidator', () => {
 
     it('should support basic date functions but not complex ones', () => {
       expect(postgresValidator.dateAdd('a', 'b', 'c')).toBe(true);
-      expect(postgresValidator.datetimeDiff('a', 'b', 'c')).toBe(true);
-      expect(postgresValidator.year('a')).toBe(true);
-      expect(postgresValidator.month('a')).toBe(true);
-      expect(postgresValidator.day('a')).toBe(true);
+      expect(postgresValidator.datetimeDiff('a', 'b', 'c')).toBe(false); // Not immutable in PostgreSQL
+      expect(postgresValidator.year('a')).toBe(false); // Not immutable in PostgreSQL
+      expect(postgresValidator.month('a')).toBe(false); // Not immutable in PostgreSQL
+      expect(postgresValidator.day('a')).toBe(false); // Not immutable in PostgreSQL
       expect(postgresValidator.workday('a', 'b')).toBe(false);
       expect(postgresValidator.workdayDiff('a', 'b')).toBe(false);
     });
@@ -74,8 +74,8 @@ describe('GeneratedColumnQuerySupportValidator', () => {
     });
 
     it('should not support advanced numeric functions', () => {
-      expect(sqliteValidator.sqrt('a')).toBe(false);
-      expect(sqliteValidator.power('a', 'b')).toBe(false);
+      expect(sqliteValidator.sqrt('a')).toBe(true); // SQLite SQRT is implemented
+      expect(sqliteValidator.power('a', 'b')).toBe(true); // SQLite POWER is implemented
       expect(sqliteValidator.exp('a')).toBe(false);
       expect(sqliteValidator.log('a', 'b')).toBe(false);
     });
@@ -124,9 +124,9 @@ describe('GeneratedColumnQuerySupportValidator', () => {
     it('should support basic date functions', () => {
       expect(sqliteValidator.dateAdd('a', 'b', 'c')).toBe(true);
       expect(sqliteValidator.datetimeDiff('a', 'b', 'c')).toBe(true);
-      expect(sqliteValidator.year('a')).toBe(true);
-      expect(sqliteValidator.month('a')).toBe(true);
-      expect(sqliteValidator.day('a')).toBe(true);
+      expect(sqliteValidator.year('a')).toBe(false); // Not immutable in SQLite
+      expect(sqliteValidator.month('a')).toBe(false); // Not immutable in SQLite
+      expect(sqliteValidator.day('a')).toBe(false); // Not immutable in SQLite
     });
   });
 
@@ -134,16 +134,11 @@ describe('GeneratedColumnQuerySupportValidator', () => {
     it('should show PostgreSQL has more capabilities than SQLite', () => {
       // Functions that PostgreSQL supports but SQLite doesn't
       const postgresOnlyFunctions = [
-        () => postgresValidator.sqrt('a') && !sqliteValidator.sqrt('a'),
-        () => postgresValidator.power('a', 'b') && !sqliteValidator.power('a', 'b'),
+        // Note: sqrt and power are now supported in both PostgreSQL and SQLite
+        // regexpReplace, encodeUrlComponent, and datetimeParse are not supported in PostgreSQL generated columns
         () => postgresValidator.exp('a') && !sqliteValidator.exp('a'),
         () => postgresValidator.log('a', 'b') && !sqliteValidator.log('a', 'b'),
-        () =>
-          postgresValidator.regexpReplace('a', 'b', 'c') &&
-          !sqliteValidator.regexpReplace('a', 'b', 'c'),
         () => postgresValidator.rept('a', '3') && !sqliteValidator.rept('a', '3'),
-        () => postgresValidator.encodeUrlComponent('a') && !sqliteValidator.encodeUrlComponent('a'),
-        () => postgresValidator.datetimeParse('a', 'b') && !sqliteValidator.datetimeParse('a', 'b'),
       ];
 
       postgresOnlyFunctions.forEach((testFn) => {

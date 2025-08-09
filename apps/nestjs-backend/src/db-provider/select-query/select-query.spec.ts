@@ -307,7 +307,7 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct DAY expressions', () => {
-      expect(postgresQuery.day('date')).toBe('EXTRACT(DAY FROM date::timestamp)');
+      expect(postgresQuery.day('date')).toBe('EXTRACT(DAY FROM date::timestamp)::int');
       expect(sqliteQuery.day('date')).toBe("CAST(STRFTIME('%d', date) AS INTEGER)");
     });
 
@@ -319,7 +319,7 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct HOUR expressions', () => {
-      expect(postgresQuery.hour('date')).toBe('EXTRACT(HOUR FROM date::timestamp)');
+      expect(postgresQuery.hour('date')).toBe('EXTRACT(HOUR FROM date::timestamp)::int');
       expect(sqliteQuery.hour('date')).toBe("CAST(STRFTIME('%H', date) AS INTEGER)");
     });
 
@@ -350,17 +350,17 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct MINUTE expressions', () => {
-      expect(postgresQuery.minute('date')).toBe('EXTRACT(MINUTE FROM date::timestamp)');
+      expect(postgresQuery.minute('date')).toBe('EXTRACT(MINUTE FROM date::timestamp)::int');
       expect(sqliteQuery.minute('date')).toBe("CAST(STRFTIME('%M', date) AS INTEGER)");
     });
 
     it('should generate correct MONTH expressions', () => {
-      expect(postgresQuery.month('date')).toBe('EXTRACT(MONTH FROM date::timestamp)');
+      expect(postgresQuery.month('date')).toBe('EXTRACT(MONTH FROM date::timestamp)::int');
       expect(sqliteQuery.month('date')).toBe("CAST(STRFTIME('%m', date) AS INTEGER)");
     });
 
     it('should generate correct SECOND expressions', () => {
-      expect(postgresQuery.second('date')).toBe('EXTRACT(SECOND FROM date::timestamp)');
+      expect(postgresQuery.second('date')).toBe('EXTRACT(SECOND FROM date::timestamp)::int');
       expect(sqliteQuery.second('date')).toBe("CAST(STRFTIME('%S', date) AS INTEGER)");
     });
 
@@ -377,12 +377,12 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct WEEKNUM expressions', () => {
-      expect(postgresQuery.weekNum('date')).toBe('EXTRACT(WEEK FROM date::timestamp)');
+      expect(postgresQuery.weekNum('date')).toBe('EXTRACT(WEEK FROM date::timestamp)::int');
       expect(sqliteQuery.weekNum('date')).toBe("CAST(STRFTIME('%W', date) AS INTEGER)");
     });
 
     it('should generate correct WEEKDAY expressions', () => {
-      expect(postgresQuery.weekday('date')).toBe('EXTRACT(DOW FROM date::timestamp)');
+      expect(postgresQuery.weekday('date')).toBe('EXTRACT(DOW FROM date::timestamp)::int');
       expect(sqliteQuery.weekday('date')).toBe("CAST(STRFTIME('%w', date) AS INTEGER) + 1");
     });
 
@@ -399,7 +399,7 @@ describe('SelectQuery', () => {
     });
 
     it('should generate correct YEAR expressions', () => {
-      expect(postgresQuery.year('date_col')).toBe('EXTRACT(YEAR FROM date_col::timestamp)');
+      expect(postgresQuery.year('date_col')).toBe('EXTRACT(YEAR FROM date_col::timestamp)::int');
       expect(sqliteQuery.year('date_col')).toBe("CAST(STRFTIME('%Y', date_col) AS INTEGER)");
     });
 
