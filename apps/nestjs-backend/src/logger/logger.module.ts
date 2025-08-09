@@ -38,9 +38,6 @@ export class LoggerModule {
               res.setHeader(X_REQUEST_ID, id);
               return id;
             },
-            customReceivedMessage: function () {
-              return 'request received';
-            },
             transport:
               process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
             formatters: {
