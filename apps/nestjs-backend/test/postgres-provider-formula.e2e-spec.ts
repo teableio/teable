@@ -251,7 +251,10 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
         const sql = postgresProvider.createColumnSchema(
           testTableName,
           formulaField,
-          context.fieldMap
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
         );
         expect(sql).toMatchSnapshot(`PostgreSQL SQL for ${expression}`);
 
@@ -290,7 +293,10 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
         const sql = postgresProvider.createColumnSchema(
           testTableName,
           formulaField,
-          context.fieldMap
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
         );
 
         // For unsupported functions, we expect an empty SQL string
@@ -524,7 +530,10 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
           const sql = postgresProvider.createColumnSchema(
             testTableName,
             formulaField,
-            context.fieldMap
+            context.fieldMap,
+            false, // isNewTable
+            'test-table-id', // tableId
+            new Map() // tableNameMap
           );
           await knexInstance.raw(sql);
         }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
@@ -538,7 +547,10 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
           const sql = postgresProvider.createColumnSchema(
             testTableName,
             formulaField,
-            context.fieldMap
+            context.fieldMap,
+            false, // isNewTable
+            'test-table-id', // tableId
+            new Map() // tableNameMap
           );
           await knexInstance.raw(sql);
         }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);

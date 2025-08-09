@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IFormulaConversionContext } from '@teable/core';
 import { FieldType, DbFieldType, CellValueType } from '@teable/core';
@@ -157,7 +158,14 @@ describe('Generated Column Performance Benchmarks (pg-mem)', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await pgMemKnex.raw(sql);
@@ -185,7 +193,14 @@ describe('Generated Column Performance Benchmarks (pg-mem)', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await pgMemKnex.raw(sql);
@@ -213,7 +228,14 @@ describe('Generated Column Performance Benchmarks (pg-mem)', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await pgMemKnex.raw(sql);
@@ -243,7 +265,14 @@ describe('Generated Column Performance Benchmarks (pg-mem)', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await pgMemKnex.raw(sql);

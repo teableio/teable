@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FieldType, DbFieldType, CellValueType } from '@teable/core';
 import type { IFormulaConversionContext } from '@teable/core';
@@ -154,7 +155,14 @@ describe('Generated Column Performance Benchmarks', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await sqliteKnex.raw(sql);
@@ -182,7 +190,14 @@ describe('Generated Column Performance Benchmarks', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await sqliteKnex.raw(sql);
@@ -247,7 +262,14 @@ describe('Generated Column Performance Benchmarks', () => {
         const context = createContext();
 
         // Generate and execute SQL for creating the formula column
-        const sql = provider.createColumnSchema(tableName, formulaField, context.fieldMap);
+        const sql = provider.createColumnSchema(
+          tableName,
+          formulaField,
+          context.fieldMap,
+          false, // isNewTable
+          'test-table-id', // tableId
+          new Map() // tableNameMap
+        );
 
         // This is what we're actually benchmarking - the ALTER TABLE command
         await sqliteKnex.raw(sql);

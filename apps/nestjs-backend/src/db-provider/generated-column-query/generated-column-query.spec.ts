@@ -415,7 +415,7 @@ describe('GeneratedColumnQuery', () => {
         const largeArray = Array.from({ length: 50 }, (_, i) => `col_${i}`);
 
         const result = pgQuery.sum(largeArray);
-        expect(result).toContain('SUM(');
+        expect(result).toContain('col_0 + col_1'); // Should use addition, not SUM function
         expect(result).toContain('col_0');
         expect(result).toContain('col_49');
       });

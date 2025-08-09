@@ -254,7 +254,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should handl
 exports[`Generated Column Query End-to-End Tests > Comprehensive Function Coverage Tests > All Date Functions > should convert date function CREATED_TIME() for PostgreSQL 1`] = `
 {
   "dependencies": [],
-  "sql": "__created_time__",
+  "sql": ""__created_time"",
 }
 `;
 
@@ -306,7 +306,7 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
 exports[`Generated Column Query End-to-End Tests > Comprehensive Function Coverage Tests > All Date Functions > should convert date function LAST_MODIFIED_TIME() for PostgreSQL 1`] = `
 {
   "dependencies": [],
-  "sql": "__last_modified_time__",
+  "sql": ""__last_modified_time"",
 }
 `;
 
@@ -581,7 +581,22 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
   "dependencies": [
     "fld1",
   ],
-  "sql": "POWER(\`column_a\`, 2)",
+  "sql": "(
+      CASE
+        WHEN 2 = 0 THEN 1
+        WHEN 2 = 1 THEN \`column_a\`
+        WHEN 2 = 2 THEN \`column_a\` * \`column_a\`
+        WHEN 2 = 3 THEN \`column_a\` * \`column_a\` * \`column_a\`
+        WHEN 2 = 4 THEN \`column_a\` * \`column_a\` * \`column_a\` * \`column_a\`
+        WHEN 2 = 0.5 THEN
+          -- Square root case using Newton's method
+          CASE
+            WHEN \`column_a\` <= 0 THEN 0
+            ELSE (\`column_a\` / 2.0 + \`column_a\` / (\`column_a\` / 2.0)) / 2.0
+          END
+        ELSE 1
+      END
+    )",
 }
 `;
 
@@ -599,7 +614,25 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
   "dependencies": [
     "fld1",
   ],
-  "sql": "CAST(FLOOR(\`column_a\` * POWER(10, 1)) / POWER(10, 1) AS REAL)",
+  "sql": "CAST(FLOOR(\`column_a\` * (
+        CASE
+          WHEN 1 = 0 THEN 1
+          WHEN 1 = 1 THEN 10
+          WHEN 1 = 2 THEN 100
+          WHEN 1 = 3 THEN 1000
+          WHEN 1 = 4 THEN 10000
+          ELSE 1
+        END
+      )) / (
+        CASE
+          WHEN 1 = 0 THEN 1
+          WHEN 1 = 1 THEN 10
+          WHEN 1 = 2 THEN 100
+          WHEN 1 = 3 THEN 1000
+          WHEN 1 = 4 THEN 10000
+          ELSE 1
+        END
+      ) AS REAL)",
 }
 `;
 
@@ -617,7 +650,25 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
   "dependencies": [
     "fld1",
   ],
-  "sql": "CAST(CEIL(\`column_a\` * POWER(10, 2)) / POWER(10, 2) AS REAL)",
+  "sql": "CAST(CEIL(\`column_a\` * (
+        CASE
+          WHEN 2 = 0 THEN 1
+          WHEN 2 = 1 THEN 10
+          WHEN 2 = 2 THEN 100
+          WHEN 2 = 3 THEN 1000
+          WHEN 2 = 4 THEN 10000
+          ELSE 1
+        END
+      )) / (
+        CASE
+          WHEN 2 = 0 THEN 1
+          WHEN 2 = 1 THEN 10
+          WHEN 2 = 2 THEN 100
+          WHEN 2 = 3 THEN 1000
+          WHEN 2 = 4 THEN 10000
+          ELSE 1
+        END
+      ) AS REAL)",
 }
 `;
 
@@ -635,7 +686,12 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
   "dependencies": [
     "fld1",
   ],
-  "sql": "SQRT(\`column_a\`)",
+  "sql": "(
+      CASE
+        WHEN \`column_a\` <= 0 THEN 0
+        ELSE (\`column_a\` / 2.0 + \`column_a\` / (\`column_a\` / 2.0)) / 2.0
+      END
+    )",
 }
 `;
 
@@ -716,7 +772,7 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
 exports[`Generated Column Query End-to-End Tests > Comprehensive Function Coverage Tests > All Other Functions > should convert function AUTO_NUMBER() for PostgreSQL 1`] = `
 {
   "dependencies": [],
-  "sql": "__auto_number",
+  "sql": ""__auto_number"",
 }
 `;
 
@@ -840,7 +896,7 @@ exports[`Generated Column Query End-to-End Tests > Comprehensive Function Covera
 exports[`Generated Column Query End-to-End Tests > Comprehensive Function Coverage Tests > All Other Functions > should convert function RECORD_ID() for PostgreSQL 1`] = `
 {
   "dependencies": [],
-  "sql": "__id",
+  "sql": ""__id"",
 }
 `;
 
