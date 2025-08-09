@@ -31,7 +31,7 @@ export default function ensureLogin<P extends { [key: string]: any }>(
       if (isLoginPage) {
         return {
           redirect: {
-            destination: '/',
+            destination: '/space',
             permanent: false,
           },
         };
