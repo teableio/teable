@@ -384,7 +384,18 @@ exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Text Fun
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Type Casting and Operations > should implement add operation 1`] = `"(column_a + column_b)"`;
 
-exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Type Casting and Operations > should implement bitwiseAnd operation 1`] = `"(column_a & column_b)"`;
+exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Type Casting and Operations > should implement bitwiseAnd operation 1`] = `
+"(
+      CASE
+        WHEN column_a::text ~ '^-?[0-9]+$' AND column_a::text != '' THEN column_a::integer
+        ELSE 0
+      END &
+      CASE
+        WHEN column_b::text ~ '^-?[0-9]+$' AND column_b::text != '' THEN column_b::integer
+        ELSE 0
+      END
+    )"
+`;
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Type Casting and Operations > should implement castToBoolean operation 1`] = `"column_a::boolean"`;
 

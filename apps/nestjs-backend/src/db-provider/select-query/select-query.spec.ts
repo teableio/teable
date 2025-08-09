@@ -616,7 +616,26 @@ describe('SelectQuery', () => {
     it('should generate correct logical operations', () => {
       expect(postgresQuery.logicalAnd('a', 'b')).toBe('(a AND b)');
       expect(postgresQuery.logicalOr('a', 'b')).toBe('(a OR b)');
-      expect(postgresQuery.bitwiseAnd('a', 'b')).toBe('(a::integer & b::integer)');
+      expect(postgresQuery.bitwiseAnd('a', 'b')).toMatchInlineSnapshot(`
+        "(
+              COALESCE(
+                CASE
+                  WHEN a::text ~ '^-?[0-9]+$' THEN
+                    NULLIF(a::text, '')::integer
+                  ELSE NULL
+                END,
+                0
+              ) &
+              COALESCE(
+                CASE
+                  WHEN b::text ~ '^-?[0-9]+$' THEN
+                    NULLIF(b::text, '')::integer
+                  ELSE NULL
+                END,
+                0
+              )
+            )"
+      `);
 
       expect(sqliteQuery.logicalAnd('a', 'b')).toBe('(a AND b)');
       expect(sqliteQuery.logicalOr('a', 'b')).toBe('(a OR b)');
