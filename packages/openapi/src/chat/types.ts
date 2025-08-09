@@ -23,6 +23,8 @@ export const chatContextSchema = z.object({
     .optional(),
   workflowId: z.string().optional(),
   actionId: z.string().optional(),
+  appId: z.string().optional(),
+  sandboxId: z.string().optional(),
 });
 
 export type IChatContext = z.infer<typeof chatContextSchema>;
@@ -43,6 +45,7 @@ export enum AgentInvocationName {
   RecordOperator = 'record-operator-agent',
   BuildBase = 'build-base-agent',
   BuildAutomation = 'build-automation-agent',
+  BuildApp = 'build-code-agent',
 }
 
 export type IDataVisualizationDataStream = {
@@ -134,7 +137,20 @@ export const BuildAutomationOperator = {
   generateSendMailAction: 'generate-send-mail-action',
 } as const;
 
+export const BuildAppOperator = {
+  initialize: 'initialize',
+  rename: 'rename',
+  planTask: 'plan-task',
+  buildTest: 'build-test',
+  development: 'development',
+  generateSummary: 'generate-summary',
+  previewEnvironment: 'preview-environment',
+  toolExecution: 'tool-execution',
+} as const;
+
 export type IBuildBaseOperator = (typeof BuildBaseOperator)[keyof typeof BuildBaseOperator];
 
 export type IBuildAutomationOperator =
   (typeof BuildAutomationOperator)[keyof typeof BuildAutomationOperator];
+
+export type IBuildAppOperator = (typeof BuildAppOperator)[keyof typeof BuildAppOperator];

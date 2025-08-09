@@ -31,6 +31,8 @@ export const userMapVoSchema = z.record(
     )
 );
 
+export type IUserMapVo = z.infer<typeof userMapVoSchema>;
+
 const fieldSnapshotItemVoSchema = z.object({
   id: z.string(),
   name: z.string(),

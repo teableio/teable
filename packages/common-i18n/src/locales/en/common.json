@@ -525,7 +525,8 @@
     "plugin": "Plugins",
     "copy": "Copy",
     "credits": "Credits",
-    "aiChat": "AI Chat"
+    "aiChat": "AI Chat",
+    "app": "App"
   },
   "level": {
     "free": "Free",
