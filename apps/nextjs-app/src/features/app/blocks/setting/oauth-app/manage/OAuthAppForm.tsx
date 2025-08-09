@@ -70,8 +70,8 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
   const { mutateAsync: uploadLogo, isLoading: uploadLogoLoading } = useMutation({
     mutationFn: (files: File[]) => uploadFiles(files, UploadType.OAuth),
     onSuccess: (res) => {
-      if (res?.[0]?.url) {
-        updateForm('logo', res[0].url);
+      if (res?.[0]?.path) {
+        updateForm('logo', res[0].path);
       }
       return res;
     },

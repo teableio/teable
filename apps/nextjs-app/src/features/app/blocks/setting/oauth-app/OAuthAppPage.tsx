@@ -1,3 +1,5 @@
+import { HelpCircle } from '@teable/icons';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
@@ -48,7 +50,24 @@ export const OAuthAppPage = () => {
 
   return (
     <SettingRight
-      title={<SettingRightTitle title={title} onBack={formType ? onBack : undefined} />}
+      title={
+        <SettingRightTitle
+          title={
+            <div className="flex items-center gap-x-4">
+              <div>{title}</div>
+              <Link
+                href={t('oauth:help.link')}
+                target="_blank"
+                className="flex items-center gap-x-1 text-sm font-normal text-gray-500 hover:underline"
+              >
+                {t('oauth:help.title')}
+                <HelpCircle className="size-4" />
+              </Link>
+            </div>
+          }
+          onBack={formType ? onBack : undefined}
+        />
+      }
     >
       <div className="my-3 space-y-1">{FormPage}</div>
     </SettingRight>

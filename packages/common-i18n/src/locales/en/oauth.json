@@ -2,7 +2,8 @@
   "add": "New OAuth Apps",
   "title": {
     "add": "New OAuth Apps",
-    "edit": "Edit OAuth Apps"
+    "edit": "Edit OAuth Apps",
+    "description": "GitHub Apps can act on their own behalf, directly performing operations through the API, without impersonating a user. See our <a>Help documentation</a> for more information."
   },
   "form": {
     "name": {
@@ -59,5 +60,9 @@
     "scopes": "This application will be able to get the following scopes:",
     "redirectDescription": "Authorizing will redirect to",
     "authorize": "Authorize"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "Learn more"
   }
 }

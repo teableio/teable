@@ -3,8 +3,9 @@ import { Plus, Settings } from '@teable/icons';
 import { oauthGetList } from '@teable/openapi';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'next-i18next';
+import { Trans, useTranslation } from 'next-i18next';
 import { TeableLogo } from '@/components/TeableLogo';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
@@ -24,7 +25,22 @@ export const OAuthAppList = () => {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <div className="text-sm font-normal text-muted-foreground">
+          <Trans
+            ns="oauth"
+            i18nKey="title.description"
+            components={{
+              a: (
+                <Link
+                  href={t('oauth:help.link')}
+                  className="text-violet-500 underline underline-offset-4"
+                  target="_blank"
+                />
+              ),
+            }}
+          />
+        </div>
         <Button
           size={'xs'}
           onClick={() => {
