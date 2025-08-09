@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship } from '@teable/core';
 import type { IFieldRo, LinkFieldCore } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createTable,
@@ -13,9 +14,9 @@ import {
 
 describe('OpenAPI LookupToLink (e2e)', () => {
   let app: INestApplication;
-  let table1: any;
-  let table2: any;
-  let table3: any;
+  let table1: ITableFullVo;
+  let table2: ITableFullVo;
+  let table3: ITableFullVo;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
