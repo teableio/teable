@@ -66,7 +66,7 @@ export class PluginService {
 
   private async getUserMap(userIds: string[]) {
     const users = await this.prismaService.txClient().user.findMany({
-      where: { id: { in: userIds }, deletedTime: null },
+      where: { id: { in: userIds } },
       select: {
         id: true,
         name: true,

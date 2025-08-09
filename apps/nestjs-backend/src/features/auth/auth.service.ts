@@ -118,7 +118,7 @@ export class AuthService {
     await this.prismaService.txClient().user.update({
       where: { id: userId, permanentDeletedTime: null },
       data: {
-        email: `deleted-${getRandomString(10)}@teable.io`,
+        email: `deleted-${getRandomString(10)}@teable.ai`,
         name: 'Deleted User',
         permanentDeletedTime: new Date().toISOString(),
         deletedTime: new Date().toISOString(),

@@ -683,6 +683,11 @@ describe('Auth Controller (e2e)', () => {
         },
       });
       expect(publishedPluginRes).toBeDefined();
+      await prismaService.plugin.delete({
+        where: {
+          id: testData.publishedPluginId,
+        },
+      });
       // user
       const userRes = await prismaService.user.findFirst({
         where: {
