@@ -103,6 +103,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   stringConcat(left: string, right: string): string {
+    // CONCAT automatically handles type conversion in PostgreSQL
     return `CONCAT(${left}, ${right})`;
   }
 
@@ -467,7 +468,26 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   bitwiseAnd(left: string, right: string): string {
-    return `(${left}::integer & ${right}::integer)`;
+    // Handle cases where operands might not be valid integers
+    // Use COALESCE and NULLIF to safely convert to integer, defaulting to 0 for invalid values
+    return `(
+      COALESCE(
+        CASE
+          WHEN ${left}::text ~ '^-?[0-9]+$' THEN
+            NULLIF(${left}::text, '')::integer
+          ELSE NULL
+        END,
+        0
+      ) &
+      COALESCE(
+        CASE
+          WHEN ${right}::text ~ '^-?[0-9]+$' THEN
+            NULLIF(${right}::text, '')::integer
+          ELSE NULL
+        END,
+        0
+      )
+    )`;
   }
 
   // Unary Operations

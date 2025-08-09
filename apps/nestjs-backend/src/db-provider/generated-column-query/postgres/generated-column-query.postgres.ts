@@ -106,8 +106,26 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   // String concatenation for + operator (preserves NULL behavior)
+  // Use explicit text casting to handle mixed types
+
   stringConcat(left: string, right: string): string {
-    return `(${left} || ${right})`;
+    return `(${left}::text || ${right}::text)`;
+  }
+
+  // Override bitwiseAnd to handle PostgreSQL-specific type conversion
+  bitwiseAnd(left: string, right: string): string {
+    // Handle cases where operands might not be valid integers
+    // Use CASE to safely convert to integer, defaulting to 0 for invalid values
+    return `(
+      CASE
+        WHEN ${left}::text ~ '^-?[0-9]+$' AND ${left}::text != '' THEN ${left}::integer
+        ELSE 0
+      END &
+      CASE
+        WHEN ${right}::text ~ '^-?[0-9]+$' AND ${right}::text != '' THEN ${right}::integer
+        ELSE 0
+      END
+    )`;
   }
 
   find(searchText: string, withinText: string, startNum?: string): string {

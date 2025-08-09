@@ -16,6 +16,7 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ViewType,
+  FormulaFieldCore,
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -392,6 +393,9 @@ export class FieldService implements IReadonlyAdapterService {
 
     // Build field map for formula conversion context
     const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
+
+    // Update the field map with the new field information to ensure we use the latest field data
+    fieldMap.set(fieldId, newField);
 
     // Build table name map for link field operations
     const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(tableId, [
@@ -948,7 +952,7 @@ export class FieldService implements IReadonlyAdapterService {
     });
 
     // Handle dependent formula fields after field update
-    await this.handleDependentFormulaFields(tableId, fieldId, opContexts);
+    await this.handleDependentFormulaFields(tableId, newField, opContexts);
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IFieldVo>[]> {
@@ -1031,6 +1035,8 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     // Build field map for formula conversion context
+    // Note: We need to rebuild the field map after the current field update
+    // to ensure dependent formula fields use the latest field information
     const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
 
     // Use modifyColumnSchema to recreate the field with updated options
@@ -1053,7 +1059,7 @@ export class FieldService implements IReadonlyAdapterService {
    */
   private async handleDependentFormulaFields(
     tableId: string,
-    fieldId: string,
+    field: IFieldInstance,
     opContexts: IOpContext[]
   ): Promise<void> {
     // Check if any of the operations affect dependent formula fields
@@ -1069,8 +1075,9 @@ export class FieldService implements IReadonlyAdapterService {
 
     try {
       // Get all formula fields that depend on this field
-      const dependentFields =
-        await this.formulaFieldService.getDependentFormulaFieldsInOrder(fieldId);
+      const dependentFields = await this.formulaFieldService.getDependentFormulaFieldsInOrder(
+        field.id
+      );
 
       if (dependentFields.length === 0) {
         return;
@@ -1078,6 +1085,7 @@ export class FieldService implements IReadonlyAdapterService {
 
       // Build field map for formula conversion context
       const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
+      fieldMap.set(field.id, field);
 
       // Process dependent fields in dependency order (deepest first for deletion, then reverse for creation)
       const fieldsToProcess = [...dependentFields].reverse(); // Reverse to get shallowest first
@@ -1105,6 +1113,12 @@ export class FieldService implements IReadonlyAdapterService {
         // Create field instance
         const fieldInstance = createFieldInstanceByRaw(dependentFieldRaw);
 
+        // Recalculate the field's cellValueType and dbFieldType based on current dependencies
+        if (fieldInstance.type === FieldType.Formula) {
+          // Use the instance method to recalculate field types (including dbFieldType)
+          (fieldInstance as FormulaFieldCore).recalculateFieldTypes(Object.fromEntries(fieldMap));
+        }
+
         // Get table name for dependent field
         const dependentTableMeta = await this.prismaService.txClient().tableMeta.findUnique({
           where: { id: dependentTableId },
@@ -1129,7 +1143,7 @@ export class FieldService implements IReadonlyAdapterService {
         }
       }
     } catch (error) {
-      console.warn(`Failed to handle dependent formula fields for field %s:`, fieldId, error);
+      console.warn(`Failed to handle dependent formula fields for field %s:`, field.id, error);
       // Don't throw error to avoid breaking the field update operation
     }
   }

@@ -342,7 +342,10 @@ abstract class BaseSqlConversionVisitor<
       .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
       .with('&&', () => this.formulaQuery.logicalAnd(left, right))
       .with('||', () => this.formulaQuery.logicalOr(left, right))
-      .with('&', () => this.formulaQuery.bitwiseAnd(left, right))
+      .with('&', () => {
+        // Always treat & as string concatenation to avoid type issues
+        return this.formulaQuery.stringConcat(left, right);
+      })
       .otherwise((op) => {
         throw new Error(`Unsupported binary operator: ${op}`);
       });
@@ -421,6 +424,11 @@ abstract class BaseSqlConversionVisitor<
       return 'unknown';
     }
 
+    // For formula fields, try to infer the actual return type from cellValueType
+    if (fieldInfo.type === 'formula' && fieldInfo.cellValueType) {
+      return this.mapCellValueTypeToBasicType(fieldInfo.cellValueType);
+    }
+
     return this.mapFieldTypeToBasicType(fieldInfo.type);
   }
 
@@ -464,6 +472,24 @@ abstract class BaseSqlConversionVisitor<
     }
 
     return 'unknown';
+  }
+
+  /**
+   * Map cell value types to basic types
+   */
+  private mapCellValueTypeToBasicType(
+    cellValueType: string
+  ): 'string' | 'number' | 'boolean' | 'unknown' {
+    switch (cellValueType) {
+      case 'string':
+        return 'string';
+      case 'number':
+        return 'number';
+      case 'boolean':
+        return 'boolean';
+      default:
+        return 'unknown';
+    }
   }
 
   /**
@@ -540,8 +566,21 @@ abstract class BaseSqlConversionVisitor<
       return 'unknown';
     }
 
-    const arithmeticOperators = ['+', '-', '*', '/', '%'];
+    const arithmeticOperators = ['-', '*', '/', '%'];
     const comparisonOperators = ['>', '<', '>=', '<=', '=', '!=', '<>', '&&', '||'];
+    const stringOperators = ['&']; // Bitwise AND is treated as string concatenation
+
+    // Special handling for + operator - it can be either arithmetic or string concatenation
+    if (operator === '+') {
+      const leftType = this.inferExpressionType(ctx.expr(0));
+      const rightType = this.inferExpressionType(ctx.expr(1));
+
+      if (leftType === 'string' || rightType === 'string') {
+        return 'string';
+      }
+
+      return 'number';
+    }
 
     if (arithmeticOperators.includes(operator)) {
       return 'number';
@@ -549,6 +588,10 @@ abstract class BaseSqlConversionVisitor<
 
     if (comparisonOperators.includes(operator)) {
       return 'boolean';
+    }
+
+    if (stringOperators.includes(operator)) {
+      return 'string';
     }
 
     return 'unknown';
