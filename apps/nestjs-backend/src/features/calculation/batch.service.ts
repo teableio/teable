@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable/core';
-import { HttpErrorCode, IdPrefix, RecordOpBuilder } from '@teable/core';
+import { getRandomString, HttpErrorCode, IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
@@ -439,6 +439,7 @@ export class BatchService {
       .filter(({ rawOp }) => !('del' in rawOp && rawOp.del))
       .map(({ rawOp, docId }) => {
         return {
+          id: getRandomString(25).toLowerCase(),
           collection: collectionId,
           doc_type: docType,
           doc_id: docId,

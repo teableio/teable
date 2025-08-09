@@ -159,40 +159,34 @@ export class AuthService {
       },
     });
     // clear Oauth app
-    await this.prismaService.txClient().$executeRawUnsafe(
-      this.knex
-        .raw(
-          `DELETE FROM oauth_app_token t
-       USING oauth_app_secret s, oauth_app a
-       WHERE t.app_secret_id = s.id 
-       AND s.client_id = a.client_id
-       AND a.created_by = ?`,
-          [userId]
-        )
-        .toQuery()
-    );
-    await this.prismaService.txClient().$executeRawUnsafe(
-      this.knex
-        .raw(
-          `DELETE FROM oauth_app_secret s
-           USING oauth_app a
-           WHERE s.client_id = a.client_id
-           AND a.created_by = ?`,
-          [userId]
-        )
-        .toQuery()
-    );
-    await this.prismaService.txClient().$executeRawUnsafe(
-      this.knex
-        .raw(
-          `DELETE FROM oauth_app_authorized auth
-           USING oauth_app a
-           WHERE auth.client_id = a.client_id
-           AND a.created_by = ?`,
-          [userId]
-        )
-        .toQuery()
-    );
+    await this.prismaService
+      .txClient()
+      .$executeRawUnsafe(
+        this.knex('oauth_app_token as t')
+          .join('oauth_app_secret as s', 't.app_secret_id', 's.id')
+          .join('oauth_app as a', 's.client_id', 'a.client_id')
+          .where('a.created_by', userId)
+          .del()
+          .toQuery()
+      );
+    await this.prismaService
+      .txClient()
+      .$executeRawUnsafe(
+        this.knex('oauth_app_secret as s')
+          .join('oauth_app as a', 's.client_id', 'a.client_id')
+          .where('a.created_by', userId)
+          .del()
+          .toQuery()
+      );
+    await this.prismaService
+      .txClient()
+      .$executeRawUnsafe(
+        this.knex('oauth_app_authorized as auth')
+          .join('oauth_app as a', 'auth.client_id', 'a.client_id')
+          .where('a.created_by', userId)
+          .del()
+          .toQuery()
+      );
     await this.prismaService.txClient().oAuthApp.deleteMany({
       where: {
         createdBy: userId,
