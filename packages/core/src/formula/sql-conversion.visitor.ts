@@ -156,8 +156,9 @@ abstract class BaseSqlConversionVisitor<
 
     const expression = fieldInfo.getExpression();
 
+    // If no expression is found, fall back to normal field reference
     if (!expression) {
-      throw new Error(`No expression found for formula field ${fieldId}`);
+      return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
     }
 
     // Add to expansion stack to detect circular references

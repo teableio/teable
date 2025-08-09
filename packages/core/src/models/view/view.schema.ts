@@ -38,7 +38,7 @@ export const viewVoSchema = z.object({
   type: z.nativeEnum(ViewType),
   description: z.string().optional(),
   order: z.number().optional(),
-  options: viewOptionsSchema.optional(),
+  options: z.lazy(() => viewOptionsSchema.optional()),
   sort: sortSchema.optional(),
   filter: filterSchema.optional(),
   group: groupSchema.optional(),

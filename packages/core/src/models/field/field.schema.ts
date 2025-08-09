@@ -81,25 +81,29 @@ export const unionFieldOptions = z.union([
   buttonFieldOptionsSchema.strict(),
 ]);
 
-export const unionFieldOptionsVoSchema = z.union([
-  unionFieldOptions,
-  linkFieldOptionsSchema.strict(),
-  selectFieldOptionsSchema.strict(),
-  numberFieldOptionsSchema.strict(),
-  autoNumberFieldOptionsSchema.strict(),
-  createdTimeFieldOptionsSchema.strict(),
-  lastModifiedTimeFieldOptionsSchema.strict(),
-]);
+export const unionFieldOptionsVoSchema = z.lazy(() =>
+  z.union([
+    unionFieldOptions,
+    linkFieldOptionsSchema.strict(),
+    selectFieldOptionsSchema.strict(),
+    numberFieldOptionsSchema.strict(),
+    autoNumberFieldOptionsSchema.strict(),
+    createdTimeFieldOptionsSchema.strict(),
+    lastModifiedTimeFieldOptionsSchema.strict(),
+  ])
+);
 
-export const unionFieldOptionsRoSchema = z.union([
-  unionFieldOptions,
-  linkFieldOptionsRoSchema.strict(),
-  selectFieldOptionsRoSchema.strict(),
-  numberFieldOptionsRoSchema.strict(),
-  autoNumberFieldOptionsRoSchema.strict(),
-  createdTimeFieldOptionsRoSchema.strict(),
-  lastModifiedTimeFieldOptionsRoSchema.strict(),
-]);
+export const unionFieldOptionsRoSchema = z.lazy(() =>
+  z.union([
+    unionFieldOptions,
+    linkFieldOptionsRoSchema.strict(),
+    selectFieldOptionsRoSchema.strict(),
+    numberFieldOptionsRoSchema.strict(),
+    autoNumberFieldOptionsRoSchema.strict(),
+    createdTimeFieldOptionsRoSchema.strict(),
+    lastModifiedTimeFieldOptionsRoSchema.strict(),
+  ])
+);
 
 export const commonOptionsSchema = z.object({
   showAs: unionShowAsSchema.optional(),
@@ -109,7 +113,7 @@ export const commonOptionsSchema = z.object({
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
 export type IFieldOptionsVo = z.infer<typeof unionFieldOptionsVoSchema>;
 
-export const unionFieldMetaVoSchema = formulaFieldMetaSchema.optional();
+export const unionFieldMetaVoSchema = z.lazy(() => formulaFieldMetaSchema.optional());
 
 export type IFieldMetaVo = z.infer<typeof unionFieldMetaVoSchema>;
 
