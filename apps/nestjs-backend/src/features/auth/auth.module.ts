@@ -18,6 +18,7 @@ import { SocialModule } from './social/social.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
+import { DeleteUserModule } from '../user/delete-user/delete-user.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SessionStrategy } from './strategies/session.strategy';
       inject: [authConfig.KEY],
     }),
     StorageModule,
+    DeleteUserModule,
   ],
   providers: [
     AuthService,
