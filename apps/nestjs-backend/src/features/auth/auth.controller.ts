@@ -22,10 +22,10 @@ import { EmitControllerEvent } from '../../event-emitter/decorators/emit-control
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { DeleteUserService } from '../user/delete-user/delete-user.service';
 import { AuthService } from './auth.service';
 import { TokenAccess } from './decorators/token.decorator';
 import { SessionService } from './session/session.service';
-import { DeleteUserService } from '../user/delete-user/delete-user.service';
 
 @Controller('api/auth')
 export class AuthController {
