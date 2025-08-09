@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
-import type { IFieldRo } from '@teable/core';
+import type { IFieldRo, IFieldVo } from '@teable/core';
 import { FieldType, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -8,11 +8,12 @@ import type {
   IInplaceImportOptionRo,
   ITableFullVo,
 } from '@teable/openapi';
-import { difference } from 'lodash';
+import { chunk, difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
+import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
@@ -22,6 +23,9 @@ import {
   TABLE_IMPORT_CSV_CHUNK_QUEUE,
 } from './import-csv-chunk.processor';
 import { importerFactory } from './import.class';
+
+const maxFieldsLength = 500;
+const maxFieldsChunkSize = 30;
 
 @Injectable()
 export class ImportOpenApiService {
@@ -33,7 +37,8 @@ export class ImportOpenApiService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly notificationService: NotificationService,
     private readonly shareDbService: ShareDbService,
-    private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor
+    private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
+    private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
   async analyze(analyzeRo: IAnalyzeRo) {
@@ -86,14 +91,7 @@ export class ImportOpenApiService {
       let table: ITableFullVo;
 
       try {
-        // create table with column
-        table = await this.tableOpenApiService.createTable(baseId, {
-          name: name,
-          fields: fieldsRo,
-          views: DEFAULT_VIEWS,
-          records: [],
-        });
-
+        table = await this.createSingleTable(baseId, name, fieldsRo);
         tableResult.push(table);
       } catch (e) {
         this.logger.error(e);
@@ -138,6 +136,44 @@ export class ImportOpenApiService {
       }
     }
     return tableResult;
+  }
+
+  async createSingleTable(baseId: string, name: string, fieldsRo: IFieldRo[]) {
+    const length = fieldsRo.length;
+
+    if (length > maxFieldsLength) {
+      throw new BadRequestException(
+        `The number of fields in the table cannot exceed ${maxFieldsLength}`
+      );
+    }
+
+    const chunkFields = chunk(fieldsRo, maxFieldsChunkSize) as IFieldRo[][];
+
+    let tableId: string | undefined;
+
+    for (const chunk of chunkFields) {
+      if (!tableId) {
+        const table = await this.tableOpenApiService.createTable(baseId, {
+          name,
+          fields: chunk,
+          views: DEFAULT_VIEWS,
+          records: [],
+        });
+        tableId = table.id;
+        continue;
+      }
+
+      for (const field of chunk) {
+        await this.fieldOpenApiService.createField(tableId, field);
+      }
+    }
+
+    const table = (await this.tableOpenApiService.getTable(baseId, tableId!)) as ITableFullVo;
+    const fields = await this.fieldOpenApiService.getFields(tableId!, {});
+
+    table.fields = fields;
+
+    return table;
   }
 
   async inplaceImportTable(

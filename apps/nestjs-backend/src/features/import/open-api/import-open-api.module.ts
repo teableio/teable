@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ShareDbModule } from '../../../share-db/share-db.module';
+import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { NotificationModule } from '../../notification/notification.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { TableOpenApiModule } from '../../table/open-api/table-open-api.module';
@@ -14,6 +15,7 @@ import { ImportOpenApiService } from './import-open-api.service';
     NotificationModule,
     ShareDbModule,
     ImportCsvChunkModule,
+    FieldOpenApiModule,
   ],
   controllers: [ImportController],
   providers: [ImportOpenApiService],
