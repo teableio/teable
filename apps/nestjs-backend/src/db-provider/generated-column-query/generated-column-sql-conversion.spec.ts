@@ -558,43 +558,43 @@ describe('Generated Column Query End-to-End Tests', () => {
     it('should use numeric addition for number + number', () => {
       const expression = '{fld1} + {fld3}'; // number + number
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('("column_a" + "column_c")');
+      expect(result.sql).toMatchInlineSnapshot(`"("column_a" + "column_c")"`);
     });
 
     it('should use string concatenation for string + string', () => {
       const expression = '{fld2} + {fld4}'; // string + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('("column_b" || "column_d")');
+      expect(result.sql).toMatchInlineSnapshot(`"("column_b"::text || "column_d"::text)"`);
     });
 
     it('should use string concatenation for string + number', () => {
       const expression = '{fld2} + {fld1}'; // string + number
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('("column_b" || "column_a")');
+      expect(result.sql).toMatchInlineSnapshot(`"("column_b"::text || "column_a"::text)"`);
     });
 
     it('should use string concatenation for number + string', () => {
       const expression = '{fld1} + {fld2}'; // number + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('("column_a" || "column_b")');
+      expect(result.sql).toMatchInlineSnapshot(`"("column_a"::text || "column_b"::text)"`);
     });
 
     it('should use string concatenation for string literal + field', () => {
       const expression = '"Hello " + {fld2}'; // string literal + string field
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('(\'Hello \' || "column_b")');
+      expect(result.sql).toMatchInlineSnapshot(`"('Hello '::text || "column_b"::text)"`);
     });
 
     it('should use numeric addition for number literal + number field', () => {
       const expression = '10 + {fld1}'; // number literal + number field
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('(10 + "column_a")');
+      expect(result.sql).toMatchInlineSnapshot(`"(10 + "column_a")"`);
     });
 
     it('should use string concatenation for string literal + number field', () => {
       const expression = '"Value: " + {fld1}'; // string literal + number field
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('(\'Value: \' || "column_a")');
+      expect(result.sql).toMatchInlineSnapshot(`"('Value: '::text || "column_a"::text)"`);
     });
   });
 
@@ -602,19 +602,19 @@ describe('Generated Column Query End-to-End Tests', () => {
     it('should use numeric addition for number + number', () => {
       const expression = '{fld1} + {fld3}'; // number + number
       const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
-      expect(result.sql).toBe('(`column_a` + `column_c`)');
+      expect(result.sql).toMatchInlineSnapshot(`"(\`column_a\` + \`column_c\`)"`);
     });
 
     it('should use string concatenation for string + string', () => {
       const expression = '{fld2} + {fld4}'; // string + string
       const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
-      expect(result.sql).toBe('(`column_b` || `column_d`)');
+      expect(result.sql).toMatchInlineSnapshot(`"(\`column_b\` || \`column_d\`)"`);
     });
 
     it('should use string concatenation for string + number', () => {
       const expression = '{fld2} + {fld1}'; // string + number
       const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
-      expect(result.sql).toBe('(`column_b` || `column_a`)');
+      expect(result.sql).toMatchInlineSnapshot(`"(\`column_b\` || \`column_a\`)"`);
     });
   });
 
@@ -623,21 +623,23 @@ describe('Generated Column Query End-to-End Tests', () => {
       // Example: Concatenate a label with a number
       const expression = '"Total: " + {fld1}'; // string + number
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('(\'Total: \' || "column_a")');
+      expect(result.sql).toMatchInlineSnapshot(`"('Total: '::text || "column_a"::text)"`);
     });
 
     it('should handle pure numeric calculations', () => {
       // Example: Calculate percentage
       const expression = '({fld1} + {fld3}) * 100'; // (number + number) * number
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('((("column_a" + "column_c")) * 100)');
+      expect(result.sql).toMatchInlineSnapshot(`"((("column_a" + "column_c")) * 100)"`);
     });
 
     it('should handle string concatenation with multiple fields', () => {
       // Example: Create full name
       const expression = '{fld2} + " " + {fld4}'; // string + string + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toBe('(("column_b" || \' \') || "column_d")');
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(("column_b"::text || ' '::text)::text || "column_d"::text)"`
+      );
     });
   });
 
@@ -940,7 +942,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       };
 
       const result = convertFormulaToSQL('{fld1} + "test"', minimalContext, 'postgres');
-      expect(result.sql).toBe('("col1" || \'test\')');
+      expect(result.sql).toMatchInlineSnapshot(`"("col1"::text || 'test'::text)"`);
       expect(result.dependencies).toEqual(['fld1']);
     });
   });

@@ -14,7 +14,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
   "dependencies": [
     "textField",
   ],
-  "sql": "("text_col" || "text_col")",
+  "sql": "("text_col"::text || "text_col"::text)",
 }
 `;
 
@@ -24,7 +24,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
     "textField",
     "numField",
   ],
-  "sql": "("text_col" || "num_col")",
+  "sql": "("text_col"::text || "num_col"::text)",
 }
 `;
 
@@ -34,7 +34,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
     "numField",
     "textField",
   ],
-  "sql": "("num_col" || "text_col")",
+  "sql": "("num_col"::text || "text_col"::text)",
 }
 `;
 
@@ -54,7 +54,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
     "dateField",
     "textField",
   ],
-  "sql": "("date_col" || "text_col")",
+  "sql": "("date_col"::text || "text_col"::text)",
 }
 `;
 
@@ -71,7 +71,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should handl
     "fld1",
     "fld2",
   ],
-  "sql": "(("column_a" || "column_b"))",
+  "sql": "(("column_a"::text || "column_b"::text))",
 }
 `;
 
@@ -101,7 +101,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should handl
     "fld1",
     "fld3",
   ],
-  "sql": "("column_a" & "column_c")",
+  "sql": "("column_a"::text || "column_c"::text)",
 }
 `;
 
