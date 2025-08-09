@@ -1,4 +1,4 @@
-import { Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { Code, Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
 import { useBasePermission } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
@@ -39,6 +39,12 @@ export const BaseSideBar = () => {
   }[] = useMemo(
     () =>
       [
+        {
+          href: `/base/${baseId}/app`,
+          label: t('common:noun.app'),
+          Icon: Code,
+          hidden: !basePermission?.['base|read'],
+        },
         {
           href: `/base/${baseId}/dashboard`,
           label: t('common:noun.dashboard'),

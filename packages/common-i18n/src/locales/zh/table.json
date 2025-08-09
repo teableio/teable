@@ -659,6 +659,16 @@
       "toBeConfirmed": "待确认",
       "errorMessage": "错误信息"
     },
+    "tools": {
+      "getTeableApi": "获取 Teable API",
+      "readFiles": "读取文件",
+      "writeFile": "写入文件",
+      "deleteFiles": "删除文件",
+      "listFiles": "列出文件",
+      "addDependencies": "添加依赖",
+      "checkBuildErrors": "检查构建错误",
+      "lint": "代码检查"
+    },
     "fallback": {
       "previewLoadFailed": "参数错误",
       "retry": "重试 {{count}} 次"
@@ -707,13 +717,45 @@
       "generateTrigger": "生成触发器",
       "generateScriptAction": "生成 script 节点",
       "generateSendMailAction": "生成发送邮件节点",
-      "generateAction": "生成节点"
+      "generateAction": "生成节点",
+
+      "initialize": "初始化环境",
+      "rename": "生成应用名称",
+      "buildTest": "构建测试",
+      "developTask": "开发任务",
+      "generateSummary": "生成总结",
+      "previewEnvironment": "准备预览环境"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
       "collapseCode": "收起代码",
       "code": "代码",
       "preview": "预览"
+    },
+    "buildFlow": {
+      "progress": "构建进度",
+      "completed": "应用构建完成",
+      "completedDesc": "所有步骤已成功完成，应用已准备好预览",
+      "stepStatus": {
+        "initializing": "正在初始化环境...",
+        "naming": "正在生成应用名称...",
+        "planning": "正在分析需求并制定开发计划...",
+        "developing": "正在编写代码和实现功能...",
+        "summarizing": "正在整理开发结果...",
+        "deploying": "正在部署到预览环境...",
+        "testing": "正在构建测试..."
+      },
+      "moduleStatus": {
+        "running": "执行中",
+        "completed": "已完成",
+        "error": "执行失败",
+        "pending": "等待中"
+      },
+      "toolStatus": {
+        "running": "执行中",
+        "completed": "已完成",
+        "error": "执行失败"
+      }
     },
     "newChat": "新对话",
     "noModel": "暂无可用模型",

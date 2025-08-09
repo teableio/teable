@@ -523,7 +523,8 @@
     "plugin": "插件",
     "copy": "副本",
     "credits": "算力",
-    "aiChat": "AI 对话"
+    "aiChat": "AI 对话",
+    "app": "应用"
   },
   "level": {
     "free": "免费版",

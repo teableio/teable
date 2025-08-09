@@ -659,6 +659,16 @@
       "toBeConfirmed": "To be confirmed",
       "errorMessage": "Error message"
     },
+    "tools": {
+      "getTeableApi": "Get Teable API",
+      "readFiles": "Read Files",
+      "writeFile": "Write File",
+      "deleteFiles": "Delete Files",
+      "listFiles": "List Files",
+      "addDependencies": "Add Dependencies",
+      "checkBuildErrors": "Check Build Errors",
+      "lint": "Lint Code"
+    },
     "fallback": {
       "previewLoadFailed": "Preview load failed",
       "retry": "Retry {{count}} time"
@@ -707,13 +717,44 @@
       "generateTrigger": "Generate trigger",
       "generateScriptAction": "Generate script action node",
       "generateSendMailAction": "Generate send mail action node",
-      "generateAction": "Generate action node"
+      "generateAction": "Generate action node",
+      "initialize": "Initialize environment",
+      "rename": "Generate app name",
+      "buildTest": "Build test",
+      "developTask": "Develop task",
+      "generateSummary": "Generate summary",
+      "previewEnvironment": "Prepare preview environment"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
       "collapseCode": "Collapse code",
       "code": "Code",
       "preview": "Preview"
+    },
+    "buildFlow": {
+      "progress": "Build Progress",
+      "completed": "App Build Completed",
+      "completedDesc": "All steps completed successfully, app is ready for preview",
+      "stepStatus": {
+        "initializing": "Creating app and initializing environment...",
+        "naming": "Generating app name...",
+        "planning": "Analyzing requirements and planning development...",
+        "developing": "Writing code and implementing features...",
+        "summarizing": "Organizing development results...",
+        "deploying": "Deploying to preview environment...",
+        "testing": "Building test..."
+      },
+      "moduleStatus": {
+        "running": "Running",
+        "completed": "Completed",
+        "error": "Failed",
+        "pending": "Pending"
+      },
+      "toolStatus": {
+        "running": "Running",
+        "completed": "Completed",
+        "error": "Failed"
+      }
     },
     "newChat": "New Chat",
     "noModel": "No available models",
