@@ -32,6 +32,7 @@ import {
   generateChoiceId,
   generateFieldId,
   getAiConfigSchema,
+  getDbFieldType,
   getDefaultFormatting,
   getFormattingSchema,
   getRandomString,
@@ -51,7 +52,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { uniq, keyBy, mergeWith } from 'lodash';
+import { uniq, keyBy, mergeWith, get } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -519,39 +520,7 @@ export class FieldSupplementService {
     cellValueType: CellValueType,
     isMultipleCellValue?: boolean
   ) {
-    if (isMultipleCellValue) {
-      return DbFieldType.Json;
-    }
-
-    if (
-      [
-        FieldType.Link,
-        FieldType.User,
-        FieldType.Attachment,
-        FieldType.Button,
-        FieldType.CreatedBy,
-        FieldType.LastModifiedBy,
-      ].includes(fieldType)
-    ) {
-      return DbFieldType.Json;
-    }
-
-    if (fieldType === FieldType.AutoNumber) {
-      return DbFieldType.Integer;
-    }
-
-    switch (cellValueType) {
-      case CellValueType.Number:
-        return DbFieldType.Real;
-      case CellValueType.DateTime:
-        return DbFieldType.DateTime;
-      case CellValueType.Boolean:
-        return DbFieldType.Boolean;
-      case CellValueType.String:
-        return DbFieldType.Text;
-      default:
-        assertNever(cellValueType);
-    }
+    return getDbFieldType(fieldType, cellValueType, isMultipleCellValue);
   }
 
   prepareFormattingShowAs(

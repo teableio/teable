@@ -2,6 +2,7 @@ import type { SafeParseReturnType } from 'zod';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { IFieldVisitor } from './field-visitor.interface';
 import type { IFieldVo, ILookupOptionsVo } from './field.schema';
+import { getDbFieldType } from './utils/get-db-field-type';
 
 export abstract class FieldCore implements IFieldVo {
   id!: string;
@@ -86,6 +87,13 @@ export abstract class FieldCore implements IFieldVo {
   abstract validateOptions(): SafeParseReturnType<unknown, unknown> | undefined;
 
   abstract validateCellValue(value: unknown): SafeParseReturnType<unknown, unknown> | undefined;
+
+  /**
+   * Updates the dbFieldType based on the current field type, cellValueType, and isMultipleCellValue
+   */
+  updateDbFieldType(): void {
+    this.dbFieldType = getDbFieldType(this.type, this.cellValueType, this.isMultipleCellValue);
+  }
 
   /**
    * Accept method for the Visitor pattern.

@@ -606,6 +606,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       await updateRecordByApi(table1.id, table1.records[0].id, aField.id, 1);
 
+      // convert B field to formula field
       await convertField(table1.id, bField.id, {
         type: FieldType.Formula,
         options: {

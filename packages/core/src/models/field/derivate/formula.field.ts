@@ -137,6 +137,23 @@ export class FormulaFieldCore extends FormulaAbstractCore {
     return this.meta?.persistedAsGeneratedColumn || false;
   }
 
+  /**
+   * Recalculates and updates the cellValueType, isMultipleCellValue, and dbFieldType for this formula field
+   * based on its expression and the current field context
+   * @param fieldMap Map of field ID to field instance for context
+   */
+  recalculateFieldTypes(fieldMap: Record<string, FieldCore>): void {
+    const { cellValueType, isMultipleCellValue } = FormulaFieldCore.getParsedValueType(
+      this.options.expression,
+      fieldMap
+    );
+
+    this.cellValueType = cellValueType;
+    this.isMultipleCellValue = isMultipleCellValue;
+    // Update dbFieldType using the base class method
+    this.updateDbFieldType();
+  }
+
   validateOptions() {
     return z
       .object({

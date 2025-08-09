@@ -1,7 +1,10 @@
 import { match } from 'ts-pattern';
-import type { IFunctionCallInfo } from './function-call-collector.visitor';
+import {
+  FunctionCallCollectorVisitor,
+  type IFunctionCallInfo,
+} from './function-call-collector.visitor';
 import type { IGeneratedColumnQuerySupportValidator } from './function-convertor.interface';
-import { parseFormula, FunctionCallCollectorVisitor } from './index';
+import { parseFormula } from './parse-formula';
 
 /**
  * Validates whether a formula expression is supported for generated column creation
