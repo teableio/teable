@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { generateAccountId, HttpErrorCode } from '@teable/core';
+import { DriverClient, generateAccountId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   CreateAccessTokenVo,
@@ -549,148 +549,154 @@ describe('Auth Controller (e2e)', () => {
     };
   };
 
-  it('api/auth/delete-user - need confirm', async () => {
-    const userAxios = await createNewUserAxios({
-      email: 'delete-user@test-delete-user.com',
-      password: '12345678',
-    });
-    const error = await getError(() => userAxios.delete(DELETE_USER));
-    expect(error?.status).toBe(400);
-    expect(error?.message).toContain('confirm');
-    const error2 = await getError(() =>
-      userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE1' } })
-    );
-    expect(error2?.status).toBe(400);
-    expect(error2?.message).toContain('Please enter DELETE to confirm');
-  });
-
-  it('api/auth/delete-user', async () => {
-    await prismaService.user.deleteMany({
-      where: {
+  it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+    'api/auth/delete-user - need confirm',
+    async () => {
+      const userAxios = await createNewUserAxios({
         email: 'delete-user@test-delete-user.com',
-      },
-    });
-    const userAxios = await createNewUserAxios({
-      email: 'delete-user@test-delete-user.com',
-      password: '12345678',
-    });
-    const testData = await createTestDataForDeleteUser(userAxios, prismaService);
-    const error = await getError(() =>
-      userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE' } })
-    );
-    expect(error?.status).toBe(400);
-    const errorData = error?.data as IDeleteUserErrorData;
-    expect(errorData.spaces.length).toBe(3);
-    expect(errorData.spaces).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: testData.deleteSpaceId,
-          deletedTime: expect.any(String),
-        }),
-        expect.objectContaining({
-          id: testData.spaceId,
-          deletedTime: null,
-        }),
-      ])
-    );
-    for (const space of errorData.spaces) {
-      const spaceRes = await userAxios.delete(
-        urlBuilder(PERMANENT_DELETE_SPACE, { spaceId: space.id })
+        password: '12345678',
+      });
+      const error = await getError(() => userAxios.delete(DELETE_USER));
+      expect(error?.status).toBe(400);
+      expect(error?.message).toContain('confirm');
+      const error2 = await getError(() =>
+        userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE1' } })
       );
-      expect(spaceRes.status).toBe(200);
+      expect(error2?.status).toBe(400);
+      expect(error2?.message).toContain('Please enter DELETE to confirm');
     }
-    const res = await userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE' } });
-    expect(res.status).toBe(200);
-    // validate data
-    // token
-    const tokenRes = await prismaService.accessToken.findFirst({
-      where: {
-        id: testData.accessTokenId,
-      },
-    });
-    expect(tokenRes).toBeNull();
-    // account
-    const accountRes = await prismaService.account.findFirst({
-      where: {
-        id: testData.accessTokenId,
-      },
-    });
-    expect(accountRes).toBeNull();
-    // comment subscribe
-    const commentSubscribeRes = await prismaService.commentSubscription.findFirst({
-      where: {
-        createdBy: testData.userId,
-      },
-    });
-    expect(commentSubscribeRes).toBeNull();
-    // invitation
-    const invitationRes = await prismaService.invitation.findFirst({
-      where: {
-        id: testData.invitationId,
-      },
-    });
-    expect(invitationRes).toBeNull();
-    // invitation record
-    const invitationRecordRes = await prismaService.invitationRecord.findFirst({
-      where: {
-        id: testData.invitationRecordId,
-      },
-    });
-    expect(invitationRecordRes).toBeNull();
-    // OAuthApp
-    const oauthAppRes = await prismaService.oAuthApp.findFirst({
-      where: {
-        clientId: testData.oauthAppClientId,
-      },
-    });
-    expect(oauthAppRes).toBeNull();
-    // OAuthAppSecret
-    const oauthAppSecretRes = await prismaService.oAuthAppSecret.findFirst({
-      where: {
-        id: testData.oauthAppSecretId,
-      },
-    });
-    expect(oauthAppSecretRes).toBeNull();
-    // OAuthAppToken
-    const oauthAppTokenRes = await prismaService.oAuthAppToken.findFirst({
-      where: {
-        appSecretId: testData.oauthAppSecretId,
-      },
-    });
-    expect(oauthAppTokenRes).toBeNull();
-    // pin space
-    const pinSpaceRes = await prismaService.pinResource.findFirst({
-      where: {
-        resourceId: testData.pinSpaceId,
-      },
-    });
-    expect(pinSpaceRes).toBeNull();
-    // plugin
-    const developingPluginRes = await prismaService.plugin.findFirst({
-      where: {
-        id: testData.developingPluginId,
-      },
-    });
-    expect(developingPluginRes).toBeNull();
-    const publishedPluginRes = await prismaService.plugin.findFirst({
-      where: {
-        id: testData.publishedPluginId,
-      },
-    });
-    expect(publishedPluginRes).toBeDefined();
-    // user
-    const userRes = await prismaService.user.findFirst({
-      where: {
-        id: testData.userId,
-        name: 'Deleted User',
-        permanentDeletedTime: {
-          not: null,
+  );
+
+  it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+    'api/auth/delete-user',
+    async () => {
+      await prismaService.user.deleteMany({
+        where: {
+          email: 'delete-user@test-delete-user.com',
         },
-        deletedTime: {
-          not: null,
+      });
+      const userAxios = await createNewUserAxios({
+        email: 'delete-user@test-delete-user.com',
+        password: '12345678',
+      });
+      const testData = await createTestDataForDeleteUser(userAxios, prismaService);
+      const error = await getError(() =>
+        userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE' } })
+      );
+      expect(error?.status).toBe(400);
+      const errorData = error?.data as IDeleteUserErrorData;
+      expect(errorData.spaces.length).toBe(3);
+      expect(errorData.spaces).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: testData.deleteSpaceId,
+            deletedTime: expect.any(String),
+          }),
+          expect.objectContaining({
+            id: testData.spaceId,
+            deletedTime: null,
+          }),
+        ])
+      );
+      for (const space of errorData.spaces) {
+        const spaceRes = await userAxios.delete(
+          urlBuilder(PERMANENT_DELETE_SPACE, { spaceId: space.id })
+        );
+        expect(spaceRes.status).toBe(200);
+      }
+      const res = await userAxios.delete(DELETE_USER, { params: { confirm: 'DELETE' } });
+      expect(res.status).toBe(200);
+      // validate data
+      // token
+      const tokenRes = await prismaService.accessToken.findFirst({
+        where: {
+          id: testData.accessTokenId,
         },
-      },
-    });
-    expect(userRes).toBeDefined();
-  });
+      });
+      expect(tokenRes).toBeNull();
+      // account
+      const accountRes = await prismaService.account.findFirst({
+        where: {
+          id: testData.accessTokenId,
+        },
+      });
+      expect(accountRes).toBeNull();
+      // comment subscribe
+      const commentSubscribeRes = await prismaService.commentSubscription.findFirst({
+        where: {
+          createdBy: testData.userId,
+        },
+      });
+      expect(commentSubscribeRes).toBeNull();
+      // invitation
+      const invitationRes = await prismaService.invitation.findFirst({
+        where: {
+          id: testData.invitationId,
+        },
+      });
+      expect(invitationRes).toBeNull();
+      // invitation record
+      const invitationRecordRes = await prismaService.invitationRecord.findFirst({
+        where: {
+          id: testData.invitationRecordId,
+        },
+      });
+      expect(invitationRecordRes).toBeNull();
+      // OAuthApp
+      const oauthAppRes = await prismaService.oAuthApp.findFirst({
+        where: {
+          clientId: testData.oauthAppClientId,
+        },
+      });
+      expect(oauthAppRes).toBeNull();
+      // OAuthAppSecret
+      const oauthAppSecretRes = await prismaService.oAuthAppSecret.findFirst({
+        where: {
+          id: testData.oauthAppSecretId,
+        },
+      });
+      expect(oauthAppSecretRes).toBeNull();
+      // OAuthAppToken
+      const oauthAppTokenRes = await prismaService.oAuthAppToken.findFirst({
+        where: {
+          appSecretId: testData.oauthAppSecretId,
+        },
+      });
+      expect(oauthAppTokenRes).toBeNull();
+      // pin space
+      const pinSpaceRes = await prismaService.pinResource.findFirst({
+        where: {
+          resourceId: testData.pinSpaceId,
+        },
+      });
+      expect(pinSpaceRes).toBeNull();
+      // plugin
+      const developingPluginRes = await prismaService.plugin.findFirst({
+        where: {
+          id: testData.developingPluginId,
+        },
+      });
+      expect(developingPluginRes).toBeNull();
+      const publishedPluginRes = await prismaService.plugin.findFirst({
+        where: {
+          id: testData.publishedPluginId,
+        },
+      });
+      expect(publishedPluginRes).toBeDefined();
+      // user
+      const userRes = await prismaService.user.findFirst({
+        where: {
+          id: testData.userId,
+          name: 'Deleted User',
+          permanentDeletedTime: {
+            not: null,
+          },
+          deletedTime: {
+            not: null,
+          },
+        },
+      });
+      expect(userRes).toBeDefined();
+    }
+  );
 });
