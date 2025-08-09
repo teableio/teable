@@ -661,13 +661,31 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       } else if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
         // Direct join for many-to-one and one-to-one relationships
         // No GROUP BY needed for single-value relationships
-        qb.select(selectColumns)
-          .from(`${mainTableName} as ${mainAlias}`)
-          .leftJoin(
+
+        // For OneOne and ManyOne relationships, the foreign key is always stored in fkHostTableName
+        // But we need to determine the correct join condition based on which table we're querying from
+        const isForeignKeyInMainTable = fkHostTableName === mainTableName;
+
+        qb.select(selectColumns).from(`${mainTableName} as ${mainAlias}`);
+
+        if (isForeignKeyInMainTable) {
+          // Foreign key is stored in the main table (original field case)
+          // Join: main_table.foreign_key_column = foreign_table.__id
+          qb.leftJoin(
             `${foreignTableName} as ${foreignAlias}`,
             `${mainAlias}.${foreignKeyName}`,
             `${foreignAlias}.__id`
           );
+        } else {
+          // Foreign key is stored in the foreign table (symmetric field case)
+          // Join: foreign_table.foreign_key_column = main_table.__id
+          // Note: for symmetric fields, selfKeyName and foreignKeyName are swapped
+          qb.leftJoin(
+            `${foreignTableName} as ${foreignAlias}`,
+            `${foreignAlias}.${selfKeyName}`,
+            `${mainAlias}.__id`
+          );
+        }
       }
     };
 
