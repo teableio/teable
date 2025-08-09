@@ -525,7 +525,398 @@ describe('Basic Link Field (e2e)', () => {
     });
   });
 
-  describe('ManyMany relationship basic test', () => {
+  describe('OneOne TwoWay relationship - MAIN TEST CASE', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let linkField1: IFieldVo;
+    let linkField2: IFieldVo;
+
+    beforeEach(async () => {
+      // Create table1 (Users)
+      const textFieldRo: IFieldRo = {
+        name: 'Name',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        name: 'Users',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Alice' } }, { fields: { Name: 'Bob' } }],
+      });
+
+      // Create table2 (Profiles)
+      table2 = await createTable(baseId, {
+        name: 'Profiles',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Profile A' } }, { fields: { Name: 'Profile B' } }],
+      });
+
+      // Create OneOne TwoWay link field from table1 to table2
+      // NOTE: Not setting isOneWay: true, so this creates a bidirectional relationship
+      const linkFieldRo: IFieldRo = {
+        name: 'Profile',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          // isOneWay: false (default) - creates symmetric field
+        },
+      };
+
+      linkField1 = await createField(table1.id, linkFieldRo);
+
+      // Get the symmetric field in table2
+      const linkOptions = linkField1.options as any;
+      expect(linkOptions.symmetricFieldId).toBeDefined();
+      linkField2 = await getField(table2.id, linkOptions.symmetricFieldId);
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create OneOne TwoWay relationship and verify bidirectional linking', async () => {
+      // Link Alice to Profile A
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, {
+        id: table2.records[0].id,
+      });
+
+      // Link Bob to Profile B
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField1.id, {
+        id: table2.records[1].id,
+      });
+
+      // Verify table1 records show correct links
+      const table1Records = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      expect(table1Records.records).toHaveLength(2);
+
+      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
+      expect(alice?.fields[linkField1.name]).toEqual(
+        expect.objectContaining({ title: 'Profile A' })
+      );
+
+      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
+      expect(bob?.fields[linkField1.name]).toEqual(expect.objectContaining({ title: 'Profile B' }));
+
+      // CRITICAL TEST: Verify table2 records show correct symmetric links
+      // This is where the bug should manifest - table2 symmetric field data should be empty
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      expect(table2Records.records).toHaveLength(2);
+
+      // Profile A should link back to Alice
+      const profileA = table2Records.records.find((r) => r.id === table2.records[0].id);
+      console.log('Profile A symmetric field data:', profileA?.fields[linkField2.id]);
+      expect(profileA?.fields[linkField2.id]).toEqual(
+        expect.objectContaining({ id: table1.records[0].id })
+      );
+
+      // Profile B should link back to Bob
+      const profileB = table2Records.records.find((r) => r.id === table2.records[1].id);
+      console.log('Profile B symmetric field data:', profileB?.fields[linkField2.id]);
+      expect(profileB?.fields[linkField2.id]).toEqual(
+        expect.objectContaining({ id: table1.records[1].id })
+      );
+    });
+
+    it('should handle empty OneOne TwoWay relationship', async () => {
+      // No links established, verify both sides are empty
+      const table1Records = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
+      expect(alice?.fields[linkField1.name]).toBeUndefined();
+
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const profileA = table2Records.records.find((r) => r.id === table2.records[0].id);
+      expect(profileA?.fields[linkField2.id]).toBeUndefined();
+    });
+  });
+
+  describe('OneOne OneWay relationship', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let linkField1: IFieldVo;
+
+    beforeEach(async () => {
+      // Create table1 (Users)
+      const textFieldRo: IFieldRo = {
+        name: 'Name',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        name: 'Users',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Alice' } }, { fields: { Name: 'Bob' } }],
+      });
+
+      // Create table2 (Profiles)
+      table2 = await createTable(baseId, {
+        name: 'Profiles',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Profile A' } }, { fields: { Name: 'Profile B' } }],
+      });
+
+      // Create OneOne OneWay link field from table1 to table2
+      const linkFieldRo: IFieldRo = {
+        name: 'Profile',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneOne,
+          foreignTableId: table2.id,
+          isOneWay: true, // No symmetric field created
+        },
+      };
+
+      linkField1 = await createField(table1.id, linkFieldRo);
+
+      // Verify no symmetric field was created
+      const linkOptions = linkField1.options as any;
+      expect(linkOptions.symmetricFieldId).toBeUndefined();
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create OneOne OneWay relationship and verify unidirectional linking', async () => {
+      // Link Alice to Profile A
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, {
+        id: table2.records[0].id,
+      });
+
+      // Verify table1 records show correct links
+      const table1Records = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
+      expect(alice?.fields[linkField1.name]).toEqual(
+        expect.objectContaining({ title: 'Profile A' })
+      );
+
+      // Verify table2 has no link fields (one-way relationship)
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const profileA = table2Records.records.find((r) => r.fields.Name === 'Profile A');
+      // Should not have any link field since it's one-way
+      const linkFieldNames = Object.keys(profileA?.fields || {}).filter((key) => key !== 'Name');
+      expect(linkFieldNames).toHaveLength(0);
+    });
+  });
+
+  describe('OneMany OneWay relationship', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let linkField1: IFieldVo;
+
+    beforeEach(async () => {
+      // Create table1 (Projects)
+      const textFieldRo: IFieldRo = {
+        name: 'Name',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        name: 'Projects',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Project A' } }, { fields: { Name: 'Project B' } }],
+      });
+
+      // Create table2 (Tasks)
+      table2 = await createTable(baseId, {
+        name: 'Tasks',
+        fields: [textFieldRo],
+        records: [
+          { fields: { Name: 'Task 1' } },
+          { fields: { Name: 'Task 2' } },
+          { fields: { Name: 'Task 3' } },
+        ],
+      });
+
+      // Create OneMany OneWay link field from table1 to table2
+      const linkFieldRo: IFieldRo = {
+        name: 'Tasks',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true, // No symmetric field created
+        },
+      };
+
+      linkField1 = await createField(table1.id, linkFieldRo);
+
+      // Verify no symmetric field was created
+      const linkOptions = linkField1.options as any;
+      expect(linkOptions.symmetricFieldId).toBeUndefined();
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create OneMany OneWay relationship and verify unidirectional linking', async () => {
+      // Link Project A to multiple tasks
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      // Link Project B to one task
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField1.id, [
+        { id: table2.records[2].id },
+      ]);
+
+      // Verify table1 records show correct links
+      const table1Records = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const projectA = table1Records.records.find((r) => r.fields.Name === 'Project A');
+      expect(projectA?.fields[linkField1.name]).toHaveLength(2);
+      expect(projectA?.fields[linkField1.name]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ title: 'Task 1' }),
+          expect.objectContaining({ title: 'Task 2' }),
+        ])
+      );
+
+      const projectB = table1Records.records.find((r) => r.fields.Name === 'Project B');
+      expect(projectB?.fields[linkField1.name]).toHaveLength(1);
+      expect(projectB?.fields[linkField1.name]).toEqual([
+        expect.objectContaining({ title: 'Task 3' }),
+      ]);
+
+      // Verify table2 has no link fields (one-way relationship)
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const task1 = table2Records.records.find((r) => r.fields.Name === 'Task 1');
+      const linkFieldNames = Object.keys(task1?.fields || {}).filter((key) => key !== 'Name');
+      expect(linkFieldNames).toHaveLength(0);
+    });
+  });
+
+  describe('OneMany TwoWay relationship', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let linkField1: IFieldVo;
+    let linkField2: IFieldVo;
+
+    beforeEach(async () => {
+      // Create table1 (Projects)
+      const textFieldRo: IFieldRo = {
+        name: 'Name',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        name: 'Projects',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Project A' } }, { fields: { Name: 'Project B' } }],
+      });
+
+      // Create table2 (Tasks)
+      table2 = await createTable(baseId, {
+        name: 'Tasks',
+        fields: [textFieldRo],
+        records: [
+          { fields: { Name: 'Task 1' } },
+          { fields: { Name: 'Task 2' } },
+          { fields: { Name: 'Task 3' } },
+        ],
+      });
+
+      // Create OneMany TwoWay link field from table1 to table2
+      const linkFieldRo: IFieldRo = {
+        name: 'Tasks',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          // isOneWay: false (default) - creates symmetric field
+        },
+      };
+
+      linkField1 = await createField(table1.id, linkFieldRo);
+
+      // Get the symmetric field in table2 (should be ManyOne)
+      const linkOptions = linkField1.options as any;
+      expect(linkOptions.symmetricFieldId).toBeDefined();
+      linkField2 = await getField(table2.id, linkOptions.symmetricFieldId);
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create OneMany TwoWay relationship and verify bidirectional linking', async () => {
+      // Link Project A to multiple tasks
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      // Link Project B to one task
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField1.id, [
+        { id: table2.records[2].id },
+      ]);
+
+      // Verify table1 records show correct links
+      const table1Records = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const projectA = table1Records.records.find((r) => r.fields.Name === 'Project A');
+      expect(projectA?.fields[linkField1.name]).toHaveLength(2);
+
+      const projectB = table1Records.records.find((r) => r.fields.Name === 'Project B');
+      expect(projectB?.fields[linkField1.name]).toHaveLength(1);
+
+      // Verify table2 records show correct symmetric links (ManyOne relationship)
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Task 1 should link back to Project A
+      const task1 = table2Records.records.find((r) => r.id === table2.records[0].id);
+      expect(task1?.fields[linkField2.id]).toEqual(
+        expect.objectContaining({ id: table1.records[0].id })
+      );
+
+      // Task 2 should link back to Project A
+      const task2 = table2Records.records.find((r) => r.id === table2.records[1].id);
+      expect(task2?.fields[linkField2.id]).toEqual(
+        expect.objectContaining({ id: table1.records[0].id })
+      );
+
+      // Task 3 should link back to Project B
+      const task3 = table2Records.records.find((r) => r.id === table2.records[2].id);
+      expect(task3?.fields[linkField2.id]).toEqual(
+        expect.objectContaining({ id: table1.records[1].id })
+      );
+    });
+  });
+
+  describe('ManyMany OneWay relationship', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     let linkField1: IFieldVo;
@@ -550,17 +941,22 @@ describe('Basic Link Field (e2e)', () => {
         records: [{ fields: { Name: 'Math' } }, { fields: { Name: 'Science' } }],
       });
 
-      // Create ManyMany link field from table1 to table2
+      // Create ManyMany OneWay link field from table1 to table2
       const linkFieldRo: IFieldRo = {
         name: 'Courses',
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyMany,
           foreignTableId: table2.id,
+          isOneWay: true, // No symmetric field created
         },
       };
 
       linkField1 = await createField(table1.id, linkFieldRo);
+
+      // Verify no symmetric field was created
+      const linkOptions = linkField1.options as any;
+      expect(linkOptions.symmetricFieldId).toBeUndefined();
     });
 
     afterEach(async () => {
@@ -568,28 +964,23 @@ describe('Basic Link Field (e2e)', () => {
       await permanentDeleteTable(baseId, table2.id);
     });
 
-    it('should create ManyMany relationship and verify basic linking', async () => {
+    it('should create ManyMany OneWay relationship and verify unidirectional linking', async () => {
       // Link students to courses
-      // Alice takes Math and Science
       await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, [
         { id: table2.records[0].id },
         { id: table2.records[1].id },
       ]);
 
-      // Bob takes Math
       await updateRecordByApi(table1.id, table1.records[1].id, linkField1.id, [
         { id: table2.records[0].id },
       ]);
 
-      // Get student records and verify
-      const studentRecords = await getRecords(table1.id, {
+      // Verify table1 records show correct links
+      const table1Records = await getRecords(table1.id, {
         fieldKeyType: FieldKeyType.Name,
       });
 
-      expect(studentRecords.records).toHaveLength(2);
-
-      // Alice should have Math and Science
-      const alice = studentRecords.records.find((r) => r.fields.Name === 'Alice');
+      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
       expect(alice?.fields[linkField1.name]).toHaveLength(2);
       expect(alice?.fields[linkField1.name]).toEqual(
         expect.arrayContaining([
@@ -598,10 +989,114 @@ describe('Basic Link Field (e2e)', () => {
         ])
       );
 
-      // Bob should have Math
-      const bob = studentRecords.records.find((r) => r.fields.Name === 'Bob');
+      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
       expect(bob?.fields[linkField1.name]).toHaveLength(1);
       expect(bob?.fields[linkField1.name]).toEqual([expect.objectContaining({ title: 'Math' })]);
+
+      // Verify table2 has no link fields (one-way relationship)
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const math = table2Records.records.find((r) => r.fields.Name === 'Math');
+      const linkFieldNames = Object.keys(math?.fields || {}).filter((key) => key !== 'Name');
+      expect(linkFieldNames).toHaveLength(0);
+    });
+  });
+
+  describe('ManyMany TwoWay relationship', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let linkField1: IFieldVo;
+    let linkField2: IFieldVo;
+
+    beforeEach(async () => {
+      // Create table1 (Students)
+      const textFieldRo: IFieldRo = {
+        name: 'Name',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        name: 'Students',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Alice' } }, { fields: { Name: 'Bob' } }],
+      });
+
+      // Create table2 (Courses)
+      table2 = await createTable(baseId, {
+        name: 'Courses',
+        fields: [textFieldRo],
+        records: [{ fields: { Name: 'Math' } }, { fields: { Name: 'Science' } }],
+      });
+
+      // Create ManyMany TwoWay link field from table1 to table2
+      const linkFieldRo: IFieldRo = {
+        name: 'Courses',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          // isOneWay: false (default) - creates symmetric field
+        },
+      };
+
+      linkField1 = await createField(table1.id, linkFieldRo);
+
+      // Get the symmetric field in table2 (should also be ManyMany)
+      const linkOptions = linkField1.options as any;
+      expect(linkOptions.symmetricFieldId).toBeDefined();
+      linkField2 = await getField(table2.id, linkOptions.symmetricFieldId);
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create ManyMany TwoWay relationship and verify bidirectional linking', async () => {
+      // Link students to courses
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField1.id, [
+        { id: table2.records[0].id },
+      ]);
+
+      // Verify table1 records show correct links
+      const table1Records = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
+      expect(alice?.fields[linkField1.name]).toHaveLength(2);
+
+      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
+      expect(bob?.fields[linkField1.name]).toHaveLength(1);
+
+      // Verify table2 records show correct symmetric links (ManyMany relationship)
+      const table2Records = await getRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Math should link back to both Alice and Bob
+      const math = table2Records.records.find((r) => r.id === table2.records[0].id);
+      expect(math?.fields[linkField2.id]).toHaveLength(2);
+      expect(math?.fields[linkField2.id]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: table1.records[0].id }),
+          expect.objectContaining({ id: table1.records[1].id }),
+        ])
+      );
+
+      // Science should link back to Alice only
+      const science = table2Records.records.find((r) => r.id === table2.records[1].id);
+      expect(science?.fields[linkField2.id]).toHaveLength(1);
+      expect(science?.fields[linkField2.id]).toEqual([
+        expect.objectContaining({ id: table1.records[0].id }),
+      ]);
     });
   });
 });
