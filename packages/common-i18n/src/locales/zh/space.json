@@ -60,6 +60,13 @@
     "addIntegration": "添加集成",
     "ai": "AI"
   },
+  "aiSetting": {
+    "title": "AI 配置",
+    "description": "管理空间 AI 配置",
+    "enableTips": "启用空间 AI 配置后, 将会优先使用空间 AI 配置",
+    "enable": "启用 AI",
+    "enableSwitchTips": "开启前，请配置好大型编码模型"
+  },
   "import": {
     "importing": "导入中",
     "importWayTip": "点击或拖拽文件到此区域上传",
