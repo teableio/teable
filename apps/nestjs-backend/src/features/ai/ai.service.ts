@@ -46,6 +46,38 @@ export class AiService {
     };
   }
 
+  async getCodingModelInstances(
+    spaceId: string,
+    llmProviders: LLMProvider[] = []
+  ): Promise<{
+    lg: LanguageModelV1 | ReturnType<OpenAIProvider['image']>;
+    md: LanguageModelV1 | ReturnType<OpenAIProvider['image']>;
+    sm: LanguageModelV1 | ReturnType<OpenAIProvider['image']>;
+  }> {
+    const { aiConfig } = await this.settingService.getSetting();
+    const aiIntegration = await this.prismaService.integration.findFirst({
+      where: { resourceId: spaceId, type: IntegrationType.AI, enable: true },
+    });
+
+    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
+
+    if (!aiConfig?.enable && !aiIntegration?.enable) {
+      throw new Error('AI is not enabled');
+    }
+
+    const config = aiIntegration ? aiIntegrationConfig : aiConfig;
+    const { codingModels } = config;
+    const defaultModelKey = codingModels?.lg;
+    if (!defaultModelKey) {
+      throw new Error('do not set the default lg model');
+    }
+    return {
+      lg: await this.getModelInstance(defaultModelKey, llmProviders),
+      md: await this.getModelInstance(codingModels?.md ?? defaultModelKey, llmProviders),
+      sm: await this.getModelInstance(codingModels?.sm ?? defaultModelKey, llmProviders),
+    };
+  }
+
   async getModelInstance(
     modelKey: string,
     llmProviders: LLMProvider[] = [],
@@ -135,7 +167,7 @@ export class AiService {
           isInstance,
         })),
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }

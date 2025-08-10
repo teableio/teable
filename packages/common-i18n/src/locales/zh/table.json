@@ -784,6 +784,9 @@
     },
     "dataVisualization": {
       "error": "数据可视化失败"
+    },
+    "tips": {
+      "modelTips": "只允许管理员在后台配置"
     }
   }
 }

@@ -783,6 +783,9 @@
     },
     "dataVisualization": {
       "error": "Data visualization failed"
+    },
+    "tips": {
+      "modelTips": "Only administrators can configure"
     }
   }
 }

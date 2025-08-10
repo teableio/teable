@@ -165,8 +165,14 @@ export class SpaceService {
 
     const names = spaceList.map((space) => space.name);
     const uniqName = getUniqName(createSpaceRo.name ?? 'Space', names);
+
+    const spaceId = generateSpaceId();
+
+    // create default ai integration
+    await this.createDefaultAIIntegration(spaceId);
+
     return await this.createSpaceByParams({
-      id: generateSpaceId(),
+      id: spaceId,
       name: uniqName,
       createdBy: userId,
     });
@@ -367,6 +373,20 @@ export class SpaceService {
         type,
         enable,
         config: JSON.stringify(config),
+      },
+    });
+  }
+
+  async createDefaultAIIntegration(spaceId: string) {
+    return await this.prismaService.integration.create({
+      data: {
+        id: generateIntegrationId(),
+        resourceId: spaceId,
+        type: IntegrationType.AI,
+        enable: false,
+        config: JSON.stringify({
+          llmProviders: [],
+        }),
       },
     });
   }
