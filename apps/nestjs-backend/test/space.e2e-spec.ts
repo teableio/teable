@@ -515,7 +515,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
       const integrations = (await getIntegrationList(spaceId)).data;
 
       expect(integrations).toBeDefined();
-      expect(integrations.length).toBe(0);
+      expect(integrations[0].type).toBe(IntegrationType.AI);
     });
 
     it('/api/space/:spaceId/integration (POST)', async () => {
@@ -567,7 +567,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
       const integrations = (await getIntegrationList(spaceId)).data;
 
       expect(integrations).toBeDefined();
-      expect(integrations.length).toBe(0);
+      expect(integrations[0].type).toBe(IntegrationType.AI);
     });
   });
 });
