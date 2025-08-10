@@ -316,9 +316,10 @@ export class FieldDuplicateService {
     }
 
     for (const field of mergedTwoWaySelfLinkFields) {
-      const passiveIndex = field.findIndex(
+      const index = field.findIndex(
         (f) => (f.options as ILinkFieldOptions).isOneWay === undefined
       )!;
+      const passiveIndex = index === -1 ? 0 : index;
       const driverIndex = passiveIndex === 0 ? 1 : 0;
 
       const groupField = field[passiveIndex];
@@ -476,9 +477,10 @@ export class FieldDuplicateService {
 
     for (const field of groupedTwoWayFields) {
       // fk would like in this table
-      const passiveIndex = field.findIndex(
+      const index = field.findIndex(
         (f) => (f.options as ILinkFieldOptions).isOneWay === undefined
       )!;
+      const passiveIndex = index === -1 ? 0 : index;
       const driverIndex = passiveIndex === 0 ? 1 : 0;
       const {
         name,

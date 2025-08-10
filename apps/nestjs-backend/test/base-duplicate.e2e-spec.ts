@@ -36,6 +36,7 @@ import {
   installViewPlugin,
   listPluginPanels,
   LLMProviderType,
+  updateField,
   updateSetting,
   urlBuilder,
 } from '@teable/openapi';
@@ -239,6 +240,35 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     };
 
     const table2LinkField = (await createField(table2.id, table2LinkFieldRo)).data;
+
+    const symmetricField = (
+      await getField(
+        table1.id,
+        (table2LinkField.options as ILinkFieldOptions).symmetricFieldId as string
+      )
+    )?.data;
+
+    // update recording link field to one way
+    await convertField(table1.id, symmetricField?.id as string, {
+      type: FieldType.Link,
+      name: symmetricField.name,
+      dbFieldName: symmetricField.dbFieldName,
+      options: {
+        ...symmetricField?.options,
+        relationship: Relationship.OneMany,
+      } as ILinkFieldOptions,
+    });
+
+    await convertField(table1.id, symmetricField?.id as string, {
+      type: FieldType.Link,
+      name: symmetricField.name,
+      dbFieldName: symmetricField.dbFieldName,
+      options: {
+        ...symmetricField?.options,
+        relationship: Relationship.ManyMany,
+      } as ILinkFieldOptions,
+    });
+
     // create lookup field
     const table2LookupFieldRo: IFieldRo = {
       name: 'lookup field',
