@@ -60,6 +60,13 @@
     "addIntegration": "Add integration",
     "ai": "AI"
   },
+  "aiSetting": {
+    "title": "AI Settings",
+    "description": "Manage AI settings of your space",
+    "enableTips": "Enable AI to use AI features in your space instead of using the system AI",
+    "enable": "Enable AI",
+    "enableSwitchTips": "Please configure the large coding model before enabling"
+  },
   "import": {
     "importing": "Importing",
     "importWayTip": "Click or drag and drop the file to upload in this area",
