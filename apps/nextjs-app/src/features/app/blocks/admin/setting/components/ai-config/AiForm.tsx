@@ -11,9 +11,14 @@ import {
   FormLabel,
   Switch,
   toast,
+  Tooltip,
+  TooltipContent,
+  TooltipPortal,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIModelPreferencesCard } from './AIModelPreferencesCard';
 import { AIProviderCard } from './AIProviderCard';
@@ -42,18 +47,21 @@ export function AIConfigForm({
   const llmProviders = form.watch('llmProviders') ?? [];
   const models = generateModelKeyList(llmProviders);
   const { reset } = form;
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'space']);
 
   useEffect(() => {
     reset(defaultValues);
   }, [defaultValues, reset]);
 
-  function onSubmit(data: NonNullable<ISettingVo['aiConfig']>) {
-    setAiConfig(data);
-    toast({
-      title: t('admin.setting.ai.configUpdated'),
-    });
-  }
+  const onSubmit = useCallback(
+    (data: NonNullable<ISettingVo['aiConfig']>) => {
+      setAiConfig(data);
+      toast({
+        title: t('admin.setting.ai.configUpdated'),
+      });
+    },
+    [setAiConfig, t]
+  );
 
   function updateProviders(providers: LLMProvider[]) {
     form.setValue('llmProviders', providers);
@@ -62,6 +70,17 @@ export function AIConfigForm({
   }
 
   const onTest = async (data: Required<LLMProvider>) => testLLM(data);
+
+  const switchEnable =
+    !aiConfig?.codingModels?.lg ||
+    !models.some((model) => model.modelKey === aiConfig?.codingModels?.lg);
+
+  useEffect(() => {
+    if (switchEnable && form.getValues('enable')) {
+      form.setValue('enable', false);
+      onSubmit(form.getValues());
+    }
+  }, [form, onSubmit, switchEnable]);
 
   return (
     <Form {...form}>
@@ -76,13 +95,27 @@ export function AIConfigForm({
                 <FormDescription>{t('admin.setting.ai.enableDescription')}</FormDescription>
               </div>
               <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={(checked) => {
-                    field.onChange(checked);
-                    onSubmit(form.getValues());
-                  }}
-                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Switch
+                        disabled={switchEnable}
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          onSubmit(form.getValues());
+                        }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      {switchEnable && (
+                        <TooltipContent>
+                          <p>{t('space:aiSetting.enableSwitchTips')}</p>
+                        </TooltipContent>
+                      )}
+                    </TooltipPortal>
+                  </Tooltip>
+                </TooltipProvider>
               </FormControl>
             </FormItem>
           )}

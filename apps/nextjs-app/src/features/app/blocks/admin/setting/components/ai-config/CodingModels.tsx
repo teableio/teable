@@ -31,8 +31,9 @@ export const CodingModels = ({
   }, []);
   return (
     <div className="flex flex-1 flex-col gap-2">
-      {(['sm', 'md', 'lg'] as const).map((key) => (
-        <div key={key} className="flex gap-2">
+      {(['lg', 'md', 'sm'] as const).map((key) => (
+        <div key={key} className="relative flex items-center gap-2">
+          {key === 'lg' && <div className="absolute -left-2 top-2 text-red-500">*</div>}
           <div className="flex items-center gap-2 text-sm">
             {icons[key]}
             <Tooltip content={t(`admin.setting.ai.codingModels.${key}Description`)}>
