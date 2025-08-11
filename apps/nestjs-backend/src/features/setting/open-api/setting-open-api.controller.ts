@@ -53,6 +53,7 @@ export class SettingOpenApiController {
             name: provider.name,
             models: provider.models,
           })) ?? [],
+        codingModels: aiConfig?.codingModels,
       },
     };
   }
