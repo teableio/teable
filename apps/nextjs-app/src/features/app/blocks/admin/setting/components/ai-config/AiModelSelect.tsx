@@ -97,9 +97,9 @@ export function AIModelSelect({
             role="combobox"
             aria-expanded={open}
             size={size}
-            className={cn('grow justify-between font-normal', className)}
+            className={cn('grow justify-between font-normal flex', className)}
           >
-            <div className="flex max-w-[300px] items-center truncate sm:max-w-full">
+            <div className="flex flex-1 items-center truncate">
               {!currentModel ? (
                 t('admin.setting.ai.selectModel')
               ) : (

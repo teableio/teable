@@ -17,6 +17,13 @@ export type ISimpleLLMProvider = z.infer<typeof simpleLLMProviderSchema>;
 const publicAiConfigSchema = z.object({
   enable: z.boolean(),
   llmProviders: z.array(simpleLLMProviderSchema),
+  codingModels: z
+    .object({
+      sm: z.string().optional(),
+      md: z.string().optional(),
+      lg: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const publicSettingVoSchema = settingVoSchema

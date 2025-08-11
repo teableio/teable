@@ -22,6 +22,7 @@ import type {
   ListSpaceCollaboratorVo,
   IGetBaseAllVo,
   ITestLLMVo,
+  IAIIntegrationAISetting,
 } from '@teable/openapi';
 import {
   createSpaceRoSchema,
@@ -49,11 +50,14 @@ import {
   IUpdateIntegrationRo,
   testLLMRoSchema,
   ITestLLMRo,
+  IntegrationType,
 } from '@teable/openapi';
+import { omit } from 'lodash';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';
@@ -247,6 +251,27 @@ export class SpaceController {
   @Get(':spaceId/integration')
   async getIntegrationList(@Param('spaceId') spaceId: string) {
     return this.spaceService.getIntegrationList(spaceId);
+  }
+
+  @Public()
+  @Get(':spaceId/public/ai-setting')
+  async getAIPublicSetting(
+    @Param('spaceId') spaceId: string
+  ): Promise<IAIIntegrationAISetting | null> {
+    const integration = await this.spaceService.getIntegrationList(spaceId);
+    const aiIntegration = integration.find(
+      (integration) => integration.type === IntegrationType.AI
+    );
+
+    if (!aiIntegration) {
+      return null;
+    }
+
+    return {
+      enable: aiIntegration.enable,
+      llmProviders: aiIntegration.config.llmProviders.map((provider) => omit(provider, 'apiKey')),
+      codingModels: aiIntegration.config.codingModels,
+    };
   }
 
   @Permissions('space|update')
