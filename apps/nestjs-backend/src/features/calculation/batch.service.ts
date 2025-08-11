@@ -382,13 +382,7 @@ export class BatchService {
 
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))))
       .filter((id) => fieldMap[id])
-      .filter(
-        (id) =>
-          fieldMap[id].type !== FieldType.Formula &&
-          fieldMap[id].type !== FieldType.Rollup &&
-          fieldMap[id].type !== FieldType.Link &&
-          !fieldMap[id].isLookup
-      );
+      .filter((id) => !fieldMap[id].isComputed);
     const data = opsData.map((data) => {
       const { recordId, updateParam, version } = data;
 
@@ -401,12 +395,7 @@ export class BatchService {
               if (!field) {
                 return pre;
               }
-              if (
-                field.type === FieldType.Formula ||
-                field.type === FieldType.Rollup ||
-                field.type === FieldType.Link ||
-                field.isLookup
-              ) {
+              if (field.isComputed) {
                 return pre;
               }
               const { dbFieldName } = field;
