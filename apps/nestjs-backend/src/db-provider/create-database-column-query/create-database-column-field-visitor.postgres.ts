@@ -333,12 +333,18 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
     this.createFormulaColumns(field);
   }
 
-  visitCreatedTimeField(field: CreatedTimeFieldCore): void {
-    this.createStandardColumn(field);
+  visitCreatedTimeField(_field: CreatedTimeFieldCore): void {
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      'TIMESTAMP GENERATED ALWAYS AS (__created_time) STORED'
+    );
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): void {
-    this.createStandardColumn(field);
+  visitLastModifiedTimeField(_field: LastModifiedTimeFieldCore): void {
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      'TIMESTAMP GENERATED ALWAYS AS (__last_modified_time) STORED'
+    );
   }
 
   // User field types
@@ -346,11 +352,17 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
     this.createStandardColumn(field);
   }
 
-  visitCreatedByField(field: CreatedByFieldCore): void {
-    this.createStandardColumn(field);
+  visitCreatedByField(_field: CreatedByFieldCore): void {
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      'INTEGER GENERATED ALWAYS AS (__created_by) STORED'
+    );
   }
 
-  visitLastModifiedByField(field: LastModifiedByFieldCore): void {
-    this.createStandardColumn(field);
+  visitLastModifiedByField(_field: LastModifiedByFieldCore): void {
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      'INTEGER GENERATED ALWAYS AS (__last_modified_by) STORED'
+    );
   }
 }

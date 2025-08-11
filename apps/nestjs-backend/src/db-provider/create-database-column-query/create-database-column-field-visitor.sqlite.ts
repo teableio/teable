@@ -327,12 +327,20 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     this.createFormulaColumns(field);
   }
 
-  visitCreatedTimeField(field: CreatedTimeFieldCore): void {
-    this.createStandardColumn(field);
+  visitCreatedTimeField(_field: CreatedTimeFieldCore): void {
+    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      `TEXT GENERATED ALWAYS AS (__created_time) ${storageType}`
+    );
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): void {
-    this.createStandardColumn(field);
+  visitLastModifiedTimeField(_field: LastModifiedTimeFieldCore): void {
+    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      `TEXT GENERATED ALWAYS AS (__last_modified_time) ${storageType}`
+    );
   }
 
   // User field types
@@ -340,11 +348,19 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     this.createStandardColumn(field);
   }
 
-  visitCreatedByField(field: CreatedByFieldCore): void {
-    this.createStandardColumn(field);
+  visitCreatedByField(_field: CreatedByFieldCore): void {
+    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      `INTEGER GENERATED ALWAYS AS (__created_by) ${storageType}`
+    );
   }
 
-  visitLastModifiedByField(field: LastModifiedByFieldCore): void {
-    this.createStandardColumn(field);
+  visitLastModifiedByField(_field: LastModifiedByFieldCore): void {
+    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      `INTEGER GENERATED ALWAYS AS (__last_modified_by) ${storageType}`
+    );
   }
 }
