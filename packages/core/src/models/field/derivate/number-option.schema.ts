@@ -2,7 +2,6 @@ import { z } from '../../../zod';
 import { numberFormattingSchema } from '../formatting';
 import { numberShowAsSchema } from '../show-as';
 
-// Number field options
 export const numberFieldOptionsSchema = z.object({
   formatting: numberFormattingSchema,
   showAs: numberShowAsSchema.optional(),
@@ -14,5 +13,6 @@ export const numberFieldOptionsRoSchema = numberFieldOptionsSchema.partial({
   showAs: true,
 });
 
-export type INumberFieldOptions = z.infer<typeof numberFieldOptionsSchema>;
 export type INumberFieldOptionsRo = z.infer<typeof numberFieldOptionsRoSchema>;
+
+export type INumberFieldOptions = z.infer<typeof numberFieldOptionsSchema>;

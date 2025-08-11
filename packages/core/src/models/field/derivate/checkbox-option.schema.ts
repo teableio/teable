@@ -1,6 +1,5 @@
 import { z } from '../../../zod';
 
-// Checkbox field options
 export const checkboxFieldOptionsSchema = z
   .object({ defaultValue: z.boolean().optional() })
   .strict();

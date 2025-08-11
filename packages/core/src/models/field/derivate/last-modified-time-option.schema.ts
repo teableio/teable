@@ -1,7 +1,6 @@
 import { z } from '../../../zod';
 import { datetimeFormattingSchema } from '../formatting';
 
-// Last modified time field options
 export const lastModifiedTimeFieldOptionsSchema = z.object({
   expression: z.literal('LAST_MODIFIED_TIME()'),
   formatting: datetimeFormattingSchema,

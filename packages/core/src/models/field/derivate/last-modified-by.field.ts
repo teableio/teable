@@ -1,11 +1,8 @@
-import { z } from 'zod';
 import type { FieldType } from '../constant';
 import type { IFieldVisitor } from '../field-visitor.interface';
 import { UserAbstractCore } from './abstract/user.field.abstract';
-
-export const lastModifiedByFieldOptionsSchema = z.object({}).strict();
-
-export type ILastModifiedByFieldOptions = z.infer<typeof lastModifiedByFieldOptionsSchema>;
+import type { ILastModifiedByFieldOptions } from './last-modified-by-option.schema';
+import { lastModifiedByFieldOptionsSchema } from './last-modified-by-option.schema';
 
 export class LastModifiedByFieldCore extends UserAbstractCore {
   type!: FieldType.LastModifiedBy;

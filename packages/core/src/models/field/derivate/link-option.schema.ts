@@ -2,7 +2,6 @@ import { z } from '../../../zod';
 import { filterSchema } from '../../view/filter';
 import { Relationship } from '../constant';
 
-// Link field options
 export const linkFieldOptionsSchema = z
   .object({
     baseId: z.string().optional().openapi({
@@ -45,6 +44,8 @@ export const linkFieldOptionsSchema = z
   })
   .strip();
 
+export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
+
 export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
   .pick({
     baseId: true,
@@ -61,5 +62,4 @@ export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
     })
   );
 
-export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;
