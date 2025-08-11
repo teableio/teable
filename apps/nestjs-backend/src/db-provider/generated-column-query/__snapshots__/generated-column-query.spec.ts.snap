@@ -16,9 +16,9 @@ exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Fu
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Functions > should implement countAll function 1`] = `"CASE WHEN column_a IS NULL THEN 0 ELSE 1 END"`;
 
-exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Common Interface and Edge Cases > should handle complex nested function calls 1`] = `"CASE WHEN ((a + b) > 100) THEN ROUND((a / b)::numeric, 2::integer) ELSE (UPPER(c) || ' - ' || LOWER(d)) END"`;
+exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Common Interface and Edge Cases > should handle complex nested function calls 1`] = `"CASE WHEN ((a + b) > 100) THEN ROUND((a / b)::numeric, 2::integer) ELSE (COALESCE(UPPER(c)::text, 'null') || COALESCE(' - '::text, 'null') || COALESCE(LOWER(d)::text, 'null')) END"`;
 
-exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Common Interface and Edge Cases > should handle complex nested function calls 2`] = `"CASE WHEN ((a + b) > 100) THEN ROUND((a / b), 2) ELSE (COALESCE(UPPER(c), '') || COALESCE(' - ', '') || COALESCE(LOWER(d), '')) END"`;
+exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Common Interface and Edge Cases > should handle complex nested function calls 2`] = `"CASE WHEN ((a + b) > 100) THEN ROUND((a / b), 2) ELSE (COALESCE(UPPER(c), 'null') || COALESCE(' - ', 'null') || COALESCE(LOWER(d), 'null')) END"`;
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Common Interface and Edge Cases > should handle deeply nested expressions 1`] = `"(((((base)))))"`;
 
@@ -200,7 +200,7 @@ exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > SQLite G
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > SQLite Generated Column Functions > All Functions > should implement ceiling function for SQLite 1`] = `"CAST(CEIL(column_a) AS INTEGER)"`;
 
-exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > SQLite Generated Column Functions > All Functions > should implement concatenate function for SQLite 1`] = `"(COALESCE(column_a, '') || COALESCE(' - ', '') || COALESCE(column_b, ''))"`;
+exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > SQLite Generated Column Functions > All Functions > should implement concatenate function for SQLite 1`] = `"(COALESCE(column_a, 'null') || COALESCE(' - ', 'null') || COALESCE(column_b, 'null'))"`;
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > SQLite Generated Column Functions > All Functions > should implement count function for SQLite 1`] = `"(CASE WHEN column_a IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN column_b IS NOT NULL THEN 1 ELSE 0 END)"`;
 
@@ -344,7 +344,7 @@ exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > System F
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > System Functions > should implement textAll function 1`] = `"ARRAY_TO_STRING(column_a, ', ')"`;
 
-exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Text Functions > should implement concatenate function 1`] = `"(column_a || ' - ' || column_b)"`;
+exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Text Functions > should implement concatenate function 1`] = `"(COALESCE(column_a::text, 'null') || COALESCE(' - '::text, 'null') || COALESCE(column_b::text, 'null'))"`;
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Text Functions > should implement encodeUrlComponent function 1`] = `"encode(column_a::bytea, 'escape')"`;
 

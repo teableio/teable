@@ -167,7 +167,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"UPPER((LEFT("column_c", 5::integer) || RIGHT("column_f", 3::integer)))"`
+        `"UPPER((COALESCE(LEFT("column_c", 5::integer)::text, 'null') || COALESCE(RIGHT("column_f", 3::integer)::text, 'null')))"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -178,7 +178,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"UPPER((COALESCE(SUBSTR(\`column_c\`, 1, 5), '') || COALESCE(SUBSTR(\`column_f\`, -3), '')))"`
+        `"UPPER((COALESCE(SUBSTR(\`column_c\`, 1, 5), 'null') || COALESCE(SUBSTR(\`column_f\`, -3), 'null')))"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -238,7 +238,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (LENGTH(("column_c" || "column_f")) > 10) THEN UPPER(LEFT(TRIM(("column_c" || ' - ' || "column_f")), 15::integer)) ELSE LOWER(RIGHT(REPLACE("column_c", 'old', 'new'), 8::integer)) END"`
+        `"CASE WHEN (LENGTH((COALESCE("column_c"::text, 'null') || COALESCE("column_f"::text, 'null'))) > 10) THEN UPPER(LEFT(TRIM((COALESCE("column_c"::text, 'null') || COALESCE(' - '::text, 'null') || COALESCE("column_f"::text, 'null'))), 15::integer)) ELSE LOWER(RIGHT(REPLACE("column_c", 'old', 'new'), 8::integer)) END"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -250,7 +250,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN (LENGTH((COALESCE(\`column_c\`, '') || COALESCE(\`column_f\`, ''))) > 10) THEN UPPER(SUBSTR(TRIM((COALESCE(\`column_c\`, '') || COALESCE(' - ', '') || COALESCE(\`column_f\`, ''))), 1, 15)) ELSE LOWER(SUBSTR(REPLACE(\`column_c\`, 'old', 'new'), -8)) END"`
+        `"CASE WHEN (LENGTH((COALESCE(\`column_c\`, 'null') || COALESCE(\`column_f\`, 'null'))) > 10) THEN UPPER(SUBSTR(TRIM((COALESCE(\`column_c\`, 'null') || COALESCE(' - ', 'null') || COALESCE(\`column_f\`, 'null'))), 1, 15)) ELSE LOWER(SUBSTR(REPLACE(\`column_c\`, 'old', 'new'), -8)) END"`
       );
       expect(result.dependencies).toEqual(['fld3', 'fld6']);
     });
@@ -264,7 +264,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) AND (("column_a" + "column_b") > 100)) THEN (UPPER("column_c") || ' - ' || ROUND(("column_a" + "column_e") / 2::numeric, 2::integer)) ELSE LOWER(REPLACE("column_f", 'old', NOW()::date::text)) END"`
+        `"CASE WHEN ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) AND (("column_a" + "column_b") > 100)) THEN (COALESCE(UPPER("column_c")::text, 'null') || COALESCE(' - '::text, 'null') || COALESCE(ROUND(("column_a" + "column_e") / 2::numeric, 2::integer)::text, 'null')) ELSE LOWER(REPLACE("column_f", 'old', NOW()::date::text)) END"`
       );
       expect(result.dependencies).toEqual(['fld4', 'fld1', 'fld2', 'fld3', 'fld5', 'fld6']);
     });
@@ -276,7 +276,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'sqlite');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) AND ((\`column_a\` + \`column_b\`) > 100)) THEN (COALESCE(UPPER(\`column_c\`), '') || COALESCE(' - ', '') || COALESCE(ROUND(((\`column_a\` + \`column_e\`) / 2), 2), '')) ELSE LOWER(REPLACE(\`column_f\`, 'old', DATE(DATETIME('now')))) END"`
+        `"CASE WHEN ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) AND ((\`column_a\` + \`column_b\`) > 100)) THEN (COALESCE(UPPER(\`column_c\`), 'null') || COALESCE(' - ', 'null') || COALESCE(ROUND(((\`column_a\` + \`column_e\`) / 2), 2), 'null')) ELSE LOWER(REPLACE(\`column_f\`, 'old', DATE(DATETIME('now')))) END"`
       );
       expect(result.dependencies).toEqual(['fld4', 'fld1', 'fld2', 'fld3', 'fld5', 'fld6']);
     });
@@ -324,7 +324,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const result = convertFormulaToSQL(formula, mockContext, 'postgres');
 
       expect(result.sql).toMatchInlineSnapshot(
-        `"CASE WHEN ((ROUND(((POWER("column_a"::numeric, 2::numeric) + SQRT("column_b"::numeric)) + ("column_e" * 3.14)) / 2::numeric, 2::integer) > 100) AND ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) OR NOT ((EXTRACT(MONTH FROM NOW()::timestamp) = 12)))) THEN (UPPER(LEFT(TRIM("column_c"), 10::integer)) || ' - Score: ' || ROUND((("column_a" + "column_b" + "column_e") / 3)::numeric, 1::integer)) ELSE CASE WHEN ("column_a" < 0) THEN 'NEGATIVE' ELSE LOWER("column_f") END END"`
+        `"CASE WHEN ((ROUND(((POWER("column_a"::numeric, 2::numeric) + SQRT("column_b"::numeric)) + ("column_e" * 3.14)) / 2::numeric, 2::integer) > 100) AND ((EXTRACT(YEAR FROM "column_d"::timestamp) > 2020) OR NOT ((EXTRACT(MONTH FROM NOW()::timestamp) = 12)))) THEN (COALESCE(UPPER(LEFT(TRIM("column_c"), 10::integer))::text, 'null') || COALESCE(' - Score: '::text, 'null') || COALESCE(ROUND((("column_a" + "column_b" + "column_e") / 3)::numeric, 1::integer)::text, 'null')) ELSE CASE WHEN ("column_a" < 0) THEN 'NEGATIVE' ELSE LOWER("column_f") END END"`
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5', 'fld4', 'fld3', 'fld6']);
     });
@@ -357,7 +357,7 @@ describe('Generated Column Query End-to-End Tests', () => {
                 WHEN \`column_b\` <= 0 THEN 0
                 ELSE (\`column_b\` / 2.0 + \`column_b\` / (\`column_b\` / 2.0)) / 2.0
               END
-            )) + (\`column_e\` * 3.14)) / 2), 2) > 100) AND ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) OR NOT ((CAST(STRFTIME('%m', DATETIME('now')) AS INTEGER) = 12)))) THEN (COALESCE(UPPER(SUBSTR(TRIM(\`column_c\`), 1, 10)), '') || COALESCE(' - Score: ', '') || COALESCE(ROUND(((\`column_a\` + \`column_b\` + \`column_e\`) / 3), 1), '')) ELSE CASE WHEN (\`column_a\` < 0) THEN 'NEGATIVE' ELSE LOWER(\`column_f\`) END END"
+            )) + (\`column_e\` * 3.14)) / 2), 2) > 100) AND ((CAST(STRFTIME('%Y', \`column_d\`) AS INTEGER) > 2020) OR NOT ((CAST(STRFTIME('%m', DATETIME('now')) AS INTEGER) = 12)))) THEN (COALESCE(UPPER(SUBSTR(TRIM(\`column_c\`), 1, 10)), 'null') || COALESCE(' - Score: ', 'null') || COALESCE(ROUND(((\`column_a\` + \`column_b\` + \`column_e\`) / 3), 1), 'null')) ELSE CASE WHEN (\`column_a\` < 0) THEN 'NEGATIVE' ELSE LOWER(\`column_f\`) END END"
       `
       );
       expect(result.dependencies).toEqual(['fld1', 'fld2', 'fld5', 'fld4', 'fld3', 'fld6']);
@@ -564,25 +564,33 @@ describe('Generated Column Query End-to-End Tests', () => {
     it('should use string concatenation for string + string', () => {
       const expression = '{fld2} + {fld4}'; // string + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"("column_b"::text || "column_d"::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE("column_b"::text, 'null') || COALESCE("column_d"::text, 'null'))"`
+      );
     });
 
     it('should use string concatenation for string + number', () => {
       const expression = '{fld2} + {fld1}'; // string + number
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"("column_b"::text || "column_a"::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE("column_b"::text, 'null') || COALESCE("column_a"::text, 'null'))"`
+      );
     });
 
     it('should use string concatenation for number + string', () => {
       const expression = '{fld1} + {fld2}'; // number + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"("column_a"::text || "column_b"::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE("column_a"::text, 'null') || COALESCE("column_b"::text, 'null'))"`
+      );
     });
 
     it('should use string concatenation for string literal + field', () => {
       const expression = '"Hello " + {fld2}'; // string literal + string field
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"('Hello '::text || "column_b"::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE('Hello '::text, 'null') || COALESCE("column_b"::text, 'null'))"`
+      );
     });
 
     it('should use numeric addition for number literal + number field', () => {
@@ -594,7 +602,9 @@ describe('Generated Column Query End-to-End Tests', () => {
     it('should use string concatenation for string literal + number field', () => {
       const expression = '"Value: " + {fld1}'; // string literal + number field
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"('Value: '::text || "column_a"::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE('Value: '::text, 'null') || COALESCE("column_a"::text, 'null'))"`
+      );
     });
   });
 
@@ -608,13 +618,17 @@ describe('Generated Column Query End-to-End Tests', () => {
     it('should use string concatenation for string + string', () => {
       const expression = '{fld2} + {fld4}'; // string + string
       const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
-      expect(result.sql).toMatchInlineSnapshot(`"(\`column_b\` || \`column_d\`)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE(\`column_b\`, 'null') || COALESCE(\`column_d\`, 'null'))"`
+      );
     });
 
     it('should use string concatenation for string + number', () => {
       const expression = '{fld2} + {fld1}'; // string + number
       const result = convertFormulaToSQL(expression, mockContext, 'sqlite');
-      expect(result.sql).toMatchInlineSnapshot(`"(\`column_b\` || \`column_a\`)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE(\`column_b\`, 'null') || COALESCE(\`column_a\`, 'null'))"`
+      );
     });
   });
 
@@ -623,7 +637,9 @@ describe('Generated Column Query End-to-End Tests', () => {
       // Example: Concatenate a label with a number
       const expression = '"Total: " + {fld1}'; // string + number
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"('Total: '::text || "column_a"::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE('Total: '::text, 'null') || COALESCE("column_a"::text, 'null'))"`
+      );
     });
 
     it('should handle pure numeric calculations', () => {
@@ -638,7 +654,7 @@ describe('Generated Column Query End-to-End Tests', () => {
       const expression = '{fld2} + " " + {fld4}'; // string + string + string
       const result = convertFormulaToSQL(expression, mockContext, 'postgres');
       expect(result.sql).toMatchInlineSnapshot(
-        `"(("column_b"::text || ' '::text)::text || "column_d"::text)"`
+        `"(COALESCE((COALESCE("column_b"::text, 'null') || COALESCE(' '::text, 'null'))::text, 'null') || COALESCE("column_d"::text, 'null'))"`
       );
     });
   });
@@ -942,7 +958,9 @@ describe('Generated Column Query End-to-End Tests', () => {
       };
 
       const result = convertFormulaToSQL('{fld1} + "test"', minimalContext, 'postgres');
-      expect(result.sql).toMatchInlineSnapshot(`"("col1"::text || 'test'::text)"`);
+      expect(result.sql).toMatchInlineSnapshot(
+        `"(COALESCE("col1"::text, 'null') || COALESCE('test'::text, 'null'))"`
+      );
       expect(result.dependencies).toEqual(['fld1']);
     });
   });

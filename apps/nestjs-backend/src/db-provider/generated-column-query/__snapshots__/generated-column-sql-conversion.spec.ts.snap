@@ -14,7 +14,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
   "dependencies": [
     "textField",
   ],
-  "sql": "("text_col"::text || "text_col"::text)",
+  "sql": "(COALESCE("text_col"::text, 'null') || COALESCE("text_col"::text, 'null'))",
 }
 `;
 
@@ -24,7 +24,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
     "textField",
     "numField",
   ],
-  "sql": "("text_col"::text || "num_col"::text)",
+  "sql": "(COALESCE("text_col"::text, 'null') || COALESCE("num_col"::text, 'null'))",
 }
 `;
 
@@ -34,7 +34,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
     "numField",
     "textField",
   ],
-  "sql": "("num_col"::text || "text_col"::text)",
+  "sql": "(COALESCE("num_col"::text, 'null') || COALESCE("text_col"::text, 'null'))",
 }
 `;
 
@@ -54,7 +54,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should corre
     "dateField",
     "textField",
   ],
-  "sql": "("date_col"::text || "text_col"::text)",
+  "sql": "(COALESCE("date_col"::text, 'null') || COALESCE("text_col"::text, 'null'))",
 }
 `;
 
@@ -71,7 +71,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should handl
     "fld1",
     "fld2",
   ],
-  "sql": "(("column_a"::text || "column_b"::text))",
+  "sql": "((COALESCE("column_a"::text, 'null') || COALESCE("column_b"::text, 'null')))",
 }
 `;
 
@@ -101,7 +101,7 @@ exports[`Generated Column Query End-to-End Tests > Advanced Tests > should handl
     "fld1",
     "fld3",
   ],
-  "sql": "("column_a"::text || "column_c"::text)",
+  "sql": "(COALESCE("column_a"::text, 'null') || COALESCE("column_c"::text, 'null'))",
 }
 `;
 
