@@ -1,25 +1,23 @@
 import { assertNever } from '../../asserts';
 import { FieldType } from './constant';
-import {
-  singlelineTextFieldOptionsSchema,
-  numberFieldOptionsSchema,
-  selectFieldOptionsSchema,
-  dateFieldOptionsSchema,
-  attachmentFieldOptionsSchema,
-  linkFieldOptionsSchema,
-  userFieldOptionsSchema,
-  checkboxFieldOptionsSchema,
-  ratingFieldOptionsSchema,
-  formulaFieldOptionsSchema,
-  autoNumberFieldOptionsSchema,
-  createdTimeFieldOptionsSchema,
-  lastModifiedTimeFieldOptionsSchema,
-  createdByFieldOptionsSchema,
-  lastModifiedByFieldOptionsSchema,
-  longTextFieldOptionsSchema,
-  rollupFieldOptionsSchema,
-  buttonFieldOptionsSchema,
-} from './derivate';
+import { selectFieldOptionsSchema } from './derivate/abstract/select-option.schema';
+import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schema';
+import { autoNumberFieldOptionsSchema } from './derivate/auto-number-option.schema';
+import { buttonFieldOptionsSchema } from './derivate/button.field';
+import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
+import { createdTimeFieldOptionsSchema } from './derivate/created-time-option.schema';
+import { dateFieldOptionsSchema } from './derivate/date-option.schema';
+import { formulaFieldOptionsSchema } from './derivate/formula-option.schema';
+import { lastModifiedByFieldOptionsSchema } from './derivate/last-modified-by-option.schema';
+import { lastModifiedTimeFieldOptionsSchema } from './derivate/last-modified-time-option.schema';
+import { linkFieldOptionsSchema } from './derivate/link-option.schema';
+import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
+import { numberFieldOptionsSchema } from './derivate/number-option.schema';
+import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
+import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
+import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
+import { userFieldOptionsSchema } from './derivate/user-option.schema';
 
 export function safeParseOptions(fieldType: FieldType, value: unknown) {
   switch (fieldType) {

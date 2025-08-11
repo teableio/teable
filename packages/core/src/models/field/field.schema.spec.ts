@@ -1,7 +1,8 @@
 import { Colors } from './colors';
 import { CellValueType, FieldType } from './constant';
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
-import { createFieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
+import { unionFieldOptionsRoSchema } from './field-unions.schema';
+import { createFieldRoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
 import type { IUnionShowAs } from './show-as';
 import { SingleNumberDisplayType } from './show-as';

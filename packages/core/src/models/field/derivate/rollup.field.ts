@@ -3,40 +3,15 @@ import { EvalVisitor } from '../../../formula/visitor';
 import type { CellValueType, FieldType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
-import type { ILookupOptionsVo } from '../field.schema';
-import {
-  getDefaultFormatting,
-  getFormattingSchema,
-  timeZoneStringSchema,
-  unionFormattingSchema,
-} from '../formatting';
-import { getShowAsSchema, unionShowAsSchema } from '../show-as';
+import { getDefaultFormatting, getFormattingSchema } from '../formatting';
+import type { ILookupOptionsVo } from '../lookup-options-base.schema';
+import { getShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
-
-export const ROLLUP_FUNCTIONS = [
-  'countall({values})',
-  'counta({values})',
-  'count({values})',
-  'sum({values})',
-  'max({values})',
-  'min({values})',
-  'and({values})',
-  'or({values})',
-  'xor({values})',
-  'array_join({values})',
-  'array_unique({values})',
-  'array_compact({values})',
-  'concatenate({values})',
-] as const;
-
-export const rollupFieldOptionsSchema = z.object({
-  expression: z.enum(ROLLUP_FUNCTIONS),
-  timeZone: timeZoneStringSchema.optional(),
-  formatting: unionFormattingSchema.optional(),
-  showAs: unionShowAsSchema.optional(),
-});
-
-export type IRollupFieldOptions = z.infer<typeof rollupFieldOptionsSchema>;
+import {
+  ROLLUP_FUNCTIONS,
+  rollupFieldOptionsSchema,
+  type IRollupFieldOptions,
+} from './rollup-option.schema';
 
 export const rollupCelValueSchema = z.any();
 

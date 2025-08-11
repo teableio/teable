@@ -8,24 +8,8 @@ import {
   numberFormattingSchema,
   parseStringToNumber,
 } from '../formatting';
-import { getShowAsSchema, numberShowAsSchema } from '../show-as';
-
-export const numberFieldOptionsSchema = z.object({
-  formatting: numberFormattingSchema,
-  showAs: numberShowAsSchema.optional(),
-  defaultValue: z.number().optional(),
-});
-
-export const numberFieldOptionsRoSchema = numberFieldOptionsSchema
-  .partial({
-    formatting: true,
-    showAs: true,
-  })
-  .describe('options for number fields');
-
-export type INumberFieldOptionsRo = z.infer<typeof numberFieldOptionsRoSchema>;
-
-export type INumberFieldOptions = z.infer<typeof numberFieldOptionsSchema>;
+import { getShowAsSchema } from '../show-as';
+import { type INumberFieldOptions } from './number-option.schema';
 
 export const numberCellValueSchema = z.number();
 

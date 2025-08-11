@@ -5,113 +5,35 @@ import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { fieldAIConfigSchema } from './ai-config';
 import { CellValueType, DbFieldType, FieldType } from './constant';
+import { selectFieldOptionsRoSchema } from './derivate/abstract/select.field.abstract';
+import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schema';
+import { autoNumberFieldOptionsRoSchema } from './derivate/auto-number-option.schema';
+import { buttonFieldOptionsSchema } from './derivate/button.field';
+import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
+import { createdTimeFieldOptionsRoSchema } from './derivate/created-time-option.schema';
+import { dateFieldOptionsSchema } from './derivate/date-option.schema';
+import { formulaFieldOptionsSchema } from './derivate/formula-option.schema';
+import { lastModifiedByFieldOptionsSchema } from './derivate/last-modified-by-option.schema';
+import { lastModifiedTimeFieldOptionsRoSchema } from './derivate/last-modified-time-option.schema';
+import { linkFieldOptionsRoSchema } from './derivate/link-option.schema';
+import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
+import { numberFieldOptionsRoSchema } from './derivate/number-option.schema';
+import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
+import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
+import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
+import { userFieldOptionsSchema } from './derivate/user-option.schema';
 import {
-  checkboxFieldOptionsSchema,
-  numberFieldOptionsSchema,
-  selectFieldOptionsSchema,
-  singlelineTextFieldOptionsSchema,
-  formulaFieldOptionsSchema,
-  formulaFieldMetaSchema,
-  linkFieldOptionsSchema,
-  dateFieldOptionsSchema,
-  attachmentFieldOptionsSchema,
-  rollupFieldOptionsSchema,
-  linkFieldOptionsRoSchema,
-  numberFieldOptionsRoSchema,
-  selectFieldOptionsRoSchema,
-  ratingFieldOptionsSchema,
-  longTextFieldOptionsSchema,
-  createdTimeFieldOptionsSchema,
-  lastModifiedTimeFieldOptionsSchema,
-  autoNumberFieldOptionsSchema,
-  createdTimeFieldOptionsRoSchema,
-  lastModifiedTimeFieldOptionsRoSchema,
-  autoNumberFieldOptionsRoSchema,
-  userFieldOptionsSchema,
-  createdByFieldOptionsSchema,
-  lastModifiedByFieldOptionsSchema,
-  buttonFieldOptionsSchema,
-} from './derivate';
-
-import { unionFormattingSchema } from './formatting';
-import { unionShowAsSchema } from './show-as';
+  type IFieldOptionsRo,
+  unionFieldMetaVoSchema,
+  unionFieldOptionsRoSchema,
+  unionFieldOptionsVoSchema,
+} from './field-unions.schema';
+import type { ILookupOptionsRo } from './lookup-options-base.schema';
+import { lookupOptionsRoSchema, lookupOptionsVoSchema } from './lookup-options-base.schema';
 import { validateFieldOptions } from './zod-error';
 
-export const lookupOptionsVoSchema = linkFieldOptionsSchema
-  .pick({
-    foreignTableId: true,
-    lookupFieldId: true,
-    relationship: true,
-    fkHostTableName: true,
-    selfKeyName: true,
-    foreignKeyName: true,
-    filter: true,
-  })
-  .merge(
-    z.object({
-      linkFieldId: z.string().openapi({
-        description: 'The id of Linked record field to use for lookup',
-      }),
-    })
-  );
-
-export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
-
-export const lookupOptionsRoSchema = lookupOptionsVoSchema.pick({
-  foreignTableId: true,
-  lookupFieldId: true,
-  linkFieldId: true,
-  filter: true,
-});
-
-export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
-
-export const unionFieldOptions = z.union([
-  rollupFieldOptionsSchema.strict(),
-  formulaFieldOptionsSchema.strict(),
-  linkFieldOptionsSchema.strict(),
-  dateFieldOptionsSchema.strict(),
-  checkboxFieldOptionsSchema.strict(),
-  attachmentFieldOptionsSchema.strict(),
-  singlelineTextFieldOptionsSchema.strict(),
-  ratingFieldOptionsSchema.strict(),
-  userFieldOptionsSchema.strict(),
-  createdByFieldOptionsSchema.strict(),
-  lastModifiedByFieldOptionsSchema.strict(),
-  buttonFieldOptionsSchema.strict(),
-]);
-
-export const unionFieldOptionsVoSchema = z.union([
-  unionFieldOptions,
-  linkFieldOptionsSchema.strict(),
-  selectFieldOptionsSchema.strict(),
-  numberFieldOptionsSchema.strict(),
-  autoNumberFieldOptionsSchema.strict(),
-  createdTimeFieldOptionsSchema.strict(),
-  lastModifiedTimeFieldOptionsSchema.strict(),
-]);
-
-export const unionFieldOptionsRoSchema = z.union([
-  unionFieldOptions,
-  linkFieldOptionsRoSchema.strict(),
-  selectFieldOptionsRoSchema.strict(),
-  numberFieldOptionsRoSchema.strict(),
-  autoNumberFieldOptionsRoSchema.strict(),
-  createdTimeFieldOptionsRoSchema.strict(),
-  lastModifiedTimeFieldOptionsRoSchema.strict(),
-]);
-
-export const commonOptionsSchema = z.object({
-  showAs: unionShowAsSchema.optional(),
-  formatting: unionFormattingSchema.optional(),
-});
-
-export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
-export type IFieldOptionsVo = z.infer<typeof unionFieldOptionsVoSchema>;
-
-export const unionFieldMetaVoSchema = formulaFieldMetaSchema.optional();
-
-export type IFieldMetaVo = z.infer<typeof unionFieldMetaVoSchema>;
+// All union schemas and types are now imported from field-unions.schema.ts
 
 export const fieldVoSchema = z.object({
   id: z.string().startsWith(IdPrefix.Field).openapi({
