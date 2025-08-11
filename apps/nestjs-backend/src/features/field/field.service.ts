@@ -428,7 +428,7 @@ export class FieldService implements IReadonlyAdapterService {
     // TODO: move to field visitor
     let resetFieldQuery: string | undefined = '';
     function shouldUpdateRecords(field: IFieldInstance) {
-      return !field.isComputed;
+      return !field.isComputed && field.type !== FieldType.Link;
     }
     if (shouldUpdateRecords(oldField) && shouldUpdateRecords(newField)) {
       resetFieldQuery = this.knex(dbTableName)

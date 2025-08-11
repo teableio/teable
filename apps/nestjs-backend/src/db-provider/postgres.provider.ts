@@ -168,7 +168,9 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     // Use CASCADE to automatically drop dependent objects (like generated columns)
     // This is safe because we handle application-level dependencies separately
     return [
-      this.knex.raw('ALTER TABLE ?? DROP COLUMN ?? CASCADE', [tableName, columnName]).toQuery(),
+      this.knex
+        .raw('ALTER TABLE ?? DROP COLUMN IF EXISTS ?? CASCADE', [tableName, columnName])
+        .toQuery(),
     ];
   }
 

@@ -123,8 +123,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
    * Get database table name for a given table ID
    */
   private async getDbTableName(tableId: string): Promise<string> {
-    const table = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
+    const table = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { OR: [{ id: tableId }, { dbTableName: tableId }] },
       select: { dbTableName: true },
     });
 
