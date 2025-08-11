@@ -21,6 +21,7 @@ import type {
   IFieldVisitor,
   FieldCore,
   ILinkFieldOptions,
+  ButtonFieldCore,
 } from '@teable/core';
 import type { IDropDatabaseColumnContext } from './drop-database-column-field-visitor.interface';
 
@@ -177,6 +178,10 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
   }
 
   visitMultipleSelectField(field: MultipleSelectFieldCore): string[] {
+    return this.dropStandardColumn(field);
+  }
+
+  visitButtonField(field: ButtonFieldCore): string[] {
     return this.dropStandardColumn(field);
   }
 

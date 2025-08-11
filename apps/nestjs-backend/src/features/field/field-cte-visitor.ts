@@ -23,6 +23,7 @@ import type {
   SingleLineTextFieldCore,
   SingleSelectFieldCore,
   UserFieldCore,
+  ButtonFieldCore,
 } from '@teable/core';
 import { FieldType, DriverClient, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
@@ -892,6 +893,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   visitAutoNumberField(field: AutoNumberFieldCore): ICteResult {
+    return this.checkAndGenerateLookupCte(field);
+  }
+
+  visitButtonField(field: ButtonFieldCore): ICteResult {
     return this.checkAndGenerateLookupCte(field);
   }
 

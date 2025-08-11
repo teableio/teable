@@ -1,5 +1,6 @@
 import type { AttachmentFieldCore } from './derivate/attachment.field';
 import type { AutoNumberFieldCore } from './derivate/auto-number.field';
+import type { ButtonFieldCore } from './derivate/button.field';
 import type { CheckboxFieldCore } from './derivate/checkbox.field';
 import type { CreatedByFieldCore } from './derivate/created-by.field';
 import type { CreatedTimeFieldCore } from './derivate/created-time.field';
@@ -49,4 +50,6 @@ export interface IFieldVisitor<T = unknown> {
   visitUserField(field: UserFieldCore): T;
   visitCreatedByField(field: CreatedByFieldCore): T;
   visitLastModifiedByField(field: LastModifiedByFieldCore): T;
+
+  visitButtonField(field: ButtonFieldCore): T;
 }

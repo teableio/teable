@@ -21,6 +21,7 @@ import type {
   IFormulaConversionContext,
   FieldCore,
   ILinkFieldOptions,
+  ButtonFieldCore,
 } from '@teable/core';
 import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
@@ -325,6 +326,10 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
   // Formula field types
   visitFormulaField(field: FormulaFieldCore): void {
     this.createFormulaColumns(field);
+  }
+
+  visitButtonField(field: ButtonFieldCore): void {
+    this.createStandardColumn(field);
   }
 
   visitCreatedTimeField(_field: CreatedTimeFieldCore): void {
