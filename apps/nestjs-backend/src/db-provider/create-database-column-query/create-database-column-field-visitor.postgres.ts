@@ -175,8 +175,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
     this.createStandardColumn(field);
   }
 
-  visitAutoNumberField(field: AutoNumberFieldCore): void {
-    this.createStandardColumn(field);
+  visitAutoNumberField(_field: AutoNumberFieldCore): void {
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      'INTEGER GENERATED ALWAYS AS (__auto_number) STORED'
+    );
   }
 
   visitLinkField(field: LinkFieldCore): void {

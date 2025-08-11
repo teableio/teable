@@ -174,8 +174,14 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     this.createStandardColumn(field);
   }
 
-  visitAutoNumberField(field: AutoNumberFieldCore): void {
-    this.createStandardColumn(field);
+  visitAutoNumberField(_field: AutoNumberFieldCore): void {
+    // SQLite syntax: GENERATED ALWAYS AS (expression) STORED/VIRTUAL
+    // For ALTER TABLE operations, SQLite doesn't support STORED generated columns, so use VIRTUAL
+    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+    this.context.table.specificType(
+      this.context.dbFieldName,
+      `INTEGER GENERATED ALWAYS AS (__auto_number) ${storageType}`
+    );
   }
 
   visitLinkField(field: LinkFieldCore): void {
