@@ -1,6 +1,5 @@
 import { ViewType } from './constant';
-import type { IViewOptions } from './option.schema';
-import { validateOptionsType, viewOptionsSchema } from './option.schema';
+import { validateOptionsType, viewOptionsSchema, type IViewOptions } from './option.schema';
 
 describe('view option Parse', () => {
   it('should parse view option', async () => {
