@@ -6,7 +6,7 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType, generateOperationId, IdPrefix } from '@teable/core';
+import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ICreateRecordsRo } from '@teable/openapi';
 import type {
@@ -26,7 +26,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
-import { retryOnDeadlock, retryOnUniqueViolation } from '../../../utils/retry-decorator';
+import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
@@ -60,7 +60,6 @@ export class RecordOpenApiService {
   ) {}
 
   @retryOnDeadlock()
-  @retryOnUniqueViolation()
   async multipleCreateRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
@@ -270,7 +269,6 @@ export class RecordOpenApiService {
   }
 
   @retryOnDeadlock()
-  @retryOnUniqueViolation()
   async updateRecords(
     tableId: string,
     updateRecordsRo: IUpdateRecordsRo & {
