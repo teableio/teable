@@ -5,9 +5,9 @@ import {
   gridViewOptionSchema,
   formViewOptionSchema,
   galleryViewOptionSchema,
+  calendarViewOptionSchema,
+  pluginViewOptionSchema,
 } from './derivate';
-import { calendarViewOptionSchema } from './derivate/calendar.view';
-import { pluginViewOptionSchema } from './derivate/plugin.view';
 
 export const viewOptionsSchema = z.union([
   gridViewOptionSchema,
@@ -19,6 +19,16 @@ export const viewOptionsSchema = z.union([
 ]);
 
 export type IViewOptions = z.infer<typeof viewOptionsSchema>;
+
+// Re-export individual schemas for use in view.schema.ts
+export {
+  kanbanViewOptionSchema,
+  gridViewOptionSchema,
+  formViewOptionSchema,
+  galleryViewOptionSchema,
+  calendarViewOptionSchema,
+  pluginViewOptionSchema,
+};
 
 export const validateOptionsType = (type: ViewType, optionsString: IViewOptions): string | void => {
   switch (type) {

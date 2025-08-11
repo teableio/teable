@@ -3,7 +3,8 @@ import { Colors } from '../colors';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import { convertFieldRoSchema } from '../field.schema';
-import { RatingFieldCore, RatingIcon } from './rating.field';
+import { RatingIcon } from './rating-option.schema';
+import { RatingFieldCore } from './rating.field';
 
 describe('RatingFieldCore', () => {
   let field: RatingFieldCore;

@@ -4,8 +4,9 @@ import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType, Relationship } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVo } from '../field.schema';
+import { linkFieldOptionsRoSchema } from './link-option.schema';
 import type { ILinkCellValue } from './link.field';
-import { linkFieldOptionsRoSchema, LinkFieldCore } from './link.field';
+import { LinkFieldCore } from './link.field';
 
 describe('LinkFieldCore', () => {
   let field: LinkFieldCore;
