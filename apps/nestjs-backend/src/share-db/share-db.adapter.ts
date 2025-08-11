@@ -6,7 +6,13 @@ import type {
   IRecord,
   ITablePropertyKey,
 } from '@teable/core';
-import { FieldOpBuilder, IdPrefix, RecordOpBuilder, TableOpBuilder } from '@teable/core';
+import {
+  FieldOpBuilder,
+  getRandomString,
+  IdPrefix,
+  RecordOpBuilder,
+  TableOpBuilder,
+} from '@teable/core';
 import type { ITableVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
@@ -18,7 +24,6 @@ import { exceptionParse } from '../utils/exception-parse';
 import {
   RawOpType,
   type ICreateOp,
-  type IDeleteOp,
   type IEditOp,
   type IShareDbReadonlyAdapterService,
 } from './interface';
@@ -293,23 +298,8 @@ export class ShareDbAdapter extends ShareDb.DB {
         docType as IdPrefix
       ).getVersionAndType(collectionId, id);
 
-      const baseRaw = {
-        src: this.cls.getId() || 'unknown',
-        seq: 1,
-        m: {
-          ts: Date.now(),
-        },
-        v: version,
-      };
-
       if (type === RawOpType.Del) {
-        callback(null, [
-          {
-            ...baseRaw,
-            v: version < 0 ? from : version,
-            del: true,
-          } as IDeleteOp,
-        ]);
+        callback(null, []);
         return;
       }
 
@@ -330,7 +320,11 @@ export class ShareDbAdapter extends ShareDb.DB {
       }
 
       const { data } = snapshotData[0];
-
+      const baseRaw = {
+        src: getRandomString(21),
+        seq: 1,
+        v: version,
+      };
       if (type === RawOpType.Create) {
         callback(null, [
           {
@@ -345,13 +339,15 @@ export class ShareDbAdapter extends ShareDb.DB {
       }
 
       const editOp = this.getOpsFromSnapshot(docType as IdPrefix, data);
-      const editOps = new Array(Math.min((to || baseRaw.v + 1) - from, 0)).fill(0).map((_, i) => {
+      const gapVersion = Math.max((to || baseRaw.v + 1) - from, 0);
+      const editOps = new Array(gapVersion).fill(0).map((_, i) => {
         return {
           ...baseRaw,
+          src: getRandomString(21),
           v: from + i,
-          op: editOp,
         } as IEditOp;
       });
+      editOps[editOps.length - 1].op = editOp;
       callback(null, editOps);
     } catch (err) {
       this.logger.error(err);
