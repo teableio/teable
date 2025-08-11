@@ -3,7 +3,7 @@ import { FieldType } from './constant';
 import { selectFieldOptionsSchema } from './derivate/abstract/select-option.schema';
 import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schema';
 import { autoNumberFieldOptionsSchema } from './derivate/auto-number-option.schema';
-import { buttonFieldOptionsSchema } from './derivate/button.field';
+import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import { createdTimeFieldOptionsSchema } from './derivate/created-time-option.schema';

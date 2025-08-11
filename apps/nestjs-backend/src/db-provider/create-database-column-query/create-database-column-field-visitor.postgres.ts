@@ -21,6 +21,7 @@ import type {
   IFormulaConversionContext,
   FieldCore,
   ILinkFieldOptions,
+  ButtonFieldCore,
 } from '@teable/core';
 import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
@@ -325,6 +326,10 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   visitMultipleSelectField(field: MultipleSelectFieldCore): void {
+    this.createStandardColumn(field);
+  }
+
+  visitButtonField(field: ButtonFieldCore): void {
     this.createStandardColumn(field);
   }
 

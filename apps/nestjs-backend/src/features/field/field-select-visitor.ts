@@ -20,6 +20,7 @@ import type {
   UserFieldCore,
   IFieldVisitor,
   IFormulaConversionContext,
+  ButtonFieldCore,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -191,6 +192,10 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
   }
 
   visitMultipleSelectField(field: MultipleSelectFieldCore): string | Knex.Raw {
+    return this.checkAndSelectLookupField(field);
+  }
+
+  visitButtonField(field: ButtonFieldCore): string | Knex.Raw {
     return this.checkAndSelectLookupField(field);
   }
 

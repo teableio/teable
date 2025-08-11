@@ -8,7 +8,7 @@ import { CellValueType, DbFieldType, FieldType } from './constant';
 import { selectFieldOptionsRoSchema } from './derivate/abstract/select.field.abstract';
 import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schema';
 import { autoNumberFieldOptionsRoSchema } from './derivate/auto-number-option.schema';
-import { buttonFieldOptionsSchema } from './derivate/button.field';
+import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import { createdTimeFieldOptionsRoSchema } from './derivate/created-time-option.schema';
