@@ -347,7 +347,9 @@ export class ShareDbAdapter extends ShareDb.DB {
           v: from + i,
         } as IEditOp;
       });
-      editOps[editOps.length - 1].op = editOp;
+      if (gapVersion > 0) {
+        editOps[gapVersion - 1].op = editOp;
+      }
       callback(null, editOps);
     } catch (err) {
       this.logger.error(err);
