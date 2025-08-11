@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ViewType } from '@teable/core';
+import { FieldType, ViewType } from '@teable/core';
 import { HelpCircle } from '@teable/icons';
 import {
   toggleTableIndex,
@@ -63,7 +63,8 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
   const env = useEnv();
   const { maxSearchFieldCount = Infinity } = env;
   const { t } = useTranslation(['common', 'table']);
-  const fields = useFields();
+  const defaultFields = useFields();
+  const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
   const view = useView();
   const fieldStaticGetter = useFieldStaticGetter();
   const baseId = useBaseId();

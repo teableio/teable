@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import type {
+  IButtonFieldOptions,
   IDateFieldOptions,
   IFieldOptionsRo,
   IFieldOptionsVo,
@@ -397,6 +398,9 @@ export class SelectionService {
     for (let i = colLen - numColsToExpand; i < colLen; i++) {
       const field = this.fieldVoToRo(header[i]);
       const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, field);
+      if (fieldVo.type === FieldType.Button) {
+        delete (fieldVo.options as IButtonFieldOptions).workflow;
+      }
       const fieldInstance = createFieldInstanceByVo(fieldVo);
       // expend columns do not need to calculate
       await this.fieldCreatingService.alterCreateField(tableId, fieldInstance);
