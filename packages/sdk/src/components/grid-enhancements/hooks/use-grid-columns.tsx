@@ -27,13 +27,7 @@ import {
   onMixedTextClick,
 } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
-import {
-  useButtonClickStatus,
-  useFields,
-  useTable,
-  useTablePermission,
-  useView,
-} from '../../../hooks';
+import { useFields, useTablePermission, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
@@ -189,8 +183,6 @@ export const useCreateCellValue2GridDisplay = (
 ) => {
   const { t } = useTranslation();
   const i18nMap = useAttachmentPreviewI18Map();
-  const table = useTable();
-  const { checkCellLoading: checkButtonClickLoading } = useButtonClickStatus(table?.id || '');
 
   return useCallback(
     (fields: IFieldInstance[]) =>
@@ -198,7 +190,8 @@ export const useCreateCellValue2GridDisplay = (
         record: Record,
         col: number,
         isPrefilling?: boolean,
-        expandRecord?: (tableId: string, recordId: string) => void
+        expandRecord?: (tableId: string, recordId: string) => void,
+        checkButtonClickLoading?: (recordId: string, fieldId: string) => boolean
         // eslint-disable-next-line sonarjs/cognitive-complexity
       ): ICell => {
         const field = fields[col];
@@ -512,7 +505,7 @@ export const useCreateCellValue2GridDisplay = (
             };
           }
           case FieldType.Button: {
-            const isLoading = checkButtonClickLoading(record.id, fieldId);
+            const isLoading = checkButtonClickLoading?.(record.id, fieldId) ?? false;
             return {
               ...baseCellProps,
               readonly:
@@ -535,7 +528,7 @@ export const useCreateCellValue2GridDisplay = (
           }
         }
       },
-    [i18nMap, recordEditable, rowHeight, t, checkButtonClickLoading]
+    [i18nMap, recordEditable, rowHeight, t]
   );
 };
 

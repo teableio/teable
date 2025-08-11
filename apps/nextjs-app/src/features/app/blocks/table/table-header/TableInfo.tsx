@@ -5,7 +5,6 @@ import {
   useTablePermission,
   useLanDayjs,
   useIsHydrated,
-  useButtonClickStatus,
 } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn, Input } from '@teable/ui-lib/shadcn';
