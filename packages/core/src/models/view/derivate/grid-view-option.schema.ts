@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from '../../../zod';
 import { RowHeightLevel } from '../constant';
 
 export const gridViewOptionSchema = z

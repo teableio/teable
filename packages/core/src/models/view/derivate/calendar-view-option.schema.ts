@@ -1,5 +1,5 @@
-import z from 'zod';
-import { Colors } from '../../field';
+import { z } from '../../../zod';
+import { Colors } from '../../field/colors';
 
 export enum ColorConfigType {
   Field = 'field',
