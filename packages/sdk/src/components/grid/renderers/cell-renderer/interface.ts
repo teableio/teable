@@ -162,6 +162,7 @@ export interface IButtonCell extends IEditableCell {
     cellValue: IButtonFieldCellValue;
     fieldOptions: IButtonFieldOptions;
     tableId: string;
+    isLoading?: boolean;
   };
 }
 

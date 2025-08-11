@@ -1,7 +1,7 @@
 import { getTableButtonClickChannel } from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import { useConnection } from './use-connection';
 import { useSession } from './use-session';
@@ -86,9 +86,12 @@ export const useButtonClickStatus = (tableId: string) => {
     }
   }, [statusMap, user, tableId, t]);
 
-  const getCellStatus = (recordId: string, fieldId: string) => {
-    return statusMap[`${user?.id}-${tableId}-${recordId}-${fieldId}`] ?? {};
-  };
+  const checkCellLoading = useCallback(
+    (recordId: string, fieldId: string) => {
+      return statusMap[`${user?.id}-${tableId}-${recordId}-${fieldId}`]?.loading ?? false;
+    },
+    [statusMap, user, tableId]
+  );
 
-  return { getCellStatus };
+  return { checkCellLoading };
 };

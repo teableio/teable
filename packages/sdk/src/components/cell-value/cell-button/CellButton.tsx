@@ -56,7 +56,7 @@ export const CellButton = (props: ICellButton) => {
           <TooltipTrigger asChild>
             <Button
               variant="outline"
-              className={cn('flex w-24 h-5 cursor-default', itemClassName)}
+              className={cn('flex w-24 h-6 cursor-default', itemClassName)}
               style={{
                 backgroundColor: button.bgColor,
                 borderColor: button.bgColor,

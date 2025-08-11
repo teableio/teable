@@ -255,7 +255,7 @@
       "singleSelect": "Single select",
       "number": "Number",
       "multipleSelect": "Multiple select",
-      "link": "Link to another record",
+      "link": "Link to record",
       "formula": "Formula",
       "date": "Date",
       "createdTime": "Created time",

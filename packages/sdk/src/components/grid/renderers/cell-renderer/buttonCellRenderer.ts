@@ -18,12 +18,12 @@ import type {
   ICellMeasureProps,
 } from './interface';
 
-const { cellVerticalPaddingSM, cellHorizontalPadding } = GRID_DEFAULT;
+const { cellVerticalPaddingXS, cellHorizontalPadding } = GRID_DEFAULT;
 
 const BUTTON_RADIUS = 4;
-const BUTTON_HEIGHT = 20;
+const BUTTON_HEIGHT = 24;
 const BUTTON_MIN_WIDTH = 60;
-const BUTTON_MAX_WIDTH = 80;
+const BUTTON_MAX_WIDTH = 126;
 
 const positionCache: LRUCache<string, IRectangle> = new LRUCache({
   max: 10,
@@ -50,9 +50,10 @@ const drawButton = (
     textColor: string;
     bgColor: string;
     theme: IGridTheme;
+    opacity?: number;
   }
 ) => {
-  const { x, y, width, height, text, maxTextWidth, textColor, bgColor, theme } = props;
+  const { x, y, width, height, text, maxTextWidth, textColor, bgColor, theme, opacity = 1 } = props;
   const { fontSizeXS, fontFamily } = theme;
 
   ctx.save();
@@ -65,6 +66,7 @@ const drawButton = (
     height,
     radius: BUTTON_RADIUS,
     fill: bgColor,
+    opacity,
   });
 
   drawSingleLineText(ctx, {
@@ -110,7 +112,7 @@ const calcPosition = (
 
   const position: IRectangle = {
     x: (width - rectWidth) / 2,
-    y: cellVerticalPaddingSM,
+    y: cellVerticalPaddingXS,
     width: rectWidth,
     height: BUTTON_HEIGHT,
   };
@@ -143,13 +145,12 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
   },
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
     const { data, readonly } = cell;
-    const { fieldOptions } = data;
+    const { fieldOptions, isLoading = false } = data;
     const { ctx, rect, theme } = props;
     const { x, y, width } = rect;
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
     const bgColor = ColorUtils.getHexForColor(rectColor);
     const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
-
     const position = calcPosition(cell, {
       width,
       ctx,
@@ -166,6 +167,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       textColor,
       bgColor,
       theme,
+      opacity: !readonly && isLoading ? 0.8 : 1,
     });
   },
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {

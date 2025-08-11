@@ -59,7 +59,7 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
                 }
                 buttonClick(tableId, recordId, field.id);
               }}
-              className={cn('flex w-24 h-5', className)}
+              className={cn('flex w-24 h-6', className)}
               style={{
                 backgroundColor: button.bgColor,
                 borderColor: button.bgColor,

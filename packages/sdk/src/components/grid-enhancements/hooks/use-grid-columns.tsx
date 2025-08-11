@@ -27,7 +27,13 @@ import {
   onMixedTextClick,
 } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
-import { useFields, useTablePermission, useView } from '../../../hooks';
+import {
+  useButtonClickStatus,
+  useFields,
+  useTable,
+  useTablePermission,
+  useView,
+} from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
@@ -183,6 +189,8 @@ export const useCreateCellValue2GridDisplay = (
 ) => {
   const { t } = useTranslation();
   const i18nMap = useAttachmentPreviewI18Map();
+  const table = useTable();
+  const { checkCellLoading: checkButtonClickLoading } = useButtonClickStatus(table?.id || '');
 
   return useCallback(
     (fields: IFieldInstance[]) =>
@@ -504,6 +512,7 @@ export const useCreateCellValue2GridDisplay = (
             };
           }
           case FieldType.Button: {
+            const isLoading = checkButtonClickLoading(record.id, fieldId);
             return {
               ...baseCellProps,
               readonly:
@@ -517,6 +526,7 @@ export const useCreateCellValue2GridDisplay = (
                 tableId: field.tableId,
                 cellValue: cellValue as IButtonFieldCellValue,
                 fieldOptions: field.options,
+                isLoading,
               },
             };
           }
@@ -525,7 +535,7 @@ export const useCreateCellValue2GridDisplay = (
           }
         }
       },
-    [i18nMap, recordEditable, rowHeight, t]
+    [i18nMap, recordEditable, rowHeight, t, checkButtonClickLoading]
   );
 };
 
