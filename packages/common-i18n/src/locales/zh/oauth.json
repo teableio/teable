@@ -3,7 +3,7 @@
   "title": {
     "add": "新增 OAuth 应用",
     "edit": "编辑 OAuth 应用",
-    "description": "GitHub 应用可以代表自身行事，直接通过 API 执行操作，而无需模拟用户。请参阅我们的<a>帮助文档</a>了解更多信息。"
+    "description": "Teable 应用可以代表自身行事，直接通过 API 执行操作，而无需模拟用户。请参阅我们的<a>帮助文档</a>了解更多信息。"
   },
   "form": {
     "name": {

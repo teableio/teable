@@ -3,7 +3,7 @@
   "title": {
     "add": "New OAuth Apps",
     "edit": "Edit OAuth Apps",
-    "description": "GitHub Apps can act on their own behalf, directly performing operations through the API, without impersonating a user. See our <a>Help documentation</a> for more information."
+    "description": "Teable Apps can act on their own behalf, directly performing operations through the API, without impersonating a user. See our <a>Help documentation</a> for more information."
   },
   "form": {
     "name": {
