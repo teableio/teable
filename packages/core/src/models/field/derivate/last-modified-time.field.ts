@@ -1,25 +1,16 @@
 import { extend } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
-import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import type { IFieldVisitor } from '../field-visitor.interface';
-import { datetimeFormattingSchema, defaultDatetimeFormatting } from '../formatting';
+import { defaultDatetimeFormatting } from '../formatting';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
+import type {
+  ILastModifiedTimeFieldOptions,
+  ILastModifiedTimeFieldOptionsRo,
+} from './last-modified-time-option.schema';
+import { lastModifiedTimeFieldOptionsRoSchema } from './last-modified-time-option.schema';
 
 extend(timezone);
-
-export const lastModifiedTimeFieldOptionsSchema = z.object({
-  expression: z.literal('LAST_MODIFIED_TIME()'),
-  formatting: datetimeFormattingSchema,
-});
-
-export type ILastModifiedTimeFieldOptions = z.infer<typeof lastModifiedTimeFieldOptionsSchema>;
-
-export const lastModifiedTimeFieldOptionsRoSchema = lastModifiedTimeFieldOptionsSchema.omit({
-  expression: true,
-});
-
-export type ILastModifiedTimeFieldOptionsRo = z.infer<typeof lastModifiedTimeFieldOptionsRoSchema>;
 
 export class LastModifiedTimeFieldCore extends FormulaAbstractCore {
   type!: FieldType.LastModifiedTime;

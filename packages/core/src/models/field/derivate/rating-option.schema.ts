@@ -1,10 +1,31 @@
 import { z } from '../../../zod';
+import { Colors } from '../colors';
 
-// Rating field options
+export enum RatingIcon {
+  Star = 'star',
+  Moon = 'moon',
+  Sun = 'sun',
+  Zap = 'zap',
+  Flame = 'flame',
+  Heart = 'heart',
+  Apple = 'apple',
+  ThumbUp = 'thumb-up',
+}
+
+export const RATING_ICON_COLORS = [
+  Colors.YellowBright,
+  Colors.RedBright,
+  Colors.TealBright,
+] as const;
+
+export const ratingColorsSchema = z.enum(RATING_ICON_COLORS);
+
+export type IRatingColors = z.infer<typeof ratingColorsSchema>;
+
 export const ratingFieldOptionsSchema = z.object({
-  icon: z.string().optional(),
-  max: z.number().int().min(1).max(10).optional(),
-  color: z.string().optional(),
+  icon: z.nativeEnum(RatingIcon),
+  color: ratingColorsSchema,
+  max: z.number().int().max(10).min(1),
 });
 
 export type IRatingFieldOptions = z.infer<typeof ratingFieldOptionsSchema>;

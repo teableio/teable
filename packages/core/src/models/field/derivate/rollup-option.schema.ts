@@ -2,7 +2,6 @@ import { z } from '../../../zod';
 import { timeZoneStringSchema, unionFormattingSchema } from '../formatting';
 import { unionShowAsSchema } from '../show-as';
 
-// Rollup field options
 export const ROLLUP_FUNCTIONS = [
   'countall({values})',
   'counta({values})',

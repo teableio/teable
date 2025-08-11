@@ -1,7 +1,6 @@
 import { z } from '../../../zod';
 import { singleLineTextShowAsSchema } from '../show-as';
 
-// Single line text field options
 export const singlelineTextFieldOptionsSchema = z.object({
   showAs: singleLineTextShowAsSchema.optional(),
   defaultValue: z

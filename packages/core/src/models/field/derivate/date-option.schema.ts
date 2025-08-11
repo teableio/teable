@@ -1,7 +1,6 @@
 import { z } from '../../../zod';
 import { datetimeFormattingSchema } from '../formatting';
 
-// Date field options
 export const dateFieldOptionsSchema = z.object({
   formatting: datetimeFormattingSchema,
   defaultValue: z

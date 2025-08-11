@@ -2,12 +2,8 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
-
-export const checkboxFieldOptionsSchema = z
-  .object({ defaultValue: z.boolean().optional() })
-  .strict();
-
-export type ICheckboxFieldOptions = z.infer<typeof checkboxFieldOptionsSchema>;
+import type { ICheckboxFieldOptions } from './checkbox-option.schema';
+import { checkboxFieldOptionsSchema } from './checkbox-option.schema';
 
 export const booleanCellValueSchema = z.boolean();
 

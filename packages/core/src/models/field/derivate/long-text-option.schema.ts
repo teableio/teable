@@ -1,6 +1,5 @@
 import { z } from '../../../zod';
 
-// Long text field options
 export const longTextFieldOptionsSchema = z
   .object({
     defaultValue: z

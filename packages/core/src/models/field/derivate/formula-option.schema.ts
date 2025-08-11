@@ -2,7 +2,6 @@ import { z } from '../../../zod';
 import { timeZoneStringSchema, unionFormattingSchema } from '../formatting';
 import { unionShowAsSchema } from '../show-as';
 
-// Formula field options
 export const formulaFieldOptionsSchema = z.object({
   expression: z.string().openapi({
     description:

@@ -1,6 +1,5 @@
 import { z } from '../../../zod';
 
-// Auto number field options
 export const autoNumberFieldOptionsSchema = z.object({
   expression: z.literal('AUTO_NUMBER()'),
 });

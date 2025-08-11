@@ -1,7 +1,6 @@
 import { z } from '../../../zod';
 import { datetimeFormattingSchema } from '../formatting';
 
-// Created time field options
 export const createdTimeFieldOptionsSchema = z.object({
   expression: z.literal('CREATED_TIME()'),
   formatting: datetimeFormattingSchema,
