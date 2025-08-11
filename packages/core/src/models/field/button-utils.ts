@@ -1,4 +1,5 @@
-import type { IButtonFieldCellValue, IButtonFieldOptions } from './derivate';
+import type { IButtonFieldCellValue } from './derivate';
+import type { IButtonFieldOptions } from './derivate/button-option.schema';
 
 export const checkButtonClickable = (
   fieldOptions: IButtonFieldOptions,
