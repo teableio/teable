@@ -13,11 +13,13 @@ import { Knex } from 'knex';
 import { omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IStorageConfig, StorageConfig } from '../../configs/storage';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -58,7 +60,8 @@ export class BaseExportService {
     private readonly eventEmitterService: EventEmitterService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
+    @StorageConfig() private readonly storageConfig: IStorageConfig
   ) {}
 
   private generateExportFolderId() {
@@ -81,7 +84,7 @@ export class BaseExportService {
         const previewUrl = await this.storageAdapter.getPreviewUrl(
           StorageAdapter.getBucket(UploadType.ExportBase),
           path,
-          60 * 60 * 24 * 7,
+          second(this.storageConfig.tokenExpireIn),
           {
             // eslint-disable-next-line
             'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
