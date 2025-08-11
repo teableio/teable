@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { aiConfigSchema } from '../admin';
+import { aiConfigSchema, simpleLLMProviderSchema } from '../admin';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -27,6 +27,22 @@ export const integrationItemVoSchema = z.object({
   createdTime: z.string(),
   lastModifiedTime: z.string().optional(),
 });
+
+export const aiIntegrationSettingSchema = aiConfigSchema
+  .pick({
+    codingModels: true,
+    codingModel: true,
+  })
+  .extend({
+    enable: z.boolean().optional(),
+    llmProviders: z.array(
+      simpleLLMProviderSchema.omit({
+        isInstance: true,
+      })
+    ),
+  });
+
+export type IAIIntegrationAISetting = z.infer<typeof aiIntegrationSettingSchema>;
 
 export type IIntegrationItemVo = z.infer<typeof integrationItemVoSchema>;
 
