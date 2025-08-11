@@ -35,13 +35,13 @@ export const LLMProviderManage = ({ value, onChange, onTest }: ILLMProviderManag
       <div className="flex max-w-lg flex-col gap-2">
         {value.map((provider, index) => (
           <div
-            className="group flex w-full justify-between gap-2 rounded-sm p-1 hover:ring"
+            className="group flex w-full justify-between gap-2 truncate rounded-sm p-1 hover:ring"
             key={provider.name}
           >
-            <div>
+            <div className="flex-1 truncate">
               {provider.name} - {provider.type}
             </div>
-            <div className="flex gap-2 opacity-70">
+            <div className="flex shrink-0 gap-2 opacity-70">
               <Button
                 onClick={() => handleRemove(index)}
                 size="xs"
