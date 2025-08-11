@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { type IRecord } from '@teable/core';
+import { Injectable, Logger } from '@nestjs/common';
+import { FieldType, type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { uniq } from 'lodash';
@@ -7,8 +7,8 @@ import { InjectModel } from 'nest-knexjs';
 import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { Timing } from '../../utils/timing';
-import { systemDbFieldNames } from '../field/constant';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import { BatchService } from './batch.service';
 import type { IFkRecordMap } from './link.service';
 import type { IGraphItem, ITopoItem } from './reference.service';
@@ -32,10 +32,13 @@ export interface ITopoOrdersContext {
 
 @Injectable()
 export class FieldCalculationService {
+  private readonly logger = new Logger(FieldCalculationService.name);
+
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
     private readonly referenceService: ReferenceService,
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -76,25 +79,35 @@ export class FieldCalculationService {
 
   private async getRecordsByPage(
     dbTableName: string,
-    dbFieldNames: string[],
+    fields: IFieldInstance[],
     page: number,
     chunkSize: number
   ) {
-    const query = this.knex(dbTableName)
-      .select([...dbFieldNames, ...systemDbFieldNames])
+    const table = this.knex(dbTableName);
+    const { qb } = await this.recordQueryBuilder.buildQueryWithLinkContexts(
+      table,
+      dbTableName,
+      undefined,
+      fields
+    );
+    const query = qb
       .where((builder) => {
-        dbFieldNames.forEach((fieldNames, index) => {
-          if (index === 0) {
-            builder.whereNotNull(fieldNames);
-          } else {
-            builder.orWhereNotNull(fieldNames);
-          }
-        });
+        fields
+          .filter((field) => !field.isComputed && field.type !== FieldType.Link)
+          .forEach((field, index) => {
+            const dbName = field.dbFieldName;
+            if (index === 0) {
+              builder.whereNotNull(dbName);
+            } else {
+              builder.orWhereNotNull(dbName);
+            }
+          });
       })
       .orderBy('__auto_number')
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
+    console.log('getRecordsByPage: ', query);
     return this.prismaService
       .txClient()
       .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
@@ -108,13 +121,12 @@ export class FieldCalculationService {
     for (const dbTableName in dbTableName2fields) {
       // deduplication is needed
       const rowCount = await this.getRowCount(dbTableName);
-      const dbFieldNames = dbTableName2fields[dbTableName].map((f) => f.dbFieldName);
       const totalPages = Math.ceil(rowCount / chunkSize);
       const fields = dbTableName2fields[dbTableName];
 
       const records = await lastValueFrom(
         range(0, totalPages).pipe(
-          concatMap((page) => this.getRecordsByPage(dbTableName, dbFieldNames, page, chunkSize)),
+          concatMap((page) => this.getRecordsByPage(dbTableName, fields, page, chunkSize)),
           toArray(),
           map((records) => records.flat())
         )

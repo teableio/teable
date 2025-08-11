@@ -853,19 +853,19 @@ export class FieldConvertingService {
     await this.referenceService.calculateOpsMap(recordOpsMap, undefined, oldRecords);
   }
 
-  private async getExistRecords(tableId: string, newField: IFieldInstance) {
+  private async getExistRecords(tableId: string, oldField: IFieldInstance) {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
     const result = await this.fieldCalculationService.getRecordsBatchByFields({
-      [dbTableName]: [newField],
+      [dbTableName]: [oldField],
     });
     const records = result[dbTableName];
     if (!records) {
       throw new InternalServerErrorException(
-        `Can't find recordMap for tableId: ${tableId} and fieldId: ${newField.id}`
+        `Can't find recordMap for tableId: ${tableId} and fieldId: ${oldField.id}`
       );
     }
 
