@@ -5,7 +5,7 @@ import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { ITimeZoneString } from '../formatting';
 import { DateFormattingPreset, defaultDatetimeFormatting, TimeFormatting } from '../formatting';
-import type { IDateFieldOptions } from './date.field';
+import type { IDateFieldOptions } from './date-option.schema';
 import { DateFieldCore } from './date.field';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
