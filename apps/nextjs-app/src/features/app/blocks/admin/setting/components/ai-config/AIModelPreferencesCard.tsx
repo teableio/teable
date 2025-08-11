@@ -49,7 +49,7 @@ export const AIModelPreferencesCard = ({
                     {t(`admin.setting.ai.codingModelDescription`)}
                   </FormDescription>
                 </FormLabel>
-                <div className="flex w-2/3 space-x-2">
+                <div className="flex flex-1 space-x-2">
                   <FormControl className="grow">
                     <CodingModels
                       value={field.value}

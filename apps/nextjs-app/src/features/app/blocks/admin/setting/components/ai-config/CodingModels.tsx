@@ -34,7 +34,7 @@ export const CodingModels = ({
       {(['lg', 'md', 'sm'] as const).map((key) => (
         <div key={key} className="relative flex items-center gap-2">
           {key === 'lg' && <div className="absolute -left-2 top-2 text-red-500">*</div>}
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex w-32 shrink-0 items-center gap-2 truncate text-sm">
             {icons[key]}
             <Tooltip content={t(`admin.setting.ai.codingModels.${key}Description`)}>
               <span>{t(`admin.setting.ai.codingModels.${key}`)}</span>
@@ -47,6 +47,7 @@ export const CodingModels = ({
               onChange({ ...value, [key]: model });
             }}
             options={models}
+            className="flex-1"
           />
         </div>
       ))}
