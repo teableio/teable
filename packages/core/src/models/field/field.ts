@@ -1,7 +1,8 @@
 import type { SafeParseReturnType } from 'zod';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { IFieldVisitor } from './field-visitor.interface';
-import type { IFieldVo, ILookupOptionsVo } from './field.schema';
+import type { IFieldVo } from './field.schema';
+import type { ILookupOptionsVo } from './lookup-options-base.schema';
 import { getDbFieldType } from './utils/get-db-field-type';
 
 export abstract class FieldCore implements IFieldVo {

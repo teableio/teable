@@ -6,36 +6,10 @@ import { validateFormulaSupport } from '../../../utils/formula-validation';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
-import {
-  unionFormattingSchema,
-  getFormattingSchema,
-  getDefaultFormatting,
-  timeZoneStringSchema,
-} from '../formatting';
-import { getShowAsSchema, unionShowAsSchema } from '../show-as';
+import { getFormattingSchema, getDefaultFormatting } from '../formatting';
+import { getShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
-
-export const formulaFieldOptionsSchema = z.object({
-  expression: z
-    .string()
-    .describe(
-      'The formula including fields referenced by their IDs. For example, LEFT(4, {Birthday}) input will be returned as LEFT(4, {fldXXX}) via API. The formula syntax in Teable is basically the same as Airtable'
-    ),
-  timeZone: timeZoneStringSchema.optional(),
-  formatting: unionFormattingSchema.optional(),
-  showAs: unionShowAsSchema.optional(),
-});
-
-export type IFormulaFieldOptions = z.infer<typeof formulaFieldOptionsSchema>;
-
-export const formulaFieldMetaSchema = z.object({
-  persistedAsGeneratedColumn: z.boolean().optional().default(false).openapi({
-    description:
-      'Whether this formula field is persisted as a generated column in the database. When true, the field value is computed and stored as a database generated column.',
-  }),
-});
-
-export type IFormulaFieldMeta = z.infer<typeof formulaFieldMetaSchema>;
+import { type IFormulaFieldMeta, type IFormulaFieldOptions } from './formula-option.schema';
 
 const formulaFieldCellValueSchema = z.any();
 

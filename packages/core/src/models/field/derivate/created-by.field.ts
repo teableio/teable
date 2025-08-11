@@ -1,11 +1,10 @@
-import { z } from 'zod';
 import type { FieldType } from '../constant';
 import type { IFieldVisitor } from '../field-visitor.interface';
 import { UserAbstractCore } from './abstract/user.field.abstract';
-
-export const createdByFieldOptionsSchema = z.object({}).strict();
-
-export type ICreatedByFieldOptions = z.infer<typeof createdByFieldOptionsSchema>;
+import {
+  createdByFieldOptionsSchema,
+  type ICreatedByFieldOptions,
+} from './created-by-option.schema';
 
 export class CreatedByFieldCore extends UserAbstractCore {
   type!: FieldType.CreatedBy;

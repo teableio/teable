@@ -3,10 +3,10 @@ import { IdPrefix } from '../../../utils';
 import { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
-
-export const attachmentFieldOptionsSchema = z.object({}).strict();
-
-export type IAttachmentFieldOptions = z.infer<typeof attachmentFieldOptionsSchema>;
+import {
+  attachmentFieldOptionsSchema,
+  type IAttachmentFieldOptions,
+} from './attachment-option.schema';
 
 export const attachmentItemSchema = z.object({
   id: z.string().startsWith(IdPrefix.Attachment),

@@ -2,17 +2,10 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
-import { singleLineTextShowAsSchema } from '../show-as';
-
-export const singlelineTextFieldOptionsSchema = z.object({
-  showAs: singleLineTextShowAsSchema.optional(),
-  defaultValue: z
-    .string()
-    .optional()
-    .transform((value) => (typeof value === 'string' ? value.trim() : value)),
-});
-
-export type ISingleLineTextFieldOptions = z.infer<typeof singlelineTextFieldOptionsSchema>;
+import {
+  singlelineTextFieldOptionsSchema,
+  type ISingleLineTextFieldOptions,
+} from './single-line-text-option.schema';
 
 export const singleLineTextCelValueSchema = z.string();
 
