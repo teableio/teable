@@ -40,7 +40,6 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   afterAll(async () => {
-    console.log('base', base);
     await permanentDeleteTable(base.id, table1.id);
     await permanentDeleteTable(base.id, table2.id);
     await deleteBase(base.id);
@@ -75,6 +74,23 @@ describe('OpenAPI OAuthController (e2e)', () => {
     expect(res.data).toEqual({
       resourceId: table2.id,
       childResourceId: table2.views[0].id,
+      resourceType: LastVisitResourceType.Table,
+    });
+
+    await updateUserLastVisit({
+      resourceType: LastVisitResourceType.Table,
+      parentResourceId: base.id,
+      resourceId: table1.id,
+    });
+
+    const res2 = await getUserLastVisit({
+      resourceType: LastVisitResourceType.Table,
+      parentResourceId: base.id,
+    });
+
+    expect(res2.data).toEqual({
+      resourceId: table1.id,
+      childResourceId: table1.views[0].id,
       resourceType: LastVisitResourceType.Table,
     });
   });
@@ -204,10 +220,10 @@ describe('OpenAPI OAuthController (e2e)', () => {
       await permanentDeleteBase(base.id);
     }
     expect(userLastVisitListBaseVoSchema.safeParse(res.data).success).toEqual(true);
-    expect(res.data.list.length).toEqual(20);
-    expect(res.data.total).toEqual(20);
+    expect(res.data.list.length).toEqual(10);
+    expect(res.data.total).toEqual(10);
     expect(res.data.list[0].resource.id).toEqual(base_21[20].id);
-    expect(res.data.list[19].resource.id).toEqual(base_21[1].id);
+    expect(res.data.list[9].resource.id).toEqual(base_21[11].id);
 
     const res2 = await getUserLastVisitListBase();
 
@@ -220,5 +236,38 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userLastVisit.length).toEqual(0);
+  });
+
+  it('should update visit count', async () => {
+    const table = await createTable(base.id, { name: 'table' }).then((res) => res.data);
+    await updateUserLastVisit({
+      resourceType: LastVisitResourceType.Table,
+      parentResourceId: base.id,
+      resourceId: table.id,
+    });
+
+    await updateUserLastVisit({
+      resourceType: LastVisitResourceType.Table,
+      parentResourceId: base.id,
+      resourceId: table.id,
+    });
+
+    await updateUserLastVisit({
+      resourceType: LastVisitResourceType.Table,
+      parentResourceId: base.id,
+      resourceId: table.id,
+    });
+
+    const prisma = app.get(PrismaService);
+    const userLastVisit = await prisma.userLastVisit.findMany({
+      where: {
+        parentResourceId: base.id,
+        resourceId: table.id,
+        resourceType: LastVisitResourceType.Table,
+      },
+    });
+    await permanentDeleteTable(base.id, table.id);
+    expect(userLastVisit.length).toEqual(1);
+    expect(userLastVisit[0].visitCount).toEqual(3);
   });
 });

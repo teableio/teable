@@ -45,6 +45,7 @@ export class LastVisitService {
           .where('ulv.user_id', userId)
           .where('ulv.resource_type', LastVisitResourceType.Table)
           .where('ulv.parent_resource_id', baseId)
+          .orderBy('ulv.last_visit_time', 'desc')
           .limit(1);
       })
       .select({
@@ -61,6 +62,7 @@ export class LastVisitService {
         this.on('v.id', '=', 'ulv.resource_id').andOnNull('v.deleted_time');
       })
       .whereRaw('(ulv.resource_id IS NULL OR v.id IS NOT NULL)')
+      .orderBy('ulv.last_visit_time', 'desc')
       .limit(1)
       .toQuery();
 
@@ -165,6 +167,7 @@ export class LastVisitService {
       .where('ulv.user_id', userId)
       .where('ulv.resource_type', LastVisitResourceType.View)
       .where('ulv.parent_resource_id', parentResourceId)
+      .orderBy('ulv.last_visit_time', 'desc')
       .whereNotNull('v.id')
       .limit(1);
 
@@ -213,6 +216,7 @@ export class LastVisitService {
       .where('ulv.user_id', userId)
       .where('ulv.resource_type', LastVisitResourceType.Dashboard)
       .where('ulv.parent_resource_id', parentResourceId)
+      .orderBy('ulv.last_visit_time', 'desc')
       .whereNotNull('v.id')
       .limit(1);
 
@@ -257,6 +261,7 @@ export class LastVisitService {
       .where('ulv.user_id', userId)
       .where('ulv.resource_type', LastVisitResourceType.Automation)
       .where('ulv.parent_resource_id', parentResourceId)
+      .orderBy('ulv.last_visit_time', 'desc')
       .whereNotNull('v.id')
       .limit(1)
       .toQuery();
@@ -327,7 +332,8 @@ export class LastVisitService {
       .where('ulv.resource_type', LastVisitResourceType.Base)
       .whereNotNull('b.id')
       .whereNotNull('c.id')
-      .orderBy('ulv.last_visit_time', 'desc');
+      .orderBy('ulv.last_visit_time', 'desc')
+      .limit(10);
 
     const results = await this.prismaService.$queryRawUnsafe<
       {
@@ -387,7 +393,6 @@ export class LastVisitService {
         resourceType: LastVisitResourceType.Base,
         resourceId,
         parentResourceId,
-        maxRecords: 20,
       });
       return;
     }
@@ -397,7 +402,6 @@ export class LastVisitService {
       resourceType,
       resourceId,
       parentResourceId,
-      maxRecords: 1,
     });
 
     if (childResourceId) {
@@ -406,7 +410,6 @@ export class LastVisitService {
         resourceType: LastVisitResourceType.View,
         resourceId: childResourceId,
         parentResourceId: resourceId,
-        maxRecords: 1,
       });
     }
   }
@@ -415,14 +418,12 @@ export class LastVisitService {
     userId,
     resourceType,
     resourceId,
-    maxRecords = 10,
     parentResourceId,
   }: {
     userId: string;
     resourceType: string;
     resourceId: string;
     parentResourceId: string;
-    maxRecords?: number;
   }) {
     await this.prismaService.$transaction(async (prisma) => {
       await prisma.userLastVisit.upsert({
@@ -435,6 +436,9 @@ export class LastVisitService {
         },
         update: {
           lastVisitTime: new Date().toISOString(),
+          visitCount: {
+            increment: 1,
+          },
         },
         create: {
           userId,
@@ -443,30 +447,6 @@ export class LastVisitService {
           parentResourceId,
         },
       });
-
-      const oldRecords = await prisma.userLastVisit.findMany({
-        where: {
-          userId,
-          resourceType,
-        },
-        orderBy: {
-          lastVisitTime: 'desc',
-        },
-        skip: maxRecords,
-        select: {
-          id: true,
-        },
-      });
-
-      if (oldRecords.length > 0) {
-        await prisma.userLastVisit.deleteMany({
-          where: {
-            id: {
-              in: oldRecords.map((record) => record.id),
-            },
-          },
-        });
-      }
     });
   }
 
