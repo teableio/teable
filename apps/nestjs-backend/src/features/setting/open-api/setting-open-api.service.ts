@@ -2,13 +2,13 @@ import { join } from 'path';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ISettingVo, ITestLLMRo, ITestLLMVo } from '@teable/openapi';
-import { LLMProviderType, UploadType } from '@teable/openapi';
+import { UploadType } from '@teable/openapi';
 import { generateText } from 'ai';
 import type { LanguageModel } from 'ai';
 import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import type { IClsStore } from '../../../types/cls';
-import { modelProviders } from '../../ai/util';
+import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
@@ -86,9 +86,11 @@ export class SettingOpenApiService {
     try {
       const model = models.split(',')[0].trim();
       const provider = modelProviders[type];
-      const providerOptions =
-        type === LLMProviderType.OLLAMA ? { baseURL: baseUrl } : { baseURL: baseUrl, apiKey };
-      const modelProvider = provider(providerOptions);
+
+      const providerOptions = getAdaptedProviderOptions(type, { baseURL: baseUrl, apiKey });
+      const modelProvider = provider({
+        ...providerOptions,
+      });
       const modelInstance = modelProvider(model);
       const { text } = await generateText({
         model: modelInstance as LanguageModel,

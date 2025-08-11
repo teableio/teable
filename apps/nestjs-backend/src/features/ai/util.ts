@@ -1,3 +1,4 @@
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createCohere } from '@ai-sdk/cohere';
@@ -25,4 +26,31 @@ export const modelProviders = {
   [LLMProviderType.XAI]: createXai,
   [LLMProviderType.TOGETHERAI]: createTogetherAI,
   [LLMProviderType.OLLAMA]: createOllama,
+  [LLMProviderType.AMAZONBEDROCK]: createAmazonBedrock,
 } as const;
+
+export const getAdaptedProviderOptions = (
+  type: LLMProviderType,
+  originalOptions: {
+    baseURL: string;
+    apiKey: string;
+  }
+) => {
+  const { baseURL: originalBaseURL, apiKey: originalApiKey } = originalOptions;
+  switch (type) {
+    case LLMProviderType.AMAZONBEDROCK: {
+      const [region, accessKeyId, secretAccessKey] = originalApiKey.split('.');
+      return {
+        region,
+        secretAccessKey: secretAccessKey,
+        accessKeyId: accessKeyId,
+        baseURL: originalBaseURL,
+      };
+    }
+    case LLMProviderType.OLLAMA:
+      return { baseURL: originalBaseURL };
+    default: {
+      return originalOptions;
+    }
+  }
+};

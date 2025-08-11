@@ -11,6 +11,7 @@ import {
   Zhipu,
   Xai,
   Ollama,
+  AmazonBedrock,
 } from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
@@ -28,6 +29,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.XAI]: Xai,
   [LLMProviderType.TOGETHERAI]: Openai,
   [LLMProviderType.OLLAMA]: Ollama,
+  [LLMProviderType.AMAZONBEDROCK]: AmazonBedrock,
 };
 
 export const LLM_PROVIDERS = [
@@ -121,5 +123,13 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'http://localhost:11434',
     modelsPlaceholder: 'llama3.1:8b,llama3.1:70b',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.OLLAMA],
+  },
+  {
+    value: LLMProviderType.AMAZONBEDROCK,
+    label: 'Amazon Bedrock',
+    baseUrlPlaceholder: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+    modelsPlaceholder: 'amazon.titan-embed-image-v1,amazon.titan-embed-text-v1',
+    apiKeyPlaceholder: 'REGION.ACCESS_KEY_ID.SECRET_ACCESS_KEY',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.AMAZONBEDROCK],
   },
 ] as const;

@@ -1,14 +1,14 @@
 import type { OpenAIProvider } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IAIConfig, IAiGenerateRo, LLMProvider } from '@teable/openapi';
-import { IntegrationType, LLMProviderType, Task } from '@teable/openapi';
+import type { IAIConfig, IAiGenerateRo, LLMProvider, LLMProviderType } from '@teable/openapi';
+import { IntegrationType, Task } from '@teable/openapi';
 import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { SettingService } from '../setting/setting.service';
 import { TASK_MODEL_MAP } from './constant';
-import { modelProviders } from './util';
+import { getAdaptedProviderOptions, modelProviders } from './util';
 
 @Injectable()
 export class AiService {
@@ -65,8 +65,10 @@ export class AiService {
       throw new Error(`Unsupported AI provider: ${type}`);
     }
 
-    const providerOptions =
-      type === LLMProviderType.OLLAMA ? { baseURL: baseUrl } : { baseURL: baseUrl, apiKey };
+    const providerOptions = getAdaptedProviderOptions(type as LLMProviderType, {
+      baseURL: baseUrl,
+      apiKey,
+    });
     const modelProvider = provider(providerOptions);
 
     return isImageGeneration

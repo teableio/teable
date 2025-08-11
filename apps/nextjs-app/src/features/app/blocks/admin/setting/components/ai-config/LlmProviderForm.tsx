@@ -165,7 +165,9 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
 
   const mode = onChange ? t('actions.update') : t('actions.add');
   const type = form.watch('type');
-  const currentProvider = LLM_PROVIDERS.find((provider) => provider.value === type);
+  const currentProvider = LLM_PROVIDERS.find(
+    (provider) => provider.value === type
+  ) as (typeof LLM_PROVIDERS)[number] & { apiKeyPlaceholder?: string };
 
   return (
     <Form {...form}>
@@ -242,7 +244,11 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
                     <FormDescription>{t('admin.setting.ai.apiKeyDescription')}</FormDescription>
                   </div>
                   <FormControl>
-                    <Input {...field} type="password" />
+                    <Input
+                      {...field}
+                      type="password"
+                      placeholder={currentProvider?.apiKeyPlaceholder ?? ''}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
