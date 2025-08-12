@@ -228,8 +228,8 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IButtonClickVo> {
-    await this.recordOpenApiService.buttonClick(tableId, recordId, fieldId);
-    return { runId: '' };
+    const result = await this.recordOpenApiService.buttonClick(tableId, recordId, fieldId);
+    return { ...result, runId: '' };
   }
 
   @Permissions('record|update')

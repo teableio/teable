@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { recordSchema } from '@teable/core';
 import type { AxiosResponse } from 'axios';
 import { z } from 'zod';
 import { axios } from '../axios';
@@ -8,6 +9,9 @@ export const BUTTON_CLICK = '/table/{tableId}/record/{recordId}/{fieldId}/button
 
 export const buttonClickVoSchema = z.object({
   runId: z.string(),
+  tableId: z.string(),
+  fieldId: z.string(),
+  record: recordSchema,
 });
 
 export type IButtonClickVo = z.infer<typeof buttonClickVoSchema>;
