@@ -33,6 +33,9 @@ export const useButtonClickStatus = (tableId: string) => {
   const setStatus = useCallback(
     (status: IButtonClickStatus) => {
       const { runId } = status;
+      if (!runId) {
+        return;
+      }
       const toastId = toastMapRef.current[runId];
       const { loading, name, errorMessage, recordId, fieldId } = status;
 
@@ -44,7 +47,7 @@ export const useButtonClickStatus = (tableId: string) => {
         return;
       }
 
-      if (toastId && errorMessage) {
+      if (errorMessage) {
         toast.error(t('common.runStatus.failed', { name }), {
           id: toastId,
         });
@@ -52,7 +55,7 @@ export const useButtonClickStatus = (tableId: string) => {
         return;
       }
 
-      if (toastId && !loading) {
+      if (!loading) {
         toast.success(t('common.runStatus.success', { name }), {
           id: toastId,
         });
