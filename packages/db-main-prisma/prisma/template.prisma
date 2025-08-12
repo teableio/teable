@@ -564,11 +564,9 @@ model UserLastVisit {
   resourceId       String    @map("resource_id")
   parentResourceId String    @map("parent_resource_id")
   lastVisitTime    DateTime  @default(now()) @map("last_visit_time")
-  visitCount       Int       @default(1) @map("visit_count")
 
   @@unique([userId, resourceType, resourceId])
   @@index([userId, resourceType, parentResourceId])
-  @@index([resourceType, lastVisitTime])
   @@map("user_last_visit")
 }
 
