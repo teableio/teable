@@ -824,7 +824,7 @@ export class LinkService {
       const queryBuilder = this.knex(tableId2DbTableName[tableId]);
       const fields = fieldIds.map((fieldId) => fieldMapByTableId[tableId][fieldId]);
 
-      const { qb } = await this.recordQueryBuilder.buildQueryWithLinkContexts(
+      const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
         queryBuilder,
         tableId,
         undefined,
