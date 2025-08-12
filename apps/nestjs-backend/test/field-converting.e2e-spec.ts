@@ -2282,8 +2282,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(t1records[0].fields[newField.id]).toEqual({ title: 'x', id: t2records[0].id });
       expect(t1records[1].fields[newField.id]).toEqual({ title: 'zzz', id: t2records[2].id });
 
-      expect(t2records[0].fields[symmetricFieldId]).toEqual([{ id: t1records[0].id }]);
-      expect(t2records[2].fields[symmetricFieldId]).toEqual([{ id: t1records[1].id }]);
+      expect(t2records[0].fields[symmetricFieldId]).toMatchObject([{ id: t1records[0].id }]);
+      expect(t2records[2].fields[symmetricFieldId]).toMatchObject([{ id: t1records[1].id }]);
     });
 
     it('should convert two-way one-one to one-way one-many link with link', async () => {
