@@ -26,18 +26,16 @@ export interface ILinkFieldCteContext {
  */
 export interface IRecordQueryBuilder {
   /**
-   * Create a record query builder with select fields for the given table and fields
+   * Create a record query builder with select fields for the given table
    * @param queryBuilder - existing query builder to use
-   * @param tableId - The table ID
+   * @param tableIdOrDbTableName - The table ID or database table name
    * @param viewId - Optional view ID for filtering
-   * @param fields - Array of field instances to select
    * @returns Promise<{ qb: Knex.QueryBuilder }> - The configured query builder
    */
   createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
-    tableId: string,
-    viewId: string | undefined,
-    fields: IFieldInstance[]
+    tableIdOrDbTableName: string,
+    viewId: string | undefined
   ): Promise<{ qb: Knex.QueryBuilder }>;
 }
 

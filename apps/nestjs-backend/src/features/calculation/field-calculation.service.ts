@@ -87,8 +87,7 @@ export class FieldCalculationService {
     const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
       table,
       dbTableName,
-      undefined,
-      fields
+      undefined
     );
     const query = qb
       .where((builder) => {

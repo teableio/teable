@@ -810,25 +810,14 @@ export class LinkService {
     for (const tableId in recordMapByTableId) {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
       const recordIds = Object.keys(recordLookupFieldsMap);
-      const fieldIds = Array.from(
-        Object.values(recordLookupFieldsMap).reduce<Set<string>>((pre, cur) => {
-          for (const fieldId in cur) {
-            pre.add(fieldId);
-          }
-          return pre;
-        }, new Set())
-      );
-
       const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
 
       const queryBuilder = this.knex(tableId2DbTableName[tableId]);
-      const fields = fieldIds.map((fieldId) => fieldMapByTableId[tableId][fieldId]);
 
       const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
         queryBuilder,
         tableId,
-        undefined,
-        fields
+        undefined
       );
 
       const nativeQuery = qb.whereIn('__id', recordIds).toQuery();

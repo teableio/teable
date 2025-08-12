@@ -1122,6 +1122,7 @@ export class FieldService implements IReadonlyAdapterService {
    * Handle dependent formula fields when updating a regular field
    * This ensures that formula fields referencing the updated field are properly updated
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async handleDependentFormulaFields(
     tableId: string,
     field: IFieldInstance,

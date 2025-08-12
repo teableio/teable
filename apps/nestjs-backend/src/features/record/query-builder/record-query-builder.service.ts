@@ -31,16 +31,16 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   ) {}
 
   /**
-   * Create a record query builder with select fields for the given table and fields
+   * Create a record query builder with select fields for the given table
    */
   async createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
-    tableId: string,
-    viewId: string | undefined,
-    fields: IFieldInstance[]
+    tableIdOrDbTableName: string,
+    viewId: string | undefined
   ): Promise<{ qb: Knex.QueryBuilder }> {
-    const mainTableName = await this.getDbTableName(tableId);
-    const linkFieldCteContext = await this.createLinkFieldContexts(fields, tableId, mainTableName);
+    const { tableId, dbTableName } = await this.getTableInfo(tableIdOrDbTableName);
+    const fields = await this.getAllFields(tableId);
+    const linkFieldCteContext = await this.createLinkFieldContexts(fields, tableId, dbTableName);
 
     const params: IRecordQueryParams = {
       tableId,
@@ -104,6 +104,31 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     }
 
     return qb;
+  }
+
+  /**
+   * Get table information for a given table ID or database table name
+   */
+  private async getTableInfo(
+    tableIdOrDbTableName: string
+  ): Promise<{ tableId: string; dbTableName: string }> {
+    const table = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
+      select: { id: true, dbTableName: true },
+    });
+
+    return { tableId: table.id, dbTableName: table.dbTableName };
+  }
+
+  /**
+   * Get all fields for a given table ID
+   */
+  private async getAllFields(tableId: string): Promise<IFieldInstance[]> {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+    });
+
+    return fields.map((field) => createFieldInstanceByRaw(field));
   }
 
   /**
