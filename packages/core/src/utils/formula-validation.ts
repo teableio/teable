@@ -1,4 +1,4 @@
-import { FormulaSupportValidator } from '../formula/formula-support-validator';
+import { FormulaSupportGeneratedColumnValidator } from '../formula/formula-support-generated-column-validator';
 import type {
   IGeneratedColumnQuerySupportValidator,
   IFieldMap,
@@ -16,6 +16,6 @@ export function validateFormulaSupport(
   expression: string,
   fieldMap?: IFieldMap
 ): boolean {
-  const validator = new FormulaSupportValidator(supportValidator, fieldMap);
+  const validator = new FormulaSupportGeneratedColumnValidator(supportValidator, fieldMap);
   return validator.validateFormula(expression);
 }
