@@ -82,6 +82,3 @@ export function applyFieldPropertyOps(
     { ...fieldVo }
   );
 }
-
-// Re-export the interface for external use
-export type { ISetFieldPropertyOpContext };
