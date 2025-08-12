@@ -181,6 +181,8 @@ spec:
                 redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).ns-__NAMESPACE__.svc:$(REDIS_PORT)/1
             - name: NEXT_ENV_IMAGES_ALL_REMOTE
               value: 'true'
+            - name: NEXT_BUILD_ENV_ASSET_PREFIX
+              value: __NEXT_BUILD_ENV_ASSET_PREFIX__
           resources:
             requests:
               cpu: 200m

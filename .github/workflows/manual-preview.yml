@@ -13,6 +13,14 @@ on:
       - labeled
       - unlabeled
 
+env:
+  NAMESPACE: 38puz7wo
+  INSTANCE_NAME: pr-${{ github.event.pull_request.number }}
+  INSTANCE_DOMAIN: pr-${{ github.event.pull_request.number }}
+  DISPLAY_NAME: "teable-pr-${{ github.event.pull_request.number }}"
+  MAIN_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable
+  IMAGE_TAG: ${{ github.sha }}-amd64
+
 jobs:
   check-pr:
     runs-on: ubuntu-latest
@@ -77,19 +85,14 @@ jobs:
               --build-arg="ENABLE_CSP=false" \
               --tag="${{ steps.meta.outputs.tags }}" \
               --platform="linux/amd64" \
+              --upload-assets-list='[["sealos-objectstorage","${{ secrets.SEALOS_OBJECTSTORAGE_ENDPOINT }}","${{ secrets.SEALOS_OBJECTSTORAGE_ACCESS_KEY }}","${{ secrets.SEALOS_OBJECTSTORAGE_SECRET_KEY }}","${{ env.NAMESPACE }}-teable-${{ env.INSTANCE_NAME }}-public"]]' \
               --push
 
   deploy:
     needs: [check-pr, build-push]
     if: needs.check-pr.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
-    env:
-      NAMESPACE: 38puz7wo
-      INSTANCE_NAME: pr-${{ github.event.pull_request.number }}
-      INSTANCE_DOMAIN: pr-${{ github.event.pull_request.number }}
-      DISPLAY_NAME: "teable-pr-${{ github.event.pull_request.number }}"
-      MAIN_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable
-      IMAGE_TAG: ${{ github.sha }}-amd64
+   
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -103,6 +106,8 @@ jobs:
         sed -i "s#__MAIN_IMAGE_REPOSITORY__#${{ env.MAIN_IMAGE_REPOSITORY }}#g" deploy.yaml
         sed -i "s#__IMAGE_TAG__#${{ env.IMAGE_TAG }}#g" deploy.yaml
         sed -i "s#__DISPLAY_NAME__#${{ env.DISPLAY_NAME }}#g" deploy.yaml
+        sed -i "s#__NEXT_BUILD_ENV_ASSET_PREFIX__#${{ secrets.SEALOS_OBJECTSTORAGE_ENDPOINT }}/${{ env.NAMESPACE }}-teable-${{ env.INSTANCE_NAME }}-public#g" deploy.yaml
+
 
     - name: Apply deploy job
       uses: actions-hub/kubectl@master

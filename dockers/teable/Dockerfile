@@ -68,6 +68,8 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
+ARG UPLOAD_ASSETS_LIST=""
+
 RUN set -ex; \
         rm -fr node_modules; \
         pnpm nuke:node_modules; \
@@ -75,6 +77,11 @@ RUN set -ex; \
         zx ./scripts/post-build-cleanup.mjs; \
         pnpm install --prod --prefer-offline --frozen-lockfile; \
         pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+
+RUN set -ex; \
+        chmod +x ./scripts/upload-assets.mjs; \
+        zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST";
+
 
 ##################################################################
 # Stage 4: Extract a minimal image from the build                #
@@ -175,6 +182,7 @@ RUN set -ex; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
                 curl \
+                ca-certificates \
                 openssl \
                 netcat-traditional \
                 wget \
