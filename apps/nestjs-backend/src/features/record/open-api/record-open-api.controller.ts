@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -219,14 +220,16 @@ export class RecordOpenApiController {
     return { taskId: '' };
   }
 
-  @Permissions('record|update')
+  @Permissions('record|read')
   @Post(':recordId/:fieldId/button-click')
   async buttonClick(
+    @Req() req: Express.Request,
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IButtonClickVo> {
-    return await this.recordOpenApiService.buttonClick(tableId, recordId, fieldId);
+    await this.recordOpenApiService.buttonClick(tableId, recordId, fieldId);
+    return { runId: '' };
   }
 
   @Permissions('record|update')

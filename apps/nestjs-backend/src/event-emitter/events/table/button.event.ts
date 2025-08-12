@@ -1,9 +1,13 @@
-import type { IButtonClickVo } from '@teable/openapi';
+import type { IRecord } from '@teable/core';
 import { match } from 'ts-pattern';
 import { CoreEvent, type IEventContext } from '../core-event';
 import { Events } from '../event.enum';
 
-type IButtonClickEventPayload = IButtonClickVo;
+type IButtonClickEventPayload = {
+  tableId: string;
+  fieldId: string;
+  record: IRecord;
+};
 
 export class ButtonClickEvent extends CoreEvent<IButtonClickEventPayload> {
   public readonly name = Events.TABLE_BUTTON_CLICK;

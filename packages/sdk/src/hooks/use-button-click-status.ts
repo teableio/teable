@@ -6,6 +6,9 @@ import { useTranslation } from '../context/app/i18n';
 import { useConnection } from './use-connection';
 
 export interface IButtonClickStatus {
+  runId: string;
+  recordId: string;
+  fieldId: string;
   loading: boolean;
   name: string;
   message?: string;
@@ -18,9 +21,44 @@ export const useButtonClickStatus = (tableId: string) => {
   const { connection } = useConnection();
   const channel = getTableButtonClickChannel(tableId);
   const presence = connection?.getPresence(channel);
-  const [statusMap, setStatusMap] = useState<Record<string, IButtonClickStatus>>({});
+  // runId => status
+  const statusMapRef = useRef<Record<string, IButtonClickStatus>>({});
   const toastMapRef = useRef<Record<string, number | string | undefined>>({});
   const { t } = useTranslation();
+
+  const checkLoading = (fieldId: string, recordId: string) => {
+    return statusMapRef.current[`${recordId}-${fieldId}`]?.loading ?? false;
+  };
+
+  const setStatus = useCallback(
+    (status: IButtonClickStatus) => {
+      const { runId } = status;
+      const toastId = toastMapRef.current[runId];
+      const { loading, name, errorMessage, recordId, fieldId } = status;
+      if (errorMessage) {
+        toast.error(t('common.runStatus.failed', { name }), {
+          id: toastId ?? undefined,
+        });
+        toastMapRef.current[runId] = undefined;
+        return;
+      }
+
+      if (loading) {
+        const newToastId = toast.loading(t('common.runStatus.running', { name }), {
+          id: toastId ?? undefined,
+        });
+        toastMapRef.current[runId] = newToastId;
+      } else {
+        toast.success(t('common.runStatus.success', { name }), {
+          id: toastId ?? undefined,
+        });
+        toastMapRef.current[runId] = undefined;
+      }
+
+      statusMapRef.current[`${recordId}-${fieldId}`] = status;
+    },
+    [t]
+  );
 
   useEffect(() => {
     if (!presence || !channel) {
@@ -38,7 +76,7 @@ export const useButtonClickStatus = (tableId: string) => {
       if (!isEmpty(remotePresences)) {
         const remoteStatus = get(remotePresences, channel);
         if (remoteStatus) {
-          setStatusMap((prev) => ({ ...prev, ...remoteStatus }));
+          setStatus(remoteStatus);
         }
       }
     };
@@ -50,61 +88,7 @@ export const useButtonClickStatus = (tableId: string) => {
       presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
       presence?.listenerCount('receive') === 0 && presence?.destroy();
     };
-  }, [connection, presence, channel, tableId]);
-
-  useEffect(() => {
-    const sourceId = Object.keys(statusMap).find((key) => key.startsWith(`${tableId}`));
-    if (!sourceId) {
-      return;
-    }
-
-    const status = statusMap[sourceId];
-    if (!status) {
-      return;
-    }
-
-    const toastId = toastMapRef.current[sourceId];
-    const { loading, name, errorMessage } = status;
-    if (errorMessage) {
-      toast.error(t('common.runStatus.failed', { name }), {
-        id: toastId ?? undefined,
-      });
-      toastMapRef.current[sourceId] = undefined;
-      return;
-    }
-
-    if (loading) {
-      const newToastId = toast.loading(t('common.runStatus.running', { name }), {
-        id: toastId ?? undefined,
-      });
-      toastMapRef.current[sourceId] = newToastId;
-    } else {
-      toast.success(t('common.runStatus.success', { name }), {
-        id: toastId ?? undefined,
-      });
-      toastMapRef.current[sourceId] = undefined;
-    }
-  }, [statusMap, tableId, t]);
-
-  const buildSourceId = (tableId: string, recordId: string, fieldId: string) => {
-    return `${tableId}-${recordId}-${fieldId}`;
-  };
-
-  const checkLoading = useCallback(
-    (recordId: string, fieldId: string) => {
-      return statusMap[buildSourceId(tableId, recordId, fieldId)]?.loading ?? false;
-    },
-    [statusMap, tableId]
-  );
-
-  const setStatus = (
-    tableId: string,
-    recordId: string,
-    fieldId: string,
-    status: IButtonClickStatus
-  ) => {
-    setStatusMap((prev) => ({ ...prev, [buildSourceId(tableId, recordId, fieldId)]: status }));
-  };
+  }, [connection, presence, channel, setStatus]);
 
   return { checkLoading, setStatus };
 };

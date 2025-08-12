@@ -35,8 +35,11 @@ const clickHandler = (cell: IButtonCell) => {
 
   const { tableId, statusHook, fieldOptions } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
-  buttonClick(tableId, recordId, fieldId).then(() => {
-    statusHook?.setStatus?.(tableId, recordId, fieldId, {
+  buttonClick(tableId, recordId, fieldId).then((res) => {
+    statusHook?.setStatus?.({
+      runId: res.data.runId,
+      recordId,
+      fieldId,
       loading: true,
       name: fieldOptions.label,
     });
@@ -163,7 +166,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     });
 
     const [recordId = '', fieldId = ''] = id.split('-');
-    const isLoading = statusHook?.checkLoading?.(recordId, fieldId) ?? false;
+    const isLoading = statusHook?.checkLoading?.(fieldId, recordId) ?? false;
 
     return drawButton(ctx, {
       x: x + position.x,
