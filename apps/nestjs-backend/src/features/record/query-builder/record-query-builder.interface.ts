@@ -26,49 +26,19 @@ export interface ILinkFieldCteContext {
  */
 export interface IRecordQueryBuilder {
   /**
-   * Build a query builder with select fields for the given table and fields
+   * Create a record query builder with select fields for the given table and fields
    * @param queryBuilder - existing query builder to use
    * @param tableId - The table ID
    * @param viewId - Optional view ID for filtering
    * @param fields - Array of field instances to select
-   * @param linkFieldContexts - Optional Link field contexts for CTE generation
-   * @returns Knex.QueryBuilder - The configured query builder
+   * @returns Promise<{ qb: Knex.QueryBuilder }> - The configured query builder
    */
-  buildQuery(
-    queryBuilder: Knex.QueryBuilder,
-    tableId: string,
-    viewId: string | undefined,
-    fields: IFieldInstance[],
-    linkFieldCteContext: ILinkFieldCteContext
-  ): Knex.QueryBuilder;
-
-  /**
-   * Build a query builder with select fields for the given table and fields
-   * @param queryBuilder - existing query builder to use
-   * @param tableId - The table ID
-   * @param viewId - Optional view ID for filtering
-   * @param fields - Array of field instances to select
-   * @returns Knex.QueryBuilder - The configured query builder
-   */
-  buildQueryWithLinkContexts(
+  createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
     viewId: string | undefined,
     fields: IFieldInstance[]
   ): Promise<{ qb: Knex.QueryBuilder }>;
-
-  /**
-   * Create Link field contexts for CTE generation
-   * @param fields - Array of field instances
-   * @param tableId - Table ID for reference
-   * @param mainTableName - Main table database name
-   * @returns Promise<ILinkFieldCteContext> - Complete CTE context with main table name
-   */
-  createLinkFieldContexts(
-    fields: IFieldInstance[],
-    tableId: string,
-    mainTableName: string
-  ): Promise<ILinkFieldCteContext>;
 }
 
 /**

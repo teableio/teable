@@ -84,7 +84,7 @@ export class FieldCalculationService {
     chunkSize: number
   ) {
     const table = this.knex(dbTableName);
-    const { qb } = await this.recordQueryBuilder.buildQueryWithLinkContexts(
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
       table,
       dbTableName,
       undefined,

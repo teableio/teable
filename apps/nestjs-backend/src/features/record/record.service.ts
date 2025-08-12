@@ -211,15 +211,13 @@ export class RecordService {
 
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
     const qb = this.knex(dbTableName);
-    const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
-      fields,
+    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
+      qb,
       tableId,
-      dbTableName
+      undefined,
+      fields
     );
-    const sql = this.recordQueryBuilder
-      .buildQuery(qb, tableId, undefined, fields, linkFieldCteContext)
-      .where('__id', recordId)
-      .toQuery();
+    const sql = queryBuilder.where('__id', recordId).toQuery();
 
     const result = await prisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
     return result
@@ -1325,16 +1323,13 @@ export class RecordService {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const qb = builder.from(viewQueryDbTableName);
-    const mainTableName = await this.getDbTableName(tableId);
-    const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
-      fields,
+    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
+      qb,
       tableId,
-      mainTableName
+      undefined,
+      fields
     );
-    const nativeQuery = this.recordQueryBuilder
-      .buildQuery(qb, tableId, undefined, fields, linkFieldCteContext)
-      .whereIn('__id', recordIds)
-      .toQuery();
+    const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
 
     this.logger.debug('getSnapshotBulkInner query: %s', nativeQuery);
 
@@ -1720,19 +1715,13 @@ export class RecordService {
       filterLinkCellCandidate,
       filterLinkCellSelected,
     });
-    const mainTableName = await this.getDbTableName(tableId);
-    const linkFieldCteContext = await this.recordQueryBuilder.createLinkFieldContexts(
-      fields,
-      tableId,
-      mainTableName
-    );
-    queryBuilder = this.recordQueryBuilder.buildQuery(
+    const { qb: recordQueryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
       queryBuilder,
       tableId,
       viewId,
-      fields,
-      linkFieldCteContext
+      fields
     );
+    queryBuilder = recordQueryBuilder;
     skip && queryBuilder.offset(skip);
     take !== -1 && take && queryBuilder.limit(take);
     const sql = queryBuilder.toQuery();

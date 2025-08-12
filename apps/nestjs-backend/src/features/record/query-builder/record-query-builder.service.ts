@@ -31,30 +31,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   ) {}
 
   /**
-   * Build a query builder with select fields for the given table and fields
+   * Create a record query builder with select fields for the given table and fields
    */
-  buildQuery(
-    queryBuilder: Knex.QueryBuilder,
-    tableId: string,
-    viewId: string | undefined,
-    fields: IFieldInstance[],
-    linkFieldCteContext: ILinkFieldCteContext
-  ): Knex.QueryBuilder {
-    const params: IRecordQueryParams = {
-      tableId,
-      viewId,
-      fields,
-      queryBuilder,
-      linkFieldContexts: linkFieldCteContext.linkFieldContexts,
-    };
-
-    return this.buildQueryWithParams(params, linkFieldCteContext);
-  }
-
-  /**
-   * Build query with Link field contexts (async version for external use)
-   */
-  async buildQueryWithLinkContexts(
+  async createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
     viewId: string | undefined,
@@ -63,7 +42,15 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const mainTableName = await this.getDbTableName(tableId);
     const linkFieldCteContext = await this.createLinkFieldContexts(fields, tableId, mainTableName);
 
-    const qb = this.buildQuery(queryBuilder, tableId, viewId, fields, linkFieldCteContext);
+    const params: IRecordQueryParams = {
+      tableId,
+      viewId,
+      fields,
+      queryBuilder,
+      linkFieldContexts: linkFieldCteContext.linkFieldContexts,
+    };
+
+    const qb = this.buildQueryWithParams(params, linkFieldCteContext);
     return { qb };
   }
 
@@ -201,7 +188,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
    * Create Link field contexts for CTE generation
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async createLinkFieldContexts(
+  private async createLinkFieldContexts(
     fields: IFieldInstance[],
     tableId: string,
     mainTableName: string
