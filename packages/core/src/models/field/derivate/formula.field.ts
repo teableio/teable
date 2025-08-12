@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
-import type { IGeneratedColumnQuerySupportValidator } from '../../../formula/function-convertor.interface';
+import type {
+  IGeneratedColumnQuerySupportValidator,
+  IFieldMap,
+} from '../../../formula/function-convertor.interface';
 import { validateFormulaSupport } from '../../../utils/formula-validation';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
@@ -100,11 +103,15 @@ export class FormulaFieldCore extends FormulaAbstractCore {
   /**
    * Validates whether this formula field's expression is supported for generated columns
    * @param supportValidator The database-specific support validator
+   * @param fieldMap Optional field map to check field references
    * @returns true if the formula is supported for generated columns, false otherwise
    */
-  validateGeneratedColumnSupport(supportValidator: IGeneratedColumnQuerySupportValidator): boolean {
+  validateGeneratedColumnSupport(
+    supportValidator: IGeneratedColumnQuerySupportValidator,
+    fieldMap?: IFieldMap
+  ): boolean {
     const expression = this.getExpression();
-    return validateFormulaSupport(supportValidator, expression);
+    return validateFormulaSupport(supportValidator, expression, fieldMap);
   }
 
   getIsPersistedAsGeneratedColumn() {

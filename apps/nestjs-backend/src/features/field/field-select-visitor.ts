@@ -105,6 +105,7 @@ export class FieldSelectVisitor implements IFieldVisitor<string | Knex.Raw> {
       if (!isPersistedAsGeneratedColumn) {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           fieldMap: this.context.fieldMap,
+          fieldCteMap: this.fieldCteMap,
         });
         // Apply table alias to the formula expression if provided
         const finalSql = this.tableAlias ? sql.replace(/\b\w+\./g, `${this.tableAlias}.`) : sql;

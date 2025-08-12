@@ -98,7 +98,10 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
 
       // Check if the formula is supported for generated columns
       const supportValidator = new GeneratedColumnQuerySupportValidatorSqlite();
-      const isSupported = field.validateGeneratedColumnSupport(supportValidator);
+      const isSupported = field.validateGeneratedColumnSupport(
+        supportValidator,
+        this.context.fieldMap
+      );
 
       if (isSupported) {
         const conversionContext: IFormulaConversionContext = {

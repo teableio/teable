@@ -168,6 +168,14 @@ export interface IFormulaConversionContext {
 }
 
 /**
+ * Extended context for select query formula conversion with CTE support
+ */
+export interface ISelectFormulaConversionContext extends IFormulaConversionContext {
+  /** Map of field ID to CTE name for lookup/link/rollup fields */
+  fieldCteMap?: Map<string, string>;
+}
+
+/**
  * Result of formula conversion
  */
 export interface IFormulaConversionResult {

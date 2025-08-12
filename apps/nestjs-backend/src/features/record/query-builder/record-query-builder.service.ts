@@ -181,6 +181,25 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       }
     }
 
+    // Add CTE mappings for lookup and rollup fields that depend on link field CTEs
+    // This ensures that lookup and rollup fields can be properly referenced in formulas
+    for (const field of fields) {
+      if (field.isLookup && field.lookupOptions) {
+        const { linkFieldId } = field.lookupOptions;
+        // If the link field has a CTE but the lookup field doesn't, map the lookup field to the link field's CTE
+        if (linkFieldId && fieldCteMap.has(linkFieldId) && !fieldCteMap.has(field.id)) {
+          fieldCteMap.set(field.id, fieldCteMap.get(linkFieldId)!);
+        }
+        // eslint-disable-next-line sonarjs/no-duplicated-branches
+      } else if (field.type === FieldType.Rollup && field.lookupOptions) {
+        const { linkFieldId } = field.lookupOptions;
+        // If the link field has a CTE but the rollup field doesn't, map the rollup field to the link field's CTE
+        if (linkFieldId && fieldCteMap.has(linkFieldId) && !fieldCteMap.has(field.id)) {
+          fieldCteMap.set(field.id, fieldCteMap.get(linkFieldId)!);
+        }
+      }
+    }
+
     return fieldCteMap;
   }
 
