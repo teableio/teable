@@ -100,7 +100,10 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
 
       // Check if the formula is supported for generated columns
       const supportValidator = new GeneratedColumnQuerySupportValidatorPostgres();
-      const isSupported = field.validateGeneratedColumnSupport(supportValidator);
+      const isSupported = field.validateGeneratedColumnSupport(
+        supportValidator,
+        this.context.fieldMap
+      );
 
       if (isSupported) {
         const conversionContext: IFormulaConversionContext = {
@@ -223,14 +226,6 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
     // Get table names from context
     const dbTableName = this.context.tableName;
     const foreignDbTableName = this.context.tableNameMap.get(foreignTableId);
-
-    console.log('Debug createForeignKeyForLinkField:', {
-      tableId: this.context.tableId,
-      foreignTableId,
-      dbTableName,
-      foreignDbTableName,
-      tableNameMap: Object.fromEntries(this.context.tableNameMap || new Map()),
-    });
 
     if (!foreignDbTableName) {
       throw new Error(`Foreign table not found: ${foreignTableId}`);

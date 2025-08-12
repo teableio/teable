@@ -290,7 +290,10 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    return `CASE WHEN ${condition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
+    // Handle JSON values in conditions by checking if they are not null and not JSON null
+    // This is needed for link fields that return JSON objects
+    const booleanCondition = `(${condition} IS NOT NULL AND ${condition}::text != 'null')`;
+    return `CASE WHEN ${booleanCondition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
   and(params: string[]): string {

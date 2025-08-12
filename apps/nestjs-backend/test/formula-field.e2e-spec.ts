@@ -346,6 +346,7 @@ describe('OpenAPI Formula Field (e2e)', () => {
       const titleFieldId = table2.fields.find((f) => f.name === 'Title')!.id;
       lookupField = await createField(table1.id, {
         type: FieldType.SingleLineText,
+        name: 'Lookup Title',
         isLookup: true,
         lookupOptions: {
           foreignTableId: table2.id,
@@ -358,6 +359,10 @@ describe('OpenAPI Formula Field (e2e)', () => {
       const valueFieldId = table2.fields.find((f) => f.name === 'Value')!.id;
       rollupField = await createField(table1.id, {
         type: FieldType.Rollup,
+        name: 'Rollup Value',
+        options: {
+          expression: 'sum({values})',
+        },
         lookupOptions: {
           foreignTableId: table2.id,
           lookupFieldId: valueFieldId,
@@ -386,6 +391,17 @@ describe('OpenAPI Formula Field (e2e)', () => {
 
       expect(formulaField.type).toBe(FieldType.Formula);
       expect((formulaField as FormulaFieldCore).options.expression).toBe(`{${lookupField.id}}`);
+
+      // Verify the formula field calculates correctly
+      const records = await getRecords(table1.id);
+      expect(records.records).toHaveLength(2);
+
+      const record1 = records.records[0];
+      const formulaValue1 = record1.fields[formulaField.id];
+      const lookupValue1 = record1.fields[lookupField.id];
+
+      // Formula should return the same value as the lookup field
+      expect(formulaValue1).toEqual(lookupValue1);
     });
 
     it('should create formula referencing rollup field', async () => {
@@ -399,6 +415,17 @@ describe('OpenAPI Formula Field (e2e)', () => {
 
       expect(formulaField.type).toBe(FieldType.Formula);
       expect((formulaField as FormulaFieldCore).options.expression).toBe(`{${rollupField.id}} * 2`);
+
+      // Verify the formula field calculates correctly
+      const records = await getRecords(table1.id);
+      expect(records.records).toHaveLength(2);
+
+      const record1 = records.records[0];
+      const formulaValue1 = record1.fields[formulaField.id];
+      const rollupValue1 = record1.fields[rollupField.id] as number;
+
+      // Formula should return rollup value multiplied by 2
+      expect(formulaValue1).toBe(rollupValue1 * 2);
     });
 
     it('should create formula referencing link field', async () => {
@@ -409,6 +436,8 @@ describe('OpenAPI Formula Field (e2e)', () => {
           expression: `IF({${linkField.id}}, "Has Link", "No Link")`,
         },
       });
+
+      expect(formulaField.type).toBe(FieldType.Formula);
 
       const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[formulaField.id]).toBe('Has Link');

@@ -8,6 +8,7 @@ import type {
   IGeneratedColumnQueryInterface,
   ILookupOptionsVo,
   ISelectQueryInterface,
+  ISelectFormulaConversionContext,
   ISortItem,
 } from '@teable/core';
 import {
@@ -634,7 +635,10 @@ ORDER BY
     return new SelectQuerySqlite();
   }
 
-  convertFormulaToSelectQuery(expression: string, context: IFormulaConversionContext): string {
+  convertFormulaToSelectQuery(
+    expression: string,
+    context: ISelectFormulaConversionContext
+  ): string {
     try {
       const selectQuery = this.selectQuery();
       selectQuery.setContext(context);

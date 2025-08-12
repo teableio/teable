@@ -7,6 +7,7 @@ import type {
   IGeneratedColumnQueryInterface,
   ILookupOptionsVo,
   ISelectQueryInterface,
+  ISelectFormulaConversionContext,
   ISortItem,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
@@ -233,5 +234,5 @@ export interface IDbProvider {
 
   selectQuery(): ISelectQueryInterface;
 
-  convertFormulaToSelectQuery(expression: string, context: IFormulaConversionContext): string;
+  convertFormulaToSelectQuery(expression: string, context: ISelectFormulaConversionContext): string;
 }

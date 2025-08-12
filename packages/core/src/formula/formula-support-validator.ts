@@ -1,17 +1,26 @@
 import { match } from 'ts-pattern';
+import { FieldType } from '../models/field/constant';
+import { FieldReferenceVisitor } from './field-reference.visitor';
 import {
   FunctionCallCollectorVisitor,
   type IFunctionCallInfo,
 } from './function-call-collector.visitor';
-import type { IGeneratedColumnQuerySupportValidator } from './function-convertor.interface';
+import type {
+  IGeneratedColumnQuerySupportValidator,
+  IFieldMap,
+} from './function-convertor.interface';
 import { parseFormula } from './parse-formula';
+import type { ExprContext } from './parser/Formula';
 
 /**
  * Validates whether a formula expression is supported for generated column creation
  * by checking if all functions used in the formula are supported by the database provider.
  */
 export class FormulaSupportValidator {
-  constructor(private readonly supportValidator: IGeneratedColumnQuerySupportValidator) {}
+  constructor(
+    private readonly supportValidator: IGeneratedColumnQuerySupportValidator,
+    private readonly fieldMap?: IFieldMap
+  ) {}
 
   /**
    * Validates whether a formula expression can be used to create a generated column
@@ -22,6 +31,11 @@ export class FormulaSupportValidator {
     try {
       // Parse the formula expression into an AST
       const tree = parseFormula(expression);
+
+      // First check if any referenced fields are link, lookup, or rollup fields
+      if (this.fieldMap && !this.validateFieldReferences(tree)) {
+        return false;
+      }
 
       // Extract all function calls from the AST
       const collector = new FunctionCallCollectorVisitor();
@@ -36,6 +50,42 @@ export class FormulaSupportValidator {
       console.warn(`Failed to parse formula expression: ${expression}`, error);
       return false;
     }
+  }
+
+  /**
+   * Validates that all field references in the formula are supported for generated columns
+   * @param tree The parsed formula AST
+   * @returns true if all field references are supported, false otherwise
+   */
+  private validateFieldReferences(tree: ExprContext): boolean {
+    if (!this.fieldMap) {
+      return true;
+    }
+
+    // Extract field references from the formula
+    const fieldReferenceVisitor = new FieldReferenceVisitor();
+    const fieldIds = fieldReferenceVisitor.visit(tree);
+
+    // Check each referenced field
+    for (const fieldId of fieldIds) {
+      const field = this.fieldMap.get(fieldId);
+      if (!field) {
+        // If field is not found, it's invalid for generated columns
+        return false;
+      }
+
+      // Check if the field is a link, lookup, or rollup field
+      if (
+        field.type === FieldType.Link ||
+        field.type === FieldType.Rollup ||
+        field.isLookup === true
+      ) {
+        // Link, lookup, and rollup fields are not supported in generated columns
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**

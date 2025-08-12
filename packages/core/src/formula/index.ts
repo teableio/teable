@@ -24,6 +24,7 @@ export type {
   IGeneratedColumnQueryInterface,
   ISelectQueryInterface,
   IFormulaConversionContext,
+  ISelectFormulaConversionContext,
   IFormulaConversionResult,
   IGeneratedColumnQuerySupportValidator,
   IFieldMap,

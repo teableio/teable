@@ -4,6 +4,7 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import { match } from 'ts-pattern';
 import { isFormulaField } from '../models';
+import { FieldType } from '../models/field/constant';
 import { FormulaFieldCore } from '../models/field/derivate/formula.field';
 import { CircularReferenceError } from './errors/circular-reference.error';
 import type {
@@ -11,6 +12,7 @@ import type {
   IFormulaConversionResult,
   IGeneratedColumnQueryInterface,
   ISelectQueryInterface,
+  ISelectFormulaConversionContext,
   ITeableToDbFunctionConverter,
 } from './function-convertor.interface';
 import { FunctionName } from './functions/common';
@@ -634,7 +636,46 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
  * Does not track dependencies as it's used for runtime queries
  */
 export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<ISelectQueryInterface> {
-  constructor(formulaQuery: ISelectQueryInterface, context: IFormulaConversionContext) {
+  constructor(formulaQuery: ISelectQueryInterface, context: ISelectFormulaConversionContext) {
     super(formulaQuery, context);
+  }
+
+  /**
+   * Override field reference handling to support CTE-based field references
+   */
+  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
+    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+
+    const fieldInfo = this.context.fieldMap.get(fieldId);
+    if (!fieldInfo) {
+      throw new Error(`Field not found: ${fieldId}`);
+    }
+
+    // Check if this field has a CTE mapping (for link, lookup, rollup fields)
+    const selectContext = this.context as ISelectFormulaConversionContext;
+    if (selectContext.fieldCteMap?.has(fieldId)) {
+      const cteName = selectContext.fieldCteMap.get(fieldId)!;
+
+      // Handle different field types that use CTEs
+      if (fieldInfo.type === FieldType.Link && !fieldInfo.isLookup) {
+        // Link field: return the JSON value from CTE
+        // Note: When used in boolean context (like IF conditions),
+        // the caller should handle JSON to boolean conversion
+        return `"${cteName}"."link_value"`;
+      } else if (fieldInfo.isLookup) {
+        // Lookup field: use lookup_{fieldId} from CTE
+        return `"${cteName}"."lookup_${fieldId}"`;
+      } else if (fieldInfo.type === FieldType.Rollup) {
+        // Rollup field: use rollup_{fieldId} from CTE
+        return `"${cteName}"."rollup_${fieldId}"`;
+      }
+    }
+
+    // Check if this is a formula field that needs recursive expansion
+    if (isFormulaField(fieldInfo)) {
+      return this.expandFormulaField(fieldId, fieldInfo);
+    }
+
+    return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
   }
 }
