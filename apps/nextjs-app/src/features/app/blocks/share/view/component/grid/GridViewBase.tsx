@@ -352,7 +352,11 @@ export const GridViewBase = (props: IGridViewProps) => {
         </div>
       )}
       <DomBox id={componentId} />
-      <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />
+      <ExpandRecordContainer
+        ref={expandRecordRef}
+        recordServerData={ssrRecord}
+        buttonClickStatusHook={buttonClickStatusHook}
+      />
     </div>
   );
 };

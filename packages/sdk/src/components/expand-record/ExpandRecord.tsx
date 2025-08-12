@@ -3,6 +3,7 @@ import { Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
+import type { IButtonClickStatusHook } from '../../hooks';
 import {
   useFields,
   useIsTouchDevice,
@@ -38,6 +39,7 @@ interface IExpandRecordProps {
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
+  buttonClickStatusHook?: IButtonClickStatusHook;
 }
 
 export const ExpandRecord = (props: IExpandRecordProps) => {
@@ -58,6 +60,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onCommentToggle,
     onDelete,
     onDuplicate,
+    buttonClickStatusHook,
   } = props;
   const views = useViews() as (GridView | undefined)[];
   const tableId = useTableId();
@@ -175,6 +178,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
                     hiddenFields={hiddenFields}
                     onChange={onChange}
                     readonly={fieldCellReadonly}
+                    buttonClickStatusHook={buttonClickStatusHook}
                   />
                 </div>
               ) : (

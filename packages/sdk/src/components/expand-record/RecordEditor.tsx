@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useLocalStorage, useMeasure } from 'react-use';
 import { LocalStorageKeys } from '../../config';
 import { useTranslation } from '../../context/app/i18n';
+import type { IButtonClickStatusHook } from '../../hooks';
 import type { IFieldInstance, Record } from '../../model';
 import { RecordEditorItem } from './RecordEditorItem';
 
@@ -15,11 +16,12 @@ export const RecordEditor = (props: {
   hiddenFields?: IFieldInstance[];
   onChange?: (newValue: unknown, fieldId: string) => void;
   readonly?: boolean | ((field: IFieldInstance) => boolean);
+  buttonClickStatusHook?: IButtonClickStatusHook;
 }) => {
   const { t } = useTranslation();
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const { fields, hiddenFields = [], record, onChange, readonly } = props;
+  const { fields, hiddenFields = [], record, onChange, readonly, buttonClickStatusHook } = props;
   const vertical = width > EDITOR_VERTICAL_MIN;
   const [hiddenFieldsVisible, setHiddenFieldsVisible] = useLocalStorage(
     LocalStorageKeys.ExpandRecordHiddenFieldsVisible,
@@ -37,6 +39,7 @@ export const RecordEditor = (props: {
             record={record}
             onChange={onChange}
             readonly={typeof readonly === 'function' ? readonly(field) : readonly}
+            buttonClickStatusHook={buttonClickStatusHook}
           />
         ))}
         {hiddenFields.length !== 0 && (
@@ -63,6 +66,7 @@ export const RecordEditor = (props: {
               record={record}
               onChange={onChange}
               readonly={typeof readonly === 'function' ? readonly(field) : readonly}
+              buttonClickStatusHook={buttonClickStatusHook}
             />
           ))}
       </div>

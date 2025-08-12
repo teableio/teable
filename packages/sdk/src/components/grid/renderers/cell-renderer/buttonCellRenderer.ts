@@ -39,7 +39,7 @@ const clickHandler = (cell: IButtonCell) => {
   const isLoading = statusHook.checkLoading?.(fieldId, recordId) ?? false;
   if (isLoading) return;
   buttonClick(tableId, recordId, fieldId).then((res) => {
-    statusHook.setStatus?.({
+    statusHook.setStatus({
       runId: res.data.runId,
       recordId,
       fieldId,

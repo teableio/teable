@@ -47,7 +47,7 @@ export const useButtonClickStatus = (tableId: string) => {
         return;
       }
 
-      if (errorMessage) {
+      if (toastId && errorMessage) {
         toast.error(t('common.runStatus.failed', { name }), {
           id: toastId,
         });
@@ -55,7 +55,7 @@ export const useButtonClickStatus = (tableId: string) => {
         return;
       }
 
-      if (!loading) {
+      if (toastId && !loading) {
         toast.success(t('common.runStatus.success', { name }), {
           id: toastId,
         });

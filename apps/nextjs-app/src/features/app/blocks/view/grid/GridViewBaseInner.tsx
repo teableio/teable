@@ -1166,7 +1166,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       )}
       <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
       <DomBox id={componentId} />
-      {!onRowExpand && <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />}
+      {!onRowExpand && (
+        <ExpandRecordContainer
+          ref={expandRecordRef}
+          recordServerData={ssrRecord}
+          buttonClickStatusHook={buttonClickStatusHook}
+        />
+      )}
       {expandRecord != null && (
         <ExpandRecorder
           tableId={expandRecord.tableId}
@@ -1174,6 +1180,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           recordId={expandRecord.recordId}
           recordIds={[expandRecord.recordId]}
           onClose={() => setExpandRecord(undefined)}
+          buttonClickStatusHook={buttonClickStatusHook}
         />
       )}
       <ConfirmNewRecords
