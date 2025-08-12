@@ -35,22 +35,26 @@ export const useButtonClickStatus = (tableId: string) => {
       const { runId } = status;
       const toastId = toastMapRef.current[runId];
       const { loading, name, errorMessage, recordId, fieldId } = status;
-      if (errorMessage) {
-        toast.error(t('common.runStatus.failed', { name }), {
-          id: toastId ?? undefined,
-        });
-        toastMapRef.current[runId] = undefined;
-        return;
-      }
 
       if (loading) {
         const newToastId = toast.loading(t('common.runStatus.running', { name }), {
           id: toastId ?? undefined,
         });
         toastMapRef.current[runId] = newToastId;
-      } else {
+        return;
+      }
+
+      if (toastId && errorMessage) {
+        toast.error(t('common.runStatus.failed', { name }), {
+          id: toastId,
+        });
+        toastMapRef.current[runId] = undefined;
+        return;
+      }
+
+      if (toastId && !loading) {
         toast.success(t('common.runStatus.success', { name }), {
-          id: toastId ?? undefined,
+          id: toastId,
         });
         toastMapRef.current[runId] = undefined;
       }

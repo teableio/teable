@@ -23,7 +23,7 @@ interface IButtonEditor extends ICellEditor<IButtonFieldCellValue> {
 
 export const ButtonEditor: FC<IButtonEditor> = (props) => {
   const { t } = useTranslation();
-  const { className, field, recordId, readonly, value } = props;
+  const { className, field, recordId, value } = props;
   const { options: fieldOptions, isLookup } = field;
   const { tableId } = field;
 
@@ -31,8 +31,8 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
   const maxCount = fieldOptions.maxCount ?? 0;
 
   const isClickable = useMemo(() => {
-    return !readonly && !isLookup && recordId && checkButtonClickable(fieldOptions, value);
-  }, [fieldOptions, value, readonly, recordId, isLookup]);
+    return !isLookup && recordId && checkButtonClickable(fieldOptions, value);
+  }, [fieldOptions, value, recordId, isLookup]);
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;

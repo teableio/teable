@@ -18,7 +18,7 @@ import type {
   ICellMeasureProps,
 } from './interface';
 
-const { cellVerticalPaddingXS, cellHorizontalPadding } = GRID_DEFAULT;
+const { cellHorizontalPadding } = GRID_DEFAULT;
 
 const BUTTON_RADIUS = 4;
 const BUTTON_HEIGHT = 24;
@@ -35,6 +35,7 @@ const clickHandler = (cell: IButtonCell) => {
 
   const { tableId, statusHook, fieldOptions } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
+  if (!statusHook) return;
   buttonClick(tableId, recordId, fieldId).then((res) => {
     statusHook?.setStatus?.({
       runId: res.data.runId,
@@ -92,12 +93,12 @@ const drawButton = (
 
 const calcPosition = (
   cell: IButtonCell,
-  props: { width: number; ctx: CanvasRenderingContext2D; theme: IGridTheme },
+  props: { width: number; ctx: CanvasRenderingContext2D; theme: IGridTheme; height: number },
   flush = false
 ) => {
   const { data } = cell;
   const { fieldOptions } = data;
-  const { width, ctx, theme } = props;
+  const { width, ctx, theme, height } = props;
   const { fontSizeXS, fontFamily } = theme;
   const cacheKey = `${fieldOptions.label}-${width}`;
   if (!flush) {
@@ -120,7 +121,7 @@ const calcPosition = (
 
   const position: IRectangle = {
     x: (width - rectWidth) / 2,
-    y: cellVerticalPaddingXS,
+    y: (height - BUTTON_HEIGHT) / 2,
     width: rectWidth,
     height: BUTTON_HEIGHT,
   };
@@ -142,6 +143,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
         width,
         ctx,
         theme,
+        height,
       },
       true
     );
@@ -152,10 +154,10 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     };
   },
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
-    const { data, readonly, id = '' } = cell;
+    const { data, id = '', readonly } = cell;
     const { fieldOptions, statusHook } = data;
     const { ctx, rect, theme } = props;
-    const { x, y, width } = rect;
+    const { x, y, width, height } = rect;
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
     const bgColor = ColorUtils.getHexForColor(rectColor);
     const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
@@ -163,6 +165,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       width,
       ctx,
       theme,
+      height,
     });
 
     const [recordId = '', fieldId = ''] = id.split('-');
@@ -178,7 +181,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       textColor,
       bgColor,
       theme,
-      opacity: !readonly && isLoading ? 0.8 : 1,
+      opacity: isLoading ? 0.8 : 1,
     });
   },
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
