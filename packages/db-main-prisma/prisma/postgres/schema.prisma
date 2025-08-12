@@ -567,9 +567,7 @@ model UserLastVisit {
   visitCount       Int       @default(1) @map("visit_count")
 
   @@unique([userId, resourceType, resourceId])
-  @@index([userId, resourceType])
   @@index([userId, resourceType, parentResourceId])
-  @@index([resourceType, resourceId])
   @@index([resourceType, lastVisitTime])
   @@map("user_last_visit")
 }
