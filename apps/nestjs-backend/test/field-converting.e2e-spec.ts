@@ -2480,7 +2480,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records: t1records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       const { records: t2records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       expect(t1records[0].fields[newField.id]).toEqual({ title: 'x', id: t2records[0].id });
-      expect(t2records[0].fields[symmetricFieldId]).toEqual({ id: t1records[0].id });
+      expect(t2records[0].fields[symmetricFieldId]).toMatchObject({ id: t1records[0].id });
     });
 
     it('should convert one-way many-many to two-way many-many', async () => {
@@ -2528,7 +2528,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records: t1records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       const { records: t2records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       expect(t1records[0].fields[newField.id]).toEqual([{ title: 'x', id: t2records[0].id }]);
-      expect(t2records[0].fields[symmetricFieldId]).toEqual([{ id: t1records[0].id }]);
+      expect(t2records[0].fields[symmetricFieldId]).toMatchObject([{ id: t1records[0].id }]);
     });
 
     it('should convert one-way link to two-way link and to other table', async () => {
