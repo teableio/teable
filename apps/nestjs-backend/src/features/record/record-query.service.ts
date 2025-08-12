@@ -51,20 +51,12 @@ export class RecordQueryService {
         select: { id: true, name: true, dbTableName: true },
       });
 
-      // Get field info
-      const fieldRaws = await this.prismaService.txClient().field.findMany({
-        where: { tableId, deletedTime: null },
-      });
-
-      const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-
       const qb = this.knex(table.dbTableName);
 
       const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
         qb,
         tableId,
-        undefined,
-        fields
+        undefined
       );
       const sql = queryBuilder.whereIn('__id', recordIds).toQuery();
 
@@ -75,6 +67,13 @@ export class RecordQueryService {
       const rawRecords = await this.prismaService
         .txClient()
         .$queryRawUnsafe<{ [key: string]: unknown }[]>(sql);
+
+      // Get field info for conversion
+      const fieldRaws = await this.prismaService.txClient().field.findMany({
+        where: { tableId, deletedTime: null },
+      });
+
+      const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
 
       // Convert raw records to IRecord format
       const snapshots: { id: string; data: IRecord }[] = [];

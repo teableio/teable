@@ -32,6 +32,7 @@ import { FieldCalculationService } from '../../calculation/field-calculation.ser
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../../record/query-builder';
 import { RecordService } from '../../record/record.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -69,7 +70,8 @@ export class FieldOpenApiService {
     private readonly tableIndexService: TableIndexService,
     private readonly recordOpenApiService: RecordOpenApiService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
 
   async planField(tableId: string, fieldId: string) {
@@ -649,7 +651,7 @@ export class FieldOpenApiService {
 
     const dbTableName = await this.fieldService.getDbTableName(sourceTableId);
 
-    const count = await this.getFieldRecordsCount(dbTableName, sourceDbFieldName);
+    const count = await this.getFieldRecordsCount(dbTableName, fieldInstance);
 
     if (!count) {
       if (fieldInstance.notNull || fieldInstance.unique) {
@@ -695,8 +697,15 @@ export class FieldOpenApiService {
     }
   }
 
-  private async getFieldRecordsCount(dbTableName: string, dbFieldName: string) {
-    const query = this.knex(dbTableName).count('*').whereNotNull(dbFieldName).toQuery();
+  private async getFieldRecordsCount(dbTableName: string, field: IFieldInstance) {
+    const table = this.knex(dbTableName);
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
+      table,
+      dbTableName,
+      undefined
+    );
+
+    const query = qb.count('*').whereNotNull(field.dbFieldName).toQuery();
     const result = await this.prismaService.$queryRawUnsafe<{ count: number }[]>(query);
     return Number(result[0].count);
   }

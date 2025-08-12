@@ -4,6 +4,7 @@ import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { GraphModule } from '../../graph/graph.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
+import { RecordQueryBuilderModule } from '../../record/query-builder';
 import { RecordModule } from '../../record/record.module';
 import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
@@ -24,6 +25,7 @@ import { FieldOpenApiService } from './field-open-api.service';
     FieldCalculateModule,
     ViewModule,
     GraphModule,
+    RecordQueryBuilderModule,
   ],
   controllers: [FieldOpenApiController],
   providers: [DbProvider, FieldOpenApiService, TableIndexService],
