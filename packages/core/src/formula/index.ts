@@ -29,4 +29,4 @@ export type {
   IGeneratedColumnQuerySupportValidator,
   IFieldMap,
 } from './function-convertor.interface';
-export { FormulaSupportValidator } from './formula-support-validator';
+export { FormulaSupportGeneratedColumnValidator } from './formula-support-generated-column-validator';

@@ -1,5 +1,6 @@
 import { match } from 'ts-pattern';
 import { FieldType } from '../models/field/constant';
+import type { FormulaFieldCore } from '../models/field/derivate/formula.field';
 import { FieldReferenceVisitor } from './field-reference.visitor';
 import {
   FunctionCallCollectorVisitor,
@@ -16,7 +17,7 @@ import type { ExprContext } from './parser/Formula';
  * Validates whether a formula expression is supported for generated column creation
  * by checking if all functions used in the formula are supported by the database provider.
  */
-export class FormulaSupportValidator {
+export class FormulaSupportGeneratedColumnValidator {
   constructor(
     private readonly supportValidator: IGeneratedColumnQuerySupportValidator,
     private readonly fieldMap?: IFieldMap
@@ -55,9 +56,13 @@ export class FormulaSupportValidator {
   /**
    * Validates that all field references in the formula are supported for generated columns
    * @param tree The parsed formula AST
+   * @param visitedFields Set of field IDs already visited to prevent circular references
    * @returns true if all field references are supported, false otherwise
    */
-  private validateFieldReferences(tree: ExprContext): boolean {
+  private validateFieldReferences(
+    tree: ExprContext,
+    visitedFields: Set<string> = new Set()
+  ): boolean {
     if (!this.fieldMap) {
       return true;
     }
@@ -68,20 +73,58 @@ export class FormulaSupportValidator {
 
     // Check each referenced field
     for (const fieldId of fieldIds) {
-      const field = this.fieldMap.get(fieldId);
-      if (!field) {
-        // If field is not found, it's invalid for generated columns
+      if (!this.validateSingleFieldReference(fieldId, visitedFields)) {
         return false;
       }
+    }
 
-      // Check if the field is a link, lookup, or rollup field
-      if (
-        field.type === FieldType.Link ||
-        field.type === FieldType.Rollup ||
-        field.isLookup === true
-      ) {
-        // Link, lookup, and rollup fields are not supported in generated columns
+    return true;
+  }
+
+  /**
+   * Validates a single field reference, including recursive validation for formula fields
+   * @param fieldId The field ID to validate
+   * @param visitedFields Set of field IDs already visited to prevent circular references
+   * @returns true if the field reference is supported, false otherwise
+   */
+  private validateSingleFieldReference(fieldId: string, visitedFields: Set<string>): boolean {
+    // Prevent circular references
+    if (visitedFields.has(fieldId)) {
+      return true; // Skip already visited fields to avoid infinite recursion
+    }
+
+    const field = this.fieldMap!.get(fieldId);
+    if (!field) {
+      // If field is not found, it's invalid for generated columns
+      return false;
+    }
+
+    // Check if the field is a link, lookup, or rollup field
+    if (
+      field.type === FieldType.Link ||
+      field.type === FieldType.Rollup ||
+      field.isLookup === true
+    ) {
+      // Link, lookup, and rollup fields are not supported in generated columns
+      return false;
+    }
+
+    // If it's a formula field, recursively check its dependencies
+    if (field.type === FieldType.Formula) {
+      visitedFields.add(fieldId);
+
+      try {
+        const expression = (field as FormulaFieldCore).getExpression();
+        if (expression) {
+          const tree = parseFormula(expression);
+          return this.validateFieldReferences(tree, visitedFields);
+        }
+      } catch (error) {
+        // If parsing the nested formula fails, consider it unsupported
+        console.warn(`Failed to parse nested formula expression for field ${fieldId}:`, error);
         return false;
+      } finally {
+        visitedFields.delete(fieldId);
       }
     }
 
@@ -91,11 +134,13 @@ export class FormulaSupportValidator {
   /**
    * Checks if a specific function is supported for generated columns
    * @param functionName The function name (case-insensitive)
-   * @param paramCount The number of parameters (used for validation)
+   * @param paramCount The number of parameters for the function
    * @returns true if the function is supported, false otherwise
    */
-  private isFunctionSupported(functionName: string, paramCount: number): boolean {
-    const funcName = functionName.toUpperCase();
+  private isFunctionSupported(funcName: string, paramCount: number): boolean {
+    if (!funcName) {
+      return false;
+    }
 
     try {
       return (

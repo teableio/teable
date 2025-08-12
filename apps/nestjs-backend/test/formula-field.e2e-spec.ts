@@ -445,6 +445,228 @@ describe('OpenAPI Formula Field (e2e)', () => {
     });
   });
 
+  describe('formula field indirect reference scenarios', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let linkField: IFieldVo;
+    let lookupField: IFieldVo;
+    let rollupField: IFieldVo;
+
+    beforeEach(async () => {
+      // Create first table
+      table1 = await createTable(baseId, {
+        name: 'Main Table',
+        fields: [
+          {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Value',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          { fields: { Name: 'Record 1', Value: 10 } },
+          { fields: { Name: 'Record 2', Value: 20 } },
+        ],
+      });
+
+      // Create second table
+      table2 = await createTable(baseId, {
+        name: 'Related Table',
+        fields: [
+          {
+            name: 'Title',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Value',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          { fields: { Title: 'Item A', Value: 100 } },
+          { fields: { Title: 'Item B', Value: 200 } },
+        ],
+      });
+
+      // Create link field
+      linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+
+      // Link records
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField.id, {
+        id: table2.records[1].id,
+      });
+
+      // Create lookup field
+      const titleFieldId = table2.fields.find((f) => f.name === 'Title')!.id;
+      lookupField = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        name: 'Lookup Title',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: titleFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      // Create rollup field
+      const valueFieldId = table2.fields.find((f) => f.name === 'Value')!.id;
+      rollupField = await createField(table1.id, {
+        type: FieldType.Rollup,
+        name: 'Rollup Value',
+        options: {
+          expression: 'sum({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: valueFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+    });
+
+    afterEach(async () => {
+      if (table1?.id) {
+        await deleteTable(baseId, table1.id);
+      }
+      if (table2?.id) {
+        await deleteTable(baseId, table2.id);
+      }
+    });
+
+    it('should successfully create formula that indirectly references link field through another formula', async () => {
+      // First create a formula that references the link field
+      const formula2 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 2',
+        options: {
+          expression: `IF({${linkField.id}}, "Has Link", "No Link")`,
+        },
+      });
+
+      // Then create a formula that references the first formula
+      const formula1 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 1',
+        options: {
+          expression: `CONCATENATE("Result: ", {${formula2.id}})`,
+        },
+      });
+
+      expect(formula1.type).toBe(FieldType.Formula);
+      expect(formula2.type).toBe(FieldType.Formula);
+
+      // Verify the formulas work correctly
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[formula1.id]).toBe('Result: Has Link');
+      expect(records[1].fields[formula1.id]).toBe('Result: Has Link');
+    });
+
+    it('should successfully create formula that indirectly references lookup field through another formula', async () => {
+      // First create a formula that references the lookup field
+      const formula2 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 2',
+        options: {
+          expression: `CONCATENATE("Lookup: ", {${lookupField.id}})`,
+        },
+      });
+
+      // Then create a formula that references the first formula
+      const formula1 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 1',
+        options: {
+          expression: `UPPER({${formula2.id}})`,
+        },
+      });
+
+      expect(formula1.type).toBe(FieldType.Formula);
+      expect(formula2.type).toBe(FieldType.Formula);
+
+      // Verify the formulas work correctly
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[formula1.id]).toBe('LOOKUP: ITEM A');
+      expect(records[1].fields[formula1.id]).toBe('LOOKUP: ITEM B');
+    });
+
+    it('should successfully create formula that indirectly references rollup field through another formula', async () => {
+      // First create a formula that references the rollup field
+      const formula2 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 2',
+        options: {
+          expression: `{${rollupField.id}} * 2`,
+        },
+      });
+
+      // Then create a formula that references the first formula
+      const formula1 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 1',
+        options: {
+          expression: `{${formula2.id}} + 10`,
+        },
+      });
+
+      expect(formula1.type).toBe(FieldType.Formula);
+      expect(formula2.type).toBe(FieldType.Formula);
+
+      // Verify the formulas work correctly
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[formula1.id]).toBe(210); // (100 * 2) + 10
+      expect(records[1].fields[formula1.id]).toBe(410); // (200 * 2) + 10
+    });
+
+    it('should successfully create multi-level formula chain', async () => {
+      // Create a chain: formula1 -> formula2 -> formula3 -> rollup field
+      const formula3 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 3',
+        options: {
+          expression: `{${rollupField.id}}`,
+        },
+      });
+
+      const formula2 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 2',
+        options: {
+          expression: `{${formula3.id}} * 2`,
+        },
+      });
+
+      const formula1 = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Formula 1',
+        options: {
+          expression: `{${formula2.id}} + 5`,
+        },
+      });
+
+      expect(formula1.type).toBe(FieldType.Formula);
+      expect(formula2.type).toBe(FieldType.Formula);
+      expect(formula3.type).toBe(FieldType.Formula);
+
+      // Verify the formulas work correctly
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[formula1.id]).toBe(205); // (100 * 2) + 5
+      expect(records[1].fields[formula1.id]).toBe(405); // (200 * 2) + 5
+    });
+  });
+
   describe('formula field error scenarios', () => {
     let table: ITableFullVo;
 
