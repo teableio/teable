@@ -387,7 +387,7 @@ export class LastVisitService {
         resourceType: LastVisitResourceType.Base,
         resourceId,
         parentResourceId,
-        maxRecords: 20,
+        maxRecords: 10,
       });
       return;
     }
