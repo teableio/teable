@@ -130,7 +130,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const usage = useBaseUsage();
   const allFields = useFields({ withHidden: true });
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
-  const { checkCellLoading: checkButtonClickLoading } = useButtonClickStatus(tableId);
+  const buttonClickStatusHook = useButtonClickStatus(tableId);
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -355,12 +355,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           colIndex,
           false,
           (tableId, recordId) => setExpandRecord({ tableId, recordId }),
-          checkButtonClickLoading
+          buttonClickStatusHook
         );
       }
       return { type: CellType.Loading };
     },
-    [recordMap, columns, cellValue2GridDisplay, checkButtonClickLoading]
+    [recordMap, columns, cellValue2GridDisplay, buttonClickStatusHook]
   );
 
   const onCellEdited = useCallback(

@@ -33,9 +33,14 @@ const clickHandler = (cell: IButtonCell) => {
   const { id = '', data, readonly } = cell;
   if (readonly) return;
 
-  const { tableId } = data;
+  const { tableId, statusHook, fieldOptions } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
-  buttonClick(tableId, recordId, fieldId);
+  buttonClick(tableId, recordId, fieldId).then(() => {
+    statusHook?.setStatus?.(tableId, recordId, fieldId, {
+      loading: true,
+      name: fieldOptions.label,
+    });
+  });
 };
 
 const drawButton = (
@@ -144,8 +149,8 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     };
   },
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
-    const { data, readonly } = cell;
-    const { fieldOptions, isLoading = false } = data;
+    const { data, readonly, id = '' } = cell;
+    const { fieldOptions, statusHook } = data;
     const { ctx, rect, theme } = props;
     const { x, y, width } = rect;
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
@@ -156,6 +161,9 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       ctx,
       theme,
     });
+
+    const [recordId = '', fieldId = ''] = id.split('-');
+    const isLoading = statusHook?.checkLoading?.(recordId, fieldId) ?? false;
 
     return drawButton(ctx, {
       x: x + position.x,

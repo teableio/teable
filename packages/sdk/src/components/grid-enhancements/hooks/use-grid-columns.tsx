@@ -27,6 +27,7 @@ import {
   onMixedTextClick,
 } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
+import type { IButtonClickStatus, IButtonClickStatusHook } from '../../../hooks';
 import { useFields, useTablePermission, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
@@ -191,7 +192,7 @@ export const useCreateCellValue2GridDisplay = (
         col: number,
         isPrefilling?: boolean,
         expandRecord?: (tableId: string, recordId: string) => void,
-        checkButtonClickLoading?: (recordId: string, fieldId: string) => boolean
+        buttonClickStatus?: IButtonClickStatusHook
         // eslint-disable-next-line sonarjs/cognitive-complexity
       ): ICell => {
         const field = fields[col];
@@ -505,7 +506,6 @@ export const useCreateCellValue2GridDisplay = (
             };
           }
           case FieldType.Button: {
-            const isLoading = checkButtonClickLoading?.(record.id, fieldId) ?? false;
             return {
               ...baseCellProps,
               readonly:
@@ -519,7 +519,7 @@ export const useCreateCellValue2GridDisplay = (
                 tableId: field.tableId,
                 cellValue: cellValue as IButtonFieldCellValue,
                 fieldOptions: field.options,
-                isLoading,
+                statusHook: buttonClickStatus,
               },
             };
           }
