@@ -9,7 +9,7 @@ export const importTypeMap = {
   },
   [SUPPORTEDTYPE.EXCEL]: {
     accept:
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/wps-office.xlsx,application/wps-office.xls',
     exampleUrl: 'https://www.example.com/file.xlsx',
     exceedSize: 5,
   },
