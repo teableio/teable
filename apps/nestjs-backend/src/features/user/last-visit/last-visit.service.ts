@@ -19,6 +19,7 @@ import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import type { BaseDeleteEvent, SpaceDeleteEvent } from '../../../event-emitter/events';
 import { Events } from '../../../event-emitter/events';
+import { LastVisitUpdateEvent } from '../../../event-emitter/events/last-visit/last-visit.event';
 import type { IClsStore } from '../../../types/cls';
 
 @Injectable()
@@ -379,6 +380,10 @@ export class LastVisitService {
   }
 
   async updateUserLastVisit(userId: string, updateData: IUpdateUserLastVisitRo) {
+    this.eventEmitterService.emitAsync(
+      Events.LAST_VISIT_UPDATE,
+      new LastVisitUpdateEvent(updateData)
+    );
     const { resourceType, resourceId, parentResourceId, childResourceId } = updateData;
 
     if (resourceType === LastVisitResourceType.Base) {
