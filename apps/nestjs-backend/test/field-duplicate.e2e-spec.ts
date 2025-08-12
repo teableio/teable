@@ -2,8 +2,8 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { IButtonFieldCellValue, IFieldRo, ILinkFieldOptions } from '@teable/core';
-import { Colors, FieldType, generateWorkflowId, ViewType } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import { Colors, FieldType, generateWorkflowId, Relationship, ViewType } from '@teable/core';
+import type { ICreateBaseVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -11,6 +11,7 @@ import {
   createView,
   getView,
   buttonClick,
+  createBase,
 } from '@teable/openapi';
 import { omit, pick } from 'lodash';
 import { x_20 } from './data-helpers/20x';
@@ -21,6 +22,7 @@ import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
 describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const spaceId = globalThis.testConfig.spaceId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -82,6 +84,68 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     afterAll(async () => {
       await permanentDeleteTable(baseId, table.id);
       await permanentDeleteTable(baseId, subTable.id);
+    });
+  });
+
+  describe('duplicate cross-base link fields', () => {
+    let table: ITableFullVo;
+    let crossTable: ITableFullVo;
+    let otherBase: ICreateBaseVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'main_table',
+        fields: x_20.fields,
+      });
+
+      otherBase = (
+        await createBase({
+          spaceId,
+          name: 'other-base',
+        })
+      ).data;
+
+      crossTable = await createTable(otherBase.id, {
+        name: 'record_query_x_20',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'single_line_text',
+          },
+        ],
+      });
+    });
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, crossTable.id);
+    });
+
+    it('should duplicate link field with cross-base table', async () => {
+      const linkField = (
+        await createField(table.id, {
+          type: FieldType.Link,
+          name: 'link',
+          options: {
+            baseId: otherBase.id,
+            foreignTableId: crossTable.id,
+            relationship: Relationship.ManyMany,
+          },
+        })
+      ).data;
+
+      const copiedLinkField = (
+        await duplicateField(table.id, linkField.id, {
+          name: `${linkField.name}_copy`,
+        })
+      ).data;
+
+      expect(
+        pick(copiedLinkField.options, ['baseId', 'foreignTableId', 'relationship', 'isOneWay'])
+      ).toEqual({
+        baseId: otherBase.id,
+        foreignTableId: crossTable.id,
+        relationship: Relationship.ManyMany,
+        isOneWay: true,
+      });
     });
   });
 
