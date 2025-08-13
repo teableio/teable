@@ -52,7 +52,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    * Returns the selection map containing field ID to selector name mappings
    * @returns Map where key is field ID and value is the selector name/expression
    */
-  public getSelectionMap(): Map<string, string> {
+  public getSelectionMap(): IRecordSelectionMap {
     return new Map(this.selectionMap);
   }
 
@@ -141,7 +141,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         const rawExpression = this.qb.client.raw(`${finalSql} as ??`, [
           field.getGeneratedColumnName(),
         ]);
-        const selectorName = this.qb.client.raw(finalSql).toQuery();
+        const selectorName = this.qb.client.raw(finalSql);
         this.selectionMap.set(field.id, selectorName);
         return rawExpression;
       }
