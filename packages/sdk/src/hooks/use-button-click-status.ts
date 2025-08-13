@@ -1,4 +1,6 @@
+import { useMutation } from '@tanstack/react-query';
 import { getTableButtonClickChannel } from '@teable/core';
+import { buttonClick as buttonClickApi } from '@teable/openapi/src/record/button-click';
 import { sonner } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,13 +24,30 @@ export const useButtonClickStatus = (tableId: string) => {
   const channel = getTableButtonClickChannel(tableId);
   const presence = connection?.getPresence(channel);
   // runId => status
-  const statusMapRef = useRef<Record<string, IButtonClickStatus>>({});
+  const [statusMap, setStatusMap] = useState<Record<string, IButtonClickStatus>>({});
   const toastMapRef = useRef<Record<string, number | string | undefined>>({});
   const { t } = useTranslation();
 
-  const checkLoading = (fieldId: string, recordId: string) => {
-    return statusMapRef.current[`${recordId}-${fieldId}`]?.loading ?? false;
-  };
+  const { mutateAsync: buttonClick } = useMutation({
+    mutationFn: (ro: { tableId: string; recordId: string; fieldId: string; name: string }) =>
+      buttonClickApi(ro.tableId, ro.recordId, ro.fieldId),
+    onSuccess: (res, ro) => {
+      setStatus({
+        runId: res.data.runId,
+        recordId: ro.recordId,
+        fieldId: ro.fieldId,
+        loading: true,
+        name: ro.name,
+      });
+    },
+  });
+
+  const checkLoading = useCallback(
+    (fieldId: string, recordId: string) => {
+      return statusMap[`${recordId}-${fieldId}`]?.loading ?? false;
+    },
+    [statusMap]
+  );
 
   const setStatus = useCallback(
     (status: IButtonClickStatus) => {
@@ -39,6 +58,10 @@ export const useButtonClickStatus = (tableId: string) => {
       const toastId = toastMapRef.current[runId];
       const { loading, name, errorMessage, recordId, fieldId } = status;
 
+      setStatusMap((prev) => ({
+        ...prev,
+        [`${recordId}-${fieldId}`]: status,
+      }));
       if (loading) {
         const newToastId = toast.loading(t('common.runStatus.running', { name }), {
           id: toastId ?? undefined,
@@ -46,7 +69,11 @@ export const useButtonClickStatus = (tableId: string) => {
         toastMapRef.current[runId] = newToastId;
         return;
       }
-
+      setStatusMap((prev) => {
+        const newMap = { ...prev };
+        delete newMap[`${recordId}-${fieldId}`];
+        return newMap;
+      });
       if (toastId && errorMessage) {
         toast.error(t('common.runStatus.failed', { name }), {
           id: toastId,
@@ -61,8 +88,6 @@ export const useButtonClickStatus = (tableId: string) => {
         });
         toastMapRef.current[runId] = undefined;
       }
-
-      statusMapRef.current[`${recordId}-${fieldId}`] = status;
     },
     [t]
   );
@@ -97,7 +122,7 @@ export const useButtonClickStatus = (tableId: string) => {
     };
   }, [connection, presence, channel, setStatus]);
 
-  return { checkLoading, setStatus };
+  return { checkLoading, setStatus, buttonClick };
 };
 
 export type IButtonClickStatusHook = ReturnType<typeof useButtonClickStatus>;

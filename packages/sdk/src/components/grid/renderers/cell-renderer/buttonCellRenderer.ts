@@ -1,5 +1,4 @@
 import { Colors, ColorUtils } from '@teable/core';
-import { buttonClick } from '@teable/openapi';
 import { LRUCache } from 'lru-cache';
 import colors from 'tailwindcss/colors';
 
@@ -38,14 +37,11 @@ const clickHandler = (cell: IButtonCell) => {
   if (!statusHook) return;
   const isLoading = statusHook.checkLoading?.(fieldId, recordId) ?? false;
   if (isLoading) return;
-  buttonClick(tableId, recordId, fieldId).then((res) => {
-    statusHook.setStatus({
-      runId: res.data.runId,
-      recordId,
-      fieldId,
-      loading: true,
-      name: fieldOptions.label,
-    });
+  statusHook.buttonClick({
+    tableId,
+    recordId,
+    fieldId,
+    name: fieldOptions.label,
   });
 };
 
