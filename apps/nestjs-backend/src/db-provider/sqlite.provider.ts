@@ -35,6 +35,7 @@ import type {
   ISortQueryExtra,
 } from './db.provider.interface';
 import type { IDropDatabaseColumnContext } from './drop-database-column-query/drop-database-column-field-visitor.interface';
+import { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
 import { DropSqliteDatabaseColumnFieldVisitor } from './drop-database-column-query/drop-database-column-field-visitor.sqlite';
 import { DuplicateAttachmentTableQuerySqlite } from './duplicate-table/duplicate-attachment-table-query.sqlite';
 import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
@@ -207,12 +208,14 @@ export class SqliteProvider implements IDbProvider {
   dropColumn(
     tableName: string,
     fieldInstance: IFieldInstance,
-    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> },
+    operationType?: DropColumnOperationType
   ): string[] {
     const context: IDropDatabaseColumnContext = {
       tableName,
       knex: this.knex,
       linkContext,
+      operationType,
     };
 
     // Use visitor pattern to drop columns

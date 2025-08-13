@@ -24,6 +24,7 @@ import type {
   ButtonFieldCore,
 } from '@teable/core';
 import type { IDropDatabaseColumnContext } from './drop-database-column-field-visitor.interface';
+import { DropColumnOperationType } from './drop-database-column-field-visitor.interface';
 
 /**
  * SQLite implementation of database column drop visitor.
@@ -67,6 +68,18 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
     const options = field.options as ILinkFieldOptions;
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
     const queries: string[] = [];
+
+    // Check operation type - only drop foreign keys for complete field deletion
+    const operationType = this.context.operationType || DropColumnOperationType.DELETE_FIELD;
+
+    // For field conversion or symmetric field deletion, preserve foreign key relationships
+    // as they may still be needed by other fields
+    if (
+      operationType === DropColumnOperationType.CONVERT_FIELD ||
+      operationType === DropColumnOperationType.DELETE_SYMMETRIC_FIELD
+    ) {
+      return queries; // Return empty array - don't drop foreign keys
+    }
 
     // Helper function to drop table
     const dropTable = (tableName: string): string => {

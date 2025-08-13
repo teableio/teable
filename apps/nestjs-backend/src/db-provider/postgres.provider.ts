@@ -34,7 +34,10 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
-import type { IDropDatabaseColumnContext } from './drop-database-column-query/drop-database-column-field-visitor.interface';
+import type {
+  IDropDatabaseColumnContext,
+  DropColumnOperationType,
+} from './drop-database-column-query/drop-database-column-field-visitor.interface';
 import { DropPostgresDatabaseColumnFieldVisitor } from './drop-database-column-query/drop-database-column-field-visitor.postgres';
 import { DuplicateAttachmentTableQueryPostgres } from './duplicate-table/duplicate-attachment-table-query.postgres';
 import { DuplicateTableQueryPostgres } from './duplicate-table/duplicate-query.postgres';
@@ -151,12 +154,14 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   dropColumn(
     tableName: string,
     fieldInstance: IFieldInstance,
-    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> },
+    operationType?: DropColumnOperationType
   ): string[] {
     const context: IDropDatabaseColumnContext = {
       tableName,
       knex: this.knex,
       linkContext,
+      operationType,
     };
 
     // Use visitor pattern to drop columns

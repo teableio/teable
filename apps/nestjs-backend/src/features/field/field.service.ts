@@ -28,6 +28,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DropColumnOperationType } from '../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -329,7 +330,11 @@ export class FieldService implements IReadonlyAdapterService {
     }
   }
 
-  async alterTableDeleteField(dbTableName: string, fieldInstances: IFieldInstance[]) {
+  async alterTableDeleteField(
+    dbTableName: string,
+    fieldInstances: IFieldInstance[],
+    operationType: DropColumnOperationType = DropColumnOperationType.DELETE_FIELD
+  ) {
     // Get table ID from dbTableName
     const tableId = await this.linkFieldQueryService.getTableIdFromDbTableName(dbTableName);
     if (!tableId) {
@@ -349,7 +354,12 @@ export class FieldService implements IReadonlyAdapterService {
           ? { tableId, tableNameMap }
           : undefined;
 
-      const alterTableSql = this.dbProvider.dropColumn(dbTableName, fieldInstance, linkContext);
+      const alterTableSql = this.dbProvider.dropColumn(
+        dbTableName,
+        fieldInstance,
+        linkContext,
+        operationType
+      );
 
       for (const alterTableQuery of alterTableSql) {
         await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
@@ -781,7 +791,11 @@ export class FieldService implements IReadonlyAdapterService {
     await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
   }
 
-  async batchDeleteFields(tableId: string, fieldIds: string[]) {
+  async batchDeleteFields(
+    tableId: string,
+    fieldIds: string[],
+    operationType: DropColumnOperationType = DropColumnOperationType.DELETE_FIELD
+  ) {
     if (!fieldIds.length) return;
 
     const fieldRaw = await this.prismaService.txClient().field.findMany({
@@ -813,7 +827,8 @@ export class FieldService implements IReadonlyAdapterService {
 
     await this.deleteMany(
       tableId,
-      dataList.map((d) => ({ ...d, version: d.version + 1 }))
+      dataList.map((d) => ({ ...d, version: d.version + 1 })),
+      operationType
     );
   }
 
@@ -876,7 +891,11 @@ export class FieldService implements IReadonlyAdapterService {
     await this.dbCreateMultipleField(tableId, [fieldInstance]);
   }
 
-  private async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
+  private async deleteMany(
+    tableId: string,
+    fieldData: { docId: string; version: number }[],
+    operationType: DropColumnOperationType = DropColumnOperationType.DELETE_FIELD
+  ) {
     const userId = this.cls.get('user.id');
 
     for (const data of fieldData) {
@@ -892,7 +911,7 @@ export class FieldService implements IReadonlyAdapterService {
       where: { id: { in: fieldIds } },
     });
     const fieldInstances = fieldsRaw.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-    await this.alterTableDeleteField(dbTableName, fieldInstances);
+    await this.alterTableDeleteField(dbTableName, fieldInstances, operationType);
   }
 
   async del(version: number, tableId: string, fieldId: string) {

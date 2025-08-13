@@ -4,6 +4,7 @@ import { FieldOpBuilder, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { difference, keyBy } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
+import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { TableIndexService } from '../../table/table-index.service';
@@ -240,9 +241,13 @@ export class FieldDeletingService {
     }
   }
 
-  async deleteFieldItem(tableId: string, field: IFieldInstance) {
+  async deleteFieldItem(
+    tableId: string,
+    field: IFieldInstance,
+    operationType: DropColumnOperationType = DropColumnOperationType.DELETE_FIELD
+  ) {
     await this.cleanRef(tableId, field);
-    await this.fieldService.batchDeleteFields(tableId, [field.id]);
+    await this.fieldService.batchDeleteFields(tableId, [field.id], operationType);
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldInstance | null> {

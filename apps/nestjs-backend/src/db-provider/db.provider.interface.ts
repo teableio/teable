@@ -15,6 +15,7 @@ import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teab
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
+import type { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
 import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
@@ -65,7 +66,8 @@ export interface IDbProvider {
   dropColumn(
     tableName: string,
     fieldInstance: IFieldInstance,
-    linkContext?: { tableId: string; tableNameMap: Map<string, string> }
+    linkContext?: { tableId: string; tableNameMap: Map<string, string> },
+    operationType?: DropColumnOperationType
   ): string[];
 
   updateJsonColumn(
