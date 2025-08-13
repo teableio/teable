@@ -1,4 +1,6 @@
+import type { IFilter } from '@teable/core';
 import type { Knex } from 'knex';
+import type { IFieldSelectName } from '../../field/field-select.type';
 import type { IFieldInstance } from '../../field/model/factory';
 
 /**
@@ -35,7 +37,9 @@ export interface IRecordQueryBuilder {
   createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
     tableIdOrDbTableName: string,
-    viewId: string | undefined
+    viewId: string | undefined,
+    filter?: IFilter,
+    currentUserId?: string
   ): Promise<{ qb: Knex.QueryBuilder }>;
 }
 
@@ -53,6 +57,20 @@ export interface IRecordQueryParams {
   dbTableName?: string;
   /** Optional existing query builder */
   queryBuilder: Knex.QueryBuilder;
+  /** Optional filter */
+  filter?: IFilter;
   /** Optional Link field contexts for CTE generation */
   linkFieldContexts?: ILinkFieldContext[];
+  currentUserId?: string;
+}
+
+/**
+ * IRecordQueryFieldCteMap
+ */
+export type IRecordQueryFieldCteMap = Map<string, string>;
+
+export type IRecordSelectionMap = Map<string, string>;
+
+export interface IRecordQueryFilterContext {
+  selectionMap: IRecordSelectionMap;
 }

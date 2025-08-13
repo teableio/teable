@@ -15,9 +15,10 @@ import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teab
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
-import type { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
+import type { IRecordQueryFilterContext } from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
+import type { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
 import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
 import type { DuplicateAttachmentTableQueryAbstract } from './duplicate-table/duplicate-attachment-table-query.abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
@@ -152,7 +153,8 @@ export interface IDbProvider {
     originKnex: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
     filter?: IFilter,
-    extra?: IFilterQueryExtra
+    extra?: IFilterQueryExtra,
+    context?: IRecordQueryFilterContext
   ): IFilterQueryInterface;
 
   sortQuery(
