@@ -322,7 +322,9 @@ export class BaseImportService {
     // rest fields, like formula, rollup, lookup fields
     const dependencyFields = allFields.filter(
       ({ id }) =>
-        ![...primaryFormulaFields, ...linkFields, ...commonFields].map(({ id }) => id).includes(id)
+        ![...primaryFormulaFields, ...linkFields, ...commonFields, ...buttonFields]
+          .map(({ id }) => id)
+          .includes(id)
     );
 
     await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap);
