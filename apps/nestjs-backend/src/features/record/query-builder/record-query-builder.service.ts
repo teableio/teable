@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { type IFormulaConversionContext, FieldType, type ILinkFieldOptions } from '@teable/core';
+import { FieldType } from '@teable/core';
+import type { IFilter, IFormulaConversionContext, ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
@@ -14,6 +15,7 @@ import type {
   IRecordQueryParams,
   ILinkFieldContext,
   ILinkFieldCteContext,
+  IRecordSelectionMap,
 } from './record-query-builder.interface';
 
 /**
@@ -36,7 +38,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   async createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
     tableIdOrDbTableName: string,
-    viewId: string | undefined
+    viewId: string | undefined,
+    filter?: IFilter,
+    currentUserId?: string
   ): Promise<{ qb: Knex.QueryBuilder }> {
     const { tableId, dbTableName } = await this.getTableInfo(tableIdOrDbTableName);
     const fields = await this.getAllFields(tableId);
@@ -48,6 +52,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       fields,
       queryBuilder,
       linkFieldContexts: linkFieldCteContext.linkFieldContexts,
+      filter,
+      currentUserId,
     };
 
     const qb = this.buildQueryWithParams(params, linkFieldCteContext);
@@ -61,7 +67,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     params: IRecordQueryParams,
     linkFieldCteContext: ILinkFieldCteContext
   ): Knex.QueryBuilder {
-    const { fields, queryBuilder, linkFieldContexts } = params;
+    const { fields, queryBuilder, linkFieldContexts, filter, currentUserId } = params;
     const { mainTableName } = linkFieldCteContext;
 
     // Build formula conversion context
@@ -78,7 +84,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     );
 
     // Build select fields
-    return this.buildSelect(queryBuilder, fields, context, fieldCteMap);
+    const selectionMap = this.buildSelect(queryBuilder, fields, context, fieldCteMap);
+
+    if (filter) {
+      this.buildFilter(queryBuilder, fields, filter, selectionMap, currentUserId);
+    }
+
+    return queryBuilder;
   }
 
   /**
@@ -89,7 +101,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     fields: IFieldInstance[],
     context: IFormulaConversionContext,
     fieldCteMap?: Map<string, string>
-  ): Knex.QueryBuilder {
+  ): IRecordSelectionMap {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, context, fieldCteMap);
 
     // Add default system fields
@@ -103,7 +115,27 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       }
     }
 
-    return qb;
+    return visitor.getSelectionMap();
+  }
+
+  private buildFilter(
+    qb: Knex.QueryBuilder,
+    fields: IFieldInstance[],
+    filter: IFilter,
+    selectionMap: IRecordSelectionMap,
+    currentUserId?: string
+  ): this {
+    const map = fields.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+    this.dbProvider
+      .filterQuery(qb, map, filter, { withUserId: currentUserId }, { selectionMap })
+      .appendQueryBuilder();
+    return this;
   }
 
   /**

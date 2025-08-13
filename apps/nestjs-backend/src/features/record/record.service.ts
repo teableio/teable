@@ -554,6 +554,13 @@ export class RecordService {
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
+      queryBuilder,
+      tableId,
+      query.viewId,
+      filter,
+      currentUserId
+    );
 
     const viewQueryDbTableName = viewCte ?? dbTableName;
 
@@ -565,17 +572,17 @@ export class RecordService {
 
     if (query.selectedRecordIds) {
       query.filterLinkCellCandidate
-        ? queryBuilder.whereNotIn(`${viewQueryDbTableName}.__id`, query.selectedRecordIds)
-        : queryBuilder.whereIn(`${viewQueryDbTableName}.__id`, query.selectedRecordIds);
+        ? qb.whereNotIn(`${viewQueryDbTableName}.__id`, query.selectedRecordIds)
+        : qb.whereIn(`${viewQueryDbTableName}.__id`, query.selectedRecordIds);
     }
 
     if (query.filterLinkCellCandidate) {
-      await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
+      await this.buildLinkCandidateQuery(qb, tableId, query.filterLinkCellCandidate);
     }
 
     if (query.filterLinkCellSelected) {
       await this.buildLinkSelectedQuery(
-        queryBuilder,
+        qb,
         tableId,
         viewQueryDbTableName,
         query.filterLinkCellSelected
@@ -583,13 +590,11 @@ export class RecordService {
     }
 
     // Add filtering conditions to the query builder
-    this.dbProvider
-      .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
-      .appendQueryBuilder();
+    // this.dbProvider
+    //   .filterQuery(qb, fieldMap, filter, { withUserId: currentUserId })
+    //   .appendQueryBuilder();
     // Add sorting rules to the query builder
-    this.dbProvider
-      .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
-      .appendSortBuilder();
+    this.dbProvider.sortQuery(qb, fieldMap, [...(groupBy ?? []), ...orderBy]).appendSortBuilder();
 
     if (search && search[2] && fieldMap) {
       const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
@@ -607,21 +612,17 @@ export class RecordService {
 
     // ignore sorting when filterLinkCellSelected is set
     if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
-      await this.buildLinkSelectedSort(
-        queryBuilder,
-        viewQueryDbTableName,
-        query.filterLinkCellSelected
-      );
+      await this.buildLinkSelectedSort(qb, viewQueryDbTableName, query.filterLinkCellSelected);
     } else {
       const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
       // view sorting added by default
-      queryBuilder.orderBy(`${viewQueryDbTableName}.${basicSortIndex}`, 'asc');
+      qb.orderBy(`${viewQueryDbTableName}.${basicSortIndex}`, 'asc');
     }
 
     this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
-    return { queryBuilder, dbTableName, viewCte };
+    return { queryBuilder: qb, dbTableName, viewCte };
   }
 
   convertProjection(fieldKeys?: string[]) {
@@ -1444,23 +1445,21 @@ export class RecordService {
       ...query,
       viewId,
     });
-    const { queryBuilder, dbTableName, viewCte } = await this.buildFilterSortQuery(tableId, {
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
       ...query,
       filter: filterWithGroup,
     });
-    const selectDbTableName = viewCte ?? dbTableName;
 
-    queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
+    // queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
 
     skip && queryBuilder.offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
 
-    this.logger.debug('getRecordsQuery: %s', queryBuilder.toQuery());
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
+    const sql = queryBuilder.toQuery();
+    this.logger.debug('getRecordsQuery: %s', sql);
+    const result = await this.prismaService.txClient().$queryRawUnsafe<{ __id: string }[]>(sql);
     const ids = result.map((r) => r.__id);
 
     const {

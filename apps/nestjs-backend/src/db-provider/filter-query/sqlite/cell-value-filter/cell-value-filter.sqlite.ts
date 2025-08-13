@@ -8,8 +8,8 @@ import {
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../../features/field/model/factory';
-import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
 import type { IDbProvider } from '../../../db.provider.interface';
+import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
 
 export class CellValueFilterSqlite extends AbstractCellValueFilter {
   isNotOperatorHandler(

@@ -21,6 +21,7 @@ import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { IRecordQueryFilterContext } from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -34,8 +35,10 @@ import type {
   IFilterQueryExtra,
   ISortQueryExtra,
 } from './db.provider.interface';
-import type { IDropDatabaseColumnContext } from './drop-database-column-query/drop-database-column-field-visitor.interface';
-import { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
+import type {
+  IDropDatabaseColumnContext,
+  DropColumnOperationType,
+} from './drop-database-column-query/drop-database-column-field-visitor.interface';
 import { DropSqliteDatabaseColumnFieldVisitor } from './drop-database-column-query/drop-database-column-field-visitor.sqlite';
 import { DuplicateAttachmentTableQuerySqlite } from './duplicate-table/duplicate-attachment-table-query.sqlite';
 import { DuplicateTableQuerySqlite } from './duplicate-table/duplicate-query.sqlite';
@@ -372,9 +375,10 @@ export class SqliteProvider implements IDbProvider {
     originQueryBuilder: Knex.QueryBuilder,
     fields?: { [p: string]: IFieldInstance },
     filter?: IFilter,
-    extra?: IFilterQueryExtra
+    extra?: IFilterQueryExtra,
+    context?: IRecordQueryFilterContext
   ): IFilterQueryInterface {
-    return new FilterQuerySqlite(originQueryBuilder, fields, filter, extra, this);
+    return new FilterQuerySqlite(originQueryBuilder, fields, filter, extra, this, context);
   }
 
   sortQuery(

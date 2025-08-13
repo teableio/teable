@@ -21,6 +21,7 @@ import {
 import type { Knex } from 'knex';
 import { includes, invert, isObject } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider, IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
 import type { IFilterQueryInterface } from './filter-query.interface';
@@ -33,7 +34,8 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     protected readonly fields?: { [fieldId: string]: IFieldInstance },
     protected readonly filter?: IFilter,
     protected readonly extra?: IFilterQueryExtra,
-    protected readonly dbProvider?: IDbProvider
+    protected readonly dbProvider?: IDbProvider,
+    protected readonly context?: IRecordQueryFilterContext
   ) {}
 
   appendQueryBuilder(): Knex.QueryBuilder {
@@ -123,16 +125,16 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     const { dbFieldType } = field;
     switch (field.cellValueType) {
       case CellValueType.Boolean:
-        return this.booleanFilter(field);
+        return this.booleanFilter(field, this.context);
       case CellValueType.Number:
-        return this.numberFilter(field);
+        return this.numberFilter(field, this.context);
       case CellValueType.DateTime:
-        return this.dateTimeFilter(field);
+        return this.dateTimeFilter(field, this.context);
       case CellValueType.String: {
         if (dbFieldType === DbFieldType.Json) {
-          return this.jsonFilter(field);
+          return this.jsonFilter(field, this.context);
         }
-        return this.stringFilter(field);
+        return this.stringFilter(field, this.context);
       }
     }
   }
@@ -191,13 +193,28 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     );
   }
 
-  abstract booleanFilter(field: IFieldInstance): AbstractCellValueFilter;
+  abstract booleanFilter(
+    field: IFieldInstance,
+    context?: IRecordQueryFilterContext
+  ): AbstractCellValueFilter;
 
-  abstract numberFilter(field: IFieldInstance): AbstractCellValueFilter;
+  abstract numberFilter(
+    field: IFieldInstance,
+    context?: IRecordQueryFilterContext
+  ): AbstractCellValueFilter;
 
-  abstract dateTimeFilter(field: IFieldInstance): AbstractCellValueFilter;
+  abstract dateTimeFilter(
+    field: IFieldInstance,
+    context?: IRecordQueryFilterContext
+  ): AbstractCellValueFilter;
 
-  abstract stringFilter(field: IFieldInstance): AbstractCellValueFilter;
+  abstract stringFilter(
+    field: IFieldInstance,
+    context?: IRecordQueryFilterContext
+  ): AbstractCellValueFilter;
 
-  abstract jsonFilter(field: IFieldInstance): AbstractCellValueFilter;
+  abstract jsonFilter(
+    field: IFieldInstance,
+    context?: IRecordQueryFilterContext
+  ): AbstractCellValueFilter;
 }

@@ -32,23 +32,27 @@ import {
   isOnOrBefore,
   isWithIn,
   literalValueListSchema,
-  FieldType,
 } from '@teable/core';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider } from '../db.provider.interface';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
 export abstract class AbstractCellValueFilter implements ICellValueFilterInterface {
   protected tableColumnRef: string;
 
-  constructor(protected readonly field: IFieldInstance) {
-    const { dbFieldName, type } = field;
+  constructor(
+    protected readonly field: IFieldInstance,
+    readonly context?: IRecordQueryFilterContext
+  ) {
+    const { dbFieldName, id } = field;
 
-    if (type === FieldType.Formula) {
-      this.tableColumnRef = field.getGeneratedColumnName();
+    const selection = context?.selectionMap.get(id);
+    if (selection) {
+      this.tableColumnRef = selection;
     } else {
       this.tableColumnRef = dbFieldName;
     }
