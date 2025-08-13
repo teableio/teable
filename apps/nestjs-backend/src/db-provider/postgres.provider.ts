@@ -435,7 +435,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     filter?: IFilter,
     extra?: IFilterQueryExtra
   ): IFilterQueryInterface {
-    return new FilterQueryPostgres(originQueryBuilder, fields, filter, extra);
+    return new FilterQueryPostgres(originQueryBuilder, fields, filter, extra, this);
   }
 
   sortQuery(

@@ -1,12 +1,14 @@
 import type { IFilterOperator, ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
+import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`??::jsonb @> '[?]'::jsonb`, [this.tableColumnRef, Number(value)]);
     return builderClient;
@@ -15,7 +17,8 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> '[?]'::jsonb`, [
       this.tableColumnRef,
@@ -27,7 +30,8 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   isGreaterOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > ?)'`, [
       this.tableColumnRef,
@@ -39,7 +43,8 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   isGreaterEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= ?)'`, [
       this.tableColumnRef,
@@ -51,7 +56,8 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   isLessOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < ?)'`, [
       this.tableColumnRef,
@@ -63,7 +69,8 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   isLessEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= ?)'`, [
       this.tableColumnRef,

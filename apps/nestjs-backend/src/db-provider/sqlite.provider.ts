@@ -374,7 +374,7 @@ export class SqliteProvider implements IDbProvider {
     filter?: IFilter,
     extra?: IFilterQueryExtra
   ): IFilterQueryInterface {
-    return new FilterQuerySqlite(originQueryBuilder, fields, filter, extra);
+    return new FilterQuerySqlite(originQueryBuilder, fields, filter, extra, this);
   }
 
   sortQuery(

@@ -9,12 +9,14 @@ import {
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../../features/field/model/factory';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
+import type { IDbProvider } from '../../../db.provider.interface';
 
 export class CellValueFilterSqlite extends AbstractCellValueFilter {
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -26,7 +28,8 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
   doesNotContainOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') not like ?`, [`%${value}%`]);
     return builderClient;
@@ -35,7 +38,8 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
   isNoneOfOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const valueList = literalValueListSchema.parse(value);
 

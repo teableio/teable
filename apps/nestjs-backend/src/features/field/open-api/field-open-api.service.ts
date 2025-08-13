@@ -675,18 +675,24 @@ export class FieldOpenApiService {
         chunkSize
       );
 
-      await this.prismaService.$tx(async () => {
-        await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
-          fieldKeyType: FieldKeyType.Id,
-          typecast: true,
-          records: sourceRecords.map((record) => ({
-            id: record.id,
-            fields: {
-              [targetFieldId]: record.value,
-            },
-          })),
+      if (
+        !fieldInstance.isComputed &&
+        fieldInstance.type !== FieldType.Button &&
+        fieldInstance.type !== FieldType.Link
+      ) {
+        await this.prismaService.$tx(async () => {
+          await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
+            fieldKeyType: FieldKeyType.Id,
+            typecast: true,
+            records: sourceRecords.map((record) => ({
+              id: record.id,
+              fields: {
+                [targetFieldId]: record.value,
+              },
+            })),
+          });
         });
-      });
+      }
     }
 
     if (fieldInstance.notNull || fieldInstance.unique) {
@@ -719,13 +725,14 @@ export class FieldOpenApiService {
       undefined
     );
     const query = qb
-      .select({ id: '__id', value: dbFieldName })
-      .whereNotNull(dbFieldName)
+      // TODO: handle where now link or lookup cannot use alias
+      // .whereNotNull(dbFieldName)
       .orderBy('__auto_number')
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
     const result = await this.prismaService.$queryRawUnsafe<{ id: string; value: string }[]>(query);
+    this.logger.debug('getFieldRecords: ', result);
     return result.map((item) => item);
   }
 

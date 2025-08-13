@@ -21,7 +21,7 @@ import {
 import type { Knex } from 'knex';
 import { includes, invert, isObject } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
-import type { IFilterQueryExtra } from '../db.provider.interface';
+import type { IDbProvider, IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
 import type { IFilterQueryInterface } from './filter-query.interface';
 
@@ -32,7 +32,8 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly fields?: { [fieldId: string]: IFieldInstance },
     protected readonly filter?: IFilter,
-    protected readonly extra?: IFilterQueryExtra
+    protected readonly extra?: IFilterQueryExtra,
+    protected readonly dbProvider?: IDbProvider
   ) {}
 
   appendQueryBuilder(): Knex.QueryBuilder {
@@ -109,7 +110,12 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
 
     queryBuilder = queryBuilder[conjunction];
 
-    this.getFilterAdapter(field).compiler(queryBuilder, convertOperator as IFilterOperator, value);
+    this.getFilterAdapter(field).compiler(
+      queryBuilder,
+      convertOperator as IFilterOperator,
+      value,
+      this.dbProvider!
+    );
     return queryBuilder;
   }
 

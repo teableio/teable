@@ -1,17 +1,20 @@
 import type { IFilterOperator, IFilterValue } from '@teable/core';
 import type { Knex } from 'knex';
+import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 
 export class BooleanCellValueFilterAdapter extends CellValueFilterSqlite {
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     return (value ? super.isNotEmptyOperatorHandler : super.isEmptyOperatorHandler).bind(this)(
       builderClient,
       operator,
-      value
+      value,
+      dbProvider
     );
   }
 }

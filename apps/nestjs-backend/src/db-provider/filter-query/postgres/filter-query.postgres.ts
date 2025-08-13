@@ -1,4 +1,7 @@
+import type { IFilter } from '@teable/core';
+import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../features/field/model/factory';
+import type { IDbProvider, IFilterQueryExtra } from '../../db.provider.interface';
 import { AbstractFilterQuery } from '../filter-query.abstract';
 import {
   BooleanCellValueFilterAdapter,
@@ -15,6 +18,15 @@ import {
 import type { CellValueFilterPostgres } from './cell-value-filter/cell-value-filter.postgres';
 
 export class FilterQueryPostgres extends AbstractFilterQuery {
+  constructor(
+    originQueryBuilder: Knex.QueryBuilder,
+    fields?: { [fieldId: string]: IFieldInstance },
+    filter?: IFilter,
+    extra?: IFilterQueryExtra,
+    dbProvider?: IDbProvider
+  ) {
+    super(originQueryBuilder, fields, filter, extra, dbProvider);
+  }
   booleanFilter(field: IFieldInstance): CellValueFilterPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
