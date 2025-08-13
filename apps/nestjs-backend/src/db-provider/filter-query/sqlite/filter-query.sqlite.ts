@@ -1,4 +1,7 @@
+import type { IFilter } from '@teable/core';
+import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../features/field/model/factory';
+import type { IDbProvider, IFilterQueryExtra } from '../../db.provider.interface';
 import type { AbstractCellValueFilter } from '../cell-value-filter.abstract';
 import { AbstractFilterQuery } from '../filter-query.abstract';
 import {
@@ -16,6 +19,15 @@ import {
 import type { CellValueFilterSqlite } from './cell-value-filter/cell-value-filter.sqlite';
 
 export class FilterQuerySqlite extends AbstractFilterQuery {
+  constructor(
+    originQueryBuilder: Knex.QueryBuilder,
+    fields?: { [fieldId: string]: IFieldInstance },
+    filter?: IFilter,
+    extra?: IFilterQueryExtra,
+    dbProvider?: IDbProvider
+  ) {
+    super(originQueryBuilder, fields, filter, extra, dbProvider);
+  }
   booleanFilter(field: IFieldInstance): CellValueFilterSqlite {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {

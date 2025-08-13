@@ -1,13 +1,15 @@
 import type { IFilterOperator, ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { escapeJsonbRegex } from '../../../../../utils/postgres-regex-escape';
+import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.tableColumnRef]);
     return builderClient;
@@ -16,7 +18,8 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
       this.tableColumnRef,
@@ -27,7 +30,8 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   containsOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const escapedValue = escapeJsonbRegex(String(value));
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'`, [
@@ -39,7 +43,8 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   doesNotContainOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: ILiteralValue
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const escapedValue = escapeJsonbRegex(String(value));
     builderClient.whereRaw(

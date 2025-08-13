@@ -38,6 +38,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IDbProvider } from '../db.provider.interface';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
 export abstract class AbstractCellValueFilter implements ICellValueFilterInterface {
@@ -53,7 +54,12 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     }
   }
 
-  compiler(builderClient: Knex.QueryBuilder, operator: IFilterOperator, value: IFilterValue) {
+  compiler(
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue,
+    dbProvider: IDbProvider
+  ) {
     const operatorHandlers = {
       [is.value]: this.isOperatorHandler,
       [isExactly.value]: this.isExactlyOperatorHandler,
@@ -84,13 +90,14 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
     }
 
-    return chosenHandler(builderClient, operator, value);
+    return chosenHandler(builderClient, operator, value, dbProvider);
   }
 
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
 
@@ -101,7 +108,8 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   isExactlyOperatorHandler(
     _builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    _value: IFilterValue
+    _value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
@@ -109,13 +117,15 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   abstract isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder;
 
   containsOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.where(this.tableColumnRef, 'LIKE', `%${value}%`);
     return builderClient;
@@ -124,13 +134,15 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   abstract doesNotContainOperatorHandler(
     builderClient: Knex.QueryBuilder,
     operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder;
 
   isGreaterOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: IFilterValue
+    _operator: IFilterOperator,
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -141,8 +153,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
   isGreaterEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: IFilterValue
+    _operator: IFilterOperator,
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -153,8 +166,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
   isLessOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: IFilterValue
+    _operator: IFilterOperator,
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -165,8 +179,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
   isLessEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: IFilterValue
+    _operator: IFilterOperator,
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -177,8 +192,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
   isAnyOfOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: IFilterValue
+    _operator: IFilterOperator,
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const valueList = literalValueListSchema.parse(value);
 
@@ -189,13 +205,15 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   abstract isNoneOfOperatorHandler(
     builderClient: Knex.QueryBuilder,
     operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder;
 
   hasAllOfOperatorHandler(
     _builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    _value: IFilterValue
+    _value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
@@ -203,7 +221,8 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   isNotExactlyOperatorHandler(
     _builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    _value: IFilterValue
+    _value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
@@ -211,7 +230,8 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   isWithInOperatorHandler(
     _builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    _value: IFilterValue
+    _value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
@@ -219,7 +239,8 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   isEmptyOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    _value: IFilterValue
+    _value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const tableColumnRef = this.tableColumnRef;
     const { cellValueType, isStructuredCellValue, isMultipleCellValue } = this.field;
@@ -241,7 +262,8 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   isNotEmptyOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    _value: IFilterValue
+    _value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType, isStructuredCellValue, isMultipleCellValue } = this.field;
 

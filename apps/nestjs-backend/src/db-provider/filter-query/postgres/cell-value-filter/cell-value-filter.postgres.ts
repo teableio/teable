@@ -1,13 +1,15 @@
 import type { IFilterOperator, IFilterValue } from '@teable/core';
 import { CellValueType, literalValueListSchema } from '@teable/core';
 import type { Knex } from 'knex';
+import type { IDbProvider } from '../../../db.provider.interface';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
 
 export class CellValueFilterPostgres extends AbstractCellValueFilter {
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -18,7 +20,8 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
   doesNotContainOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`COALESCE(??, '') NOT LIKE ?`, [this.tableColumnRef, `%${value}%`]);
     return builderClient;
@@ -27,7 +30,8 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
   isNoneOfOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IFilterValue
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const valueList = literalValueListSchema.parse(value);
 

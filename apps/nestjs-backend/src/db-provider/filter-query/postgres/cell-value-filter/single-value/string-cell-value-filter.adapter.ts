@@ -1,12 +1,14 @@
 import { CellValueType, type IFilterOperator, type ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
+import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: ILiteralValue
+    _operator: IFilterOperator,
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
     builderClient.whereRaw('LOWER(??) = LOWER(?)', [this.tableColumnRef, parseValue]);
@@ -15,8 +17,9 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
 
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: ILiteralValue
+    _operator: IFilterOperator,
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
@@ -29,8 +32,9 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
 
   containsOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: ILiteralValue
+    _operator: IFilterOperator,
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.where(this.tableColumnRef, 'iLIKE', `%${value}%`);
     return builderClient;
@@ -38,8 +42,9 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
 
   doesNotContainOperatorHandler(
     builderClient: Knex.QueryBuilder,
-    operator: IFilterOperator,
-    value: ILiteralValue
+    _operator: IFilterOperator,
+    value: ILiteralValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(`LOWER(COALESCE(??, '')) NOT LIKE LOWER(?)`, [
       this.tableColumnRef,
