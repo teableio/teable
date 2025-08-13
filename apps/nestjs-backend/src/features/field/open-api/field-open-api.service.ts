@@ -712,7 +712,13 @@ export class FieldOpenApiService {
     page: number,
     chunkSize: number
   ) {
-    const query = this.knex(dbTableName)
+    const table = this.knex(dbTableName);
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
+      table,
+      dbTableName,
+      undefined
+    );
+    const query = qb
       .select({ id: '__id', value: dbFieldName })
       .whereNotNull(dbFieldName)
       .orderBy('__auto_number')
