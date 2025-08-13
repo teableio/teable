@@ -52,7 +52,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
 
     const selection = context?.selectionMap.get(id);
     if (selection) {
-      this.tableColumnRef = selection;
+      this.tableColumnRef = selection as string;
     } else {
       this.tableColumnRef = dbFieldName;
     }

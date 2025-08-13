@@ -69,7 +69,7 @@ export interface IRecordQueryParams {
  */
 export type IRecordQueryFieldCteMap = Map<string, string>;
 
-export type IRecordSelectionMap = Map<string, string>;
+export type IRecordSelectionMap = Map<string, IFieldSelectName>;
 
 export interface IRecordQueryFilterContext {
   selectionMap: IRecordSelectionMap;
