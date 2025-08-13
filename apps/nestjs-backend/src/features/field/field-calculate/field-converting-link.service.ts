@@ -12,6 +12,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { groupBy, isEqual } from 'lodash';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
@@ -85,7 +86,12 @@ export class FieldConvertingLinkService {
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;
       const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
-      symField && (await this.fieldDeletingService.deleteFieldItem(foreignTableId, symField));
+      symField &&
+        (await this.fieldDeletingService.deleteFieldItem(
+          foreignTableId,
+          symField,
+          DropColumnOperationType.DELETE_SYMMETRIC_FIELD
+        ));
     }
 
     // create new symmetric link
@@ -207,7 +213,12 @@ export class FieldConvertingLinkService {
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;
       const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
-      symField && (await this.fieldDeletingService.deleteFieldItem(foreignTableId, symField));
+      symField &&
+        (await this.fieldDeletingService.deleteFieldItem(
+          foreignTableId,
+          symField,
+          DropColumnOperationType.DELETE_SYMMETRIC_FIELD
+        ));
     }
   }
 
