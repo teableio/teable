@@ -44,7 +44,7 @@
     "test-unit": "vitest run --silent --bail 1",
     "test-unit-cover": "pnpm test-unit --coverage",
     "pre-test-e2e": "cross-env NODE_ENV=test pnpm -F @teable/db-main-prisma prisma-db-seed -- --e2e",
-    "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent --bail 1",
+    "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent",
     "test-e2e-cover": "pnpm test-e2e --coverage",
     "bench": "pnpm pre-test-e2e && vitest bench --config ./vitest-bench.config.ts --run",
     "perf-test": "zx test/run-performance-test.mjs",

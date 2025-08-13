@@ -37,6 +37,7 @@ import { RecordService } from '../../record/record.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
+import { ID_FIELD_NAME } from '../constant';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
@@ -699,13 +700,8 @@ export class FieldOpenApiService {
 
   private async getFieldRecordsCount(dbTableName: string, field: IFieldInstance) {
     const table = this.knex(dbTableName);
-    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
-      table,
-      dbTableName,
-      undefined
-    );
 
-    const query = qb.count('*').whereNotNull(field.dbFieldName).toQuery();
+    const query = table.count(ID_FIELD_NAME).toQuery();
     const result = await this.prismaService.$queryRawUnsafe<{ count: number }[]>(query);
     return Number(result[0].count);
   }
