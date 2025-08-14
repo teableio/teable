@@ -814,11 +814,10 @@ export class LinkService {
 
       const queryBuilder = this.knex(tableId2DbTableName[tableId]);
 
-      const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
-        queryBuilder,
-        tableId,
-        undefined
-      );
+      const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(queryBuilder, {
+        tableIdOrDbTableName: tableId,
+        viewId: undefined,
+      });
 
       const nativeQuery = qb.whereIn('__id', recordIds).toQuery();
 

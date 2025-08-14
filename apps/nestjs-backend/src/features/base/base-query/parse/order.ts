@@ -27,7 +27,9 @@ export class QueryOrder {
         order.map((item) => ({
           fieldId: item.column,
           order: item.order,
-        }))
+        })),
+        undefined,
+        undefined
       )
       .appendSortBuilder();
     return { queryBuilder, fieldMap };

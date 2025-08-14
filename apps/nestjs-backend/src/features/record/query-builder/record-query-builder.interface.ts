@@ -1,4 +1,4 @@
-import type { IFilter } from '@teable/core';
+import type { IFilter, ISortItem } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from '../../field/field-select.type';
 import type { IFieldInstance } from '../../field/model/factory';
@@ -23,6 +23,22 @@ export interface ILinkFieldCteContext {
 }
 
 /**
+ * Options for creating record query builder
+ */
+export interface ICreateRecordQueryBuilderOptions {
+  /** The table ID or database table name */
+  tableIdOrDbTableName: string;
+  /** Optional view ID for filtering */
+  viewId?: string;
+  /** Optional filter */
+  filter?: IFilter;
+  /** Optional sort */
+  sort?: ISortItem[];
+  /** Optional current user ID */
+  currentUserId?: string;
+}
+
+/**
  * Interface for record query builder service
  * This interface defines the public API for building table record queries
  */
@@ -30,16 +46,12 @@ export interface IRecordQueryBuilder {
   /**
    * Create a record query builder with select fields for the given table
    * @param queryBuilder - existing query builder to use
-   * @param tableIdOrDbTableName - The table ID or database table name
-   * @param viewId - Optional view ID for filtering
+   * @param options - options for creating the query builder
    * @returns Promise<{ qb: Knex.QueryBuilder }> - The configured query builder
    */
   createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
-    tableIdOrDbTableName: string,
-    viewId: string | undefined,
-    filter?: IFilter,
-    currentUserId?: string
+    options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder }>;
 }
 
@@ -59,6 +71,8 @@ export interface IRecordQueryParams {
   queryBuilder: Knex.QueryBuilder;
   /** Optional filter */
   filter?: IFilter;
+  /** Optional sort */
+  sort?: ISortItem[];
   /** Optional Link field contexts for CTE generation */
   linkFieldContexts?: ILinkFieldContext[];
   currentUserId?: string;
@@ -72,5 +86,9 @@ export type IRecordQueryFieldCteMap = Map<string, string>;
 export type IRecordSelectionMap = Map<string, IFieldSelectName>;
 
 export interface IRecordQueryFilterContext {
+  selectionMap: IRecordSelectionMap;
+}
+
+export interface IRecordQuerySortContext {
   selectionMap: IRecordSelectionMap;
 }

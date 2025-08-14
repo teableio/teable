@@ -3,6 +3,7 @@ import type { ISortItem } from '@teable/core';
 import { CellValueType, DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IRecordQuerySortContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { ISortQueryExtra } from '../db.provider.interface';
 import type { AbstractSortFunction } from './function/sort-function.abstract';
 import type { ISortQueryInterface } from './sort-query.interface';
@@ -15,7 +16,8 @@ export abstract class AbstractSortQuery implements ISortQueryInterface {
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly fields?: { [fieldId: string]: IFieldInstance },
     protected readonly sortObjs?: ISortItem[],
-    protected readonly extra?: ISortQueryExtra
+    protected readonly extra?: ISortQueryExtra,
+    protected readonly context?: IRecordQuerySortContext
   ) {}
 
   appendSortBuilder(): Knex.QueryBuilder {
@@ -64,27 +66,39 @@ export abstract class AbstractSortQuery implements ISortQueryInterface {
     const { dbFieldType } = field;
     switch (field.cellValueType) {
       case CellValueType.Boolean:
-        return this.booleanSort(field);
+        return this.booleanSort(field, this.context);
       case CellValueType.Number:
-        return this.numberSort(field);
+        return this.numberSort(field, this.context);
       case CellValueType.DateTime:
-        return this.dateTimeSort(field);
+        return this.dateTimeSort(field, this.context);
       case CellValueType.String: {
         if (dbFieldType === DbFieldType.Json) {
-          return this.jsonSort(field);
+          return this.jsonSort(field, this.context);
         }
-        return this.stringSort(field);
+        return this.stringSort(field, this.context);
       }
     }
   }
 
-  abstract booleanSort(field: IFieldInstance): AbstractSortFunction;
+  abstract booleanSort(
+    field: IFieldInstance,
+    context?: IRecordQuerySortContext
+  ): AbstractSortFunction;
 
-  abstract numberSort(field: IFieldInstance): AbstractSortFunction;
+  abstract numberSort(
+    field: IFieldInstance,
+    context?: IRecordQuerySortContext
+  ): AbstractSortFunction;
 
-  abstract dateTimeSort(field: IFieldInstance): AbstractSortFunction;
+  abstract dateTimeSort(
+    field: IFieldInstance,
+    context?: IRecordQuerySortContext
+  ): AbstractSortFunction;
 
-  abstract stringSort(field: IFieldInstance): AbstractSortFunction;
+  abstract stringSort(
+    field: IFieldInstance,
+    context?: IRecordQuerySortContext
+  ): AbstractSortFunction;
 
-  abstract jsonSort(field: IFieldInstance): AbstractSortFunction;
+  abstract jsonSort(field: IFieldInstance, context?: IRecordQuerySortContext): AbstractSortFunction;
 }

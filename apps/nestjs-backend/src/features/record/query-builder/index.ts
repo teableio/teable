@@ -1,4 +1,8 @@
-export type { IRecordQueryBuilder, IRecordQueryParams } from './record-query-builder.interface';
+export type {
+  IRecordQueryBuilder,
+  IRecordQueryParams,
+  ICreateRecordQueryBuilderOptions,
+} from './record-query-builder.interface';
 export { RecordQueryBuilderService } from './record-query-builder.service';
 export { RecordQueryBuilderModule } from './record-query-builder.module';
 export { RECORD_QUERY_BUILDER_SYMBOL } from './record-query-builder.symbol';
