@@ -193,8 +193,8 @@ export class LocalAuthService {
         ...emailOptions,
       },
       {
-        type: MailType.VERIFY_CODE,
-        transporterName: MailTransporterType.NOTIFY,
+        type: MailType.VerifyCode,
+        transporterName: MailTransporterType.Notify,
       }
     );
     return {
@@ -245,8 +245,8 @@ export class LocalAuthService {
         ...resetPasswordEmailOptions,
       },
       {
-        type: MailType.RESET_PASSWORD,
-        transporterName: MailTransporterType.NOTIFY,
+        type: MailType.ResetPassword,
+        transporterName: MailTransporterType.Notify,
       }
     );
     await this.cacheService.set(
@@ -360,8 +360,8 @@ export class LocalAuthService {
         ...emailOptions,
       },
       {
-        type: MailType.VERIFY_CODE,
-        transporterName: MailTransporterType.NOTIFY,
+        type: MailType.VerifyCode,
+        transporterName: MailTransporterType.Notify,
       }
     );
     return { token };

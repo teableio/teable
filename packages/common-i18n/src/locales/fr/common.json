@@ -323,6 +323,7 @@
     "customAutomationConfig": "Configuration Email d'Automatisation Personnalisée",
     "addConfig": "Ajouter Configuration",
     "editConfig": "Modifier Configuration",
+    "resetConfig": "Réinitialiser Configuration",
     "testEmail": "Email de Test",
     "testEmailPlaceholder": "Veuillez saisir l'email de test",
     "testEmailError": "Veuillez saisir une adresse email de test valide",

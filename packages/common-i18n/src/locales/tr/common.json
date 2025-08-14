@@ -309,6 +309,7 @@
     "customAutomationConfig": "Özel Otomasyon E-posta Yapılandırması",
     "addConfig": "Yapılandırma Ekle",
     "editConfig": "Yapılandırmayı Düzenle",
+    "resetConfig": "Yapılandırmayı Sıfırla",
     "testEmail": "Test E-postası",
     "testEmailPlaceholder": "Lütfen test e-postasını girin",
     "testEmailError": "Lütfen geçerli bir test e-posta adresi girin",

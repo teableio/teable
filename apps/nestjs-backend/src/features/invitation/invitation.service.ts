@@ -169,8 +169,8 @@ export class InvitationService {
             ...inviteEmailOptions,
           },
           {
-            type: MailType.INVITE,
-            transporterName: MailTransporterType.NOTIFY,
+            type: MailType.Invite,
+            transporterName: MailTransporterType.Notify,
           }
         );
         result[sendUser.email] = { invitationId: id };

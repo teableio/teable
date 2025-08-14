@@ -371,6 +371,7 @@
     "customAutomationConfig": "Configuración de Correo de Automatización Personalizada",
     "addConfig": "Agregar Configuración",
     "editConfig": "Editar Configuración",
+    "resetConfig": "Restablecer Configuración",
     "testEmail": "Correo de Prueba",
     "testEmailPlaceholder": "Por favor ingrese el correo de prueba",
     "testEmailError": "Por favor ingrese una dirección de correo de prueba válida",

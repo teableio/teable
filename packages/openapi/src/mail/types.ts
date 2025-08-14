@@ -1,18 +1,24 @@
 import { z } from 'zod';
 
 export enum MailTransporterType {
-  DEFAULT = 'default',
-  TEST = 'test',
-  NOTIFY = 'notify',
-  AUTOMATION = 'automation',
+  Default = 'default',
+  Test = 'test',
+  Notify = 'notify',
+  Automation = 'automation',
 }
 
 export enum MailType {
-  VERIFY_CODE = 'verifyCode',
-  RESET_PASSWORD = 'resetPassword',
-  INVITE = 'invite',
-  NOTIFY = 'notify',
-  AUTOMATION = 'automation',
+  Automation = 'automation',
+  Notify = 'notify',
+  System = 'system', // htmlEmailOptions
+  VerifyCode = 'verifyCode', // sendEmailVerifyCodeEmailOptions
+  ResetPassword = 'resetPassword', // resetPasswordEmailOptions
+  Invite = 'invite', // inviteEmailOptions
+  Common = 'common', // commonEmailOptions
+  ExportBase = 'exportBase', // htmlEmailOptions
+  CollaboratorCellTag = 'collaboratorCellTag', // collaboratorCellTagEmailOptions
+  CollaboratorMultiRowTag = 'collaboratorMultiRowTag', // collaboratorCellTagEmailOptions
+  NotifyMerge = 'notifyMerge', // notifyMergeOptions
 }
 
 export const mailTransportConfigSchema = z.object({

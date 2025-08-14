@@ -344,6 +344,7 @@
     "customAutomationConfig": "カスタム自動化メール設定",
     "addConfig": "設定追加",
     "editConfig": "設定編集",
+    "resetConfig": "設定をリセット",
     "testEmail": "テストメール",
     "testEmailPlaceholder": "テストメールを入力してください",
     "testEmailError": "正しいテストメールアドレスを入力してください",

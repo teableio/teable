@@ -1,21 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
-import type { IMailTransportConfig, MailType } from '@teable/openapi';
-import { CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
+import type { IMailTransportConfig } from '@teable/openapi';
+import { MailType, CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
+import { CacheService } from '../../cache/cache.service';
+import type { ICacheStore } from '../../cache/types';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { buildEmailFrom } from './mail-helpers';
 
 @Injectable()
 export class MailSenderService {
+  private readonly notifyMergeKey = 'mail-sender:notify-merge:list';
   private logger = new Logger(MailSenderService.name);
   private readonly defaultTransportConfig: IMailTransportConfig;
+
   constructor(
     private readonly mailService: MailerService,
     @MailConfig() private readonly mailConfig: IMailConfig,
-    private readonly settingOpenApiService: SettingOpenApiService
+    private readonly settingOpenApiService: SettingOpenApiService,
+    private readonly cacheService: CacheService<ICacheStore>
   ) {
     const { host, port, secure, auth, sender, senderName } = this.mailConfig;
     this.defaultTransportConfig = {
@@ -60,22 +65,77 @@ export class MailSenderService {
     const automationTransport = automationConfig || notifyTransport || defaultConfig;
 
     let config = defaultConfig;
-    if (name === MailTransporterType.AUTOMATION) {
+    if (name === MailTransporterType.Automation) {
       config = automationTransport;
-    } else if (name === MailTransporterType.NOTIFY) {
+    } else if (name === MailTransporterType.Notify) {
       config = notifyTransport;
     }
 
     return config;
   }
 
+  async addToNotifyMerge(mailOptions: ISendMailOptions & { mailType: MailType }) {
+    const { to } = mailOptions;
+    if (!to || typeof to !== 'string') {
+      return;
+    }
+    const obj = (await this.cacheService.get(this.notifyMergeKey)) || {};
+    obj[to] = [...(obj[to] || []), mailOptions];
+    await this.cacheService.set(this.notifyMergeKey, obj);
+  }
+
+  async notifyMergeOptions(list: (ISendMailOptions & { mailType: MailType })[], brandName: string) {
+    return {
+      subject: `Notify - ${brandName}`,
+      template: 'normal',
+      context: {
+        partialBody: 'notify-merge-body',
+        brandName,
+        list: list.map((item) => ({
+          ...item,
+          mailType: item.mailType,
+        })),
+      },
+    };
+  }
+
+  async sendMailFromCache() {
+    const obj = await this.cacheService.get(this.notifyMergeKey);
+    await this.cacheService.del(this.notifyMergeKey);
+    if (!obj || Object.keys(obj).length === 0) {
+      return;
+    }
+
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    for (const to in obj) {
+      const list = obj[to];
+      if (list.length === 0) {
+        continue;
+      }
+
+      const mailOptions = await this.notifyMergeOptions(list, brandName);
+      this.sendMailByTransporterName(
+        {
+          to,
+          ...mailOptions,
+        },
+        MailTransporterType.Notify,
+        MailType.NotifyMerge
+      );
+    }
+  }
+
   async sendMailByTransporterName(
     mailOptions: ISendMailOptions,
     transporterName?: MailTransporterType,
-    _type?: MailType
+    type?: MailType
   ) {
+    if (transporterName === MailTransporterType.Notify && type === MailType.Notify) {
+      await this.addToNotifyMerge({ ...mailOptions, mailType: type });
+      return true;
+    }
     const config = await this.getTransportConfigByName(transporterName);
-    return this.sendMailByConfig(mailOptions, config);
+    return await this.sendMailByConfig(mailOptions, config);
   }
 
   async sendMail(

@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import type { INotificationBuffer, INotificationUrl } from '@teable/core';
 import {
   generateNotificationId,
@@ -31,7 +30,13 @@ import { UserService } from '../user/user.service';
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-
+  private readonly mailTypeMap: Record<NotificationTypeEnum, MailType> = {
+    [NotificationTypeEnum.System]: MailType.System,
+    [NotificationTypeEnum.CollaboratorCellTag]: MailType.CollaboratorCellTag,
+    [NotificationTypeEnum.CollaboratorMultiRowTag]: MailType.CollaboratorMultiRowTag,
+    [NotificationTypeEnum.Comment]: MailType.Common,
+    [NotificationTypeEnum.ExportBase]: MailType.ExportBase,
+  };
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
@@ -115,7 +120,16 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (toUser.notifyMeta && toUser.notifyMeta.email) {
-      this.sendNotifyByMail(toUser.email, emailOptions);
+      this.mailSenderService.sendMail(
+        {
+          to: toUser.email,
+          ...emailOptions,
+        },
+        {
+          type: this.mailTypeMap[type],
+          transporterName: MailTransporterType.Notify,
+        }
+      );
     }
   }
 
@@ -188,7 +202,16 @@ export class NotificationService {
         buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
         buttonText: emailConfig.buttonText || 'View',
       });
-      this.sendNotifyByMail(toUser.email, emailOptions);
+      this.mailSenderService.sendMail(
+        {
+          to: toUser.email,
+          ...emailOptions,
+        },
+        {
+          type: this.mailTypeMap[type],
+          transporterName: MailTransporterType.Notify,
+        }
+      );
     }
   }
 
@@ -261,7 +284,16 @@ export class NotificationService {
         buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
         buttonText: emailConfig.buttonText || 'View',
       });
-      this.sendNotifyByMail(toUser.email, emailOptions);
+      this.mailSenderService.sendMail(
+        {
+          to: toUser.email,
+          ...emailOptions,
+        },
+        {
+          type: this.mailTypeMap[type],
+          transporterName: MailTransporterType.Notify,
+        }
+      );
     }
   }
 
@@ -515,18 +547,5 @@ export class NotificationService {
         resolve(data);
       });
     });
-  }
-
-  private async sendNotifyByMail(to: string, emailOptions: ISendMailOptions) {
-    await this.mailSenderService.sendMail(
-      {
-        to,
-        ...emailOptions,
-      },
-      {
-        type: MailType.NOTIFY,
-        transporterName: MailTransporterType.NOTIFY,
-      }
-    );
   }
 }

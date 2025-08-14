@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { ISetSettingMailTransportConfigRo, ITestMailTransportConfigRo } from '@teable/openapi';
 import {
   MailTransporterType,
+  MailType,
   setSettingMailTransportConfig,
   testMailTransportConfig,
 } from '@teable/openapi';
@@ -60,7 +61,7 @@ describe.skip('Mail sender  (e2e)', () => {
 
     const commonEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
     const mailOptions = {
-      transporterName: MailTransporterType.NOTIFY,
+      transporterName: MailTransporterType.Notify,
       to: mockMailTo,
       ...commonEmailOptions,
     };
@@ -82,11 +83,55 @@ describe.skip('Mail sender  (e2e)', () => {
 
     const commonEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
     const mailOptions = {
-      transporterName: MailTransporterType.NOTIFY,
+      transporterName: MailTransporterType.Notify,
       to: mockMailTo,
       ...commonEmailOptions,
     };
     const sendRes = await mailSenderService.sendMail(mailOptions);
     expect(sendRes).toBe(true);
+  });
+
+  it('should send notify merge mail', async () => {
+    const htmlEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
+    const mailOptions1 = {
+      transporterName: MailTransporterType.Notify,
+      to: mockMailTo,
+      ...htmlEmailOptions,
+    };
+    const promises = [];
+    const promise1 = mailSenderService.sendMail(mailOptions1, {
+      transporterName: MailTransporterType.Notify,
+      type: MailType.Notify,
+    });
+    promises.push(promise1);
+    const commonEmailOptions = await mailSenderService.commonEmailOptions(mockMailOptions());
+    const mailOptions2 = {
+      transporterName: MailTransporterType.Notify,
+      to: mockMailTo,
+      ...commonEmailOptions,
+    };
+    const promise2 = mailSenderService.sendMail(mailOptions2, {
+      transporterName: MailTransporterType.Notify,
+      type: MailType.Notify,
+    });
+    promises.push(promise2);
+    const emailVerifyCodeEmailOptions = await mailSenderService.sendEmailVerifyCodeEmailOptions({
+      title: 'sendEmailVerifyCodeEmail',
+      message: 'code: 123456',
+    });
+    const mailOptions3 = {
+      transporterName: MailTransporterType.Notify,
+      to: mockMailTo,
+      ...emailVerifyCodeEmailOptions,
+    };
+    const promise3 = mailSenderService.sendMail(mailOptions3, {
+      transporterName: MailTransporterType.Notify,
+      type: MailType.Notify,
+    });
+    promises.push(promise3);
+
+    await Promise.all(promises);
+
+    await new Promise((resolve) => setTimeout(resolve, 1000 * 2));
   });
 });

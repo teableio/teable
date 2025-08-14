@@ -1,0 +1,6 @@
+
+{{#each list}}
+  {{#with context}}
+    {{> (lookup . 'partialBody') }}
+  {{/with}}
+{{/each}}
