@@ -25,7 +25,9 @@ export class QueryGroup {
       .groupQuery(
         queryBuilder,
         fieldMap,
-        fieldGroup.map((v) => v.column)
+        fieldGroup.map((v) => v.column),
+        undefined,
+        undefined
       )
       .appendGroupBuilder();
     aggregationGroup.forEach((v) => {

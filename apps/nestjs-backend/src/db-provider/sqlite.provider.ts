@@ -24,6 +24,7 @@ import type { IFieldInstance } from '../features/field/model/factory';
 import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
+  IRecordQueryGroupContext,
 } from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
@@ -398,9 +399,17 @@ export class SqliteProvider implements IDbProvider {
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
     groupFieldIds?: string[],
-    extra?: IGroupQueryExtra
+    extra?: IGroupQueryExtra,
+    context?: IRecordQueryGroupContext
   ): IGroupQueryInterface {
-    return new GroupQuerySqlite(this.knex, originQueryBuilder, fieldMap, groupFieldIds, extra);
+    return new GroupQuerySqlite(
+      this.knex,
+      originQueryBuilder,
+      fieldMap,
+      groupFieldIds,
+      extra,
+      context
+    );
   }
 
   searchQuery(

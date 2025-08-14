@@ -18,6 +18,7 @@ import type { DateFieldDto } from '../features/field/model/field-dto/date-field.
 import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
+  IRecordQueryGroupContext,
 } from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -172,7 +173,8 @@ export interface IDbProvider {
     originKnex: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
     groupFieldIds?: string[],
-    extra?: IGroupQueryExtra
+    extra?: IGroupQueryExtra,
+    context?: IRecordQueryGroupContext
   ): IGroupQueryInterface;
 
   searchQuery(

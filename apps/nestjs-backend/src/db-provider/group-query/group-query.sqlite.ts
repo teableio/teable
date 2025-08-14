@@ -1,6 +1,7 @@
 import type { DateFormattingPreset, INumberFieldOptions, IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IRecordQueryGroupContext } from '../../features/record/query-builder/record-query-builder.interface';
 import { isUserOrLink } from '../../utils/is-user-or-link';
 import { getOffset } from '../search-query/get-offset';
 import { getSqliteDateTimeFormatString } from './format-string';
@@ -13,9 +14,10 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly fieldMap?: { [fieldId: string]: IFieldInstance },
     protected readonly groupFieldIds?: string[],
-    protected readonly extra?: IGroupQueryExtra
+    protected readonly extra?: IGroupQueryExtra,
+    protected readonly context?: IRecordQueryGroupContext
   ) {
-    super(knex, originQueryBuilder, fieldMap, groupFieldIds, extra);
+    super(knex, originQueryBuilder, fieldMap, groupFieldIds, extra, context);
   }
 
   private get isDistinct() {
