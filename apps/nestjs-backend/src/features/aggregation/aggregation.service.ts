@@ -46,6 +46,7 @@ import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import { RecordPermissionService } from '../record/record-permission.service';
 import { RecordService } from '../record/record.service';
 import { TableIndexService } from '../table/table-index.service';
@@ -78,7 +79,8 @@ export class AggregationService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly cls: ClsService<IClsStore>,
     private readonly recordPermissionService: RecordPermissionService,
-    private readonly dataLoaderService: DataLoaderService
+    private readonly dataLoaderService: DataLoaderService,
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
 
   async performAggregation(params: {
@@ -541,11 +543,18 @@ export class AggregationService {
     const viewQueryDbTableName = viewCte ?? dbTableName;
     queryBuilder.from(viewQueryDbTableName);
 
-    if (filter) {
-      this.dbProvider
-        .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
-        .appendQueryBuilder();
-    }
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(queryBuilder, {
+      tableIdOrDbTableName: tableId,
+      viewId,
+      currentUserId: withUserId,
+      filter,
+    });
+
+    // if (filter) {
+    //   this.dbProvider
+    //     .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
+    //     .appendQueryBuilder();
+    // }
 
     if (search && search[2]) {
       const searchFields = await this.recordService.getSearchFields(
@@ -567,28 +576,24 @@ export class AggregationService {
 
     if (selectedRecordIds) {
       filterLinkCellCandidate
-        ? queryBuilder.whereNotIn(`${dbTableName}.__id`, selectedRecordIds)
-        : queryBuilder.whereIn(`${dbTableName}.__id`, selectedRecordIds);
+        ? qb.whereNotIn(`${dbTableName}.__id`, selectedRecordIds)
+        : qb.whereIn(`${dbTableName}.__id`, selectedRecordIds);
     }
 
     if (filterLinkCellCandidate) {
-      await this.recordService.buildLinkCandidateQuery(
-        queryBuilder,
-        tableId,
-        filterLinkCellCandidate
-      );
+      await this.recordService.buildLinkCandidateQuery(qb, tableId, filterLinkCellCandidate);
     }
 
     if (filterLinkCellSelected) {
       await this.recordService.buildLinkSelectedQuery(
-        queryBuilder,
+        qb,
         tableId,
         viewQueryDbTableName,
         filterLinkCellSelected
       );
     }
 
-    return this.getRowCount(this.prisma, queryBuilder);
+    return this.getRowCount(this.prisma, qb);
   }
 
   private convertValueToNumberOrString(currentValue: unknown): number | string | null {
