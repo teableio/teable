@@ -28,7 +28,8 @@ const countCalculator = (
       }, 0);
       return result;
     }
-    return calcFn(result) ? result + 1 : result;
+
+    return calcFn(param.value) ? result + 1 : result;
   }, 0);
 };
 
@@ -125,7 +126,7 @@ export class CountA extends ArrayFunc {
   }
 
   eval(params: TypedValue<IUnionType>[]): number {
-    return countCalculator(params, (v) => v != null && v !== '');
+    return countCalculator(params, (v) => isNumber(v) || (isString(v) && v !== ''));
   }
 }
 

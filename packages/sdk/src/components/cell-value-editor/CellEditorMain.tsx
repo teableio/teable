@@ -39,7 +39,16 @@ import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
-  const { field, recordId, cellValue, onChange, readonly, className, context } = props;
+  const {
+    field,
+    recordId,
+    cellValue,
+    onChange,
+    readonly,
+    className,
+    context,
+    buttonClickStatusHook,
+  } = props;
   const tableId = useTableId();
   const { id: fieldId, type, options } = field;
   const editorRef = useRef<IEditorRef<unknown>>(null);
@@ -209,6 +218,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           value={cellValue as IButtonFieldCellValue}
           onChange={onChange}
           readonly={readonly}
+          statusHook={buttonClickStatusHook}
         />
       );
     }

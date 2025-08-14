@@ -8,6 +8,7 @@ import { registerRoute, urlBuilder } from '../utils';
 export const BUTTON_CLICK = '/table/{tableId}/record/{recordId}/{fieldId}/button-click';
 
 export const buttonClickVoSchema = z.object({
+  runId: z.string(),
   tableId: z.string(),
   fieldId: z.string(),
   record: recordSchema,

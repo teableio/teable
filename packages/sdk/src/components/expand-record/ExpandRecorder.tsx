@@ -6,6 +6,7 @@ import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
+import type { IButtonClickStatusHook } from '../../hooks';
 import { useBaseId, useRecordOperations, useTableId, useTablePermission } from '../../hooks';
 import { syncCopy } from '../../utils';
 import { ExpandRecord } from './ExpandRecord';
@@ -37,6 +38,7 @@ interface IExpandRecorderProps {
   serverData?: IRecord;
   onClose?: () => void;
   onUpdateRecordIdCallback?: (recordId: string) => void;
+  buttonClickStatusHook?: IButtonClickStatusHook;
 }
 
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
@@ -50,6 +52,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     onUpdateRecordIdCallback,
     commentId,
     viewId,
+    buttonClickStatusHook,
   } = props;
   const { t } = useTranslation();
   const permission = useTablePermission();
@@ -130,6 +133,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onDelete={async () => {
             if (canDelete) await deleteRecord(tableId, recordId);
           }}
+          buttonClickStatusHook={buttonClickStatusHook}
         />
       </Wrap>
     </div>

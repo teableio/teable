@@ -595,6 +595,7 @@ export class FieldOpenApiService {
           'foreignTableId',
           'relationship',
           'visibleFieldIds',
+          'baseId',
         ]),
         // all link field should be one way link
         isOneWay: true,

@@ -5,7 +5,6 @@ import {
   useTablePermission,
   useLanDayjs,
   useIsHydrated,
-  useButtonClickStatus,
 } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn, Input } from '@teable/ui-lib/shadcn';
@@ -26,7 +25,6 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const isHydrated = useIsHydrated();
 
   const { loading: isImporting } = useImportStatus(table?.id as string);
-  useButtonClickStatus(table?.id as string);
 
   const icon = table?.icon ? (
     <Emoji size={'1.25rem'} emoji={table.icon} />

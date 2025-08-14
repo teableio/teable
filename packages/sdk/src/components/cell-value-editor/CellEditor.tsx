@@ -5,10 +5,12 @@ import { CellEditorMain } from './CellEditorMain';
 import type { ICellValueEditor } from './type';
 
 export const CellEditor = (props: ICellValueEditor) => {
-  const { field, cellValue, readonly, wrapStyle, wrapClassName } = props;
+  const { field, cellValue, wrapStyle, wrapClassName } = props;
   const { type, isComputed } = field;
   const isAttachment = type === FieldType.Attachment;
   const isRating = type === FieldType.Rating;
+  const isButton = type === FieldType.Button;
+  const readonly = isButton ? false : props.readonly;
 
   return (
     <div style={wrapStyle} className={wrapClassName}>

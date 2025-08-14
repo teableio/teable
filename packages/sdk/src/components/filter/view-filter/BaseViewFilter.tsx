@@ -27,7 +27,7 @@ interface IViewFilterProps<T extends IConditionItemProperty = IViewFilterConditi
 export const BaseViewFilter = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IViewFilterProps<T> & { modal?: boolean }
 ) => {
-  const { value: filter, onChange, customValueComponent, fields, modal, operatorSelect } = props;
+  const { value: filter, onChange, customValueComponent, fields, operatorSelect } = props;
 
   const baseFilter = useMemo<IBaseViewFilter<T>>(() => {
     return viewFilter2BaseFilter(filter);
@@ -58,7 +58,7 @@ export const BaseViewFilter = <T extends IConditionItemProperty = IViewFilterCon
         footerClassName="p-2 pt-0"
         contentClassName="py-2 px-3"
         components={{
-          FieldComponent: (props) => <FieldSelect modal={modal} {...props} />,
+          FieldComponent: FieldSelect,
           OperatorComponent: operatorSelect ?? OperatorSelect,
           ValueComponent: customValueComponent ?? FieldValue,
         }}

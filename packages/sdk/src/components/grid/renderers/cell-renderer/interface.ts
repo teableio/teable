@@ -1,5 +1,6 @@
 import type { IButtonFieldCellValue, IButtonFieldOptions } from '@teable/core';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
+import type { IButtonClickStatus, IButtonClickStatusHook } from '../../../../hooks';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
 import type { IActiveCellBound, ICellPosition, IRectangle } from '../../interface';
@@ -162,6 +163,7 @@ export interface IButtonCell extends IEditableCell {
     cellValue: IButtonFieldCellValue;
     fieldOptions: IButtonFieldOptions;
     tableId: string;
+    statusHook?: IButtonClickStatusHook;
   };
 }
 

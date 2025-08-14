@@ -1,4 +1,5 @@
 import type { IRecord } from '@teable/core';
+import type { IButtonClickStatusHook } from '@teable/sdk';
 import { ExpandRecorder, ExpandRecordModel } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { forwardRef, useImperativeHandle, useState } from 'react';
@@ -12,9 +13,17 @@ export const ExpandRecordContainerBase = forwardRef<
     recordServerData?: IRecord;
     onClose?: () => void;
     onUpdateRecordIdCallback?: (recordId: string) => void;
+    buttonClickStatusHook?: IButtonClickStatusHook;
   }
 >((props, forwardRef) => {
-  const { tableId, viewId, recordServerData, onClose, onUpdateRecordIdCallback } = props;
+  const {
+    tableId,
+    viewId,
+    recordServerData,
+    onClose,
+    onUpdateRecordIdCallback,
+    buttonClickStatusHook,
+  } = props;
   const router = useRouter();
   const recordId = router.query.recordId as string;
   const commentId = router.query.commentId as string;
@@ -35,6 +44,7 @@ export const ExpandRecordContainerBase = forwardRef<
       model={ExpandRecordModel.Modal}
       onClose={onClose}
       onUpdateRecordIdCallback={onUpdateRecordIdCallback}
+      buttonClickStatusHook={buttonClickStatusHook}
     />
   );
 });

@@ -2,11 +2,12 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
 import { z } from '../../zod';
+import { LastVisitResourceType } from './get';
 
 export const UPDATE_USER_LAST_VISIT = '/user/last-visit';
 
 export const updateUserLastVisitRoSchema = z.object({
-  resourceType: z.string(),
+  resourceType: z.nativeEnum(LastVisitResourceType),
   resourceId: z.string(),
   parentResourceId: z.string(),
   childResourceId: z.string().optional(),

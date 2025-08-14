@@ -21,21 +21,13 @@ interface ICellButton extends ICellValue<IButtonFieldCellValue> {
 }
 
 export const CellButton = (props: ICellButton) => {
-  const {
-    className,
-    style,
-    itemClassName,
-    options: fieldOptions,
-    value,
-    readonly,
-    isLookup,
-  } = props;
+  const { className, style, itemClassName, options: fieldOptions, value, isLookup } = props;
   const { t } = useTranslation();
   const count = value?.count ?? 0;
   const maxCount = fieldOptions.maxCount ?? 0;
   const isClickable = useMemo(() => {
-    return !readonly && !isLookup && checkButtonClickable(fieldOptions, value);
-  }, [fieldOptions, value, readonly, isLookup]);
+    return !isLookup && checkButtonClickable(fieldOptions, value);
+  }, [fieldOptions, value, isLookup]);
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
@@ -56,7 +48,7 @@ export const CellButton = (props: ICellButton) => {
           <TooltipTrigger asChild>
             <Button
               variant="outline"
-              className={cn('flex w-24 h-5 cursor-default', itemClassName)}
+              className={cn('flex w-24 h-6 cursor-default', itemClassName)}
               style={{
                 backgroundColor: button.bgColor,
                 borderColor: button.bgColor,

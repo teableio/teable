@@ -76,6 +76,7 @@ import {
   useView,
   useViewId,
   useRecordOperations,
+  useButtonClickStatus,
 } from '@teable/sdk/hooks';
 import { ConfirmDialog, useToast } from '@teable/ui-lib';
 import { toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -129,6 +130,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const usage = useBaseUsage();
   const allFields = useFields({ withHidden: true });
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
+  const buttonClickStatusHook = useButtonClickStatus(tableId);
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -348,13 +350,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       if (record !== undefined) {
         const fieldId = columns[colIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(record, colIndex, false, (tableId, recordId) =>
-          setExpandRecord({ tableId, recordId })
+        return cellValue2GridDisplay(
+          record,
+          colIndex,
+          false,
+          (tableId, recordId) => setExpandRecord({ tableId, recordId }),
+          buttonClickStatusHook
         );
       }
       return { type: CellType.Loading };
     },
-    [recordMap, columns, cellValue2GridDisplay]
+    [recordMap, columns, cellValue2GridDisplay, buttonClickStatusHook]
   );
 
   const onCellEdited = useCallback(
@@ -1160,7 +1166,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       )}
       <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
       <DomBox id={componentId} />
-      {!onRowExpand && <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />}
+      {!onRowExpand && (
+        <ExpandRecordContainer
+          ref={expandRecordRef}
+          recordServerData={ssrRecord}
+          buttonClickStatusHook={buttonClickStatusHook}
+        />
+      )}
       {expandRecord != null && (
         <ExpandRecorder
           tableId={expandRecord.tableId}
@@ -1168,6 +1180,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           recordId={expandRecord.recordId}
           recordIds={[expandRecord.recordId]}
           onClose={() => setExpandRecord(undefined)}
+          buttonClickStatusHook={buttonClickStatusHook}
         />
       )}
       <ConfirmNewRecords

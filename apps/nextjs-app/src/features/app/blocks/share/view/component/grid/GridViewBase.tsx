@@ -5,6 +5,7 @@ import type { IGetRecordsRo, IGroupPointsVo, IRangesRo } from '@teable/openapi';
 import { saveQueryParams, shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,
+  IButtonCell,
   ICell,
   ICellItem,
   IGridRef,
@@ -34,6 +35,7 @@ import {
   LARGE_QUERY_THRESHOLD,
 } from '@teable/sdk/components';
 import {
+  useButtonClickStatus,
   useFields,
   useIsHydrated,
   useIsTouchDevice,
@@ -48,11 +50,13 @@ import { Skeleton, useToast } from '@teable/ui-lib/shadcn';
 import { uniqueId } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
+import { tableConfig } from '@/features/i18n/table.config';
 import {
   GIRD_FIELD_NAME_HEIGHT_DEFINITIONS,
   GIRD_ROW_HEIGHT_DEFINITIONS,
@@ -65,8 +69,9 @@ interface IGridViewProps {
 
 export const GridViewBase = (props: IGridViewProps) => {
   const { groupPointsServerData } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const view = useView();
-  const tableId = useTableId();
+  const tableId = useTableId() as string;
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const gridRef = useRef<IGridRef>(null);
@@ -88,6 +93,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { setGridRef, searchCursor } = useGridSearchStore();
+  const buttonClickStatusHook = useButtonClickStatus(tableId);
 
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
@@ -213,11 +219,11 @@ export const GridViewBase = (props: IGridViewProps) => {
       if (record !== undefined) {
         const fieldId = columns[colIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(record, colIndex);
+        return cellValue2GridDisplay(record, colIndex, false, undefined, buttonClickStatusHook);
       }
       return { type: CellType.Loading };
     },
-    [recordMap, columns, cellValue2GridDisplay]
+    [recordMap, columns, cellValue2GridDisplay, buttonClickStatusHook]
   );
 
   const onCopy = useCallback(
@@ -241,6 +247,29 @@ export const GridViewBase = (props: IGridViewProps) => {
     [columns, openStatisticMenu]
   );
 
+  const onCellValueHovered = (bounds: IRectangle, cellItem: ICellItem) => {
+    const cellInfo = getCellContent(cellItem);
+    if (!cellInfo?.id) {
+      return;
+    }
+
+    if (cellInfo.type === CellType.Button) {
+      const { data } = cellInfo as IButtonCell;
+      const { fieldOptions, cellValue } = data;
+      const { label } = fieldOptions;
+      const count = cellValue?.count ?? 0;
+      const maxCount = fieldOptions?.maxCount ?? 0;
+      openTooltip({
+        id: componentId,
+        text: t('sdk:common.clickedCount', {
+          label,
+          text: maxCount > 0 ? `${count}/${maxCount}` : `${count}`,
+        }),
+        position: bounds,
+      });
+    }
+  };
+
   const componentId = useMemo(() => uniqueId('shared-grid-view-'), []);
 
   const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
@@ -255,6 +284,10 @@ export const GridViewBase = (props: IGridViewProps) => {
         text: description,
         position: bounds,
       });
+    }
+
+    if (type === RegionType.CellValue) {
+      onCellValueHovered(bounds, cellItem);
     }
   };
 
@@ -319,7 +352,11 @@ export const GridViewBase = (props: IGridViewProps) => {
         </div>
       )}
       <DomBox id={componentId} />
-      <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />
+      <ExpandRecordContainer
+        ref={expandRecordRef}
+        recordServerData={ssrRecord}
+        buttonClickStatusHook={buttonClickStatusHook}
+      />
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { match, P } from 'ts-pattern';
 import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
 import type { IEventContext } from '../events';
-import { Events, BaseEventFactory, SpaceEventFactory, ButtonEventFactory } from '../events';
+import { Events, BaseEventFactory, SpaceEventFactory } from '../events';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -68,9 +68,6 @@ export class EventMiddleware implements NestInterceptor {
       )
       .with(P.union(Events.SPACE_CREATE, Events.SPACE_DELETE, Events.SPACE_UPDATE), () =>
         SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
-      )
-      .with(P.union(Events.TABLE_BUTTON_CLICK), () =>
-        ButtonEventFactory.create(eventName, { ...resolveData }, eventContext)
       )
       .otherwise(() => null);
   }

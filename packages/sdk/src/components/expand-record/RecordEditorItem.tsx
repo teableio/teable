@@ -1,4 +1,5 @@
 import { cn } from '@teable/ui-lib';
+import type { IButtonClickStatusHook } from '../../hooks';
 import { useFieldStaticGetter } from '../../hooks';
 import type { Field, Record } from '../../model';
 import { CellEditorWrap } from './CellEditorWrap';
@@ -9,8 +10,9 @@ export const RecordEditorItem = (props: {
   vertical?: boolean;
   onChange?: (newValue: unknown, fieldId: string) => void;
   readonly?: boolean;
+  buttonClickStatusHook?: IButtonClickStatusHook;
 }) => {
-  const { field, record, vertical, onChange, readonly } = props;
+  const { field, record, vertical, onChange, readonly, buttonClickStatusHook } = props;
   const { type, isLookup } = field;
   const fieldStaticGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticGetter(type, {
@@ -41,6 +43,7 @@ export const RecordEditorItem = (props: {
         field={field}
         recordId={record?.id}
         readonly={!record || readonly}
+        buttonClickStatusHook={buttonClickStatusHook}
       />
     </div>
   );

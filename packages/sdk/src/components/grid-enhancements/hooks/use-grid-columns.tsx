@@ -27,6 +27,7 @@ import {
   onMixedTextClick,
 } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
+import type { IButtonClickStatusHook } from '../../../hooks';
 import { useFields, useTablePermission, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
@@ -191,7 +192,8 @@ export const useCreateCellValue2GridDisplay = (
         record: Record,
         col: number,
         isPrefilling?: boolean,
-        expandRecord?: (tableId: string, recordId: string) => void
+        expandRecord?: (tableId: string, recordId: string) => void,
+        buttonClickStatusHook?: IButtonClickStatusHook
         // eslint-disable-next-line sonarjs/cognitive-complexity
       ): ICell => {
         const field = fields[col];
@@ -508,7 +510,7 @@ export const useCreateCellValue2GridDisplay = (
             return {
               ...baseCellProps,
               readonly:
-                readonly ||
+                // readonly ||
                 !checkButtonClickable(
                   field.options as IButtonFieldOptions,
                   cellValue as IButtonFieldCellValue
@@ -518,6 +520,7 @@ export const useCreateCellValue2GridDisplay = (
                 tableId: field.tableId,
                 cellValue: cellValue as IButtonFieldCellValue,
                 fieldOptions: field.options,
+                statusHook: buttonClickStatusHook,
               },
             };
           }

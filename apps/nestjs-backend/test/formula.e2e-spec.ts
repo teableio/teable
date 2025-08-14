@@ -22,6 +22,7 @@ import {
 describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
   let table1Id = '';
+  let table1: ITableFullVo;
   let numberFieldRo: IFieldRo & { id: string; name: string };
   let textFieldRo: IFieldRo & { id: string; name: string };
   let formulaFieldRo: IFieldRo & { id: string; name: string };
@@ -64,12 +65,11 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    table1Id = (
-      await createTable(baseId, {
-        name: 'table1',
-        fields: [numberFieldRo, textFieldRo, formulaFieldRo],
-      })
-    ).id;
+    table1 = await createTable(baseId, {
+      name: 'table1',
+      fields: [numberFieldRo, textFieldRo, formulaFieldRo],
+    });
+    table1Id = table1.id;
   });
 
   afterEach(async () => {

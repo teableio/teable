@@ -44,6 +44,7 @@ import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
+import { isLinkCellValue } from '../../calculation/utils/detect-link';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
@@ -799,22 +800,29 @@ export class FieldConvertingService {
 
   private async getDerivateByLink(tableId: string, innerOpsMap: IOpsMap['key']) {
     const changes: ICellContext[] = [];
+    let fromReset = true;
     for (const recordId in innerOpsMap) {
       for (const op of innerOpsMap[recordId]) {
         const context = RecordOpBuilder.editor.setRecord.detect(op);
         if (!context) {
           throw new Error('Invalid operation');
         }
+
+        // when changing link relationship, old value used to clean link cellValue
+        if (isLinkCellValue(context.oldCellValue)) {
+          fromReset = false;
+        }
+
         changes.push({
           recordId,
           fieldId: context.fieldId,
-          oldValue: null, // old value by no means when converting
+          oldValue: isLinkCellValue(context.oldCellValue) ? context.oldCellValue : null,
           newValue: context.newCellValue,
         });
       }
     }
 
-    const derivate = await this.linkService.getDerivateByLink(tableId, changes, true);
+    const derivate = await this.linkService.getDerivateByLink(tableId, changes, fromReset);
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};

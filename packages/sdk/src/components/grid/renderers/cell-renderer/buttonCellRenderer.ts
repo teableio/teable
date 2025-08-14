@@ -1,5 +1,4 @@
 import { Colors, ColorUtils } from '@teable/core';
-import { buttonClick } from '@teable/openapi';
 import { LRUCache } from 'lru-cache';
 import colors from 'tailwindcss/colors';
 
@@ -18,12 +17,12 @@ import type {
   ICellMeasureProps,
 } from './interface';
 
-const { cellVerticalPaddingSM, cellHorizontalPadding } = GRID_DEFAULT;
+const { cellHorizontalPadding } = GRID_DEFAULT;
 
 const BUTTON_RADIUS = 4;
-const BUTTON_HEIGHT = 20;
+const BUTTON_HEIGHT = 24;
 const BUTTON_MIN_WIDTH = 60;
-const BUTTON_MAX_WIDTH = 80;
+const BUTTON_MAX_WIDTH = 126;
 
 const positionCache: LRUCache<string, IRectangle> = new LRUCache({
   max: 10,
@@ -33,9 +32,17 @@ const clickHandler = (cell: IButtonCell) => {
   const { id = '', data, readonly } = cell;
   if (readonly) return;
 
-  const { tableId } = data;
+  const { tableId, statusHook, fieldOptions } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
-  buttonClick(tableId, recordId, fieldId);
+  if (!statusHook) return;
+  const isLoading = statusHook.checkLoading?.(fieldId, recordId) ?? false;
+  if (isLoading) return;
+  statusHook.buttonClick({
+    tableId,
+    recordId,
+    fieldId,
+    name: fieldOptions.label,
+  });
 };
 
 const drawButton = (
@@ -50,9 +57,10 @@ const drawButton = (
     textColor: string;
     bgColor: string;
     theme: IGridTheme;
+    opacity?: number;
   }
 ) => {
-  const { x, y, width, height, text, maxTextWidth, textColor, bgColor, theme } = props;
+  const { x, y, width, height, text, maxTextWidth, textColor, bgColor, theme, opacity = 1 } = props;
   const { fontSizeXS, fontFamily } = theme;
 
   ctx.save();
@@ -65,6 +73,7 @@ const drawButton = (
     height,
     radius: BUTTON_RADIUS,
     fill: bgColor,
+    opacity,
   });
 
   drawSingleLineText(ctx, {
@@ -82,12 +91,12 @@ const drawButton = (
 
 const calcPosition = (
   cell: IButtonCell,
-  props: { width: number; ctx: CanvasRenderingContext2D; theme: IGridTheme },
+  props: { width: number; ctx: CanvasRenderingContext2D; theme: IGridTheme; height: number },
   flush = false
 ) => {
   const { data } = cell;
   const { fieldOptions } = data;
-  const { width, ctx, theme } = props;
+  const { width, ctx, theme, height } = props;
   const { fontSizeXS, fontFamily } = theme;
   const cacheKey = `${fieldOptions.label}-${width}`;
   if (!flush) {
@@ -110,7 +119,7 @@ const calcPosition = (
 
   const position: IRectangle = {
     x: (width - rectWidth) / 2,
-    y: cellVerticalPaddingSM,
+    y: (height - BUTTON_HEIGHT) / 2,
     width: rectWidth,
     height: BUTTON_HEIGHT,
   };
@@ -132,6 +141,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
         width,
         ctx,
         theme,
+        height,
       },
       true
     );
@@ -142,19 +152,22 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     };
   },
   draw: (cell: IButtonCell, props: ICellRenderProps) => {
-    const { data, readonly } = cell;
-    const { fieldOptions } = data;
+    const { data, id = '', readonly } = cell;
+    const { fieldOptions, statusHook } = data;
     const { ctx, rect, theme } = props;
-    const { x, y, width } = rect;
+    const { x, y, width, height } = rect;
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
     const bgColor = ColorUtils.getHexForColor(rectColor);
     const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
-
     const position = calcPosition(cell, {
       width,
       ctx,
       theme,
+      height,
     });
+
+    const [recordId = '', fieldId = ''] = id.split('-');
+    const isLoading = statusHook?.checkLoading?.(fieldId, recordId) ?? false;
 
     return drawButton(ctx, {
       x: x + position.x,
@@ -166,6 +179,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
       textColor,
       bgColor,
       theme,
+      opacity: isLoading ? 0.8 : 1,
     });
   },
   checkRegion: (cell: IButtonCell, props: ICellClickProps, _shouldCalculate?: boolean) => {

@@ -5,7 +5,7 @@ import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { cloneDeep, keyBy, difference, groupBy, isEqual, set } from 'lodash';
+import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
@@ -157,10 +157,13 @@ export class LinkService {
       toDelete.forEach((foreignRecordId) => {
         const foreignCellValue = foreignRecordMap[foreignRecordId][symmetricFieldId] as
           | ILinkCellValue[]
+          | ILinkCellValue
           | null;
 
         if (foreignCellValue) {
-          const filteredCellValue = foreignCellValue.filter((item) => item.id !== recordId);
+          const filteredCellValue = [foreignCellValue]
+            .flat()
+            .filter((item) => item.id !== recordId);
           foreignRecordMap[foreignRecordId][symmetricFieldId] = filteredCellValue.length
             ? filteredCellValue
             : null;
@@ -179,9 +182,12 @@ export class LinkService {
             `Consistency error, recordId ${foreignRecordId} is not exist`
           );
         }
-        const foreignCellValue = newForeignRecord[symmetricFieldId] as ILinkCellValue[] | null;
+        const foreignCellValue = newForeignRecord[symmetricFieldId] as
+          | ILinkCellValue[]
+          | ILinkCellValue
+          | null;
         if (foreignCellValue) {
-          newForeignRecord[symmetricFieldId] = foreignCellValue.concat({
+          newForeignRecord[symmetricFieldId] = [foreignCellValue].flat().concat({
             id: recordId,
             title: sourceRecordTitle,
           });
@@ -208,21 +214,29 @@ export class LinkService {
       foreignRecordMap,
       sourceRecordMap,
     } = params;
-    const oldKey = fkItem.oldKey as string | null;
+    const oldKey = (fkItem.oldKey || []) as string[];
     const newKey = fkItem.newKey as string | null;
 
     // Update link cell values for symmetric field of the foreign table
-    if (oldKey) {
-      const foreignCellValue = foreignRecordMap[oldKey][symmetricFieldId] as
-        | ILinkCellValue[]
-        | null;
+    if (oldKey?.length) {
+      oldKey.forEach((foreignRecordId) => {
+        const foreignCellValue = foreignRecordMap[foreignRecordId][symmetricFieldId] as
+          | ILinkCellValue[]
+          | ILinkCellValue
+          | null;
 
-      if (foreignCellValue) {
-        const filteredCellValue = foreignCellValue.filter((item) => item.id !== recordId);
-        foreignRecordMap[oldKey][symmetricFieldId] = filteredCellValue.length
-          ? filteredCellValue
-          : null;
-      }
+        if (foreignCellValue) {
+          const filteredCellValue = [foreignCellValue]
+            .flat()
+            .filter((item) => item.id !== recordId);
+
+          foreignRecordMap[foreignRecordId][symmetricFieldId] = filteredCellValue.length
+            ? filteredCellValue
+            : null;
+        } else {
+          foreignRecordMap[foreignRecordId][symmetricFieldId] = null;
+        }
+      });
     }
 
     if (newKey) {
@@ -233,9 +247,12 @@ export class LinkService {
       if (!newForeignRecord) {
         throw new BadRequestException(`Consistency error, recordId ${newKey} is not exist`);
       }
-      const foreignCellValue = newForeignRecord[symmetricFieldId] as ILinkCellValue[] | null;
+      const foreignCellValue = newForeignRecord[symmetricFieldId] as
+        | ILinkCellValue[]
+        | ILinkCellValue
+        | null;
       if (foreignCellValue) {
-        newForeignRecord[symmetricFieldId] = foreignCellValue.concat({
+        newForeignRecord[symmetricFieldId] = [foreignCellValue].flat().concat({
           id: recordId,
           title: sourceRecordTitle,
         });
@@ -305,11 +322,13 @@ export class LinkService {
       sourceRecordMap,
     } = params;
 
-    const oldKey = fkItem.oldKey as string | undefined;
+    const oldKey = (fkItem.oldKey || []) as string[];
     const newKey = fkItem.newKey as string | undefined;
 
-    if (oldKey) {
-      foreignRecordMap[oldKey][symmetricFieldId] = null;
+    if (oldKey?.length) {
+      oldKey.forEach((foreignRecordId) => {
+        foreignRecordMap[foreignRecordId][symmetricFieldId] = null;
+      });
     }
 
     if (newKey) {
@@ -556,6 +575,7 @@ export class LinkService {
       const id = cellContext.recordId;
       const foreignKeys = foreignKeysIndexed[id];
       if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+        const oldCellValue = cellContext.oldValue as ILinkCellValue | ILinkCellValue[] | undefined;
         const newCellValue = cellContext.newValue as ILinkCellValue | undefined;
         if (Array.isArray(newCellValue)) {
           throw new BadRequestException(
@@ -567,10 +587,9 @@ export class LinkService {
           throw new Error('duplicate foreign key from database');
         }
 
-        const foreignRecordId = foreignKeys?.[0].foreignId;
-        const oldKey = foreignRecordId || null;
+        const oldKey = oldCellValue ? [oldCellValue].flat().map((key) => key.id) : null;
         const newKey = newCellValue?.id || null;
-        if (oldKey === newKey) {
+        if (oldCellValue && !Array.isArray(oldCellValue) && isEqual(oldCellValue.id, newKey)) {
           return acc;
         }
 
@@ -653,14 +672,16 @@ export class LinkService {
       }
 
       const recordIds = cellGroupByFieldId[fieldId].map((ctx) => ctx.recordId);
-      const linkRecordIds = cellGroupByFieldId[fieldId]
-        .map((ctx) =>
-          [ctx.oldValue, ctx.newValue]
-            .flat()
-            .filter(Boolean)
-            .map((item) => item?.id as string)
-        )
-        .flat();
+      const linkRecordIds = uniq(
+        cellGroupByFieldId[fieldId]
+          .map((ctx) =>
+            [ctx.oldValue, ctx.newValue]
+              .flat()
+              .filter(Boolean)
+              .map((item) => item?.id as string)
+          )
+          .flat()
+      );
 
       const foreignKeys = await this.getForeignKeys(recordIds, linkRecordIds, field.options);
       this.checkForIllegalDuplicateLinks(field, recordIds, indexedCellContext);
@@ -853,7 +874,6 @@ export class LinkService {
     const fieldMap = fieldMapByTableId[tableId];
     const recordMapStruct = this.getRecordMapStruct(tableId, fieldMapByTableId, linkContexts);
 
-    // console.log('fieldMapByTableId', fieldMapByTableId);
     const fkRecordMap = await this.getFkRecordMap(fieldMap, linkContexts);
 
     const originRecordMapByTableId = await this.fetchRecordMap(
@@ -931,10 +951,9 @@ export class LinkService {
     const toAdd: [string, string][] = [];
     for (const recordId in fkMap) {
       const fkItem = fkMap[recordId];
-      const oldKey = fkItem.oldKey as string | null;
+      const oldKey = (fkItem.oldKey || []) as string[];
       const newKey = fkItem.newKey as string | null;
-
-      oldKey && toDelete.push([recordId, oldKey]);
+      oldKey && oldKey.forEach((key) => toDelete.push([recordId, key]));
       newKey && toAdd.push([recordId, newKey]);
     }
 
@@ -1013,10 +1032,10 @@ export class LinkService {
       const toAdd: [string, string][] = [];
       for (const recordId in fkMap) {
         const fkItem = fkMap[recordId];
-        const oldKey = fkItem.oldKey as string | null;
+        const oldKey = (fkItem.oldKey || []) as string[];
         const newKey = fkItem.newKey as string | null;
 
-        oldKey && toDelete.push([recordId, oldKey]);
+        oldKey && oldKey.forEach((key) => toDelete.push([recordId, key]));
         newKey && toAdd.push([recordId, newKey]);
       }
 

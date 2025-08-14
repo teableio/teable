@@ -4,7 +4,7 @@ import { defaultKeymap, historyKeymap } from '@codemirror/commands';
 import type { EditorSelection } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import type { FunctionName } from '@teable/core';
-import { FormulaLexer } from '@teable/core';
+import { FieldType, FormulaLexer } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
@@ -41,7 +41,8 @@ interface IFormulaEditorProps {
 
 export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const { expression, onConfirm, enableAI } = props;
-  const fields = useFields({ withHidden: true, withDenied: true });
+  const defaultFields = useFields({ withHidden: true, withDenied: true });
+  const fields = defaultFields.filter((field) => field.type !== FieldType.Button);
   const { resolvedTheme } = useTheme();
   const { t } = useTranslation();
   const isLightTheme = resolvedTheme === 'light';
