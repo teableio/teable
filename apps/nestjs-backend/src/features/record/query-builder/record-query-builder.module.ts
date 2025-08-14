@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '@teable/db-main-prisma';
 import { DbProvider } from '../../../db-provider/db.provider';
+import { RecordQueryBuilderHelper } from './record-query-builder.helper';
 import { RecordQueryBuilderService } from './record-query-builder.service';
 import { RECORD_QUERY_BUILDER_SYMBOL } from './record-query-builder.symbol';
 
@@ -12,6 +13,7 @@ import { RECORD_QUERY_BUILDER_SYMBOL } from './record-query-builder.symbol';
   imports: [PrismaModule],
   providers: [
     DbProvider,
+    RecordQueryBuilderHelper,
     {
       provide: RECORD_QUERY_BUILDER_SYMBOL,
       useClass: RecordQueryBuilderService,
