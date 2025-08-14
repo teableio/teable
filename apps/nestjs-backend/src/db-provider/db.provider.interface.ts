@@ -15,7 +15,10 @@ import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teab
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
-import type { IRecordQueryFilterContext } from '../features/record/query-builder/record-query-builder.interface';
+import type {
+  IRecordQueryFilterContext,
+  IRecordQuerySortContext,
+} from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
 import type { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
@@ -161,7 +164,8 @@ export interface IDbProvider {
     originKnex: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
     sortObjs?: ISortItem[],
-    extra?: ISortQueryExtra
+    extra?: ISortQueryExtra,
+    context?: IRecordQuerySortContext
   ): ISortQueryInterface;
 
   groupQuery(

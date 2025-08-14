@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IFilter, IFormulaConversionContext } from '@teable/core';
+import type { IFilter, IFormulaConversionContext, ISortItem } from '@teable/core';
 import type { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -12,6 +12,7 @@ import type {
   IRecordQueryParams,
   ILinkFieldCteContext,
   IRecordSelectionMap,
+  ICreateRecordQueryBuilderOptions,
 } from './record-query-builder.interface';
 
 /**
@@ -31,11 +32,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
    */
   async createRecordQueryBuilder(
     queryBuilder: Knex.QueryBuilder,
-    tableIdOrDbTableName: string,
-    viewId: string | undefined,
-    filter?: IFilter,
-    currentUserId?: string
+    options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder }> {
+    const { tableIdOrDbTableName, viewId, filter, sort, currentUserId } = options;
     const { tableId, dbTableName } = await this.helper.getTableInfo(tableIdOrDbTableName);
     const fields = await this.helper.getAllFields(tableId);
     const linkFieldCteContext = await this.helper.createLinkFieldContexts(
@@ -51,6 +50,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       queryBuilder,
       linkFieldContexts: linkFieldCteContext.linkFieldContexts,
       filter,
+      sort,
       currentUserId,
     };
 
@@ -65,7 +65,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     params: IRecordQueryParams,
     linkFieldCteContext: ILinkFieldCteContext
   ): Knex.QueryBuilder {
-    const { fields, queryBuilder, linkFieldContexts, filter, currentUserId } = params;
+    const { fields, queryBuilder, linkFieldContexts, filter, sort, currentUserId } = params;
     const { mainTableName } = linkFieldCteContext;
 
     // Build formula conversion context
@@ -86,6 +86,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     if (filter) {
       this.buildFilter(queryBuilder, fields, filter, selectionMap, currentUserId);
+    }
+
+    if (sort) {
+      this.buildSort(queryBuilder, fields, sort, selectionMap);
     }
 
     return queryBuilder;
@@ -133,6 +137,24 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     this.dbProvider
       .filterQuery(qb, map, filter, { withUserId: currentUserId }, { selectionMap })
       .appendQueryBuilder();
+    return this;
+  }
+
+  private buildSort(
+    qb: Knex.QueryBuilder,
+    fields: IFieldInstance[],
+    sortObjs: ISortItem[],
+    selectionMap: IRecordSelectionMap
+  ) {
+    const map = fields.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+    const sortContext = { selectionMap };
+    this.dbProvider.sortQuery(qb, map, sortObjs, undefined, sortContext).appendSortBuilder();
     return this;
   }
 }

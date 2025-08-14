@@ -155,7 +155,7 @@ export class ViewOpenApiService {
     );
 
     const orderRawSql = this.dbProvider
-      .sortQuery(queryBuilder, fieldInsMap, sortObjs)
+      .sortQuery(queryBuilder, fieldInsMap, sortObjs, undefined, undefined)
       .getRawSortSQLText();
 
     // build ops

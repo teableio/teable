@@ -21,7 +21,10 @@ import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
-import type { IRecordQueryFilterContext } from '../features/record/query-builder/record-query-builder.interface';
+import type {
+  IRecordQueryFilterContext,
+  IRecordQuerySortContext,
+} from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -444,9 +447,10 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     originQueryBuilder: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
     sortObjs?: ISortItem[],
-    extra?: ISortQueryExtra
+    extra?: ISortQueryExtra,
+    context?: IRecordQuerySortContext
   ): ISortQueryInterface {
-    return new SortQueryPostgres(this.knex, originQueryBuilder, fields, sortObjs, extra);
+    return new SortQueryPostgres(this.knex, originQueryBuilder, fields, sortObjs, extra, context);
   }
 
   groupQuery(

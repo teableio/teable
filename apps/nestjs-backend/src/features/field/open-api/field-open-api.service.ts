@@ -719,11 +719,10 @@ export class FieldOpenApiService {
     chunkSize: number
   ) {
     const table = this.knex(dbTableName);
-    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
-      table,
-      dbTableName,
-      undefined
-    );
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(table, {
+      tableIdOrDbTableName: dbTableName,
+      viewId: undefined,
+    });
     const query = qb
       // TODO: handle where now link or lookup cannot use alias
       // .whereNotNull(dbFieldName)

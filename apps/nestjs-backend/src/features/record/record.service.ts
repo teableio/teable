@@ -205,11 +205,10 @@ export class RecordService {
     });
 
     const qb = this.knex(dbTableName);
-    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
-      qb,
-      tableId,
-      undefined
-    );
+    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(qb, {
+      tableIdOrDbTableName: tableId,
+      viewId: undefined,
+    });
     const sql = queryBuilder.where('__id', recordId).toQuery();
 
     const result = await prisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
@@ -554,13 +553,13 @@ export class RecordService {
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
-    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
-      queryBuilder,
-      tableId,
-      query.viewId,
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(queryBuilder, {
+      tableIdOrDbTableName: tableId,
+      viewId: query.viewId,
       filter,
-      currentUserId
-    );
+      currentUserId,
+      sort: [...(groupBy ?? []), ...(orderBy ?? [])],
+    });
 
     const viewQueryDbTableName = viewCte ?? dbTableName;
 
@@ -594,7 +593,7 @@ export class RecordService {
     //   .filterQuery(qb, fieldMap, filter, { withUserId: currentUserId })
     //   .appendQueryBuilder();
     // Add sorting rules to the query builder
-    this.dbProvider.sortQuery(qb, fieldMap, [...(groupBy ?? []), ...orderBy]).appendSortBuilder();
+    // this.dbProvider.sortQuery(qb, fieldMap, [...(groupBy ?? []), ...orderBy]).appendSortBuilder();
 
     if (search && search[2] && fieldMap) {
       const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
@@ -1317,11 +1316,10 @@ export class RecordService {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const qb = builder.from(viewQueryDbTableName);
-    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
-      qb,
-      tableId,
-      undefined
-    );
+    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(qb, {
+      tableIdOrDbTableName: tableId,
+      viewId: undefined,
+    });
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
 
     this.logger.debug('getSnapshotBulkInner query: %s', nativeQuery);
@@ -1708,8 +1706,10 @@ export class RecordService {
     });
     const { qb: recordQueryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
       queryBuilder,
-      tableId,
-      viewId
+      {
+        tableIdOrDbTableName: tableId,
+        viewId,
+      }
     );
     queryBuilder = recordQueryBuilder;
     skip && queryBuilder.offset(skip);
@@ -2061,7 +2061,9 @@ export class RecordService {
       });
     }
 
-    this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
+    this.dbProvider
+      .sortQuery(queryBuilder, fieldInstanceMap, groupBy, undefined, undefined)
+      .appendSortBuilder();
     this.dbProvider.groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds).appendGroupBuilder();
 
     queryBuilder.count({ __c: '*' }).limit(this.thresholdConfig.maxGroupPoints);
