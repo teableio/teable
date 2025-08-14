@@ -38,13 +38,19 @@ export type IChatMessageUsage = {
 export enum AgentInvocationName {
   DataVisualization = 'data-visualization-agent',
   Sql = 'sql-agent',
-  ResourceOperator = 'resource-operator-agent',
+
+  // base relative
   TableOperator = 'table-operator-agent',
   FieldOperator = 'field-operator-agent',
   ViewOperator = 'view-operator-agent',
   RecordOperator = 'record-operator-agent',
   BuildBase = 'build-base-agent',
+
+  // automation relative
   BuildAutomation = 'build-automation-agent',
+  BuildScriptAction = 'build-script-action-agent',
+
+  // app relative
   BuildApp = 'build-code-agent',
 }
 
@@ -137,6 +143,13 @@ export const BuildAutomationOperator = {
   generateSendMailAction: 'generate-send-mail-action',
 } as const;
 
+export const BuildScriptActionOperator = {
+  getRelativeData: 'get-relative-data',
+  getPreviousNodeOutputVariables: 'get-previous-node-output-variables',
+  getApiJson: 'get-api-json',
+  generateScriptAndDependencies: 'generate-script-and-dependencies',
+} as const;
+
 export const BuildAppOperator = {
   initialize: 'initialize',
   rename: 'rename',
@@ -149,6 +162,9 @@ export const BuildAppOperator = {
 } as const;
 
 export type IBuildBaseOperator = (typeof BuildBaseOperator)[keyof typeof BuildBaseOperator];
+
+export type IBuildScriptActionOperator =
+  (typeof BuildScriptActionOperator)[keyof typeof BuildScriptActionOperator];
 
 export type IBuildAutomationOperator =
   (typeof BuildAutomationOperator)[keyof typeof BuildAutomationOperator];

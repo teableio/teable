@@ -729,6 +729,11 @@
       "generateSendMailAction": "生成发送邮件节点",
       "generateAction": "生成节点",
 
+      "getRelativeData": "获取相关数据",
+      "getPreviousNodeOutputVariables": "获取前一个节点输出变量",
+      "getApiJson": "获取 API 信息",
+      "generateScriptAndDependencies": "生成脚本和依赖",
+
       "initialize": "初始化环境",
       "rename": "生成应用名称",
       "buildTest": "构建测试",
@@ -784,7 +789,7 @@
       "searchEmpty": "暂无匹配的上下文",
       "emptyContext": "暂无可添加的上下文"
     },
-    "inputPlaceholder": "发送消息...",
+    "inputPlaceholder": "用 Teable 构建您的商业应用",
     "thought": "深度思考",
     "meta": {
       "timeCostUnit": "秒",
