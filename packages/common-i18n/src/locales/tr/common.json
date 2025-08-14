@@ -299,6 +299,30 @@
   "automation": {
     "turnOnTip": "Mevcut otomasyonu açmak istediğinizden emin misiniz?"
   },
+  "email": {
+    "send": "Gönder",
+    "config": "E-posta Yapılandırması",
+    "customConfig": "Özel E-posta Sunucusu",
+    "notify": "Bildirim E-postası",
+    "automation": "Otomasyon E-postası",
+    "customNotifyConfig": "Özel Bildirim E-posta Yapılandırması",
+    "customAutomationConfig": "Özel Otomasyon E-posta Yapılandırması",
+    "addConfig": "Yapılandırma Ekle",
+    "editConfig": "Yapılandırmayı Düzenle",
+    "testEmail": "Test E-postası",
+    "testEmailPlaceholder": "Lütfen test e-postasını girin",
+    "testEmailError": "Lütfen geçerli bir test e-posta adresi girin",
+    "testEmailSend": "Test e-postası başarıyla gönderildi, lütfen posta kutunuzu kontrol edin",
+    "configError": "Lütfen geçerli bir e-posta yapılandırması girin",
+    "host": "Sunucu Adresi",
+    "hostDescription": "Lütfen SMTP e-posta sunucu adresini girin, örneğin: smtp.example.com",
+    "port": "Port",
+    "secure": "SSL/TLS",
+    "username": "Kullanıcı Adı",
+    "password": "Şifre",
+    "sender": "Gönderen Adresi",
+    "senderName": "Gönderen Adı"
+  },
   "waitlist": {
     "title": "Bekleme Listesi",
     "email": "E-posta",

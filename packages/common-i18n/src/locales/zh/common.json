@@ -479,6 +479,30 @@
   "automation": {
     "turnOnTip": "您是否要开启当前自动化？"
   },
+  "email": {
+    "send": "发送",
+    "config": "邮件配置",
+    "customConfig": "自定义邮件服务器",
+    "notify": "通知邮箱",
+    "automation": "自动化邮箱",
+    "customNotifyConfig": "自定义通知邮箱",
+    "customAutomationConfig": "自定义自动化邮箱",
+    "addConfig": "添加配置",
+    "editConfig": "编辑配置",
+    "testEmail": "测试邮箱",
+    "testEmailPlaceholder": "请输入测试邮箱",
+    "testEmailError": "请输入正确的测试邮箱地址",
+    "testEmailSend": "测试邮件发送成功，请检查邮箱",
+    "configError": "请输入正确的邮件配置",
+    "host": "服务器地址",
+    "hostDescription": "请输入 SMTP 邮件服务器地址，例如：smtp.example.com",
+    "port": "端口",
+    "secure": "SSL/TLS",
+    "username": "用户名",
+    "password": "密码",
+    "sender": "发件人地址",
+    "senderName": "发件人名称"
+  },
   "waitlist": {
     "title": "等待列表",
     "email": "邮箱",

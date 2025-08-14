@@ -14,6 +14,8 @@ import {
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
+  MailTransporterType,
+  MailType,
   type IGetNotifyListQuery,
   type INotificationUnreadCountVo,
   type INotificationVo,
@@ -516,9 +518,15 @@ export class NotificationService {
   }
 
   private async sendNotifyByMail(to: string, emailOptions: ISendMailOptions) {
-    await this.mailSenderService.sendMail({
-      to,
-      ...emailOptions,
-    });
+    await this.mailSenderService.sendMail(
+      {
+        to,
+        ...emailOptions,
+      },
+      {
+        type: MailType.NOTIFY,
+        transporterName: MailTransporterType.NOTIFY,
+      }
+    );
   }
 }

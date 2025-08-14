@@ -10,7 +10,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IChangePasswordRo, ISignup, IInviteWaitlistVo } from '@teable/openapi';
+import { MailTransporterType, MailType } from '@teable/openapi';
+import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
 import ms from 'ms';
@@ -185,10 +186,17 @@ export class LocalAuthService {
       title: 'Signup verification',
       message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
     });
-    await this.mailSenderService.sendMail({
-      to: email,
-      ...emailOptions,
-    });
+    await this.mailSenderService.sendMail(
+      {
+        to: email,
+
+        ...emailOptions,
+      },
+      {
+        type: MailType.VERIFY_CODE,
+        transporterName: MailTransporterType.NOTIFY,
+      }
+    );
     return {
       token,
       expiresTime: new Date(
@@ -231,10 +239,16 @@ export class LocalAuthService {
       email: user.email,
       resetPasswordUrl: url,
     });
-    await this.mailSenderService.sendMail({
-      to: user.email,
-      ...resetPasswordEmailOptions,
-    });
+    await this.mailSenderService.sendMail(
+      {
+        to: user.email,
+        ...resetPasswordEmailOptions,
+      },
+      {
+        type: MailType.RESET_PASSWORD,
+        transporterName: MailTransporterType.NOTIFY,
+      }
+    );
     await this.cacheService.set(
       `reset-password-email:${resetPasswordCode}`,
       { userId: user.id },
@@ -340,10 +354,16 @@ export class LocalAuthService {
       title: 'Change Email verification',
       message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
     });
-    await this.mailSenderService.sendMail({
-      to: newEmail,
-      ...emailOptions,
-    });
+    await this.mailSenderService.sendMail(
+      {
+        to: newEmail,
+        ...emailOptions,
+      },
+      {
+        type: MailType.VERIFY_CODE,
+        transporterName: MailTransporterType.NOTIFY,
+      }
+    );
     return { token };
   }
 

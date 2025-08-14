@@ -40,3 +40,4 @@ export * from './template';
 export * from './chat';
 export * from './query';
 export * from './automation';
+export * from './mail';

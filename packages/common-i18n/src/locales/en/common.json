@@ -480,6 +480,30 @@
   "automation": {
     "turnOnTip": "Do you want to turn on the current automation?"
   },
+  "email": {
+    "send": "Send",
+    "config": "Email Config",
+    "customConfig": "Custom Email Server",
+    "notify": "Notify Email",
+    "automation": "Automation Email",
+    "customNotifyConfig": "Custom Notify Email Config",
+    "customAutomationConfig": "Custom Automation Email Config",
+    "addConfig": "Add Config",
+    "editConfig": "Edit Config",
+    "testEmail": "Test Email",
+    "testEmailPlaceholder": "Please enter the test email",
+    "testEmailError": "Please enter a valid test email address",
+    "testEmailSend": "Test email sent successfully, please check your email",
+    "configError": "Please enter a valid email config",
+    "host": "Server Address",
+    "hostDescription": "Please enter the SMTP mail server address, for example: smtp.example.com",
+    "port": "Port",
+    "secure": "SSL/TLS",
+    "username": "Username",
+    "password": "Password",
+    "sender": "Sender",
+    "senderName": "Sender Name"
+  },
   "waitlist": {
     "title": "Waitlist",
     "email": "Email",

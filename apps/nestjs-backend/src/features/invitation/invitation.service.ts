@@ -11,6 +11,8 @@ import { generateInvitationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
+  MailTransporterType,
+  MailType,
   PrincipalType,
   type AcceptInvitationLinkRo,
   type EmailInvitationVo,
@@ -161,10 +163,16 @@ export class InvitationService {
           resourceType,
           inviteUrl: this.generateInviteUrl(id, invitationCode),
         });
-        this.mailSenderService.sendMail({
-          to: sendUser.email,
-          ...inviteEmailOptions,
-        });
+        this.mailSenderService.sendMail(
+          {
+            to: sendUser.email,
+            ...inviteEmailOptions,
+          },
+          {
+            type: MailType.INVITE,
+            transporterName: MailTransporterType.NOTIFY,
+          }
+        );
         result[sendUser.email] = { invitationId: id };
       }
       return result;

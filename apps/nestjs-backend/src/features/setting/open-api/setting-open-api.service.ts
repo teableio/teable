@@ -1,7 +1,12 @@
 import { join } from 'path';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ISettingVo, ITestLLMRo, ITestLLMVo } from '@teable/openapi';
+import type {
+  ISetSettingMailTransportConfigRo,
+  ISettingVo,
+  ITestLLMRo,
+  ITestLLMVo,
+} from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import { generateText } from 'ai';
 import type { LanguageModel } from 'ai';
@@ -12,6 +17,7 @@ import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { SettingService } from '../setting.service';
 @Injectable()
 export class SettingOpenApiService {
@@ -23,8 +29,8 @@ export class SettingOpenApiService {
     private readonly settingService: SettingService
   ) {}
 
-  async getSetting(): Promise<ISettingVo> {
-    return this.settingService.getSetting();
+  async getSetting(names?: string[]): Promise<ISettingVo> {
+    return this.settingService.getSetting(names);
   }
 
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
@@ -107,5 +113,13 @@ export class SettingOpenApiService {
         response: error instanceof Error ? error.message : undefined,
       };
     }
+  }
+
+  async setMailTransportConfig(setMailTransportConfigRo: ISetSettingMailTransportConfigRo) {
+    const { name, transportConfig } = setMailTransportConfigRo;
+    await verifyTransport(transportConfig);
+    await this.settingService.updateSetting({
+      [name]: transportConfig,
+    });
   }
 }

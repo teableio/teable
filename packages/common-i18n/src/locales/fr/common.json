@@ -313,6 +313,30 @@
   "automation": {
     "turnOnTip": "Voulez-vous activer l'automatisation actuelle?"
   },
+  "email": {
+    "send": "Envoyer",
+    "config": "Configuration Email",
+    "customConfig": "Serveur Email Personnalisé",
+    "notify": "Email de Notification",
+    "automation": "Email d'Automatisation",
+    "customNotifyConfig": "Configuration Email de Notification Personnalisée",
+    "customAutomationConfig": "Configuration Email d'Automatisation Personnalisée",
+    "addConfig": "Ajouter Configuration",
+    "editConfig": "Modifier Configuration",
+    "testEmail": "Email de Test",
+    "testEmailPlaceholder": "Veuillez saisir l'email de test",
+    "testEmailError": "Veuillez saisir une adresse email de test valide",
+    "testEmailSend": "Email de test envoyé avec succès, veuillez vérifier votre boîte de réception",
+    "configError": "Veuillez saisir une configuration email valide",
+    "host": "Adresse du Serveur",
+    "hostDescription": "Veuillez saisir l'adresse du serveur email SMTP, par exemple : smtp.example.com",
+    "port": "Port",
+    "secure": "SSL/TLS",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "sender": "Adresse de l'Expéditeur",
+    "senderName": "Nom de l'Expéditeur"
+  },
   "waitlist": {
     "title": "Liste d'attente",
     "email": "Email",

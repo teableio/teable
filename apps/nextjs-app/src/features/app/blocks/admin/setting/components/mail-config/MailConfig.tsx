@@ -1,0 +1,81 @@
+import { useMutation } from '@tanstack/react-query';
+import type {
+  IMailTransportConfig,
+  SettingKey,
+  ISetSettingMailTransportConfigRo,
+} from '@teable/openapi';
+import { mailTransportConfigSchema, setSettingMailTransportConfig } from '@teable/openapi';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { PencilIcon, PlusIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { MailConfigForm } from './MailConfigForm';
+
+export const MailConfigDialog = (props: {
+  name: SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG | SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG;
+  emailConfig?: IMailTransportConfig | null;
+}) => {
+  const { t } = useTranslation('common');
+
+  const [open, setOpen] = useState(false);
+  const [emailConfig, setEmailConfig] = useState<IMailTransportConfig | null | undefined>(
+    props.emailConfig ?? null
+  );
+
+  useEffect(() => {
+    setEmailConfig(props.emailConfig ?? null);
+  }, [props.emailConfig]);
+
+  const { mutateAsync: updateEmailConfig } = useMutation({
+    mutationFn: (ro: ISetSettingMailTransportConfigRo) => setSettingMailTransportConfig(ro),
+  });
+
+  const cancel = () => {
+    setOpen(false);
+  };
+
+  const save = async () => {
+    if (emailConfig && mailTransportConfigSchema.safeParse(emailConfig).success) {
+      await updateEmailConfig({
+        name: props.name,
+        transportConfig: emailConfig,
+      });
+      setOpen(false);
+    } else {
+      toast.error(t('email.configError'));
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon">
+          {props.emailConfig ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('email.config')}</DialogTitle>
+        </DialogHeader>
+        <MailConfigForm value={emailConfig} onChange={setEmailConfig} />
+        <DialogFooter className="flex justify-end">
+          <Button variant="secondary" onClick={cancel}>
+            {t('actions.cancel')}
+          </Button>
+          <Button variant="default" onClick={save}>
+            {t('actions.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};

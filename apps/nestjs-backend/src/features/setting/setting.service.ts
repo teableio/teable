@@ -15,6 +15,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ISettingVo } from '@teable/openapi';
 import { isArray } from 'lodash';
@@ -29,12 +30,19 @@ export class SettingService {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
-  async getSetting(): Promise<ISettingVo> {
+  async getSetting(names?: string[]): Promise<ISettingVo> {
+    const where: Prisma.SettingWhereInput = {};
+    if (names) {
+      where.name = {
+        in: names,
+      };
+    }
     const settings = await this.prismaService.setting.findMany({
       select: {
         name: true,
         content: true,
       },
+      where,
     });
     const res: Record<string, unknown> = {
       instanceId: '',

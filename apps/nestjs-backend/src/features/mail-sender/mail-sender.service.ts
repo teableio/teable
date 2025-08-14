@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import { MailerService } from '@nestjs-modules/mailer';
-import { CollaboratorType } from '@teable/openapi';
+import type { ISendMailOptions } from '@nestjs-modules/mailer';
+import type { IMailTransportConfig, MailType } from '@teable/openapi';
+import { CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
+import { createTransport } from 'nodemailer';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { buildEmailFrom } from './mail-helpers';
@@ -9,24 +11,96 @@ import { buildEmailFrom } from './mail-helpers';
 @Injectable()
 export class MailSenderService {
   private logger = new Logger(MailSenderService.name);
-
+  private readonly defaultTransportConfig: IMailTransportConfig;
   constructor(
     private readonly mailService: MailerService,
     @MailConfig() private readonly mailConfig: IMailConfig,
     private readonly settingOpenApiService: SettingOpenApiService
-  ) {}
+  ) {
+    const { host, port, secure, auth, sender, senderName } = this.mailConfig;
+    this.defaultTransportConfig = {
+      senderName,
+      sender,
+      host,
+      port,
+      secure,
+      auth: {
+        user: auth.user || '',
+        pass: auth.pass || '',
+      },
+    };
+  }
+
+  async createTransporter(config: IMailTransportConfig) {
+    const transporter = createTransport(config);
+    const templateAdapter = this.mailService['templateAdapter'];
+    this.mailService['initTemplateAdapter'](templateAdapter, transporter);
+    return transporter;
+  }
+
+  async sendMailByConfig(mailOptions: ISendMailOptions, config: IMailTransportConfig) {
+    const instance = await this.createTransporter(config);
+    let from = mailOptions.from;
+    if (!from) {
+      from = buildEmailFrom(config.sender, config.senderName);
+    }
+    return instance.sendMail({ ...mailOptions, from });
+  }
+
+  async getTransportConfigByName(name?: MailTransporterType) {
+    const setting = await this.settingOpenApiService.getSetting([
+      SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG,
+      SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG,
+    ]);
+    const defaultConfig = this.defaultTransportConfig;
+    const notifyConfig = setting[SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG];
+    const automationConfig = setting[SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG];
+
+    const notifyTransport = notifyConfig || defaultConfig;
+    const automationTransport = automationConfig || notifyTransport || defaultConfig;
+
+    let config = defaultConfig;
+    if (name === MailTransporterType.AUTOMATION) {
+      config = automationTransport;
+    } else if (name === MailTransporterType.NOTIFY) {
+      config = notifyTransport;
+    }
+
+    return config;
+  }
+
+  async sendMailByTransporterName(
+    mailOptions: ISendMailOptions,
+    transporterName?: MailTransporterType,
+    _type?: MailType
+  ) {
+    const config = await this.getTransportConfigByName(transporterName);
+    return this.sendMailByConfig(mailOptions, config);
+  }
 
   async sendMail(
     mailOptions: ISendMailOptions & { senderName?: string },
-    extra?: { shouldThrow?: boolean }
-  ): Promise<boolean> {
-    let from = mailOptions.from;
-    if (!from && mailOptions.senderName) {
-      from = buildEmailFrom(this.mailConfig.sender, mailOptions.senderName);
+    extra?: {
+      shouldThrow?: boolean;
+      type?: MailType;
+      transportConfig?: IMailTransportConfig;
+      transporterName?: MailTransporterType;
     }
-    const sender = this.mailService
-      .sendMail(from ? { ...mailOptions, from } : mailOptions)
-      .then(() => true);
+  ): Promise<boolean> {
+    const { type, transportConfig, transporterName } = extra || {};
+    let sender: Promise<boolean>;
+    if (transportConfig) {
+      sender = this.sendMailByConfig(mailOptions, transportConfig).then(() => true);
+    } else if (transporterName) {
+      sender = this.sendMailByTransporterName(mailOptions, transporterName, type).then(() => true);
+    } else {
+      let from = mailOptions.from;
+      if (!from && mailOptions.senderName) {
+        from = buildEmailFrom(this.mailConfig.sender, mailOptions.senderName);
+      }
+      sender = this.mailService.sendMail({ ...mailOptions, from }).then(() => true);
+    }
+
     if (extra?.shouldThrow) {
       return sender;
     }

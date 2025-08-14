@@ -6,16 +6,25 @@ import {
   Get,
   Patch,
   Post,
+  Put,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { IPublicSettingVo, ISettingVo, ITestLLMVo, IUploadLogoVo } from '@teable/openapi';
+import type {
+  IPublicSettingVo,
+  ISetSettingMailTransportConfigVo,
+  ISettingVo,
+  ITestLLMVo,
+  IUploadLogoVo,
+} from '@teable/openapi';
 import {
   IUpdateSettingRo,
   testLLMRoSchema,
   updateSettingRoSchema,
   ITestLLMRo,
+  setSettingMailTransportConfigRoSchema,
+  ISetSettingMailTransportConfigRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -92,5 +101,25 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(testLLMRoSchema)) testLLMRo: ITestLLMRo
   ): Promise<ITestLLMVo> {
     return await this.settingOpenApiService.testLLM(testLLMRo);
+  }
+
+  @Permissions('instance|update')
+  @Put('set-mail-transport-config')
+  async setMailTransportConfig(
+    @Body(new ZodValidationPipe(setSettingMailTransportConfigRoSchema))
+    setMailTransportConfigRo: ISetSettingMailTransportConfigRo
+  ): Promise<ISetSettingMailTransportConfigVo> {
+    await this.settingOpenApiService.setMailTransportConfig(setMailTransportConfigRo);
+
+    return {
+      ...setMailTransportConfigRo,
+      transportConfig: {
+        ...setMailTransportConfigRo.transportConfig,
+        auth: {
+          user: setMailTransportConfigRo.transportConfig.auth.user,
+          pass: '',
+        },
+      },
+    };
   }
 }
