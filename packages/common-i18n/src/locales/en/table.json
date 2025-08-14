@@ -733,7 +733,12 @@
       "buildTest": "Build test",
       "developTask": "Develop task",
       "generateSummary": "Generate summary",
-      "previewEnvironment": "Prepare preview environment"
+      "previewEnvironment": "Prepare preview environment",
+
+      "getRelativeData": "Get relative data",
+      "getPreviousNodeOutputVariables": "Get previous node output variables",
+      "getApiJson": "Get API info",
+      "generateScriptAndDependencies": "Generate script and dependencies"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
@@ -783,7 +788,7 @@
       "searchEmpty": "No matching context found",
       "emptyContext": "No context to add"
     },
-    "inputPlaceholder": "Send message...",
+    "inputPlaceholder": "Build your business app with Teable",
     "thought": "Thinking",
     "meta": {
       "timeCostUnit": "s",

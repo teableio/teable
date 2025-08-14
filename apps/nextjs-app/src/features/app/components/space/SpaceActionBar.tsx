@@ -40,7 +40,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   } = props;
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
 
-  const { setExpanded } = useChatPanelStore();
+  const { setExpanded, close } = useChatPanelStore();
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
@@ -79,6 +79,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
           onClick={() => {
             const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
             createBaseMutator({ spaceId: space.id, name });
+            close();
           }}
         >
           {t('space:action.createBase')}
