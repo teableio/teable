@@ -50,9 +50,22 @@ export class AiService {
     spaceId: string,
     llmProviders: LLMProvider[] = []
   ): Promise<{
-    lg: LanguageModelV1 | ReturnType<OpenAIProvider['image']>;
-    md: LanguageModelV1 | ReturnType<OpenAIProvider['image']>;
-    sm: LanguageModelV1 | ReturnType<OpenAIProvider['image']>;
+    lg: {
+      modelInstance: LanguageModelV1;
+      isInstance: boolean;
+    };
+    md: {
+      modelInstance: LanguageModelV1;
+      isInstance: boolean;
+    };
+    sm: {
+      modelInstance: LanguageModelV1;
+      isInstance: boolean;
+    };
+    image: {
+      modelInstance: ReturnType<OpenAIProvider['image']>;
+      isInstance: boolean;
+    };
   }> {
     const { aiConfig } = await this.settingService.getSetting();
     const aiIntegration = await this.prismaService.integration.findFirst({
@@ -71,13 +84,44 @@ export class AiService {
     if (!defaultModelKey) {
       throw new Error('do not set the default lg model');
     }
+
+    const isInstance = !aiIntegration?.enable;
     return {
-      lg: await this.getModelInstance(defaultModelKey, llmProviders),
-      md: await this.getModelInstance(codingModels?.md ?? defaultModelKey, llmProviders),
-      sm: await this.getModelInstance(codingModels?.sm ?? defaultModelKey, llmProviders),
+      lg: {
+        modelInstance: await this.getModelInstance(defaultModelKey, llmProviders),
+        isInstance,
+      },
+      md: {
+        modelInstance: await this.getModelInstance(
+          codingModels?.md ?? defaultModelKey,
+          llmProviders
+        ),
+        isInstance,
+      },
+      sm: {
+        modelInstance: await this.getModelInstance(
+          codingModels?.sm ?? defaultModelKey,
+          llmProviders
+        ),
+        isInstance,
+      },
+      image: {
+        modelInstance: await this.getModelInstance(defaultModelKey, llmProviders, true),
+        isInstance,
+      },
     };
   }
 
+  async getModelInstance(
+    modelKey: string,
+    llmProviders: LLMProvider[],
+    isImageGeneration: true
+  ): Promise<ReturnType<OpenAIProvider['image']>>;
+  async getModelInstance(
+    modelKey: string,
+    llmProviders?: LLMProvider[],
+    isImageGeneration?: false
+  ): Promise<LanguageModelV1>;
   async getModelInstance(
     modelKey: string,
     llmProviders: LLMProvider[] = [],
