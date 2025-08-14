@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common';
-import { CellValueType, FieldType } from '@teable/core';
+import { CellValueType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
-import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
+import type { IRecordQueryGroupContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IGroupQueryInterface, IGroupQueryExtra } from './group-query.interface';
 
 export abstract class AbstractGroupQuery implements IGroupQueryInterface {
@@ -13,7 +13,8 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly fieldMap?: { [fieldId: string]: IFieldInstance },
     protected readonly groupFieldIds?: string[],
-    protected readonly extra?: IGroupQueryExtra
+    protected readonly extra?: IGroupQueryExtra,
+    protected readonly context?: IRecordQueryGroupContext
   ) {}
 
   appendGroupBuilder(): Knex.QueryBuilder {
@@ -21,6 +22,10 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
   }
 
   protected getTableColumnName(field: IFieldInstance): string {
+    const selection = this.context?.selectionMap.get(field.id);
+    if (selection) {
+      return selection as string;
+    }
     return field.dbFieldName;
   }
 

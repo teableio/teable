@@ -24,6 +24,7 @@ import type { IFieldInstance } from '../features/field/model/factory';
 import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
+  IRecordQueryGroupContext,
 } from '../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
@@ -457,9 +458,17 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
     groupFieldIds?: string[],
-    extra?: IGroupQueryExtra
+    extra?: IGroupQueryExtra,
+    context?: IRecordQueryGroupContext
   ): IGroupQueryInterface {
-    return new GroupQueryPostgres(this.knex, originQueryBuilder, fieldMap, groupFieldIds, extra);
+    return new GroupQueryPostgres(
+      this.knex,
+      originQueryBuilder,
+      fieldMap,
+      groupFieldIds,
+      extra,
+      context
+    );
   }
 
   searchQuery(
