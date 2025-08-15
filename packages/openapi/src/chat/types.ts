@@ -11,6 +11,17 @@ export enum McpToolInvocationName {
   UpdateBase = 'update-base',
 }
 
+export const chatAttachmentSchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  mimetype: z.string(),
+  size: z.number(),
+  token: z.string(),
+  presignedUrl: z.string().optional(),
+});
+
+export type IChatMessageAttachment = z.infer<typeof chatAttachmentSchema>;
+
 export const chatContextSchema = z.object({
   tools: z.array(z.nativeEnum(McpToolInvocationName)).optional(),
   tables: z
@@ -25,6 +36,7 @@ export const chatContextSchema = z.object({
   actionId: z.string().optional(),
   appId: z.string().optional(),
   sandboxId: z.string().optional(),
+  attachments: z.array(chatAttachmentSchema).optional(),
 });
 
 export type IChatContext = z.infer<typeof chatContextSchema>;
@@ -170,3 +182,7 @@ export type IBuildAutomationOperator =
   (typeof BuildAutomationOperator)[keyof typeof BuildAutomationOperator];
 
 export type IBuildAppOperator = (typeof BuildAppOperator)[keyof typeof BuildAppOperator];
+
+export enum ToolInvocationName {
+  KnowledgeTool = 'knowledge-tool',
+}

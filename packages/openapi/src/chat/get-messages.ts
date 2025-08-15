@@ -2,16 +2,16 @@ import type { Message } from '@ai-sdk/ui-utils';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import type { IChatMessageUsage } from './types';
+import type { IChatMessageAttachment, IChatMessageUsage } from './types';
 
 export const GET_CHAT_MESSAGES = '/base/{baseId}/chat/{chatId}/messages';
 
 export interface IChatMessage {
   id: string;
-  name: string;
   chatId: string;
   role: Message['role'];
   parts: Message['parts'];
+  attachments?: IChatMessageAttachment[];
   createdTime: string;
   createdBy: string;
   usage?: IChatMessageUsage;
