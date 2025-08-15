@@ -10,6 +10,7 @@ export { StatisticsFunc } from '@teable/core';
 export const aggregationFieldSchema = z.object({
   fieldId: z.string(),
   statisticFunc: z.nativeEnum(StatisticsFunc),
+  alias: z.string().optional(),
 });
 
 export type IAggregationField = z.infer<typeof aggregationFieldSchema>;

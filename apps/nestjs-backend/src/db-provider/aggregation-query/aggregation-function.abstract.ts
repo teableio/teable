@@ -14,12 +14,12 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     protected readonly dbTableName: string,
     protected readonly field: IFieldInstance
   ) {
-    const { dbFieldName } = this.field;
+    const { dbFieldName } = field;
 
     this.tableColumnRef = `${dbFieldName}`;
   }
 
-  compiler(builderClient: Knex.QueryBuilder, aggFunc: StatisticsFunc) {
+  compiler(builderClient: Knex.QueryBuilder, aggFunc: StatisticsFunc, alias: string | undefined) {
     const functionHandlers = {
       [StatisticsFunc.Count]: this.count,
       [StatisticsFunc.Empty]: this.empty,
@@ -73,11 +73,13 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
       rawSql = `MAX(${this.knex.ref(`${joinTable}.value`)})`;
     }
 
-    return builderClient.select(this.knex.raw(`${rawSql} AS ??`, [`${fieldId}_${aggFunc}`]));
+    return builderClient.select(
+      this.knex.raw(`${rawSql} AS ??`, [alias ?? `${fieldId}_${aggFunc}`])
+    );
   }
 
   count(): string {
-    return this.knex.raw('COUNT(*)').toQuery();
+    return this.knex.raw(`COUNT(*)`).toQuery();
   }
 
   empty(): string {

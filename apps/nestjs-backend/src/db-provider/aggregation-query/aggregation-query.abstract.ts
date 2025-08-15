@@ -1,5 +1,5 @@
 import { BadRequestException, Logger } from '@nestjs/common';
-import { CellValueType, DbFieldType, getValidStatisticFunc } from '@teable/core';
+import { CellValueType, DbFieldType, getValidStatisticFunc, StatisticsFunc } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
@@ -28,13 +28,22 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
 
     this.validAggregationField(this.aggregationFields, this.extra);
 
-    this.aggregationFields.forEach(({ fieldId, statisticFunc }) => {
+    this.aggregationFields.forEach(({ fieldId, statisticFunc, alias }) => {
+      // TODO: handle all func type
+      if (statisticFunc === StatisticsFunc.Count && fieldId === '*') {
+        const field = Object.values(this.fields ?? {})[0];
+        if (!field) {
+          return queryBuilder;
+        }
+        this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc, alias);
+        return;
+      }
       const field = this.fields && this.fields[fieldId];
       if (!field) {
         return queryBuilder;
       }
 
-      this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc);
+      this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc, alias);
     });
     if (this.extra?.groupBy) {
       const groupByFields = this.extra.groupBy
@@ -55,20 +64,22 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     aggregationFields: IAggregationField[],
     _extra?: IAggregationQueryExtra
   ) {
-    aggregationFields.forEach(({ fieldId, statisticFunc }) => {
-      const field = this.fields && this.fields[fieldId];
+    aggregationFields
+      .filter(({ fieldId }) => !!fieldId && fieldId !== '*')
+      .forEach(({ fieldId, statisticFunc }) => {
+        const field = this.fields && this.fields[fieldId];
 
-      if (!field) {
-        throw new BadRequestException(`field: '${fieldId}' is invalid`);
-      }
+        if (!field) {
+          throw new BadRequestException(`field: '${fieldId}' is invalid`);
+        }
 
-      const validStatisticFunc = getValidStatisticFunc(field);
-      if (statisticFunc && !validStatisticFunc.includes(statisticFunc)) {
-        throw new BadRequestException(
-          `field: '${fieldId}', aggregation func: '${statisticFunc}' is invalid, Only the following func are allowed: [${validStatisticFunc}]`
-        );
-      }
-    });
+        const validStatisticFunc = getValidStatisticFunc(field);
+        if (statisticFunc && !validStatisticFunc.includes(statisticFunc)) {
+          throw new BadRequestException(
+            `field: '${fieldId}', aggregation func: '${statisticFunc}' is invalid, Only the following func are allowed: [${validStatisticFunc}]`
+          );
+        }
+      });
   }
 
   private getAggregationAdapter(field: IFieldInstance): AbstractAggregationFunction {
