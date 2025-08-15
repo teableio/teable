@@ -18,6 +18,7 @@ import { AGGREGATION_SERVICE_SYMBOL } from './aggregation.service.symbol';
     {
       provide: AGGREGATION_SERVICE_SYMBOL,
       useClass: AggregationServiceV2,
+      // useClass: AggregationService,
     },
   ],
   exports: [AGGREGATION_SERVICE_SYMBOL, AggregationService],
