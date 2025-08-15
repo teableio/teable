@@ -26,7 +26,8 @@ import type { DeepMockProxy } from 'vitest-mock-extended';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
-import { AggregationService } from '../aggregation/aggregation.service';
+import type { IAggregationService } from '../aggregation/aggregation.service.interface';
+import { AGGREGATION_SERVICE_SYMBOL } from '../aggregation/aggregation.service.symbol';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -45,7 +46,7 @@ describe('selectionService', () => {
   let fieldCreatingService: FieldCreatingService;
   let fieldSupplementService: FieldSupplementService;
   let clsService: ClsService<IClsStore>;
-  let aggregationService: AggregationService;
+  let aggregationService: IAggregationService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -62,7 +63,7 @@ describe('selectionService', () => {
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
     fieldSupplementService = module.get<FieldSupplementService>(FieldSupplementService);
     clsService = module.get<ClsService<IClsStore>>(ClsService);
-    aggregationService = module.get<AggregationService>(AggregationService);
+    aggregationService = module.get<IAggregationService>(AGGREGATION_SERVICE_SYMBOL);
 
     prismaService = module.get<PrismaService>(
       PrismaService

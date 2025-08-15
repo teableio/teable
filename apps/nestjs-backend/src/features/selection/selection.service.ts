@@ -46,7 +46,8 @@ import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
-import { AggregationService } from '../aggregation/aggregation.service';
+import { IAggregationService } from '../aggregation/aggregation.service.interface';
+import { InjectAggregationService } from '../aggregation/aggregation.service.provider';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -61,7 +62,7 @@ export class SelectionService {
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
-    private readonly aggregationService: AggregationService,
+    @InjectAggregationService() private readonly aggregationService: IAggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
