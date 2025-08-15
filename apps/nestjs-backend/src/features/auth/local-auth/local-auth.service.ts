@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { generateUserId, getRandomString, HttpErrorCode } from '@teable/core';
+import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IChangePasswordRo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
@@ -173,7 +173,7 @@ export class LocalAuthService {
   }
 
   async sendSignupVerificationCode(email: string) {
-    const code = getRandomString(6);
+    const code = getRandomString(4, RandomType.Number);
     const token = await this.jwtSignupCode(email, code);
     if (this.baseConfig.enableEmailCodeConsole) {
       console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
@@ -327,7 +327,7 @@ export class LocalAuthService {
     if (userByNewEmail) {
       throw new ConflictException('New email is already registered');
     }
-    const code = getRandomString(6);
+    const code = getRandomString(4, RandomType.Number);
     const token = await this.jwtService.signAsync(
       { email, newEmail, code },
       { expiresIn: this.baseConfig.emailCodeExpiresIn }

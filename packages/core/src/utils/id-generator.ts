@@ -66,10 +66,21 @@ export enum IdPrefix {
   Query = 'qry',
 }
 
+export enum RandomType {
+  String = 'string',
+  Number = 'number',
+}
+
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const nanoid = customAlphabet(chars);
 
-export function getRandomString(len: number) {
+const charsNumber = '0123456789';
+const nanoidNumber = customAlphabet(charsNumber);
+
+export function getRandomString(len: number, type: RandomType = RandomType.String) {
+  if (type === RandomType.Number) {
+    return nanoidNumber(len);
+  }
   return nanoid(len);
 }
 
