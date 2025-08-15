@@ -101,6 +101,7 @@ export class SettingOpenApiService {
       const { text } = await generateText({
         model: modelInstance as LanguageModel,
         prompt: testPrompt,
+        temperature: 1,
       });
 
       return {
