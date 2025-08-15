@@ -54,18 +54,18 @@ export class AiService {
       modelInstance: LanguageModelV1;
       isInstance: boolean;
     };
-    md: {
-      modelInstance: LanguageModelV1;
-      isInstance: boolean;
-    };
-    sm: {
-      modelInstance: LanguageModelV1;
-      isInstance: boolean;
-    };
-    image: {
-      modelInstance: ReturnType<OpenAIProvider['image']>;
-      isInstance: boolean;
-    };
+    // md: {
+    //   modelInstance: LanguageModelV1;
+    //   isInstance: boolean;
+    // };
+    // sm: {
+    //   modelInstance: LanguageModelV1;
+    //   isInstance: boolean;
+    // };
+    // image: {
+    //   modelInstance: ReturnType<OpenAIProvider['image']>;
+    //   isInstance: boolean;
+    // };
   }> {
     const { aiConfig } = await this.settingService.getSetting();
     const aiIntegration = await this.prismaService.integration.findFirst({
@@ -91,24 +91,24 @@ export class AiService {
         modelInstance: await this.getModelInstance(defaultModelKey, llmProviders),
         isInstance,
       },
-      md: {
-        modelInstance: await this.getModelInstance(
-          codingModels?.md ?? defaultModelKey,
-          llmProviders
-        ),
-        isInstance,
-      },
-      sm: {
-        modelInstance: await this.getModelInstance(
-          codingModels?.sm ?? defaultModelKey,
-          llmProviders
-        ),
-        isInstance,
-      },
-      image: {
-        modelInstance: await this.getModelInstance(defaultModelKey, llmProviders, true),
-        isInstance,
-      },
+      // md: {
+      //   modelInstance: await this.getModelInstance(
+      //     codingModels?.md ?? defaultModelKey,
+      //     llmProviders
+      //   ),
+      //   isInstance,
+      // },
+      // sm: {
+      //   modelInstance: await this.getModelInstance(
+      //     codingModels?.sm ?? defaultModelKey,
+      //     llmProviders
+      //   ),
+      //   isInstance,
+      // },
+      // image: {
+      //   modelInstance: await this.getModelInstance(defaultModelKey, llmProviders, true),
+      //   isInstance,
+      // },
     };
   }
 
