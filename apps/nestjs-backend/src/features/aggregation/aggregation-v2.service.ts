@@ -1,5 +1,9 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
-import type { IFilter, IGroup } from '@teable/core';
+import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
+import { mergeWithDefaultFilter, nullsToUndefined, ViewType } from '@teable/core';
+import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { StatisticsFunc } from '@teable/openapi';
 import type {
   IAggregationField,
   IQueryBaseRo,
@@ -12,10 +16,31 @@ import type {
   ICalendarDailyCollectionVo,
   ISearchIndexByQueryRo,
   ISearchCountRo,
+  IGetRecordsRo,
 } from '@teable/openapi';
-import type { IFieldInstance } from '../field/model/factory';
-import type { IAggregationService, IWithView } from './aggregation.service.interface';
+import { Knex } from 'knex';
+import { groupBy, isEmpty } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../types/cls';
+import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
+import { RecordPermissionService } from '../record/record-permission.service';
+import { RecordService } from '../record/record.service';
+import { TableIndexService } from '../table/table-index.service';
+import type {
+  IAggregationService,
+  ICustomFieldStats,
+  IWithView,
+} from './aggregation.service.interface';
 
+type IStatisticsData = {
+  viewId?: string;
+  filter?: IFilter;
+  statisticFields?: IAggregationField[];
+};
 /**
  * Version 2 implementation of the aggregation service
  * This is a placeholder implementation that will be developed in the future
@@ -23,6 +48,17 @@ import type { IAggregationService, IWithView } from './aggregation.service.inter
  */
 @Injectable()
 export class AggregationServiceV2 implements IAggregationService {
+  private logger = new Logger(AggregationServiceV2.name);
+  constructor(
+    private readonly recordService: RecordService,
+    private readonly tableIndexService: TableIndexService,
+    private readonly prisma: PrismaService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordPermissionService: RecordPermissionService,
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
+  ) {}
   /**
    * Perform aggregation operations on table data
    * @param params - Parameters for aggregation including tableId, field IDs, view settings, and search
@@ -70,11 +106,277 @@ export class AggregationServiceV2 implements IAggregationService {
    * @throws NotImplementedException - This method is not yet implemented
    */
   async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
-    throw new NotImplementedException(
-      `AggregationServiceV2.performRowCount is not implemented yet. TableId: ${tableId}, Query: ${JSON.stringify(queryRo)}`
+    const {
+      viewId,
+      ignoreViewQuery,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      selectedRecordIds,
+      search,
+    } = queryRo;
+    // Retrieve the current user's ID to build user-related query conditions
+    const currentUserId = this.cls.get('user.id');
+
+    const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
+      tableId,
+      withView: {
+        viewId: ignoreViewQuery ? undefined : viewId,
+        customFilter: queryRo.filter,
+      },
+    });
+
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+
+    const { filter } = statisticsData;
+
+    const rawRowCountData = await this.handleRowCount({
+      tableId,
+      dbTableName,
+      fieldInstanceMap,
+      filter,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      selectedRecordIds,
+      search,
+      withUserId: currentUserId,
+      viewId: queryRo?.viewId,
+    });
+
+    return {
+      rowCount: Number(rawRowCountData?.[0]?.count ?? 0),
+    };
+  }
+
+  private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
+    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    return tableMeta.dbTableName;
+  }
+  private async handleRowCount(params: {
+    tableId: string;
+    dbTableName: string;
+    fieldInstanceMap: Record<string, IFieldInstance>;
+    filter?: IFilter;
+    filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
+    selectedRecordIds?: IGetRecordsRo['selectedRecordIds'];
+    search?: [string, string?, boolean?];
+    withUserId?: string;
+    viewId?: string;
+  }) {
+    const {
+      tableId,
+      dbTableName,
+      fieldInstanceMap,
+      filter,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      selectedRecordIds,
+      search,
+      withUserId,
+      viewId,
+    } = params;
+    const { viewCte, builder: queryBuilder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        keepPrimaryKey: Boolean(filterLinkCellSelected),
+        viewId,
+      }
+    );
+    queryBuilder.from(viewCte ?? dbTableName);
+
+    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(queryBuilder, {
+      tableIdOrDbTableName: tableId,
+      viewId,
+      currentUserId: withUserId,
+      filter,
+      aggregationFields: [
+        {
+          fieldId: '*',
+          statisticFunc: StatisticsFunc.Count,
+          alias: 'count',
+        },
+      ],
+    });
+
+    if (search && search[2]) {
+      const searchFields = await this.recordService.getSearchFields(
+        fieldInstanceMap,
+        search,
+        viewId
+      );
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
+      qb.where((builder) => {
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+      });
+    }
+
+    if (selectedRecordIds) {
+      filterLinkCellCandidate
+        ? qb.whereNotIn(`${dbTableName}.__id`, selectedRecordIds)
+        : qb.whereIn(`${dbTableName}.__id`, selectedRecordIds);
+    }
+
+    if (filterLinkCellCandidate) {
+      await this.recordService.buildLinkCandidateQuery(qb, tableId, filterLinkCellCandidate);
+    }
+
+    if (filterLinkCellSelected) {
+      await this.recordService.buildLinkSelectedQuery(
+        qb,
+        tableId,
+        dbTableName,
+        filterLinkCellSelected
+      );
+    }
+
+    const rawQuery = qb.toQuery();
+
+    this.logger.debug('handleRowCount raw query: %s', rawQuery);
+    return await this.prisma.$queryRawUnsafe<{ count: number }[]>(rawQuery);
+  }
+
+  private async fetchStatisticsParams(params: {
+    tableId: string;
+    withView?: IWithView;
+    withFieldIds?: string[];
+  }): Promise<{
+    statisticsData: IStatisticsData;
+    fieldInstanceMap: Record<string, IFieldInstance>;
+  }> {
+    const { tableId, withView, withFieldIds } = params;
+
+    const viewRaw = await this.findView(tableId, withView);
+
+    const { fieldInstances, fieldInstanceMap } = await this.getFieldsData(tableId);
+    const filteredFieldInstances = this.filterFieldInstances(
+      fieldInstances,
+      withView,
+      withFieldIds
+    );
+
+    const statisticsData = this.buildStatisticsData(filteredFieldInstances, viewRaw, withView);
+
+    return { statisticsData, fieldInstanceMap };
+  }
+
+  private async findView(tableId: string, withView?: IWithView) {
+    if (!withView?.viewId) {
+      return undefined;
+    }
+
+    return nullsToUndefined(
+      await this.prisma.view.findFirst({
+        select: {
+          id: true,
+          type: true,
+          filter: true,
+          group: true,
+          options: true,
+          columnMeta: true,
+        },
+        where: {
+          tableId,
+          ...(withView?.viewId ? { id: withView.viewId } : {}),
+          type: {
+            in: [
+              ViewType.Grid,
+              ViewType.Gantt,
+              ViewType.Kanban,
+              ViewType.Gallery,
+              ViewType.Calendar,
+            ],
+          },
+          deletedTime: null,
+        },
+      })
     );
   }
 
+  private filterFieldInstances(
+    fieldInstances: IFieldInstance[],
+    withView?: IWithView,
+    withFieldIds?: string[]
+  ) {
+    const targetFieldIds =
+      withView?.customFieldStats?.map((field) => field.fieldId) ?? withFieldIds;
+
+    return targetFieldIds?.length
+      ? fieldInstances.filter((instance) => targetFieldIds.includes(instance.id))
+      : fieldInstances;
+  }
+
+  private buildStatisticsData(
+    filteredFieldInstances: IFieldInstance[],
+    viewRaw:
+      | {
+          id: string | undefined;
+          columnMeta: string | undefined;
+          filter: string | undefined;
+          group: string | undefined;
+        }
+      | undefined,
+    withView?: IWithView
+  ) {
+    let statisticsData: IStatisticsData = {
+      viewId: viewRaw?.id,
+    };
+
+    if (viewRaw?.filter || withView?.customFilter) {
+      const filter = mergeWithDefaultFilter(viewRaw?.filter, withView?.customFilter);
+      statisticsData = { ...statisticsData, filter };
+    }
+
+    if (viewRaw?.id || withView?.customFieldStats) {
+      const statisticFields = this.getStatisticFields(
+        filteredFieldInstances,
+        viewRaw?.columnMeta && JSON.parse(viewRaw.columnMeta),
+        withView?.customFieldStats
+      );
+      statisticsData = { ...statisticsData, statisticFields };
+    }
+    return statisticsData;
+  }
+
+  private getStatisticFields(
+    fieldInstances: IFieldInstance[],
+    columnMeta?: IGridColumnMeta,
+    customFieldStats?: ICustomFieldStats[]
+  ) {
+    let calculatedStatisticFields: IAggregationField[] | undefined;
+    const customFieldStatsGrouped = groupBy(customFieldStats, 'fieldId');
+
+    fieldInstances.forEach((fieldInstance) => {
+      const { id: fieldId } = fieldInstance;
+      const viewColumnMeta = columnMeta ? columnMeta[fieldId] : undefined;
+      const customFieldStats = customFieldStatsGrouped[fieldId];
+
+      if (viewColumnMeta || customFieldStats) {
+        const { hidden, statisticFunc } = viewColumnMeta || {};
+        const statisticFuncList = customFieldStats
+          ?.filter((item) => item.statisticFunc)
+          ?.map((item) => item.statisticFunc) as StatisticsFunc[];
+
+        const funcList = !isEmpty(statisticFuncList)
+          ? statisticFuncList
+          : statisticFunc && [statisticFunc];
+
+        if (hidden !== true && funcList && funcList.length) {
+          const statisticFieldList = funcList.map((item) => {
+            return {
+              fieldId,
+              statisticFunc: item,
+            };
+          });
+          (calculatedStatisticFields = calculatedStatisticFields ?? []).push(...statisticFieldList);
+        }
+      }
+    });
+    return calculatedStatisticFields;
+  }
   /**
    * Get field data for a table
    * @param tableId - The table ID
@@ -83,20 +385,25 @@ export class AggregationServiceV2 implements IAggregationService {
    * @returns Promise with field instances and field instance map
    * @throws NotImplementedException - This method is not yet implemented
    */
-  async getFieldsData(
-    tableId: string,
-    fieldIds?: string[],
-    withName?: boolean
-  ): Promise<{
-    fieldInstances: IFieldInstance[];
-    fieldInstanceMap: Record<string, IFieldInstance>;
-  }> {
-    throw new NotImplementedException(
-      `AggregationServiceV2.getFieldsData is not implemented yet. TableId: ${tableId}, FieldIds: ${fieldIds?.join(',')}, WithName: ${withName}`
-    );
-  }
 
-  /**
+  async getFieldsData(tableId: string, fieldIds?: string[], withName?: boolean) {
+    const fieldsRaw = await this.prisma.field.findMany({
+      where: { tableId, ...(fieldIds ? { id: { in: fieldIds } } : {}), deletedTime: null },
+    });
+
+    const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
+    const fieldInstanceMap = fieldInstances.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        if (withName || withName === undefined) {
+          map[field.name] = field;
+        }
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+    return { fieldInstances, fieldInstanceMap };
+  } /**
    * Get group points for a table
    * @param tableId - The table ID
    * @param query - Optional query parameters

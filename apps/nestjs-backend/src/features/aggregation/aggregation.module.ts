@@ -15,12 +15,11 @@ import { AGGREGATION_SERVICE_SYMBOL } from './aggregation.service.symbol';
     TableIndexService,
     RecordPermissionService,
     AggregationService,
-    AggregationServiceV2,
     {
       provide: AGGREGATION_SERVICE_SYMBOL,
-      useClass: AggregationService, // Default to V1 implementation
+      useClass: AggregationServiceV2,
     },
   ],
-  exports: [AGGREGATION_SERVICE_SYMBOL, AggregationService, AggregationServiceV2],
+  exports: [AGGREGATION_SERVICE_SYMBOL, AggregationService],
 })
 export class AggregationModule {}
