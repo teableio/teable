@@ -22,6 +22,7 @@ import { ImportOpenApiModule } from './features/import/open-api/import-open-api.
 import { IntegrityModule } from './features/integrity/integrity.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { MailSenderOpenApiModule } from './features/mail-sender/open-api/mail-sender-open-api.module';
+import { MailSenderMergeModule } from './features/mail-sender/open-api/mail-sender.merge.module';
 import { NextModule } from './features/next/next.module';
 import { NotificationModule } from './features/notification/notification.module';
 import { OAuthModule } from './features/oauth/oauth.module';
@@ -48,6 +49,7 @@ export const appModules = {
   imports: [
     LoggerModule.register(),
     MailSenderOpenApiModule,
+    MailSenderMergeModule,
     HealthModule,
     NextModule,
     FieldOpenApiModule,

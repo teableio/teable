@@ -27,10 +27,11 @@ export interface ICacheStore {
   [key: `signin:attempts:${string}`]: number;
   [key: `signin:lockout:${string}`]: boolean;
   [key: `query-params:${string}`]: Record<string, unknown>;
-  [key: `mail-sender:notify-merge:${string}`]: Record<
+  [key: `mail-sender:notify-mail-merge:list${string}`]: Record<
     string,
     (ISendMailOptions & { mailType: MailType })[]
   >;
+  [key: `mail-sender:notify-mail-merge:time${string}`]: number;
   [key: `waitlist:invite-code:${string}`]: number;
 }
 
