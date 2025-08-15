@@ -81,6 +81,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
   /**
    * Generate JSON aggregation function for Link fields (creates objects with id and title)
+   * When title is null, only includes the id key
    */
   private getLinkJsonAggregationFunction(
     tableAlias: string,
@@ -98,20 +99,29 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
 
     if (driver === DriverClient.Pg) {
+      // Use jsonb_strip_nulls to automatically remove null title keys
+      const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${titleRef}))::json`;
+
       if (isMultiValue) {
         // Filter out null records and return empty array if no valid records exist
-        return `COALESCE(json_agg(json_build_object('id', ${recordIdRef}, 'title', ${titleRef})) FILTER (WHERE ${recordIdRef} IS NOT NULL), '[]'::json)`;
+        return `COALESCE(json_agg(${conditionalJsonObject}) FILTER (WHERE ${recordIdRef} IS NOT NULL), '[]'::json)`;
       } else {
         // For single value relationships (ManyOne, OneOne), return single object or null
-        return `CASE WHEN ${recordIdRef} IS NOT NULL THEN json_build_object('id', ${recordIdRef}, 'title', ${titleRef}) ELSE NULL END`;
+        return `CASE WHEN ${recordIdRef} IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
       }
     } else if (driver === DriverClient.Sqlite) {
+      // Create conditional JSON object that only includes title if it's not null
+      const conditionalJsonObject = `CASE
+        WHEN ${titleRef} IS NOT NULL THEN json_object('id', ${recordIdRef}, 'title', ${titleRef})
+        ELSE json_object('id', ${recordIdRef})
+      END`;
+
       if (isMultiValue) {
         // For SQLite, we need to handle null filtering differently
-        return `CASE WHEN COUNT(${recordIdRef}) > 0 THEN json_group_array(json_object('id', ${recordIdRef}, 'title', ${titleRef})) ELSE '[]' END`;
+        return `CASE WHEN COUNT(${recordIdRef}) > 0 THEN json_group_array(${conditionalJsonObject}) ELSE '[]' END`;
       } else {
         // For single value relationships, return single object or null
-        return `CASE WHEN ${recordIdRef} IS NOT NULL THEN json_object('id', ${recordIdRef}, 'title', ${titleRef}) ELSE NULL END`;
+        return `CASE WHEN ${recordIdRef} IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
       }
     }
 
@@ -312,8 +322,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         );
         jsonExpression = jsonAggFunction;
       } else {
-        // For single-value relationships, use direct CASE WHEN
-        jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN json_build_object('id', ${linkTargetAlias}.__id, 'title', ${fieldExpression}) ELSE NULL END`;
+        // For single-value relationships, use jsonb_strip_nulls for PostgreSQL
+        const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${linkTargetAlias}.__id, 'title', ${fieldExpression}))::json`;
+        jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
       }
 
       selectColumns.push(qb.client.raw(`${jsonExpression} as lookup_link_value`));
