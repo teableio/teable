@@ -208,17 +208,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     qb: Knex.QueryBuilder,
     fields: IFieldInstance[],
     context: IFormulaConversionContext,
-    aggregationFields: IAggregationField[],
     fieldCteMap?: Map<string, string>
   ) {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, context, fieldCteMap);
 
     // Add field-specific selections using visitor pattern
     for (const field of fields) {
-      const result = field.accept(visitor);
-      if (result && aggregationFields.some((v) => v.fieldId === field.id)) {
-        qb.select(result);
-      }
+      field.accept(visitor);
     }
 
     return visitor.getSelectionMap();
@@ -267,13 +263,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       linkFieldCteContext.additionalFields
     );
 
-    const selectionMap = this.buildAggregateSelect(
-      queryBuilder,
-      fields,
-      context,
-      aggregationFields,
-      fieldCteMap
-    );
+    const selectionMap = this.buildAggregateSelect(queryBuilder, fields, context, fieldCteMap);
 
     // Build select fields
     // Apply filter if provided
