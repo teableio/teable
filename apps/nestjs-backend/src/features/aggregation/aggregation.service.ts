@@ -50,18 +50,11 @@ import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-b
 import { RecordPermissionService } from '../record/record-permission.service';
 import { RecordService } from '../record/record.service';
 import { TableIndexService } from '../table/table-index.service';
-
-export type IWithView = {
-  viewId?: string;
-  groupBy?: IGroup;
-  customFilter?: IFilter;
-  customFieldStats?: ICustomFieldStats[];
-};
-
-type ICustomFieldStats = {
-  fieldId: string;
-  statisticFunc?: StatisticsFunc;
-};
+import type {
+  IAggregationService,
+  IWithView,
+  ICustomFieldStats,
+} from './aggregation.service.interface';
 
 type IStatisticsData = {
   viewId?: string;
@@ -70,7 +63,7 @@ type IStatisticsData = {
 };
 
 @Injectable()
-export class AggregationService {
+export class AggregationService implements IAggregationService {
   constructor(
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,

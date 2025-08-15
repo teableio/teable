@@ -36,7 +36,8 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
-import { AggregationService } from '../aggregation/aggregation.service';
+import { IAggregationService } from '../aggregation/aggregation.service.interface';
+import { InjectAggregationService } from '../aggregation/aggregation.service.provider';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldService } from '../field/field.service';
@@ -59,7 +60,7 @@ export class ShareService {
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
-    private readonly aggregationService: AggregationService,
+    @InjectAggregationService() private readonly aggregationService: IAggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,

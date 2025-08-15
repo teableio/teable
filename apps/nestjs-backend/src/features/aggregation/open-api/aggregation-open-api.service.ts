@@ -14,12 +14,15 @@ import type {
   ISearchCountRo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
-import type { IWithView } from '../aggregation.service';
-import { AggregationService } from '../aggregation.service';
+import { IAggregationService } from '../aggregation.service.interface';
+import type { IWithView } from '../aggregation.service.interface';
+import { InjectAggregationService } from '../aggregation.service.provider';
 
 @Injectable()
 export class AggregationOpenApiService {
-  constructor(private readonly aggregationService: AggregationService) {}
+  constructor(
+    @InjectAggregationService() private readonly aggregationService: IAggregationService
+  ) {}
 
   async getAggregation(tableId: string, query?: IAggregationRo): Promise<IAggregationVo> {
     const {
