@@ -41,7 +41,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const column = this.knex.raw('ROUND(??::numeric, ?)::float as ??', [
       columnName,
       precision,
-      columnName,
+      field.dbFieldName,
     ]);
     const groupByColumn = this.knex.raw('ROUND(??::numeric, ?)::float', [columnName, precision]);
 
@@ -61,12 +61,12 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
       timeZone,
       columnName,
       formatString,
-      columnName,
+      field.dbFieldName,
     ]);
     const groupByColumn = this.knex.raw(`TO_CHAR(TIMEZONE(?, ??), ?)`, [
       timeZone,
       columnName,
-      formatString,
+      field.dbFieldName,
     ]);
 
     if (this.isDistinct) {
@@ -162,7 +162,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
       (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
       FROM jsonb_array_elements_text(??::jsonb) as elem) as ??
       `,
-      [precision, columnName, columnName]
+      [precision, columnName, field.dbFieldName]
     );
     const groupByColumn = this.knex.raw(
       `

@@ -299,7 +299,7 @@ export class AggregationServiceV2 implements IAggregationService {
 
         for (const statisticField of statisticFields) {
           const { fieldId, statisticFunc } = statisticField;
-          const aggKey = `${fieldId}_${statisticFunc}`;
+          const aggKey = fieldId;
           const curFieldAggregation = aggregationByFieldId[fieldId]!;
           const convertValue = this.formatConvertValue(groupedAggregation[aggKey], statisticFunc);
 

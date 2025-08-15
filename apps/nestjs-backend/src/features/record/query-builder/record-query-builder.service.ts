@@ -273,7 +273,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     // Apply aggregation
     this.dbProvider
-      .aggregationQuery(queryBuilder, dbTableName, fieldMap, aggregationFields, { groupBy })
+      .aggregationQuery(queryBuilder, dbTableName, fieldMap, aggregationFields)
       .appendBuilder();
 
     // Apply grouping if specified
