@@ -4,6 +4,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { CollaboratorType } from '@teable/openapi';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
+import { buildEmailFrom } from './mail-helpers';
 
 @Injectable()
 export class MailSenderService {
@@ -16,10 +17,14 @@ export class MailSenderService {
   ) {}
 
   async sendMail(
-    mailOptions: ISendMailOptions,
+    mailOptions: ISendMailOptions & { senderName?: string },
     extra?: { shouldThrow?: boolean }
   ): Promise<boolean> {
-    const sender = this.mailService.sendMail(mailOptions).then(() => true);
+    let from = mailOptions.from;
+    if (!from && mailOptions.senderName) {
+      from = buildEmailFrom(this.mailConfig.sender, mailOptions.senderName);
+    }
+    const sender = this.mailService.sendMail({ ...mailOptions, from }).then(() => true);
     if (extra?.shouldThrow) {
       return sender;
     }

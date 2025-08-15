@@ -7,7 +7,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import type { IMailConfig } from '../../configs/mail.config';
 import { SettingOpenApiModule } from '../setting/open-api/setting-open-api.module';
-import { helpers } from './mail-helpers';
+import { buildEmailFrom, helpers } from './mail-helpers';
 import { MailSenderService } from './mail-sender.service';
 
 export interface MailSenderModuleOptions {
@@ -40,7 +40,7 @@ export class MailSenderModule extends MailSenderModuleClass {
             },
           },
           defaults: {
-            from: `"${mailConfig.senderName}" <${mailConfig.sender}>`,
+            from: buildEmailFrom(mailConfig.sender, mailConfig.senderName),
           },
           template: {
             dir: templatePagesDir,

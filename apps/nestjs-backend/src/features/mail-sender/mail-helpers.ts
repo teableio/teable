@@ -11,3 +11,10 @@ export const helpers = (config: ConfigService) => {
     },
   };
 };
+
+export const buildEmailFrom = (sender: string, senderName?: string) => {
+  if (!senderName) {
+    return sender;
+  }
+  return `${senderName} <${sender}>`;
+};
