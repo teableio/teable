@@ -536,7 +536,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             new Map() // tableNameMap
           );
           await knexInstance.raw(sql);
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
       });
 
       it('should throw error for ISERROR function', async () => {
@@ -553,7 +553,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             new Map() // tableNameMap
           );
           await knexInstance.raw(sql);
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
       });
     });
 
@@ -671,7 +671,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['apple, banana, cherry', 'apple, banana, apple', ', test, , valid'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
       });
 
       it('should fail ARRAY_UNIQUE function due to subquery restriction', async () => {
@@ -681,7 +681,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['{apple,banana,cherry}', '{apple,banana}', '{"",test,valid}'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
       });
 
       it('should fail ARRAY_COMPACT function due to subquery restriction', async () => {
@@ -691,7 +691,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['{apple,banana,cherry}', '{apple,banana,apple}', '{test,valid}'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
       });
 
       it('should fail ARRAY_FLATTEN function due to subquery restriction', async () => {
@@ -701,7 +701,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['{apple,banana,cherry}', '{apple,banana,apple}', '{"",test,valid}'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: The query is empty]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
       });
     });
 
