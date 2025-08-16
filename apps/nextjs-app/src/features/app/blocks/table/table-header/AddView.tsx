@@ -8,11 +8,9 @@ import {
   PopoverContent,
   PopoverTrigger,
   Separator,
-  cn,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useState } from 'react';
-import { GUIDE_CREATE_VIEW } from '@/components/Guide';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { useAddView } from '../../view/list/useAddView';
 import { AddPluginView } from './AddPluginView';
@@ -73,7 +71,7 @@ export const AddView: React.FC = () => {
     <Popover open={isOpen} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          className={cn(GUIDE_CREATE_VIEW, 'size-7 shrink-0 px-0')}
+          className="size-7 shrink-0 px-0"
           size={'xs'}
           variant={'outline'}
         >

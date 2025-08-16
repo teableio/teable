@@ -13,7 +13,6 @@ import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { GUIDE_CREATE_TABLE } from '@/components/Guide';
 import { useChatPanelStore } from '../../components/sidebar/useChatPanelStore';
 import { TableImport } from '../import-table';
 import { DraggableList } from './DraggableList';
@@ -39,7 +38,7 @@ export const TableList: React.FC = () => {
         <DropdownMenuTrigger asChild>
           <div className="px-3">
             {permission?.['table|create'] && (
-              <Button variant={'outline'} size={'xs'} className={`${GUIDE_CREATE_TABLE} w-full`}>
+              <Button variant={'outline'} size={'xs'} className="w-full">
                 <AddBoldIcon />
               </Button>
             )}

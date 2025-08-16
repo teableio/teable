@@ -69,7 +69,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   };
 
   return (
-    <Card className="w-full shadow-none">
+    <Card className="w-full shadow-none bg-muted/30">
       <CardHeader className="pt-5">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="group flex flex-1 items-center gap-2 overflow-hidden">

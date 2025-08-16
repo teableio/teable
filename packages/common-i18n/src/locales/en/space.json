@@ -79,5 +79,9 @@
   },
   "recentlyBase": {
     "title": "Recently Visited"
+  },
+  "emptySpace": {
+    "title": "Hi {{userName}}!",
+    "description": "Let's start managing your work with your first base."
   }
 }
