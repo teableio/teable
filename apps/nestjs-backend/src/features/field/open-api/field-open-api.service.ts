@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  CellValueType,
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
   generateFieldId,
   generateOperationId,
   IFieldRo,
+  StatisticsFunc,
 } from '@teable/core';
 import type {
   IFieldVo,
@@ -707,7 +709,34 @@ export class FieldOpenApiService {
   private async getFieldRecordsCount(dbTableName: string, field: IFieldInstance) {
     const table = this.knex(dbTableName);
 
-    const query = table.count(ID_FIELD_NAME).toQuery();
+    // For checkbox fields, use 'is' operator with null value instead of 'isEmpty'
+    // because checkbox fields only support 'is' operator
+    const operator = field.cellValueType === CellValueType.Boolean ? 'is' : 'isEmpty';
+
+    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(table, {
+      tableIdOrDbTableName: dbTableName,
+      viewId: undefined,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: field.id,
+            operator,
+            value: null,
+          },
+        ],
+      },
+
+      aggregationFields: [
+        {
+          fieldId: '*',
+          statisticFunc: StatisticsFunc.Count,
+          alias: 'count',
+        },
+      ],
+    });
+
+    const query = qb.toQuery();
     const result = await this.prismaService.$queryRawUnsafe<{ count: number }[]>(query);
     return Number(result[0].count);
   }
@@ -730,9 +759,13 @@ export class FieldOpenApiService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    const result = await this.prismaService.$queryRawUnsafe<{ id: string; value: string }[]>(query);
+    const result =
+      await this.prismaService.$queryRawUnsafe<{ __id: string; [key: string]: string }[]>(query);
     this.logger.debug('getFieldRecords: ', result);
-    return result.map((item) => item);
+    return result.map((item) => ({
+      id: item.__id,
+      value: item[dbFieldName] as string,
+    }));
   }
 
   getFieldUniqueKeyName(dbTableName: string, dbFieldName: string, fieldId: string) {
