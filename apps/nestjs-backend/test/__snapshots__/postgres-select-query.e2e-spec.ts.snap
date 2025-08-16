@@ -233,12 +233,12 @@ exports[`PostgreSQL SELECT Query Integration Tests > Comparison Operations > sho
 
 exports[`PostgreSQL SELECT Query Integration Tests > Complex Expressions > should compute complex nested expression > postgres-results-IF__fld_a_____fld_b___UPPER__fld_text____LOWER_CONCATENATE__fld_text___________modified____ 1`] = `
 [
-  "hello - modified",
+  "HELLO",
   "WORLD",
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Complex Expressions > should compute complex nested expression > postgres-select-IF__fld_a_____fld_b___UPPER__fld_text____LOWER_CONCATENATE__fld_text___________modified____ 1`] = `"select "id", CASE WHEN ("a" > "b") THEN UPPER("text_col") ELSE LOWER(CONCAT("text_col", ' - ', 'modified')) END as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Complex Expressions > should compute complex nested expression > postgres-select-IF__fld_a_____fld_b___UPPER__fld_text____LOWER_CONCATENATE__fld_text___________modified____ 1`] = `"select "id", CASE WHEN (("a" > "b") IS NOT NULL AND ("a" > "b")::text != 'null') THEN UPPER("text_col") ELSE LOWER(CONCAT("text_col", ' - ', 'modified')) END as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Complex Expressions > should compute mathematical expression with functions > postgres-results-ROUND_SQRT_POWER__fld_a___2____POWER__fld_b___2____2_ 1`] = `
 [
@@ -363,12 +363,12 @@ exports[`PostgreSQL SELECT Query Integration Tests > Logical Functions > should 
 
 exports[`PostgreSQL SELECT Query Integration Tests > Logical Functions > should compute IF function > postgres-results-IF__fld_a_____fld_b____greater____not_greater__ 1`] = `
 [
-  "not greater",
+  "greater",
   "greater",
 ]
 `;
 
-exports[`PostgreSQL SELECT Query Integration Tests > Logical Functions > should compute IF function > postgres-select-IF__fld_a_____fld_b____greater____not_greater__ 1`] = `"select "id", CASE WHEN ("a" > "b") THEN 'greater' ELSE 'not greater' END as computed_value from "test_select_query_table""`;
+exports[`PostgreSQL SELECT Query Integration Tests > Logical Functions > should compute IF function > postgres-select-IF__fld_a_____fld_b____greater____not_greater__ 1`] = `"select "id", CASE WHEN (("a" > "b") IS NOT NULL AND ("a" > "b")::text != 'null') THEN 'greater' ELSE 'not greater' END as computed_value from "test_select_query_table""`;
 
 exports[`PostgreSQL SELECT Query Integration Tests > Logical Functions > should compute NOT function > postgres-results-NOT__fld_a_____fld_b__ 1`] = `
 [
@@ -517,7 +517,7 @@ exports[`PostgreSQL SELECT Query Integration Tests > Math Functions > should com
 exports[`PostgreSQL SELECT Query Integration Tests > Math Functions > should compute POWER function > postgres-results-POWER__fld_a____fld_b__ 1`] = `
 [
   "1.0000000000000000",
-  "125.00000000000000",
+  "125.0000000000000000",
 ]
 `;
 

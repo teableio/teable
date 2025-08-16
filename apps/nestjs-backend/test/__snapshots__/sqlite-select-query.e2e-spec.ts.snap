@@ -40,7 +40,7 @@ exports[`SQLite SELECT Query Integration Tests > Comparison Operations > should 
 
 exports[`SQLite SELECT Query Integration Tests > Comparison Operations > should compute not equal operation > sqlite-select-_fld_a_____1 1`] = `"select \`id\`, ("a" <> 1) as computed_value from \`test_select_query_table\`"`;
 
-exports[`SQLite SELECT Query Integration Tests > Complex Expressions > should compute complex nested expression > sqlite-select-IF__fld_a_____fld_b___UPPER__fld_text____LOWER_CONCATENATE__fld_text___________modified____ 1`] = `"select \`id\`, CASE WHEN ("a" > "b") THEN UPPER("text_col") ELSE LOWER((COALESCE("text_col", '') || COALESCE(' - ', '') || COALESCE('modified', ''))) END as computed_value from \`test_select_query_table\`"`;
+exports[`SQLite SELECT Query Integration Tests > Complex Expressions > should compute complex nested expression > sqlite-select-IF__fld_a_____fld_b___UPPER__fld_text____LOWER_CONCATENATE__fld_text___________modified____ 1`] = `"select \`id\`, CASE WHEN (("a" > "b") IS NOT NULL AND ("a" > "b") != 'null') THEN UPPER("text_col") ELSE LOWER((COALESCE("text_col", '') || COALESCE(' - ', '') || COALESCE('modified', ''))) END as computed_value from \`test_select_query_table\`"`;
 
 exports[`SQLite SELECT Query Integration Tests > Complex Expressions > should compute mathematical expression with functions > sqlite-select-ROUND_SQRT_POWER__fld_a___2____POWER__fld_b___2____2_ 1`] = `"select \`id\`, ROUND(SQRT((POWER("a", 2) + POWER("b", 2))), 2) as computed_value from \`test_select_query_table\`"`;
 
@@ -72,7 +72,7 @@ exports[`SQLite SELECT Query Integration Tests > Logical Functions > should comp
 
 exports[`SQLite SELECT Query Integration Tests > Logical Functions > should compute BLANK function > sqlite-select-BLANK__ 1`] = `"select \`id\`, NULL as computed_value from \`test_select_query_table\`"`;
 
-exports[`SQLite SELECT Query Integration Tests > Logical Functions > should compute IF function > sqlite-select-IF__fld_a_____fld_b____greater____not_greater__ 1`] = `"select \`id\`, CASE WHEN ("a" > "b") THEN 'greater' ELSE 'not greater' END as computed_value from \`test_select_query_table\`"`;
+exports[`SQLite SELECT Query Integration Tests > Logical Functions > should compute IF function > sqlite-select-IF__fld_a_____fld_b____greater____not_greater__ 1`] = `"select \`id\`, CASE WHEN (("a" > "b") IS NOT NULL AND ("a" > "b") != 'null') THEN 'greater' ELSE 'not greater' END as computed_value from \`test_select_query_table\`"`;
 
 exports[`SQLite SELECT Query Integration Tests > Logical Functions > should compute NOT function > sqlite-select-NOT__fld_a_____fld_b__ 1`] = `"select \`id\`, NOT (("a" > "b")) as computed_value from \`test_select_query_table\`"`;
 
