@@ -812,5 +812,6 @@
     "generate": "生成",
     "code": "邀请码",
     "inviteSuccess": "邀请成功"
-  }
+  },
+  "noPermissionToCreateBase": "没有权限在任何空间中创建数据库"
 }

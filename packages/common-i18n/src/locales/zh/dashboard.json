@@ -1,8 +1,8 @@
 {
   "empty": {
     "title": "暂无仪表盘",
-    "description": "看起来您还没有创建任何仪表盘。仪表盘可以帮助您更有效地可视化和管理数据。",
-    "create": "创建您的第一个仪表盘"
+    "description": "仪表盘可以帮助您更有效地可视化和管理数据。",
+    "create": "创建仪表盘"
   },
   "addPlugin": "添加插件",
   "createDashboard": {
