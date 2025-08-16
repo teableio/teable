@@ -1,7 +1,6 @@
 import { ArrowUpRight, Code2, MoreHorizontal } from '@teable/icons';
 import { useBaseId, useTableId, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
-import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { SearchButton } from '../search/SearchButton';
 import { PersonalViewSwitch } from './components';
 import { SharePopover } from './SharePopover';
@@ -46,7 +45,7 @@ const OthersList = ({
       </SharePopover>
       <ToolBarButton
         text="API"
-        className={cn(GUIDE_API_BUTTON, buttonClassName)}
+        className={buttonClassName}
         textClassName={textClassName}
         onClick={onAPIClick}
       >

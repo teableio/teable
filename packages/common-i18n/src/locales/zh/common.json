@@ -758,5 +758,6 @@
     "pluginEmpty": {
       "title": "暂无插件"
     }
-  }
+  },
+  "noPermissionToCreateBase": "没有权限在任何空间中创建数据库"
 }

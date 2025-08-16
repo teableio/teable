@@ -19,10 +19,11 @@ import { StarButton } from './space-side-bar/StarButton';
 interface IBaseCard {
   base: IGetBaseVo;
   className?: string;
+  spaceName?: string;
 }
 
 export const BaseCard: FC<IBaseCard> = (props) => {
-  const { base, className } = props;
+  const { base, className, spaceName } = props;
   const router = useRouter();
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState<boolean>();
@@ -105,7 +106,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
 
   return (
     <Card
-      className={cn('relative group cursor-pointer hover:shadow-md overflow-x-hidden', className)}
+      className={cn('relative group cursor-pointer hover:shadow-md overflow-x-hidden shadow-none', className)}
       onClick={intoBase}
     >
       <ColorBg emoji={base.icon || undefined} />
@@ -137,9 +138,16 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 />
               </form>
             ) : (
-              <h3 className="line-clamp-2 flex-1 text-sm" title={base.name}>
-                {base.name}
-              </h3>
+              <div className="flex-1">
+                <h3 className="line-clamp-2 text-sm" title={base.name}>
+                  {base.name}
+                </h3>
+                {spaceName && (
+                  <p className="text-xs text-muted-foreground truncate mt-0.5" title={spaceName}>
+                    {spaceName}
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <div className="absolute right-0 top-1 flex gap-2 px-1 md:opacity-0 md:group-hover:opacity-100">

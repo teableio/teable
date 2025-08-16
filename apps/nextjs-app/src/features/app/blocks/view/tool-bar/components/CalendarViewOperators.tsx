@@ -4,7 +4,6 @@ import { ViewFilter, VisibleFields, useTablePermission, CreateRecordModal } from
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { GUIDE_VIEW_FILTERING } from '@/components/Guide';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarConfig } from '../../calendar/components/CalendarConfig';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
@@ -75,7 +74,6 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
             isActive={isActive}
             text={text}
             className={cn(
-              GUIDE_VIEW_FILTERING,
               'max-w-xs',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'

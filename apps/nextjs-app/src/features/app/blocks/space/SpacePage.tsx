@@ -1,18 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createSpace, getSubscriptionSummaryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { Spin } from '@teable/ui-lib/base';
-import { Button } from '@teable/ui-lib/shadcn';
 import { keyBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, type FC, useMemo } from 'react';
-import { GUIDE_CREATE_SPACE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { useSpaceSubscriptionMonitor } from '../billing/useSpaceSubscriptionMonitor';
+import { EmptySpacePlaceholder } from './EmptySpacePlaceholder';
 import { RecentlyBase } from './RecentlyBase';
 import { SpaceCard } from './SpaceCard';
 import { useBaseList } from './useBaseList';
@@ -38,7 +36,7 @@ export const SpacePage: FC = () => {
     enabled: isCloud,
   });
 
-  const { disallowSpaceCreation, disallowSpaceInvitation } = useSetting();
+  const { disallowSpaceInvitation } = useSetting();
 
   const { mutate: createSpaceMutator, isLoading } = useMutation({
     mutationFn: createSpace,
@@ -58,21 +56,34 @@ export const SpacePage: FC = () => {
     return keyBy(subscriptionList, 'spaceId');
   }, [subscriptionList]);
 
+  // Check if we should show the empty space placeholder
+  const shouldShowEmptyPlaceholder = useMemo(() => {
+    // Only show when there's exactly one space and it has no bases
+    if (orderedSpaceList.length === 1 && baseList) {
+      const singleSpace = orderedSpaceList[0];
+      const basesInSpace = baseList.filter(({ spaceId }) => spaceId === singleSpace.id);
+      return basesInSpace.length === 0;
+    }
+    return false;
+  }, [orderedSpaceList, baseList]);
+
+  if (shouldShowEmptyPlaceholder) {
+    return (
+      <div ref={ref} className="flex h-screen flex-1 flex-col overflow-hidden py-8">
+        <div className="flex items-center justify-between px-12">
+          <h1 className="text-2xl font-semibold">{orderedSpaceList[0]?.name || t('space:allSpaces')}</h1>
+        </div>
+        <div className="flex-1 overflow-y-auto px-8 pt-8 sm:px-12">
+          <EmptySpacePlaceholder space={orderedSpaceList[0]} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={ref} className="flex h-screen flex-1 flex-col overflow-hidden py-8">
       <div className="flex items-center justify-between px-12">
         <h1 className="text-2xl font-semibold">{t('space:allSpaces')}</h1>
-        {!disallowSpaceCreation && (
-          <Button
-            className={GUIDE_CREATE_SPACE}
-            size={'sm'}
-            disabled={isLoading}
-            onClick={() => createSpaceMutator({})}
-          >
-            {isLoading && <Spin className="size-3" />}
-            {t('space:action.createSpace')}
-          </Button>
-        )}
       </div>
       <div className="flex-1 space-y-8 overflow-y-auto px-8 pt-8 sm:px-12">
         <RecentlyBase />

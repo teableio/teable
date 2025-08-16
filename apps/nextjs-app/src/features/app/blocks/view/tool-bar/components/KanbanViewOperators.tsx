@@ -16,7 +16,6 @@ import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
-import { GUIDE_VIEW_FILTERING, GUIDE_VIEW_SORTING } from '@/components/Guide';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
@@ -184,7 +183,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             isActive={isActive}
             text={text}
             className={cn(
-              GUIDE_VIEW_FILTERING,
               'max-w-xs',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
@@ -202,7 +200,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             isActive={isActive}
             text={text}
             className={cn(
-              GUIDE_VIEW_SORTING,
               'max-w-xs',
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
