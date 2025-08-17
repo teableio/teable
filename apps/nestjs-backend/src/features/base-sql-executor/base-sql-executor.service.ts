@@ -26,7 +26,10 @@ export class BaseSqlExecutorService {
   }
 
   private getDatabaseUrl() {
-    return this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
+    return (
+      this.configService.get<string>('PRISMA_DATABASE_URL_FOR_SQL_EXECUTOR') ||
+      this.configService.getOrThrow<string>('PRISMA_DATABASE_URL')
+    );
   }
 
   private getDisablePreSqlExecutorCheck() {
