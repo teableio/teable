@@ -775,6 +775,9 @@
     "generateScript": {
       "generateSuccess": "生成脚本成功"
     },
+    "buildBase": {
+      "generateSuccess": "生成数据库成功"
+    },
     "buildAutomation": {
       "title": "生成自动化",
       "generateSuccess": "生成自动化成功"

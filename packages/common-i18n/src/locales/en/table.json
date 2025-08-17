@@ -774,6 +774,9 @@
     "generateScript": {
       "generateSuccess": "Generate script successfully"
     },
+    "buildBase": {
+      "generateSuccess": "Generate database successfully"
+    },
     "buildAutomation": {
       "title": "Build automation",
       "generateSuccess": "Generate automation successfully"
