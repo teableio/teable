@@ -675,15 +675,20 @@
         "embeddingModelDescription": "可选，通常模型 ID 包含 \"embedding\"",
         "translationModel": "翻译模型",
         "translationModelDescription": "要使用的翻译模型",
-        "codingModel": "编码模型",
-        "codingModelDescription": "适用于 AI 生成公式等功能",
-        "codingModels": {
-          "sm": "小型编码模型",
+        "chatModel": "聊天模型",
+        "chatModelDescription": "要使用的聊天模型，提示：中型编码模型默认用于 AI 公式生成和相关功能",
+        "chatModels": {
+          "sm": "小型聊天模型",
           "smDescription": "快速高效处理基础任务",
-          "md": "中型编码模型",
+          "md": "中型聊天模型",
           "mdDescription": "均衡能力满足常见需求",
-          "lg": "大型编码模型",
+          "lg": "大型聊天模型",
           "lgDescription": "全面解决方案应对复杂场景"
+        },
+        "chatModelTest": {
+          "text": "测试大型模型的能力",
+          "description": "测试模型处理图片、PDF 的能力",
+          "notConfigLgModel": "请先配置大型模型"
         },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",

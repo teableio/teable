@@ -678,15 +678,20 @@
         "embeddingModelDescription": "Optional, usually the model ID contains \"embedding\"",
         "translationModel": "Translation model",
         "translationModelDescription": "The translation model to use",
-        "codingModel": "Coding model",
-        "codingModelDescription": "Used for AI formula generation and related features",
-        "codingModels": {
-          "sm": "Small coding model",
+        "chatModel": "Chat model",
+        "chatModelDescription": "The chat model to use, Tips: md model default used for AI formula generation and related features",
+        "chatModels": {
+          "sm": "Small chat model",
           "smDescription": "Fast and efficient for basic tasks.",
-          "md": "Medium coding model",
+          "md": "Medium chat model",
           "mdDescription": "Balanced capability for common needs.",
-          "lg": "Large coding model",
+          "lg": "Large chat model",
           "lgDescription": "Comprehensive solutions for complex scenarios."
+        },
+        "chatModelTest": {
+          "text": "Test Model ability of lg model",
+          "description": "Test the ability of the model to handle image, pdf.",
+          "notConfigLgModel": "Please configure the lg model first"
         },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",

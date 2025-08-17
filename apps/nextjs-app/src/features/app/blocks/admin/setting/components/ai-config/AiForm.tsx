@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { IAIIntegrationConfig } from '@teable/openapi';
 import type { LLMProvider } from '@teable/openapi/src/admin/setting';
-import { aiConfigVoSchema, testLLM } from '@teable/openapi/src/admin/setting';
+import { aiConfigVoSchema, chatModelAbilityType, testLLM } from '@teable/openapi/src/admin/setting';
 import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import {
   Form,
@@ -22,7 +23,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIModelPreferencesCard } from './AIModelPreferencesCard';
 import { AIProviderCard } from './AIProviderCard';
-import { generateModelKeyList } from './utils';
+import { generateModelKeyList, parseModelKey } from './utils';
 
 export function AIConfigForm({
   aiConfig,
@@ -72,8 +73,7 @@ export function AIConfigForm({
   const onTest = async (data: Required<LLMProvider>) => testLLM(data);
 
   const switchEnable =
-    !aiConfig?.codingModels?.lg ||
-    !models.some((model) => model.modelKey === aiConfig?.codingModels?.lg);
+    !aiConfig?.chatModel?.lg || !models.some((model) => model.modelKey === aiConfig?.chatModel?.lg);
 
   useEffect(() => {
     if (switchEnable && form.getValues('enable')) {
@@ -81,6 +81,33 @@ export function AIConfigForm({
       onSubmit(form.getValues());
     }
   }, [form, onSubmit, switchEnable]);
+
+  const onTestChatModelAbility = async (data: IAIIntegrationConfig) => {
+    const testModelKey = data.chatModel?.lg;
+    if (!testModelKey) {
+      return;
+    }
+    const testModel = parseModelKey(testModelKey);
+    const testLLMIndex = data.llmProviders.findIndex(
+      (provider) =>
+        provider.type === testModel.type &&
+        provider.models.includes(testModel.model) &&
+        provider.name === testModel.name
+    );
+    const testLLMProvider = data.llmProviders[testLLMIndex] as Required<LLMProvider>;
+    if (!testLLMProvider) {
+      return;
+    }
+    return testLLM({
+      ...testLLMProvider,
+      modelKey: testModelKey,
+      ability: Object.values(chatModelAbilityType.Values),
+    }).then((res) => {
+      if (res.success) {
+        return res.ability;
+      }
+    });
+  };
 
   return (
     <Form {...form}>
@@ -125,6 +152,7 @@ export function AIConfigForm({
           control={form.control}
           models={models}
           onChange={() => onSubmit(form.getValues())}
+          onTestChatModelAbility={onTestChatModelAbility}
         />
       </form>
     </Form>
