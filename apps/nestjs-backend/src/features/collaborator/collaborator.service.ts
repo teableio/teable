@@ -708,6 +708,13 @@ export class CollaboratorService {
         id: { in: baseIds },
         deletedTime: null,
       },
+      include: {
+        space: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
     return bases.map((base) => ({
       id: base.id,
@@ -715,6 +722,7 @@ export class CollaboratorService {
       role: roleMap[base.id],
       icon: base.icon,
       spaceId: base.spaceId,
+      spaceName: base.space?.name,
       collaboratorType: CollaboratorType.Base,
     }));
   }
