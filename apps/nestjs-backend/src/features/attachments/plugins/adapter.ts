@@ -15,6 +15,7 @@ export default abstract class StorageAdapter {
       case UploadType.ExportBase:
       case UploadType.Comment:
       case UploadType.App:
+      case UploadType.ChatFile:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
       case UploadType.OAuth:
@@ -55,6 +56,8 @@ export default abstract class StorageAdapter {
         return 'chat-data-visualization-code';
       case UploadType.App:
         return 'app';
+      case UploadType.ChatFile:
+        return 'chat-file';
       default:
         throw new BadRequestException('Invalid upload type');
     }
