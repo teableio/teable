@@ -7,8 +7,7 @@ import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { SettingService } from '../setting/setting.service';
-import { TASK_MODEL_MAP } from './constant';
-import { getAdaptedProviderOptions, modelProviders } from './util';
+import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
 @Injectable()
 export class AiService {
@@ -43,72 +42,6 @@ export class AiService {
       model,
       baseUrl,
       apiKey,
-    };
-  }
-
-  async getCodingModelInstances(
-    spaceId: string,
-    llmProviders: LLMProvider[] = []
-  ): Promise<{
-    lg: {
-      modelInstance: LanguageModelV1;
-      isInstance: boolean;
-    };
-    // md: {
-    //   modelInstance: LanguageModelV1;
-    //   isInstance: boolean;
-    // };
-    // sm: {
-    //   modelInstance: LanguageModelV1;
-    //   isInstance: boolean;
-    // };
-    // image: {
-    //   modelInstance: ReturnType<OpenAIProvider['image']>;
-    //   isInstance: boolean;
-    // };
-  }> {
-    const { aiConfig } = await this.settingService.getSetting();
-    const aiIntegration = await this.prismaService.integration.findFirst({
-      where: { resourceId: spaceId, type: IntegrationType.AI, enable: true },
-    });
-
-    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-
-    if (!aiConfig?.enable && !aiIntegration?.enable) {
-      throw new Error('AI is not enabled');
-    }
-
-    const config = aiIntegration ? aiIntegrationConfig : aiConfig;
-    const { codingModels } = config;
-    const defaultModelKey = codingModels?.lg;
-    if (!defaultModelKey) {
-      throw new Error('do not set the default lg model');
-    }
-
-    const isInstance = !aiIntegration?.enable;
-    return {
-      lg: {
-        modelInstance: await this.getModelInstance(defaultModelKey, llmProviders),
-        isInstance,
-      },
-      // md: {
-      //   modelInstance: await this.getModelInstance(
-      //     codingModels?.md ?? defaultModelKey,
-      //     llmProviders
-      //   ),
-      //   isInstance,
-      // },
-      // sm: {
-      //   modelInstance: await this.getModelInstance(
-      //     codingModels?.sm ?? defaultModelKey,
-      //     llmProviders
-      //   ),
-      //   isInstance,
-      // },
-      // image: {
-      //   modelInstance: await this.getModelInstance(defaultModelKey, llmProviders, true),
-      //   isInstance,
-      // },
     };
   }
 
@@ -181,7 +114,12 @@ export class AiService {
       return aiIntegrationConfig as IAIConfig;
     }
 
-    const codingModel = aiIntegrationConfig.codingModel ?? aiConfig.codingModel;
+    const lg = aiIntegrationConfig ? aiIntegrationConfig.chatModel?.lg : aiConfig.chatModel?.lg;
+    const sm = aiIntegrationConfig ? aiIntegrationConfig.chatModel?.sm : aiConfig.chatModel?.sm;
+    const md = aiIntegrationConfig ? aiIntegrationConfig.chatModel?.md : aiConfig.chatModel?.md;
+    const ability = aiIntegrationConfig
+      ? aiIntegrationConfig.chatModel?.ability
+      : aiConfig.chatModel?.ability;
     return {
       llmProviders: [
         ...aiIntegrationConfig.llmProviders,
@@ -190,11 +128,11 @@ export class AiService {
           isInstance: true,
         })),
       ],
-      codingModel,
-      codingModels: {
-        sm: aiIntegrationConfig.codingModels?.sm ?? aiConfig.codingModels?.sm ?? codingModel,
-        md: aiIntegrationConfig.codingModels?.md ?? aiConfig.codingModels?.md ?? codingModel,
-        lg: aiIntegrationConfig.codingModels?.lg ?? aiConfig.codingModels?.lg ?? codingModel,
+      chatModel: {
+        sm: sm ?? lg,
+        md: md ?? lg,
+        lg: lg,
+        ability,
       },
       embeddingModel: aiIntegrationConfig.embeddingModel ?? aiConfig.embeddingModel,
       translationModel: aiIntegrationConfig.translationModel ?? aiConfig.translationModel,
@@ -221,8 +159,7 @@ export class AiService {
   private async getGenerationModelInstance(baseId: string, aiGenerateRo: IAiGenerateRo) {
     const { modelKey: _modelKey, task = Task.Coding } = aiGenerateRo;
     const config = await this.getAIConfig(baseId);
-    const currentTaskModel = TASK_MODEL_MAP[task];
-    const modelKey = _modelKey ?? (config[currentTaskModel as keyof typeof config] as string);
+    const modelKey = _modelKey ?? getTaskModelKey(config, task);
     return await this.getModelInstance(modelKey, config.llmProviders);
   }
 
@@ -264,5 +201,25 @@ export class AiService {
         p.models.includes(model)
     );
     return !!providerConfig;
+  }
+
+  async getChatModelInstance(baseId: string) {
+    const { chatModel, llmProviders } = await this.getAIConfig(baseId);
+    const { type, model, name } = this.parseModelKey(chatModel?.lg);
+    const lgProvider = llmProviders.find(
+      (p) =>
+        p.name.toLowerCase() === name.toLowerCase() &&
+        p.type.toLowerCase() === type.toLowerCase() &&
+        p.models.includes(model)
+    );
+    if (!lgProvider) {
+      throw new Error('AI provider configuration is not set');
+    }
+    return {
+      sm: await this.getModelInstance(chatModel?.sm, llmProviders),
+      md: await this.getModelInstance(chatModel?.md, llmProviders),
+      lg: await this.getModelInstance(chatModel?.lg, llmProviders),
+      isInstance: lgProvider.isInstance,
+    };
   }
 }

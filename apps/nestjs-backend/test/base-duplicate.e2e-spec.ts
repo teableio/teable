@@ -36,7 +36,6 @@ import {
   installViewPlugin,
   listPluginPanels,
   LLMProviderType,
-  updateField,
   updateSetting,
   urlBuilder,
 } from '@teable/openapi';

@@ -2,19 +2,24 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
-import { llmProviderSchema } from './update';
+import { chatModelAbilitySchema, chatModelAbilityType, llmProviderSchema } from './update';
 
 export const testLLMRoSchema = llmProviderSchema
   .omit({
     isInstance: true,
   })
-  .required();
+  .required()
+  .extend({
+    modelKey: z.string().optional(),
+    ability: z.array(chatModelAbilityType).optional(),
+  });
 
 export type ITestLLMRo = z.infer<typeof testLLMRoSchema>;
 
 export const testLLMVoSchema = z.object({
   success: z.boolean(),
   response: z.string().optional(),
+  ability: chatModelAbilitySchema.optional(),
 });
 
 export type ITestLLMVo = z.infer<typeof testLLMVoSchema>;

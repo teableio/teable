@@ -268,8 +268,6 @@
         "embeddingModelDescription": "オプション、通常モデルIDには\"embedding\"が含まれます",
         "translationModel": "翻訳モデル",
         "translationModelDescription": "使用する翻訳モデル",
-        "codingModel": "コーディングモデル",
-        "codingModelDescription": "AI数式生成および関連機能に使用されます",
         "configUpdated": "AI設定が更新されました",
         "noModelFound": "モデルが見つかりません",
         "searchModel": "モデルを検索...",

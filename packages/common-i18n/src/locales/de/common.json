@@ -305,8 +305,6 @@
         "embeddingModelDescription": "Optional, normalerweise enthält die Modell-ID \"embedding\"",
         "translationModel": "Übersetzungsmodell",
         "translationModelDescription": "Das zu verwendende Übersetzungsmodell",
-        "codingModel": "Kodierungsmodell",
-        "codingModelDescription": "Wird für KI-Formelgenerierung und verwandte Funktionen verwendet",
         "configUpdated": "AI-Konfiguration aktualisiert",
         "noModelFound": "Kein Modell gefunden.",
         "searchModel": "Suche Modell...",

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
 import { settingVoSchema } from './get';
-import { llmProviderSchema } from './update';
+import { chatModelSchema, llmProviderSchema } from './update';
 
 export const simpleLLMProviderSchema = llmProviderSchema.pick({
   type: true,
@@ -17,13 +17,7 @@ export type ISimpleLLMProvider = z.infer<typeof simpleLLMProviderSchema>;
 const publicAiConfigSchema = z.object({
   enable: z.boolean(),
   llmProviders: z.array(simpleLLMProviderSchema),
-  codingModels: z
-    .object({
-      sm: z.string().optional(),
-      md: z.string().optional(),
-      lg: z.string().optional(),
-    })
-    .optional(),
+  chatModel: chatModelSchema.optional(),
 });
 
 export const publicSettingVoSchema = settingVoSchema

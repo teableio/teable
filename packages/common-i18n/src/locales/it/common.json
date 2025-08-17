@@ -302,8 +302,6 @@
         "embeddingModelDescription": "Il modello di embedding da utilizzare",
         "translationModel": "Modello di traduzione",
         "translationModelDescription": "Il modello di traduzione da utilizzare",
-        "codingModel": "Modello di codifica",
-        "codingModelDescription": "Il modello di codifica da utilizzare",
         "configUpdated": "Configurazione AI aggiornata",
         "noModelFound": "Nessun modello trovato.",
         "searchModel": "Cerca modello...",
