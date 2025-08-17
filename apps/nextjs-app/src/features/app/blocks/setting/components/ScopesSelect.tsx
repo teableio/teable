@@ -1,5 +1,5 @@
 import { actionPrefixMap } from '@teable/core';
-import type { ActionPrefix, Action } from '@teable/core';
+import type { Action, ActionPrefix } from '@teable/core';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
 import { Checkbox, Label, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -26,7 +26,8 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
     }
     return {} as Record<Action, boolean>;
   });
-  const { actionPrefixStaticMap, actionStaticMap } = usePermissionActionsStatic();
+  const { actionPrefixStaticMap, actionStaticMap, actionPrefixDisplayOrder } =
+    usePermissionActionsStatic();
 
   const onCheckBoxChange = (status: boolean, val: Action) => {
     const actionMap = { ...value };
@@ -47,13 +48,16 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
   };
 
   const actionsPrefix = useMemo(() => {
+    const availableKeys = Object.keys(actionPrefixStaticMap) as ActionPrefix[];
+
+    const orderedKeys = actionPrefixDisplayOrder.filter((prefix) => availableKeys.includes(prefix));
+
     if (actionsPrefixes) {
-      return Object.keys(actionPrefixStaticMap).filter((key) =>
-        actionsPrefixes.includes(key as ActionPrefix)
-      ) as ActionPrefix[];
+      return orderedKeys.filter((prefix) => actionsPrefixes.includes(prefix));
     }
-    return Object.keys(actionPrefixStaticMap) as ActionPrefix[];
-  }, [actionPrefixStaticMap, actionsPrefixes]);
+
+    return orderedKeys;
+  }, [actionPrefixStaticMap, actionPrefixDisplayOrder, actionsPrefixes]);
 
   return (
     <div className="space-y-3 pl-2">

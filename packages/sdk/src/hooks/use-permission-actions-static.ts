@@ -205,6 +205,21 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
 };
 
+// Preferred order for displaying action prefixes
+const ACTION_PREFIX_DISPLAY_ORDER: readonly ActionPrefix[] = [
+  ActionPrefix.Record,
+  ActionPrefix.Field,
+  ActionPrefix.Table,
+  ActionPrefix.View,
+  ActionPrefix.Base,
+  ActionPrefix.Space,
+  ActionPrefix.User,
+  ActionPrefix.TableRecordHistory,
+  ActionPrefix.Automation,
+  ActionPrefix.Enterprise,
+  ActionPrefix.Instance,
+] as const;
+
 export const usePermissionActionsStatic = () => {
   const { t } = useTranslation();
   return useMemo(() => {
@@ -227,6 +242,11 @@ export const usePermissionActionsStatic = () => {
       },
       {} as Record<ActionPrefix, { title: string }>
     );
-    return { actionStaticMap, actionPrefixStaticMap };
+
+    return {
+      actionStaticMap,
+      actionPrefixStaticMap,
+      actionPrefixDisplayOrder: ACTION_PREFIX_DISPLAY_ORDER,
+    };
   }, [t]);
 };

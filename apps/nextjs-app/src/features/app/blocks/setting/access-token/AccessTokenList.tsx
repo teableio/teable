@@ -116,13 +116,27 @@ export const AccessTokenList = (props: { newToken?: string }) => {
         </TableHeader>
         <TableBody>
           {listResult?.map(
-            ({ id, name, baseIds, spaceIds, scopes, expiredTime, lastUsedTime, createdTime }) => {
+            ({
+              id,
+              name,
+              baseIds,
+              spaceIds,
+              hasFullAccess,
+              scopes,
+              expiredTime,
+              lastUsedTime,
+              createdTime,
+            }) => {
               const accessArr: string[] = [];
-              if (baseIds?.length) {
-                accessArr.push(`${baseIds.length} ${t('common:noun.base')}`);
-              }
-              if (spaceIds?.length) {
-                accessArr.push(`${spaceIds.length} ${t('common:noun.space')}`);
+              if (hasFullAccess) {
+                accessArr.push(t('token:accessSelect.fullAccess.title'));
+              } else {
+                if (baseIds?.length) {
+                  accessArr.push(`${baseIds.length} ${t('common:noun.base')}`);
+                }
+                if (spaceIds?.length) {
+                  accessArr.push(`${spaceIds.length} ${t('common:noun.space')}`);
+                }
               }
               const scopesMoreLen = scopes.slice(2).length;
               return (

@@ -73,7 +73,7 @@ export const AccessList = (props: IAccessListProps) => {
   }, [spaceIds, baseIds, spaceMap, baseMap]);
 
   return (
-    <div className="space-y-1.5 py-3 pl-1 text-sm">
+    <div className="pl-1 text-sm">
       {hasFullAccess && (
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground">{t('accessSelect.fullAccess.title')}</div>

@@ -6,7 +6,7 @@ import {
   updateAccessTokenRoSchema,
 } from '@teable/openapi';
 import { useSession, useOrganization } from '@teable/sdk/hooks';
-import { Spin } from '@teable/ui-lib/base';
+import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
@@ -60,6 +60,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const [hasFullAccess, setHasFullAccess] = useState<boolean | undefined>(
     defaultData?.hasFullAccess
   );
+  const [showNoAccessConfirm, setShowNoAccessConfirm] = useState(false);
 
   const actionsPrefixes = useMemo(() => {
     const prefixes = [
@@ -103,6 +104,18 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
     }).success;
   }, [type, name, description, scopes, expiredTime, spaceIds, baseIds]);
 
+  const hasDataAccess = useMemo(() => {
+    return hasFullAccess || (spaceIds && spaceIds.length > 0) || (baseIds && baseIds.length > 0);
+  }, [hasFullAccess, spaceIds, baseIds]);
+
+  const handleSubmit = () => {
+    if (!hasDataAccess) {
+      setShowNoAccessConfirm(true);
+      return;
+    }
+    onSubmitInner();
+  };
+
   const onSubmitInner = () => {
     if (type === 'new') {
       return onSubmit?.({
@@ -129,7 +142,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   };
 
   return (
-    <div className="w-full max-w-5xl space-y-3 pl-1">
+    <div className="w-full max-w-5xl space-y-3 pb-10 pl-1">
       {type === 'new' && (
         <>
           <p>{t('token:new.title')}</p>
@@ -179,6 +192,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
           actionsPrefixes={actionsPrefixes}
         />
       </div>
+      <Separator className="y-2" />
       <div className="space-y-2">
         <Label aria-required>
           {t('token:access')}
@@ -203,11 +217,25 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
           {t('common:actions.cancel')}
         </Button>
-        <Button size={'sm'} onClick={onSubmitInner} disabled={disableSubmit || isLoading}>
+        <Button size={'sm'} onClick={handleSubmit} disabled={disableSubmit || isLoading}>
           {isLoading && <Spin />}
           {t('common:actions.submit')}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={showNoAccessConfirm}
+        onOpenChange={setShowNoAccessConfirm}
+        title={t('token:noAccessConfirm.title')}
+        content={t('token:noAccessConfirm.description')}
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.continue')}
+        onCancel={() => setShowNoAccessConfirm(false)}
+        onConfirm={() => {
+          setShowNoAccessConfirm(false);
+          onSubmitInner();
+        }}
+      />
     </div>
   );
 };

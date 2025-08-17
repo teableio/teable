@@ -102,7 +102,7 @@ export const AccessSelect = (props: IFormAccess) => {
   };
 
   return (
-    <div>
+    <div className="space-y-2">
       <AccessList
         hasFullAccess={value?.hasFullAccess}
         spaceIds={spaces}
