@@ -156,7 +156,7 @@ export const SpaceInnerPage: React.FC = () => {
           />
           <ScrollArea className="flex-1">
             <div className="text-left">
-              <Collaborators spaceId={spaceId} />
+              <Collaborators spaceId={spaceId} space={space} />
             </div>
           </ScrollArea>
         </div>

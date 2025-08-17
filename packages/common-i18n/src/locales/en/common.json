@@ -578,6 +578,8 @@
       "emailSend": "Send invite",
       "linkSend": "Create link",
       "spaceTitle": "Space collaborators",
+      "allCollaboratorsTitle": "All collaborators (Space & Base)",
+      "baseOnly": "Base only",
       "collaboratorSearchPlaceholder": "Find a space collaborator by name or email",
       "collaboratorJoin": "joined {{joinTime}}",
       "collaboratorRemove": "Remove collaborator",

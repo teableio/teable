@@ -575,6 +575,8 @@
       "emailSend": "发送邀请",
       "linkSend": "创建链接",
       "spaceTitle": "空间协作者",
+      "allCollaboratorsTitle": "所有协作者（空间和数据库）",
+      "baseOnly": "仅数据库",
       "collaboratorSearchPlaceholder": "按姓名或电子邮件查找空间协作者",
       "collaboratorJoin": "加入于 {{joinTime}}",
       "collaboratorRemove": "移除协作者",
