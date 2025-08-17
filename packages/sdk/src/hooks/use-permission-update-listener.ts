@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 import { useConnection } from './use-connection';
 
-export const usePermissionUpdateListener = (baseId: string | undefined, trigger: () => void) => {
+export const usePermissionUpdateListener = (
+  baseId: string | undefined,
+  trigger: (operatorUserId?: string) => void
+) => {
   const [remotePresence, setRemotePresence] = useState<Presence>();
   const { connection } = useConnection();
 
@@ -14,8 +17,9 @@ export const usePermissionUpdateListener = (baseId: string | undefined, trigger:
 
     remotePresence?.subscribe((err) => err && console.error);
 
-    const receiveHandler = (_id: string) => {
-      trigger();
+    const receiveHandler = (_id: string, data: string) => {
+      // The data contains the operator user ID
+      trigger(data);
     };
 
     remotePresence?.on('receive', receiveHandler);
