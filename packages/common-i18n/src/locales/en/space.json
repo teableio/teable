@@ -50,9 +50,9 @@
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },
   "sharedBase": {
-    "title": "Shared bases",
-    "description": "Bases shared with you will appear here",
-    "empty": "No shared bases yet"
+    "title": "Shared with me",
+    "description": "Bases shared with me will appear here",
+    "empty": "No bases shared with me yet"
   },
   "integration": {
     "title": "Integrations",
