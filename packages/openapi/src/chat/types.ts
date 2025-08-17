@@ -133,6 +133,7 @@ export const ConfirmOperators = [
 ] as const;
 
 export const BuildBaseOperator = {
+  createTable: 'create-table',
   updateBase: 'update-base',
   planTask: 'plan-task',
   generateTables: 'generate-tables',

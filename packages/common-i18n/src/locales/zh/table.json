@@ -730,7 +730,7 @@
       "generateAction": "生成节点",
 
       "getRelativeData": "获取相关数据",
-      "getPreviousNodeOutputVariables": "获取前一个节点输出变量",
+      "getPreviousNodeOutputVariables": "获取其他节点输出变量",
       "getApiJson": "获取 API 信息",
       "generateScriptAndDependencies": "生成脚本和依赖",
 
@@ -771,6 +771,16 @@
         "completed": "已完成",
         "error": "执行失败"
       }
+    },
+    "generateScript": {
+      "generateSuccess": "生成脚本成功"
+    },
+    "buildBase": {
+      "generateSuccess": "生成数据库成功"
+    },
+    "buildAutomation": {
+      "title": "生成自动化",
+      "generateSuccess": "生成自动化成功"
     },
     "newChat": "新对话",
     "noModel": "暂无可用模型",
