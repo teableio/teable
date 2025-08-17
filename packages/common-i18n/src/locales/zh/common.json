@@ -600,7 +600,7 @@
     "mainLink": "https://help.teable.cn/zh",
     "apiLink": "https://help.teable.cn/zh/api-doc"
   },
-  "pagePermissionChangeTip": "页面权限已更新，请刷新页面以查看最新内容。",
+  "pagePermissionChangeTip": "页面权限已更新，请刷新。",
   "listEmptyTips": "列表为空",
   "billing": {
     "overLimits": "超出限制",

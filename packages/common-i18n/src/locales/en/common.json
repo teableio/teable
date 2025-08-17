@@ -603,7 +603,7 @@
     "mainLink": "https://help.teable.ai/en",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
-  "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content.",
+  "pagePermissionChangeTip": "Page permissions have been updated. Refresh required.",
   "listEmptyTips": "The list is empty",
   "billing": {
     "overLimits": "Over limits",

@@ -14,12 +14,14 @@ export class BasePermissionUpdateListener {
   async basePermissionUpdateListener(listenerEvent: BasePermissionUpdateEvent) {
     const {
       payload: { baseId },
+      context: { user },
     } = listenerEvent;
     const channel = getBasePermissionUpdateChannel(baseId);
     const presence = this.shareDbService.connect().getPresence(channel);
     const localPresence = presence.create();
 
-    localPresence.submit(undefined, (error) => {
+    // Include the operator user ID in the message to allow filtering on the client side
+    localPresence.submit(user?.id, (error) => {
       error && this.logger.error(error);
     });
   }
