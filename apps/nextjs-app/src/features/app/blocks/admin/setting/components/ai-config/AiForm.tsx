@@ -75,12 +75,12 @@ export function AIConfigForm({
   const switchEnable =
     !aiConfig?.chatModel?.lg || !models.some((model) => model.modelKey === aiConfig?.chatModel?.lg);
 
-  useEffect(() => {
-    if (switchEnable && form.getValues('enable')) {
-      form.setValue('enable', false);
-      onSubmit(form.getValues());
-    }
-  }, [form, onSubmit, switchEnable]);
+  // useEffect(() => {
+  //   if (switchEnable && form.getValues('enable')) {
+  //     form.setValue('enable', false);
+  //     onSubmit(form.getValues());
+  //   }
+  // }, [form, onSubmit, switchEnable]);
 
   const onTestChatModelAbility = async (data: IAIIntegrationConfig) => {
     const testModelKey = data.chatModel?.lg;
