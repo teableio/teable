@@ -8,9 +8,12 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createTogetherAI } from '@ai-sdk/togetherai';
 import { createXai } from '@ai-sdk/xai';
+import type { IAIConfig, Task } from '@teable/openapi';
 import { LLMProviderType } from '@teable/openapi';
+import { get } from 'lodash';
 import { createOllama } from 'ollama-ai-provider';
 import { createQwen } from 'qwen-ai-provider';
+import { TASK_MODEL_MAP } from './constant';
 
 export const modelProviders = {
   [LLMProviderType.OPENAI]: createOpenAI,
@@ -53,4 +56,9 @@ export const getAdaptedProviderOptions = (
       return originalOptions;
     }
   }
+};
+
+export const getTaskModelKey = (aiConfig: IAIConfig, task: Task) => {
+  const modelKey = TASK_MODEL_MAP[task];
+  return get(aiConfig, modelKey);
 };

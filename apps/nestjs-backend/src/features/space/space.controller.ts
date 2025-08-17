@@ -270,7 +270,7 @@ export class SpaceController {
     return {
       enable: aiIntegration.enable,
       llmProviders: aiIntegration.config.llmProviders.map((provider) => omit(provider, 'apiKey')),
-      codingModels: aiIntegration.config.codingModels,
+      chatModel: aiIntegration.config.chatModel,
     };
   }
 
@@ -304,7 +304,7 @@ export class SpaceController {
     return this.spaceService.deleteIntegration(integrationId);
   }
 
-  @Permissions('instance|update')
+  @Permissions('space|update')
   @Post(':spaceId/test-llm')
   async testIntegrationLLM(
     @Param('spaceId') _spaceId: string,

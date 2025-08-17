@@ -30,8 +30,7 @@ export const integrationItemVoSchema = z.object({
 
 export const aiIntegrationSettingSchema = aiConfigSchema
   .pick({
-    codingModels: true,
-    codingModel: true,
+    chatModel: true,
   })
   .extend({
     enable: z.boolean().optional(),
