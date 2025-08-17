@@ -1,4 +1,4 @@
-import type { IAIIntegrationConfig } from '@teable/openapi';
+import { chatModelAbilityType, type IAIIntegrationConfig } from '@teable/openapi';
 import {
   TooltipContent,
   TooltipPortal,
@@ -16,8 +16,8 @@ export const CodingModels = ({
   onChange,
   models,
 }: {
-  value: IAIIntegrationConfig['codingModels'];
-  onChange: (value: IAIIntegrationConfig['codingModels']) => void;
+  value: IAIIntegrationConfig['chatModel'];
+  onChange: (value: IAIIntegrationConfig['chatModel']) => void;
   models?: IModelOption[];
 }) => {
   const { t } = useTranslation('common');
@@ -33,22 +33,40 @@ export const CodingModels = ({
     <div className="flex flex-1 flex-col gap-2">
       {(['lg', 'md', 'sm'] as const).map((key) => (
         <div key={key} className="relative flex items-center gap-2">
-          {key === 'lg' && <div className="absolute -left-2 top-2 text-red-500">*</div>}
           <div className="flex w-32 shrink-0 items-center gap-2 truncate text-sm">
+            {key === 'lg' && <div className="h-4 text-red-500">*</div>}
             {icons[key]}
-            <Tooltip content={t(`admin.setting.ai.codingModels.${key}Description`)}>
-              <span>{t(`admin.setting.ai.codingModels.${key}`)}</span>
+            <Tooltip content={t(`admin.setting.ai.chatModels.${key}Description`)}>
+              <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
             </Tooltip>
           </div>
+
           <AIModelSelect
             key={key}
             value={value?.[key] ?? ''}
             onValueChange={(model) => {
-              onChange({ ...value, [key]: model });
+              if (key === 'lg') {
+                onChange({ ...value, [key]: model, ability: {} });
+              } else {
+                onChange({ ...value, [key]: model });
+              }
             }}
             options={models}
             className="flex-1"
           />
+          {key === 'lg' && (
+            <div className="flex gap-2">
+              {Object.values(chatModelAbilityType.Values).map((type) => (
+                <div
+                  key={type}
+                  className="flex items-center gap-1 rounded-md border px-1 py-0.5 text-xs"
+                >
+                  <span>{value?.ability?.[type] ? '✅' : '❌'}</span>
+                  <span>{type}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>

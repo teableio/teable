@@ -263,8 +263,6 @@
         "embeddingModelDescription": "Optionnel, généralement l'ID du modèle contient \"embedding\"",
         "translationModel": "Modèle de traduction",
         "translationModelDescription": "Le modèle de traduction à utiliser",
-        "codingModel": "Modèle de codage",
-        "codingModelDescription": "Utilisé pour la génération de formules IA et les fonctionnalités associées",
         "configUpdated": "Paramètres AI mis à jour",
         "noModelFound": "Aucun modèle trouvé",
         "searchModel": "Rechercher un modèle...",

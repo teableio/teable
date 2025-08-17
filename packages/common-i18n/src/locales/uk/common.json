@@ -298,8 +298,6 @@
         "embeddingModelDescription": "Опціонально, зазвичай ID моделі містить \"embedding\"",
         "translationModel": "Модель перекладу",
         "translationModelDescription": "Модель перекладу для використання",
-        "codingModel": "Модель кодування",
-        "codingModelDescription": "Використовується для генерації AI формул та пов'язаних функцій",
         "configUpdated": "AI налаштування оновлено",
         "noModelFound": "Модель не знайдена",
         "searchModel": "Пошук моделі...",

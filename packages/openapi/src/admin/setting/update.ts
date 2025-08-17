@@ -31,18 +31,29 @@ export const llmProviderSchema = z.object({
 
 export type LLMProvider = z.infer<typeof llmProviderSchema>;
 
+export const chatModelAbilitySchema = z.object({
+  image: z.boolean().optional(),
+  pdf: z.boolean().optional(),
+});
+
+export const chatModelAbilityType = chatModelAbilitySchema.keyof();
+
+export type IChatModelAbilityType = z.infer<typeof chatModelAbilityType>;
+
+export type IChatModelAbility = z.infer<typeof chatModelAbilitySchema>;
+
+export const chatModelSchema = z.object({
+  lg: z.string().optional(),
+  md: z.string().optional(),
+  sm: z.string().optional(),
+  ability: chatModelAbilitySchema.optional(),
+});
+
 export const aiConfigSchema = z.object({
   llmProviders: z.array(llmProviderSchema).default([]),
   embeddingModel: z.string().optional(),
   translationModel: z.string().optional(),
-  codingModel: z.string().optional(),
-  codingModels: z
-    .object({
-      sm: z.string().optional(),
-      md: z.string().optional(),
-      lg: z.string().optional(),
-    })
-    .optional(),
+  chatModel: chatModelSchema.optional(),
 });
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;

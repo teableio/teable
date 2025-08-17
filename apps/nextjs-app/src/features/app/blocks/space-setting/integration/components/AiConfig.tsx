@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { testIntegrationLLM, type IAIIntegrationConfig } from '@teable/openapi';
 import type { LLMProvider } from '@teable/openapi/src/admin/setting';
-import { aiConfigVoSchema } from '@teable/openapi/src/admin/setting';
+import { aiConfigVoSchema, chatModelAbilityType } from '@teable/openapi/src/admin/setting';
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -39,11 +40,35 @@ export const AIConfig = (props: IAIConfigProps) => {
   const { reset } = form;
   const { t } = useTranslation('common');
 
+  const { mutateAsync: onTestChatModelAbility } = useMutation({
+    mutationFn: async (data: IAIIntegrationConfig) => {
+      const testModel = data.chatModel?.lg;
+      if (!testModel) {
+        return;
+      }
+      const models = generateModelKeyList(data.llmProviders);
+      const testLLMIndex = models.findIndex((model) => model.modelKey.includes(testModel));
+      const testLLM = data.llmProviders[testLLMIndex] as Required<LLMProvider>;
+      if (!testLLM) {
+        return;
+      }
+      return testIntegrationLLM(spaceId, {
+        ...testLLM,
+        modelKey: testModel,
+        ability: Object.values(chatModelAbilityType.Values),
+      }).then((res) => {
+        if (res.success) {
+          return res.ability;
+        }
+      });
+    },
+  });
+
   useEffect(() => {
     reset(defaultValues);
   }, [defaultValues, reset]);
 
-  const onSubmit = (data: IAIIntegrationConfig) => {
+  const onSubmit = async (data: IAIIntegrationConfig) => {
     onChange(data);
     toast({
       title: t('admin.setting.ai.configUpdated'),
@@ -66,6 +91,7 @@ export const AIConfig = (props: IAIConfigProps) => {
           control={form.control}
           models={models}
           onChange={() => onSubmit(form.getValues())}
+          onTestChatModelAbility={onTestChatModelAbility}
         />
       </form>
     </Form>
