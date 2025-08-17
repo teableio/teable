@@ -1,13 +1,13 @@
 {
   "empty": {
-    "title": "No dashboards Yet",
+    "title": "No dashboards yet",
     "description": "Dashboards help you visualize and manage your data more effectively.",
-    "create": "Create Dashboard"
+    "create": "Create dashboard"
   },
   "addPlugin": "Add an Plugin",
   "createDashboard": {
-    "button": "Create Dashboard",
-    "title": "Create New Dashboard",
+    "button": "Create dashboard",
+    "title": "Create new dashboard",
     "placeholder": "Enter dashboard name"
   },
   "findDashboard": "Find a dashboard..."
