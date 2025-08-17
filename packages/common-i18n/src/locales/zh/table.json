@@ -776,6 +776,7 @@
       "generateSuccess": "生成脚本成功"
     },
     "buildBase": {
+      "title": "生成数据库",
       "generateSuccess": "生成数据库成功"
     },
     "buildAutomation": {
