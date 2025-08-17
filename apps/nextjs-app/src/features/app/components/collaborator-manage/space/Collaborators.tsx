@@ -44,9 +44,11 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
       ? ReactQueryKeys.spaceCollaboratorList(spaceId, {
           ...collaboratorQuery,
           search,
+          includeBase: true,
         })
       : ReactQueryKeys.spaceCollaboratorList(spaceId, {
           search,
+          includeBase: true,
         }),
     queryFn: ({ queryKey, pageParam = 0 }) =>
       getSpaceCollaboratorList(queryKey[1], {

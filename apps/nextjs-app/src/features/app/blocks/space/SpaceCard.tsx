@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Role } from '@teable/core';
 import type { IGetBaseVo, IGetSpaceVo, ISubscriptionSummaryVo } from '@teable/openapi';
-import { PinType, deleteSpace, updateSpace } from '@teable/openapi';
+import { PinType, deleteSpace, updateSpace, getSpaceCollaboratorList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -9,6 +9,8 @@ import { useTranslation } from 'next-i18next';
 import { type FC, useEffect, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
+import { SpaceCollaboratorModalTrigger } from '../../components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { CollaboratorAvatars } from '../../components/space/CollaboratorAvatars';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
@@ -29,6 +31,19 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>(space.name);
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
+
+  // Get all collaborators including those from bases
+  const { data: collaboratorsData } = useQuery({
+    queryKey: ReactQueryKeys.spaceCollaboratorList(space.id, {
+      skip: 0,
+      take: 100,
+      includeBase: true,
+    }),
+    queryFn: ({ queryKey }) =>
+      getSpaceCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
+  });
+
+  const collaborators = collaboratorsData?.collaborators || [];
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
@@ -69,7 +84,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   };
 
   return (
-    <Card className="w-full shadow-none bg-muted/30">
+    <Card className="w-full bg-muted/30 shadow-none">
       <CardHeader className="pt-5">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="group flex flex-1 items-center gap-2 overflow-hidden">
@@ -109,13 +124,21 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
           />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         {bases?.length ? (
           <DraggableBaseGrid bases={bases} />
         ) : (
           <div className="flex h-24 w-full items-center justify-center">
             {t('space:spaceIsEmpty')}
           </div>
+        )}
+
+        {collaborators.length > 0 && (
+          <SpaceCollaboratorModalTrigger space={space}>
+            <div className="cursor-pointer">
+              <CollaboratorAvatars collaborators={collaborators} maxDisplay={15} />
+            </div>
+          </SpaceCollaboratorModalTrigger>
         )}
       </CardContent>
     </Card>
