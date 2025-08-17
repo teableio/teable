@@ -36,6 +36,8 @@
     "spaceId": "Space ID",
     "importBase": "Import"
   },
+  "collaborators": "Collaborators",
+  "more": "more",
   "pin": {
     "add": "Add to pin",
     "remove": "Remove from pin",

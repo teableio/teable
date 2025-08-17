@@ -36,6 +36,8 @@
     "spaceId": "空间 ID",
     "importBase": "导入"
   },
+  "collaborators": "协作者",
+  "more": "更多",
   "pin": {
     "add": "添加到收藏",
     "remove": "从收藏中移除",
