@@ -10,15 +10,15 @@ const darkTheme = {
   iconFgCommon: colors.slate[50],
 
   // Cell
-  cellBg: '#09090b',
+  cellBg: '#121217',
   cellBgHovered: colors.neutral[900],
   cellBgSelected: hexToRGBA(colors.zinc[800], 0.8),
   cellBgLoading: colors.zinc[800],
   cellLineColor: '#333338',
   cellLineColorActived: colors.zinc[400],
-  cellTextColor: colors.zinc[50],
+  cellTextColor: colors.zinc[200],
   cellOptionBg: colors.zinc[700],
-  cellOptionTextColor: colors.white,
+  cellOptionTextColor: colors.zinc[200],
 
   // Group Header
   groupHeaderBgPrimary: colors.neutral[900],
@@ -29,7 +29,7 @@ const darkTheme = {
   columnHeaderBg: colors.neutral[900],
   columnHeaderBgHovered: colors.neutral[800],
   columnHeaderBgSelected: colors.neutral[700],
-  columnHeaderNameColor: colors.slate[50],
+  columnHeaderNameColor: colors.slate[200],
   columnResizeHandlerBg: colors.zinc[500],
   columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
 
@@ -37,7 +37,7 @@ const darkTheme = {
   columnStatisticBgHovered: colors.zinc[800],
 
   // Row Header
-  rowHeaderTextColor: colors.zinc[50],
+  rowHeaderTextColor: colors.zinc[200],
 
   // Append Row
   appendRowBg: colors.neutral[900],
@@ -45,7 +45,7 @@ const darkTheme = {
 
   // Avatar
   avatarBg: colors.zinc[900],
-  avatarTextColor: colors.zinc[100],
+  avatarTextColor: colors.zinc[200],
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,
@@ -65,7 +65,7 @@ const darkTheme = {
 
   // comment
   commentCountBg: colors.orange[400],
-  commentCountTextColor: colors.white,
+  commentCountTextColor: colors.zinc[200],
 } as IGridTheme;
 
 export function useGridTheme(): IGridTheme {
