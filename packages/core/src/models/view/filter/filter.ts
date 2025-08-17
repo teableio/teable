@@ -17,7 +17,7 @@ export const nestedFilterItemSchema: z.ZodType<IFilterSet> = baseFilterSetSchema
 });
 
 export const FILTER_DESCRIPTION =
-  'A filter object used to filter results. It allows complex query conditions based on fields, operators, and values.';
+  'A filter object for complex query conditions based on fields, operators, and values. Use our visual query builder at https://app.teable.ai/developer/tool/query-builder to build filters.';
 
 export const filterSchema = nestedFilterItemSchema.nullable().openapi({
   type: 'object',
