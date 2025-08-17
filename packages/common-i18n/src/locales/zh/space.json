@@ -50,9 +50,9 @@
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
   },
   "sharedBase": {
-    "title": "共享数据库",
-    "description": "与您共享的数据库将显示在这里",
-    "empty": "暂无共享数据库"
+    "title": "分享给我的",
+    "description": "与您分享的数据库将显示在这里",
+    "empty": "暂无分享给我的数据库"
   },
   "integration": {
     "title": "集成",

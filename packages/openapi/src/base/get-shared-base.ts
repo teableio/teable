@@ -6,7 +6,9 @@ import { getBaseItemSchema } from './get';
 
 export const GET_SHARED_BASE = '/base/shared-base';
 
-export const getSharedBaseItemSchema = getBaseItemSchema;
+export const getSharedBaseItemSchema = getBaseItemSchema.extend({
+  spaceName: z.string().optional(),
+});
 
 export const getSharedBaseVoSchema = z.array(getSharedBaseItemSchema);
 
@@ -20,7 +22,7 @@ export const GetSharedBaseRoute: RouteConfig = registerRoute({
       description: 'Returns information about a shared base.',
       content: {
         'application/json': {
-          schema: getSharedBaseItemSchema,
+          schema: getSharedBaseVoSchema,
         },
       },
     },

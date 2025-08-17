@@ -71,7 +71,9 @@ export const SpacePage: FC = () => {
     return (
       <div ref={ref} className="flex h-screen flex-1 flex-col overflow-hidden py-8">
         <div className="flex items-center justify-between px-12">
-          <h1 className="text-2xl font-semibold">{orderedSpaceList[0]?.name || t('space:allSpaces')}</h1>
+          <h1 className="text-2xl font-semibold">
+            {orderedSpaceList[0]?.name || t('space:allSpaces')}
+          </h1>
         </div>
         <div className="flex-1 overflow-y-auto px-8 pt-8 sm:px-12">
           <EmptySpacePlaceholder space={orderedSpaceList[0]} />
