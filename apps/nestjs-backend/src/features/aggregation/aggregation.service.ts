@@ -582,7 +582,13 @@ export class AggregationService implements IAggregationService {
     }
 
     if (filterLinkCellSelected) {
-      await this.recordService.buildLinkSelectedQuery(qb, tableId, alias, filterLinkCellSelected);
+      await this.recordService.buildLinkSelectedQuery(
+        qb,
+        tableId,
+        dbTableName,
+        alias,
+        filterLinkCellSelected
+      );
     }
 
     return this.getRowCount(this.prisma, qb);

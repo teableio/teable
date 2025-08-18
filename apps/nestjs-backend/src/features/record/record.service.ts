@@ -275,6 +275,7 @@ export class RecordService {
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
     dbTableName: string,
+    alias: string,
     filterLinkCellSelected: [string, string] | string
   ) {
     const prisma = this.prismaService.txClient();
@@ -304,7 +305,7 @@ export class RecordService {
     if (fkHostTableName !== dbTableName) {
       queryBuilder.leftJoin(
         `${fkHostTableName}`,
-        `${dbTableName}.__id`,
+        `${alias}.__id`,
         '=',
         `${fkHostTableName}.${foreignKeyName}`
       );
@@ -317,10 +318,10 @@ export class RecordService {
     }
 
     if (recordId) {
-      queryBuilder.where(`${dbTableName}.${selfKeyName}`, recordId);
+      queryBuilder.where(`${alias}.${selfKeyName}`, recordId);
       return;
     }
-    queryBuilder.whereNotNull(`${dbTableName}.${selfKeyName}`);
+    queryBuilder.whereNotNull(`${alias}.${selfKeyName}`);
   }
 
   async buildLinkCandidateQuery(
@@ -584,7 +585,13 @@ export class RecordService {
     }
 
     if (query.filterLinkCellSelected) {
-      await this.buildLinkSelectedQuery(qb, tableId, alias, query.filterLinkCellSelected);
+      await this.buildLinkSelectedQuery(
+        qb,
+        tableId,
+        dbTableName,
+        alias,
+        query.filterLinkCellSelected
+      );
     }
 
     // Add filtering conditions to the query builder
