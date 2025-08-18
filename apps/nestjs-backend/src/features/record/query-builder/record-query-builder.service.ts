@@ -126,7 +126,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const context = this.helper.buildFormulaContext(fields);
 
     // Add field CTEs and their JOINs if Link field contexts are provided
-    const fieldCteMap = this.helper.addFieldCtesSync(
+    const { fieldCteMap, enhancedContext } = this.helper.addFieldCtesSync(
       queryBuilder,
       fields,
       mainTableName,
@@ -136,11 +136,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       linkFieldCteContext.additionalFields
     );
 
-    // Build select fields
+    // Build select fields using enhanced context that includes foreign table fields
     const selectionMap = this.buildSelect(
       queryBuilder,
       fields,
-      context,
+      enhancedContext.fieldMap.size > 0 ? enhancedContext : context,
       fieldCteMap,
       mainTableAlias
     );
@@ -283,7 +283,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const context = this.helper.buildFormulaContext(fields);
 
     // Add field CTEs and their JOINs if Link field contexts are provided
-    const fieldCteMap = this.helper.addFieldCtesSync(
+    const { fieldCteMap } = this.helper.addFieldCtesSync(
       queryBuilder,
       fields,
       mainTableName,

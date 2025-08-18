@@ -128,15 +128,15 @@ describe('Basic Link Field (e2e)', () => {
 
       // Get records and verify link, lookup, and rollup values
       const records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       expect(records.records).toHaveLength(2);
 
       // Project A should have 2 linked tasks
-      const projectA = records.records.find((r) => r.fields.Title === 'Project A');
-      expect(projectA?.fields[linkField.name]).toHaveLength(2);
-      expect(projectA?.fields[linkField.name]).toEqual(
+      const projectA = records.records.find((r) => r.name === 'Project A');
+      expect(projectA?.fields[linkField.id]).toHaveLength(2);
+      expect(projectA?.fields[linkField.id]).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Task 1' }),
           expect.objectContaining({ title: 'Task 2' }),
@@ -144,41 +144,41 @@ describe('Basic Link Field (e2e)', () => {
       );
 
       // Lookup should return task titles
-      expect(projectA?.fields[lookupField.name]).toEqual(['Task 1', 'Task 2']);
+      expect(projectA?.fields[lookupField.id]).toEqual(['Task 1', 'Task 2']);
 
       // Rollup should sum task scores (10 + 20 = 30)
-      expect(projectA?.fields[rollupField.name]).toBe(30);
+      expect(projectA?.fields[rollupField.id]).toBe(30);
 
       // Project B should have 1 linked task
-      const projectB = records.records.find((r) => r.fields.Title === 'Project B');
-      expect(projectB?.fields[linkField.name]).toHaveLength(1);
-      expect(projectB?.fields[linkField.name]).toEqual([
+      const projectB = records.records.find((r) => r.name === 'Project B');
+      expect(projectB?.fields[linkField.id]).toHaveLength(1);
+      expect(projectB?.fields[linkField.id]).toEqual([
         expect.objectContaining({ title: 'Task 3' }),
       ]);
 
       // Lookup should return task title
-      expect(projectB?.fields[lookupField.name]).toEqual(['Task 3']);
+      expect(projectB?.fields[lookupField.id]).toEqual(['Task 3']);
 
       // Rollup should return task score (30)
-      expect(projectB?.fields[rollupField.name]).toBe(30);
+      expect(projectB?.fields[rollupField.id]).toBe(30);
     });
 
     it('should handle empty links for OneMany (no linked tasks)', async () => {
       // 初始状态未建立任何链接
       const records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const projectA = records.records.find((r) => r.fields.Title === 'Project A');
-      const projectB = records.records.find((r) => r.fields.Title === 'Project B');
+      const projectA = records.records.find((r) => r.name === 'Project A');
+      const projectB = records.records.find((r) => r.name === 'Project B');
 
-      expect(projectA?.fields[linkField.name]).toEqual([]);
-      expect(projectA?.fields[lookupField.name]).toBeUndefined();
-      expect(projectA?.fields[rollupField.name]).toBeUndefined();
+      expect(projectA?.fields[linkField.id]).toEqual([]);
+      expect(projectA?.fields[lookupField.id]).toBeUndefined();
+      expect(projectA?.fields[rollupField.id]).toBe(0);
 
-      expect(projectB?.fields[linkField.name]).toEqual([]);
-      expect(projectB?.fields[lookupField.name]).toBeUndefined();
-      expect(projectB?.fields[rollupField.name]).toBeUndefined();
+      expect(projectB?.fields[linkField.id]).toEqual([]);
+      expect(projectB?.fields[lookupField.id]).toBeUndefined();
+      expect(projectB?.fields[rollupField.id]).toBe(0);
     });
   });
 
@@ -285,44 +285,38 @@ describe('Basic Link Field (e2e)', () => {
 
       // Get records and verify link, lookup, and rollup values
       const records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       expect(records.records).toHaveLength(3);
 
       // Task 1 should link to Project A
-      const task1 = records.records.find((r) => r.fields.Title === 'Task 1');
-      expect(task1?.fields[linkField.name]).toEqual(
-        expect.objectContaining({ title: 'Project A' })
-      );
-      expect(task1?.fields[lookupField.name]).toBe('Project A');
+      const task1 = records.records.find((r) => r.name === 'Task 1');
+      expect(task1?.fields[linkField.id]).toEqual(expect.objectContaining({ title: 'Project A' }));
+      expect(task1?.fields[lookupField.id]).toBe('Project A');
 
-      expect(task1?.fields[rollupField.name]).toBe(100);
+      expect(task1?.fields[rollupField.id]).toBe(100);
 
       // Task 2 should link to Project A
-      const task2 = records.records.find((r) => r.fields.Title === 'Task 2');
-      expect(task2?.fields[linkField.name]).toEqual(
-        expect.objectContaining({ title: 'Project A' })
-      );
-      expect(task2?.fields[lookupField.name]).toBe('Project A');
-      expect(task2?.fields[rollupField.name]).toBe(100);
+      const task2 = records.records.find((r) => r.name === 'Task 2');
+      expect(task2?.fields[linkField.id]).toEqual(expect.objectContaining({ title: 'Project A' }));
+      expect(task2?.fields[lookupField.id]).toBe('Project A');
+      expect(task2?.fields[rollupField.id]).toBe(100);
 
       // Task 3 should link to Project B
-      const task3 = records.records.find((r) => r.fields.Title === 'Task 3');
-      expect(task3?.fields[linkField.name]).toEqual(
-        expect.objectContaining({ title: 'Project B' })
-      );
-      expect(task3?.fields[lookupField.name]).toBe('Project B');
-      expect(task3?.fields[rollupField.name]).toBe(200);
+      const task3 = records.records.find((r) => r.name === 'Task 3');
+      expect(task3?.fields[linkField.id]).toEqual(expect.objectContaining({ title: 'Project B' }));
+      expect(task3?.fields[lookupField.id]).toBe('Project B');
+      expect(task3?.fields[rollupField.id]).toBe(200);
     });
 
     it('should handle null link for ManyOne (no parent)', async () => {
       // 不建立链接，直接读取（使用 beforeEach 初始数据）
-      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const task1 = records.records.find((r) => r.fields.Title === 'Task 1');
-      expect(task1?.fields[linkField.name]).toBeUndefined();
-      expect(task1?.fields[lookupField.name]).toBeUndefined();
-      expect(task1?.fields[rollupField.name]).toBeUndefined();
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const task1 = records.records.find((r) => r.name === 'Task 1');
+      expect(task1?.fields[linkField.id]).toBeUndefined();
+      expect(task1?.fields[lookupField.id]).toBeUndefined();
+      expect(task1?.fields[rollupField.id]).toBe(0);
     });
   });
 
@@ -473,56 +467,56 @@ describe('Basic Link Field (e2e)', () => {
 
       // Get student records and verify
       const studentRecords = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       expect(studentRecords.records).toHaveLength(3);
 
       // Alice should have Math and Science
-      const alice = studentRecords.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField1.name]).toHaveLength(2);
-      expect(alice?.fields[lookupField1.name]).toEqual(expect.arrayContaining(['Math', 'Science']));
-      expect(alice?.fields[rollupField1.name]).toBe(7); // 4 + 3 credits
+      const alice = studentRecords.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField1.id]).toHaveLength(2);
+      expect(alice?.fields[lookupField1.id]).toEqual(expect.arrayContaining(['Math', 'Science']));
+      expect(alice?.fields[rollupField1.id]).toBe(7); // 4 + 3 credits
 
       // Bob should have Math and History
-      const bob = studentRecords.records.find((r) => r.fields.Name === 'Bob');
-      expect(bob?.fields[linkField1.name]).toHaveLength(2);
-      expect(bob?.fields[lookupField1.name]).toEqual(expect.arrayContaining(['Math', 'History']));
-      expect(bob?.fields[rollupField1.name]).toBe(6); // 4 + 2 credits
+      const bob = studentRecords.records.find((r) => r.name === 'Bob');
+      expect(bob?.fields[linkField1.id]).toHaveLength(2);
+      expect(bob?.fields[lookupField1.id]).toEqual(expect.arrayContaining(['Math', 'History']));
+      expect(bob?.fields[rollupField1.id]).toBe(6); // 4 + 2 credits
 
       // Charlie should have Science
-      const charlie = studentRecords.records.find((r) => r.fields.Name === 'Charlie');
-      expect(charlie?.fields[linkField1.name]).toHaveLength(1);
-      expect(charlie?.fields[lookupField1.name]).toEqual(['Science']);
+      const charlie = studentRecords.records.find((r) => r.name === 'Charlie');
+      expect(charlie?.fields[linkField1.id]).toHaveLength(1);
+      expect(charlie?.fields[lookupField1.id]).toEqual(['Science']);
 
-      expect(charlie?.fields[rollupField1.name]).toBe(3); // 3 credits
+      expect(charlie?.fields[rollupField1.id]).toBe(3); // 3 credits
 
       // Get course records and verify reverse relationships
       const courseRecords = await getRecords(table2.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       expect(courseRecords.records).toHaveLength(3);
 
       // Math should have Alice and Bob
-      const math = courseRecords.records.find((r) => r.fields.Name === 'Math');
-      expect(math?.fields[linkField2.name]).toHaveLength(2);
-      expect(math?.fields[lookupField2.name]).toEqual(expect.arrayContaining(['Alice', 'Bob']));
-      expect(math?.fields[rollupField2.name]).toBe(2); // Count of students
+      const math = courseRecords.records.find((r) => r.name === 'Math');
+      expect(math?.fields[linkField2.id]).toHaveLength(2);
+      expect(math?.fields[lookupField2.id]).toEqual(expect.arrayContaining(['Alice', 'Bob']));
+      expect(math?.fields[rollupField2.id]).toBe(2); // Count of students
 
       // Science should have Alice and Charlie
-      const science = courseRecords.records.find((r) => r.fields.Name === 'Science');
-      expect(science?.fields[linkField2.name]).toHaveLength(2);
-      expect(science?.fields[lookupField2.name]).toEqual(
+      const science = courseRecords.records.find((r) => r.name === 'Science');
+      expect(science?.fields[linkField2.id]).toHaveLength(2);
+      expect(science?.fields[lookupField2.id]).toEqual(
         expect.arrayContaining(['Alice', 'Charlie'])
       );
-      expect(science?.fields[rollupField2.name]).toBe(2); // Count of students
+      expect(science?.fields[rollupField2.id]).toBe(2); // Count of students
 
       // History should have Bob
-      const history = courseRecords.records.find((r) => r.fields.Name === 'History');
-      expect(history?.fields[linkField2.name]).toHaveLength(1);
-      expect(history?.fields[lookupField2.name]).toEqual(['Bob']);
-      expect(history?.fields[rollupField2.name]).toBe(1); // Count of students
+      const history = courseRecords.records.find((r) => r.name === 'History');
+      expect(history?.fields[linkField2.id]).toHaveLength(1);
+      expect(history?.fields[lookupField2.id]).toEqual(['Bob']);
+      expect(history?.fields[rollupField2.id]).toBe(1); // Count of students
     });
   });
 
@@ -590,18 +584,16 @@ describe('Basic Link Field (e2e)', () => {
 
       // Verify table1 records show correct links
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       expect(table1Records.records).toHaveLength(2);
 
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField1.name]).toEqual(
-        expect.objectContaining({ title: 'Profile A' })
-      );
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField1.id]).toEqual(expect.objectContaining({ title: 'Profile A' }));
 
-      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
-      expect(bob?.fields[linkField1.name]).toEqual(expect.objectContaining({ title: 'Profile B' }));
+      const bob = table1Records.records.find((r) => r.name === 'Bob');
+      expect(bob?.fields[linkField1.id]).toEqual(expect.objectContaining({ title: 'Profile B' }));
 
       // CRITICAL TEST: Verify table2 records show correct symmetric links
       // This is where the bug should manifest - table2 symmetric field data should be empty
@@ -629,11 +621,11 @@ describe('Basic Link Field (e2e)', () => {
     it('should handle empty OneOne TwoWay relationship', async () => {
       // No links established, verify both sides are empty
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField1.name]).toBeUndefined();
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField1.id]).toBeUndefined();
 
       const table2Records = await getRecords(table2.id, {
         fieldKeyType: FieldKeyType.Id,
@@ -700,22 +692,24 @@ describe('Basic Link Field (e2e)', () => {
 
       // Verify table1 records show correct links
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField1.name]).toEqual(
-        expect.objectContaining({ title: 'Profile A' })
-      );
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField1.id]).toEqual(expect.objectContaining({ title: 'Profile A' }));
 
       // Verify table2 has no link fields (one-way relationship)
       const table2Records = await getRecords(table2.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const profileA = table2Records.records.find((r) => r.fields.Name === 'Profile A');
+      const profileA = table2Records.records.find((r) => r.name === 'Profile A');
       // Should not have any link field since it's one-way
-      const linkFieldNames = Object.keys(profileA?.fields || {}).filter((key) => key !== 'Name');
+      // When using fieldKeyType: Id, we need to filter by field ID, not field name
+      const nameFieldId = table2.fields.find((f) => f.name === 'Name')?.id;
+      const linkFieldNames = Object.keys(profileA?.fields || {}).filter(
+        (key) => key !== nameFieldId
+      );
       expect(linkFieldNames).toHaveLength(0);
     });
   });
@@ -786,31 +780,33 @@ describe('Basic Link Field (e2e)', () => {
 
       // Verify table1 records show correct links
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const projectA = table1Records.records.find((r) => r.fields.Name === 'Project A');
-      expect(projectA?.fields[linkField1.name]).toHaveLength(2);
-      expect(projectA?.fields[linkField1.name]).toEqual(
+      const projectA = table1Records.records.find((r) => r.name === 'Project A');
+      expect(projectA?.fields[linkField1.id]).toHaveLength(2);
+      expect(projectA?.fields[linkField1.id]).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Task 1' }),
           expect.objectContaining({ title: 'Task 2' }),
         ])
       );
 
-      const projectB = table1Records.records.find((r) => r.fields.Name === 'Project B');
-      expect(projectB?.fields[linkField1.name]).toHaveLength(1);
-      expect(projectB?.fields[linkField1.name]).toEqual([
+      const projectB = table1Records.records.find((r) => r.name === 'Project B');
+      expect(projectB?.fields[linkField1.id]).toHaveLength(1);
+      expect(projectB?.fields[linkField1.id]).toEqual([
         expect.objectContaining({ title: 'Task 3' }),
       ]);
 
       // Verify table2 has no link fields (one-way relationship)
       const table2Records = await getRecords(table2.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const task1 = table2Records.records.find((r) => r.fields.Name === 'Task 1');
-      const linkFieldNames = Object.keys(task1?.fields || {}).filter((key) => key !== 'Name');
+      const task1 = table2Records.records.find((r) => r.name === 'Task 1');
+      // When using fieldKeyType: Id, we need to filter by field ID, not field name
+      const nameFieldId = table2.fields.find((f) => f.name === 'Name')?.id;
+      const linkFieldNames = Object.keys(task1?.fields || {}).filter((key) => key !== nameFieldId);
       expect(linkFieldNames).toHaveLength(0);
     });
   });
@@ -883,14 +879,14 @@ describe('Basic Link Field (e2e)', () => {
 
       // Verify table1 records show correct links
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const projectA = table1Records.records.find((r) => r.fields.Name === 'Project A');
-      expect(projectA?.fields[linkField1.name]).toHaveLength(2);
+      const projectA = table1Records.records.find((r) => r.name === 'Project A');
+      expect(projectA?.fields[linkField1.id]).toHaveLength(2);
 
-      const projectB = table1Records.records.find((r) => r.fields.Name === 'Project B');
-      expect(projectB?.fields[linkField1.name]).toHaveLength(1);
+      const projectB = table1Records.records.find((r) => r.name === 'Project B');
+      expect(projectB?.fields[linkField1.id]).toHaveLength(1);
 
       // Verify table2 records show correct symmetric links (ManyOne relationship)
       const table2Records = await getRecords(table2.id, {
@@ -978,29 +974,31 @@ describe('Basic Link Field (e2e)', () => {
 
       // Verify table1 records show correct links
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField1.name]).toHaveLength(2);
-      expect(alice?.fields[linkField1.name]).toEqual(
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField1.id]).toHaveLength(2);
+      expect(alice?.fields[linkField1.id]).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Math' }),
           expect.objectContaining({ title: 'Science' }),
         ])
       );
 
-      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
-      expect(bob?.fields[linkField1.name]).toHaveLength(1);
-      expect(bob?.fields[linkField1.name]).toEqual([expect.objectContaining({ title: 'Math' })]);
+      const bob = table1Records.records.find((r) => r.name === 'Bob');
+      expect(bob?.fields[linkField1.id]).toHaveLength(1);
+      expect(bob?.fields[linkField1.id]).toEqual([expect.objectContaining({ title: 'Math' })]);
 
       // Verify table2 has no link fields (one-way relationship)
       const table2Records = await getRecords(table2.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const math = table2Records.records.find((r) => r.fields.Name === 'Math');
-      const linkFieldNames = Object.keys(math?.fields || {}).filter((key) => key !== 'Name');
+      const math = table2Records.records.find((r) => r.name === 'Math');
+      // When using fieldKeyType: Id, we need to filter by field ID, not field name
+      const nameFieldId = table2.fields.find((f) => f.name === 'Name')?.id;
+      const linkFieldNames = Object.keys(math?.fields || {}).filter((key) => key !== nameFieldId);
       expect(linkFieldNames).toHaveLength(0);
     });
   });
@@ -1068,14 +1066,14 @@ describe('Basic Link Field (e2e)', () => {
 
       // Verify table1 records show correct links
       const table1Records = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField1.name]).toHaveLength(2);
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField1.id]).toHaveLength(2);
 
-      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
-      expect(bob?.fields[linkField1.name]).toHaveLength(1);
+      const bob = table1Records.records.find((r) => r.name === 'Bob');
+      expect(bob?.fields[linkField1.id]).toHaveLength(1);
 
       // Verify table2 records show correct symmetric links (ManyMany relationship)
       const table2Records = await getRecords(table2.id, {
@@ -1167,39 +1165,39 @@ describe('Basic Link Field (e2e)', () => {
       ]);
 
       const table1RecordsBefore = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       const table2RecordsBefore = await getRecords(table2.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const aliceBefore = table1RecordsBefore.records.find((r) => r.fields.Name === 'Alice');
-      expect(aliceBefore?.fields[linkField1.name]).toHaveLength(2);
-      expect(aliceBefore?.fields[linkField1.name]).toEqual(
+      const aliceBefore = table1RecordsBefore.records.find((r) => r.name === 'Alice');
+      expect(aliceBefore?.fields[linkField1.id]).toHaveLength(2);
+      expect(aliceBefore?.fields[linkField1.id]).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Project A' }),
           expect.objectContaining({ title: 'Project B' }),
         ])
       );
 
-      const bobBefore = table1RecordsBefore.records.find((r) => r.fields.Name === 'Bob');
-      expect(bobBefore?.fields[linkField1.name]).toHaveLength(1);
-      expect(bobBefore?.fields[linkField1.name]).toEqual([
+      const bobBefore = table1RecordsBefore.records.find((r) => r.name === 'Bob');
+      expect(bobBefore?.fields[linkField1.id]).toHaveLength(1);
+      expect(bobBefore?.fields[linkField1.id]).toEqual([
         expect.objectContaining({ title: 'Project C' }),
       ]);
 
-      const projectABefore = table2RecordsBefore.records.find((r) => r.fields.Name === 'Project A');
-      const projectBBefore = table2RecordsBefore.records.find((r) => r.fields.Name === 'Project B');
-      const projectCBefore = table2RecordsBefore.records.find((r) => r.fields.Name === 'Project C');
+      const projectABefore = table2RecordsBefore.records.find((r) => r.name === 'Project A');
+      const projectBBefore = table2RecordsBefore.records.find((r) => r.name === 'Project B');
+      const projectCBefore = table2RecordsBefore.records.find((r) => r.name === 'Project C');
 
-      expect(projectABefore?.fields[linkField2.name]).toEqual(
+      expect(projectABefore?.fields[linkField2.id]).toEqual(
         expect.objectContaining({ title: 'Alice' })
       );
-      expect(projectBBefore?.fields[linkField2.name]).toEqual(
+      expect(projectBBefore?.fields[linkField2.id]).toEqual(
         expect.objectContaining({ title: 'Alice' })
       );
-      expect(projectCBefore?.fields[linkField2.name]).toEqual(
+      expect(projectCBefore?.fields[linkField2.id]).toEqual(
         expect.objectContaining({ title: 'Bob' })
       );
 
@@ -1224,32 +1222,34 @@ describe('Basic Link Field (e2e)', () => {
 
       // 验证转换后 table1 的数据仍然正确
       const table1RecordsAfter = await getRecords(table1.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
-      const aliceAfter = table1RecordsAfter.records.find((r) => r.fields.Name === 'Alice');
-      expect(aliceAfter?.fields[linkField1.name]).toHaveLength(2);
-      expect(aliceAfter?.fields[linkField1.name]).toEqual(
+      const aliceAfter = table1RecordsAfter.records.find((r) => r.name === 'Alice');
+      expect(aliceAfter?.fields[linkField1.id]).toHaveLength(2);
+      expect(aliceAfter?.fields[linkField1.id]).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ title: 'Project A' }),
           expect.objectContaining({ title: 'Project B' }),
         ])
       );
 
-      const bobAfter = table1RecordsAfter.records.find((r) => r.fields.Name === 'Bob');
-      expect(bobAfter?.fields[linkField1.name]).toHaveLength(1);
-      expect(bobAfter?.fields[linkField1.name]).toEqual([
+      const bobAfter = table1RecordsAfter.records.find((r) => r.name === 'Bob');
+      expect(bobAfter?.fields[linkField1.id]).toHaveLength(1);
+      expect(bobAfter?.fields[linkField1.id]).toEqual([
         expect.objectContaining({ title: 'Project C' }),
       ]);
 
       const table2RecordsAfter = await getRecords(table2.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       table2RecordsAfter.records.forEach((record) => {
         const fieldKeys = Object.keys(record.fields);
         expect(fieldKeys).toHaveLength(1); // 只有 Name 字段
-        expect(fieldKeys[0]).toBe('Name');
+        // When using fieldKeyType: Id, the key should be the field ID, not the field name
+        const nameFieldId = table2.fields.find((f) => f.name === 'Name')?.id;
+        expect(fieldKeys[0]).toBe(nameFieldId);
       });
     });
   });
@@ -1334,9 +1334,9 @@ describe('Basic Link Field (e2e)', () => {
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
       // Verify data integrity
-      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField.name]).toHaveLength(2);
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField.id]).toHaveLength(2);
     });
 
     it('should convert OneOne TwoWay to OneWay without errors', async () => {
@@ -1380,11 +1380,9 @@ describe('Basic Link Field (e2e)', () => {
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
       // Verify data integrity
-      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField.name]).toEqual(
-        expect.objectContaining({ title: 'Project A' })
-      );
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField.id]).toEqual(expect.objectContaining({ title: 'Project A' }));
     });
 
     it('should convert OneWay to TwoWay without errors', async () => {
@@ -1428,9 +1426,9 @@ describe('Basic Link Field (e2e)', () => {
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeDefined();
 
       // 验证数据完整性
-      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField.name]).toHaveLength(1);
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField.id]).toHaveLength(1);
 
       // 验证对称字段存在
       const symmetricFieldId = (convertedField.options as ILinkFieldOptions).symmetricFieldId;
@@ -1478,9 +1476,9 @@ describe('Basic Link Field (e2e)', () => {
       });
 
       // 验证数据完整性
-      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField.name]).toHaveLength(1);
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField.id]).toHaveLength(1);
     });
 
     it('should convert ManyMany to OneMany without errors', async () => {
@@ -1523,9 +1521,9 @@ describe('Basic Link Field (e2e)', () => {
       });
 
       // Verify data integrity
-      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[linkField.name]).toHaveLength(1);
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[linkField.id]).toHaveLength(1);
     });
 
     it('should convert bidirectional link created in table2 to unidirectional in table1', async () => {
@@ -1578,11 +1576,11 @@ describe('Basic Link Field (e2e)', () => {
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
       // Verify data integrity in table1
-      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
-      expect(alice?.fields[convertedField.name]).toHaveLength(1);
-      expect(bob?.fields[convertedField.name]).toHaveLength(1);
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      const bob = table1Records.records.find((r) => r.name === 'Bob');
+      expect(alice?.fields[convertedField.id]).toHaveLength(1);
+      expect(bob?.fields[convertedField.id]).toHaveLength(1);
 
       // Note: When converting bidirectional to unidirectional, the symmetric field is deleted
       // This is the correct behavior - the original field in table2 may also be affected
@@ -1696,7 +1694,7 @@ describe('Basic Link Field (e2e)', () => {
           const sourceRecord = updatedSourceRecords.records.find(
             (r) => r.id === sourceRecords.records[0].id
           );
-          const linkValue = sourceRecord?.fields[convertedField.name] as any[];
+          const linkValue = sourceRecord?.fields[convertedField.id] as any[];
           expect(linkValue).toHaveLength(2);
           expect(linkValue.map((l) => l.id)).toContain(targetRecords.records[0].id);
           expect(linkValue.map((l) => l.id)).toContain(targetRecords.records[1].id);
@@ -1712,13 +1710,13 @@ describe('Basic Link Field (e2e)', () => {
             (r) => r.id === targetRecords.records[2].id
           );
 
-          expect(targetRecord1?.fields[symmetricField.name]).toEqual({
+          expect(targetRecord1?.fields[symmetricField.id]).toEqual({
             id: sourceRecords.records[0].id,
           });
-          expect(targetRecord2?.fields[symmetricField.name]).toEqual({
+          expect(targetRecord2?.fields[symmetricField.id]).toEqual({
             id: sourceRecords.records[0].id,
           });
-          expect(targetRecord3?.fields[symmetricField.name]).toBeUndefined();
+          expect(targetRecord3?.fields[symmetricField.id]).toBeUndefined();
         });
 
         it('should convert ManyOne OneWay (source) to ManyOne TwoWay', async () => {
@@ -1807,8 +1805,12 @@ describe('Basic Link Field (e2e)', () => {
           const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
 
           // Create some link data before conversion
-          const initialSourceRecords = await getRecords(sourceTable.id);
-          const initialTargetRecords = await getRecords(targetTable.id);
+          const initialSourceRecords = await getRecords(sourceTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const initialTargetRecords = await getRecords(targetTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
 
           // Link first source record to first two target records
           await updateRecordByApi(
@@ -1833,8 +1835,12 @@ describe('Basic Link Field (e2e)', () => {
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
           // Verify record data integrity after conversion
-          const finalSourceRecords = await getRecords(sourceTable.id);
-          const finalTargetRecords = await getRecords(targetTable.id);
+          const finalSourceRecords = await getRecords(sourceTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const finalTargetRecords = await getRecords(targetTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
           expect(finalSourceRecords.records).toHaveLength(3);
           expect(finalTargetRecords.records).toHaveLength(3);
 
@@ -1842,7 +1848,7 @@ describe('Basic Link Field (e2e)', () => {
           const sourceRecord = finalSourceRecords.records.find(
             (r) => r.id === initialSourceRecords.records[0].id
           );
-          const linkValue = sourceRecord?.fields[convertedField.name] as any[];
+          const linkValue = sourceRecord?.fields[convertedField.id] as any[];
           expect(linkValue).toHaveLength(2);
           expect(linkValue.map((l) => l.id)).toContain(initialTargetRecords.records[0].id);
           expect(linkValue.map((l) => l.id)).toContain(initialTargetRecords.records[1].id);
@@ -1975,8 +1981,12 @@ describe('Basic Link Field (e2e)', () => {
           const linkField = await createField(sourceTable.id, linkFieldRo);
 
           // Create some link data before conversion (OneMany allows multiple targets)
-          const beforeSourceRecords = await getRecords(sourceTable.id);
-          const beforeTargetRecords = await getRecords(targetTable.id);
+          const beforeSourceRecords = await getRecords(sourceTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const beforeTargetRecords = await getRecords(targetTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
 
           await updateRecordByApi(sourceTable.id, beforeSourceRecords.records[0].id, linkField.id, [
             { id: beforeTargetRecords.records[0].id },
@@ -2001,11 +2011,13 @@ describe('Basic Link Field (e2e)', () => {
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
           // Verify record data after conversion (ManyOne should keep only one link)
-          const afterSourceRecords = await getRecords(sourceTable.id);
+          const afterSourceRecords = await getRecords(sourceTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
           const sourceRecord = afterSourceRecords.records.find(
             (r) => r.id === beforeSourceRecords.records[0].id
           );
-          const linkValue = sourceRecord?.fields[convertedField.name];
+          const linkValue = sourceRecord?.fields[convertedField.id];
 
           // ManyOne relationship should have only one linked record (the first one is typically kept)
           expect(linkValue).toBeDefined();
@@ -2347,14 +2359,14 @@ describe('Basic Link Field (e2e)', () => {
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
       // Verify data integrity - complex many-to-many relationships preserved
-      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
-      const charlie = table1Records.records.find((r) => r.fields.Name === 'Charlie');
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      const bob = table1Records.records.find((r) => r.name === 'Bob');
+      const charlie = table1Records.records.find((r) => r.name === 'Charlie');
 
-      expect(alice?.fields[convertedField.name]).toHaveLength(1); // Project A
-      expect(bob?.fields[convertedField.name]).toHaveLength(2); // Project A, Project B
-      expect(charlie?.fields[convertedField.name]).toHaveLength(1); // Project B
+      expect(alice?.fields[convertedField.id]).toHaveLength(1); // Project A
+      expect(bob?.fields[convertedField.id]).toHaveLength(2); // Project A, Project B
+      expect(charlie?.fields[convertedField.id]).toHaveLength(1); // Project B
     });
 
     it('should handle OneOne bidirectional conversion with existing data', async () => {
@@ -2402,18 +2414,18 @@ describe('Basic Link Field (e2e)', () => {
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
       // Verify data integrity - OneOne relationships preserved
-      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      const bob = table1Records.records.find((r) => r.fields.Name === 'Bob');
-      const charlie = table1Records.records.find((r) => r.fields.Name === 'Charlie');
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      const bob = table1Records.records.find((r) => r.name === 'Bob');
+      const charlie = table1Records.records.find((r) => r.name === 'Charlie');
 
-      expect(alice?.fields[convertedField.name]).toEqual(
+      expect(alice?.fields[convertedField.id]).toEqual(
         expect.objectContaining({ title: 'Project A' })
       );
-      expect(bob?.fields[convertedField.name]).toEqual(
+      expect(bob?.fields[convertedField.id]).toEqual(
         expect.objectContaining({ title: 'Project B' })
       );
-      expect(charlie?.fields[convertedField.name]).toBeNull();
+      expect(charlie?.fields[convertedField.id]).toBeUndefined();
     });
 
     it('should convert relationship type while maintaining bidirectional nature', async () => {
@@ -2443,7 +2455,6 @@ describe('Basic Link Field (e2e)', () => {
         options: {
           relationship: Relationship.ManyMany,
           foreignTableId: table2.id,
-          isOneWay: false, // Keep bidirectional
         },
       };
 
@@ -2453,14 +2464,13 @@ describe('Basic Link Field (e2e)', () => {
       expect(convertedField.options).toMatchObject({
         relationship: Relationship.ManyMany,
         foreignTableId: table2.id,
-        isOneWay: false,
       });
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeDefined();
 
       // Verify data integrity
-      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
-      const alice = table1Records.records.find((r) => r.fields.Name === 'Alice');
-      expect(alice?.fields[convertedField.name]).toHaveLength(2);
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      const alice = table1Records.records.find((r) => r.name === 'Alice');
+      expect(alice?.fields[convertedField.id]).toHaveLength(2);
 
       // Verify symmetric field still exists and works
       const newSymmetricFieldId = (convertedField.options as ILinkFieldOptions).symmetricFieldId;
@@ -2468,7 +2478,6 @@ describe('Basic Link Field (e2e)', () => {
       expect(newSymmetricField).toBeDefined();
       expect(newSymmetricField.options).toMatchObject({
         relationship: Relationship.ManyMany,
-        isOneWay: false,
       });
     });
   });
