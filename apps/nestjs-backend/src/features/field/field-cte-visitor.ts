@@ -648,7 +648,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             : this.generateRollupAggregation(
                 rollupOptions.expression,
                 fieldExpression3,
-                targetField
+                targetField,
+                junctionAlias
               );
           selectColumns.push(qb.client.raw(`${rollupAggregation} as "rollup_${rollupField.id}"`));
         }
@@ -769,7 +770,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   private generateRollupAggregation(
     expression: string,
     fieldExpression: string,
-    targetField?: IFieldInstance
+    targetField?: IFieldInstance,
+    junctionAlias?: string
   ): string {
     // Parse the rollup function from expression like 'sum({values})'
     const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
@@ -783,28 +785,28 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
     switch (functionName) {
       case 'sum':
-        return castIfPg(`SUM(${fieldExpression})`);
+        return castIfPg(`COALESCE(SUM(${fieldExpression}), 0)`);
       case 'count':
-        return castIfPg(`COUNT(${fieldExpression})`);
+        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'countall':
         // For multiple select fields, count individual elements in JSON arrays
-        targetField?.isMultipleCellValue;
         if (targetField?.type === FieldType.MultipleSelect) {
           if (this.dbProvider.driver === DriverClient.Pg) {
-            // PostgreSQL: Sum the length of each JSON array
+            // PostgreSQL: Sum the length of each JSON array, ensure 0 when no records
             return castIfPg(
-              `SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN jsonb_array_length(${fieldExpression}::jsonb) ELSE 0 END)`
+              `COALESCE(SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN jsonb_array_length(${fieldExpression}::jsonb) ELSE 0 END), 0)`
             );
           } else {
-            // SQLite: Sum the length of each JSON array
+            // SQLite: Sum the length of each JSON array, ensure 0 when no records
             return castIfPg(
-              `SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN json_array_length(${fieldExpression}) ELSE 0 END)`
+              `COALESCE(SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN json_array_length(${fieldExpression}) ELSE 0 END), 0)`
             );
           }
         }
-        return castIfPg(`COUNT(*)`);
+        // For other field types, count non-null values, ensure 0 when no records
+        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'counta':
-        return castIfPg(`COUNT(${fieldExpression})`);
+        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'max':
         return castIfPg(`MAX(${fieldExpression})`);
       case 'min':
@@ -826,10 +828,18 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           : `(COUNT(CASE WHEN ${fieldExpression} THEN 1 END) % 2 = 1)`;
       case 'array_join':
       case 'concatenate':
-        // Join all values into a single string
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `STRING_AGG(${fieldExpression}::text, ', ')`
-          : `GROUP_CONCAT(${fieldExpression}, ', ')`;
+        // Join all values into a single string with deterministic ordering
+        if (junctionAlias) {
+          // Use junction table ID for ordering to maintain insertion order
+          return this.dbProvider.driver === DriverClient.Pg
+            ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${junctionAlias}.__id)`
+            : `GROUP_CONCAT(${fieldExpression}, ', ')`;
+        } else {
+          // Fallback to value-based ordering for consistency
+          return this.dbProvider.driver === DriverClient.Pg
+            ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${fieldExpression}::text)`
+            : `GROUP_CONCAT(${fieldExpression}, ', ')`;
+        }
       case 'array_unique':
         // Get unique values as JSON array
         return this.dbProvider.driver === DriverClient.Pg
@@ -862,6 +872,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
     switch (functionName) {
       case 'sum':
+        // For single-value relationship, sum reduces to the value itself, but should be 0 when null
+        return `COALESCE(${fieldExpression}, 0)`;
       case 'max':
       case 'min':
       case 'array_join':
