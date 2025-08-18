@@ -10,15 +10,15 @@ export enum MailTransporterType {
 export enum MailType {
   Automation = 'automation',
   Notify = 'notify',
-  System = 'system', // htmlEmailOptions
-  VerifyCode = 'verifyCode', // sendEmailVerifyCodeEmailOptions
-  ResetPassword = 'resetPassword', // resetPasswordEmailOptions
-  Invite = 'invite', // inviteEmailOptions
-  Common = 'common', // commonEmailOptions
-  ExportBase = 'exportBase', // htmlEmailOptions
-  CollaboratorCellTag = 'collaboratorCellTag', // collaboratorCellTagEmailOptions
-  CollaboratorMultiRowTag = 'collaboratorMultiRowTag', // collaboratorCellTagEmailOptions
-  NotifyMerge = 'notifyMerge', // notifyMergeOptions
+  System = 'system',
+  VerifyCode = 'verifyCode',
+  ResetPassword = 'resetPassword',
+  Invite = 'invite',
+  Common = 'common',
+  ExportBase = 'exportBase',
+  CollaboratorCellTag = 'collaboratorCellTag',
+  CollaboratorMultiRowTag = 'collaboratorMultiRowTag',
+  NotifyMerge = 'notifyMerge',
 }
 
 export const mailTransportConfigSchema = z.object({

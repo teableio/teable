@@ -91,7 +91,8 @@ export class MailSenderService {
     transporterName?: MailTransporterType,
     type?: MailType
   ) {
-    if (transporterName === MailTransporterType.Notify && type === MailType.Notify) {
+    const mergeNotifyType = [MailType.System, MailType.Notify, MailType.Common];
+    if (type && transporterName === MailTransporterType.Notify && mergeNotifyType.includes(type)) {
       this.eventEmitterService.emit(Events.NOTIFY_MAIL_MERGE, {
         payload: { ...mailOptions, mailType: type },
       });
