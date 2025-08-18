@@ -58,7 +58,7 @@ export interface ILookupChainStep {
 
 export interface ILookupChain {
   steps: ILookupChainStep[];
-  finalField: IFieldInstance; // 最终的非 lookup 字段
+  finalField: IFieldInstance;
   finalTableName: string;
 }
 
@@ -134,17 +134,33 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   private checkAndGenerateLookupCte(field: {
     isLookup?: boolean;
     lookupOptions?: ILookupOptionsVo;
+    hasError?: boolean;
     id: string;
   }): ICteResult {
     if (field.isLookup && field.lookupOptions) {
+      // Check if the field has error (e.g., target field deleted)
+      if (field.hasError) {
+        this.logger.warn(`Lookup field ${field.id} has error, skipping CTE generation`);
+        return { hasChanges: false };
+      }
+
+      // Check if the target lookup field exists
+      const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
+      if (!targetField) {
+        // Target field has been deleted, skip CTE generation
+        this.logger.warn(
+          `Lookup field ${field.id} references deleted field ${field.lookupOptions.lookupFieldId}, skipping CTE generation`
+        );
+        return { hasChanges: false };
+      }
+
       // Check if this is a nested lookup field (lookup -> lookup)
       if (this.isNestedLookup(field)) {
         return this.generateNestedLookupCte(field);
       }
 
       // Check if this is a lookup to link field (lookup -> link)
-      const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
-      if (targetField?.type === FieldType.Link && !targetField.isLookup) {
+      if (targetField.type === FieldType.Link && !targetField.isLookup) {
         return this.generateLookupToLinkCte(field);
       }
 
@@ -170,8 +186,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     // Get the target field that this lookup field is looking up
     const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
 
+    // If target field doesn't exist (deleted), this is not a nested lookup
+    if (!targetField) {
+      return false;
+    }
+
     // If the target field is also a lookup field, then this is a nested lookup
-    return targetField?.isLookup === true;
+    return targetField.isLookup === true;
   }
 
   /**
@@ -189,11 +210,16 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     // Get the target field that this lookup field is looking up
     const targetField = this.context.fieldMap.get(field.lookupOptions.lookupFieldId);
 
+    // If target field doesn't exist (deleted), this is not a lookup to link
+    if (!targetField) {
+      return false;
+    }
+
     // If the target field is a link field (and not a lookup field), then this is a lookup to link
-    const isLookupToLink = targetField?.type === FieldType.Link && !targetField.isLookup;
+    const isLookupToLink = targetField.type === FieldType.Link && !targetField.isLookup;
 
     this.logger.warn(
-      `[DEBUG] Checking lookup to link for field ${field.id}: target field ${field.lookupOptions.lookupFieldId} type=${targetField?.type}, isLookup=${targetField?.isLookup}, result=${isLookupToLink}`
+      `[DEBUG] Checking lookup to link for field ${field.id}: target field ${field.lookupOptions.lookupFieldId} type=${targetField.type}, isLookup=${targetField.isLookup}, result=${isLookupToLink}`
     );
 
     return isLookupToLink;
@@ -592,6 +618,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Add lookup field selections for fields that reference this link field
       const lookupFields = this.collectLookupFieldsForLinkField(field.id);
       for (const lookupField of lookupFields) {
+        // Skip lookup field if it has error
+        if (lookupField.hasError) {
+          this.logger.warn(`Lookup field ${lookupField.id} has error, skipping lookup selection`);
+          continue;
+        }
+
         const targetField = this.context.fieldMap.get(lookupField.lookupOptions!.lookupFieldId);
         if (targetField) {
           // Create FieldSelectVisitor with table alias
@@ -621,6 +653,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Add rollup field selections for fields that reference this link field
       const rollupFields = this.collectRollupFieldsForLinkField(field.id);
       for (const rollupField of rollupFields) {
+        // Skip rollup field if it has error
+        if (rollupField.hasError) {
+          this.logger.warn(`Rollup field ${rollupField.id} has error, skipping rollup aggregation`);
+          continue;
+        }
+
         const targetField = this.context.fieldMap.get(rollupField.lookupOptions!.lookupFieldId);
         if (targetField) {
           // Create FieldSelectVisitor with table alias
