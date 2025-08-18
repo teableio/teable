@@ -162,10 +162,15 @@ export class RecordQueryBuilderHelper {
     linkFieldContexts?: ILinkFieldContext[],
     contextTableNameMap?: Map<string, string>,
     additionalFields?: Map<string, IFieldInstance>
-  ): Map<string, string> {
+  ): { fieldCteMap: Map<string, string>; enhancedContext: IFormulaConversionContext } {
     const fieldCteMap = new Map<string, string>();
 
-    if (!linkFieldContexts?.length) return fieldCteMap;
+    if (!linkFieldContexts?.length) {
+      return {
+        fieldCteMap,
+        enhancedContext: { fieldMap: new Map() },
+      };
+    }
 
     const fieldMap = new Map<string, IFieldInstance>();
     const tableNameMap = new Map<string, string>();
@@ -233,7 +238,10 @@ export class RecordQueryBuilderHelper {
       }
     }
 
-    return fieldCteMap;
+    return {
+      fieldCteMap,
+      enhancedContext: { fieldMap },
+    };
   }
 
   /**
