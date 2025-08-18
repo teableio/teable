@@ -160,8 +160,8 @@ export class SqliteProvider implements IDbProvider {
       fieldInstance.accept(visitor);
     });
 
-    const alterTableQuery = alterTableBuilder.toQuery();
-    queries.push(alterTableQuery);
+    const alterTableQueries = alterTableBuilder.toSQL().map((item) => item.sql);
+    queries.push(...alterTableQueries);
 
     return queries;
   }
@@ -197,11 +197,11 @@ export class SqliteProvider implements IDbProvider {
       fieldInstance.accept(visitor);
     });
 
-    const mainSql = alterTableBuilder.toQuery();
+    const mainSqls = alterTableBuilder.toSQL().map((item) => item.sql);
     const additionalSqls =
       (visitor as CreateSqliteDatabaseColumnFieldVisitor | undefined)?.getSql() ?? [];
 
-    return [mainSql, ...additionalSqls];
+    return [...mainSqls, ...additionalSqls];
   }
 
   splitTableName(tableName: string): string[] {
