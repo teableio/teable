@@ -63,7 +63,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    */
   private getColumnSelector(field: { dbFieldName: string }): string {
     if (this.tableAlias) {
-      return `${this.tableAlias}."${field.dbFieldName}"`;
+      return this.qb.client.raw(`??."${field.dbFieldName}"`, [this.tableAlias]);
     }
     return field.dbFieldName;
   }

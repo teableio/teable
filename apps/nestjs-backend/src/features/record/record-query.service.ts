@@ -51,12 +51,13 @@ export class RecordQueryService {
         select: { id: true, name: true, dbTableName: true },
       });
 
-      const qb = this.knex(table.dbTableName);
-
-      const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(qb, {
-        tableIdOrDbTableName: tableId,
-        viewId: undefined,
-      });
+      const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
+        table.dbTableName,
+        {
+          tableIdOrDbTableName: tableId,
+          viewId: undefined,
+        }
+      );
       const sql = queryBuilder.whereIn('__id', recordIds).toQuery();
 
       // Query records from database

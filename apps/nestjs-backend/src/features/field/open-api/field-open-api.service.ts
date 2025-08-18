@@ -707,13 +707,11 @@ export class FieldOpenApiService {
   }
 
   private async getFieldRecordsCount(dbTableName: string, field: IFieldInstance) {
-    const table = this.knex(dbTableName);
-
     // For checkbox fields, use 'is' operator with null value instead of 'isEmpty'
     // because checkbox fields only support 'is' operator
     const operator = field.cellValueType === CellValueType.Boolean ? 'is' : 'isEmpty';
 
-    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(table, {
+    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,
       viewId: undefined,
       filter: {
@@ -747,8 +745,7 @@ export class FieldOpenApiService {
     page: number,
     chunkSize: number
   ) {
-    const table = this.knex(dbTableName);
-    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(table, {
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,
       viewId: undefined,
     });

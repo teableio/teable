@@ -214,16 +214,17 @@ export class AggregationServiceV2 implements IAggregationService {
       }
     );
 
-    const table = builder.from(viewCte ?? dbTableName);
-
-    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(table, {
-      tableIdOrDbTableName: tableId,
-      viewId,
-      filter,
-      aggregationFields: statisticFields,
-      groupBy: groupBy?.map((item) => item.fieldId),
-      currentUserId: withUserId,
-    });
+    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(
+      viewCte ?? dbTableName,
+      {
+        tableIdOrDbTableName: tableId,
+        viewId,
+        filter,
+        aggregationFields: statisticFields,
+        groupBy: groupBy?.map((item) => item.fieldId),
+        currentUserId: withUserId,
+      }
+    );
 
     const aggSql = qb.toQuery();
     this.logger.debug('handleAggregation aggSql: %s', aggSql);
@@ -408,21 +409,23 @@ export class AggregationServiceV2 implements IAggregationService {
         viewId,
       }
     );
-    queryBuilder.from(viewCte ?? dbTableName);
 
-    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(queryBuilder, {
-      tableIdOrDbTableName: tableId,
-      viewId,
-      currentUserId: withUserId,
-      filter,
-      aggregationFields: [
-        {
-          fieldId: '*',
-          statisticFunc: StatisticsFunc.Count,
-          alias: 'count',
-        },
-      ],
-    });
+    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(
+      viewCte ?? dbTableName,
+      {
+        tableIdOrDbTableName: tableId,
+        viewId,
+        currentUserId: withUserId,
+        filter,
+        aggregationFields: [
+          {
+            fieldId: '*',
+            statisticFunc: StatisticsFunc.Count,
+            alias: 'count',
+          },
+        ],
+      }
+    );
 
     if (search && search[2]) {
       const searchFields = await this.recordService.getSearchFields(

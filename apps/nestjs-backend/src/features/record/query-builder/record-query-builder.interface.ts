@@ -69,9 +69,9 @@ export interface IRecordQueryBuilder {
    * @returns Promise<{ qb: Knex.QueryBuilder }> - The configured query builder
    */
   createRecordQueryBuilder(
-    queryBuilder: Knex.QueryBuilder,
+    from: string,
     options: ICreateRecordQueryBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder }>;
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string }>;
 
   /**
    * Create a record aggregate query builder for aggregation operations
@@ -80,9 +80,9 @@ export interface IRecordQueryBuilder {
    * @returns Promise<{ qb: Knex.QueryBuilder }> - The configured query builder with aggregation
    */
   createRecordAggregateBuilder(
-    queryBuilder: Knex.QueryBuilder,
+    from: string,
     options: ICreateRecordAggregateBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder }>;
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string }>;
 }
 
 /**
@@ -98,7 +98,7 @@ export interface IRecordQueryParams {
   /** Optional database table name (if already known) */
   dbTableName?: string;
   /** Optional existing query builder */
-  queryBuilder: Knex.QueryBuilder;
+  from: string;
   /** Optional filter */
   filter?: IFilter;
   /** Optional sort */

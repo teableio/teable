@@ -158,6 +158,7 @@ export class RecordQueryBuilderHelper {
     queryBuilder: Knex.QueryBuilder,
     fields: IFieldInstance[],
     mainTableName: string,
+    mainTableAlias: string,
     linkFieldContexts?: ILinkFieldContext[],
     contextTableNameMap?: Map<string, string>,
     additionalFields?: Map<string, IFieldInstance>
@@ -205,7 +206,7 @@ export class RecordQueryBuilderHelper {
           // Add LEFT JOIN for the CTE
           queryBuilder.leftJoin(
             result.cteName,
-            `${mainTableName}.__id`,
+            `${mainTableAlias}.__id`,
             `${result.cteName}.main_record_id`
           );
           fieldCteMap.set(field.id, result.cteName);

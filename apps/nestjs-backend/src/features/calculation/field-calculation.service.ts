@@ -83,8 +83,7 @@ export class FieldCalculationService {
     page: number,
     chunkSize: number
   ) {
-    const table = this.knex(dbTableName);
-    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(table, {
+    const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,
       viewId: undefined,
     });

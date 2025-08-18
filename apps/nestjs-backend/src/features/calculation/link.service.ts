@@ -812,12 +812,13 @@ export class LinkService {
       const recordIds = Object.keys(recordLookupFieldsMap);
       const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
 
-      const queryBuilder = this.knex(tableId2DbTableName[tableId]);
-
-      const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(queryBuilder, {
-        tableIdOrDbTableName: tableId,
-        viewId: undefined,
-      });
+      const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
+        tableId2DbTableName[tableId],
+        {
+          tableIdOrDbTableName: tableId,
+          viewId: undefined,
+        }
+      );
 
       const nativeQuery = qb.whereIn('__id', recordIds).toQuery();
 
