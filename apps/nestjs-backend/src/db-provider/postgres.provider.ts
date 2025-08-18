@@ -284,8 +284,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       fieldInstance.accept(visitor);
     });
 
-    const alterTableQuery = alterTableBuilder.toQuery();
-    queries.push(alterTableQuery);
+    const alterTableQueries = alterTableBuilder.toSQL().map((item) => item.sql);
+    queries.push(...alterTableQueries);
 
     return queries;
   }
@@ -322,14 +322,14 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       fieldInstance.accept(visitor);
     });
 
-    const mainSql = alterTableBuilder.toQuery();
+    const mainSqls = alterTableBuilder.toSQL().map((item) => item.sql);
     const additionalSqls =
       (visitor as CreatePostgresDatabaseColumnFieldVisitor | undefined)?.getSql() ?? [];
 
-    this.logger.debug('createColumnSchema main:', mainSql);
+    this.logger.debug('createColumnSchema main:', mainSqls);
     this.logger.debug('createColumnSchema additional:', additionalSqls);
 
-    return [mainSql, ...additionalSqls];
+    return [...mainSqls, ...additionalSqls].filter(Boolean);
   }
 
   splitTableName(tableName: string): string[] {
