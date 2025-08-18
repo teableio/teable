@@ -12,10 +12,45 @@
       "runtimeExecutable": "sh",
       "autoAttachChildProcesses": true,
       "program": "./node_modules/.bin/vitest",
-      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest-e2e.config.ts", "--hideSkippedTests"],
+      "args": [
+        "run",
+        "${workspaceFolder}/${relativeFile}",
+        "--config",
+        "./vitest-e2e.config.ts",
+        "--hideSkippedTests"
+      ],
       "smartStep": true,
       "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug vitest e2e nest backend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/nestjs-backend",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/apps/nestjs-backend/node_modules/vitest/vitest.mjs",
+      "args": [
+        "run",
+        "${workspaceFolder}/${relativeFile}",
+        "--config",
+        "./vitest-e2e.config.ts",
+        "--hideSkippedTests",
+        "--no-file-parallelism",
+        "--reporter",
+        "verbose"
+      ],
+      "autoAttachChildProcesses": true,
+      "smartStep": true,
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -26,10 +61,18 @@
       "runtimeExecutable": "sh",
       "autoAttachChildProcesses": true,
       "program": "./node_modules/.bin/vitest",
-      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "args": [
+        "run",
+        "${workspaceFolder}/${relativeFile}",
+        "--config",
+        "./vitest.config.ts"
+      ],
       "smartStep": true,
       "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -40,10 +83,18 @@
       "runtimeExecutable": "sh",
       "autoAttachChildProcesses": true,
       "program": "./node_modules/.bin/vitest",
-      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "args": [
+        "run",
+        "${workspaceFolder}/${relativeFile}",
+        "--config",
+        "./vitest.config.ts"
+      ],
       "smartStep": true,
       "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -54,10 +105,18 @@
       "runtimeExecutable": "sh",
       "autoAttachChildProcesses": true,
       "program": "./node_modules/.bin/vitest",
-      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "args": [
+        "run",
+        "${workspaceFolder}/${relativeFile}",
+        "--config",
+        "./vitest.config.ts"
+      ],
       "smartStep": true,
       "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -68,10 +127,18 @@
       "runtimeExecutable": "sh",
       "autoAttachChildProcesses": true,
       "program": "./node_modules/.bin/vitest",
-      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "args": [
+        "run",
+        "${workspaceFolder}/${relativeFile}",
+        "--config",
+        "./vitest.config.ts"
+      ],
       "smartStep": true,
       "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -79,9 +146,16 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
-      "args": ["apps/nestjs-backend/src/index.ts"],
-      "runtimeArgs": ["start-debug"],
-      "outFiles": ["${workspaceFolder}/**/*.js", "!**/node_modules/**"],
+      "args": [
+        "apps/nestjs-backend/src/index.ts"
+      ],
+      "runtimeArgs": [
+        "start-debug"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/**/*.js",
+        "!**/node_modules/**"
+      ],
       "cwd": "${workspaceFolder}/apps/nestjs-backend",
       "internalConsoleOptions": "openOnSessionStart",
       "sourceMaps": true,
