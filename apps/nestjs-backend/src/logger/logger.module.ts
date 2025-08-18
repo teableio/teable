@@ -16,8 +16,10 @@ export class LoggerModule {
       useFactory: (cls: ClsService<IClsStore>, config: ConfigService) => {
         const { level } = config.getOrThrow<ILoggerConfig>('logger');
         const env = process.env.NODE_ENV;
+        const isCi = ['true', '1'].includes(process.env?.CI ?? '');
 
-        const autoLogging = env !== 'test' && (env === 'production' || level === 'debug');
+        const disableAutoLogging = isCi || env === 'test';
+        const autoLogging = !disableAutoLogging && (env === 'production' || level === 'debug');
 
         return {
           pinoHttp: {
