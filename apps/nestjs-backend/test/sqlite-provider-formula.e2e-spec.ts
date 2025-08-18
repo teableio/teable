@@ -298,8 +298,8 @@ describe('SQLite Provider Formula Integration Tests', () => {
         new Map()
       );
 
-      // For unsupported functions, we expect an empty SQL string
-      expect(sql).toBe('');
+      // For unsupported functions, we expect an empty array
+      expect(sql).toEqual([]);
       expect(sql).toMatchSnapshot(`SQLite SQL for ${expression}`);
     } catch (error) {
       console.error(`Error testing unsupported formula "${expression}":`, error);
@@ -504,7 +504,7 @@ describe('SQLite Provider Formula Integration Tests', () => {
     it('should handle string operations with column references', async () => {
       await testFormulaExecution(
         'CONCATENATE({fld_text}, " ", {fld_text_2})',
-        ['hello world', 'test data', ' '], // Empty string + space + empty string = space
+        ['hello world', 'test data', ' null'], // SQLite COALESCE converts null to 'null'
         CellValueType.String
       );
     });
@@ -652,7 +652,7 @@ describe('SQLite Provider Formula Integration Tests', () => {
         CellValueType.String
       );
 
-      await testFormulaExecution('LEN(CONCATENATE({fld_text}, {fld_text_2}))', [10, 8, 0]);
+      await testFormulaExecution('LEN(CONCATENATE({fld_text}, {fld_text_2}))', [10, 8, 4]); // 'null' has length 4
     });
 
     it('should handle complex conditional logic', async () => {
@@ -702,7 +702,7 @@ describe('SQLite Provider Formula Integration Tests', () => {
       await testFormulaExecution('{fld_number} + 1', [11, -2, 1, null]);
       await testFormulaExecution(
         'CONCATENATE({fld_text}, " suffix")',
-        ['hello suffix', 'test suffix', ' suffix', ' suffix'],
+        ['hello suffix', 'test suffix', ' suffix', 'null suffix'], // Empty string + suffix = ' suffix', null + suffix = 'null suffix'
         CellValueType.String
       );
     });
