@@ -620,7 +620,7 @@ export class RecordService {
     this.logger.debug('buildFilterSortQuery: %s', qb.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
-    return { queryBuilder: qb, dbTableName, viewCte };
+    return { queryBuilder: qb, dbTableName, viewCte, alias };
   }
 
   convertProjection(fieldKeys?: string[]) {
@@ -1774,12 +1774,10 @@ export class RecordService {
     recordIds: string[],
     filter?: IFilter | null
   ): Promise<string[]> {
-    const { queryBuilder, dbTableName, viewCte } = await this.buildFilterSortQuery(tableId, {
+    const { queryBuilder, alias } = await this.buildFilterSortQuery(tableId, {
       filter,
     });
-    const dbName = viewCte ?? dbTableName;
-    queryBuilder.whereIn(`${dbName}.__id`, recordIds);
-    queryBuilder.select(this.knex.ref(`${dbName}.__id`));
+    queryBuilder.whereIn(`${alias}.__id`, recordIds);
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
