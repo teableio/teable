@@ -49,22 +49,22 @@ export class PrismaService
   constructor(private readonly cls: ClsService<{ tx: ITx }>) {
     const logConfig = {
       log: [
-        {
-          level: 'query',
-          emit: 'event',
-        },
+        // {
+        //   level: 'query',
+        //   emit: 'event',
+        // },
         {
           level: 'error',
           emit: 'stdout',
         },
-        {
-          level: 'info',
-          emit: 'stdout',
-        },
-        {
-          level: 'warn',
-          emit: 'stdout',
-        },
+        // {
+        //   level: 'info',
+        //   emit: 'stdout',
+        // },
+        // {
+        //   level: 'warn',
+        //   emit: 'stdout',
+        // },
       ],
     };
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };

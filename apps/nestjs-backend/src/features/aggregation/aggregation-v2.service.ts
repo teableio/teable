@@ -401,7 +401,7 @@ export class AggregationServiceV2 implements IAggregationService {
       withUserId,
       viewId,
     } = params;
-    const { viewCte, builder: queryBuilder } = await this.recordPermissionService.wrapView(
+    const { viewCte } = await this.recordPermissionService.wrapView(
       tableId,
       this.knex.queryBuilder(),
       {
@@ -410,7 +410,7 @@ export class AggregationServiceV2 implements IAggregationService {
       }
     );
 
-    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(
+    const { qb, alias } = await this.recordQueryBuilder.createRecordAggregateBuilder(
       viewCte ?? dbTableName,
       {
         tableIdOrDbTableName: tableId,
@@ -441,8 +441,8 @@ export class AggregationServiceV2 implements IAggregationService {
 
     if (selectedRecordIds) {
       filterLinkCellCandidate
-        ? qb.whereNotIn(`${dbTableName}.__id`, selectedRecordIds)
-        : qb.whereIn(`${dbTableName}.__id`, selectedRecordIds);
+        ? qb.whereNotIn(`${alias}.__id`, selectedRecordIds)
+        : qb.whereIn(`${alias}.__id`, selectedRecordIds);
     }
 
     if (filterLinkCellCandidate) {
@@ -454,6 +454,7 @@ export class AggregationServiceV2 implements IAggregationService {
         qb,
         tableId,
         dbTableName,
+        alias,
         filterLinkCellSelected
       );
     }

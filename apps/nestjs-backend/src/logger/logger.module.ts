@@ -15,8 +15,9 @@ export class LoggerModule {
       inject: [ClsService, ConfigService],
       useFactory: (cls: ClsService<IClsStore>, config: ConfigService) => {
         const { level } = config.getOrThrow<ILoggerConfig>('logger');
+        const env = process.env.NODE_ENV;
 
-        const autoLogging = process.env.NODE_ENV === 'production' || level === 'debug';
+        const autoLogging = env !== 'test' && (env === 'production' || level === 'debug');
 
         return {
           pinoHttp: {
