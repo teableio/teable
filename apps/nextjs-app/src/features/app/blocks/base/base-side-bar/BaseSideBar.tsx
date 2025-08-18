@@ -19,8 +19,10 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
+import { MoveBaseSelectPanel } from '../../table-list/MoveBasePanel';
 import { TableList } from '../../table-list/TableList';
 import { QuickAction } from './QuickAction';
+import { useBaseSideBarStore } from './store';
 
 export const BaseSideBar = () => {
   const router = useRouter();
@@ -28,6 +30,7 @@ export const BaseSideBar = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
   const usage = useBaseUsage();
+  const { moveBaseOpen, setMoveBaseOpen } = useBaseSideBarStore();
 
   const { automationEnable = true, advancedPermissionsEnable = true } = usage?.limit ?? {};
 
@@ -164,6 +167,7 @@ export const BaseSideBar = () => {
         </ul>
       </div>
       <TableList />
+      <MoveBaseSelectPanel open={moveBaseOpen} onOpenChange={setMoveBaseOpen} />
     </>
   );
 };

@@ -26,6 +26,8 @@ import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
+import type { MoveTableQueryAbstract } from './move-table-query/abstract';
+import { MoveTableQuerySqlite } from './move-table-query/move-table-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
 import { IndexBuilderSqlite } from './search-query/search-index-builder.sqlite';
@@ -42,6 +44,10 @@ export class SqliteProvider implements IDbProvider {
 
   createSchema(_schemaName: string) {
     return undefined;
+  }
+
+  moveTableQuery(queryBuilder: Knex.QueryBuilder): MoveTableQueryAbstract {
+    return new MoveTableQuerySqlite(queryBuilder);
   }
 
   dropSchema(_schemaName: string) {

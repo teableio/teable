@@ -10,6 +10,7 @@ import {
   FileCsv,
   FileExcel,
   Copy,
+  ArrowRight,
 } from '@teable/icons';
 import { duplicateTable, PinType, SUPPORTEDTYPE } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -35,6 +36,7 @@ import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../hooks/useDownLoad';
+import { useBaseSideBarStore } from '../base/base-side-bar/store';
 import { TableImport } from '../import-table';
 import { StarButton } from '../space/space-side-bar/StarButton';
 
@@ -58,6 +60,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { baseId, tableId: routerTableId } = router.query;
+  const { setSelectTableId, setMoveBaseOpen } = useBaseSideBarStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { trigger } = useDownload({ downloadUrl: `/api/export/${table.id}`, key: 'table' });
 
@@ -167,6 +170,17 @@ export const TableOperation = (props: ITableOperationProps) => {
             <DropdownMenuItem onClick={() => setDuplicateSetting(true)}>
               <Copy className="mr-2" />
               {t('table:import.menu.duplicate')}
+            </DropdownMenuItem>
+          )}
+          {menuPermission.duplicateTable && (
+            <DropdownMenuItem
+              onClick={() => {
+                setMoveBaseOpen(true);
+                setSelectTableId(table.id);
+              }}
+            >
+              <ArrowRight className="mr-2" />
+              {t('table:import.menu.moveTo')}
             </DropdownMenuItem>
           )}
           {menuPermission.exportTable && (

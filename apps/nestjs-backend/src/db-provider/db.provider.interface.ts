@@ -13,6 +13,7 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import type { MoveTableQueryAbstract } from './move-table-query/abstract';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
 export type IFilterQueryExtra = {
@@ -61,6 +62,8 @@ export interface IDbProvider {
     key: string,
     value: string
   ): string;
+
+  moveTableQuery(queryBuilder: Knex.QueryBuilder): MoveTableQueryAbstract;
 
   updateJsonArrayColumn(
     tableName: string,

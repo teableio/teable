@@ -366,6 +366,11 @@
     "operator": {
       "createBlank": "Create a blank table"
     },
+    "moveTableTips": {
+      "title": "Tips",
+      "tips": "Moving the table may affect automation operations (e.g. automation nodes configured for this table), which may cause failure. Do you still want to continue?",
+      "stillContinue": "Still continue"
+    },
     "actionTips": {
       "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
       "copyAndPasteBrowser": "Copy and paste not supported in this browser",
@@ -381,6 +386,7 @@
       "deleting": "Deleting...",
       "deleteSuccessful": "Delete successful",
       "pasteFileFailed": "Files can only be pasted into an attachment field",
+      "moveTableSucceedAndJump": "move successful, click to jump",
       "copyError": {
         "noFocus": "Please keep the page active and do not switch windows"
       }
@@ -439,6 +445,7 @@
       "downAsCsv": "Download CSV",
       "importData": "Import Data",
       "duplicate": "Duplicate",
+      "moveTo": "Move to",
       "includeRecords": "Include records"
     },
     "tips": {

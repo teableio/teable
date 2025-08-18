@@ -26,6 +26,8 @@ import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group
 import { GroupQueryPostgres } from './group-query/group-query.postgres';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
+import type { MoveTableQueryAbstract } from './move-table-query/abstract';
+import { MoveTableQueryPostgres } from './move-table-query/move-table-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { IndexBuilderPostgres } from './search-query/search-index-builder.postgres';
 import {
@@ -46,6 +48,10 @@ export class PostgresProvider implements IDbProvider {
       this.knex.raw(`create schema if not exists ??`, [schemaName]).toQuery(),
       this.knex.raw(`revoke all on schema ?? from public`, [schemaName]).toQuery(),
     ];
+  }
+
+  moveTableQuery(queryBuilder: Knex.QueryBuilder): MoveTableQueryAbstract {
+    return new MoveTableQueryPostgres(queryBuilder);
   }
 
   dropSchema(schemaName: string): string {
