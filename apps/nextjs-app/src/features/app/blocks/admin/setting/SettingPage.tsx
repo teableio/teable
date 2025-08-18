@@ -182,7 +182,11 @@ export const SettingPage = (props: ISettingPageProps) => {
           <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
             <div className="space-y-1">
               <Label>{t('email.notify')}</Label>
-              <div className="text-[13px] text-gray-500">{t('email.customNotifyConfig')}</div>
+              <div className="text-[13px] text-gray-500">
+                {setting.notifyMailTransportConfig
+                  ? setting.notifyMailTransportConfig.host
+                  : t('email.customNotifyConfig')}
+              </div>
             </div>
             <MailConfigDialog
               name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
@@ -193,7 +197,11 @@ export const SettingPage = (props: ISettingPageProps) => {
           <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
             <div className="space-y-1">
               <Label>{t('email.automation')}</Label>
-              <div className="text-[13px] text-gray-500">{t('email.customAutomationConfig')}</div>
+              <div className="text-[13px] text-gray-500">
+                {setting.automationMailTransportConfig
+                  ? setting.automationMailTransportConfig.host
+                  : t('email.customAutomationConfig')}
+              </div>
             </div>
             <MailConfigDialog
               name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}

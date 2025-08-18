@@ -391,7 +391,7 @@
     "customAutomationConfig": "Benutzerdefinierte Automatisierungs-E-Mail-Konfiguration",
     "addConfig": "Konfiguration hinzufügen",
     "editConfig": "Konfiguration bearbeiten",
-    "resetConfig": "Konfiguration zurücksetzen",
+    "resetConfig": "Zurücksetzen",
     "testEmail": "Test-E-Mail",
     "testEmailPlaceholder": "Bitte Test-E-Mail eingeben",
     "testEmailError": "Bitte korrekte Test-E-Mail-Adresse eingeben",

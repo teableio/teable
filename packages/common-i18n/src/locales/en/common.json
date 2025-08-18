@@ -490,7 +490,7 @@
     "customAutomationConfig": "Custom Automation Email Config",
     "addConfig": "Add Config",
     "editConfig": "Edit Config",
-    "resetConfig": "Reset Config",
+    "resetConfig": "Reset",
     "testEmail": "Test Email",
     "testEmailPlaceholder": "Please enter the test email",
     "testEmailError": "Please enter a valid test email address",

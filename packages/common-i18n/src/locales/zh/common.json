@@ -489,7 +489,7 @@
     "customAutomationConfig": "自定义自动化邮箱",
     "addConfig": "添加配置",
     "editConfig": "编辑配置",
-    "resetConfig": "重置配置",
+    "resetConfig": "重置",
     "testEmail": "测试邮箱",
     "testEmailPlaceholder": "请输入测试邮箱",
     "testEmailError": "请输入正确的测试邮箱地址",

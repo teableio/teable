@@ -370,7 +370,7 @@
     "customAutomationConfig": "Configurazione Email di Automazione Personalizzata",
     "addConfig": "Aggiungi Configurazione",
     "editConfig": "Modifica Configurazione",
-    "resetConfig": "Resetta Configurazione",
+    "resetConfig": "Resetta",
     "testEmail": "Email di Test",
     "testEmailPlaceholder": "Inserisci l'email di test",
     "testEmailError": "Inserisci un indirizzo email di test valido",
