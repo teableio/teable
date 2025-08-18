@@ -24,7 +24,9 @@ export class MailSenderService {
     if (!from && mailOptions.senderName) {
       from = buildEmailFrom(this.mailConfig.sender, mailOptions.senderName);
     }
-    const sender = this.mailService.sendMail({ ...mailOptions, from }).then(() => true);
+    const sender = this.mailService
+      .sendMail(from ? { ...mailOptions, from } : mailOptions)
+      .then(() => true);
     if (extra?.shouldThrow) {
       return sender;
     }
