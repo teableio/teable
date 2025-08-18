@@ -92,6 +92,23 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   private checkAndSelectLookupField(field: FieldCore): IFieldSelectName {
     // Check if this is a Lookup field
     if (field.isLookup && field.lookupOptions && this.fieldCteMap) {
+      // Check if the field has error (e.g., target field deleted)
+      if (field.hasError) {
+        // Field has error, return NULL to indicate this field should be null
+        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+        this.selectionMap.set(field.id, 'NULL');
+        return rawExpression;
+      }
+
+      // Check if the target lookup field exists in the context
+      const targetFieldExists = this.context?.fieldMap?.has(field.lookupOptions.lookupFieldId);
+      if (!targetFieldExists) {
+        // Target field has been deleted, return NULL to indicate this field should be null
+        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+        this.selectionMap.set(field.id, 'NULL');
+        return rawExpression;
+      }
+
       // First check if this is a nested lookup field with its own CTE
       const nestedCteName = `cte_nested_lookup_${field.id}`;
       if (this.fieldCteMap.has(field.id) && this.fieldCteMap.get(field.id) === nestedCteName) {
@@ -233,6 +250,23 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
     // Rollup fields use the link field's CTE with pre-computed rollup values
     if (field.lookupOptions && this.fieldCteMap) {
+      // Check if the field has error (e.g., target field deleted)
+      if (field.hasError) {
+        // Field has error, return NULL to indicate this field should be null
+        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+        this.selectionMap.set(field.id, 'NULL');
+        return rawExpression;
+      }
+
+      // Check if the target lookup field exists in the context
+      const targetFieldExists = this.context?.fieldMap?.has(field.lookupOptions.lookupFieldId);
+      if (!targetFieldExists) {
+        // Target field has been deleted, return NULL to indicate this field should be null
+        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+        this.selectionMap.set(field.id, 'NULL');
+        return rawExpression;
+      }
+
       const { linkFieldId } = field.lookupOptions;
 
       // Check if we have a CTE for the link field
