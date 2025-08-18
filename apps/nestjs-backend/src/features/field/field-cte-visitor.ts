@@ -645,7 +645,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             options.relationship === Relationship.OneOne;
           const rollupAggregation = isSingleValueRelationship
             ? this.generateSingleValueRollupAggregation(rollupOptions.expression, fieldExpression3)
-            : this.generateRollupAggregation(rollupOptions.expression, fieldExpression3);
+            : this.generateRollupAggregation(
+                rollupOptions.expression,
+                fieldExpression3,
+                targetField
+              );
           selectColumns.push(qb.client.raw(`${rollupAggregation} as "rollup_${rollupField.id}"`));
         }
       }
@@ -761,7 +765,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   /**
    * Generate rollup aggregation expression based on rollup function
    */
-  private generateRollupAggregation(expression: string, fieldExpression: string): string {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private generateRollupAggregation(
+    expression: string,
+    fieldExpression: string,
+    targetField?: IFieldInstance
+  ): string {
     // Parse the rollup function from expression like 'sum({values})'
     const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
     if (!functionMatch) {
@@ -778,6 +787,21 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       case 'count':
         return castIfPg(`COUNT(${fieldExpression})`);
       case 'countall':
+        // For multiple select fields, count individual elements in JSON arrays
+        targetField?.isMultipleCellValue;
+        if (targetField?.type === FieldType.MultipleSelect) {
+          if (this.dbProvider.driver === DriverClient.Pg) {
+            // PostgreSQL: Sum the length of each JSON array
+            return castIfPg(
+              `SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN jsonb_array_length(${fieldExpression}::jsonb) ELSE 0 END)`
+            );
+          } else {
+            // SQLite: Sum the length of each JSON array
+            return castIfPg(
+              `SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN json_array_length(${fieldExpression}) ELSE 0 END)`
+            );
+          }
+        }
         return castIfPg(`COUNT(*)`);
       case 'counta':
         return castIfPg(`COUNT(${fieldExpression})`);

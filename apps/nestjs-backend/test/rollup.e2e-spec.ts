@@ -514,7 +514,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
       table2 = await createTable(baseId, {});
     });
 
-    it('should update multiple field when rollup  to a same a formula field', async () => {
+    it('should update multiple field when rollup  to sum a formula field', async () => {
       const numberField = await createField(table1.id, {
         type: FieldType.Number,
       });
