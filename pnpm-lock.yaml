@@ -1414,6 +1414,9 @@ importers:
         specifier: 3.23.8
         version: 3.23.8
     devDependencies:
+      '@ai-sdk/provider-utils':
+        specifier: 2.2.8
+        version: 2.2.8(zod@3.23.8)
       '@ai-sdk/ui-utils':
         specifier: 1.2.8
         version: 1.2.8(zod@3.23.8)

@@ -66,6 +66,10 @@ const NonMemoizedMarkdown = ({
         },
         p(props) {
           const { children } = props;
+          const content = String(children).trim();
+          if (content === 'EOF' || content === '"EOF"') {
+            return null;
+          }
           return (
             // eslint-disable-next-line tailwindcss/enforces-shorthand
             <p className="!mb-2 !mt-2">{children}</p>

@@ -39,6 +39,7 @@
     "zod": "3.23.8"
   },
   "devDependencies": {
+    "@ai-sdk/provider-utils": "2.2.8",
     "@ai-sdk/ui-utils": "1.2.8",
     "@teable/eslint-config-bases": "workspace:^",
     "@vitest/coverage-v8": "2.1.5",

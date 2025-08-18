@@ -1,4 +1,5 @@
-import type { Message } from '@ai-sdk/ui-utils';
+import type { ToolResult } from '@ai-sdk/provider-utils';
+import type { Message, ToolInvocation } from '@ai-sdk/ui-utils';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -21,6 +22,15 @@ export interface IChatMessage {
 export interface IChatMessageVo {
   messages: IChatMessage[];
 }
+
+export type IToolInvocationUIPart = {
+  type: 'tool-invocation';
+  /**
+   * The tool invocation.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  toolInvocation: ToolInvocation & ToolResult<string, any, any>;
+};
 
 export const getChatMessagesRoute = registerRoute({
   method: 'get',

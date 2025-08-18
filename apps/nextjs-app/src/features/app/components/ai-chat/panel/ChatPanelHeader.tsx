@@ -4,6 +4,7 @@ import { useTranslation } from 'next-i18next';
 import { useChatContext } from '../context/useChatContext';
 import { useActiveChat } from '../hooks/useActiveChat';
 import { useChatPanelStore } from '../store/useChatPanelStore';
+import { useChatStore } from '../store/useChatStore';
 import { ChatHistory } from './ChatHistory';
 
 export const ChatPanelHeader = ({ baseId }: { baseId: string }) => {
@@ -12,6 +13,7 @@ export const ChatPanelHeader = ({ baseId }: { baseId: string }) => {
   const { clearActiveChatId } = useChatContext();
   const { t } = useTranslation(['table']);
   const title = activeChat?.name ?? t('table:aiChat.newChat');
+  const { setMessages } = useChatStore();
 
   return (
     <div className="flex h-[42px] items-center border-b pl-2 align-middle">
@@ -27,7 +29,14 @@ export const ChatPanelHeader = ({ baseId }: { baseId: string }) => {
             <History className="size-4 font-normal" />
           </Button>
         </ChatHistory>
-        <Button variant="ghost" size="xs" onClick={closePanel}>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={() => {
+            closePanel();
+            setMessages([]);
+          }}
+        >
           <X className="size-4 font-normal" />
         </Button>
       </div>

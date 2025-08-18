@@ -1,4 +1,5 @@
 import type { IChatContext } from '@teable/openapi';
+import { noop } from 'lodash';
 import { useCallback, useState } from 'react';
 import { ChatContext } from './ChatContext';
 
@@ -25,6 +26,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         clearActiveChatId,
         context,
         setContext: updateContext,
+        addToolResult: noop,
       }}
     >
       {children}

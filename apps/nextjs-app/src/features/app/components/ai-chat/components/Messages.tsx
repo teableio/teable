@@ -1,6 +1,7 @@
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { isEqual } from 'lodash';
 import { useState, useCallback, useEffect, memo } from 'react';
+import { AiSuggestionControl } from './AiSuggestionControl';
 import { LoadingDot } from './LoadingDot';
 import { Message, MessageWrapper } from './Message';
 import type { IMessageMeta } from './types';
@@ -42,33 +43,37 @@ export const PureMessages = ({ messages, status, messageMetaMap }: IMessages) =>
   }, [messagesContainerRef]);
 
   return (
-    <div
-      className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-scroll px-4 py-8"
-      ref={messagesContainerRef}
-      onScroll={handleScroll}
-    >
-      {messages.map((message, i) => (
-        <Message
-          key={message.id}
-          message={message}
-          meta={messageMetaMap?.[message.id]}
-          isLoading={i === length - 1 && isStreaming}
-        />
-      ))}
-      {isLoadingAI && (
-        <MessageWrapper
-          message={{
-            id: 'thinking',
-            role: 'assistant',
-            content: 'Thinking...',
-            parts: [],
-          }}
-        >
-          <LoadingDot />
-        </MessageWrapper>
-      )}
-      <div ref={messagesEndRef} className="min-h-px min-w-[24px] shrink-0" />
-    </div>
+    <>
+      <div
+        className="relative flex min-w-0 flex-1 flex-col gap-4 overflow-y-scroll px-4 py-8"
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+      >
+        {messages.map((message, i) => (
+          <Message
+            key={message.id}
+            message={message}
+            meta={messageMetaMap?.[message.id]}
+            isLoading={i === length - 1 && isStreaming}
+          />
+        ))}
+        {isLoadingAI && (
+          <MessageWrapper
+            message={{
+              id: 'thinking',
+              role: 'assistant',
+              content: 'Thinking...',
+              parts: [],
+            }}
+          >
+            <LoadingDot />
+          </MessageWrapper>
+        )}
+        <div ref={messagesEndRef} className="min-h-px min-w-[24px] shrink-0" />
+      </div>
+
+      <AiSuggestionControl />
+    </>
   );
 };
 

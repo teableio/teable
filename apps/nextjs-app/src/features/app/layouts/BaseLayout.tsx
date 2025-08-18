@@ -11,6 +11,7 @@ import { WorkFlowPanelModal } from '../automation/workflow-panel/WorkFlowPanelMo
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
+import { ChatProvider } from '../components/ai-chat/context/ChatProvider';
 import { UsageLimitModal } from '../components/billing/UsageLimitModal';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
@@ -42,24 +43,26 @@ export const BaseLayout: React.FC<{
               <BaseProvider>
                 <BasePermissionListener />
                 <TableProvider serverData={tableServerData}>
-                  <div
-                    id="portal"
-                    className="relative flex h-screen w-full items-start"
-                    onContextMenu={(e) => e.preventDefault()}
-                  >
-                    <div className="flex h-screen w-full">
-                      <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
-                        <Fragment>
-                          <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
-                            <BaseSideBar />
-                          </div>
-                          <div className="grow basis-0" />
-                          <SideBarFooter />
-                        </Fragment>
-                      </Sidebar>
-                      <div className="min-w-80 flex-1">{children}</div>
+                  <ChatProvider>
+                    <div
+                      id="portal"
+                      className="relative flex h-screen w-full items-start"
+                      onContextMenu={(e) => e.preventDefault()}
+                    >
+                      <div className="flex h-screen w-full">
+                        <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
+                          <Fragment>
+                            <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                              <BaseSideBar />
+                            </div>
+                            <div className="grow basis-0" />
+                            <SideBarFooter />
+                          </Fragment>
+                        </Sidebar>
+                        <div className="min-w-80 flex-1">{children}</div>
+                      </div>
                     </div>
-                  </div>
+                  </ChatProvider>
                   <UsageLimitModal />
                   <WorkFlowPanelModal />
                 </TableProvider>

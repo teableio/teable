@@ -1,4 +1,5 @@
 import type { IChatContext } from '@teable/openapi';
+import { noop } from 'lodash';
 import { createContext } from 'react';
 
 export const ChatContext = createContext<{
@@ -7,6 +8,7 @@ export const ChatContext = createContext<{
   clearActiveChatId: () => void;
   context?: IChatContext;
   setContext: (context: IChatContext) => void;
+  addToolResult: (toolResult: { toolCallId: string; result: unknown }) => void;
 }>({
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   setContext: () => {},
@@ -14,4 +16,5 @@ export const ChatContext = createContext<{
   setActiveChatId: () => {},
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   clearActiveChatId: () => {},
+  addToolResult: noop,
 });

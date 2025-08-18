@@ -657,18 +657,46 @@
     "tool": {
       "getTableFields": "Get table fields",
       "getTablesMeta": "Get tables meta",
+      "getRecords": "Get records",
+      "getUpdateFieldsParams": "Get update fields params",
+      "getTableViews": "Get table views info",
       "sqlQuery": "Execute SQL query",
       "generateScriptAction": "Generate script action",
       "getScriptInput": "Get script input",
       "getTeableApi": "Get API",
+      "createFields": "Create fields",
+      "createRecords": "Create records",
+      "createTable": "Create table",
+      "createField": "Create field",
+      "createView": "Create view",
+      "runScripts": "Run scripts",
+      "updateTableName": "Update table name",
+      "updateViewName": "Update view name",
+      "updateField": "Update field",
+      "updateRecords": "Update records",
+      "deleteTable": "Delete table",
+      "deleteView": "Delete view",
+      "deleteField": "Delete field",
+      "deleteRecords": "Delete records",
       "args": "Arguments",
-      "result": "Result"
+      "result": "Result",
+      "tips": {
+        "title": "Tips",
+        "description": "Current view type does not support positioning, only grid view is supported"
+      }
+    },
+    "fallback": {
+      "previewLoadFailed": "Preview load failed, please try again later"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
       "collapseCode": "Collapse code",
       "code": "Code",
       "preview": "Preview"
+    },
+    "control": {
+      "undo": "Undo",
+      "redo": "Redo"
     },
     "newChat": "New Chat",
     "noModel": "No available models",
@@ -688,12 +716,12 @@
       "emptyContext": "No context to add"
     },
     "inputPlaceholder": "Send message...",
-    "thought": "Thinking",
     "meta": {
       "timeCostUnit": "s",
       "timeCostDescription": "Generation time: {{timeCost}}s",
       "creditDescription": "{{credits}} credits consumed",
       "tokenDescription": "Tokens used: {{tokens}}"
-    }
+    },
+    "thought": "Thinking"
   }
 }

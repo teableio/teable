@@ -1,8 +1,7 @@
 import type { UseChatHelpers } from '@ai-sdk/react';
-import { UserAvatar } from '@teable/sdk/components';
-import { useSession } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
-import { BotIcon } from 'lucide-react';
+import { TeableLogo } from '@/components/TeableLogo';
+import { useBrand } from '@/features/app/hooks/useBrand';
 import { LoadingDot } from './LoadingDot';
 import { ReasonMessagePart } from './message-part/ReasonMessagePart';
 import { TextMessagePart } from './message-part/TextMessagePart';
@@ -59,15 +58,17 @@ export const MessageWrapper = ({
   message,
   children,
 }: IMessage & { children: React.ReactNode | React.ReactNode[] }) => {
-  const { user } = useSession();
+  const { brandName } = useBrand();
+
   return (
     <div className="group/message" data-role={message.role}>
+      {message.role === 'assistant' && (
+        <div className="flex items-center gap-2 pb-1">
+          <TeableLogo className="size-4 text-black" />
+          <span className="text-sm font-medium">{brandName}</span>
+        </div>
+      )}
       <div className="flex gap-4 group-data-[role=user]/message:ml-14">
-        {message.role === 'assistant' && (
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-            <BotIcon className="size-4" />
-          </div>
-        )}
         <div
           className={cn('flex w-full overflow-hidden flex-col gap-4', {
             'w-fit ml-auto overflow-hidden rounded-xl !bg-muted px-3 py-2': message.role === 'user',
@@ -75,11 +76,6 @@ export const MessageWrapper = ({
         >
           {children}
         </div>
-        {message.role === 'user' && (
-          <div className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-            <UserAvatar name={user?.name} avatar={user?.avatar} />
-          </div>
-        )}
       </div>
     </div>
   );

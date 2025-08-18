@@ -62,7 +62,7 @@ export const MessageContext = () => {
             role="combobox"
             aria-expanded={open}
             size="xs"
-            className="h-6 justify-between gap-0.5 border border-zinc-200 bg-muted px-1.5 font-normal text-muted-foreground dark:border-zinc-700"
+            className="h-6 justify-between gap-0.5 border bg-slate-100 px-1.5 font-normal text-muted-foreground dark:border-zinc-700 dark:bg-zinc-700"
           >
             <span className="text-xs">@</span>
             {!context?.tables?.length && (

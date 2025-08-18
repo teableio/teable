@@ -1,22 +1,28 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createBase,
+  createBaseFromTemplate,
   createSpace,
+  createTable,
   createTemplate,
   createTemplateCategory,
   createTemplateSnapshot,
   deleteBase,
   deleteTemplate,
   deleteTemplateCategory,
+  getFields,
   getPublishedTemplateList,
+  getTableList,
   getTemplateCategoryList,
   getTemplateList,
   pinTopTemplate,
   updateTemplate,
   updateTemplateCategory,
 } from '@teable/openapi';
+import { omit } from 'lodash';
 import { deleteSpace, initApp } from './utils/init-app';
 
 describe('Template Open API Controller (e2e)', () => {
@@ -214,6 +220,112 @@ describe('Template Open API Controller (e2e)', () => {
       const res2 = await getTemplateCategoryList();
       expect(res2.status).toBe(200);
       expect(res2.data.length).toBe(0);
+    });
+  });
+
+  describe('Create Base From Template', () => {
+    let templateId: string;
+    let templateBaseId: string;
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      // create a template in a base
+      const templateBase = await createBase({
+        name: 'Template Base',
+        spaceId,
+      });
+      templateBaseId = templateBase.data.id;
+      table1 = (
+        await createTable(templateBaseId, {
+          name: 'table1',
+        })
+      ).data;
+
+      table2 = (
+        await createTable(templateBaseId, {
+          name: 'table2',
+        })
+      ).data;
+
+      // use this base to be a template
+      const template = await createTemplate({});
+      templateId = template.data.id;
+
+      await updateTemplate(template.data.id, {
+        name: 'test Template',
+        description: 'test Template description',
+        baseId: templateBaseId,
+      });
+
+      await createTemplateSnapshot(template.data.id);
+
+      await updateTemplate(template.data.id, {
+        isPublished: true,
+      });
+    });
+
+    afterEach(async () => {
+      await deleteBase(templateBaseId);
+    });
+
+    it('should create base from template', async () => {
+      const createBaseRes = (
+        await createBaseFromTemplate({
+          spaceId,
+          templateId,
+          withRecords: true,
+        })
+      ).data;
+      const createdBaseId = createBaseRes.id;
+      const tables = (await getTableList(createdBaseId)).data;
+      // table
+      expect(tables.length).toBe(2);
+      expect(tables[0].name).toBe('table1');
+      expect(tables[1].name).toBe('table2');
+      const table1Fields = (await getFields(tables[0].id)).data?.map((f) => omit(f, ['id']));
+      const table2Fields = (await getFields(tables[1].id)).data?.map((f) => omit(f, ['id']));
+
+      // fields
+      const originalTable1Fields = table1.fields.map((f) => omit(f, ['id']));
+      const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
+      expect(table1Fields).toEqual(originalTable1Fields);
+      expect(table2Fields).toEqual(originalTable2Fields);
+    });
+
+    it('should apply template to a base', async () => {
+      const applyBase = await createBase({
+        name: 'Apply Base',
+        spaceId,
+      });
+
+      // remain original base table
+      await createTable(applyBase.data.id, {
+        name: 'table3',
+      });
+
+      const createBaseRes = (
+        await createBaseFromTemplate({
+          spaceId,
+          templateId,
+          withRecords: true,
+          baseId: applyBase.data.id,
+        })
+      ).data;
+
+      const createdBaseId = createBaseRes.id;
+      const tables = (await getTableList(createdBaseId)).data;
+      // table
+      expect(tables.length).toBe(3);
+      expect(tables[1].name).toBe('table1');
+      expect(tables[2].name).toBe('table2');
+      const table1Fields = (await getFields(tables[1].id)).data?.map((f) => omit(f, ['id']));
+      const table2Fields = (await getFields(tables[2].id)).data?.map((f) => omit(f, ['id']));
+
+      // fields
+      const originalTable1Fields = table1.fields.map((f) => omit(f, ['id']));
+      const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
+      expect(table1Fields).toEqual(originalTable1Fields);
+      expect(table2Fields).toEqual(originalTable2Fields);
     });
   });
 });

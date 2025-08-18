@@ -104,6 +104,7 @@ export { default as Link } from './components/Link';
 export { default as ListChecks } from './components/ListChecks';
 export { default as ListOrdered } from './components/ListOrdered';
 export { default as Loader2 } from './components/Loader2';
+export { default as LocateFixed } from './components/LocateFixed';
 export { default as Lock } from './components/Lock';
 export { default as LongText } from './components/LongText';
 export { default as MagicAi } from './components/MagicAi';

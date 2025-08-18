@@ -657,18 +657,46 @@
     "tool": {
       "getTableFields": "获取表格字段",
       "getTablesMeta": "获取表格元数据",
+      "getRecords": "获取记录",
+      "getUpdateFieldsParams": "获取更新字段参数",
+      "getTableViews": "获取表格视图信息",
       "sqlQuery": "执行 SQL 查询",
       "generateScriptAction": "生成脚本",
       "getScriptInput": "获取脚本输入",
       "getTeableApi": "获取 API",
+      "createFields": "创建字段",
+      "createRecords": "创建记录",
+      "createTable": "创建表格",
+      "createView": "创建视图",
+      "createField": "创建字段",
+      "runScripts": "执行脚本",
+      "updateTableName": "更新表格名称",
+      "updateViewName": "更新视图名称",
+      "updateField": "更新字段",
+      "updateRecords": "更新记录",
+      "deleteTable": "删除表格",
+      "deleteView": "删除视图",
+      "deleteField": "删除字段",
+      "deleteRecords": "删除记录",
       "args": "参数",
-      "result": "结果"
+      "result": "结果",
+      "tips": {
+        "title": "提示",
+        "description": "当前视图类型不支持定位, 暂只支持表格视图"
+      }
+    },
+    "fallback": {
+      "previewLoadFailed": "预览加载失败，请稍后重试"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
       "collapseCode": "收起代码",
       "code": "代码",
       "preview": "预览"
+    },
+    "control": {
+      "undo": "撤销",
+      "redo": "重做"
     },
     "newChat": "新对话",
     "noModel": "暂无可用模型",
@@ -688,12 +716,12 @@
       "emptyContext": "暂无可添加的上下文"
     },
     "inputPlaceholder": "发送消息...",
-    "thought": "深度思考",
     "meta": {
       "timeCostUnit": "秒",
       "timeCostDescription": "生成耗时{{timeCost}}秒",
       "creditDescription": "消耗{{credits}}算力",
       "tokenDescription": "本次消耗：{{tokens}} tokens"
-    }
+    },
+    "thought": "深度思考"
   }
 }

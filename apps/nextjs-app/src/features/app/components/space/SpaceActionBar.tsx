@@ -1,16 +1,18 @@
-import { hasPermission } from '@teable/core';
+import { useMutation } from '@tanstack/react-query';
+import { hasPermission, getUniqName } from '@teable/core';
 import { MoreHorizontal, UserPlus } from '@teable/icons';
-import type { IGetSpaceVo } from '@teable/openapi';
+import { createBase, type IGetSpaceVo } from '@teable/openapi';
 import type { ButtonProps } from '@teable/ui-lib';
-import { Button } from '@teable/ui-lib';
+import { Button, Spin } from '@teable/ui-lib';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { UploadPanelDialog } from '../../blocks/space/component/upload-panel';
+import { useBaseList } from '../../blocks/space/useBaseList';
 import { SpaceCollaboratorModalTrigger } from '../collaborator-manage/space/SpaceCollaboratorModalTrigger';
-import { CreateBaseModalTrigger } from './CreateBaseModal';
 
 interface ActionBarProps {
   space: IGetSpaceVo;
@@ -37,14 +39,35 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
+  const router = useRouter();
+
+  const allBases = useBaseList();
+  const bases = allBases?.filter((base) => base.spaceId === space.id);
+
+  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+    mutationFn: createBase,
+    onSuccess: ({ data }) => {
+      router.push({
+        pathname: '/base/[baseId]',
+        query: { baseId: data.id },
+      });
+    },
+  });
+
   return (
     <div className={className}>
       {hasPermission(space.role, 'base|create') && (
-        <CreateBaseModalTrigger spaceId={space.id}>
-          <Button className={GUIDE_CREATE_BASE} size={buttonSize}>
-            {t('space:action.createBase')}
-          </Button>
-        </CreateBaseModalTrigger>
+        <Button
+          className={GUIDE_CREATE_BASE}
+          size={buttonSize}
+          onClick={() => {
+            const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
+            createBaseMutator({ spaceId: space.id, name });
+          }}
+        >
+          {t('space:action.createBase')}
+          {createBaseLoading && <Spin />}
+        </Button>
       )}
       {!disallowSpaceInvitation && (
         <SpaceCollaboratorModalTrigger space={space}>
