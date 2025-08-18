@@ -166,7 +166,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     fieldCteMap?: Map<string, string>,
     mainTableAlias?: string
   ): IRecordSelectionMap {
-    const visitor = new FieldSelectVisitor(qb, this.dbProvider, context, fieldCteMap);
+    const visitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      context,
+      fieldCteMap,
+      mainTableAlias
+    );
 
     // Add default system fields with table alias
     if (mainTableAlias) {
