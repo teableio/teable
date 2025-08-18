@@ -32,6 +32,9 @@
     "click": "点击",
     "clickedCount": "{{label}}: 已点击 {{text}} 次"
   },
+  "notification": {
+    "title": "通知"
+  },
   "noun": {
     "table": "表格",
     "view": "视图",

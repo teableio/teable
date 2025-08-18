@@ -32,6 +32,9 @@
     "click": "Clic",
     "clickedCount": "{{label}}: Clicado {{text}} veces"
   },
+  "notification": {
+    "title": "Notificación"
+  },
   "preview": {
     "previewFileLimit": "Límite de tamaño para vista previa: {{size}}MB, por favor descarga para ver.",
     "loadFileError": "Error al cargar el archivo"

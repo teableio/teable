@@ -32,6 +32,9 @@
     "click": "Tıkla",
     "clickedCount": "{{label}}: Tıklanma sayısı {{text}}"
   },
+  "notification": {
+    "title": "Bildirim"
+  },
   "preview": {
     "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
     "loadFileError": "Dosya yüklenemedi"

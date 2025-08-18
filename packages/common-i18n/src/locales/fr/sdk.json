@@ -32,6 +32,9 @@
     "click": "Cliquer",
     "clickedCount": "{{label}}: Cliquer {{text}} fois"
   },
+  "notification": {
+    "title": "Notification"
+  },
   "preview": {
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
     "loadFileError": "Échec du chargement du fichier"

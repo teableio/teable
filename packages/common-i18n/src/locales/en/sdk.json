@@ -32,6 +32,9 @@
     "click": "Click",
     "clickedCount": "{{label}}: Clicked {{text}} times"
   },
+  "notification": {
+    "title": "Notification"
+  },
   "preview": {
     "previewFileLimit": "Preview file size limit: {{size}}MB, please download to view instead.",
     "loadFileError": "Failed to load file"

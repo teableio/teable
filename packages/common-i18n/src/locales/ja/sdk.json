@@ -32,6 +32,9 @@
     "click": "クリック",
     "clickedCount": "{{label}}: クリック {{text}} 回"
   },
+  "notification": {
+    "title": "通知"
+  },
   "preview": {
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
     "loadFileError": "ファイルの読み込みに失敗しました"

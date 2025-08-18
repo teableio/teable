@@ -32,6 +32,9 @@
     "click": "Klicken",
     "clickedCount": "{{label}}: Klickt {{text}} mal"
   },
+  "notification": {
+    "title": "Benachrichtigung"
+  },
   "preview": {
     "previewFileLimit": "Größenbeschränkung der Vorschaudatei: {{size}}MB, bitte laden Sie die Datei herunter, um sie anzusehen.",
     "loadFileError": "Datei konnte nicht geladen werden"
