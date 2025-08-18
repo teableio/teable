@@ -558,7 +558,8 @@ export class FieldService implements IReadonlyAdapterService {
             : matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
         }
 
-        if (key === 'notNull') {
+        // TODO: add to db provider
+        if (key === 'notNull' && type !== FieldType.Link) {
           newValue ? table.dropNullable(dbFieldName) : table.setNullable(dbFieldName);
         }
       })
