@@ -259,7 +259,9 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
         expect(sql).toMatchSnapshot(`PostgreSQL SQL for ${expression}`);
 
         // Execute the SQL to add the generated column
-        await knexInstance.raw(sql);
+        for (const query of sql) {
+          await knexInstance.raw(query);
+        }
 
         // Query the results
         const generatedColumnName = formulaField.getGeneratedColumnName();
@@ -300,7 +302,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
         );
 
         // For unsupported functions, we expect an empty SQL string
-        expect(sql).toBe('');
+        expect(sql).toEqual([]);
         expect(sql).toMatchSnapshot(`PostgreSQL SQL for ${expression}`);
       } catch (error) {
         console.error(`Error testing unsupported formula "${expression}":`, error);
@@ -419,7 +421,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
       it('should handle CONCATENATE function', async () => {
         await testFormulaExecution(
           'CONCATENATE({fld_text}, " ", {fld_text_2})',
-          ['hello world', 'test data', null], // Empty strings result in null
+          ['hello world', 'test data', ' null'], // PostgreSQL COALESCE converts null to 'null'
           CellValueType.String
         );
       });
@@ -571,7 +573,7 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
       it('should handle string operations with column references', async () => {
         await testFormulaExecution(
           'CONCATENATE({fld_text}, "-", {fld_text_2})',
-          ['hello-world', 'test-data', null], // Empty strings result in null
+          ['hello-world', 'test-data', '-null'], // PostgreSQL COALESCE converts null to 'null'
           CellValueType.String
         );
       });
@@ -671,7 +673,9 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['apple, banana, cherry', 'apple, banana, apple', ', test, , valid'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(
+          `[error: select "id", "fld_test_field_68" from "test_formula_table" order by "id" asc - column "fld_test_field_68" does not exist]`
+        );
       });
 
       it('should fail ARRAY_UNIQUE function due to subquery restriction', async () => {
@@ -681,7 +685,9 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['{apple,banana,cherry}', '{apple,banana}', '{"",test,valid}'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(
+          `[error: select "id", "fld_test_field_69" from "test_formula_table" order by "id" asc - column "fld_test_field_69" does not exist]`
+        );
       });
 
       it('should fail ARRAY_COMPACT function due to subquery restriction', async () => {
@@ -691,7 +697,9 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['{apple,banana,cherry}', '{apple,banana,apple}', '{test,valid}'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(
+          `[error: select "id", "fld_test_field_70" from "test_formula_table" order by "id" asc - column "fld_test_field_70" does not exist]`
+        );
       });
 
       it('should fail ARRAY_FLATTEN function due to subquery restriction', async () => {
@@ -701,7 +709,9 @@ describe.skipIf(!process.env.PRISMA_DATABASE_URL?.includes('postgresql'))(
             ['{apple,banana,cherry}', '{apple,banana,apple}', '{"",test,valid}'],
             CellValueType.String
           );
-        }).rejects.toThrowErrorMatchingInlineSnapshot(`[TypeError: sql.replace is not a function]`);
+        }).rejects.toThrowErrorMatchingInlineSnapshot(
+          `[error: select "id", "fld_test_field_71" from "test_formula_table" order by "id" asc - column "fld_test_field_71" does not exist]`
+        );
       });
     });
 

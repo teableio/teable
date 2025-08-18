@@ -586,3 +586,39 @@ exports[`SQLite Provider Formula Integration Tests > System Functions > should h
   "alter table \`test_formula_table\` add column \`fld_test_field_85\` REAL GENERATED ALWAYS AS (NULL) VIRTUAL",
 ]
 `;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_COMPACT({fld_array})' > SQLite SQL for ARRAY_COMPACT({fld_array}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_JOIN({fld_array})' > SQLite SQL for ARRAY_JOIN({fld_array}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'ARRAY_UNIQUE({fld_array})' > SQLite SQL for ARRAY_UNIQUE({fld_array}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DATETIME_PARSE("2024-01-10 08:00:00",…' > SQLite SQL for DATETIME_PARSE("2024-01-10 08:00:00", "YYYY-MM-DD HH:mm:ss") 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DAY({fld_date})' > SQLite SQL for DAY({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'DAY(TODAY())' > SQLite SQL for DAY(TODAY()) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'EXP(1)' > SQLite SQL for EXP(1) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'HOUR({fld_date})' > SQLite SQL for HOUR({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'LOG(10)' > SQLite SQL for LOG(10) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'MINUTE({fld_date})' > SQLite SQL for MINUTE({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'MONTH({fld_date})' > SQLite SQL for MONTH({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'MONTH(TODAY())' > SQLite SQL for MONTH(TODAY()) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'REPT("hi", 3)' > SQLite SQL for REPT("hi", 3) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'SECOND({fld_date})' > SQLite SQL for SECOND({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'TEXT_ALL({fld_number})' > SQLite SQL for TEXT_ALL({fld_number}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'WEEKDAY({fld_date})' > SQLite SQL for WEEKDAY({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'YEAR({fld_date})' > SQLite SQL for YEAR({fld_date}) 1`] = `[]`;
+
+exports[`SQLite Provider Formula Integration Tests > Unsupported Functions > should return empty SQL for 'YEAR(TODAY())' > SQLite SQL for YEAR(TODAY()) 1`] = `[]`;
