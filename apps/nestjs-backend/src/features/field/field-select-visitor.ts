@@ -57,15 +57,33 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   /**
+   * Generate column select with alias
+   *
+   *   If tableAlias is provided, returns a Raw expression with the alias applied
+   *   Otherwise, returns the column name as string
+   *
+   * @example
+   *   generateColumnSelectWithAlias('name') // returns 'name'
+   *   generateColumnSelectWithAlias('name', 't1') // returns Raw expression `t1.name as name`
+   *
+   * @param name  column name
+   * @returns String column name with table alias or Raw expression
+   */
+  private generateColumnSelectWithAlias(name: string): IFieldSelectName {
+    const alias = this.tableAlias;
+    if (!alias) {
+      return name;
+    }
+    return this.qb.client.raw(`??."${name}"`, [alias]);
+  }
+
+  /**
    * Returns the appropriate column selector for a field
    * @param field The field to get the selector for
    * @returns String column name with table alias or Raw expression
    */
-  private getColumnSelector(field: { dbFieldName: string }): string {
-    if (this.tableAlias) {
-      return this.qb.client.raw(`??."${field.dbFieldName}"`, [this.tableAlias]);
-    }
-    return field.dbFieldName;
+  private getColumnSelector(field: { dbFieldName: string }): IFieldSelectName {
+    return this.generateColumnSelectWithAlias(field.dbFieldName);
   }
 
   /**
@@ -147,14 +165,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
       // For generated columns, use table alias if provided
       const columnName = field.getGeneratedColumnName();
-      const columnSelector = this.tableAlias ? `${this.tableAlias}."${columnName}"` : columnName;
+      const columnSelector = this.generateColumnSelectWithAlias(columnName);
       this.selectionMap.set(field.id, columnSelector);
       return columnSelector;
     }
     // For lookup formula fields, use table alias if provided
-    const lookupSelector = this.tableAlias
-      ? `${this.tableAlias}."${field.dbFieldName}"`
-      : field.dbFieldName;
+    const lookupSelector = this.generateColumnSelectWithAlias(field.dbFieldName);
     this.selectionMap.set(field.id, lookupSelector);
     return lookupSelector;
   }
