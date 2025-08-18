@@ -35,6 +35,6 @@ export const TestMailTransportConfigRoute: RouteConfig = registerRoute({
   tags: ['mail'],
 });
 
-export const testMailTransportConfig = async (ro: ITestMailTransportConfigRo): Promise<void> => {
-  return await axios.post(TEST_MAIL_TRANSPORT_CONFIG, ro);
+export const testMailTransportConfig = async (ro: ITestMailTransportConfigRo) => {
+  return await axios.post<void>(TEST_MAIL_TRANSPORT_CONFIG, ro);
 };

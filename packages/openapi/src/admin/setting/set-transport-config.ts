@@ -54,8 +54,6 @@ export const SetSettingMailTransportConfigRoute: RouteConfig = registerRoute({
   tags: ['admin', 'setting'],
 });
 
-export const setSettingMailTransportConfig = async (
-  ro: ISetSettingMailTransportConfigRo
-): Promise<ISetSettingMailTransportConfigVo> => {
-  return await axios.put(SET_SETTING_MAIL_TRANSPORT_CONFIG, ro);
+export const setSettingMailTransportConfig = async (ro: ISetSettingMailTransportConfigRo) => {
+  return await axios.put<ISetSettingMailTransportConfigVo>(SET_SETTING_MAIL_TRANSPORT_CONFIG, ro);
 };

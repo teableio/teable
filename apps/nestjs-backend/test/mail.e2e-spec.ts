@@ -57,8 +57,6 @@ describe.skip('Mail sender  (e2e)', () => {
   });
 
   it('should send mail by transport config', async () => {
-    const mailSenderService = app.get(MailSenderService);
-
     const commonEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
     const mailOptions = {
       transporterName: MailTransporterType.Notify,
@@ -79,13 +77,22 @@ describe.skip('Mail sender  (e2e)', () => {
     };
 
     const setRes = await setSettingMailTransportConfig(ro);
-    expect(setRes).toMatchObject(ro);
+    expect(setRes.data).toMatchObject({
+      ...ro,
+      transportConfig: {
+        ...ro.transportConfig,
+        auth: {
+          ...ro.transportConfig.auth,
+          pass: '',
+        },
+      },
+    });
 
     const commonEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
     const mailOptions = {
+      ...commonEmailOptions,
       transporterName: MailTransporterType.Notify,
       to: mockMailTo,
-      ...commonEmailOptions,
     };
     const sendRes = await mailSenderService.sendMail(mailOptions);
     expect(sendRes).toBe(true);
@@ -94,9 +101,9 @@ describe.skip('Mail sender  (e2e)', () => {
   it('should send notify merge mail', async () => {
     const htmlEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
     const mailOptions1 = {
+      ...htmlEmailOptions,
       transporterName: MailTransporterType.Notify,
       to: mockMailTo,
-      ...htmlEmailOptions,
     };
     const promises = [];
     const promise1 = mailSenderService.sendMail(mailOptions1, {
@@ -106,9 +113,9 @@ describe.skip('Mail sender  (e2e)', () => {
     promises.push(promise1);
     const commonEmailOptions = await mailSenderService.commonEmailOptions(mockMailOptions());
     const mailOptions2 = {
+      ...commonEmailOptions,
       transporterName: MailTransporterType.Notify,
       to: mockMailTo,
-      ...commonEmailOptions,
     };
     const promise2 = mailSenderService.sendMail(mailOptions2, {
       transporterName: MailTransporterType.Notify,
@@ -120,9 +127,9 @@ describe.skip('Mail sender  (e2e)', () => {
       message: 'code: 123456',
     });
     const mailOptions3 = {
+      ...emailVerifyCodeEmailOptions,
       transporterName: MailTransporterType.Notify,
       to: mockMailTo,
-      ...emailVerifyCodeEmailOptions,
     };
     const promise3 = mailSenderService.sendMail(mailOptions3, {
       transporterName: MailTransporterType.Notify,

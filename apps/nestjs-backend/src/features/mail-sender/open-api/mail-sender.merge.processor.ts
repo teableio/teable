@@ -2,7 +2,6 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import { MailTransporterType, MailType } from '@teable/openapi';
 import { type Job, type Queue } from 'bullmq';
 import dayjs from 'dayjs';
@@ -10,6 +9,7 @@ import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
 import { Events } from '../../../event-emitter/events';
 import { SettingOpenApiService } from '../../setting/open-api/setting-open-api.service';
+import { type ISendMailOptions } from '../mail-helpers';
 import { MailSenderService } from '../mail-sender.service';
 
 export const MAIL_SENDER_QUEUE = 'mailSenderQueue';

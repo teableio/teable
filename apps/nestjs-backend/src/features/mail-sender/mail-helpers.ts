@@ -1,7 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
+import type { ISendMailOptions as NestjsSendMailOptions } from '@nestjs-modules/mailer';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
+
+export type ISendMailOptions = NestjsSendMailOptions & { senderName?: string };
 
 export const helpers = (config: ConfigService) => {
   const publicOrigin = config.get<string>('PUBLIC_ORIGIN');

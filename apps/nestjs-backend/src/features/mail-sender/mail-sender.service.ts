@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { MailType, CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
@@ -8,7 +7,7 @@ import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
-import { buildEmailFrom } from './mail-helpers';
+import { buildEmailFrom, type ISendMailOptions } from './mail-helpers';
 
 @Injectable()
 export class MailSenderService {
@@ -44,10 +43,9 @@ export class MailSenderService {
 
   async sendMailByConfig(mailOptions: ISendMailOptions, config: IMailTransportConfig) {
     const instance = await this.createTransporter(config);
-    let from = mailOptions.from;
-    if (!from) {
-      from = buildEmailFrom(config.sender, config.senderName);
-    }
+    const from =
+      mailOptions.from ??
+      buildEmailFrom(config.sender, mailOptions.senderName ?? config.senderName);
     return instance.sendMail({ ...mailOptions, from });
   }
 
@@ -73,7 +71,7 @@ export class MailSenderService {
     return config;
   }
 
-  async notifyMergeOptions(list: (ISendMailOptions & { mailType: MailType })[], brandName: string) {
+  async notifyMergeOptions(list: ISendMailOptions & { mailType: MailType }[], brandName: string) {
     return {
       subject: `Notify - ${brandName}`,
       template: 'normal',
@@ -104,7 +102,7 @@ export class MailSenderService {
   }
 
   async sendMail(
-    mailOptions: ISendMailOptions & { senderName?: string },
+    mailOptions: ISendMailOptions,
     extra?: {
       shouldThrow?: boolean;
       type?: MailType;
@@ -119,10 +117,13 @@ export class MailSenderService {
     } else if (transporterName) {
       sender = this.sendMailByTransporterName(mailOptions, transporterName, type).then(() => true);
     } else {
-      let from = mailOptions.from;
-      if (!from && mailOptions.senderName) {
-        from = buildEmailFrom(this.mailConfig.sender, mailOptions.senderName);
-      }
+      const from =
+        mailOptions.from ??
+        buildEmailFrom(
+          this.mailConfig.sender,
+          mailOptions.senderName ?? this.mailConfig.senderName
+        );
+
       sender = this.mailService.sendMail({ ...mailOptions, from }).then(() => true);
     }
 
