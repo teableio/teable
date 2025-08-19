@@ -20,8 +20,8 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 export const MailConfigForm = (props: {
-  value?: IMailTransportConfig | null;
-  onChange: (value?: IMailTransportConfig | null) => void;
+  value?: IMailTransportConfig;
+  onChange: (value?: IMailTransportConfig) => void;
 }) => {
   const { t } = useTranslation('common');
   const { onChange } = props;

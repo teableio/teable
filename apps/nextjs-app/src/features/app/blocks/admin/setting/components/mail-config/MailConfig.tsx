@@ -22,17 +22,17 @@ import { MailConfigForm } from './MailConfigForm';
 
 export const MailConfigDialog = (props: {
   name: SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG | SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG;
-  emailConfig?: IMailTransportConfig | null;
+  emailConfig?: IMailTransportConfig;
 }) => {
   const { t } = useTranslation('common');
 
   const [open, setOpen] = useState(false);
-  const [emailConfig, setEmailConfig] = useState<IMailTransportConfig | null | undefined>(
-    props.emailConfig ?? null
+  const [emailConfig, setEmailConfig] = useState<IMailTransportConfig | undefined>(
+    props.emailConfig
   );
 
   useEffect(() => {
-    setEmailConfig(props.emailConfig ?? null);
+    setEmailConfig(props.emailConfig);
   }, [props.emailConfig]);
 
   const { mutateAsync: updateEmailConfig } = useMutation({
