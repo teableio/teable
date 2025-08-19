@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Relationship } from '@teable/core';
 import type {
   AttachmentFieldCore,
@@ -87,7 +88,7 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
       return this.context.knex.schema.dropTableIfExists(tableName).toSQL()[0].sql;
     };
 
-    // Helper function to drop column with index
+    // Helper function to drop column with index and order column
     const dropColumn = (tableName: string, columnName: string): string[] => {
       const dropQueries: string[] = [];
 
@@ -96,10 +97,20 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
         this.context.knex.raw('DROP INDEX IF EXISTS ??', [`index_${columnName}`]).toQuery()
       );
 
-      // Drop column
+      // Drop main column
       dropQueries.push(
         this.context.knex
           .raw('ALTER TABLE ?? DROP COLUMN IF EXISTS ?? CASCADE', [tableName, columnName])
+          .toQuery()
+      );
+
+      // Drop order column if it exists
+      dropQueries.push(
+        this.context.knex
+          .raw('ALTER TABLE ?? DROP COLUMN IF EXISTS ?? CASCADE', [
+            tableName,
+            `${columnName}_order`,
+          ])
           .toQuery()
       );
 
@@ -115,12 +126,13 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
       queries.push(...dropColumn(fkHostTableName, foreignKeyName));
     }
 
-    if (
-      relationship === Relationship.OneMany &&
-      isOneWay &&
-      fkHostTableName.includes('junction_')
-    ) {
-      queries.push(dropTable(fkHostTableName));
+    if (relationship === Relationship.OneMany) {
+      if (isOneWay && fkHostTableName.includes('junction_')) {
+        queries.push(dropTable(fkHostTableName));
+      } else if (!isOneWay) {
+        // For non-one-way OneMany relationships, drop the selfKeyName column and its order column
+        queries.push(...dropColumn(fkHostTableName, selfKeyName));
+      }
     }
 
     if (relationship === Relationship.OneOne) {

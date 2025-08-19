@@ -22,7 +22,7 @@ import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { keyBy, sortBy } from 'lodash';
+import { keyBy, sortBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
@@ -578,7 +578,9 @@ export class FieldService implements IReadonlyAdapterService {
     if (!field) {
       throw new NotFoundException(`field ${fieldId} in table ${tableId} not found`);
     }
-    return rawField2FieldObj(field);
+    const fieldVo = rawField2FieldObj(field);
+    // Filter out meta field to prevent it from being sent to frontend
+    return omit(fieldVo, ['meta']) as IFieldVo;
   }
 
   async getFieldsByQuery(tableId: string, query?: IGetFieldsQuery): Promise<IFieldVo[]> {
@@ -606,7 +608,7 @@ export class FieldService implements IReadonlyAdapterService {
     if (query?.projection) {
       const fieldIds = query.projection;
       const fieldMap = keyBy(result, 'id');
-      return fieldIds.map((fieldId) => fieldMap[fieldId]).filter(Boolean);
+      result = fieldIds.map((fieldId) => fieldMap[fieldId]).filter(Boolean);
     }
 
     /**
@@ -636,7 +638,8 @@ export class FieldService implements IReadonlyAdapterService {
       });
     }
 
-    return result;
+    // Filter out meta field to prevent it from being sent to frontend
+    return result.map((field) => omit(field, ['meta']) as IFieldVo);
   }
 
   async getFieldInstances(tableId: string, query: IGetFieldsQuery): Promise<IFieldInstance[]> {
@@ -981,7 +984,8 @@ export class FieldService implements IReadonlyAdapterService {
           id: fieldRaw.id,
           v: fieldRaw.version,
           type: 'json0',
-          data: fields[i],
+          // Filter out meta field to prevent it from being sent to frontend
+          data: omit(fields[i], ['meta']) as IFieldVo,
         };
       })
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
