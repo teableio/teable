@@ -761,7 +761,6 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldsRawMap = keyBy(fieldRaw, 'id');
     const fieldMap = new Map(fields.map((field) => [field.id, field]));
 
-    // console.log('opData', JSON.stringify(opData, null, 2));
     for (const { fieldId, ops } of opData) {
       const field = fieldMap.get(fieldId);
       if (!field) {

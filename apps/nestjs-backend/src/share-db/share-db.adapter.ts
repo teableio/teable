@@ -14,6 +14,7 @@ import {
   TableOpBuilder,
 } from '@teable/core';
 import type { ITableVo } from '@teable/openapi';
+import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
@@ -259,7 +260,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       });
     }
     const { cookie, shareId } = this.getCookieAndShareId(options);
-    return await this.cls.runWith(
+    const snapshots = await this.cls.runWith(
       {
         ...this.cls.get(),
         cookie,
@@ -271,6 +272,16 @@ export class ShareDbAdapter extends ShareDb.DB {
         ]);
       }
     );
+
+    // Filter out meta field for Field type to prevent it from being sent to frontend
+    if (docType === IdPrefix.Field) {
+      return snapshots.map((snapshot) => ({
+        ...snapshot,
+        data: omit(snapshot.data as object, ['meta']),
+      }));
+    }
+
+    return snapshots;
   }
 
   // Get operations between [from, to) non-inclusively. (Ie, the range should
