@@ -616,6 +616,7 @@
     "automationRequiresUpgrade": "升级到企业版以启用自动化",
     "authorityMatrixRequiresUpgrade": "升级到企业版以启用权限矩阵",
     "viewPricing": "查看定价",
+    "billable": "计费",
     "spaceSubscriptionModal": {
       "title": "升级空间站的订阅计划",
       "description": "您只能升级具有「可管理」权限的空间站"

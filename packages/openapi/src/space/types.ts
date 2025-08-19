@@ -21,6 +21,7 @@ export const userCollaboratorItem = z.object({
   type: z.literal(PrincipalType.User),
   resourceType: z.nativeEnum(CollaboratorType),
   isSystem: z.boolean().optional(),
+  billable: z.boolean().optional(),
   base: z
     .object({
       id: z.string(),

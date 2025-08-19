@@ -29,7 +29,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
   }
 
   return (
-    <div className="overflow-y-auto">
+    <div className="flex grow flex-col overflow-hidden">
       <div className="pb-2 text-sm text-muted-foreground">
         <Trans
           ns="common"
@@ -38,7 +38,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
           components={{ b: <b /> }}
         />
       </div>
-      <div className="space-y-8">
+      <div className="flex grow flex-col space-y-8 overflow-hidden">
         <SpaceInvite spaceId={spaceId} role={role} />
         {hasPermission(role, 'space|invite_link') && (
           <SpaceInviteLink spaceId={spaceId} role={role} />
@@ -55,7 +55,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
             }}
           />
         )}
-        <div className="w-full">
+        <div className="flex grow flex-col overflow-hidden">
           <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
           <Collaborators spaceId={spaceId} role={role} />
         </div>
