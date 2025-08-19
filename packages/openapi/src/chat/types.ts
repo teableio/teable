@@ -63,7 +63,7 @@ export enum AgentInvocationName {
   BuildScriptAction = 'build-script-action-agent',
 
   // app relative
-  BuildApp = 'build-code-agent',
+  BuildApp = 'build-app-agent',
 }
 
 export type IDataVisualizationDataStream = {
