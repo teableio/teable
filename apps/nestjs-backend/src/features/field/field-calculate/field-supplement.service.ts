@@ -1437,6 +1437,13 @@ export class FieldSupplementService {
       for (const sql of sqls) {
         await this.prismaService.txClient().$executeRawUnsafe(sql);
       }
+
+      // TODO: move to db provider
+      const dropOrder = this.knex
+        .raw(`ALTER TABLE ?? DROP COLUMN IF EXISTS ??`, [tableName, columnName + '_order'])
+        .toQuery();
+
+      await this.prismaService.txClient().$executeRawUnsafe(dropOrder);
     };
 
     if (relationship === Relationship.ManyMany && fkHostTableName.includes('junction_')) {
