@@ -25,6 +25,7 @@ import {
   ITestLLMRo,
   setSettingMailTransportConfigRoSchema,
   ISetSettingMailTransportConfigRo,
+  SettingKey,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -50,7 +51,16 @@ export class SettingOpenApiController {
   @Public()
   @Get('public')
   async getPublicSetting(): Promise<IPublicSettingVo> {
-    const setting = await this.settingOpenApiService.getSetting();
+    const setting = await this.settingOpenApiService.getSetting([
+      SettingKey.INSTANCE_ID,
+      SettingKey.BRAND_NAME,
+      SettingKey.BRAND_LOGO,
+      SettingKey.DISALLOW_SIGN_UP,
+      SettingKey.DISALLOW_SPACE_CREATION,
+      SettingKey.DISALLOW_SPACE_INVITATION,
+      SettingKey.ENABLE_EMAIL_VERIFICATION,
+      SettingKey.AI_CONFIG,
+    ]);
     const { aiConfig, ...rest } = setting;
     return {
       ...rest,
