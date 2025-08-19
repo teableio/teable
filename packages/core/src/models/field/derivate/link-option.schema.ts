@@ -46,6 +46,15 @@ export const linkFieldOptionsSchema = z
 
 export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
+export const linkFieldMetaSchema = z.object({
+  hasOrderColumn: z.boolean().optional().default(false).openapi({
+    description:
+      'Whether this link field has an order column for maintaining insertion order. When true, the field uses a separate order column to preserve the order of linked records.',
+  }),
+});
+
+export type ILinkFieldMeta = z.infer<typeof linkFieldMetaSchema>;
+
 export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
   .pick({
     baseId: true,

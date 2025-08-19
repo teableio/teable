@@ -25,7 +25,11 @@ import {
   lastModifiedTimeFieldOptionsRoSchema,
   lastModifiedTimeFieldOptionsSchema,
 } from './derivate/last-modified-time-option.schema';
-import { linkFieldOptionsRoSchema, linkFieldOptionsSchema } from './derivate/link-option.schema';
+import {
+  linkFieldOptionsRoSchema,
+  linkFieldOptionsSchema,
+  linkFieldMetaSchema,
+} from './derivate/link-option.schema';
 import {
   numberFieldOptionsRoSchema,
   numberFieldOptionsSchema,
@@ -83,7 +87,9 @@ export const unionFieldOptionsRoSchema = z.union([
 ]);
 
 // Union field meta schema
-export const unionFieldMetaVoSchema = formulaFieldMetaSchema.optional();
+export const unionFieldMetaVoSchema = z
+  .union([formulaFieldMetaSchema, linkFieldMetaSchema])
+  .optional();
 
 // Type definitions
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;

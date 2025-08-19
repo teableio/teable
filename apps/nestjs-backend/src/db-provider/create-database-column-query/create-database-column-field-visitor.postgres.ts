@@ -26,6 +26,7 @@ import type {
 import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
 import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
+import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 import { SchemaType } from '../../features/field/util';
 import { GeneratedColumnQuerySupportValidatorPostgres } from '../generated-column-query/postgres/generated-column-query-support-validator.postgres';
 import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
@@ -256,7 +257,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
           .references('__id')
           .inTable(foreignDbTableName)
           .withKeyName(`fk_${foreignKeyName}`);
+        // Add order column for maintaining insertion order
+        table.integer(`${foreignKeyName}_order`).nullable();
       });
+      // Set metadata to indicate this field has order column
+      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
     }
 
     if (relationship === Relationship.OneMany) {
@@ -280,7 +285,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
             .references('__id')
             .inTable(dbTableName)
             .withKeyName(`fk_${selfKeyName}`);
+          // Add order column for maintaining insertion order
+          table.integer(`${selfKeyName}_order`).nullable();
         });
+        // Set metadata to indicate this field has order column
+        (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
       }
     }
 
@@ -294,7 +303,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
         table.unique([foreignKeyName], {
           indexName: `index_${foreignKeyName}`,
         });
+        // Add order column for maintaining insertion order
+        table.integer(`${foreignKeyName}_order`).nullable();
       });
+      // Set metadata to indicate this field has order column
+      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
     }
 
     if (!alterTableSchema) {

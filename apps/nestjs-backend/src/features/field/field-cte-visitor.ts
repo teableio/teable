@@ -30,6 +30,7 @@ import { FieldType, DriverClient, Relationship, NumberFormattingType } from '@te
 import type { Knex } from 'knex';
 import { match, P } from 'ts-pattern';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 
 import { FieldSelectVisitor } from './field-select-visitor';
 import type { IFieldInstance } from './model/factory';
@@ -244,11 +245,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
    * Generate JSON aggregation function for Link fields (creates objects with id and title)
    * When title is null, only includes the id key
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private getLinkJsonAggregationFunction(
     tableAlias: string,
     fieldExpression: string,
-    relationship: Relationship,
-    targetLookupField?: IFieldInstance
+    targetLookupField?: IFieldInstance,
+    junctionAlias?: string,
+    field?: LinkFieldCore
   ): string {
     const driver = this.dbProvider.driver;
 
@@ -263,6 +266,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
 
     // Determine if this relationship should return multiple values (array) or single value (object)
+    const relationship = field?.options.relationship;
     const isMultiValue =
       relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
 
@@ -272,7 +276,24 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
       if (isMultiValue) {
         // Filter out null records and return empty array if no valid records exist
-        return `COALESCE(json_agg(${conditionalJsonObject}) FILTER (WHERE ${recordIdRef} IS NOT NULL), '[]'::json)`;
+        // Order by junction table __id if available (for consistent insertion order)
+        // For relationships without junction table, use the order column if field has order column
+        let orderByField: string;
+        if (junctionAlias && junctionAlias.trim()) {
+          // ManyMany relationship: use junction table __id
+          orderByField = `${junctionAlias}."__id"`;
+        } else if (field && field.getHasOrderColumn()) {
+          // OneMany/ManyOne/OneOne relationship: use the order column in the foreign key table
+          const orderColumnName =
+            relationship === Relationship.OneMany
+              ? field.options.selfKeyName
+              : field.options.foreignKeyName;
+          orderByField = `${tableAlias}."${orderColumnName}_order"`;
+        } else {
+          // Fallback to record ID if no order column is available
+          orderByField = recordIdRef;
+        }
+        return `COALESCE(json_agg(${conditionalJsonObject} ORDER BY ${orderByField}) FILTER (WHERE ${recordIdRef} IS NOT NULL), '[]'::json)`;
       } else {
         // For single value relationships (ManyOne, OneOne), return single object or null
         return `CASE WHEN ${recordIdRef} IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
@@ -286,6 +307,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
       if (isMultiValue) {
         // For SQLite, we need to handle null filtering differently
+        // Note: SQLite's json_group_array doesn't support ORDER BY, so ordering must be handled at query level
         return `CASE WHEN COUNT(${recordIdRef}) > 0 THEN json_group_array(${conditionalJsonObject}) ELSE '[]' END`;
       } else {
         // For single value relationships, return single object or null
@@ -513,8 +535,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const jsonAggFunction = this.getLinkJsonAggregationFunction(
           linkTargetAlias,
           fieldExpression,
-          targetLinkRelationship,
-          linkLookupField
+          linkLookupField,
+          'j2', // Junction table alias for ordering,
+          targetLinkField
         );
         jsonExpression = jsonAggFunction;
       } else {
@@ -794,11 +817,17 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const fieldExpression =
         typeof fieldResult === 'string' ? fieldResult : fieldResult.toSQL().sql;
 
+      // Determine if this relationship uses junction table
+      const usesJunctionTable =
+        options.relationship === Relationship.ManyMany ||
+        (options.relationship === Relationship.OneMany && options.isOneWay);
+
       const jsonAggFunction = this.getLinkJsonAggregationFunction(
         foreignAlias,
         fieldExpression,
-        options.relationship,
-        linkLookupField
+        linkLookupField,
+        usesJunctionTable ? junctionAlias : undefined, // Pass junction alias if using junction table
+        field
       );
       selectColumns.push(qb.client.raw(`${jsonAggFunction} as link_value`));
 
@@ -883,9 +912,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Get JOIN information from the field options
       const { fkHostTableName, selfKeyName, foreignKeyName, relationship } = options;
 
-      // Build query based on relationship type
-      if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
-        // Use junction table for many-to-many and one-to-many relationships
+      // Build query based on relationship type and whether it uses junction table
+
+      if (usesJunctionTable) {
+        // Use junction table for many-to-many relationships and one-way one-to-many relationships
         qb.select(selectColumns)
           .from(`${mainTableName} as ${mainAlias}`)
           .leftJoin(
@@ -899,6 +929,31 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             `${foreignAlias}.__id`
           )
           .groupBy(`${mainAlias}.__id`);
+
+        // For SQLite, add ORDER BY at query level since json_group_array doesn't support internal ordering
+        if (this.dbProvider.driver === DriverClient.Sqlite) {
+          qb.orderBy(`${junctionAlias}.__id`);
+        }
+      } else if (relationship === Relationship.OneMany) {
+        // For non-one-way OneMany relationships, foreign key is stored in the foreign table
+        // No junction table needed
+        qb.select(selectColumns)
+          .from(`${mainTableName} as ${mainAlias}`)
+          .leftJoin(
+            `${foreignTableName} as ${foreignAlias}`,
+            `${mainAlias}.__id`,
+            `${foreignAlias}.${selfKeyName}`
+          )
+          .groupBy(`${mainAlias}.__id`);
+
+        // For SQLite, add ORDER BY at query level
+        if (this.dbProvider.driver === DriverClient.Sqlite) {
+          if (field.getHasOrderColumn()) {
+            qb.orderBy(`${foreignAlias}.${selfKeyName}_order`);
+          } else {
+            qb.orderBy(`${foreignAlias}.__id`);
+          }
+        }
       } else if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
         // Direct join for many-to-one and one-to-one relationships
         // No GROUP BY needed for single-value relationships
