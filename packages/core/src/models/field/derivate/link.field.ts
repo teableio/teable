@@ -3,7 +3,11 @@ import { z } from '../../../zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
-import { linkFieldOptionsSchema, type ILinkFieldOptions } from './link-option.schema';
+import {
+  linkFieldOptionsSchema,
+  type ILinkFieldOptions,
+  type ILinkFieldMeta,
+} from './link-option.schema';
 
 export const linkCellValueSchema = z.object({
   id: z.string().startsWith(IdPrefix.Record),
@@ -21,11 +25,15 @@ export class LinkFieldCore extends FieldCore {
 
   options!: ILinkFieldOptions;
 
-  meta?: undefined;
+  declare meta?: ILinkFieldMeta;
 
   cellValueType!: CellValueType.String;
 
   declare isMultipleCellValue?: boolean | undefined;
+
+  getHasOrderColumn(): boolean {
+    return this.meta?.hasOrderColumn || false;
+  }
 
   cellValue2String(cellValue?: unknown) {
     if (Array.isArray(cellValue)) {

@@ -25,6 +25,7 @@ import type {
 } from '@teable/core';
 import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
+import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 import { SchemaType } from '../../features/field/util';
 import { GeneratedColumnQuerySupportValidatorSqlite } from '../generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
 import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
@@ -258,7 +259,11 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
           .references('__id')
           .inTable(foreignDbTableName)
           .withKeyName(`fk_${foreignKeyName}`);
+        // Add order column for maintaining insertion order
+        table.integer(`${foreignKeyName}_order`).nullable();
       });
+      // Set metadata to indicate this field has order column
+      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
     }
 
     if (relationship === Relationship.OneMany) {
@@ -282,7 +287,11 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
             .references('__id')
             .inTable(dbTableName)
             .withKeyName(`fk_${selfKeyName}`);
+          // Add order column for maintaining insertion order
+          table.integer(`${selfKeyName}_order`).nullable();
         });
+        // Set metadata to indicate this field has order column
+        (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
       }
     }
 
@@ -296,7 +305,11 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
         table.unique([foreignKeyName], {
           indexName: `index_${foreignKeyName}`,
         });
+        // Add order column for maintaining insertion order
+        table.integer(`${foreignKeyName}_order`).nullable();
       });
+      // Set metadata to indicate this field has order column
+      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
     }
 
     if (!alterTableSchema) {

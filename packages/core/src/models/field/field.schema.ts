@@ -62,7 +62,7 @@ export const fieldVoSchema = z.object({
 
   meta: unionFieldMetaVoSchema.optional().openapi({
     description:
-      "The metadata of the field. The structure of the field's meta depend on the field's type. Currently only formula fields have meta.",
+      "The metadata of the field. The structure of the field's meta depend on the field's type. Currently formula and link fields have meta.",
   }),
 
   aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
@@ -277,7 +277,7 @@ const baseFieldRoSchema = fieldVoSchema
       }),
       meta: unionFieldMetaVoSchema.optional().openapi({
         description:
-          "The metadata of the field. The structure of the field's meta depend on the field's type. Currently only formula fields have meta.",
+          "The metadata of the field. The structure of the field's meta depend on the field's type. Currently formula and link fields have meta.",
       }),
       aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
         description: 'The AI configuration of the field.',

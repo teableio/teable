@@ -1,10 +1,14 @@
 import { LinkFieldCore } from '@teable/core';
-import type { ILinkCellValue } from '@teable/core';
+import type { ILinkCellValue, ILinkFieldMeta } from '@teable/core';
 import type { FieldBase } from '../field-base';
 
 export class LinkFieldDto extends LinkFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return true;
+  }
+
+  setMetadata(meta: ILinkFieldMeta) {
+    this.meta = meta;
   }
 
   convertCellValue2DBValue(value: unknown): unknown {

@@ -1014,22 +1014,41 @@ export class LinkService {
     }
 
     if (toDelete.length) {
+      const updateFields: Record<string, null> = { [foreignKeyName]: null };
+      // Also clear order column if field has order column
+      if (field.getHasOrderColumn()) {
+        updateFields[`${foreignKeyName}_order`] = null;
+      }
+
       const query = this.knex(fkHostTableName)
-        .update({ [foreignKeyName]: null })
+        .update(updateFields)
         .whereIn([selfKeyName, foreignKeyName], toDelete)
         .toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(query);
     }
 
     if (toAdd.length) {
+      const dbFields = [{ dbFieldName: foreignKeyName, schemaType: SchemaType.String }];
+      // Add order column if field has order column
+      if (field.getHasOrderColumn()) {
+        dbFields.push({ dbFieldName: `${foreignKeyName}_order`, schemaType: SchemaType.Integer });
+      }
+
       await this.batchService.batchUpdateDB(
         fkHostTableName,
         selfKeyName,
-        [{ dbFieldName: foreignKeyName, schemaType: SchemaType.String }],
-        toAdd.map(([recordId, foreignRecordId]) => ({
-          id: recordId,
-          values: { [foreignKeyName]: foreignRecordId },
-        }))
+        dbFields,
+        toAdd.map(([recordId, foreignRecordId]) => {
+          const values: Record<string, unknown> = { [foreignKeyName]: foreignRecordId };
+          // For ManyOne relationship, order is always 1 since each record can only link to one target
+          if (field.getHasOrderColumn()) {
+            values[`${foreignKeyName}_order`] = 1;
+          }
+          return {
+            id: recordId,
+            values,
+          };
+        })
       );
     }
   }
@@ -1044,38 +1063,76 @@ export class LinkService {
       this.saveForeignKeyForManyMany(field, fkMap);
       return;
     }
-    const toDelete: [string, string][] = [];
-    const toAdd: [string, string][] = [];
+
+    // Process each record individually to maintain order
     for (const recordId in fkMap) {
       const fkItem = fkMap[recordId];
       const oldKey = (fkItem.oldKey || []) as string[];
       const newKey = (fkItem.newKey || []) as string[];
 
-      difference(oldKey, newKey).forEach((key) => toDelete.push([recordId, key]));
-      difference(newKey, oldKey).forEach((key) => toAdd.push([recordId, key]));
-    }
+      const toDelete = difference(oldKey, newKey);
+      const toAdd = difference(newKey, oldKey);
 
-    if (toDelete.length) {
-      const query = this.knex(fkHostTableName)
-        .update({ [selfKeyName]: null })
-        .whereIn([selfKeyName, foreignKeyName], toDelete)
-        .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
-    }
+      // Delete old links
+      if (toDelete.length) {
+        const updateFields: Record<string, null> = { [selfKeyName]: null };
+        // Also clear order column if field has order column
+        if (field.getHasOrderColumn()) {
+          updateFields[`${selfKeyName}_order`] = null;
+        }
 
-    if (toAdd.length) {
-      await this.batchService.batchUpdateDB(
-        fkHostTableName,
-        foreignKeyName,
-        [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }],
-        toAdd.map(([recordId, foreignRecordId]) => ({
+        const deleteConditions = toDelete.map((key) => [recordId, key]);
+        const query = this.knex(fkHostTableName)
+          .update(updateFields)
+          .whereIn([selfKeyName, foreignKeyName], deleteConditions)
+          .toQuery();
+        await this.prismaService.txClient().$executeRawUnsafe(query);
+      }
+
+      // Update all linked records with correct order values
+      if (newKey.length > 0 && field.getHasOrderColumn()) {
+        const dbFields = [
+          { dbFieldName: selfKeyName, schemaType: SchemaType.String },
+          { dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer },
+        ];
+
+        // Update all records in newKey array with their correct order values
+        const updateData = newKey.map((foreignRecordId, index) => {
+          const orderValue = index + 1;
+          return {
+            id: foreignRecordId,
+            values: {
+              [selfKeyName]: recordId,
+              [`${selfKeyName}_order`]: orderValue,
+            },
+          };
+        });
+
+        await this.batchService.batchUpdateDB(
+          fkHostTableName,
+          foreignKeyName,
+          dbFields,
+          updateData
+        );
+      } else if (toAdd.length) {
+        // Fallback for fields without order column - only add new links
+        const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
+        const updateData = toAdd.map((foreignRecordId) => ({
           id: foreignRecordId,
           values: { [selfKeyName]: recordId },
-        }))
-      );
+        }));
+
+        await this.batchService.batchUpdateDB(
+          fkHostTableName,
+          foreignKeyName,
+          dbFields,
+          updateData
+        );
+      }
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async saveForeignKeyForOneOne(
     field: LinkFieldDto,
     fkMap: { [recordId: string]: IFkRecordItem }
@@ -1096,22 +1153,41 @@ export class LinkService {
       }
 
       if (toDelete.length) {
+        const updateFields: Record<string, null> = { [selfKeyName]: null };
+        // Also clear order column if field has order column
+        if (field.getHasOrderColumn()) {
+          updateFields[`${selfKeyName}_order`] = null;
+        }
+
         const query = this.knex(fkHostTableName)
-          .update({ [selfKeyName]: null })
+          .update(updateFields)
           .whereIn([selfKeyName, foreignKeyName], toDelete)
           .toQuery();
         await this.prismaService.txClient().$executeRawUnsafe(query);
       }
 
       if (toAdd.length) {
+        const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
+        // Add order column if field has order column
+        if (field.getHasOrderColumn()) {
+          dbFields.push({ dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer });
+        }
+
         await this.batchService.batchUpdateDB(
           fkHostTableName,
           foreignKeyName,
-          [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }],
-          toAdd.map(([recordId, foreignRecordId]) => ({
-            id: foreignRecordId,
-            values: { [selfKeyName]: recordId },
-          }))
+          dbFields,
+          toAdd.map(([recordId, foreignRecordId]) => {
+            const values: Record<string, unknown> = { [selfKeyName]: recordId };
+            // For OneOne relationship, order is always 1 since each record can only link to one target
+            if (field.getHasOrderColumn()) {
+              values[`${selfKeyName}_order`] = 1;
+            }
+            return {
+              id: foreignRecordId,
+              values,
+            };
+          })
         );
       }
     }
