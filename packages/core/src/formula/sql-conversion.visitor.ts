@@ -660,25 +660,38 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
       // Handle different field types that use CTEs
       if (fieldInfo.type === FieldType.Link && !fieldInfo.isLookup) {
-        // Link field: extract title from JSON value for formula fields
+        // Check if this link field is being used in a boolean context
+        const isBooleanContext = this.isInBooleanContext(ctx);
+
         // Use database driver from context
         const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
 
-        if (fieldInfo.isMultipleCellValue) {
-          // For multi-value link fields (OneMany/ManyMany), extract array of titles
+        if (isBooleanContext) {
+          // For boolean context, return whether the link field has any values
           if (isPostgreSQL) {
-            return `(SELECT json_agg(value->>'title') FROM json_array_elements("${cteName}"."link_value") AS value)`;
+            return `("${cteName}"."link_value" IS NOT NULL AND "${cteName}"."link_value"::text != 'null' AND "${cteName}"."link_value"::text != '[]')`;
           } else {
             // SQLite
-            return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each("${cteName}"."link_value") AS value)`;
+            return `("${cteName}"."link_value" IS NOT NULL AND "${cteName}"."link_value" != 'null' AND "${cteName}"."link_value" != '[]')`;
           }
         } else {
-          // For single-value link fields (ManyOne/OneOne), extract single title
-          if (isPostgreSQL) {
-            return `("${cteName}"."link_value"->>'title')`;
+          // For non-boolean context, extract title values as before
+          if (fieldInfo.isMultipleCellValue) {
+            // For multi-value link fields (OneMany/ManyMany), extract array of titles
+            if (isPostgreSQL) {
+              return `(SELECT json_agg(value->>'title') FROM json_array_elements("${cteName}"."link_value") AS value)`;
+            } else {
+              // SQLite
+              return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each("${cteName}"."link_value") AS value)`;
+            }
           } else {
-            // SQLite
-            return `json_extract("${cteName}"."link_value", '$.title')`;
+            // For single-value link fields (ManyOne/OneOne), extract single title
+            if (isPostgreSQL) {
+              return `("${cteName}"."link_value"->>'title')`;
+            } else {
+              // SQLite
+              return `json_extract("${cteName}"."link_value", '$.title')`;
+            }
           }
         }
       } else if (fieldInfo.isLookup) {
@@ -696,5 +709,33 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
+  }
+
+  /**
+   * Check if a field reference is being used in a boolean context
+   * (i.e., as a parameter to logical functions like AND, OR, NOT, etc.)
+   */
+  private isInBooleanContext(ctx: FieldReferenceCurlyContext): boolean {
+    let parent = ctx.parent;
+
+    // Walk up the parse tree to find if we're inside a logical function
+    while (parent) {
+      if (parent instanceof FunctionCallContext) {
+        const fnName = parent.func_name().text.toUpperCase();
+        const booleanFunctions = ['AND', 'OR', 'NOT', 'XOR', 'IF'];
+        return booleanFunctions.includes(fnName);
+      }
+
+      // Also check for binary logical operators
+      if (parent instanceof BinaryOpContext) {
+        const operator = parent._op?.text;
+        const logicalOperators = ['&&', '||', '=', '!=', '<>', '>', '<', '>=', '<='];
+        return logicalOperators.includes(operator || '');
+      }
+
+      parent = parent.parent;
+    }
+
+    return false;
   }
 }
