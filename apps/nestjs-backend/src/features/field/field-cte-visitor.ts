@@ -24,13 +24,174 @@ import type {
   SingleSelectFieldCore,
   UserFieldCore,
   ButtonFieldCore,
+  ICurrencyFormatting,
 } from '@teable/core';
-import { FieldType, DriverClient, Relationship } from '@teable/core';
+import { FieldType, DriverClient, Relationship, NumberFormattingType } from '@teable/core';
 import type { Knex } from 'knex';
+import { match, P } from 'ts-pattern';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
 
 import { FieldSelectVisitor } from './field-select-visitor';
 import type { IFieldInstance } from './model/factory';
+
+/**
+ * Field formatting visitor that converts field cellValue2String logic to SQL expressions
+ */
+class FieldFormattingVisitor implements IFieldVisitor<string> {
+  constructor(
+    private readonly fieldExpression: string,
+    private readonly driver: DriverClient
+  ) {}
+
+  private get isPostgreSQL(): boolean {
+    return this.driver === DriverClient.Pg;
+  }
+
+  /**
+   * Convert field expression to text/string format for database-specific SQL
+   */
+  private convertToText(): string {
+    if (this.isPostgreSQL) {
+      return `${this.fieldExpression}::TEXT`;
+    } else {
+      return `CAST(${this.fieldExpression} AS TEXT)`;
+    }
+  }
+
+  visitSingleLineTextField(_field: SingleLineTextFieldCore): string {
+    // Text fields don't need special formatting, return as-is
+    return this.fieldExpression;
+  }
+
+  visitLongTextField(_field: LongTextFieldCore): string {
+    // Text fields don't need special formatting, return as-is
+    return this.fieldExpression;
+  }
+
+  visitNumberField(field: NumberFieldCore): string {
+    const formatting = field.options.formatting;
+    const { type, precision } = formatting;
+
+    return match({ type, precision, isPostgreSQL: this.isPostgreSQL })
+      .with(
+        { type: NumberFormattingType.Decimal, precision: P.number },
+        ({ precision, isPostgreSQL }) =>
+          isPostgreSQL
+            ? `ROUND(CAST(${this.fieldExpression} AS NUMERIC), ${precision})::TEXT`
+            : `PRINTF('%.${precision}f', ${this.fieldExpression})`
+      )
+      .with(
+        { type: NumberFormattingType.Percent, precision: P.number },
+        ({ precision, isPostgreSQL }) =>
+          isPostgreSQL
+            ? `ROUND(CAST(${this.fieldExpression} * 100 AS NUMERIC), ${precision})::TEXT || '%'`
+            : `PRINTF('%.${precision}f', ${this.fieldExpression} * 100) || '%'`
+      )
+      .with({ type: NumberFormattingType.Currency }, ({ precision, isPostgreSQL }) => {
+        const symbol = (formatting as ICurrencyFormatting).symbol || '$';
+        return match({ precision, isPostgreSQL })
+          .with(
+            { precision: P.number, isPostgreSQL: true },
+            ({ precision }) =>
+              `'${symbol}' || ROUND(CAST(${this.fieldExpression} AS NUMERIC), ${precision})::TEXT`
+          )
+          .with(
+            { precision: P.number, isPostgreSQL: false },
+            ({ precision }) => `'${symbol}' || PRINTF('%.${precision}f', ${this.fieldExpression})`
+          )
+          .with({ isPostgreSQL: true }, () => `'${symbol}' || ${this.fieldExpression}::TEXT`)
+          .with(
+            { isPostgreSQL: false },
+            () => `'${symbol}' || CAST(${this.fieldExpression} AS TEXT)`
+          )
+          .exhaustive();
+      })
+      .otherwise(({ isPostgreSQL }) =>
+        // Default: convert to string
+        isPostgreSQL ? `${this.fieldExpression}::TEXT` : `CAST(${this.fieldExpression} AS TEXT)`
+      );
+  }
+
+  visitCheckboxField(_field: CheckboxFieldCore): string {
+    // Checkbox fields are stored as boolean, convert to string
+    return this.convertToText();
+  }
+
+  visitDateField(_field: DateFieldCore): string {
+    // Date fields are stored as ISO strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitRatingField(_field: RatingFieldCore): string {
+    // Rating fields are numbers, convert to string
+    return this.convertToText();
+  }
+
+  visitAutoNumberField(_field: AutoNumberFieldCore): string {
+    // Auto number fields are numbers, convert to string
+    return this.convertToText();
+  }
+
+  visitSingleSelectField(_field: SingleSelectFieldCore): string {
+    // Select fields are stored as strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitMultipleSelectField(_field: MultipleSelectFieldCore): string {
+    // Multiple select fields are stored as strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitAttachmentField(_field: AttachmentFieldCore): string {
+    // Attachment fields are complex, for now return as-is
+    return this.fieldExpression;
+  }
+
+  visitLinkField(_field: LinkFieldCore): string {
+    // Link fields should not be formatted directly, return as-is
+    return this.fieldExpression;
+  }
+
+  visitRollupField(_field: RollupFieldCore): string {
+    // Rollup fields depend on their result type, for now return as-is
+    return this.fieldExpression;
+  }
+
+  visitFormulaField(_field: FormulaFieldCore): string {
+    // Formula fields depend on their result type, for now return as-is
+    return this.fieldExpression;
+  }
+
+  visitCreatedTimeField(_field: CreatedTimeFieldCore): string {
+    // Created time fields are stored as ISO strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitLastModifiedTimeField(_field: LastModifiedTimeFieldCore): string {
+    // Last modified time fields are stored as ISO strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitUserField(_field: UserFieldCore): string {
+    // User fields are stored as strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitCreatedByField(_field: CreatedByFieldCore): string {
+    // Created by fields are stored as strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitLastModifiedByField(_field: LastModifiedByFieldCore): string {
+    // Last modified by fields are stored as strings, return as-is
+    return this.fieldExpression;
+  }
+
+  visitButtonField(_field: ButtonFieldCore): string {
+    // Button fields don't have values, return as-is
+    return this.fieldExpression;
+  }
+}
 
 export interface ICteResult {
   cteName?: string;
@@ -86,13 +247,20 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   private getLinkJsonAggregationFunction(
     tableAlias: string,
     fieldExpression: string,
-    relationship: Relationship
+    relationship: Relationship,
+    targetLookupField?: IFieldInstance
   ): string {
     const driver = this.dbProvider.driver;
 
     // Use table alias for cleaner SQL
     const recordIdRef = `${tableAlias}."__id"`;
-    const titleRef = fieldExpression;
+
+    // Apply field formatting if targetLookupField is provided
+    let titleRef = fieldExpression;
+    if (targetLookupField) {
+      const formattingVisitor = new FieldFormattingVisitor(fieldExpression, driver);
+      titleRef = targetLookupField.accept(formattingVisitor);
+    }
 
     // Determine if this relationship should return multiple values (array) or single value (object)
     const isMultiValue =
@@ -308,6 +476,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const { mainTableName } = this.context;
 
     // Create CTE callback function
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     const cteCallback = (qb: Knex.QueryBuilder) => {
       const mainAlias = 'm';
       const junctionAlias = 'j';
@@ -344,13 +513,30 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const jsonAggFunction = this.getLinkJsonAggregationFunction(
           linkTargetAlias,
           fieldExpression,
-          targetLinkRelationship
+          targetLinkRelationship,
+          linkLookupField
         );
         jsonExpression = jsonAggFunction;
       } else {
-        // For single-value relationships, use jsonb_strip_nulls for PostgreSQL
-        const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${linkTargetAlias}.__id, 'title', ${fieldExpression}))::json`;
-        jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
+        // For single-value relationships, apply formatting and use conditional JSON object
+        const driver = this.dbProvider.driver;
+        let formattedFieldExpression = fieldExpression;
+        if (linkLookupField) {
+          const formattingVisitor = new FieldFormattingVisitor(fieldExpression, driver);
+          formattedFieldExpression = linkLookupField.accept(formattingVisitor);
+        }
+
+        if (driver === DriverClient.Pg) {
+          const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${linkTargetAlias}.__id, 'title', ${formattedFieldExpression}))::json`;
+          jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
+        } else {
+          // SQLite
+          const conditionalJsonObject = `CASE
+            WHEN ${formattedFieldExpression} IS NOT NULL THEN json_object('id', ${linkTargetAlias}.__id, 'title', ${formattedFieldExpression})
+            ELSE json_object('id', ${linkTargetAlias}.__id)
+          END`;
+          jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
+        }
       }
 
       selectColumns.push(qb.client.raw(`${jsonExpression} as lookup_link_value`));
@@ -402,7 +588,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         targetLinkRelationship === Relationship.ManyMany ||
         targetLinkRelationship === Relationship.OneMany
       ) {
-        query = query.groupBy(`${mainAlias}.__id`);
+        query.groupBy(`${mainAlias}.__id`);
       }
     };
 
@@ -611,7 +797,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const jsonAggFunction = this.getLinkJsonAggregationFunction(
         foreignAlias,
         fieldExpression,
-        options.relationship
+        options.relationship,
+        linkLookupField
       );
       selectColumns.push(qb.client.raw(`${jsonAggFunction} as link_value`));
 

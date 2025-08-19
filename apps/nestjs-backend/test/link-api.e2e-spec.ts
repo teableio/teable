@@ -19,6 +19,7 @@ import {
   FieldType,
   getRandomString,
   NumberFormattingType,
+  RatingIcon,
   Relationship,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
@@ -1032,6 +1033,170 @@ describe('OpenAPI link (e2e)', () => {
         },
         {
           title: undefined,
+          id: table2.records[2].id,
+        },
+      ]);
+    });
+
+    it('should update self foreign link with correct currency formatted title', async () => {
+      // use number field with currency formatting as primary field
+      await convertField(table2.id, table2.fields[0].id, {
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Currency, symbol: '$', precision: 2 },
+        },
+      });
+
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
+        id: table1.records[0].id,
+      });
+      // set values for lookup field
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 100.5);
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 250.75);
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, null);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+        { id: table2.records[2].id },
+      ]);
+
+      const table1RecordResult2 = await getRecords(table1.id);
+
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
+        {
+          title: '$100.50',
+          id: table2.records[0].id,
+        },
+        {
+          title: '$250.75',
+          id: table2.records[1].id,
+        },
+        {
+          title: undefined,
+          id: table2.records[2].id,
+        },
+      ]);
+    });
+
+    it('should update self foreign link with correct percentage formatted title', async () => {
+      // use number field with percentage formatting as primary field
+      await convertField(table2.id, table2.fields[0].id, {
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Percent, precision: 1 },
+        },
+      });
+
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
+        id: table1.records[0].id,
+      });
+      // set values for lookup field (stored as decimal, displayed as percentage)
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 0.25);
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 0.8);
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, null);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+        { id: table2.records[2].id },
+      ]);
+
+      const table1RecordResult2 = await getRecords(table1.id);
+
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
+        {
+          title: '25.0%',
+          id: table2.records[0].id,
+        },
+        {
+          title: '80.0%',
+          id: table2.records[1].id,
+        },
+        {
+          title: undefined,
+          id: table2.records[2].id,
+        },
+      ]);
+    });
+
+    it('should update self foreign link with correct rating field formatted title', async () => {
+      // use rating field as primary field
+      await convertField(table2.id, table2.fields[0].id, {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          color: Colors.YellowBright,
+          max: 5,
+        },
+      });
+
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
+        id: table1.records[0].id,
+      });
+      // set values for rating field
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 3);
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 5);
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, null);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+        { id: table2.records[2].id },
+      ]);
+
+      const table1RecordResult2 = await getRecords(table1.id);
+
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
+        {
+          title: '3',
+          id: table2.records[0].id,
+        },
+        {
+          title: '5',
+          id: table2.records[1].id,
+        },
+        {
+          title: undefined,
+          id: table2.records[2].id,
+        },
+      ]);
+    });
+
+    it('should update self foreign link with correct auto number field formatted title', async () => {
+      // use auto number field as primary field
+      await convertField(table2.id, table2.fields[0].id, {
+        type: FieldType.AutoNumber,
+      });
+
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
+        id: table1.records[0].id,
+      });
+
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+        { id: table2.records[2].id },
+      ]);
+
+      const table1RecordResult2 = await getRecords(table1.id);
+
+      // Auto number fields should be formatted as text
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
+        {
+          title: '1',
+          id: table2.records[0].id,
+        },
+        {
+          title: '2',
+          id: table2.records[1].id,
+        },
+        {
+          title: '3',
           id: table2.records[2].id,
         },
       ]);
@@ -2712,7 +2877,7 @@ describe('OpenAPI link (e2e)', () => {
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
-      expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
+      expect(table2Record.fields[symManyOneField.id]).toHaveLength(0);
       expect(table2Record.fields[symOneManyField.id]).toEqual([]);
     });
 
@@ -2761,7 +2926,7 @@ describe('OpenAPI link (e2e)', () => {
         await deleteRecord(table2.id, table2.records[0].id);
 
         const table1Record = await getRecord(table1.id, table1.records[0].id);
-        expect(table1Record.fields[linkField.id]).toBeUndefined();
+        expect(table1Record.fields[linkField.id]).toHaveLength(0);
 
         // check if the record is successfully deleted
         await deleteRecord(table1.id, table1.records[1].id);
