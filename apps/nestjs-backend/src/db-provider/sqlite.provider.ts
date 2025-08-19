@@ -638,10 +638,14 @@ ORDER BY
   ): IFormulaConversionResult {
     try {
       const generatedColumnQuery = this.generatedColumnQuery();
-      // Set the context on the generated column query instance
-      generatedColumnQuery.setContext(context);
+      // Set the context with driver client information
+      const contextWithDriver = { ...context, driverClient: this.driver };
+      generatedColumnQuery.setContext(contextWithDriver);
 
-      const visitor = new GeneratedColumnSqlConversionVisitor(generatedColumnQuery, context);
+      const visitor = new GeneratedColumnSqlConversionVisitor(
+        generatedColumnQuery,
+        contextWithDriver
+      );
 
       const sql = parseFormulaToSQL(expression, visitor);
 
@@ -661,9 +665,11 @@ ORDER BY
   ): string {
     try {
       const selectQuery = this.selectQuery();
-      selectQuery.setContext(context);
+      // Set the context with driver client information
+      const contextWithDriver = { ...context, driverClient: this.driver };
+      selectQuery.setContext(contextWithDriver);
 
-      const visitor = new SelectColumnSqlConversionVisitor(selectQuery, context);
+      const visitor = new SelectColumnSqlConversionVisitor(selectQuery, contextWithDriver);
 
       return parseFormulaToSQL(expression, visitor);
     } catch (error) {

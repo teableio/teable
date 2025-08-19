@@ -1,4 +1,5 @@
 import type { FieldCore } from '../models/field/field';
+import type { DriverClient } from '../utils/dsn-parser';
 
 /**
  * Generic field map type for formula conversion contexts
@@ -165,6 +166,8 @@ export interface IFormulaConversionContext {
   isGeneratedColumn?: boolean;
   /** Cache for expanded expressions (shared across visitor instances) */
   expansionCache?: Map<string, string>;
+  /** Database driver client type for database-specific SQL generation */
+  driverClient?: DriverClient;
 }
 
 /**
