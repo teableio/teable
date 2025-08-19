@@ -30,6 +30,7 @@ export interface IServerEnv {
   };
   enableDomainEmail?: boolean;
   maxSearchFieldCount?: number;
+  chatContextAttachmentSize?: number;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

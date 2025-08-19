@@ -101,12 +101,23 @@ export class AiService {
     }
 
     if (!aiIntegrationConfig) {
+      const lg = aiConfig?.chatModel?.lg;
+      const sm = aiConfig?.chatModel?.sm;
+      const md = aiConfig?.chatModel?.md;
+      const ability = aiConfig?.chatModel?.ability;
+
       return {
         ...aiConfig,
         llmProviders: aiConfig?.llmProviders.map((provider) => ({
           ...provider,
           isInstance: true,
         })),
+        chatModel: {
+          sm: sm ?? lg,
+          md: md ?? lg,
+          lg: lg,
+          ability,
+        },
       } as IAIConfig;
     }
 
@@ -114,13 +125,12 @@ export class AiService {
       return aiIntegrationConfig as IAIConfig;
     }
 
-    const lg = aiIntegrationConfig ? aiIntegrationConfig.chatModel?.lg : aiConfig.chatModel?.lg;
-    const sm = aiIntegrationConfig ? aiIntegrationConfig.chatModel?.sm : aiConfig.chatModel?.sm;
-    const md = aiIntegrationConfig ? aiIntegrationConfig.chatModel?.md : aiConfig.chatModel?.md;
-    const ability = aiIntegrationConfig
-      ? aiIntegrationConfig.chatModel?.ability
-      : aiConfig.chatModel?.ability;
+    const lg = aiIntegrationConfig.chatModel?.lg;
+    const sm = aiIntegrationConfig.chatModel?.sm;
+    const md = aiIntegrationConfig.chatModel?.md;
+    const ability = aiIntegrationConfig.chatModel?.ability;
     return {
+      ...aiIntegrationConfig,
       llmProviders: [
         ...aiIntegrationConfig.llmProviders,
         ...aiConfig.llmProviders.map((provider) => ({
@@ -134,9 +144,7 @@ export class AiService {
         lg: lg,
         ability,
       },
-      embeddingModel: aiIntegrationConfig.embeddingModel ?? aiConfig.embeddingModel,
-      translationModel: aiIntegrationConfig.translationModel ?? aiConfig.translationModel,
-    };
+    } as IAIConfig;
   }
 
   async getSimplifiedAIConfig(baseId: string) {
@@ -205,6 +213,9 @@ export class AiService {
 
   async getChatModelInstance(baseId: string) {
     const { chatModel, llmProviders } = await this.getAIConfig(baseId);
+    if (!chatModel?.lg) {
+      throw new Error('AI chat model lg is not set');
+    }
     const { type, model, name } = this.parseModelKey(chatModel?.lg);
     const lgProvider = llmProviders.find(
       (p) =>
@@ -215,10 +226,18 @@ export class AiService {
     if (!lgProvider) {
       throw new Error('AI provider configuration is not set');
     }
+    if (!chatModel?.sm) {
+      throw new Error('AI chat model sm is not set');
+    }
+    if (!chatModel?.md) {
+      throw new Error('AI chat model md is not set');
+    }
+
     return {
       sm: await this.getModelInstance(chatModel?.sm, llmProviders),
       md: await this.getModelInstance(chatModel?.md, llmProviders),
       lg: await this.getModelInstance(chatModel?.lg, llmProviders),
+      ability: chatModel?.ability,
       isInstance: lgProvider.isInstance,
     };
   }
