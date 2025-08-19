@@ -190,7 +190,7 @@ export const SettingPage = (props: ISettingPageProps) => {
             </div>
             <MailConfigDialog
               name={SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG}
-              emailConfig={setting.notifyMailTransportConfig}
+              emailConfig={setting.notifyMailTransportConfig ?? undefined}
             />
           </div>
 
@@ -206,7 +206,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               </div>
               <MailConfigDialog
                 name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
-                emailConfig={setting.automationMailTransportConfig}
+                emailConfig={setting.automationMailTransportConfig ?? undefined}
               />
             </div>
           )}
