@@ -73,7 +73,7 @@ export class MailSenderMergeProcessor extends WorkerHost implements OnModuleInit
     });
   }
 
-  async checkAndSetTime() {
+  private async checkAndSetTime() {
     const startTime = await this.cacheService.get(this.notifyMailMergeTime);
     if (!startTime) {
       const current = dayjs().valueOf();
@@ -84,7 +84,7 @@ export class MailSenderMergeProcessor extends WorkerHost implements OnModuleInit
     return false;
   }
 
-  async notifyMailMerge(mailOptions: ISendMailOptions & { mailType: MailType }) {
+  private async notifyMailMerge(mailOptions: ISendMailOptions & { mailType: MailType }) {
     const { to } = mailOptions;
     if (!to || typeof to !== 'string') {
       return;
@@ -94,7 +94,7 @@ export class MailSenderMergeProcessor extends WorkerHost implements OnModuleInit
     await this.cacheService.set(this.notifyMailMergeKey, obj);
   }
 
-  async sendNotifyMailMerge() {
+  private async sendNotifyMailMerge() {
     const obj = await this.cacheService.get(this.notifyMailMergeKey);
     await this.cacheService.del(this.notifyMailMergeKey);
 
