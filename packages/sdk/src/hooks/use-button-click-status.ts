@@ -3,7 +3,7 @@ import { getTableButtonClickChannel } from '@teable/core';
 import { buttonClick as buttonClickApi } from '@teable/openapi/src/record/button-click';
 import { sonner } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import { useConnection } from './use-connection';
 
@@ -122,7 +122,9 @@ export const useButtonClickStatus = (tableId: string) => {
     };
   }, [connection, presence, channel, setStatus]);
 
-  return { checkLoading, setStatus, buttonClick };
+  return useMemo(() => {
+    return { checkLoading, setStatus, buttonClick };
+  }, [checkLoading, setStatus, buttonClick]);
 };
 
 export type IButtonClickStatusHook = ReturnType<typeof useButtonClickStatus>;
