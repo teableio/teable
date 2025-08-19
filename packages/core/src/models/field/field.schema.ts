@@ -149,7 +149,6 @@ export const FIELD_RO_PROPERTIES = [
   'description',
   'lookupOptions',
   'options',
-  'meta',
 ] as const;
 
 export const FIELD_VO_PROPERTIES = [
@@ -274,10 +273,6 @@ const baseFieldRoSchema = fieldVoSchema
       options: unionFieldOptionsRoSchema.optional().openapi({
         description:
           "The options of the field. The configuration of the field's options depend on the it's specific type.",
-      }),
-      meta: unionFieldMetaVoSchema.optional().openapi({
-        description:
-          "The metadata of the field. The structure of the field's meta depend on the field's type. Currently formula and link fields have meta.",
       }),
       aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
         description: 'The AI configuration of the field.',
