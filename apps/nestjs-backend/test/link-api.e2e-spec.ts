@@ -2712,7 +2712,7 @@ describe('OpenAPI link (e2e)', () => {
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
-      expect(table2Record.fields[symManyOneField.id]).toEqual([]);
+      expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
       expect(table2Record.fields[symOneManyField.id]).toEqual([]);
     });
 

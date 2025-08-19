@@ -6,6 +6,7 @@ import { match } from 'ts-pattern';
 import { isFormulaField } from '../models';
 import { FieldType } from '../models/field/constant';
 import { FormulaFieldCore } from '../models/field/derivate/formula.field';
+import { DriverClient } from '../utils/dsn-parser';
 import { CircularReferenceError } from './errors/circular-reference.error';
 import type {
   IFormulaConversionContext,
@@ -643,6 +644,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
   /**
    * Override field reference handling to support CTE-based field references
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
     const fieldId = ctx.text.slice(1, -1); // Remove curly braces
 
@@ -658,10 +660,27 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
       // Handle different field types that use CTEs
       if (fieldInfo.type === FieldType.Link && !fieldInfo.isLookup) {
-        // Link field: return the JSON value from CTE
-        // Note: When used in boolean context (like IF conditions),
-        // the caller should handle JSON to boolean conversion
-        return `"${cteName}"."link_value"`;
+        // Link field: extract title from JSON value for formula fields
+        // Use database driver from context
+        const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
+
+        if (fieldInfo.isMultipleCellValue) {
+          // For multi-value link fields (OneMany/ManyMany), extract array of titles
+          if (isPostgreSQL) {
+            return `(SELECT json_agg(value->>'title') FROM json_array_elements("${cteName}"."link_value") AS value)`;
+          } else {
+            // SQLite
+            return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each("${cteName}"."link_value") AS value)`;
+          }
+        } else {
+          // For single-value link fields (ManyOne/OneOne), extract single title
+          if (isPostgreSQL) {
+            return `("${cteName}"."link_value"->>'title')`;
+          } else {
+            // SQLite
+            return `json_extract("${cteName}"."link_value", '$.title')`;
+          }
+        }
       } else if (fieldInfo.isLookup) {
         // Lookup field: use lookup_{fieldId} from CTE
         return `"${cteName}"."lookup_${fieldId}"`;
