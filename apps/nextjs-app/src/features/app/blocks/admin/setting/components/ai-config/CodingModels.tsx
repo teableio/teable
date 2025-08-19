@@ -34,11 +34,11 @@ export const CodingModels = ({
       {(['lg', 'md', 'sm'] as const).map((key) => (
         <div key={key} className="relative flex items-center gap-2">
           <div className="flex w-32 shrink-0 items-center gap-2 truncate text-sm">
-            {key === 'lg' && <div className="h-4 text-red-500">*</div>}
             {icons[key]}
             <Tooltip content={t(`admin.setting.ai.chatModels.${key}Description`)}>
               <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
             </Tooltip>
+            {key === 'lg' && <div className="h-4 text-red-500">*</div>}
           </div>
 
           <AIModelSelect
