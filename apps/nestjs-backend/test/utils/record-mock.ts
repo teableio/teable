@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import type { Field } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import type { IRatingFieldOptions, ISelectFieldOptions } from '@teable/core';
-import { parseDsn, IdPrefix, Colors, FieldType, generateRecordId } from '@teable/core';
+import { parseDsn, Colors, FieldType, generateRecordId } from '@teable/core';
 import * as dotenv from 'dotenv-flow';
 import Knex from 'knex';
 import { chunk, flatten, groupBy } from 'lodash';
@@ -114,7 +114,6 @@ export async function seeding(tableId: string, mockDataNum: number) {
       deletedTime: null,
     },
   });
-
   await rectifyField(prisma, fields, selectOptions);
 
   const { dbTableName, name: tableName } = await prisma.tableMeta.findUniqueOrThrow({
@@ -157,26 +156,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
           .replace(/'null'/g, 'null')} 
       `;
 
-    const sqlOp = `
-        INSERT INTO ops
-        ("collection", "doc_id", "doc_type", "version", "operation", "created_by")
-        VALUES
-        ${page
-          .map((d) => {
-            return {
-              collection: tableId,
-              doc_id: d.__id,
-              doc_type: IdPrefix.Record,
-              version: 0,
-              operation: '{}',
-              created_by: 'mock',
-            };
-          })
-          .map((d) => `('${Object.values(d).join(`', '`)}')`)
-          .join(', ')}
-      `;
-
-    return [prisma.$executeRawUnsafe(sql), prisma.$executeRawUnsafe(sqlOp)];
+    return [prisma.$executeRawUnsafe(sql)];
   });
 
   await prisma.$transaction(flatten(promises));
