@@ -140,18 +140,23 @@ export const SettingPage = (props: ISettingPageProps) => {
               onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
             />
           </div>
-          <div className="flex items-center justify-between ">
-            <div className="space-y-1">
-              <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
-            </div>
-            <WaitlistManage />
-          </div>
-          <div className="flex items-center justify-between ">
-            <div className="space-y-1">
-              <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
-            </div>
-            <InviteCodeManage />
-          </div>
+          {enableWaitlist && (
+            <>
+              <div className="flex items-center justify-between ">
+                <div className="space-y-1">
+                  <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
+                </div>
+                <WaitlistManage />
+              </div>
+
+              <div className="flex items-center justify-between ">
+                <div className="space-y-1">
+                  <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
+                </div>
+                <InviteCodeManage />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
