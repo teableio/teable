@@ -647,3 +647,12 @@ model TaskReference {
   @@index([toFieldId])
   @@map("task_reference")
 }
+
+model Waitlist {
+  email          String    @map("email") @unique
+  invite         Boolean?  @map("invite")
+  inviteTime     DateTime? @map("invite_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+
+  @@map("waitlist")
+}
