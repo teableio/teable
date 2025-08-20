@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { UserPlus } from '@teable/icons';
-import { getSpaceById } from '@teable/openapi';
+import { getSpaceById, getSpaceCollaboratorList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'next-i18next';
+import { Trans, useTranslation } from 'next-i18next';
 import { Collaborators } from '@/features/app/components/collaborator-manage/space/Collaborators';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
@@ -22,10 +22,22 @@ export const CollaboratorPage = () => {
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
   });
 
+  const { data: collaborators } = useQuery({
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
+    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then((res) => res.data),
+  });
+
   return (
     <SpaceSettingContainer
       title={t('space:spaceSetting.collaborators')}
-      description={t('space:spaceSetting.collaboratorDescription')}
+      description={
+        <Trans
+          ns="common"
+          i18nKey={'invite.dialog.desc'}
+          count={collaborators?.uniqTotal}
+          components={{ b: <b /> }}
+        />
+      }
     >
       {isHydrated && !!space && (
         <div className="w-full py-4">

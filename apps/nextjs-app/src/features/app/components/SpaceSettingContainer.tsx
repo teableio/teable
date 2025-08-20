@@ -2,7 +2,7 @@ import { cn } from '@teable/ui-lib/shadcn';
 
 interface SpaceSettingContainerProps {
   title: string;
-  description?: string;
+  description?: string | React.ReactElement;
   className?: string;
   children: React.ReactNode | React.ReactNode[];
   headerClassName?: string;

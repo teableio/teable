@@ -343,6 +343,41 @@ export class CollaboratorService {
     return Number(res[0].count);
   }
 
+  async getSpaceCollaboratorStats(
+    spaceId: string,
+    options?: {
+      includeSystem?: boolean;
+      includeBase?: boolean;
+      search?: string;
+      type?: PrincipalType;
+    }
+  ) {
+    // Get total count (existing logic)
+    const builder = this.knex.queryBuilder();
+    await this.getSpaceCollaboratorBuilder(builder, spaceId, options);
+    const res = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<
+        { count: number }[]
+      >(builder.select(this.knex.raw('COUNT(*) as count')).toQuery());
+    const total = Number(res[0].count);
+
+    // Get unique total - distinct users across space and base collaborators
+    const uniqBuilder = this.knex.queryBuilder();
+    await this.getSpaceCollaboratorBuilder(uniqBuilder, spaceId, { ...options, includeBase: true });
+    const uniqRes = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<
+        { count: number }[]
+      >(uniqBuilder.select(this.knex.raw('COUNT(DISTINCT users.id) as count')).toQuery());
+    const uniqTotal = Number(uniqRes[0].count);
+
+    return {
+      total,
+      uniqTotal,
+    };
+  }
+
   // eslint-disable-next-line sonarjs/no-identical-functions
   protected async getListBySpaceBuilder(
     builder: Knex.QueryBuilder,
