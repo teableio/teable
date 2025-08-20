@@ -740,7 +740,9 @@
       "buildTest": "构建测试",
       "developTask": "开发任务",
       "generateSummary": "生成总结",
-      "previewEnvironment": "准备预览环境"
+      "previewEnvironment": "准备预览环境",
+
+      "analyzingAttachment": "分析附件中..."
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
