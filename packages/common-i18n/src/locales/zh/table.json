@@ -681,7 +681,8 @@
     },
     "fallback": {
       "previewLoadFailed": "参数错误",
-      "retry": "重试 {{count}} 次"
+      "retry": "重试 {{count}} 次",
+      "chatAborted": "对话已中断"
     },
     "preview": {
       "deletedTable": "表格不存在或已删除",
