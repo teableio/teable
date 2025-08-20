@@ -280,8 +280,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // For relationships without junction table, use the order column if field has order column
         let orderByField: string;
         if (junctionAlias && junctionAlias.trim()) {
-          // ManyMany relationship: use junction table __id
-          orderByField = `${junctionAlias}."__id"`;
+          // ManyMany relationship: use junction table order column if available, otherwise __id
+          if (field && field.getHasOrderColumn()) {
+            orderByField = `${junctionAlias}."${field.options.selfKeyName}_order"`;
+          } else {
+            orderByField = `${junctionAlias}."__id"`;
+          }
         } else if (field && field.getHasOrderColumn()) {
           // OneMany/ManyOne/OneOne relationship: use the order column in the foreign key table
           const orderColumnName =

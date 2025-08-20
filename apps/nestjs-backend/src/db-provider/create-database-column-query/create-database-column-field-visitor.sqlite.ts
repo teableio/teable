@@ -249,7 +249,11 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
           .references('__id')
           .inTable(foreignDbTableName)
           .withKeyName(`fk_${foreignKeyName}`);
+        // Add order column for maintaining insertion order
+        table.integer(`${selfKeyName}_order`).nullable();
       });
+      // Set metadata to indicate this field has order column
+      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
     }
 
     if (relationship === Relationship.ManyOne) {
