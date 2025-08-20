@@ -1012,7 +1012,8 @@ export class LinkService {
           };
           // Add order column if field has order column
           if (field.getHasOrderColumn()) {
-            data['__order'] = index + 1;
+            const linkField = field as LinkFieldDto;
+            data[linkField.getOrderColumnName()] = index + 1;
           }
           return data;
         })
@@ -1035,29 +1036,46 @@ export class LinkService {
 
     // Handle regular additions
     if (toAdd.length) {
-      // We need to find the correct order for each addition based on its position in newKey
-      // First, collect all newKey arrays for this batch
-      const recordNewKeyMap = new Map<string, string[]>();
-      for (const recordId in fkMap) {
-        const fkItem = fkMap[recordId];
-        const newKey = (fkItem.newKey || []) as string[];
-        recordNewKeyMap.set(recordId, newKey);
+      // Group additions by target record to handle order correctly
+      const targetGroups = new Map<string, Array<[string, string]>>();
+      for (const [source, target] of toAdd) {
+        if (!targetGroups.has(target)) {
+          targetGroups.set(target, []);
+        }
+        targetGroups.get(target)!.push([source, target]);
       }
 
-      const insertData = toAdd.map(([source, target]) => {
-        const data: Record<string, unknown> = {
-          [selfKeyName]: source,
-          [foreignKeyName]: target,
-        };
-        // Add order column if field has order column
+      const insertData: Array<Record<string, unknown>> = [];
+
+      for (const [targetRecordId, sourceTargetPairs] of targetGroups) {
+        let currentMaxOrder = 0;
+
+        // Get current max order for this target record if field has order column
         if (field.getHasOrderColumn()) {
-          // Find the correct order based on position in newKey array
-          const newKey = recordNewKeyMap.get(source) || [];
-          const orderValue = newKey.indexOf(target) + 1;
-          data['__order'] = orderValue;
+          currentMaxOrder = await this.getMaxOrderForTarget(
+            fkHostTableName,
+            foreignKeyName,
+            targetRecordId,
+            field.getOrderColumnName()
+          );
         }
-        return data;
-      });
+
+        // Add records with incremental order values
+        for (let i = 0; i < sourceTargetPairs.length; i++) {
+          const [source, target] = sourceTargetPairs[i];
+          const data: Record<string, unknown> = {
+            [selfKeyName]: source,
+            [foreignKeyName]: target,
+          };
+
+          if (field.getHasOrderColumn()) {
+            const linkField = field as LinkFieldDto;
+            data[linkField.getOrderColumnName()] = currentMaxOrder + i + 1;
+          }
+
+          insertData.push(data);
+        }
+      }
 
       const query = this.knex(fkHostTableName).insert(insertData).toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(query);
@@ -1070,11 +1088,12 @@ export class LinkService {
   private async getMaxOrderForTarget(
     tableName: string,
     foreignKeyColumn: string,
-    targetRecordId: string
+    targetRecordId: string,
+    orderColumnName: string
   ): Promise<number> {
     const maxOrderQuery = this.knex(tableName)
       .where(foreignKeyColumn, targetRecordId)
-      .max(`${foreignKeyColumn}_order as maxOrder`)
+      .max(`${orderColumnName} as maxOrder`)
       .first()
       .toQuery();
 
@@ -1141,7 +1160,8 @@ export class LinkService {
           currentMaxOrder = await this.getMaxOrderForTarget(
             fkHostTableName,
             foreignKeyName,
-            foreignRecordId
+            foreignRecordId,
+            field.getOrderColumnName()
           );
         }
 
@@ -1258,20 +1278,22 @@ export class LinkService {
               const currentMaxOrder = await this.getMaxOrderForTarget(
                 fkHostTableName,
                 selfKeyName,
-                recordId
+                recordId,
+                field.getOrderColumnName()
               );
 
               // Add new links with correct incremental order values
+              const orderColumnName = field.getOrderColumnName();
               const dbFields = [
                 { dbFieldName: selfKeyName, schemaType: SchemaType.String },
-                { dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer },
+                { dbFieldName: orderColumnName, schemaType: SchemaType.Integer },
               ];
 
               const addData = toAdd.map((foreignRecordId, index) => ({
                 id: foreignRecordId,
                 values: {
                   [selfKeyName]: recordId,
-                  [`${selfKeyName}_order`]: currentMaxOrder + index + 1,
+                  [orderColumnName]: currentMaxOrder + index + 1,
                 },
               }));
 
