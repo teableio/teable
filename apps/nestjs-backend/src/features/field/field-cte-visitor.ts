@@ -25,8 +25,15 @@ import type {
   UserFieldCore,
   ButtonFieldCore,
   ICurrencyFormatting,
+  INumberFormatting,
 } from '@teable/core';
-import { FieldType, DriverClient, Relationship, NumberFormattingType } from '@teable/core';
+import {
+  FieldType,
+  DriverClient,
+  Relationship,
+  NumberFormattingType,
+  CellValueType,
+} from '@teable/core';
 import type { Knex } from 'knex';
 import { match, P } from 'ts-pattern';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -59,18 +66,10 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
     }
   }
 
-  visitSingleLineTextField(_field: SingleLineTextFieldCore): string {
-    // Text fields don't need special formatting, return as-is
-    return this.fieldExpression;
-  }
-
-  visitLongTextField(_field: LongTextFieldCore): string {
-    // Text fields don't need special formatting, return as-is
-    return this.fieldExpression;
-  }
-
-  visitNumberField(field: NumberFieldCore): string {
-    const formatting = field.options.formatting;
+  /**
+   * Apply number formatting to field expression
+   */
+  private applyNumberFormatting(formatting: INumberFormatting): string {
     const { type, precision } = formatting;
 
     return match({ type, precision, isPostgreSQL: this.isPostgreSQL })
@@ -111,6 +110,21 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
         // Default: convert to string
         isPostgreSQL ? `${this.fieldExpression}::TEXT` : `CAST(${this.fieldExpression} AS TEXT)`
       );
+  }
+
+  visitSingleLineTextField(_field: SingleLineTextFieldCore): string {
+    // Text fields don't need special formatting, return as-is
+    return this.fieldExpression;
+  }
+
+  visitLongTextField(_field: LongTextFieldCore): string {
+    // Text fields don't need special formatting, return as-is
+    return this.fieldExpression;
+  }
+
+  visitNumberField(field: NumberFieldCore): string {
+    const formatting = field.options.formatting;
+    return this.applyNumberFormatting(formatting);
   }
 
   visitCheckboxField(_field: CheckboxFieldCore): string {
@@ -158,9 +172,28 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
     return this.fieldExpression;
   }
 
-  visitFormulaField(_field: FormulaFieldCore): string {
-    // Formula fields depend on their result type, for now return as-is
-    return this.fieldExpression;
+  visitFormulaField(field: FormulaFieldCore): string {
+    // Formula fields need formatting based on their result type and formatting options
+    const { cellValueType, options } = field;
+    const formatting = options.formatting;
+
+    // If no formatting is specified, return as-is
+    if (!formatting) {
+      return this.fieldExpression;
+    }
+
+    // Apply formatting based on the formula's result type
+    if (cellValueType === CellValueType.Number) {
+      // Reuse the number formatting logic
+      return this.applyNumberFormatting(formatting as INumberFormatting);
+    } else if (cellValueType === CellValueType.DateTime) {
+      // For datetime formatting, we would need to implement date formatting logic
+      // For now, return as-is since datetime fields are typically stored as ISO strings
+      return this.fieldExpression;
+    } else {
+      // For other cell value types (String, Boolean), return as-is
+      return this.fieldExpression;
+    }
   }
 
   visitCreatedTimeField(_field: CreatedTimeFieldCore): string {
