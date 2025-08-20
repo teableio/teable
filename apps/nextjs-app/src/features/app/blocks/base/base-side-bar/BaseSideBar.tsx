@@ -43,7 +43,7 @@ export const BaseSideBar = () => {
           href: `/base/${baseId}/app`,
           label: t('common:noun.app'),
           Icon: Code,
-          hidden: !basePermission?.['base|read'],
+          hidden: !basePermission?.['base|create'],
         },
         {
           href: `/base/${baseId}/dashboard`,
