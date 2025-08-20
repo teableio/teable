@@ -501,6 +501,7 @@
     "count": "Count",
     "times": "Times",
     "generate": "Generate",
-    "code": "Invite code"
+    "code": "Invite code",
+    "inviteSuccess": "Invite successfully"
   }
 }

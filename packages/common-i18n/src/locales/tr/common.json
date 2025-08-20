@@ -320,6 +320,7 @@
     "count": "Adet",
     "times": "Kullanım",
     "generate": "Oluştur",
-    "code": "Davet kodu"
+    "code": "Davet kodu",
+    "inviteSuccess": "Davet başarılı"
   }
 }

@@ -18,7 +18,9 @@ import {
   TableHead,
   TableHeader,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
+import { keyBy } from 'lodash';
 import { SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
@@ -127,16 +129,23 @@ export const WaitlistManage = () => {
     queryKey: ['waitlist'],
     queryFn: () => getWaitlist().then(({ data }) => data),
   });
-
+  const inviteMap = keyBy(list, 'email');
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
 
   const { mutateAsync: inviteWaitlistMutation } = useMutation({
     mutationFn: (ro: IInviteWaitlistRo) => inviteWaitlist(ro),
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
+      if (data.length > 0) {
+        toast.success(t('waitlist.inviteSuccess'));
+      }
       queryClient.invalidateQueries({ queryKey: ['waitlist'] });
     },
   });
+
+  const canInvite = useMemo(() => {
+    return selectedEmails.some((email) => !inviteMap[email]?.invite);
+  }, [selectedEmails, inviteMap]);
 
   const handleInvite = async () => {
     await inviteWaitlistMutation({
@@ -168,7 +177,9 @@ export const WaitlistManage = () => {
           <Button variant="secondary" onClick={() => setOpen(false)}>
             {t('actions.close')}
           </Button>
-          <Button onClick={handleInvite}>{t('waitlist.invite')}</Button>
+          <Button onClick={handleInvite} disabled={!canInvite}>
+            {t('waitlist.invite')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

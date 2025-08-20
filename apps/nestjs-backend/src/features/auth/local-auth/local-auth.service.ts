@@ -397,15 +397,19 @@ export class LocalAuthService {
       where: { email: { in: emails } },
     });
 
-    const updateList = list.filter((item) => !item.invite).map((item) => item.email);
+    const updateList = list.filter((item) => !item.invite);
+
+    if (updateList.length === 0) {
+      return [];
+    }
 
     await this.prismaService.txClient().waitlist.updateMany({
-      where: { email: { in: updateList } },
+      where: { email: { in: updateList.map((item) => item.email) } },
       data: { invite: true, inviteTime: new Date().toISOString() },
     });
 
     const res: IInviteWaitlistVo = [];
-    for (const item of list) {
+    for (const item of updateList) {
       const times = 10;
       const code = await this.genWaitlistInviteCode(times);
       const mailOptions = await this.mailSenderService.commonEmailOptions({

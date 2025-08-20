@@ -355,6 +355,7 @@
     "count": "数",
     "times": "回",
     "generate": "生成",
-    "code": "招待コード"
+    "code": "招待コード",
+    "inviteSuccess": "招待成功"
   }
 }

@@ -52,7 +52,7 @@ const CodeTable = (props: { list: IWaitlistInviteCodeVo }) => {
   );
 };
 
-export const InateCodeManage = () => {
+export const InviteCodeManage = () => {
   const { t } = useTranslation('common');
   const [count, setCount] = useState(10);
   const [times, setTimes] = useState(10);

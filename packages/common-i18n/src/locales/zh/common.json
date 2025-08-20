@@ -500,6 +500,7 @@
     "count": "数量",
     "times": "可使用次数",
     "generate": "生成",
-    "code": "邀请码"
+    "code": "邀请码",
+    "inviteSuccess": "邀请成功"
   }
 }

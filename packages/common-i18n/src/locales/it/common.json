@@ -381,6 +381,7 @@
     "count": "Quantità",
     "times": "Usages",
     "generate": "Genera",
-    "code": "Codice di invito"
+    "code": "Codice di invito",
+    "inviteSuccess": "Invito riuscito"
   }
 }

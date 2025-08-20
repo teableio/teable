@@ -402,6 +402,7 @@
     "count": "Anzahl",
     "times": "Verfügbare Anzahl",
     "generate": "Generieren",
-    "code": "Einladungscode"
+    "code": "Einladungscode",
+    "inviteSuccess": "Einladung erfolgreich"
   }
 }

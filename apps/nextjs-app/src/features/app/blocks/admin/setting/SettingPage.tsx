@@ -7,7 +7,7 @@ import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { AIConfigForm } from './components/ai-config/AiForm';
 import { Branding } from './components/Branding';
-import { InateCodeManage } from './components/waitlist/InateCodeManage';
+import { InviteCodeManage } from './components/waitlist/InviteCodeManage';
 import { WaitlistManage } from './components/waitlist/WaitlistManage';
 
 export interface ISettingPageProps {
@@ -150,7 +150,7 @@ export const SettingPage = (props: ISettingPageProps) => {
             <div className="space-y-1">
               <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
             </div>
-            <InateCodeManage />
+            <InviteCodeManage />
           </div>
         </div>
       </div>
