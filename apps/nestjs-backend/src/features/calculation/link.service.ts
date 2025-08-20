@@ -967,15 +967,63 @@ export class LinkService {
 
     const toDelete: [string, string][] = [];
     const toAdd: [string, string][] = [];
+    const toDeleteAndReinsert: [string, string[]][] = [];
+
     for (const recordId in fkMap) {
       const fkItem = fkMap[recordId];
       const oldKey = (fkItem.oldKey || []) as string[];
       const newKey = (fkItem.newKey || []) as string[];
 
-      difference(oldKey, newKey).forEach((key) => toDelete.push([recordId, key]));
-      difference(newKey, oldKey).forEach((key) => toAdd.push([recordId, key]));
+      // Check if only order has changed (same elements but different order)
+      const hasOrderChanged =
+        oldKey.length === newKey.length &&
+        oldKey.length > 0 &&
+        newKey.length > 0 &&
+        oldKey.every((key) => newKey.includes(key)) &&
+        newKey.every((key) => oldKey.includes(key)) &&
+        !oldKey.every((key, index) => key === newKey[index]);
+
+      if (hasOrderChanged) {
+        // For order changes only: delete all and re-insert in correct order
+        toDeleteAndReinsert.push([recordId, newKey]);
+      } else {
+        // For add/remove changes: use differential approach
+        difference(oldKey, newKey).forEach((key) => toDelete.push([recordId, key]));
+        difference(newKey, oldKey).forEach((key) => toAdd.push([recordId, key]));
+      }
     }
 
+    // Handle order changes: delete all existing records for affected recordIds and re-insert
+    if (toDeleteAndReinsert.length) {
+      const recordIdsToDeleteAll = toDeleteAndReinsert.map(([recordId]) => recordId);
+      const deleteAllQuery = this.knex(fkHostTableName)
+        .whereIn(selfKeyName, recordIdsToDeleteAll)
+        .delete()
+        .toQuery();
+      await this.prismaService.txClient().$executeRawUnsafe(deleteAllQuery);
+
+      // Re-insert all records in correct order
+      const reinsertData = toDeleteAndReinsert.flatMap(([recordId, newKeys]) =>
+        newKeys.map((foreignKey, index) => {
+          const data: Record<string, unknown> = {
+            [selfKeyName]: recordId,
+            [foreignKeyName]: foreignKey,
+          };
+          // Add order column if field has order column
+          if (field.getHasOrderColumn()) {
+            data[`${selfKeyName}_order`] = index + 1;
+          }
+          return data;
+        })
+      );
+
+      if (reinsertData.length) {
+        const reinsertQuery = this.knex(fkHostTableName).insert(reinsertData).toQuery();
+        await this.prismaService.txClient().$executeRawUnsafe(reinsertQuery);
+      }
+    }
+
+    // Handle regular deletions
     if (toDelete.length) {
       const query = this.knex(fkHostTableName)
         .whereIn([selfKeyName, foreignKeyName], toDelete)
@@ -984,15 +1032,33 @@ export class LinkService {
       await this.prismaService.txClient().$executeRawUnsafe(query);
     }
 
+    // Handle regular additions
     if (toAdd.length) {
-      const query = this.knex(fkHostTableName)
-        .insert(
-          toAdd.map(([source, target]) => ({
-            [selfKeyName]: source,
-            [foreignKeyName]: target,
-          }))
-        )
-        .toQuery();
+      // We need to find the correct order for each addition based on its position in newKey
+      // First, collect all newKey arrays for this batch
+      const recordNewKeyMap = new Map<string, string[]>();
+      for (const recordId in fkMap) {
+        const fkItem = fkMap[recordId];
+        const newKey = (fkItem.newKey || []) as string[];
+        recordNewKeyMap.set(recordId, newKey);
+      }
+
+      const insertData = toAdd.map(([source, target]) => {
+        const data: Record<string, unknown> = {
+          [selfKeyName]: source,
+          [foreignKeyName]: target,
+        };
+        // Add order column if field has order column
+        if (field.getHasOrderColumn()) {
+          // Find the correct order based on position in newKey array
+          const newKey = recordNewKeyMap.get(source) || [];
+          const orderValue = newKey.indexOf(target) + 1;
+          data[`${selfKeyName}_order`] = orderValue;
+        }
+        return data;
+      });
+
+      const query = this.knex(fkHostTableName).insert(insertData).toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(query);
     }
   }
@@ -1070,33 +1136,34 @@ export class LinkService {
       const oldKey = (fkItem.oldKey || []) as string[];
       const newKey = (fkItem.newKey || []) as string[];
 
-      const toDelete = difference(oldKey, newKey);
-      const toAdd = difference(newKey, oldKey);
+      // Check if only order has changed (same elements but different order)
+      const hasOrderChanged =
+        oldKey.length === newKey.length &&
+        oldKey.length > 0 &&
+        newKey.length > 0 &&
+        oldKey.every((key) => newKey.includes(key)) &&
+        newKey.every((key) => oldKey.includes(key)) &&
+        !oldKey.every((key, index) => key === newKey[index]);
 
-      // Delete old links
-      if (toDelete.length) {
-        const updateFields: Record<string, null> = { [selfKeyName]: null };
-        // Also clear order column if field has order column
-        if (field.getHasOrderColumn()) {
-          updateFields[`${selfKeyName}_order`] = null;
-        }
+      if (hasOrderChanged && field.getHasOrderColumn()) {
+        // For order changes: clear all existing links and re-establish with correct order
+        const clearFields: Record<string, null> = {
+          [selfKeyName]: null,
+          [`${selfKeyName}_order`]: null,
+        };
 
-        const deleteConditions = toDelete.map((key) => [recordId, key]);
-        const query = this.knex(fkHostTableName)
-          .update(updateFields)
-          .whereIn([selfKeyName, foreignKeyName], deleteConditions)
+        const clearQuery = this.knex(fkHostTableName)
+          .update(clearFields)
+          .where(selfKeyName, recordId)
           .toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(query);
-      }
+        await this.prismaService.txClient().$executeRawUnsafe(clearQuery);
 
-      // Update all linked records with correct order values
-      if (newKey.length > 0 && field.getHasOrderColumn()) {
+        // Re-establish all links with correct order
         const dbFields = [
           { dbFieldName: selfKeyName, schemaType: SchemaType.String },
           { dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer },
         ];
 
-        // Update all records in newKey array with their correct order values
         const updateData = newKey.map((foreignRecordId, index) => {
           const orderValue = index + 1;
           return {
@@ -1114,20 +1181,52 @@ export class LinkService {
           dbFields,
           updateData
         );
-      } else if (toAdd.length) {
-        // Fallback for fields without order column - only add new links
-        const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
-        const updateData = toAdd.map((foreignRecordId) => ({
-          id: foreignRecordId,
-          values: { [selfKeyName]: recordId },
-        }));
+      } else {
+        // Handle regular add/remove operations
+        const toDelete = difference(oldKey, newKey);
 
-        await this.batchService.batchUpdateDB(
-          fkHostTableName,
-          foreignKeyName,
-          dbFields,
-          updateData
-        );
+        // Delete old links
+        if (toDelete.length) {
+          const updateFields: Record<string, null> = { [selfKeyName]: null };
+          // Also clear order column if field has order column
+          if (field.getHasOrderColumn()) {
+            updateFields[`${selfKeyName}_order`] = null;
+          }
+
+          const deleteConditions = toDelete.map((key) => [recordId, key]);
+          const query = this.knex(fkHostTableName)
+            .update(updateFields)
+            .whereIn([selfKeyName, foreignKeyName], deleteConditions)
+            .toQuery();
+          await this.prismaService.txClient().$executeRawUnsafe(query);
+        }
+
+        // Always update all linked records with correct order values when we have new keys
+        if (newKey.length > 0) {
+          const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
+          if (field.getHasOrderColumn()) {
+            dbFields.push({ dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer });
+          }
+
+          // Update all records in newKey array with their correct order values
+          const updateData = newKey.map((foreignRecordId, index) => {
+            const values: Record<string, unknown> = { [selfKeyName]: recordId };
+            if (field.getHasOrderColumn()) {
+              values[`${selfKeyName}_order`] = index + 1;
+            }
+            return {
+              id: foreignRecordId,
+              values,
+            };
+          });
+
+          await this.batchService.batchUpdateDB(
+            fkHostTableName,
+            foreignKeyName,
+            dbFields,
+            updateData
+          );
+        }
       }
     }
   }
