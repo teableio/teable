@@ -708,6 +708,11 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
       return this.expandFormulaField(fieldId, fieldInfo);
     }
 
+    // Use table alias if provided in context
+    if (selectContext.tableAlias) {
+      return `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
+    }
+
     return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
   }
 

@@ -176,6 +176,8 @@ export interface IFormulaConversionContext {
 export interface ISelectFormulaConversionContext extends IFormulaConversionContext {
   /** Map of field ID to CTE name for lookup/link/rollup fields */
   fieldCteMap?: Map<string, string>;
+  /** Table alias to use for field references */
+  tableAlias?: string;
 }
 
 /**

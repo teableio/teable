@@ -510,14 +510,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Build select columns
       const selectColumns = [`${mainAlias}.__id as main_record_id`];
 
-      // Create FieldSelectVisitor to get the correct field expression for the target field
+      // Create FieldSelectVisitor to get the correct field expression for the target field, without alias
       const tempQb = qb.client.queryBuilder();
       const fieldSelectVisitor = new FieldSelectVisitor(
         tempQb,
         this.dbProvider,
         { fieldMap: this.context.fieldMap },
         undefined, // No fieldCteMap to prevent recursive processing
-        linkTargetAlias
+        linkTargetAlias,
+        false // withAlias = false for use in jsonb_build_object
       );
 
       // Get the field expression for the link lookup field
@@ -804,14 +805,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       // Build select columns
       const selectColumns = [`${mainAlias}.__id as main_record_id`];
 
-      // Create FieldSelectVisitor with table alias
+      // Create FieldSelectVisitor with table alias, without alias for use in jsonb_build_object
       const tempQb = qb.client.queryBuilder();
       const fieldSelectVisitor = new FieldSelectVisitor(
         tempQb,
         this.dbProvider,
         { fieldMap: this.context.fieldMap },
         undefined, // No fieldCteMap to prevent recursive Lookup processing
-        foreignAlias
+        foreignAlias,
+        false // withAlias = false for use in jsonb_build_object
       );
 
       // Use the visitor to get the correct field selection
@@ -844,14 +846,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         const targetField = this.context.fieldMap.get(lookupField.lookupOptions!.lookupFieldId);
         if (targetField) {
-          // Create FieldSelectVisitor with table alias
+          // Create FieldSelectVisitor with table alias, without alias for use in jsonb_build_object
           const tempQb2 = qb.client.queryBuilder();
           const fieldSelectVisitor2 = new FieldSelectVisitor(
             tempQb2,
             this.dbProvider,
             { fieldMap: this.context.fieldMap },
             undefined, // No fieldCteMap to prevent recursive Lookup processing
-            foreignAlias
+            foreignAlias,
+            false // withAlias = false for use in jsonb_build_object
           );
 
           // Use the visitor to get the correct field selection
@@ -879,14 +882,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         const targetField = this.context.fieldMap.get(rollupField.lookupOptions!.lookupFieldId);
         if (targetField) {
-          // Create FieldSelectVisitor with table alias
+          // Create FieldSelectVisitor with table alias, without alias for use in aggregation
           const tempQb3 = qb.client.queryBuilder();
           const fieldSelectVisitor3 = new FieldSelectVisitor(
             tempQb3,
             this.dbProvider,
             { fieldMap: this.context.fieldMap },
             undefined, // No fieldCteMap to prevent recursive processing
-            foreignAlias
+            foreignAlias,
+            false // withAlias = false for use in aggregation functions
           );
 
           // Use the visitor to get the correct field selection
