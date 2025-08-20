@@ -65,7 +65,7 @@ spec:
         - name: db-migrate
           image: >-
             __MAIN_IMAGE_REPOSITORY__:__IMAGE_TAG__
-          args: ["migrate-only"]
+          args: ['migrate-only']
           env:
             - name: PG_PASSWORD
               valueFrom:
@@ -93,7 +93,7 @@ spec:
         - name: teable-__INSTANCE_NAME__
           image: >-
             __MAIN_IMAGE_REPOSITORY__:__IMAGE_TAG__
-          args: ["skip-migrate"]
+          args: ['skip-migrate']
           env:
             - name: PG_PASSWORD
               valueFrom:
@@ -181,8 +181,6 @@ spec:
                 redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST).ns-__NAMESPACE__.svc:$(REDIS_PORT)/1
             - name: NEXT_ENV_IMAGES_ALL_REMOTE
               value: 'true'
-            - name: NEXT_BUILD_ENV_ASSET_PREFIX
-              value: __NEXT_BUILD_ENV_ASSET_PREFIX__
           resources:
             requests:
               cpu: 200m
