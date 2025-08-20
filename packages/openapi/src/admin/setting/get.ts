@@ -2,7 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
-import { aiConfigVoSchema } from './update';
+import { aiConfigVoSchema, appConfigSchema } from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
@@ -14,6 +14,7 @@ export const settingVoSchema = z.object({
   enableEmailVerification: z.boolean().nullable().optional(),
   enableWaitlist: z.boolean().nullable().optional(),
   aiConfig: aiConfigVoSchema.nullable().optional(),
+  appConfig: appConfigSchema.nullable().optional(),
 });
 
 export type ISettingVo = z.infer<typeof settingVoSchema>;
