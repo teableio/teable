@@ -45,7 +45,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly dbProvider: IDbProvider,
     private readonly context: IFormulaConversionContext,
     private readonly fieldCteMap?: Map<string, string>,
-    private readonly tableAlias?: string
+    private readonly tableAlias?: string,
+    private readonly withAlias: boolean = true
   ) {}
 
   /**
@@ -170,15 +171,22 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           fieldMap: this.context.fieldMap,
           fieldCteMap: this.fieldCteMap,
+          tableAlias: this.tableAlias, // Pass table alias to the conversion context
         });
-        // Apply table alias to the formula expression if provided
-        const finalSql = this.tableAlias ? sql.replace(/\b\w+\./g, `${this.tableAlias}.`) : sql;
-        const rawExpression = this.qb.client.raw(`${finalSql} as ??`, [
-          field.getGeneratedColumnName(),
-        ]);
-        const selectorName = this.qb.client.raw(finalSql);
-        this.selectionMap.set(field.id, selectorName);
-        return rawExpression;
+        // The table alias is now handled inside the SQL conversion visitor
+        const finalSql = sql;
+
+        if (this.withAlias) {
+          const rawExpression = this.qb.client.raw(`${finalSql} as ??`, [
+            field.getGeneratedColumnName(),
+          ]);
+          const selectorName = this.qb.client.raw(finalSql);
+          this.selectionMap.set(field.id, selectorName);
+          return rawExpression;
+        } else {
+          // Return just the expression without alias for use in jsonb_build_object
+          return finalSql;
+        }
       }
       // For generated columns, use table alias if provided
       const columnName = field.getGeneratedColumnName();

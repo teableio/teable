@@ -59,7 +59,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       currentUserId,
     };
 
-    const qb = this.buildQueryWithParams(params, linkFieldCteContext);
+    const { qb } = await this.buildQueryWithParams(params, linkFieldCteContext);
     return { qb, alias: RecordQueryBuilderService.mainTableAlias };
   }
 
@@ -94,7 +94,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     );
 
     // Build aggregation query
-    const qb = this.buildAggregateQuery(queryBuilder, {
+    const { qb } = await this.buildAggregateQuery(queryBuilder, {
       tableId,
       dbTableName,
       fields,
@@ -112,10 +112,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   /**
    * Build query with detailed parameters
    */
-  private buildQueryWithParams(
+  private async buildQueryWithParams(
     params: IRecordQueryParams,
     linkFieldCteContext: ILinkFieldCteContext
-  ): Knex.QueryBuilder {
+  ): Promise<{ qb: Knex.QueryBuilder }> {
     const { fields, linkFieldContexts, from, filter, sort, currentUserId } = params;
     const { mainTableName } = linkFieldCteContext;
     const mainTableAlias = RecordQueryBuilderService.mainTableAlias;
@@ -126,7 +126,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const context = this.helper.buildFormulaContext(fields);
 
     // Add field CTEs and their JOINs if Link field contexts are provided
-    const { fieldCteMap, enhancedContext } = this.helper.addFieldCtesSync(
+    const { fieldCteMap, enhancedContext } = await this.helper.addFieldCtesSync(
       queryBuilder,
       fields,
       mainTableName,
@@ -153,7 +153,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       this.buildSort(queryBuilder, fields, sort, selectionMap);
     }
 
-    return queryBuilder;
+    return { qb: queryBuilder };
   }
 
   /**
@@ -252,7 +252,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   /**
    * Build aggregate query with special handling for aggregation operations
    */
-  private buildAggregateQuery(
+  private async buildAggregateQuery(
     queryBuilder: Knex.QueryBuilder,
     params: {
       tableId: string;
@@ -265,7 +265,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       currentUserId?: string;
       linkFieldCteContext: ILinkFieldCteContext;
     }
-  ): Knex.QueryBuilder {
+  ): Promise<{ qb: Knex.QueryBuilder }> {
     const {
       dbTableName,
       fields,
@@ -283,7 +283,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const context = this.helper.buildFormulaContext(fields);
 
     // Add field CTEs and their JOINs if Link field contexts are provided
-    const { fieldCteMap } = this.helper.addFieldCtesSync(
+    const { fieldCteMap } = await this.helper.addFieldCtesSync(
       queryBuilder,
       fields,
       mainTableName,
@@ -313,6 +313,6 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         .appendGroupBuilder();
     }
 
-    return queryBuilder;
+    return { qb: queryBuilder };
   }
 }

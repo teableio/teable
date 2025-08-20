@@ -121,6 +121,70 @@ export class RecordQueryBuilderHelper {
   }
 
   /**
+   * Enhance fieldMap with additional fields for Formula fields in foreign tables
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async enhanceFieldMapForFormulaFields(
+    fieldMap: Map<string, IFieldInstance>,
+    _tableNameMap: Map<string, string>
+  ): Promise<void> {
+    const processedTables = new Set<string>();
+
+    // Find all Link fields and check their lookup fields
+    for (const field of fieldMap.values()) {
+      if (field.type === FieldType.Link && !field.isLookup) {
+        const linkOptions = field.options as ILinkFieldOptions;
+        const { foreignTableId, lookupFieldId } = linkOptions;
+
+        // Skip if we've already processed this table
+        if (processedTables.has(foreignTableId)) {
+          continue;
+        }
+
+        // Get the lookup field - it might not be in fieldMap yet, so fetch it
+        let lookupField = fieldMap.get(lookupFieldId);
+
+        // If lookup field is not in fieldMap, fetch it from database
+        if (!lookupField) {
+          try {
+            const rawLookupField = await this.prismaService.txClient().field.findUnique({
+              where: { id: lookupFieldId, deletedTime: null },
+            });
+            if (rawLookupField) {
+              lookupField = createFieldInstanceByRaw(rawLookupField);
+              fieldMap.set(lookupField.id, lookupField);
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to fetch lookup field ${lookupFieldId}:`, error);
+            continue;
+          }
+        }
+
+        // If lookup field is a Formula field, fetch all fields from its table
+        if (lookupField && lookupField.type === FieldType.Formula) {
+          try {
+            const foreignTableFields = await this.prismaService.txClient().field.findMany({
+              where: { tableId: foreignTableId, deletedTime: null },
+            });
+
+            // Add all foreign table fields to fieldMap
+            for (const rawField of foreignTableFields) {
+              const fieldInstance = createFieldInstanceByRaw(rawField);
+              if (!fieldMap.has(fieldInstance.id)) {
+                fieldMap.set(fieldInstance.id, fieldInstance);
+              }
+            }
+
+            processedTables.add(foreignTableId);
+          } catch (error) {
+            this.logger.warn(`Failed to fetch fields for table ${foreignTableId}:`, error);
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Add field CTEs (Common Table Expressions) and their JOINs to the query builder
    *
    * This method processes Link and Lookup fields to create CTEs that aggregate related data.
@@ -154,7 +218,7 @@ export class RecordQueryBuilderHelper {
    * - Formula fields: Reference CTE data in formula expressions
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  addFieldCtesSync(
+  async addFieldCtesSync(
     queryBuilder: Knex.QueryBuilder,
     fields: IFieldInstance[],
     mainTableName: string,
@@ -162,7 +226,7 @@ export class RecordQueryBuilderHelper {
     linkFieldContexts?: ILinkFieldContext[],
     contextTableNameMap?: Map<string, string>,
     additionalFields?: Map<string, IFieldInstance>
-  ): { fieldCteMap: Map<string, string>; enhancedContext: IFormulaConversionContext } {
+  ): Promise<{ fieldCteMap: Map<string, string>; enhancedContext: IFormulaConversionContext }> {
     const fieldCteMap = new Map<string, string>();
 
     if (!linkFieldContexts?.length) {
@@ -184,6 +248,9 @@ export class RecordQueryBuilderHelper {
       const options = linkContext.linkField.options as ILinkFieldOptions;
       tableNameMap.set(options.foreignTableId, linkContext.foreignTableName);
     }
+
+    // Pre-fetch additional fields for Formula fields in foreign tables
+    await this.enhanceFieldMapForFormulaFields(fieldMap, tableNameMap);
 
     // Add additional fields (e.g., rollup target fields) to the field map
     if (additionalFields) {
