@@ -739,7 +739,9 @@
       "getRelativeData": "Get relative data",
       "getPreviousNodeOutputVariables": "Get previous node output variables",
       "getApiJson": "Get API info",
-      "generateScriptAndDependencies": "Generate script and dependencies"
+      "generateScriptAndDependencies": "Generate script and dependencies",
+
+      "analyzingAttachment": "Analyzing attachment..."
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
