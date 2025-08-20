@@ -1,3 +1,4 @@
+import { useBuildBaseAgentStore } from '@teable/sdk/components/grid-enhancements/store/useBuildBaseAgentStore';
 import {
   AggregationProvider,
   RecordProvider,
@@ -6,6 +7,7 @@ import {
 } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { usePersonalView } from '@teable/sdk/hooks';
+import { cn } from '@teable/ui-lib/shadcn';
 import { GridToolBar } from '../tool-bar/GridToolBar';
 import type { IViewBaseProps } from '../types';
 import { GridViewBase } from './GridViewBase';
@@ -13,6 +15,7 @@ import { GridViewBase } from './GridViewBase';
 export const GridView = (props: IViewBaseProps) => {
   const { recordServerData, recordsServerData, groupPointsServerDataMap } = props;
   const { personalViewCommonQuery, personalViewAggregationQuery } = usePersonalView();
+  const { building } = useBuildBaseAgentStore();
 
   return (
     <SearchProvider>
@@ -21,7 +24,11 @@ export const GridView = (props: IViewBaseProps) => {
           <TaskStatusCollectionProvider>
             <RowCountProvider query={personalViewCommonQuery}>
               <GridToolBar />
-              <div className="w-full grow overflow-hidden sm:pl-2">
+              <div
+                className={cn('w-full grow overflow-hidden sm:pl-2', {
+                  'rounded-md': building,
+                })}
+              >
                 <GridViewBase groupPointsServerDataMap={groupPointsServerDataMap} />
               </div>
             </RowCountProvider>
