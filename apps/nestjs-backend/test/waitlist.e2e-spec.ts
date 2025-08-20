@@ -34,11 +34,9 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
 
   afterAll(async () => {
     await runWithTestUser(clsService, async () => {
-      if (enableWaitlist) {
-        await settingService.updateSetting({
-          enableWaitlist: true,
-        });
-      }
+      await settingService.updateSetting({
+        enableWaitlist: enableWaitlist ?? false,
+      });
     });
     await app.close();
   });
