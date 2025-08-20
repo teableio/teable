@@ -814,6 +814,16 @@
     },
     "tips": {
       "modelTips": "只允许管理员在后台配置"
+    },
+    "attachment": {
+      "imageNotSupported": "不支持图片",
+      "attachmentSizeExceeded": "附件大小超过限制 {{size}}MB"
+    },
+    "suggestions": {
+      "recommend": "推荐",
+      "ask": "提问",
+      "analyze": "分析",
+      "build": "构建"
     }
   }
 }
