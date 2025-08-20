@@ -1012,7 +1012,7 @@ export class LinkService {
           };
           // Add order column if field has order column
           if (field.getHasOrderColumn()) {
-            data[`${selfKeyName}_order`] = index + 1;
+            data['__order'] = index + 1;
           }
           return data;
         })
@@ -1054,7 +1054,7 @@ export class LinkService {
           // Find the correct order based on position in newKey array
           const newKey = recordNewKeyMap.get(source) || [];
           const orderValue = newKey.indexOf(target) + 1;
-          data[`${selfKeyName}_order`] = orderValue;
+          data['__order'] = orderValue;
         }
         return data;
       });
@@ -1062,6 +1062,27 @@ export class LinkService {
       const query = this.knex(fkHostTableName).insert(insertData).toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(query);
     }
+  }
+
+  /**
+   * Get the maximum order value for a specific target record in a link relationship
+   */
+  private async getMaxOrderForTarget(
+    tableName: string,
+    foreignKeyColumn: string,
+    targetRecordId: string
+  ): Promise<number> {
+    const maxOrderQuery = this.knex(tableName)
+      .where(foreignKeyColumn, targetRecordId)
+      .max(`${foreignKeyColumn}_order as maxOrder`)
+      .first()
+      .toQuery();
+
+    const maxOrderResult = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ maxOrder: number | null }[]>(maxOrderQuery);
+
+    return maxOrderResult[0]?.maxOrder || 0;
   }
 
   private async saveForeignKeyForManyOne(
@@ -1101,22 +1122,46 @@ export class LinkService {
         dbFields.push({ dbFieldName: `${foreignKeyName}_order`, schemaType: SchemaType.Integer });
       }
 
-      await this.batchService.batchUpdateDB(
-        fkHostTableName,
-        selfKeyName,
-        dbFields,
-        toAdd.map(([recordId, foreignRecordId]) => {
+      // Group toAdd by target record to handle order correctly
+      const targetGroups = new Map<string, string[]>();
+      for (const [recordId, foreignRecordId] of toAdd) {
+        if (!targetGroups.has(foreignRecordId)) {
+          targetGroups.set(foreignRecordId, []);
+        }
+        targetGroups.get(foreignRecordId)!.push(recordId);
+      }
+
+      const updateData: Array<{ id: string; values: Record<string, unknown> }> = [];
+
+      for (const [foreignRecordId, recordIds] of targetGroups) {
+        let currentMaxOrder = 0;
+
+        // Get current max order for this target record if field has order column
+        if (field.getHasOrderColumn()) {
+          currentMaxOrder = await this.getMaxOrderForTarget(
+            fkHostTableName,
+            foreignKeyName,
+            foreignRecordId
+          );
+        }
+
+        // Add records with incremental order values
+        for (let i = 0; i < recordIds.length; i++) {
+          const recordId = recordIds[i];
           const values: Record<string, unknown> = { [foreignKeyName]: foreignRecordId };
-          // For ManyOne relationship, order is always 1 since each record can only link to one target
+
           if (field.getHasOrderColumn()) {
-            values[`${foreignKeyName}_order`] = 1;
+            values[`${foreignKeyName}_order`] = currentMaxOrder + i + 1;
           }
-          return {
+
+          updateData.push({
             id: recordId,
             values,
-          };
-        })
-      );
+          });
+        }
+      }
+
+      await this.batchService.batchUpdateDB(fkHostTableName, selfKeyName, dbFields, updateData);
     }
   }
 
@@ -1205,25 +1250,38 @@ export class LinkService {
         // Add new links and update order for all current links
         if (newKey.length > 0) {
           if (field.getHasOrderColumn()) {
-            // If field has order column, update both link and order in one operation
-            const dbFields = [
-              { dbFieldName: selfKeyName, schemaType: SchemaType.String },
-              { dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer },
-            ];
-            const updateData = newKey.map((foreignRecordId, index) => ({
-              id: foreignRecordId,
-              values: {
-                [selfKeyName]: recordId,
-                [`${selfKeyName}_order`]: index + 1,
-              },
-            }));
+            // Find truly new links that need to be added
+            const toAdd = difference(newKey, oldKey);
 
-            await this.batchService.batchUpdateDB(
-              fkHostTableName,
-              foreignKeyName,
-              dbFields,
-              updateData
-            );
+            if (toAdd.length > 0) {
+              // Get the current maximum order value for this target record
+              const currentMaxOrder = await this.getMaxOrderForTarget(
+                fkHostTableName,
+                selfKeyName,
+                recordId
+              );
+
+              // Add new links with correct incremental order values
+              const dbFields = [
+                { dbFieldName: selfKeyName, schemaType: SchemaType.String },
+                { dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer },
+              ];
+
+              const addData = toAdd.map((foreignRecordId, index) => ({
+                id: foreignRecordId,
+                values: {
+                  [selfKeyName]: recordId,
+                  [`${selfKeyName}_order`]: currentMaxOrder + index + 1,
+                },
+              }));
+
+              await this.batchService.batchUpdateDB(
+                fkHostTableName,
+                foreignKeyName,
+                dbFields,
+                addData
+              );
+            }
           } else {
             // If no order column, just add new links
             const toAdd = difference(newKey, oldKey);
