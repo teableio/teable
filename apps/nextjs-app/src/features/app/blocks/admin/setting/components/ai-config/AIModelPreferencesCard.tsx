@@ -1,5 +1,6 @@
 import { Loader2 } from '@teable/icons';
 import type { IAIIntegrationConfig, IChatModelAbility } from '@teable/openapi';
+import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import {
   Card,
   CardHeader,
@@ -27,6 +28,7 @@ interface IAIModelPreferencesCardProps {
   models: IModelOption[];
   onChange?: () => void;
   onTestChatModelAbility?: (data: IAIIntegrationConfig) => Promise<IChatModelAbility | undefined>;
+  onEnableAI?: () => void;
 }
 
 export const AIModelPreferencesCard = ({
@@ -34,6 +36,7 @@ export const AIModelPreferencesCard = ({
   models,
   onChange,
   onTestChatModelAbility,
+  onEnableAI,
 }: IAIModelPreferencesCardProps) => {
   const { t } = useTranslation('common');
 
@@ -108,6 +111,9 @@ export const AIModelPreferencesCard = ({
                         onChange?.();
                       }}
                       models={models}
+                      onTestChatModelAbility={onTestChatModelAbility}
+                      formValues={control._formValues as NonNullable<ISettingVo['aiConfig']>}
+                      onEnableAI={onEnableAI}
                     />
                   </FormControl>
                 </div>

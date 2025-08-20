@@ -693,7 +693,16 @@
         "chatModelTest": {
           "text": "测试大型模型的能力",
           "description": "测试模型处理图片、PDF 的能力",
-          "notConfigLgModel": "请先配置大型模型"
+          "notConfigLgModel": "请先配置大型模型",
+          "confirmTitle": "测试模型能力",
+          "confirmDescription": "是否测试大型聊天模型的能力？",
+          "confirm": "测试模型",
+          "cancel": "取消",
+          "missingCapabilitiesWarning": "此模型不支持图片或PDF处理，可能会导致部分功能不可用。",
+          "enableAITitle": "启用AI",
+          "enableAIDescription": "模型测试已完成。AI功能当前未启用。是否启用AI来使用这些模型能力？",
+          "enableAI": "启用AI",
+          "skipTest": "跳过"
         },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",

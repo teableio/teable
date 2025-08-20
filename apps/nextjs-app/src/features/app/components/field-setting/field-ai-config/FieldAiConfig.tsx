@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { IFieldAIConfig } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { ChevronDown, ChevronRight, HelpCircle, MagicAi } from '@teable/icons';
-import { getAIConfig } from '@teable/openapi';
+import { BillingProductLevel, getAIConfig } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
 import {
   cn,
@@ -20,6 +20,7 @@ import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
+import { UpgradeWrapper } from '../../billing/UpgradeWrapper';
 import type { IFieldEditorRo } from '../type';
 import { AttachmentFieldAiConfig } from './AttachmentFieldAiConfig';
 import { MultipleSelectFieldAiConfig } from './MultipleSelectFieldAiConfig';
@@ -120,22 +121,18 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
     </div>
   ) : (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="group flex cursor-not-allowed select-none items-center justify-between rounded-sm bg-muted px-3 py-2">
-            <div className="flex items-center gap-x-1">
-              <MagicAi className="size-4 text-gray-500" />
-              {t('table:field.aiConfig.title')}
-            </div>
-            {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+    <UpgradeWrapper targetBillingLevel={BillingProductLevel.Plus}>
+      {({ badge }) => (
+        <div className="group flex cursor-pointer select-none items-center justify-between rounded-sm px-3 py-2">
+          <div className="flex items-center gap-x-1">
+            <MagicAi className="size-4 text-gray-500" />
+            {t('table:field.aiConfig.title')}
+            {badge}
           </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="max-w-[320px]">{t('billing.unavailableInPlanTips')}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          <ChevronRight className="size-4" />
+        </div>
+      )}
+    </UpgradeWrapper>
   );
 
   return (
