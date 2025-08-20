@@ -26,6 +26,7 @@ export interface ICacheStore {
   [key: `signin:attempts:${string}`]: number;
   [key: `signin:lockout:${string}`]: boolean;
   [key: `query-params:${string}`]: Record<string, unknown>;
+  [key: `waitlist:invite-code:${string}`]: number;
 }
 
 export interface IAttachmentSignatureCache {

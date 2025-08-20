@@ -10,7 +10,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IChangePasswordRo, ISignup } from '@teable/openapi';
+import type { IChangePasswordRo, ISignup, IInviteWaitlistVo } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
 import ms from 'ms';
@@ -344,5 +344,98 @@ export class LocalAuthService {
       ...emailOptions,
     });
     return { token };
+  }
+
+  async checkWaitlistInviteCode(inviteCode?: string) {
+    const setting = await this.settingService.getSetting();
+    if (!setting.enableWaitlist) {
+      return true;
+    }
+
+    if (!inviteCode) {
+      throw new CustomHttpException('Invite code is required', HttpErrorCode.INVALID_CAPTCHA);
+    }
+
+    const times = await this.cacheService.get(`waitlist:invite-code:${inviteCode}`);
+    if (!times || times <= 0) {
+      throw new CustomHttpException('Invite code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+    }
+
+    await this.cacheService.set(
+      `waitlist:invite-code:${inviteCode}`,
+      times - 1,
+      1000 * 60 * 60 * 24 * 30
+    );
+
+    return true;
+  }
+
+  async joinWaitlist(email: string) {
+    const user = await this.userService.getUserByEmail(email);
+    if (user) {
+      throw new ConflictException('Email already registered');
+    }
+    const find = await this.prismaService.txClient().waitlist.findFirst({
+      where: { email },
+    });
+    if (find) {
+      return find;
+    }
+    return await this.prismaService.txClient().waitlist.create({
+      data: { email },
+    });
+  }
+
+  async getWaitlist() {
+    return await this.prismaService.txClient().waitlist.findMany({
+      orderBy: { createdTime: 'desc' },
+    });
+  }
+
+  async inviteWaitlist(emails: string[]) {
+    const list = await this.prismaService.txClient().waitlist.findMany({
+      where: { email: { in: emails } },
+    });
+
+    const updateList = list.filter((item) => !item.invite).map((item) => item.email);
+
+    await this.prismaService.txClient().waitlist.updateMany({
+      where: { email: { in: updateList } },
+      data: { invite: true, inviteTime: new Date().toISOString() },
+    });
+
+    const res: IInviteWaitlistVo = [];
+    for (const item of list) {
+      const times = 10;
+      const code = await this.genWaitlistInviteCode(times);
+      const mailOptions = await this.mailSenderService.commonEmailOptions({
+        to: item.email,
+        title: 'Welcome',
+        message: `You're off the waitlist!, Here is your invite code: ${code}, it can be used ${times} times`,
+        buttonUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
+        buttonText: 'Signup',
+      });
+      res.push({
+        email: item.email,
+        code,
+        times,
+      });
+      this.mailSenderService.sendMail({
+        to: item.email,
+        ...mailOptions,
+      });
+    }
+
+    return res;
+  }
+
+  async genWaitlistInviteCode(limit: number) {
+    const code = `${getRandomString(4)}-${getRandomString(4)}`;
+    await this.cacheService.set(
+      `waitlist:invite-code:${code}`,
+      limit,
+      1000 * 60 * 60 * 24 * 30 // 30 days
+    );
+    return code;
   }
 }

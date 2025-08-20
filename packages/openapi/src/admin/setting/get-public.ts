@@ -28,6 +28,7 @@ export const publicSettingVoSchema = settingVoSchema
     disallowSpaceCreation: true,
     disallowSpaceInvitation: true,
     enableEmailVerification: true,
+    enableWaitlist: true,
   })
   .merge(
     z.object({

@@ -1,5 +1,11 @@
-import { Body, Controller, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
-import type { IUserMeVo } from '@teable/openapi';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type {
+  IUserMeVo,
+  IWaitlistInviteCodeVo,
+  IJoinWaitlistVo,
+  IGetWaitlistVo,
+  IInviteWaitlistVo,
+} from '@teable/openapi';
 import {
   IAddPasswordRo,
   IChangePasswordRo,
@@ -17,10 +23,17 @@ import {
   IChangeEmailRo,
   sendChangeEmailCodeRoSchema,
   ISendChangeEmailCodeRo,
+  joinWaitlistSchemaRo,
+  IJoinWaitlistRo,
+  IWaitlistInviteCodeRo,
+  waitlistInviteCodeRoSchema,
+  inviteWaitlistRoSchema,
+  IInviteWaitlistRo,
 } from '@teable/openapi';
 import { Response, Request } from 'express';
 import { AUTH_SESSION_COOKIE_NAME } from '../../../const';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { Permissions } from '../decorators/permissions.decorator';
 import { Public } from '../decorators/public.decorator';
 import { LocalAuthGuard } from '../guard/local-auth.guard';
 import { SessionService } from '../session/session.service';
@@ -49,12 +62,53 @@ export class LocalAuthController {
     @Res({ passthrough: true }) res: Response,
     @Req() req: Express.Request
   ): Promise<IUserMeVo> {
+    await this.authService.checkWaitlistInviteCode(body?.inviteCode);
     const user = pickUserMe(await this.authService.signup(body));
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {
       req.login(user, (err) => (err ? reject(err) : resolve()));
     });
     return user;
+  }
+
+  @Public()
+  @Post('join-waitlist')
+  async joinWaitlist(
+    @Body(new ZodValidationPipe(joinWaitlistSchemaRo)) ro: IJoinWaitlistRo
+  ): Promise<IJoinWaitlistVo> {
+    await this.authService.joinWaitlist(ro.email);
+    return ro;
+  }
+
+  @Post('invite-waitlist')
+  @Permissions('instance|update')
+  async inviteWaitlist(
+    @Body(new ZodValidationPipe(inviteWaitlistRoSchema)) ro: IInviteWaitlistRo
+  ): Promise<IInviteWaitlistVo> {
+    return await this.authService.inviteWaitlist(ro.list);
+  }
+
+  @Get('waitlist')
+  @Permissions('instance|read')
+  async getWaitlist(): Promise<IGetWaitlistVo> {
+    return await this.authService.getWaitlist();
+  }
+
+  @Post('waitlist-invite-code')
+  @Permissions('instance|update')
+  async genWaitlistInviteCode(
+    @Body(new ZodValidationPipe(waitlistInviteCodeRoSchema)) ro: IWaitlistInviteCodeRo
+  ): Promise<IWaitlistInviteCodeVo> {
+    const list: IWaitlistInviteCodeVo = [];
+    const times = Math.max(ro.times ?? 1, 1);
+    for (let i = 0; i < ro.count; i++) {
+      const code = await this.authService.genWaitlistInviteCode(times);
+      list.push({
+        code,
+        times,
+      });
+    }
+    return list;
   }
 
   @Public()

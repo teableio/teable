@@ -27,6 +27,7 @@ export const signupSchema = signinSchema.merge(
         token: z.string(),
       })
       .optional(),
+    inviteCode: z.string().optional(),
   })
 );
 

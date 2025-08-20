@@ -12,3 +12,4 @@ export * from './change-email';
 export * from './send-change-email-code';
 export * from './temp-token';
 export * from './delete';
+export * from './waitlist';
