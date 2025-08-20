@@ -239,7 +239,10 @@ export class AttachmentsService {
     return await this.notifyToAttachmentItem(token, file.originalname);
   }
 
-  async uploadFromUrl(fileUrl: string): Promise<IAttachmentItem> {
+  async uploadFromUrl(
+    fileUrl: string,
+    uploadType: UploadType = UploadType.Table
+  ): Promise<IAttachmentItem> {
     const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
 
     const { contentLength, contentType, tempFilePath } = await this.getFileInfo(
@@ -255,7 +258,7 @@ export class AttachmentsService {
 
     const filename = this.getFilenameFromUrl(fileUrl);
     const { token, url } = await this.signature({
-      type: UploadType.Table,
+      type: uploadType,
       contentLength,
       contentType,
       internal: true,
