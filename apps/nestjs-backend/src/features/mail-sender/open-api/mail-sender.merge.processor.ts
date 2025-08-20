@@ -1,10 +1,10 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MailTransporterType, MailType } from '@teable/openapi';
 import { type Job, type Queue } from 'bullmq';
 import dayjs from 'dayjs';
+import { isUndefined } from 'lodash';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
 import { Events } from '../../../event-emitter/events';
@@ -19,13 +19,16 @@ enum MailSenderJob {
   NotifyMailMergeSend = 'notifyMailMergeSend',
 }
 
+type IMailSenderMergePayload = Omit<ISendMailOptions, 'to'> & { mailType: MailType; to: string };
+type INotifyMailMergeSendPayload = { to: string };
+
 interface IMailSenderMergeJob {
-  payload: ISendMailOptions & { mailType: MailType };
+  payload: IMailSenderMergePayload | INotifyMailMergeSendPayload;
 }
 
 @Processor(MAIL_SENDER_QUEUE)
 @Injectable()
-export class MailSenderMergeProcessor extends WorkerHost implements OnModuleInit {
+export class MailSenderMergeProcessor extends WorkerHost {
   private readonly logger = new Logger(MailSenderMergeProcessor.name);
   private readonly notifyMailMergeKey = 'mail-sender:notify-mail-merge:list';
   private readonly notifyMailMergeTime = 'mail-sender:notify-mail-merge:time';
@@ -34,102 +37,86 @@ export class MailSenderMergeProcessor extends WorkerHost implements OnModuleInit
     private readonly cacheService: CacheService<ICacheStore>,
     private readonly settingOpenApiService: SettingOpenApiService,
     @InjectQueue(MAIL_SENDER_QUEUE)
-    public readonly queue: Queue<IMailSenderMergeJob | null>
+    public readonly queue: Queue<IMailSenderMergeJob>
   ) {
     super();
   }
 
-  async onModuleInit() {
-    const startTime = await this.cacheService.get(this.notifyMailMergeTime);
-    if (startTime) {
-      await this.cacheService.del(this.notifyMailMergeTime);
-      await this.sendNotifyMailMerge();
-    }
-  }
-
-  async process(job: Job<IMailSenderMergeJob | null>) {
-    if (job.name === MailSenderJob.NotifyMailMergeSend) {
-      await this.cacheService.del(this.notifyMailMergeTime);
-      await this.sendNotifyMailMerge();
-      return;
-    }
+  async process(job: Job<IMailSenderMergeJob>) {
     if (!job.data) {
       return;
     }
     const { payload } = job.data;
+
+    if (job.name === MailSenderJob.NotifyMailMergeSend) {
+      await this.sendNotifyMailMerge(payload as INotifyMailMergeSendPayload);
+      return;
+    }
+
     if (job.name === MailSenderJob.NotifyMailMerge) {
-      await this.notifyMailMerge(payload);
-      const shouldSend = await this.checkAndSetTime();
+      const shouldSend = await this.checkAndMerge(payload as IMailSenderMergePayload);
       if (shouldSend) {
-        await this.sendNotifyMailMerge();
+        this.mailSenderService.sendMailByTransporterName(
+          payload,
+          MailTransporterType.Notify,
+          MailType.NotifyMerge
+        );
       }
     }
   }
 
   @OnEvent(Events.NOTIFY_MAIL_MERGE)
-  async onNotifyMailMerge(event: { payload: ISendMailOptions & { mailType: MailType } }) {
+  async onNotifyMailMerge(event: { payload: IMailSenderMergePayload }) {
     await this.queue.add(MailSenderJob.NotifyMailMerge, {
       payload: event.payload,
     });
   }
 
-  private async checkAndSetTime() {
-    const startTime = await this.cacheService.get(this.notifyMailMergeTime);
-    if (!startTime) {
-      const current = dayjs().valueOf();
-      await this.cacheService.set(this.notifyMailMergeTime, current);
-      await this.queue.add(MailSenderJob.NotifyMailMergeSend, null, { delay: 1000 * 60 });
+  private async checkAndMerge(payload: IMailSenderMergePayload) {
+    const { to } = payload;
+    const list = await this.cacheService.get(`mail-sender:notify-mail-merge:${to}`);
+    if (isUndefined(list)) {
+      await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [], 1000 * 60 * 5); // 5 minutes
+      await this.queue.add(
+        MailSenderJob.NotifyMailMergeSend,
+        {
+          payload: { to },
+        },
+        { delay: 1000 * 60 } // 1 minute
+      );
       return true;
     }
+    await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [...list, payload]);
     return false;
   }
 
-  private async notifyMailMerge(mailOptions: ISendMailOptions & { mailType: MailType }) {
-    const { to } = mailOptions;
-    if (!to || typeof to !== 'string') {
+  private async sendNotifyMailMerge(payload: INotifyMailMergeSendPayload) {
+    const { to } = payload;
+    const list = await this.cacheService.get(`mail-sender:notify-mail-merge:${to}`);
+    await this.cacheService.del(`mail-sender:notify-mail-merge:${to}`);
+
+    if (!list || list.length === 0) {
       return;
     }
-    const obj = (await this.cacheService.get(this.notifyMailMergeKey)) || {};
-    obj[to] = [...(obj[to] || []), mailOptions];
-    await this.cacheService.set(this.notifyMailMergeKey, obj);
-  }
 
-  private async sendNotifyMailMerge() {
-    const obj = await this.cacheService.get(this.notifyMailMergeKey);
-    await this.cacheService.del(this.notifyMailMergeKey);
-
-    if (!obj || Object.keys(obj).length === 0) {
+    if (list.length === 1) {
+      this.mailSenderService.sendMailByTransporterName(
+        list[0],
+        MailTransporterType.Notify,
+        MailType.NotifyMerge
+      );
       return;
     }
 
     const { brandName } = await this.settingOpenApiService.getServerBrand();
-    for (const to in obj) {
-      const list = obj[to];
-      if (list.length === 0) {
-        continue;
-      }
-
-      if (list.length === 1) {
-        this.mailSenderService.sendMailByTransporterName(
-          {
-            to,
-            ...list[0],
-          },
-          MailTransporterType.Notify,
-          MailType.NotifyMerge
-        );
-        continue;
-      }
-
-      const mailOptions = await this.mailSenderService.notifyMergeOptions(list, brandName);
-      this.mailSenderService.sendMailByTransporterName(
-        {
-          to,
-          ...mailOptions,
-        },
-        MailTransporterType.Notify,
-        MailType.NotifyMerge
-      );
-    }
+    const mailOptions = await this.mailSenderService.notifyMergeOptions(list, brandName);
+    this.mailSenderService.sendMailByTransporterName(
+      {
+        ...mailOptions,
+        to,
+      },
+      MailTransporterType.Notify,
+      MailType.NotifyMerge
+    );
   }
 }

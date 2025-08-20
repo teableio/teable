@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { MailType, CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
+import { isString } from 'lodash';
 import { createTransport } from 'nodemailer';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -92,7 +93,10 @@ export class MailSenderService {
     type?: MailType
   ) {
     const mergeNotifyType = [MailType.System, MailType.Notify, MailType.Common];
-    if (type && transporterName === MailTransporterType.Notify && mergeNotifyType.includes(type)) {
+    const checkNotify =
+      type && transporterName === MailTransporterType.Notify && mergeNotifyType.includes(type);
+    const checkTo = mailOptions.to && isString(mailOptions.to);
+    if (checkNotify && checkTo) {
       this.eventEmitterService.emit(Events.NOTIFY_MAIL_MERGE, {
         payload: { ...mailOptions, mailType: type },
       });
