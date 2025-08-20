@@ -182,14 +182,6 @@ export class FieldConvertingLinkService {
     tableNameMap.set(tableId, currentTable.dbTableName);
     tableNameMap.set(foreignTableId, foreignTable.dbTableName);
 
-    console.log('Debug createForeignKeyUsingDbProvider:', {
-      tableId,
-      foreignTableId,
-      currentTableName: currentTable.dbTableName,
-      foreignTableName: foreignTable.dbTableName,
-      tableNameMap: Object.fromEntries(tableNameMap),
-    });
-
     // Use dbProvider to create foreign key (handled by visitor)
     const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
     const createColumnQueries = this.dbProvider.createColumnSchema(

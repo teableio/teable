@@ -112,6 +112,19 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
       );
   }
 
+  /**
+   * Format multiple string values (like multiple select) to comma-separated string
+   */
+  private formatMultipleStringValues(): string {
+    if (this.isPostgreSQL) {
+      // PostgreSQL: Use string_agg with jsonb_array_elements_text for jsonb data
+      return `(SELECT string_agg(elem, ', ') FROM jsonb_array_elements_text(${this.fieldExpression}::jsonb) as elem)`;
+    } else {
+      // SQLite: Use GROUP_CONCAT with json_each to join array elements
+      return `(SELECT GROUP_CONCAT(value, ', ') FROM json_each(${this.fieldExpression}))`;
+    }
+  }
+
   visitSingleLineTextField(_field: SingleLineTextFieldCore): string {
     // Text fields don't need special formatting, return as-is
     return this.fieldExpression;
@@ -174,24 +187,22 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
 
   visitFormulaField(field: FormulaFieldCore): string {
     // Formula fields need formatting based on their result type and formatting options
-    const { cellValueType, options } = field;
+    const { cellValueType, options, isMultipleCellValue } = field;
     const formatting = options.formatting;
 
-    // If no formatting is specified, return as-is
-    if (!formatting) {
-      return this.fieldExpression;
-    }
-
     // Apply formatting based on the formula's result type
-    if (cellValueType === CellValueType.Number) {
+    if (cellValueType === CellValueType.Number && formatting) {
       // Reuse the number formatting logic
       return this.applyNumberFormatting(formatting as INumberFormatting);
-    } else if (cellValueType === CellValueType.DateTime) {
+    } else if (cellValueType === CellValueType.DateTime && formatting) {
       // For datetime formatting, we would need to implement date formatting logic
       // For now, return as-is since datetime fields are typically stored as ISO strings
       return this.fieldExpression;
+    } else if (cellValueType === CellValueType.String && isMultipleCellValue) {
+      // For multiple-value string fields (like multiple select), convert array to comma-separated string
+      return this.formatMultipleStringValues();
     } else {
-      // For other cell value types (String, Boolean), return as-is
+      // For other cell value types (single String, Boolean), return as-is
       return this.fieldExpression;
     }
   }
