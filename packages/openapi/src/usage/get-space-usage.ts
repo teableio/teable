@@ -39,6 +39,8 @@ export enum UsageFeatureLimit {
   OrganizationEnable = 'organizationEnable',
   APIRateLimit = 'apiRateLimit',
   ChatAIEnable = 'chatAIEnable',
+  AppEnable = 'appEnable',
+  CustomDomainEnable = 'customDomainEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -62,6 +64,8 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.OrganizationEnable]: z.boolean(),
   [UsageFeatureLimit.APIRateLimit]: z.number(),
   [UsageFeatureLimit.ChatAIEnable]: z.boolean(),
+  [UsageFeatureLimit.AppEnable]: z.boolean(),
+  [UsageFeatureLimit.CustomDomainEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({
