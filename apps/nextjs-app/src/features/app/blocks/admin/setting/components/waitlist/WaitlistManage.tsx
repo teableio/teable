@@ -85,7 +85,8 @@ const WaitlistTable = (props: IWaitlistTableProps) => {
               <TableCell className="text-center">
                 <Checkbox
                   checked={
-                    selected.size === filteredList.length || (selected.size > 0 && 'indeterminate')
+                    (selected.size === filteredList.length && selected.size > 0) ||
+                    (selected.size > 0 && 'indeterminate')
                   }
                   onCheckedChange={() => handleSelectAll()}
                 />
