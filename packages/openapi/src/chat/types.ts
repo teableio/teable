@@ -37,6 +37,7 @@ export const chatContextSchema = z.object({
   appId: z.string().optional(),
   sandboxId: z.string().optional(),
   attachments: z.array(chatAttachmentSchema).optional(),
+  lang: z.string().optional(),
 });
 
 export type IChatContext = z.infer<typeof chatContextSchema>;

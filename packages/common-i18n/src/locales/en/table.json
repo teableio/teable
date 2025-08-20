@@ -815,6 +815,16 @@
     },
     "tips": {
       "modelTips": "Only administrators can configure"
+    },
+    "attachment": {
+      "imageNotSupported": "Image is not supported",
+      "attachmentSizeExceeded": "Attachment size exceeds the limit {{size}}MB"
+    },
+    "suggestions": {
+      "recommend": "Recommended",
+      "ask": "Ask",
+      "analyze": "Analyze",
+      "build": "Build"
     }
   }
 }
