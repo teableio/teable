@@ -681,7 +681,8 @@
     },
     "fallback": {
       "previewLoadFailed": "Preview load failed",
-      "retry": "Retry {{count}} time"
+      "retry": "Retry {{count}} time",
+      "chatAborted": "aborted"
     },
     "preview": {
       "deletedTable": "Deleted table",
