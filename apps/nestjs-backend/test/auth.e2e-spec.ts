@@ -754,7 +754,7 @@ describe('Auth Controller (e2e)', () => {
       await joinWaitlist();
     });
 
-    it.only('api/auth/get-waitlist', async () => {
+    it('api/auth/get-waitlist', async () => {
       await joinWaitlist(async (email) => {
         const user = await prismaService.user.findFirst({
           where: { email: globalThis.testConfig.email },
