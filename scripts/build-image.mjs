@@ -86,6 +86,7 @@ const {
   'tag-suffix': tagSuffix,
   platform: platformArg,
   push: pushArg,
+  'upload-assets-list': uploadAssetsListArg,
 } = argv;
 
 const buildArgs = toArray(buildArg);
@@ -95,13 +96,17 @@ const tags = toArray(tag, false, true);
 const platform = platformArg ?? '';
 const push = toBoolean(pushArg);
 const remotes = Array.from(new Set(tags.map((tag) => tag.split(':')[0])));
-
+const uploadAssetsList = uploadAssetsListArg ?? '';
 const command = ['docker', 'build'];
 
 // BUILD_VERSION - this is a default behavior
 const semver = await getSemver();
 const dockerSemver = semver.replace(/\+/g, '-').replace(/\s/g, '_');
 command.push('--build-arg', `BUILD_VERSION=${semver}`);
+
+if (uploadAssetsList) {
+  command.push('--build-arg', `UPLOAD_ASSETS_LIST=${uploadAssetsList}`);
+}
 
 await asyncForEach(buildArgs, async (buildArg) => {
   command.push('--build-arg', buildArg);

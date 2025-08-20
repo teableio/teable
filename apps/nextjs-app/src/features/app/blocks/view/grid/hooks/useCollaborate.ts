@@ -91,7 +91,9 @@ export const useCollaborate = (
           }
         );
     }
-  }, [activeCell, localPresence, tableId, user, getCellContent]);
+    // not include getCellContent, because it will be changed frequently
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCell, localPresence, tableId, user]);
 
   return collaborators;
 };
