@@ -13,10 +13,11 @@ import { useSidebarStore } from './useSidebarStore';
 
 interface ISidebarProps {
   headerLeft: ReactNode;
+  className?: string;
 }
 
 export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
-  const { headerLeft, children } = props;
+  const { headerLeft, children, className } = props;
   const isMobile = useIsMobile();
   const [leftVisible, setLeftVisible] = useState(true);
 
@@ -50,7 +51,12 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           })}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <div className="group/sidebar flex size-full flex-col overflow-hidden bg-popover">
+          <div
+            className={cn(
+              'group/sidebar flex size-full flex-col overflow-hidden bg-popover',
+              className
+            )}
+          >
             <SidebarHeader headerLeft={headerLeft} onExpand={() => setLeftVisible(!leftVisible)} />
             {leftVisible && children}
           </div>
@@ -73,7 +79,10 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           </HoverWrapper.Trigger>
           <HoverWrapper.content>
             <div
-              className="group/sidebar flex size-full flex-col overflow-hidden bg-popover"
+              className={cn(
+                'group/sidebar flex size-full flex-col overflow-hidden bg-popover',
+                className
+              )}
               onContextMenu={(e) => e.preventDefault()}
             >
               <SidebarHeader headerLeft={headerLeft} />
