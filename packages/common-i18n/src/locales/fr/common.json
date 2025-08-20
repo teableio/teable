@@ -232,6 +232,10 @@
       "allowSpaceInvitationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs d'inviter d'autres personnes à rejoindre des espaces. Activer cette option permettra aux utilisateurs invités directement de créer un compte même si l'inscription de nouveaux comptes est désactivée.",
       "allowSpaceCreation": "Autoriser tout le monde à créer de nouveaux espaces",
       "allowSpaceCreationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs de créer de nouveaux espaces.",
+      "enableEmailVerification": "Activer la vérification par email",
+      "enableEmailVerificationDescription": "Activer cette option permettra aux utilisateurs de vérifier leur adresse email lors de la création d'un nouveau compte.",
+      "enableWaitlist": "Activer la liste d'attente",
+      "enableWaitlistDescription": "Activer cette option permettra aux utilisateurs de s'inscrire uniquement avec un code d'invitation.",
       "generalSettings": "Paramètres généraux",
       "aiSettings": "Paramètres AI",
       "ai": {
@@ -308,5 +312,28 @@
   },
   "automation": {
     "turnOnTip": "Voulez-vous activer l'automatisation actuelle?"
+  },
+  "waitlist": {
+    "title": "Liste d'attente",
+    "email": "Email",
+    "joinTitle": "Nous évoluons rapidement pour répondre à la demande",
+    "joinDesc": "Rejoignez la liste d'attente — nous vous enverrons un message dès que nous serons prêts",
+    "emailPlaceholder": "Entrez votre adresse email...",
+    "youAreOnTheList": "Vous êtes sur la liste !",
+    "thanksForJoining": "Merci d'avoir rejoint notre liste d'attente. Nous vous enverrons un message dès que nous serons prêts.",
+    "back": "Retour",
+    "inviteCodePlaceholder": "Entrez le code d'invitation",
+    "join": "Rejoindre la liste d'attente",
+    "joining": "Rejoindre...",
+    "invite": "Inviter",
+    "inviteTime": "Temps d'invitation",
+    "createdTime": "Date d'inscription",
+    "yes": "Oui",
+    "no": "Non",
+    "generateCode": "Générer un code d'invitation",
+    "count": "Quantité",
+    "times": "Usages",
+    "generate": "Générer",
+    "code": "Code d'invitation"
   }
 }

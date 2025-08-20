@@ -363,6 +363,8 @@
       "allowSpaceCreationDescription": "关闭此选项将禁止除管理员以外的用户创建新的空间。",
       "enableEmailVerification": "启用邮箱验证",
       "enableEmailVerificationDescription": "启用此选项将要求用户在创建新账户时验证邮箱地址。",
+      "enableWaitlist": "启用等待列表",
+      "enableWaitlistDescription": "启用此选项后，用户需要邀请码才能注册。",
       "generalSettings": "通用配置",
       "aiSettings": "AI 配置",
       "brandingSettings": {
@@ -476,5 +478,28 @@
   },
   "automation": {
     "turnOnTip": "您是否要开启当前自动化？"
+  },
+  "waitlist": {
+    "title": "等待列表",
+    "email": "邮箱",
+    "joinTitle": "我们正在快速扩容以满足需求",
+    "joinDesc": "加入等待列表 — 准备就绪时我们会立即通知您",
+    "emailPlaceholder": "请输入您的电子邮件地址...",
+    "youAreOnTheList": "您已加入等待列表！",
+    "thanksForJoining": "感谢您加入我们的等待列表。我们将尽快通知您。",
+    "back": "返回",
+    "inviteCodePlaceholder": "请输入邀请码",
+    "join": "加入等待列表",
+    "joining": "加入中...",
+    "invite": "邀请",
+    "inviteTime": "邀请时间",
+    "createdTime": "加入时间",
+    "yes": "是",
+    "no": "否",
+    "generateCode": "生成邀请码",
+    "count": "数量",
+    "times": "可使用次数",
+    "generate": "生成",
+    "code": "邀请码"
   }
 }

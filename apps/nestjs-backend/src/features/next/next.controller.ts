@@ -25,6 +25,7 @@ export class NextController {
     '402/?*',
     'space/?*',
     'auth/?*',
+    'waitlist/?*',
     'base/?*',
     'invite/?*',
     'share/?*',

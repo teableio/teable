@@ -237,6 +237,10 @@
       "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。このオプションを有効にすると、新規アカウント登録が無効になっている場合でも、直接招待されたユーザーはアカウントを作成できるようになります。",
       "allowSpaceCreation": "誰でも新しいスペースを作成できるようにする",
       "allowSpaceCreationDescription": "このオプションを無効にすると、管理者以外のユーザーは新しいスペースを作成できなくなります。",
+      "enableEmailVerification": "メールアドレスの確認を有効にする",
+      "enableEmailVerificationDescription": "このオプションを有効にすると、新規アカウントの作成時にメールアドレスの確認が必要になります。",
+      "enableWaitlist": "待機リストを有効にする",
+      "enableWaitlistDescription": "このオプションを有効にすると、ユーザーは招待コードを使用して新規アカウントの作成が可能になります。",
       "generalSettings": "一般設定",
       "aiSettings": "AI設定",
       "ai": {
@@ -329,5 +333,28 @@
   },
   "automation": {
     "turnOnTip": "現在のオートメーションを有効にしますか？"
+  },
+  "waitlist": {
+    "title": "待機リスト",
+    "email": "メール",
+    "joinTitle": "必要に応じて迅速にスケールアップしています",
+    "joinDesc": "待機リストに参加 — 準備ができたらすぐにお知らせします",
+    "emailPlaceholder": "メールアドレスを入力してください...",
+    "youAreOnTheList": "待機リストに参加しました！",
+    "thanksForJoining": "待機リストに参加していただきありがとうございます。更新がある場合はすぐにお知らせします。",
+    "back": "戻る",
+    "inviteCodePlaceholder": "招待コードを入力してください",
+    "join": "待機リストに参加",
+    "joining": "参加中...",
+    "invite": "招待",
+    "inviteTime": "招待時間",
+    "createdTime": "参加時間",
+    "yes": "はい",
+    "no": "いいえ",
+    "generateCode": "招待コードを生成",
+    "count": "数",
+    "times": "回",
+    "generate": "生成",
+    "code": "招待コード"
   }
 }

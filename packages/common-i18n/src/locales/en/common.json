@@ -364,6 +364,8 @@
       "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces.",
       "enableEmailVerification": "Enable email verification",
       "enableEmailVerificationDescription": "Enabling this option will require users to verify their email address when creating a new account.",
+      "enableWaitlist": "Enable waitlist",
+      "enableWaitlistDescription": "Enabling this option will allow users to register only with an invitation code.",
       "generalSettings": "General settings",
       "aiSettings": "AI settings",
       "brandingSettings": {
@@ -477,5 +479,28 @@
   },
   "automation": {
     "turnOnTip": "Do you want to turn on the current automation?"
+  },
+  "waitlist": {
+    "title": "Waitlist",
+    "email": "Email",
+    "joinTitle": "We're scaling fast to meet demand.",
+    "joinDesc": "Join wait list — we'll ping you the moment we're ready.",
+    "emailPlaceholder": "Enter your email...",
+    "youAreOnTheList": "You're on the list!",
+    "thanksForJoining": "Thanks for joining our waitlist. We'll notify you as soon as we have updates.",
+    "back": "Back",
+    "inviteCodePlaceholder": "Enter your invite code",
+    "join": "Join wait list",
+    "joining": "Joining...",
+    "invite": "Invite",
+    "inviteTime": "Invite time",
+    "createdTime": "Join time",
+    "yes": "Yes",
+    "no": "No",
+    "generateCode": "Generate invite code",
+    "count": "Count",
+    "times": "Times",
+    "generate": "Generate",
+    "code": "Invite code"
   }
 }

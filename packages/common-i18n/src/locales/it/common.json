@@ -273,6 +273,8 @@
       "allowSpaceCreationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di creare nuovi spazi.",
       "enableEmailVerification": "Abilita la verifica email",
       "enableEmailVerificationDescription": "Abilitando questa opzione si richiederà agli utenti di verificare il loro indirizzo email quando creano un nuovo account.",
+      "enableWaitlist": "Abilita la lista d'attesa",
+      "enableWaitlistDescription": "Abilitando questa opzione si consentirà agli utenti di registrarsi solo con un codice di invito.",
       "generalSettings": "Impostazioni generali",
       "aiSettings": "Impostazioni AI",
       "ai": {
@@ -357,5 +359,28 @@
   },
   "automation": {
     "turnOnTip": "Vuoi attivare l'automazione corrente?"
+  },
+  "waitlist": {
+    "title": "Lista d'attesa",
+    "email": "Email",
+    "joinTitle": "Stiamo scalando rapidamente per soddisfare la domanda",
+    "joinDesc": "Unisciti alla lista d'attesa — ti avviseremo non appena saremo pronti",
+    "emailPlaceholder": "Inserisci la tua email...",
+    "youAreOnTheList": "Sei sulla lista!",
+    "thanksForJoining": "Grazie per esserti unito alla nostra lista d'attesa. Ti avviseremo non appena saremo pronti.",
+    "back": "Torna indietro",
+    "inviteCodePlaceholder": "Inserisci il codice di invito",
+    "join": "Unisciti alla lista d'attesa",
+    "joining": "Unendo...",
+    "invite": "Invita",
+    "inviteTime": "Tempo di invito",
+    "createdTime": "Ora di iscrizione",
+    "yes": "Sì",
+    "no": "No",
+    "generateCode": "Genera codice di invito",
+    "count": "Quantità",
+    "times": "Usages",
+    "generate": "Genera",
+    "code": "Codice di invito"
   }
 }

@@ -7,6 +7,8 @@ import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { AIConfigForm } from './components/ai-config/AiForm';
 import { Branding } from './components/Branding';
+import { InateCodeManage } from './components/waitlist/InateCodeManage';
+import { WaitlistManage } from './components/waitlist/WaitlistManage';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
@@ -49,6 +51,7 @@ export const SettingPage = (props: ISettingPageProps) => {
     disallowSpaceCreation,
     disallowSpaceInvitation,
     enableEmailVerification,
+    enableWaitlist,
     brandName,
     brandLogo,
   } = setting;
@@ -117,6 +120,37 @@ export const SettingPage = (props: ISettingPageProps) => {
               checked={Boolean(enableEmailVerification)}
               onCheckedChange={(checked) => onValueChange('enableEmailVerification', checked)}
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="py-4">
+        <h2 className="mb-4 text-lg font-medium">{t('waitlist.title')}</h2>
+        <div className="flex flex-col gap-4 rounded-lg border p-4 shadow-sm">
+          <div className="flex items-center justify-between ">
+            <div className="space-y-1">
+              <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
+              <div className="text-[13px] text-gray-500">
+                {t('admin.setting.enableWaitlistDescription')}
+              </div>
+            </div>
+            <Switch
+              id="enable-waitlist"
+              checked={Boolean(enableWaitlist)}
+              onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
+            />
+          </div>
+          <div className="flex items-center justify-between ">
+            <div className="space-y-1">
+              <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
+            </div>
+            <WaitlistManage />
+          </div>
+          <div className="flex items-center justify-between ">
+            <div className="space-y-1">
+              <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
+            </div>
+            <InateCodeManage />
           </div>
         </div>
       </div>

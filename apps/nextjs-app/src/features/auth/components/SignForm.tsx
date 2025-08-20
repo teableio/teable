@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { HttpErrorCode, type HttpError } from '@teable/core';
 import type { ISignin, ISignup } from '@teable/openapi';
 import {
@@ -8,18 +8,19 @@ import {
   signupSchema,
   sendSignupVerificationCode,
   sendSignupVerificationCodeRoSchema,
+  getPublicSetting,
 } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin, Error as ErrorCom } from '@teable/ui-lib/base';
 import { Button, Input, Label, cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ZodIssue } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { authConfig } from '../../i18n/auth.config';
-import { useDisallowSignUp } from '../useDisallowSignUp';
 import { SendVerificationButton } from './SendVerificationButton';
 
 export interface ISignForm {
@@ -33,11 +34,24 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [signupVerificationToken, setSignupVerificationToken] = useState<string>();
   const [signupVerificationCode, setSignupVerificationCode] = useState<string>();
   const router = useRouter();
-
-  const disallowSignUp = useDisallowSignUp();
-
+  const [inviteCode, setInviteCode] = useState<string>(router.query.inviteCode as string);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  const { data: setting } = useQuery({
+    queryKey: ReactQueryKeys.getPublicSetting(),
+    queryFn: () => getPublicSetting().then(({ data }) => data),
+  });
+  const { enableWaitlist = false, disallowSignUp = false } = setting ?? {};
+
+  const joinWaitlist = useCallback(() => {
+    if (enableWaitlist) {
+      const email = emailRef.current?.value;
+      const url = email ? `/waitlist?email=${email}` : '/waitlist';
+      router.push(url);
+    }
+  }, [enableWaitlist, router]);
 
   useEffect(() => {
     setSignupVerificationCode(undefined);
@@ -156,10 +170,14 @@ export const SignForm: FC<ISignForm> = (props) => {
     const password = (event.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
     const code = (event.currentTarget.elements.namedItem('verification-code') as HTMLInputElement)
       ?.value;
+    const inviteCode = (event.currentTarget.elements.namedItem('invite-code') as HTMLInputElement)
+      ?.value;
+
     const form = {
       email,
       password,
       verification: code ? { code, token: signupVerificationToken } : undefined,
+      inviteCode: enableWaitlist ? inviteCode : undefined,
     };
 
     const { error } = validation(form);
@@ -208,6 +226,7 @@ export const SignForm: FC<ISignForm> = (props) => {
               placeholder={t('auth:placeholder.email')}
               type="text"
               autoComplete="username"
+              ref={emailRef}
               onChange={() => {
                 setSignupVerificationCode(undefined);
                 setSignupVerificationToken(undefined);
@@ -235,6 +254,26 @@ export const SignForm: FC<ISignForm> = (props) => {
               </Link>
             )}
           </div>
+
+          {enableWaitlist && type === 'signup' && (
+            <div className="grid gap-3">
+              <Label htmlFor="invite-code">{t('common:waitlist.code')}</Label>
+              <div className="flex items-center">
+                <Input
+                  id="invite-code"
+                  type="text"
+                  placeholder={t('common:waitlist.inviteCodePlaceholder')}
+                  autoComplete="off"
+                  disabled={isLoading}
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                />
+                <Button variant="link" className="p-2 text-xs" type="button" onClick={joinWaitlist}>
+                  {t('common:waitlist.join')}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div
             data-state={showVerificationCode ? 'show' : 'hide'}

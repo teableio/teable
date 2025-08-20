@@ -276,6 +276,8 @@
       "allowSpaceCreationDescription": "Wenn Sie diese Option deaktivieren, können andere Benutzer als Administratoren keine neuen Spaces erstellen.",
       "enableEmailVerification": "Aktivieren der E-Mail-Überprüfung",
       "enableEmailVerificationDescription": "Die Aktivierung dieser Option erfordert, dass Benutzer ihre E-Mail-Adresse bei der Erstellung eines neuen Kontos verifizieren.",
+      "enableWaitlist": "Aktivieren Sie die Warteliste",
+      "enableWaitlistDescription": "Wenn Sie diese Option aktivieren, können Benutzer sich nur mit einem Einladungscode registrieren.",
       "generalSettings": "Allgemeine Einstellungen",
       "aiSettings": "AI Konfiguration",
       "ai": {
@@ -378,5 +380,28 @@
   },
   "automation": {
     "turnOnTip": "Möchten Sie die aktuelle Automatisierung einschalten?"
+  },
+  "waitlist": {
+    "title": "Warteliste",
+    "email": "E-Mail",
+    "joinTitle": "Wir skalieren schnell, um die Nachfrage zu befriedigen",
+    "joinDesc": "Warten Sie auf die Liste — wir werden Sie benachrichtigen, sobald wir bereit sind",
+    "emailPlaceholder": "Geben Sie Ihre E-Mail-Adresse ein...",
+    "youAreOnTheList": "Sie sind auf der Liste!",
+    "thanksForJoining": "Vielen Dank für Ihre Registrierung auf der Warteliste. Wir werden Sie benachrichtigen, sobald wir bereit sind.",
+    "back": "Zurück",
+    "inviteCodePlaceholder": "Geben Sie Ihre Einladungscode ein",
+    "join": "Warten Sie auf die Liste",
+    "joining": "Beitritt...",
+    "invite": "Einladen",
+    "inviteTime": "Einladungszeit",
+    "createdTime": "Beitrittszeit",
+    "yes": "Ja",
+    "no": "Nein",
+    "generateCode": "Einladungscode generieren",
+    "count": "Anzahl",
+    "times": "Verfügbare Anzahl",
+    "generate": "Generieren",
+    "code": "Einladungscode"
   }
 }

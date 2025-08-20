@@ -243,7 +243,11 @@
       "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
       "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Bu seçeneği etkinleştirmek, yeni hesap kaydı devre dışı bırakılmış olsa bile doğrudan davet edilen kullanıcıların hesap oluşturmasına izin verir.",
       "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
-      "allowSpaceCreationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların yeni alan oluşturmasını engeller."
+      "allowSpaceCreationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların yeni alan oluşturmasını engeller.",
+      "enableEmailVerification": "E-posta doğrulamasını etkinleştir",
+      "enableEmailVerificationDescription": "Bu seçeneği etkinleştirmek, yeni hesap oluştururken kullanıcıların e-posta adreslerini doğrulamasını gerektirecektir.",
+      "enableWaitlist": "Bekleme listesini etkinleştir",
+      "enableWaitlistDescription": "Bu seçeneği etkinleştirmek, kullanıcıların yalnızca davet kodu ile hesap oluşturmasına izin verecektir."
     }
   },
   "notification": {
@@ -294,5 +298,28 @@
   },
   "automation": {
     "turnOnTip": "Mevcut otomasyonu açmak istediğinizden emin misiniz?"
+  },
+  "waitlist": {
+    "title": "Bekleme Listesi",
+    "email": "E-posta",
+    "joinTitle": "İhtiyaçlarımızı hızla karşılıyoruz",
+    "joinDesc": "Bekleme listesine katılın — hazır olduğumuzda size haber vereceğiz",
+    "emailPlaceholder": "E-posta adresinizi girin",
+    "youAreOnTheList": "Bekleme listesine katıldınız!",
+    "thanksForJoining": "Bekleme listesine katıldığınız için teşekkür ederiz. Hazır olduğumuzda size haber vereceğiz.",
+    "back": "Geri",
+    "inviteCodePlaceholder": "Davet kodunu girin",
+    "join": "Bekleme listesine katıl",
+    "joining": "Katılıyor...",
+    "invite": "Davet",
+    "inviteTime": "Davet zamanı",
+    "createdTime": "Katılma zamanı",
+    "yes": "Evet",
+    "no": "Hayır",
+    "generateCode": "Davet kodu oluştur",
+    "count": "Adet",
+    "times": "Kullanım",
+    "generate": "Oluştur",
+    "code": "Davet kodu"
   }
 }
