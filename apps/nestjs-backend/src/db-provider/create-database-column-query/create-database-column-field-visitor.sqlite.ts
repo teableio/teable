@@ -250,7 +250,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
           .inTable(foreignDbTableName)
           .withKeyName(`fk_${foreignKeyName}`);
         // Add order column for maintaining insertion order
-        table.integer(`${selfKeyName}_order`).nullable();
+        table.integer('__order').nullable();
       });
       // Set metadata to indicate this field has order column
       (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });

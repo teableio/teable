@@ -1259,6 +1259,9 @@ export class FieldSupplementService {
       isMultipleCellValue,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
+      meta: {
+        hasOrderColumn: field.getHasOrderColumn(),
+      },
     } as IFieldVo) as LinkFieldDto;
   }
 
