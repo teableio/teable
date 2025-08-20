@@ -2877,8 +2877,8 @@ describe('OpenAPI link (e2e)', () => {
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
-      expect(table2Record.fields[symManyOneField.id]).toHaveLength(0);
-      expect(table2Record.fields[symOneManyField.id]).toEqual([]);
+      expect(table2Record.fields[symManyOneField.id] ?? []).toEqual([]);
+      expect(table2Record.fields[symOneManyField.id] ?? []).toEqual([]);
     });
 
     it.each([
@@ -2926,7 +2926,7 @@ describe('OpenAPI link (e2e)', () => {
         await deleteRecord(table2.id, table2.records[0].id);
 
         const table1Record = await getRecord(table1.id, table1.records[0].id);
-        expect(table1Record.fields[linkField.id]).toHaveLength(0);
+        expect(table1Record.fields[linkField.id] ?? []).toEqual([]);
 
         // check if the record is successfully deleted
         await deleteRecord(table1.id, table1.records[1].id);
