@@ -153,6 +153,10 @@ export function AIConfigForm({
           models={models}
           onChange={() => onSubmit(form.getValues())}
           onTestChatModelAbility={onTestChatModelAbility}
+          onEnableAI={() => {
+            form.setValue('enable', true);
+            onSubmit(form.getValues());
+          }}
         />
       </form>
     </Form>

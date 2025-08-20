@@ -621,7 +621,7 @@
     "viewPricing": "View Pricing",
     "spaceSubscriptionModal": {
       "title": "Upgrade space's subscription plan",
-      "description": "You can only upgrade workspaces where you are an owner"
+      "description": "You can only upgrade spaces where you are an owner"
     },
     "status": {
       "active": "Active",
@@ -696,7 +696,16 @@
         "chatModelTest": {
           "text": "Test Model ability of lg model",
           "description": "Test the ability of the model to handle image, pdf.",
-          "notConfigLgModel": "Please configure the lg model first"
+          "notConfigLgModel": "Please configure the lg model first",
+          "confirmTitle": "Test Model Ability",
+          "confirmDescription": "Do you want to test the large chat model's capabilities?",
+          "confirm": "Test Model",
+          "cancel": "Cancel",
+          "missingCapabilitiesWarning": "This model does not support image or PDF processing, which may cause some features to be unavailable.",
+          "enableAITitle": "Enable AI",
+          "enableAIDescription": "Model test completed. AI is not currently enabled. Do you want to enable AI to use these model capabilities?",
+          "enableAI": "Enable AI",
+          "skipTest": "Skip"
         },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",

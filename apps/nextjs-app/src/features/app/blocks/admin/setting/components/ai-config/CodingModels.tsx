@@ -1,4 +1,10 @@
-import { chatModelAbilityType, type IAIIntegrationConfig } from '@teable/openapi';
+import {
+  chatModelAbilityType,
+  type IAIIntegrationConfig,
+  type IChatModelAbility,
+} from '@teable/openapi';
+import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   TooltipContent,
   TooltipPortal,
@@ -6,21 +12,114 @@ import {
   TooltipTrigger,
   Tooltip as ShadTooltip,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Cpu, Code, Zap } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
 
 export const CodingModels = ({
   value,
   onChange,
   models,
+  onTestChatModelAbility,
+  formValues,
+  onEnableAI,
 }: {
   value: IAIIntegrationConfig['chatModel'];
   onChange: (value: IAIIntegrationConfig['chatModel']) => void;
   models?: IModelOption[];
+  onTestChatModelAbility?: (data: IAIIntegrationConfig) => Promise<IChatModelAbility | undefined>;
+  formValues?: NonNullable<ISettingVo['aiConfig']>;
+  onEnableAI?: () => void;
 }) => {
   const { t } = useTranslation('common');
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [showEnableAIModal, setShowEnableAIModal] = useState(false);
+  const [pendingModel, setPendingModel] = useState<string>('');
+  const [isTestingModel, setIsTestingModel] = useState(false);
+
+  const handleLgModelChange = async (model: string) => {
+    // Show test modal when lg model is selected
+    if (model && model !== value?.lg) {
+      setPendingModel(model);
+      setShowTestModal(true);
+    } else {
+      onChange({ ...value, lg: model, ability: {} });
+    }
+  };
+
+  const handleTestConfirm = async () => {
+    if (!pendingModel || !onTestChatModelAbility || !formValues) {
+      // If no test function provided, just update the model
+      onChange({ ...value, lg: pendingModel, ability: {} });
+      setShowTestModal(false);
+      setPendingModel('');
+      return;
+    }
+
+    setIsTestingModel(true);
+    const testData = { ...formValues, chatModel: { ...value, lg: pendingModel } };
+
+    try {
+      const testResult = await onTestChatModelAbility(testData);
+
+      // Update model with test results
+      onChange({
+        ...value,
+        lg: pendingModel,
+        ability: testResult || {},
+      });
+
+      // Check if image or pdf capabilities are missing and show warning toast [[memory:6422115]]
+      if (testResult && !testResult.image && !testResult.pdf) {
+        toast.warning(t('admin.setting.ai.chatModelTest.missingCapabilitiesWarning'));
+      }
+
+      // After test completion, check if AI is enabled and show enable modal if needed
+      if (!formValues.enable) {
+        setShowTestModal(false);
+        setShowEnableAIModal(true);
+        return;
+      }
+    } catch (error) {
+      console.error('Model test failed:', error);
+      // Still update the model even if test fails
+      onChange({ ...value, lg: pendingModel, ability: {} });
+
+      // Even if test failed, still check if AI needs to be enabled
+      if (!formValues.enable) {
+        setShowTestModal(false);
+        setShowEnableAIModal(true);
+        return;
+      }
+    } finally {
+      setIsTestingModel(false);
+    }
+
+    setShowTestModal(false);
+    setPendingModel('');
+  };
+
+  const handleTestCancel = () => {
+    setShowTestModal(false);
+    setPendingModel('');
+  };
+
+  const handleEnableAIConfirm = () => {
+    // Enable AI after test completion
+    onEnableAI?.();
+
+    // Close the enable AI modal and clear pending state
+    setShowEnableAIModal(false);
+    setPendingModel('');
+  };
+
+  const handleEnableAICancel = () => {
+    // Don't enable AI, just close modal and clear pending state
+    setShowEnableAIModal(false);
+    setPendingModel('');
+  };
 
   const icons = useMemo(() => {
     return {
@@ -33,7 +132,7 @@ export const CodingModels = ({
     <div className="flex flex-1 flex-col gap-2">
       {(['lg', 'md', 'sm'] as const).map((key) => (
         <div key={key} className="relative flex items-center gap-2">
-          <div className="flex w-32 shrink-0 items-center gap-2 truncate text-sm">
+          <div className="flex shrink-0 items-center gap-2 truncate text-sm">
             {icons[key]}
             <Tooltip content={t(`admin.setting.ai.chatModels.${key}Description`)}>
               <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
@@ -46,7 +145,7 @@ export const CodingModels = ({
             value={value?.[key] ?? ''}
             onValueChange={(model) => {
               if (key === 'lg') {
-                onChange({ ...value, [key]: model, ability: {} });
+                handleLgModelChange(model);
               } else {
                 onChange({ ...value, [key]: model });
               }
@@ -69,6 +168,29 @@ export const CodingModels = ({
           )}
         </div>
       ))}
+
+      <ConfirmDialog
+        open={showTestModal}
+        onOpenChange={setShowTestModal}
+        title={t('admin.setting.ai.chatModelTest.confirmTitle')}
+        description={t('admin.setting.ai.chatModelTest.confirmDescription')}
+        confirmText={t('admin.setting.ai.chatModelTest.confirm')}
+        cancelText={t('admin.setting.ai.chatModelTest.cancel')}
+        confirmLoading={isTestingModel}
+        onConfirm={handleTestConfirm}
+        onCancel={handleTestCancel}
+      />
+
+      <ConfirmDialog
+        open={showEnableAIModal}
+        onOpenChange={setShowEnableAIModal}
+        title={t('admin.setting.ai.chatModelTest.enableAITitle')}
+        description={t('admin.setting.ai.chatModelTest.enableAIDescription')}
+        confirmText={t('admin.setting.ai.chatModelTest.enableAI')}
+        cancelText={t('admin.setting.ai.chatModelTest.skipTest')}
+        onConfirm={handleEnableAIConfirm}
+        onCancel={handleEnableAICancel}
+      />
     </div>
   );
 };

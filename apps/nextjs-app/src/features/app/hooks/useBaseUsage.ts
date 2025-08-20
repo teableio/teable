@@ -4,7 +4,7 @@ import { useBaseId } from '@teable/sdk/hooks';
 import { useIsCloud } from './useIsCloud';
 import { useIsEE } from './useIsEE';
 
-export const useBaseUsage = () => {
+export const useBaseUsage = (props?: { disabled?: boolean }) => {
   const isEE = useIsEE();
   const isCloud = useIsCloud();
   const baseId = useBaseId() as string;
@@ -12,7 +12,7 @@ export const useBaseUsage = () => {
   const { data: baseUsage } = useQuery({
     queryKey: ['base-usage', baseId],
     queryFn: ({ queryKey }) => getBaseUsage(queryKey[1]).then(({ data }) => data),
-    enabled: isCloud || isEE,
+    enabled: !props?.disabled && (isCloud || isEE),
   });
 
   return baseUsage;

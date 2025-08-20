@@ -1,23 +1,21 @@
-import { Code, Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { BillingProductLevel } from '@teable/openapi';
 import { useBasePermission } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
-import { Bot } from 'lucide-react';
+import { AppWindowMac, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { UpgradeWrapper } from '@/features/app/components/billing/UpgradeWrapper';
+import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableList } from '../../table-list/TableList';
 import { QuickAction } from './QuickAction';
@@ -27,23 +25,22 @@ export const BaseSideBar = () => {
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
-  const usage = useBaseUsage();
-
-  const { automationEnable = true, advancedPermissionsEnable = true } = usage?.limit ?? {};
+  const isEE = useIsEE();
 
   const pageRoutes: {
     href: string;
     label: string;
     Icon: React.FC<{ className?: string }>;
-    disabled?: boolean;
+    billingLevel?: BillingProductLevel;
   }[] = useMemo(
     () =>
       [
         {
           href: `/base/${baseId}/app`,
           label: t('common:noun.app'),
-          Icon: Code,
+          Icon: AppWindowMac,
           hidden: !basePermission?.['base|create'],
+          billingLevel: BillingProductLevel.Plus,
         },
         {
           href: `/base/${baseId}/dashboard`,
@@ -56,17 +53,17 @@ export const BaseSideBar = () => {
           label: t('common:noun.automation'),
           Icon: Bot,
           hidden: !basePermission?.['automation|read'],
-          disabled: !automationEnable,
+          billingLevel: isEE ? BillingProductLevel.Pro : undefined,
         },
         {
           href: `/base/${baseId}/authority-matrix`,
           label: t('common:noun.authorityMatrix'),
           Icon: Lock,
           hidden: !basePermission?.['base|authority_matrix_config'],
-          disabled: !advancedPermissionsEnable,
+          billingLevel: BillingProductLevel.Pro,
         },
       ].filter((item) => !item.hidden),
-    [advancedPermissionsEnable, automationEnable, baseId, basePermission, t]
+    [baseId, basePermission, isEE, t]
   );
 
   return (
@@ -76,50 +73,34 @@ export const BaseSideBar = () => {
           <QuickAction>{t('common:quickAction.title')}</QuickAction>
         </div>
         <ul>
-          {pageRoutes.map(({ href, label, Icon, disabled }) => {
+          {pageRoutes.map(({ href, label, Icon, billingLevel }) => {
             return (
-              <li key={href}>
-                {disabled ? (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          className="my-[2px] w-full cursor-not-allowed justify-start text-sm font-normal text-gray-500 hover:bg-background hover:text-gray-500"
-                          variant="ghost"
-                          size="xs"
-                          asChild
-                          disabled
-                        >
-                          <div className="flex">
-                            <Icon className="size-4 shrink-0" />
-                            <p className="truncate">{label}</p>
-                            <div className="grow basis-0"></div>
-                          </div>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{t('billing.unavailableInPlanTips')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    asChild
-                    className={cn(
-                      'w-full justify-start text-sm my-[2px]',
-                      router.asPath.startsWith(href) && 'bg-secondary'
-                    )}
-                  >
-                    <Link href={href} className="font-normal">
-                      <Icon className="size-4 shrink-0" />
-                      <p className="truncate">{label}</p>
-                      <div className="grow basis-0"></div>
-                    </Link>
-                  </Button>
+              <UpgradeWrapper
+                key={href}
+                baseId={baseId as string}
+                targetBillingLevel={billingLevel}
+              >
+                {({ badge }) => (
+                  <li key={href}>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      asChild
+                      className={cn(
+                        'w-full justify-start text-sm my-[2px]',
+                        router.asPath.startsWith(href) && 'bg-secondary'
+                      )}
+                    >
+                      <Link href={href} className="font-normal">
+                        <Icon className="size-4 shrink-0" />
+                        <p className="truncate">{label}</p>
+                        <div className="grow basis-0"></div>
+                        {badge}
+                      </Link>
+                    </Button>
+                  </li>
                 )}
-              </li>
+              </UpgradeWrapper>
             );
           })}
           <DropdownMenu>

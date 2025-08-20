@@ -73,6 +73,8 @@ export const ReactQueryKeys = {
 
   subscriptionSummaryList: () => ['subscription-summary'] as const,
 
+  instanceUsage: () => ['instance-usage'] as const,
+
   spaceCollaboratorList: (spaceId: string, options?: ListSpaceCollaboratorRo) =>
     options
       ? (['space-collaborator-list', spaceId, options] as const)
