@@ -10,8 +10,11 @@ import { useNotification } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
+import { LinkNotification } from './notification-component';
+import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
 
 export const NotificationsManage: React.FC = () => {
@@ -40,6 +43,29 @@ export const NotificationsManage: React.FC = () => {
   useEffect(() => {
     setUnreadCount(newUnreadCount ?? queryUnreadCount);
   }, [newUnreadCount, queryUnreadCount]);
+
+  useEffect(() => {
+    if (notification?.notification == null) return;
+    if (notification.notification.isRead) return;
+
+    toast.info(
+      <div className="flex  items-center">
+        <NotificationIcon
+          notifyIcon={notification.notification.notifyIcon}
+          notifyType={notification.notification.notifyType}
+        />
+        <LinkNotification
+          data={notification.notification}
+          notifyStatus={NotificationStatesEnum.Unread}
+        />
+      </div>,
+      {
+        position: 'top-center',
+        duration: 1000 * 3,
+        closeButton: true,
+      }
+    );
+  }, [notification?.notification]);
 
   const {
     data: notifyPage,

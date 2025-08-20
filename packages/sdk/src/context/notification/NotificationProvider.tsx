@@ -32,12 +32,6 @@ export const NotificationProvider: FC<INotificationProviderProps> = ({ children 
     remotePresence?.subscribe((err) => err && console.error);
 
     const receiveHandler = (_id: string, res: INotificationBuffer) => {
-      if (!res.notification.isRead) {
-        toast(t('notification.title'), {
-          description: res.notification.message,
-          icon: <BellRingIcon className="size-4" />,
-        });
-      }
       setNotification(res);
     };
 
