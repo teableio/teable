@@ -282,19 +282,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         if (junctionAlias && junctionAlias.trim()) {
           // ManyMany relationship: use junction table order column if available, otherwise __id
           if (field && field.getHasOrderColumn()) {
-            orderByField = `${junctionAlias}."__order"`;
+            const linkField = field as LinkFieldDto;
+            orderByField = `${junctionAlias}."${linkField.getOrderColumnName()}"`;
           } else {
             orderByField = `${junctionAlias}."__id"`;
           }
         } else if (field && field.getHasOrderColumn()) {
           // OneMany/ManyOne/OneOne relationship: use the order column in the foreign key table
-          // For OneMany relationships, the order column is based on selfKeyName (the foreign key in the target table)
-          // For ManyOne relationships, the order column is based on foreignKeyName (the foreign key in the current table)
-          const orderColumnName =
-            relationship === Relationship.OneMany
-              ? field.options.selfKeyName
-              : field.options.foreignKeyName;
-          orderByField = `${tableAlias}."${orderColumnName}_order"`;
+          const linkField = field as LinkFieldDto;
+          orderByField = `${tableAlias}."${linkField.getOrderColumnName()}"`;
         } else {
           // Fallback to record ID if no order column is available
           orderByField = recordIdRef;
