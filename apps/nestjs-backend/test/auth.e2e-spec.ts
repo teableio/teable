@@ -50,7 +50,6 @@ import axios from 'axios';
 import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../src/const';
 import { LocalAuthService } from '../src/features/auth/local-auth/local-auth.service';
-import { MailSenderService } from '../src/features/mail-sender/mail-sender.service';
 import { SettingService } from '../src/features/setting/setting.service';
 import type { IClsStore } from '../src/types/cls';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -755,8 +754,12 @@ describe('Auth Controller (e2e)', () => {
       await joinWaitlist();
     });
 
-    it('api/auth/get-waitlist', async () => {
+    it.only('api/auth/get-waitlist', async () => {
       await joinWaitlist(async (email) => {
+        const user = await prismaService.user.findFirst({
+          where: { email: globalThis.testConfig.email },
+        });
+        console.log('globalThis.testConfig -------', JSON.stringify(user));
         const res = await getWaitlist();
         const list = res.data.map((item) => item.email);
         expect(list).toContain(email);
