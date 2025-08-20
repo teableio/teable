@@ -34,7 +34,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
         <Trans
           ns="common"
           i18nKey={'invite.dialog.desc'}
-          count={collaborators.total}
+          count={collaborators.uniqTotal}
           components={{ b: <b /> }}
         />
       </div>

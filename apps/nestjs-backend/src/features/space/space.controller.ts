@@ -184,9 +184,11 @@ export class SpaceController {
     @Query(new ZodValidationPipe(listSpaceCollaboratorRoSchema))
     options: ListSpaceCollaboratorRo
   ): Promise<ListSpaceCollaboratorVo> {
+    const stats = await this.collaboratorService.getSpaceCollaboratorStats(spaceId, options);
     return {
       collaborators: await this.collaboratorService.getListBySpace(spaceId, options),
-      total: await this.collaboratorService.getTotalSpace(spaceId, options),
+      total: stats.total,
+      uniqTotal: stats.uniqTotal,
     };
   }
 

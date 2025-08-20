@@ -23,6 +23,7 @@ export type ItemSpaceCollaboratorVo = z.infer<typeof collaboratorItem>;
 
 export const listSpaceCollaboratorVoSchema = z.object({
   collaborators: z.array(collaboratorItem),
+  uniqTotal: z.number(),
   total: z.number(),
 });
 
