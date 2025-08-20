@@ -727,7 +727,7 @@ describe('Auth Controller (e2e)', () => {
     }
   );
 
-  describe.only('api/auth waitlist', () => {
+  describe('api/auth waitlist', () => {
     const joinWaitlist = async (handler?: (email: string) => Promise<void>) => {
       const demoEmail = getRandomString(10) + '@demo.com';
       const res = await joinWaitlistApi({
