@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { ILinkCellValue, ILinkFieldOptions, IRecord } from '@teable/core';
@@ -1201,31 +1202,46 @@ export class LinkService {
           await this.prismaService.txClient().$executeRawUnsafe(query);
         }
 
-        // Always update all linked records with correct order values when we have new keys
+        // Add new links and update order for all current links
         if (newKey.length > 0) {
-          const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
           if (field.getHasOrderColumn()) {
-            dbFields.push({ dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer });
-          }
-
-          // Update all records in newKey array with their correct order values
-          const updateData = newKey.map((foreignRecordId, index) => {
-            const values: Record<string, unknown> = { [selfKeyName]: recordId };
-            if (field.getHasOrderColumn()) {
-              values[`${selfKeyName}_order`] = index + 1;
-            }
-            return {
+            // If field has order column, update both link and order in one operation
+            const dbFields = [
+              { dbFieldName: selfKeyName, schemaType: SchemaType.String },
+              { dbFieldName: `${selfKeyName}_order`, schemaType: SchemaType.Integer },
+            ];
+            const updateData = newKey.map((foreignRecordId, index) => ({
               id: foreignRecordId,
-              values,
-            };
-          });
+              values: {
+                [selfKeyName]: recordId,
+                [`${selfKeyName}_order`]: index + 1,
+              },
+            }));
 
-          await this.batchService.batchUpdateDB(
-            fkHostTableName,
-            foreignKeyName,
-            dbFields,
-            updateData
-          );
+            await this.batchService.batchUpdateDB(
+              fkHostTableName,
+              foreignKeyName,
+              dbFields,
+              updateData
+            );
+          } else {
+            // If no order column, just add new links
+            const toAdd = difference(newKey, oldKey);
+            if (toAdd.length > 0) {
+              const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
+              const addData = toAdd.map((foreignRecordId) => ({
+                id: foreignRecordId,
+                values: { [selfKeyName]: recordId },
+              }));
+
+              await this.batchService.batchUpdateDB(
+                fkHostTableName,
+                foreignKeyName,
+                dbFields,
+                addData
+              );
+            }
+          }
         }
       }
     }
