@@ -139,7 +139,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   if (typeof children === 'function') {
     const element = children({
       badge,
-      needsUpgrade,
+      needsUpgrade: Boolean(needsUpgrade),
       isCommunity,
       currentLevel,
     });
