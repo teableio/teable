@@ -15,6 +15,7 @@ export interface ISettingPageProps {
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
+  console.log('SettingPage');
   const { settingServerData } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
