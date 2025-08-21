@@ -326,6 +326,25 @@ export class CsvImporter extends Importer {
       });
     }
   }
+
+  async getRawContent({ limit = CsvImporter.CHECK_LINES }: { limit?: number } = {}) {
+    const { stream } = await this.getFile();
+    return new Promise<IParseResult>((resolve, reject) => {
+      Papa.parse(stream, {
+        download: false,
+        dynamicTyping: true,
+        preview: limit,
+        complete: (result) => {
+          resolve({
+            [CsvImporter.DEFAULT_SHEETKEY]: result.data,
+          } as IParseResult);
+        },
+        error: (err) => {
+          reject(err);
+        },
+      });
+    });
+  }
 }
 
 export class ExcelImporter extends Importer {
@@ -404,6 +423,10 @@ export class ExcelImporter extends Importer {
     }
 
     return parseResult;
+  }
+
+  async getRawContent() {
+    return await this.parse();
   }
 }
 
