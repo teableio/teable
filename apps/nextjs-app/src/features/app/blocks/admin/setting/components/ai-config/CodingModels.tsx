@@ -223,6 +223,9 @@ export const CodingModels = ({
               onClick={async (e) => {
                 e.stopPropagation();
                 e.preventDefault();
+                if (testChatModelAbilityLoading) {
+                  return;
+                }
                 const res = await testChatModelAbility(value);
                 onChange({ ...value, ability: res || {} });
               }}
