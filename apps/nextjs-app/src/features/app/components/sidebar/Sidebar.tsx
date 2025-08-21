@@ -1,5 +1,6 @@
 import { ChevronsLeft } from '@teable/icons';
 import { useIsMobile } from '@teable/sdk';
+import { useBuildBaseAgentStore } from '@teable/sdk/components/grid-enhancements/store/useBuildBaseAgentStore';
 import { Button, cn } from '@teable/ui-lib';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -25,6 +26,8 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
 
   const { isExpanded } = useChatPanelStore();
 
+  const { building } = useBuildBaseAgentStore();
+
   useHotkeys(`meta+b`, () => {
     setVisible(!leftVisible);
   });
@@ -37,7 +40,11 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     <>
       {isMobile ? (
         <SheetWrapper>
-          <div className="group/sidebar flex size-full flex-col overflow-hidden bg-popover p-5">
+          <div
+            className={cn('group/sidebar flex size-full flex-col overflow-hidden bg-popover p-5', {
+              'rounded-l': building,
+            })}
+          >
             <SidebarHeader headerLeft={headerLeft} />
             {children}
           </div>
@@ -54,6 +61,9 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           <div
             className={cn(
               'group/sidebar flex size-full flex-col overflow-hidden bg-popover',
+              {
+                'rounded-l': building,
+              },
               className
             )}
           >
@@ -67,7 +77,9 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         <HoverWrapper size={SIDE_BAR_WIDTH}>
           <HoverWrapper.Trigger>
             <Button
-              className={cn('absolute top-7 p-1 rounded-none -left-0 rounded-r-full z-40')}
+              className={cn('absolute top-7 p-1 rounded-none -left-0 rounded-r-full z-40', {
+                '-left-1': building,
+              })}
               variant={'outline'}
               size="xs"
               onClick={() => {
@@ -81,6 +93,9 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
             <div
               className={cn(
                 'group/sidebar flex size-full flex-col overflow-hidden bg-popover',
+                {
+                  'rounded-l': building,
+                },
                 className
               )}
               onContextMenu={(e) => e.preventDefault()}
