@@ -14,6 +14,7 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useChatPanelStore } from '../../components/sidebar/useChatPanelStore';
+import { useBaseUsage } from '../../hooks/useBaseUsage';
 import { TableImport } from '../import-table';
 import { DraggableList } from './DraggableList';
 import { NoDraggableList } from './NoDraggableList';
@@ -31,6 +32,7 @@ export const TableList: React.FC = () => {
     setFileType(type);
   };
   const { setExpanded, open: openChatPanel } = useChatPanelStore();
+  const { chatAIEnable } = useBaseUsage()?.limit ?? {};
 
   return (
     <div className="flex w-full flex-col gap-2 overflow-auto pt-4">
@@ -49,7 +51,9 @@ export const TableList: React.FC = () => {
             onClick={() => {
               addTable();
               setExpanded(false);
-              openChatPanel();
+              if (chatAIEnable) {
+                openChatPanel();
+              }
             }}
             className="cursor-pointer"
           >
