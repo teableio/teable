@@ -29,9 +29,6 @@ interface IMailSenderMergeJob {
 @Processor(MAIL_SENDER_QUEUE)
 @Injectable()
 export class MailSenderMergeProcessor extends WorkerHost {
-  private readonly logger = new Logger(MailSenderMergeProcessor.name);
-  private readonly notifyMailMergeKey = 'mail-sender:notify-mail-merge:list';
-  private readonly notifyMailMergeTime = 'mail-sender:notify-mail-merge:time';
   constructor(
     private readonly mailSenderService: MailSenderService,
     private readonly cacheService: CacheService<ICacheStore>,

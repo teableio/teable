@@ -421,10 +421,16 @@ export class LocalAuthService {
         code,
         times,
       });
-      this.mailSenderService.sendMail({
-        to: item.email,
-        ...mailOptions,
-      });
+      this.mailSenderService.sendMail(
+        {
+          to: item.email,
+          ...mailOptions,
+        },
+        {
+          transporterName: MailTransporterType.Notify,
+          type: MailType.WaitlistInvite,
+        }
+      );
     }
 
     return res;

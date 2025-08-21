@@ -4,6 +4,7 @@ import {
   MailTransporterType,
   MailType,
   setSettingMailTransportConfig,
+  SettingKey,
   testMailTransportConfig,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
@@ -72,7 +73,7 @@ describe.skip('Mail sender  (e2e)', () => {
 
   it('should save setting mail transporter and send mail', async () => {
     const ro: ISetSettingMailTransportConfigRo = {
-      name: 'notifyMailTransportConfig',
+      name: SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG,
       transportConfig: mockMailTransportConfig,
     };
 
@@ -94,11 +95,31 @@ describe.skip('Mail sender  (e2e)', () => {
       transporterName: MailTransporterType.Notify,
       to: mockMailTo,
     };
-    const sendRes = await mailSenderService.sendMail(mailOptions);
+    const sendRes = await mailSenderService.sendMail(mailOptions, {
+      transporterName: MailTransporterType.Notify,
+      type: MailType.NotifyMerge,
+    });
     expect(sendRes).toBe(true);
   });
 
   it('should send notify merge mail', async () => {
+    const ro: ISetSettingMailTransportConfigRo = {
+      name: SettingKey.NOTIFY_MAIL_TRANSPORT_CONFIG,
+      transportConfig: mockMailTransportConfig,
+    };
+
+    const setRes = await setSettingMailTransportConfig(ro);
+    expect(setRes.data).toMatchObject({
+      ...ro,
+      transportConfig: {
+        ...ro.transportConfig,
+        auth: {
+          ...ro.transportConfig.auth,
+          pass: '',
+        },
+      },
+    });
+
     const htmlEmailOptions = await mailSenderService.htmlEmailOptions(mockMailOptions());
     const mailOptions1 = {
       ...htmlEmailOptions,

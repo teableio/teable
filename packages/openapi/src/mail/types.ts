@@ -19,6 +19,7 @@ export enum MailType {
   CollaboratorCellTag = 'collaboratorCellTag',
   CollaboratorMultiRowTag = 'collaboratorMultiRowTag',
   NotifyMerge = 'notifyMerge',
+  WaitlistInvite = 'waitlistInvite',
 }
 
 export const mailTransportConfigSchema = z.object({

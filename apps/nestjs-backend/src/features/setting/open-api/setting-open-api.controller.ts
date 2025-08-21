@@ -59,6 +59,7 @@ export class SettingOpenApiController {
       SettingKey.DISALLOW_SPACE_CREATION,
       SettingKey.DISALLOW_SPACE_INVITATION,
       SettingKey.ENABLE_EMAIL_VERIFICATION,
+      SettingKey.ENABLE_WAITLIST,
       SettingKey.AI_CONFIG,
     ]);
     const { aiConfig, ...rest } = setting;
