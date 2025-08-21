@@ -85,7 +85,8 @@ jobs:
               --build-arg="ENABLE_CSP=false" \
               --tag="${{ steps.meta.outputs.tags }}" \
               --platform="linux/amd64" \
-              --push
+              --push \
+              --upload-assets-list='[["sealos-objectstorage","${{ secrets.SEALOS_OBJECTSTORAGE_ENDPOINT }}","${{ secrets.SEALOS_OBJECTSTORAGE_ACCESS_KEY }}","${{ secrets.SEALOS_OBJECTSTORAGE_SECRET_KEY }}","${{ env.NAMESPACE }}-teable-${{ env.INSTANCE_NAME }}-public"]]' 
 
   deploy:
     needs: [check-pr, build-push]
