@@ -23,7 +23,5 @@ export const useBillingLevel = ({ spaceId, baseId }: { spaceId?: string; baseId?
     enabled: isCloud && Boolean(spaceId),
   });
 
-  console.log(subscriptionSummary?.level, baseUsage?.level, instanceUsage?.level);
-
   return subscriptionSummary?.level ?? baseUsage?.level ?? instanceUsage?.level;
 };

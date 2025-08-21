@@ -1,25 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { join } from 'path';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { getRandomString, HttpErrorCode, Role } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
-import {
-  PluginStatus,
-  PrincipalType,
-  UploadType,
-  type IUserInfoVo,
-  type IUserMeVo,
-} from '@teable/openapi';
-import { Knex } from 'knex';
+import { type IUserInfoVo, type IUserMeVo } from '@teable/openapi';
 import { omit, pick } from 'lodash';
 import ms from 'ms';
-import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
-import StorageAdapter from '../attachments/plugins/adapter';
-import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { PermissionService } from './permission.service';
 import type { IJwtAuthAutomationInfo, IJwtAuthInfo } from './strategies/types';
 
@@ -28,10 +14,7 @@ export class AuthService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly permissionService: PermissionService,
-    private readonly jwtService: JwtService,
-    private readonly prismaService: PrismaService,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly jwtService: JwtService
   ) {}
 
   async getUserInfo(user: IUserMeVo): Promise<IUserInfoVo> {

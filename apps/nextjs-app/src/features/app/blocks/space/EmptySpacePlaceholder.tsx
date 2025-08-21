@@ -1,16 +1,16 @@
 import { useMutation } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
 import { createBase } from '@teable/openapi';
+import type { IGetSpaceVo } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
+import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
-import type { IGetSpaceVo } from '@teable/openapi';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from './useBaseList';
-import { Spin } from '@teable/ui-lib/base';
 
 interface IEmptySpacePlaceholderProps {
   space: IGetSpaceVo;
@@ -34,32 +34,29 @@ export const EmptySpacePlaceholder: FC<IEmptySpacePlaceholderProps> = ({ space }
   });
 
   const handleCreateBase = () => {
-    const name = getUniqName(
-      t('common:noun.base'),
-      bases?.map((base) => base.name) || []
-    );
+    const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
     createBaseMutator({ spaceId: space.id, name });
   };
 
   const canCreateBase = hasPermission(space.role, 'base|create');
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] px-8">
-      <div className="flex flex-col items-center text-center max-w-md">
-        <h3 className="text-2xl font-semibold mb-2">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center px-8">
+      <div className="flex max-w-md flex-col items-center text-center">
+        <h3 className="mb-2 text-2xl font-semibold">
           {t('space:emptySpace.title', { userName: user.name })}
         </h3>
-        
-        <p className="text-muted-foreground mb-8 leading-relaxed">
+
+        <p className="mb-8 leading-relaxed text-muted-foreground">
           {t('space:emptySpace.description')}
         </p>
 
         {canCreateBase && (
-          <Button 
+          <Button
             onClick={handleCreateBase}
             disabled={createBaseLoading}
             size="lg"
-            className="px-8 mb-8"
+            className="mb-8 px-8"
           >
             {createBaseLoading && <Spin />} {t('space:action.createBase')}
           </Button>
