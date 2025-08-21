@@ -79,6 +79,9 @@ RUN set -ex; \
         pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 RUN set -ex; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends rsync; \
+        rm -rf /var/lib/apt/lists/*; \
         chmod +x ./scripts/upload-assets.mjs; \
         zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST";
 
