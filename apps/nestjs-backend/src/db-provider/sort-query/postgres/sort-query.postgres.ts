@@ -1,4 +1,4 @@
-import type { IFieldInstance } from '../../../features/field/model/factory';
+import type { FieldCore } from '@teable/core';
 import type { IRecordQuerySortContext } from '../../../features/record/query-builder/record-query-builder.interface';
 import { AbstractSortQuery } from '../sort-query.abstract';
 import { MultipleDateTimeSortAdapter } from './multiple-value/multiple-datetime-sort.adapter';
@@ -10,11 +10,11 @@ import { StringSortAdapter } from './single-value/string-sort.adapter';
 import { SortFunctionPostgres } from './sort-query.function';
 
 export class SortQueryPostgres extends AbstractSortQuery {
-  booleanSort(field: IFieldInstance, context?: IRecordQuerySortContext): SortFunctionPostgres {
+  booleanSort(field: FieldCore, context?: IRecordQuerySortContext): SortFunctionPostgres {
     return new SortFunctionPostgres(this.knex, field, context);
   }
 
-  numberSort(field: IFieldInstance, context?: IRecordQuerySortContext): SortFunctionPostgres {
+  numberSort(field: FieldCore, context?: IRecordQuerySortContext): SortFunctionPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleNumberSortAdapter(this.knex, field, context);
@@ -22,7 +22,7 @@ export class SortQueryPostgres extends AbstractSortQuery {
     return new SortFunctionPostgres(this.knex, field, context);
   }
 
-  dateTimeSort(field: IFieldInstance, context?: IRecordQuerySortContext): SortFunctionPostgres {
+  dateTimeSort(field: FieldCore, context?: IRecordQuerySortContext): SortFunctionPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleDateTimeSortAdapter(this.knex, field, context);
@@ -30,7 +30,7 @@ export class SortQueryPostgres extends AbstractSortQuery {
     return new DateSortAdapter(this.knex, field, context);
   }
 
-  stringSort(field: IFieldInstance, context?: IRecordQuerySortContext): SortFunctionPostgres {
+  stringSort(field: FieldCore, context?: IRecordQuerySortContext): SortFunctionPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new SortFunctionPostgres(this.knex, field, context);
@@ -38,7 +38,7 @@ export class SortQueryPostgres extends AbstractSortQuery {
     return new StringSortAdapter(this.knex, field, context);
   }
 
-  jsonSort(field: IFieldInstance, context?: IRecordQuerySortContext): SortFunctionPostgres {
+  jsonSort(field: FieldCore, context?: IRecordQuerySortContext): SortFunctionPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleJsonSortAdapter(this.knex, field, context);

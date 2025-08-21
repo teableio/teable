@@ -135,6 +135,18 @@ export class Tables {
   }
 
   /**
+   * Get the entry table domain, throw error if not found
+   * @throws Error - If entry table is not found
+   */
+  mustGetEntryTable(): TableDomain {
+    const entryTable = this.getEntryTable();
+    if (!entryTable) {
+      throw new Error(`Entry table ${this._entryTableId} not found`);
+    }
+    return entryTable;
+  }
+
+  /**
    * Get all foreign table domains (excluding the entry table)
    */
   getForeignTables(): Map<string, TableDomain> {

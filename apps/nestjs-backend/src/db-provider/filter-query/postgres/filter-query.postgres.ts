@@ -1,6 +1,5 @@
-import type { IFilter } from '@teable/core';
+import type { FieldCore, IFilter } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../features/field/model/factory';
 import type { IRecordQueryFilterContext } from '../../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider, IFilterQueryExtra } from '../../db.provider.interface';
 import { AbstractFilterQuery } from '../filter-query.abstract';
@@ -21,7 +20,7 @@ import type { CellValueFilterPostgres } from './cell-value-filter/cell-value-fil
 export class FilterQueryPostgres extends AbstractFilterQuery {
   constructor(
     originQueryBuilder: Knex.QueryBuilder,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     filter?: IFilter,
     extra?: IFilterQueryExtra,
     dbProvider?: IDbProvider,
@@ -29,10 +28,7 @@ export class FilterQueryPostgres extends AbstractFilterQuery {
   ) {
     super(originQueryBuilder, fields, filter, extra, dbProvider, context);
   }
-  booleanFilter(
-    field: IFieldInstance,
-    context?: IRecordQueryFilterContext
-  ): CellValueFilterPostgres {
+  booleanFilter(field: FieldCore, context?: IRecordQueryFilterContext): CellValueFilterPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleBooleanCellValueFilterAdapter(field, context);
@@ -40,10 +36,7 @@ export class FilterQueryPostgres extends AbstractFilterQuery {
     return new BooleanCellValueFilterAdapter(field, context);
   }
 
-  numberFilter(
-    field: IFieldInstance,
-    context?: IRecordQueryFilterContext
-  ): CellValueFilterPostgres {
+  numberFilter(field: FieldCore, context?: IRecordQueryFilterContext): CellValueFilterPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleNumberCellValueFilterAdapter(field, context);
@@ -51,10 +44,7 @@ export class FilterQueryPostgres extends AbstractFilterQuery {
     return new NumberCellValueFilterAdapter(field, context);
   }
 
-  dateTimeFilter(
-    field: IFieldInstance,
-    context?: IRecordQueryFilterContext
-  ): CellValueFilterPostgres {
+  dateTimeFilter(field: FieldCore, context?: IRecordQueryFilterContext): CellValueFilterPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleDatetimeCellValueFilterAdapter(field, context);
@@ -62,10 +52,7 @@ export class FilterQueryPostgres extends AbstractFilterQuery {
     return new DatetimeCellValueFilterAdapter(field, context);
   }
 
-  stringFilter(
-    field: IFieldInstance,
-    context?: IRecordQueryFilterContext
-  ): CellValueFilterPostgres {
+  stringFilter(field: FieldCore, context?: IRecordQueryFilterContext): CellValueFilterPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleStringCellValueFilterAdapter(field, context);
@@ -73,7 +60,7 @@ export class FilterQueryPostgres extends AbstractFilterQuery {
     return new StringCellValueFilterAdapter(field, context);
   }
 
-  jsonFilter(field: IFieldInstance, context?: IRecordQueryFilterContext): CellValueFilterPostgres {
+  jsonFilter(field: FieldCore, context?: IRecordQueryFilterContext): CellValueFilterPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleJsonCellValueFilterAdapter(field, context);

@@ -123,7 +123,7 @@ abstract class BaseSqlConversionVisitor<
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
     const fieldId = ctx.text.slice(1, -1); // Remove curly braces
 
-    const fieldInfo = this.context.fieldMap.get(fieldId);
+    const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {
       throw new Error(`Field not found: ${fieldId}`);
     }
@@ -423,7 +423,7 @@ abstract class BaseSqlConversionVisitor<
     ctx: FieldReferenceCurlyContext
   ): 'string' | 'number' | 'boolean' | 'unknown' {
     const fieldId = ctx.text.slice(1, -1); // Remove curly braces
-    const fieldInfo = this.context.fieldMap.get(fieldId);
+    const fieldInfo = this.context.table.getField(fieldId);
 
     if (!fieldInfo?.type) {
       return 'unknown';
@@ -649,7 +649,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
     const fieldId = ctx.text.slice(1, -1); // Remove curly braces
 
-    const fieldInfo = this.context.fieldMap.get(fieldId);
+    const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {
       throw new Error(`Field not found: ${fieldId}`);
     }

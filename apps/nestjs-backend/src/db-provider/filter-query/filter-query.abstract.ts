@@ -1,5 +1,6 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import type {
+  FieldCore,
   IConjunction,
   IDateTimeFieldOperator,
   IFilter,
@@ -20,7 +21,6 @@ import {
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { includes, invert, isObject } from 'lodash';
-import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IDbProvider, IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
@@ -31,7 +31,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
 
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
-    protected readonly fields?: { [fieldId: string]: IFieldInstance },
+    protected readonly fields?: { [fieldId: string]: FieldCore },
     protected readonly filter?: IFilter,
     protected readonly extra?: IFilterQueryExtra,
     protected readonly dbProvider?: IDbProvider,
@@ -121,7 +121,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     return queryBuilder;
   }
 
-  private getFilterAdapter(field: IFieldInstance): AbstractCellValueFilter {
+  private getFilterAdapter(field: FieldCore): AbstractCellValueFilter {
     const { dbFieldType } = field;
     switch (field.cellValueType) {
       case CellValueType.Boolean:
@@ -168,7 +168,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
 
   private replaceMeTagInValue(
     filterItem: IFilterItem,
-    field: IFieldInstance,
+    field: FieldCore,
     replaceUserId?: string
   ): void {
     const { value } = filterItem;
@@ -185,7 +185,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     }
   }
 
-  private shouldKeepFilterItem(value: unknown, field: IFieldInstance, operator: string): boolean {
+  private shouldKeepFilterItem(value: unknown, field: FieldCore, operator: string): boolean {
     return (
       value !== null ||
       field.cellValueType === CellValueType.Boolean ||
@@ -194,27 +194,27 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   }
 
   abstract booleanFilter(
-    field: IFieldInstance,
+    field: FieldCore,
     context?: IRecordQueryFilterContext
   ): AbstractCellValueFilter;
 
   abstract numberFilter(
-    field: IFieldInstance,
+    field: FieldCore,
     context?: IRecordQueryFilterContext
   ): AbstractCellValueFilter;
 
   abstract dateTimeFilter(
-    field: IFieldInstance,
+    field: FieldCore,
     context?: IRecordQueryFilterContext
   ): AbstractCellValueFilter;
 
   abstract stringFilter(
-    field: IFieldInstance,
+    field: FieldCore,
     context?: IRecordQueryFilterContext
   ): AbstractCellValueFilter;
 
   abstract jsonFilter(
-    field: IFieldInstance,
+    field: FieldCore,
     context?: IRecordQueryFilterContext
   ): AbstractCellValueFilter;
 }

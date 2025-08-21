@@ -9,6 +9,7 @@ import type {
   ISelectQueryInterface,
   ISelectFormulaConversionContext,
   ISortItem,
+  FieldCore,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
@@ -108,14 +109,14 @@ export interface IDbProvider {
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap'],
+    fieldMap: Map<string, FieldCore>,
     linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[];
 
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap'],
+    fieldMap: Map<string, FieldCore>,
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
@@ -155,7 +156,7 @@ export interface IDbProvider {
 
   filterQuery(
     originKnex: Knex.QueryBuilder,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     filter?: IFilter,
     extra?: IFilterQueryExtra,
     context?: IRecordQueryFilterContext
@@ -163,7 +164,7 @@ export interface IDbProvider {
 
   sortQuery(
     originKnex: Knex.QueryBuilder,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     sortObjs?: ISortItem[],
     extra?: ISortQueryExtra,
     context?: IRecordQuerySortContext

@@ -10,6 +10,8 @@ import type {
   ISelectQueryInterface,
   ISelectFormulaConversionContext,
   ISortItem,
+  FieldCore,
+  IFieldMap,
 } from '@teable/core';
 import {
   DriverClient,
@@ -131,7 +133,7 @@ export class SqliteProvider implements IDbProvider {
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap'],
+    fieldMap: IFieldMap,
     linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[] {
     const queries: string[] = [];
@@ -169,7 +171,7 @@ export class SqliteProvider implements IDbProvider {
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap'],
+    fieldMap: IFieldMap,
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
@@ -387,7 +389,7 @@ export class SqliteProvider implements IDbProvider {
 
   sortQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     sortObjs?: ISortItem[],
     extra?: ISortQueryExtra,
     context?: IRecordQuerySortContext

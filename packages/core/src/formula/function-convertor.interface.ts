@@ -1,3 +1,4 @@
+import type { TableDomain } from '../models';
 import type { FieldCore } from '../models/field/field';
 import type { DriverClient } from '../utils/dsn-parser';
 
@@ -160,14 +161,11 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
  * Context information for formula conversion
  */
 export interface IFormulaConversionContext {
-  fieldMap: IFieldMap;
-  timeZone?: string;
+  table: TableDomain;
   /** Whether this conversion is for a generated column (affects immutable function handling) */
   isGeneratedColumn?: boolean;
-  /** Cache for expanded expressions (shared across visitor instances) */
-  expansionCache?: Map<string, string>;
-  /** Database driver client type for database-specific SQL generation */
   driverClient?: DriverClient;
+  expansionCache?: Map<string, string>;
 }
 
 /**
