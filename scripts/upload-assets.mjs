@@ -67,11 +67,15 @@ const setupMinioCli = async (list) => {
 };
 await setupMinioCli(parsedList);
 
+const tempSyncStaticDir = async () => {
+  const rsync = await $`rsync -av --exclude={'*.js.map','*.css.map'} ${staticDir} ~/temp/`;
+  console.log('rsync: ', rsync.stdout);
+};
+await tempSyncStaticDir();
+
 const syncStaticDir = async (list) => {
   for (const [name, _, __, ___, bucket] of list) {
-    const rm = await $`${mcPath} rm --recursive --force ${name}/${bucket}/_next`;
-    console.log('rm: ', rm.stdout);
-    const cp = await $`${mcPath} cp --recursive ${staticDir} ${name}/${bucket}/_next/`;
+    const cp = await $`${mcPath} cp --recursive ~/temp/static ${name}/${bucket}/_next/`;
     console.log('cp: ', cp.stdout);
   }
 };
