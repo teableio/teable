@@ -525,7 +525,8 @@
     "copy": "副本",
     "credits": "算力",
     "aiChat": "AI 对话",
-    "app": "应用"
+    "app": "应用",
+    "webSearch": "网络搜索"
   },
   "level": {
     "free": "免费版",
@@ -704,6 +705,13 @@
           "enableAIDescription": "模型测试已完成。AI功能当前未启用。是否启用AI来使用这些模型能力？",
           "enableAI": "启用AI",
           "skipTest": "跳过"
+        },
+        "chatModelAbility": {
+          "image": "图片",
+          "pdf": "PDF",
+          "webSearch": "网络搜索",
+          "disabledWebSearch": "禁用网络搜索",
+          "lgModelAbility": "大型模型能力"
         },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",

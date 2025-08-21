@@ -23,6 +23,7 @@ export const chatAttachmentSchema = z.object({
 export type IChatMessageAttachment = z.infer<typeof chatAttachmentSchema>;
 
 export const chatContextSchema = z.object({
+  webSearch: z.boolean().optional(),
   tools: z.array(z.nativeEnum(McpToolInvocationName)).optional(),
   tables: z
     .array(
@@ -187,4 +188,5 @@ export type IBuildAppOperator = (typeof BuildAppOperator)[keyof typeof BuildAppO
 
 export enum ToolInvocationName {
   KnowledgeTool = 'knowledge-tool',
+  WebSearch = 'web-search',
 }

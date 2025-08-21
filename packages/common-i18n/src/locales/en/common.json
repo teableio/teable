@@ -527,7 +527,8 @@
     "copy": "Copy",
     "credits": "Credits",
     "aiChat": "AI Chat",
-    "app": "App"
+    "app": "App",
+    "webSearch": "Web Search"
   },
   "level": {
     "free": "Free",
@@ -709,6 +710,13 @@
           "enableAIDescription": "Model test completed. AI is not currently enabled. Do you want to enable AI to use these model capabilities?",
           "enableAI": "Enable AI",
           "skipTest": "Skip"
+        },
+        "chatModelAbility": {
+          "image": "Image",
+          "pdf": "PDF",
+          "webSearch": "Web Search",
+          "disabledWebSearch": "Disabled Web Search",
+          "lgModelAbility": "Lg model ability"
         },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",
