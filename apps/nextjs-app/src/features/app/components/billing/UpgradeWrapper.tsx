@@ -83,7 +83,8 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     return space?.role === Role.Owner;
   }, [space?.role]);
 
-  const needsUpgrade = !isLevelSufficientMemo && !!targetBillingLevel && !isCommunity;
+  const needsUpgrade =
+    currentLevel && !isLevelSufficientMemo && !!targetBillingLevel && !isCommunity;
 
   const handleUpgradeClick = useCallback(() => {
     if (onUpgradeClick) {
