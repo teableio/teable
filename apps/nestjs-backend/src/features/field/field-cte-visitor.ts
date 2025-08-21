@@ -190,21 +190,25 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
     const { cellValueType, options, isMultipleCellValue } = field;
     const formatting = options.formatting;
 
-    // Apply formatting based on the formula's result type
-    if (cellValueType === CellValueType.Number && formatting) {
-      // Reuse the number formatting logic
-      return this.applyNumberFormatting(formatting as INumberFormatting);
-    } else if (cellValueType === CellValueType.DateTime && formatting) {
-      // For datetime formatting, we would need to implement date formatting logic
-      // For now, return as-is since datetime fields are typically stored as ISO strings
-      return this.fieldExpression;
-    } else if (cellValueType === CellValueType.String && isMultipleCellValue) {
-      // For multiple-value string fields (like multiple select), convert array to comma-separated string
-      return this.formatMultipleStringValues();
-    } else {
-      // For other cell value types (single String, Boolean), return as-is
-      return this.fieldExpression;
-    }
+    // Apply formatting based on the formula's result type using match pattern
+    return match({ cellValueType, formatting, isMultipleCellValue })
+      .with(
+        { cellValueType: CellValueType.Number, formatting: P.not(P.nullish) },
+        ({ formatting }) => this.applyNumberFormatting(formatting as INumberFormatting)
+      )
+      .with({ cellValueType: CellValueType.DateTime, formatting: P.not(P.nullish) }, () => {
+        // For datetime formatting, we would need to implement date formatting logic
+        // For now, return as-is since datetime fields are typically stored as ISO strings
+        return this.fieldExpression;
+      })
+      .with({ cellValueType: CellValueType.String, isMultipleCellValue: true }, () => {
+        // For multiple-value string fields (like multiple select), convert array to comma-separated string
+        return this.formatMultipleStringValues();
+      })
+      .otherwise(() => {
+        // For other cell value types (single String, Boolean), return as-is
+        return this.fieldExpression;
+      });
   }
 
   visitCreatedTimeField(_field: CreatedTimeFieldCore): string {
