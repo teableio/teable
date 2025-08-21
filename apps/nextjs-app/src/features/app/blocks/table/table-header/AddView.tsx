@@ -2,13 +2,7 @@ import { ViewType, getUniqName } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { useViews } from '@teable/sdk';
 import { useTablePermission } from '@teable/sdk/hooks';
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Separator,
-} from '@teable/ui-lib/shadcn';
+import { Button, Popover, PopoverContent, PopoverTrigger, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useState } from 'react';
 import { VIEW_ICON_MAP } from '../../view/constant';
@@ -70,11 +64,7 @@ export const AddView: React.FC = () => {
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          className="size-7 shrink-0 px-0"
-          size={'xs'}
-          variant={'outline'}
-        >
+        <Button className="size-7 shrink-0 px-0" size={'xs'} variant={'outline'}>
           <Plus className="size-4" />
         </Button>
       </PopoverTrigger>

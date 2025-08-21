@@ -106,7 +106,10 @@ export const BaseCard: FC<IBaseCard> = (props) => {
 
   return (
     <Card
-      className={cn('relative group cursor-pointer hover:shadow-md overflow-x-hidden shadow-none', className)}
+      className={cn(
+        'relative group cursor-pointer hover:shadow-md overflow-x-hidden shadow-none',
+        className
+      )}
       onClick={intoBase}
     >
       <ColorBg emoji={base.icon || undefined} />
@@ -143,7 +146,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                   {base.name}
                 </h3>
                 {spaceName && (
-                  <p className="text-xs text-muted-foreground truncate mt-0.5" title={spaceName}>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground" title={spaceName}>
                     {spaceName}
                   </p>
                 )}

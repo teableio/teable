@@ -4,10 +4,10 @@ import { Plus, Database, Component } from '@teable/icons';
 import { createSpace, createBase, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin, ConfirmDialog } from '@teable/ui-lib/base';
-import { 
-  Button, 
-  cn, 
-  Input, 
+import {
+  Button,
+  cn,
+  Input,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,7 +26,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -81,14 +81,13 @@ export const SpaceList: FC = () => {
 
   // Filter spaces where user has permission to create bases
   const spacesWithBaseCreatePermission = useMemo(() => {
-    return spaceList?.filter(space => hasPermission(space.role, 'base|create')) || [];
+    return spaceList?.filter((space) => hasPermission(space.role, 'base|create')) || [];
   }, [spaceList]);
 
   const handleCreateSpace = () => {
-    const name = spaceName.trim() || getUniqName(
-      t('noun.space'),
-      spaceList?.length ? spaceList?.map((space) => space?.name) : []
-    );
+    const name =
+      spaceName.trim() ||
+      getUniqName(t('noun.space'), spaceList?.length ? spaceList?.map((space) => space?.name) : []);
     addSpace({ name });
   };
 
@@ -126,15 +125,9 @@ export const SpaceList: FC = () => {
                 variant={'outline'}
                 size={'xs'}
                 disabled={isLoading || isLoadingBase}
-                className={cn(
-                  'w-full',
-                )}
+                className={cn('w-full')}
               >
-                {(isLoading || isLoadingBase) ? (
-                  <Spin className="size-3" />
-                ) : (
-                  <Plus />
-                )}
+                {isLoading || isLoadingBase ? <Spin className="size-3" /> : <Plus />}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
@@ -220,7 +213,9 @@ export const SpaceList: FC = () => {
           onClick={(e) => e.stopPropagation()}
         >
           <DialogHeader>
-            <DialogTitle>{t('actions.create')} {t('noun.base')}</DialogTitle>
+            <DialogTitle>
+              {t('actions.create')} {t('noun.base')}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
@@ -240,9 +235,9 @@ export const SpaceList: FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              size={'sm'} 
-              variant={'ghost'} 
+            <Button
+              size={'sm'}
+              variant={'ghost'}
               onClick={() => {
                 setShowCreateBaseDialog(false);
                 setSelectedSpaceId('');
@@ -250,8 +245,8 @@ export const SpaceList: FC = () => {
             >
               {t('actions.cancel')}
             </Button>
-            <Button 
-              size={'sm'} 
+            <Button
+              size={'sm'}
               onClick={handleCreateBase}
               disabled={!selectedSpaceId || isLoadingBase}
             >

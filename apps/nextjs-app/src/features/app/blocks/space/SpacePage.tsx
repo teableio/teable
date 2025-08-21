@@ -1,8 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createSpace, getSubscriptionSummaryList } from '@teable/openapi';
+import { useQuery } from '@tanstack/react-query';
+import { getSubscriptionSummaryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { keyBy } from 'lodash';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, type FC, useMemo } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
@@ -17,8 +16,6 @@ import { useBaseList } from './useBaseList';
 import { useSpaceListOrdered } from './useSpaceListOrdered';
 
 export const SpacePage: FC = () => {
-  const queryClient = useQueryClient();
-  const router = useRouter();
   const isCloud = useIsCloud();
   const ref = useRef<HTMLDivElement>(null);
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
@@ -37,19 +34,6 @@ export const SpacePage: FC = () => {
   });
 
   const { disallowSpaceInvitation } = useSetting();
-
-  const { mutate: createSpaceMutator, isLoading } = useMutation({
-    mutationFn: createSpace,
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
-      router.push({
-        pathname: '/space/[spaceId]',
-        query: {
-          spaceId: data.data.id,
-        },
-      });
-    },
-  });
 
   const subscriptionMap = useMemo(() => {
     if (subscriptionList == null) return {};
