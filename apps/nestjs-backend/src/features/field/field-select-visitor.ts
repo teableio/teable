@@ -19,8 +19,8 @@ import type {
   SingleSelectFieldCore,
   UserFieldCore,
   IFieldVisitor,
-  IFormulaConversionContext,
   ButtonFieldCore,
+  TableDomain,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -43,11 +43,14 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   constructor(
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
-    private readonly context: IFormulaConversionContext,
+    private readonly table: TableDomain,
     private readonly fieldCteMap?: Map<string, string>,
-    private readonly tableAlias?: string,
     private readonly withAlias: boolean = true
   ) {}
+
+  private get tableAlias() {
+    return this.table.getTableNameAndId();
+  }
 
   /**
    * Returns the selection map containing field ID to selector name mappings
@@ -102,7 +105,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
 
       // Check if the target lookup field exists in the context
-      const targetFieldExists = this.context?.fieldMap?.has(field.lookupOptions.lookupFieldId);
+      const targetFieldExists = this.table.hasField(field.lookupOptions.lookupFieldId);
       if (!targetFieldExists) {
         // Target field has been deleted, return NULL to indicate this field should be null
         const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
@@ -154,6 +157,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
     }
 
+    // TODO: remove this fallback
     // Fallback to the original column
     const columnSelector = this.getColumnSelector(field);
     this.selectionMap.set(field.id, columnSelector);
@@ -169,7 +173,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
       if (!isPersistedAsGeneratedColumn) {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
-          fieldMap: this.context.fieldMap,
+          table: this.table,
           fieldCteMap: this.fieldCteMap,
           tableAlias: this.tableAlias, // Pass table alias to the conversion context
         });
@@ -239,63 +243,51 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.checkAndSelectLookupField(field);
     }
 
-    // For non-Lookup Link fields, check if we have a CTE for this field
-    if (this.fieldCteMap && this.fieldCteMap.has(field.id)) {
-      const cteName = this.fieldCteMap.get(field.id)!;
-      // Return Raw expression for selecting from CTE
-      const rawExpression = this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName]);
-      // For WHERE clauses, store the CTE column reference
-      this.selectionMap.set(field.id, `${cteName}.link_value`);
-      return rawExpression;
+    if (!this.fieldCteMap?.has(field.id)) {
+      throw new Error(`Link field ${field.id} should always select from a CTE, but no CTE found`);
     }
 
-    // Fallback to the original pre-computed column for backward compatibility
-    const columnSelector = this.getColumnSelector(field);
-    this.selectionMap.set(field.id, columnSelector);
-    return columnSelector;
+    const cteName = this.fieldCteMap.get(field.id)!;
+    // Return Raw expression for selecting from CTE
+    const rawExpression = this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName]);
+    // For WHERE clauses, store the CTE column reference
+    this.selectionMap.set(field.id, `${cteName}.link_value`);
+    return rawExpression;
   }
 
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
-    // Rollup fields use the link field's CTE with pre-computed rollup values
-    if (field.lookupOptions && this.fieldCteMap) {
-      // Check if the field has error (e.g., target field deleted)
-      if (field.hasError) {
-        // Field has error, return NULL to indicate this field should be null
-        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
-        this.selectionMap.set(field.id, 'NULL');
-        return rawExpression;
-      }
-
-      // Check if the target lookup field exists in the context
-      const targetFieldExists = this.context?.fieldMap?.has(field.lookupOptions.lookupFieldId);
-      if (!targetFieldExists) {
-        // Target field has been deleted, return NULL to indicate this field should be null
-        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
-        this.selectionMap.set(field.id, 'NULL');
-        return rawExpression;
-      }
-
-      const { linkFieldId } = field.lookupOptions;
-
-      // Check if we have a CTE for the link field
-      if (this.fieldCteMap.has(linkFieldId)) {
-        const cteName = this.fieldCteMap.get(linkFieldId)!;
-
-        // Return Raw expression for selecting pre-computed rollup value from link CTE
-        const rawExpression = this.qb.client.raw(`??."rollup_${field.id}" as ??`, [
-          cteName,
-          field.dbFieldName,
-        ]);
-        // For WHERE clauses, store the CTE column reference
-        this.selectionMap.set(field.id, `${cteName}.rollup_${field.id}`);
-        return rawExpression;
-      }
+    if (!this.fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
+      throw new Error(`Rollup field ${field.id} requires a field CTE map`);
     }
 
-    // Fallback to the original pre-computed column for backward compatibility
-    const columnSelector = this.getColumnSelector(field);
-    this.selectionMap.set(field.id, columnSelector);
-    return columnSelector;
+    // Rollup fields use the link field's CTE with pre-computed rollup values
+    // Check if the field has error (e.g., target field deleted)
+    if (field.hasError) {
+      // Field has error, return NULL to indicate this field should be null
+      const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+      this.selectionMap.set(field.id, 'NULL');
+      return rawExpression;
+    }
+
+    // Check if the target lookup field exists in the context
+    const targetFieldExists = this.table.hasField(field.lookupOptions.lookupFieldId);
+    if (!targetFieldExists) {
+      // Target field has been deleted, return NULL to indicate this field should be null
+      const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+      this.selectionMap.set(field.id, 'NULL');
+      return rawExpression;
+    }
+
+    const cteName = this.fieldCteMap.get(field.lookupOptions.linkFieldId)!;
+
+    // Return Raw expression for selecting pre-computed rollup value from link CTE
+    const rawExpression = this.qb.client.raw(`??."rollup_${field.id}" as ??`, [
+      cteName,
+      field.dbFieldName,
+    ]);
+    // For WHERE clauses, store the CTE column reference
+    this.selectionMap.set(field.id, `${cteName}.rollup_${field.id}`);
+    return rawExpression;
   }
 
   // Select field types

@@ -10,6 +10,9 @@ import type {
   ISelectQueryInterface,
   ISelectFormulaConversionContext,
   ISortItem,
+  TableDomain,
+  FieldCore,
+  IFieldMap,
 } from '@teable/core';
 import {
   DriverClient,
@@ -255,7 +258,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap'],
+    fieldMap: IFieldMap,
     linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[] {
     const queries: string[] = [];
@@ -293,7 +296,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
-    fieldMap: IFormulaConversionContext['fieldMap'],
+    fieldMap: IFieldMap,
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
@@ -436,7 +439,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   filterQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     filter?: IFilter,
     extra?: IFilterQueryExtra,
     context?: IRecordQueryFilterContext
@@ -446,7 +449,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   sortQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     sortObjs?: ISortItem[],
     extra?: ISortQueryExtra,
     context?: IRecordQuerySortContext

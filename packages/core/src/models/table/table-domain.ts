@@ -1,3 +1,4 @@
+import type { IFieldMap } from '../../formula';
 import type { FieldCore } from '../field/field';
 import { TableFields } from './table-fields';
 
@@ -40,6 +41,10 @@ export class TableDomain {
     this._fields = new TableFields(params.fields);
   }
 
+  getTableNameAndId() {
+    return `${this.name}_${this.id}`;
+  }
+
   /**
    * Get the fields collection
    */
@@ -52,6 +57,10 @@ export class TableDomain {
    */
   get fieldList(): readonly FieldCore[] {
     return this._fields.fields;
+  }
+
+  get fieldMap(): IFieldMap {
+    return this._fields.toFieldMap();
   }
 
   /**

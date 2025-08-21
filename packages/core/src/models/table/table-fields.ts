@@ -1,3 +1,4 @@
+import type { IFieldMap } from '../../formula';
 import { FieldType } from '../field/constant';
 import type { FormulaFieldCore } from '../field/derivate/formula.field';
 import type { LinkFieldCore } from '../field/derivate/link.field';
@@ -182,7 +183,7 @@ export class TableFields {
   /**
    * Create field map by id
    */
-  toFieldMap(): Map<string, FieldCore> {
+  toFieldMap(): IFieldMap {
     return new Map(this._fields.map((field) => [field.id, field]));
   }
 
