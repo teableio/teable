@@ -42,7 +42,7 @@ export class TableDomain {
   }
 
   getTableNameAndId() {
-    return `${this.name}_${this.id}`;
+    return `${this.name}_${this.dbTableName}_${this.id}`;
   }
 
   /**
@@ -103,6 +103,17 @@ export class TableDomain {
    */
   getField(fieldId: string): FieldCore | undefined {
     return this._fields.findById(fieldId);
+  }
+
+  /**
+   * Find a field by id, throw error if not found
+   */
+  mustGetField(fieldId: string): FieldCore {
+    const field = this.getField(fieldId);
+    if (!field) {
+      throw new Error(`Field ${fieldId} not found`);
+    }
+    return field;
   }
 
   /**

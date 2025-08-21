@@ -1,7 +1,7 @@
 import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
 import type { TableDomain } from '../../table/table-domain';
-import type { FieldType, CellValueType } from '../constant';
+import { type FieldType, type CellValueType, Relationship } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
 import {
@@ -34,6 +34,37 @@ export class LinkFieldCore extends FieldCore {
 
   getHasOrderColumn(): boolean {
     return this.meta?.hasOrderColumn || false;
+  }
+
+  /**
+   * Get the order column name for this link field based on its relationship type
+   * @returns The order column name to use in database queries and operations
+   */
+  getOrderColumnName(): string {
+    const relationship = this.options.relationship;
+
+    switch (relationship) {
+      case Relationship.ManyMany:
+        // ManyMany relationships use a simple __order column in the junction table
+        return '__order';
+
+      case Relationship.OneMany:
+        // OneMany relationships use the selfKeyName (foreign key in target table) + _order
+        return `${this.options.selfKeyName}_order`;
+
+      case Relationship.ManyOne:
+      case Relationship.OneOne:
+        // ManyOne and OneOne relationships use the foreignKeyName (foreign key in current table) + _order
+        return `${this.options.foreignKeyName}_order`;
+
+      default:
+        throw new Error(`Unsupported relationship type: ${relationship}`);
+    }
+  }
+
+  getIsMultiValue() {
+    const relationship = this.options.relationship;
+    return relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
   }
 
   cellValue2String(cellValue?: unknown) {
