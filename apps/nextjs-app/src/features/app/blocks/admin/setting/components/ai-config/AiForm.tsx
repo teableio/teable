@@ -82,19 +82,19 @@ export function AIConfigForm({
   //   }
   // }, [form, onSubmit, switchEnable]);
 
-  const onTestChatModelAbility = async (data: IAIIntegrationConfig) => {
-    const testModelKey = data.chatModel?.lg;
+  const onTestChatModelAbility = async (chatModel: IAIIntegrationConfig['chatModel']) => {
+    const testModelKey = chatModel?.lg;
     if (!testModelKey) {
       return;
     }
     const testModel = parseModelKey(testModelKey);
-    const testLLMIndex = data.llmProviders.findIndex(
+    const testLLMIndex = llmProviders.findIndex(
       (provider) =>
         provider.type === testModel.type &&
         provider.models.includes(testModel.model) &&
         provider.name === testModel.name
     );
-    const testLLMProvider = data.llmProviders[testLLMIndex] as Required<LLMProvider>;
+    const testLLMProvider = llmProviders[testLLMIndex] as Required<LLMProvider>;
     if (!testLLMProvider) {
       return;
     }
