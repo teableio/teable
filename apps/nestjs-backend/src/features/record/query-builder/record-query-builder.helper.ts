@@ -1,6 +1,7 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, Logger } from '@nestjs/common';
-import { FieldType } from '@teable/core';
 import type { IFormulaConversionContext, ILinkFieldOptions } from '@teable/core';
+import { FieldType, FieldReferenceVisitor, FormulaFieldCore } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
@@ -9,6 +10,15 @@ import { FieldCteVisitor, type IFieldCteContext } from '../../field/field-cte-vi
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import type { ILinkFieldContext, ILinkFieldCteContext } from './record-query-builder.interface';
+
+/**
+ * Interface for CTE generation planning
+ */
+interface ICTEGenerationPlan {
+  dependencies: Map<string, Set<string>>;
+  generationOrder: string[];
+  crossTableDependencies: Map<string, string[]>;
+}
 
 /**
  * Helper class for record query builder operations
@@ -60,6 +70,24 @@ export class RecordQueryBuilderHelper {
     });
 
     return table.dbTableName;
+  }
+
+  /**
+   * Get table ID for a given field ID
+   */
+  private async getTableIdByFieldId(fieldId: string): Promise<string | null> {
+    try {
+      const field = await this.prismaService.txClient().field.findFirst({
+        where: { id: fieldId, deletedTime: null },
+        select: { tableId: true },
+      });
+      return field?.tableId || null;
+    } catch (error) {
+      this.logger.warn(
+        `Could not find table ID for field ${fieldId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
+    }
   }
 
   /**
@@ -121,66 +149,488 @@ export class RecordQueryBuilderHelper {
   }
 
   /**
+   * Analyze all fields to identify cross-table dependencies that require additional link contexts
+   * This is crucial for handling cases where formula fields reference fields from other tables
+   */
+  async analyzeFormulaFieldDependencies(
+    fields: IFieldInstance[],
+    tableId: string
+  ): Promise<IFieldInstance[]> {
+    const additionalLinkFields: IFieldInstance[] = [];
+
+    for (const field of fields) {
+      if (field.type === FieldType.Formula) {
+        this.logger.debug(`Analyzing formula field: ${field.name} (${field.id})`);
+
+        try {
+          const tree = FormulaFieldCore.parse(field.options.expression);
+          const visitor = new FieldReferenceVisitor();
+          const referencedFieldIds = visitor.visit(tree);
+
+          // Check if any referenced fields are from other tables (link fields)
+          for (const refFieldId of referencedFieldIds) {
+            // Try to find this field in current table first
+            const localField = fields.find((f) => f.id === refFieldId);
+            if (!localField) {
+              // This field is not in the current table, we need to fetch it
+              try {
+                const foreignField = await this.getFieldById(refFieldId);
+                if (foreignField && foreignField.type === FieldType.Link) {
+                  this.logger.debug(
+                    `Found cross-table link field: ${foreignField.name} (${foreignField.id})`
+                  );
+                  additionalLinkFields.push(foreignField);
+                }
+              } catch (error) {
+                this.logger.warn(
+                  `Could not fetch field ${refFieldId}: ${error instanceof Error ? error.message : String(error)}`
+                );
+              }
+            } else if (localField.type === FieldType.Link) {
+              // This is a link field in the current table, make sure it's included
+              if (!additionalLinkFields.some((f) => f.id === localField.id)) {
+                additionalLinkFields.push(localField);
+              }
+            }
+          }
+        } catch (error) {
+          this.logger.warn(
+            `Failed to parse formula: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+    }
+
+    // Second, check if any link fields in the current table point to tables with formula fields
+    // This is crucial for bidirectional relationships where the foreign table has formula fields
+    for (const field of fields) {
+      if (field.type === FieldType.Link && !field.isLookup) {
+        this.logger.debug(
+          `Checking link field for foreign formula dependencies: ${field.name} (${field.id})`
+        );
+
+        try {
+          const linkOptions = field.options as ILinkFieldOptions;
+          const foreignTableId = linkOptions.foreignTableId;
+
+          // Get all fields from the foreign table
+          const foreignFields = await this.getAllFields(foreignTableId);
+
+          // Check if any foreign fields are formula fields that reference link fields
+          for (const foreignField of foreignFields) {
+            if (foreignField.type === FieldType.Formula) {
+              try {
+                const tree = FormulaFieldCore.parse(foreignField.options.expression);
+                const visitor = new FieldReferenceVisitor();
+                const referencedFieldIds = visitor.visit(tree);
+
+                // Check if this formula references any link fields
+                for (const refFieldId of referencedFieldIds) {
+                  const refField = foreignFields.find((f) => f.id === refFieldId);
+                  if (refField && refField.type === FieldType.Link) {
+                    this.logger.debug(
+                      `Foreign formula field references link field: ${refField.name} (${refField.id})`
+                    );
+                    // This foreign table has a formula field that references a link field
+                    // We need to ensure the link field is included for CTE generation
+                    if (!additionalLinkFields.some((f) => f.id === refField.id)) {
+                      additionalLinkFields.push(refField);
+                    }
+                  }
+                }
+              } catch (error) {
+                this.logger.warn(
+                  `Failed to parse foreign formula: ${error instanceof Error ? error.message : String(error)}`
+                );
+              }
+            }
+          }
+        } catch (error) {
+          this.logger.warn(
+            `Failed to analyze foreign table: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+    }
+
+    return additionalLinkFields;
+  }
+
+  /**
+   * Get field by ID from any table
+   */
+  private async getFieldById(fieldId: string): Promise<IFieldInstance | null> {
+    try {
+      const fieldRaw = await this.prismaService.txClient().field.findUnique({
+        where: { id: fieldId, deletedTime: null },
+      });
+
+      if (!fieldRaw) {
+        return null;
+      }
+
+      return createFieldInstanceByRaw(fieldRaw);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * Enhance fieldMap with additional fields for Formula fields in foreign tables
+   * This method now handles complex dependencies including bidirectional links with formula fields
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async enhanceFieldMapForFormulaFields(
     fieldMap: Map<string, IFieldInstance>,
-    _tableNameMap: Map<string, string>
+    tableNameMap: Map<string, string>
   ): Promise<void> {
     const processedTables = new Set<string>();
+    const tablesToProcess = new Set<string>();
 
-    // Find all Link fields and check their lookup fields
+    // First pass: collect all tables that need to be processed
     for (const field of fieldMap.values()) {
       if (field.type === FieldType.Link && !field.isLookup) {
         const linkOptions = field.options as ILinkFieldOptions;
-        const { foreignTableId, lookupFieldId } = linkOptions;
+        tablesToProcess.add(linkOptions.foreignTableId);
+      }
+    }
 
-        // Skip if we've already processed this table
-        if (processedTables.has(foreignTableId)) {
-          continue;
-        }
+    // Process each table and check for formula field dependencies
+    for (const tableId of tablesToProcess) {
+      if (processedTables.has(tableId)) {
+        continue;
+      }
 
-        // Get the lookup field - it might not be in fieldMap yet, so fetch it
-        let lookupField = fieldMap.get(lookupFieldId);
+      try {
+        // Fetch all fields from the foreign table
+        const foreignTableFields = await this.prismaService.txClient().field.findMany({
+          where: { tableId, deletedTime: null },
+        });
 
-        // If lookup field is not in fieldMap, fetch it from database
-        if (!lookupField) {
-          try {
-            const rawLookupField = await this.prismaService.txClient().field.findUnique({
-              where: { id: lookupFieldId, deletedTime: null },
-            });
-            if (rawLookupField) {
-              lookupField = createFieldInstanceByRaw(rawLookupField);
-              fieldMap.set(lookupField.id, lookupField);
-            }
-          } catch (error) {
-            this.logger.warn(`Failed to fetch lookup field ${lookupFieldId}:`, error);
-            continue;
+        // Add all foreign table fields to fieldMap
+        const newFields: IFieldInstance[] = [];
+        for (const rawField of foreignTableFields) {
+          const fieldInstance = createFieldInstanceByRaw(rawField);
+          if (!fieldMap.has(fieldInstance.id)) {
+            fieldMap.set(fieldInstance.id, fieldInstance);
+            newFields.push(fieldInstance);
           }
         }
 
-        // If lookup field is a Formula field, fetch all fields from its table
-        if (lookupField && lookupField.type === FieldType.Formula) {
-          try {
-            const foreignTableFields = await this.prismaService.txClient().field.findMany({
-              where: { tableId: foreignTableId, deletedTime: null },
-            });
+        // Note: We don't need to recursively analyze formula dependencies here
+        // as the main analyzeFormulaFieldDependencies method handles cross-table dependencies
 
-            // Add all foreign table fields to fieldMap
-            for (const rawField of foreignTableFields) {
-              const fieldInstance = createFieldInstanceByRaw(rawField);
-              if (!fieldMap.has(fieldInstance.id)) {
-                fieldMap.set(fieldInstance.id, fieldInstance);
+        processedTables.add(tableId);
+      } catch (error) {
+        this.logger.warn(`Failed to fetch fields for table ${tableId}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Process an additional table that was discovered through formula field analysis
+   */
+  private async processAdditionalTable(
+    tableId: string,
+    fieldMap: Map<string, IFieldInstance>,
+    tableNameMap: Map<string, string>,
+    processedTables: Set<string>
+  ): Promise<void> {
+    try {
+      // Fetch table name if not already in map
+      if (!tableNameMap.has(tableId)) {
+        const tableName = await this.getDbTableName(tableId);
+        tableNameMap.set(tableId, tableName);
+      }
+
+      // Fetch all fields from this table
+      const tableFields = await this.prismaService.txClient().field.findMany({
+        where: { tableId, deletedTime: null },
+      });
+
+      // Add fields to fieldMap
+      const newFields: IFieldInstance[] = [];
+      for (const rawField of tableFields) {
+        const fieldInstance = createFieldInstanceByRaw(rawField);
+        if (!fieldMap.has(fieldInstance.id)) {
+          fieldMap.set(fieldInstance.id, fieldInstance);
+          newFields.push(fieldInstance);
+        }
+      }
+
+      processedTables.add(tableId);
+
+      // Recursively analyze new formula fields (with depth limit to prevent infinite recursion)
+      // Note: We don't need to recursively analyze formula dependencies here
+      // as the main analyzeFormulaFieldDependencies method handles cross-table dependencies
+    } catch (error) {
+      this.logger.warn(`Failed to process additional table ${tableId}:`, error);
+    }
+  }
+
+  /**
+   * Analyze CTE dependencies to determine the correct generation order
+   * This handles complex cases like bidirectional links with formula fields
+   */
+  private async analyzeCTEDependencies(
+    fields: IFieldInstance[],
+    context: IFieldCteContext
+  ): Promise<ICTEGenerationPlan> {
+    const plan: ICTEGenerationPlan = {
+      dependencies: new Map(),
+      generationOrder: [],
+      crossTableDependencies: new Map(),
+    };
+
+    // First pass: identify all fields that need CTEs
+    const fieldsNeedingCTE = fields.filter(
+      (field) => (field.type === FieldType.Link && !field.isLookup) || field.isLookup
+    );
+
+    // Also check for formula fields that reference link fields - they might need the link field's CTE
+    const formulaFieldsReferencingLinks = new Set<string>();
+    for (const field of fields) {
+      if (field.type === FieldType.Formula) {
+        try {
+          const tree = FormulaFieldCore.parse(field.options.expression);
+          const visitor = new FieldReferenceVisitor();
+          const referencedFieldIds = visitor.visit(tree);
+
+          // Check if any referenced fields are link fields that need CTEs
+          for (const refFieldId of referencedFieldIds) {
+            const refField = context.fieldMap.get(refFieldId);
+            if (refField && refField.type === FieldType.Link && !refField.isLookup) {
+              // This formula field references a link field, so the link field needs a CTE
+              if (!fieldsNeedingCTE.some((f) => f.id === refFieldId)) {
+                fieldsNeedingCTE.push(refField);
               }
+              formulaFieldsReferencingLinks.add(field.id);
             }
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to analyze formula field ${field.id}:`, error);
+        }
+      }
+    }
 
-            processedTables.add(foreignTableId);
-          } catch (error) {
-            this.logger.warn(`Failed to fetch fields for table ${foreignTableId}:`, error);
+    console.log(
+      'Fields needing CTE:',
+      fieldsNeedingCTE.map((f) => ({ id: f.id, type: f.type, name: f.name }))
+    );
+    console.log('Formula fields referencing links:', Array.from(formulaFieldsReferencingLinks));
+
+    // Second pass: analyze dependencies for each field
+    for (const field of fieldsNeedingCTE) {
+      const dependencies = new Set<string>();
+
+      if (field.type === FieldType.Link && !field.isLookup) {
+        const linkOptions = field.options as ILinkFieldOptions;
+        const lookupField = context.fieldMap.get(linkOptions.lookupFieldId);
+
+        if (lookupField && lookupField.type === FieldType.Formula) {
+          // This link field's lookup field is a formula - analyze its dependencies
+          const formulaDeps = await this.analyzeFormulaDependencies(lookupField, context);
+          for (const dep of formulaDeps) {
+            dependencies.add(dep);
           }
         }
       }
+
+      plan.dependencies.set(field.id, dependencies);
+    }
+
+    // Third pass: detect cross-table dependencies
+    await this.detectCrossTableDependencies(fieldsNeedingCTE, context, plan);
+
+    // Fourth pass: determine generation order using topological sort
+    plan.generationOrder = this.topologicalSort(fieldsNeedingCTE, plan.dependencies);
+
+    return plan;
+  }
+
+  /**
+   * Analyze dependencies of a formula field
+   */
+  private async analyzeFormulaDependencies(
+    formulaField: IFieldInstance,
+    context: IFieldCteContext
+  ): Promise<string[]> {
+    if (formulaField.type !== FieldType.Formula) {
+      return [];
+    }
+
+    try {
+      const tree = FormulaFieldCore.parse(formulaField.options.expression);
+      const visitor = new FieldReferenceVisitor();
+      const referencedFieldIds = visitor.visit(tree);
+
+      // Filter to only include link fields that need CTEs
+      return referencedFieldIds.filter((fieldId) => {
+        const field = context.fieldMap.get(fieldId);
+        return field && field.type === FieldType.Link && !field.isLookup;
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to analyze formula dependencies for ${formulaField.id}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Detect cross-table dependencies that require additional CTEs
+   */
+  private async detectCrossTableDependencies(
+    fields: IFieldInstance[],
+    context: IFieldCteContext,
+    plan: ICTEGenerationPlan
+  ): Promise<void> {
+    for (const field of fields) {
+      if (field.type === FieldType.Link && !field.isLookup) {
+        const linkOptions = field.options as ILinkFieldOptions;
+        const lookupField = context.fieldMap.get(linkOptions.lookupFieldId);
+
+        if (lookupField && lookupField.type === FieldType.Formula) {
+          // Check if this formula references link fields from other tables
+          try {
+            const tree = FormulaFieldCore.parse(lookupField.options.expression);
+            const visitor = new FieldReferenceVisitor();
+            const referencedFieldIds = visitor.visit(tree);
+
+            const crossTableDeps: string[] = [];
+            for (const refFieldId of referencedFieldIds) {
+              const refField = context.fieldMap.get(refFieldId);
+              if (refField && refField.type === FieldType.Link && !refField.isLookup) {
+                // This is a cross-table dependency
+                crossTableDeps.push(refFieldId);
+              }
+            }
+
+            if (crossTableDeps.length > 0) {
+              plan.crossTableDependencies.set(field.id, crossTableDeps);
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to detect cross-table dependencies for ${field.id}:`, error);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Perform topological sort to determine CTE generation order
+   */
+  private topologicalSort(
+    fields: IFieldInstance[],
+    dependencies: Map<string, Set<string>>
+  ): string[] {
+    const result: string[] = [];
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+
+    const visit = (fieldId: string): void => {
+      if (visited.has(fieldId)) {
+        return;
+      }
+      if (visiting.has(fieldId)) {
+        // Circular dependency detected - log warning and continue
+        this.logger.warn(`Circular dependency detected involving field ${fieldId}`);
+        return;
+      }
+
+      visiting.add(fieldId);
+      const deps = dependencies.get(fieldId) || new Set();
+      for (const dep of deps) {
+        visit(dep);
+      }
+      visiting.delete(fieldId);
+      visited.add(fieldId);
+      result.push(fieldId);
+    };
+
+    for (const field of fields) {
+      visit(field.id);
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate CTEs in the correct dependency order
+   */
+  private async generateCTEsInOrder(
+    queryBuilder: Knex.QueryBuilder,
+    plan: ICTEGenerationPlan,
+    context: IFieldCteContext,
+    mainTableAlias: string,
+    fieldCteMap: Map<string, string>
+  ): Promise<void> {
+    const cteVisitor = new FieldCteVisitor(this.dbProvider, context);
+    const generatedCTEs = new Set<string>();
+
+    // First, generate CTEs for cross-table dependencies
+    for (const [, crossTableDeps] of plan.crossTableDependencies) {
+      for (const depFieldId of crossTableDeps) {
+        if (!generatedCTEs.has(depFieldId)) {
+          await this.generateSingleCTE(
+            queryBuilder,
+            depFieldId,
+            context,
+            cteVisitor,
+            mainTableAlias,
+            fieldCteMap,
+            generatedCTEs
+          );
+        }
+      }
+    }
+
+    // Then generate CTEs in dependency order
+    for (const fieldId of plan.generationOrder) {
+      if (!generatedCTEs.has(fieldId)) {
+        await this.generateSingleCTE(
+          queryBuilder,
+          fieldId,
+          context,
+          cteVisitor,
+          mainTableAlias,
+          fieldCteMap,
+          generatedCTEs
+        );
+      }
+    }
+  }
+
+  /**
+   * Generate a single CTE for a field
+   */
+  private async generateSingleCTE(
+    queryBuilder: Knex.QueryBuilder,
+    fieldId: string,
+    context: IFieldCteContext,
+    _cteVisitor: FieldCteVisitor,
+    mainTableAlias: string,
+    fieldCteMap: Map<string, string>,
+    generatedCTEs: Set<string>
+  ): Promise<void> {
+    const field = context.fieldMap.get(fieldId);
+    if (!field) {
+      return;
+    }
+
+    // Create a new visitor with updated fieldCteMap for each CTE generation
+    const updatedContext = { ...context, fieldCteMap };
+    const updatedVisitor = new FieldCteVisitor(this.dbProvider, updatedContext);
+
+    const result = field.accept(updatedVisitor);
+    if (result.hasChanges && result.cteName && result.cteCallback) {
+      queryBuilder.with(result.cteName, result.cteCallback);
+      // Add LEFT JOIN for the CTE
+      queryBuilder.leftJoin(
+        result.cteName,
+        `${mainTableAlias}.__id`,
+        `${result.cteName}.main_record_id`
+      );
+      fieldCteMap.set(field.id, result.cteName);
+      generatedCTEs.add(fieldId);
     }
   }
 
@@ -227,6 +677,20 @@ export class RecordQueryBuilderHelper {
     contextTableNameMap?: Map<string, string>,
     additionalFields?: Map<string, IFieldInstance>
   ): Promise<{ fieldCteMap: Map<string, string>; enhancedContext: IFormulaConversionContext }> {
+    this.logger.debug('addFieldCtesSync called for table: %s', mainTableName);
+
+    // Debug link field contexts for formula lookup fields
+    if (linkFieldContexts?.length) {
+      linkFieldContexts.forEach((ctx) => {
+        if (ctx.lookupField.type === 'formula') {
+          this.logger.debug(
+            `Formula lookup field detected: ${ctx.lookupField.name} (${ctx.lookupField.id})`
+          );
+          this.logger.debug(`Expression: ${ctx.lookupField.options?.expression}`);
+        }
+      });
+    }
+
     const fieldCteMap = new Map<string, string>();
 
     if (!linkFieldContexts?.length) {
@@ -266,25 +730,49 @@ export class RecordQueryBuilderHelper {
       }
     }
 
-    const context: IFieldCteContext = { mainTableName, fieldMap, tableNameMap };
-    const cteVisitor = new FieldCteVisitor(this.dbProvider, context);
-
+    // For each field, determine the correct main table based on the field's relationship
+    // This is crucial for bidirectional link fields where different CTEs need different main tables
+    const fieldTableMap = new Map<string, string>();
     for (const field of fields) {
-      // Process Link fields (non-Lookup) and Lookup fields
-      if ((field.type === FieldType.Link && !field.isLookup) || field.isLookup) {
-        const result = field.accept(cteVisitor);
-        if (result.hasChanges && result.cteName && result.cteCallback) {
-          queryBuilder.with(result.cteName, result.cteCallback);
-          // Add LEFT JOIN for the CTE
-          queryBuilder.leftJoin(
-            result.cteName,
-            `${mainTableAlias}.__id`,
-            `${result.cteName}.main_record_id`
-          );
-          fieldCteMap.set(field.id, result.cteName);
+      if (field.type === FieldType.Link && !field.isLookup) {
+        // Get field table information for proper CTE generation
+
+        // For bidirectional link fields, we need to determine which table this CTE should start from
+        // The key insight is that each CTE should start from the table where the field is defined
+        const fieldTableId = await this.getTableIdByFieldId(field.id);
+
+        if (fieldTableId) {
+          const fieldTableName = tableNameMap.get(fieldTableId);
+
+          if (fieldTableName) {
+            fieldTableMap.set(field.id, fieldTableName);
+          }
         }
       }
     }
+
+    const context: IFieldCteContext = { mainTableName, fieldMap, tableNameMap, fieldTableMap };
+
+    // Analyze CTE dependencies and generate CTEs in the correct order
+    const cteGenerationPlan = await this.analyzeCTEDependencies(fields, context);
+
+    this.logger.debug('CTE Generation Plan:', {
+      dependencies: Array.from(cteGenerationPlan.dependencies.entries()).map(([k, v]) => [
+        k,
+        Array.from(v),
+      ]),
+      generationOrder: cteGenerationPlan.generationOrder,
+      crossTableDependencies: Array.from(cteGenerationPlan.crossTableDependencies.entries()),
+    });
+
+    // Generate CTEs according to the dependency plan
+    await this.generateCTEsInOrder(
+      queryBuilder,
+      cteGenerationPlan,
+      context,
+      mainTableAlias,
+      fieldCteMap
+    );
 
     // Add CTE mappings for lookup and rollup fields that depend on link field CTEs
     // This ensures that lookup and rollup fields can be properly referenced in formulas
