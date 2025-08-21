@@ -459,6 +459,9 @@ export class RecordService {
       | 'ignoreViewQuery'
     >
   ) {
+    // console.log('=== prepareQuery called ===');
+    // console.log('Table ID:', tableId);
+    // console.log('Query:', JSON.stringify(query, null, 2));
     const viewId = query.ignoreViewQuery ? undefined : query.viewId;
     const {
       orderBy: extraOrderBy,
@@ -551,6 +554,9 @@ export class RecordService {
       | 'selectedRecordIds'
     >
   ): Promise<Knex.QueryBuilder> {
+    // console.log('=== buildFilterSortQuery called ===');
+    // console.log('Table ID:', tableId);
+    // console.log('Query:', JSON.stringify(query, null, 2));
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
     const { dbTableName, viewCte, filter, search, orderBy, groupBy, fieldMap } =
       await this.prepareQuery(tableId, query);

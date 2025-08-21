@@ -114,11 +114,19 @@ class FieldFormattingVisitor implements IFieldVisitor<string> {
 
   /**
    * Format multiple string values (like multiple select) to comma-separated string
+   * Also handles link field arrays with objects containing id and title
    */
   private formatMultipleStringValues(): string {
     if (this.isPostgreSQL) {
-      // PostgreSQL: Use string_agg with jsonb_array_elements_text for jsonb data
-      return `(SELECT string_agg(elem, ', ') FROM jsonb_array_elements_text(${this.fieldExpression}::jsonb) as elem)`;
+      // PostgreSQL: Handle both text arrays and object arrays (like link fields)
+      // First try to extract title from objects, fallback to text elements
+      return `(SELECT string_agg(
+        CASE
+          WHEN json_typeof(elem) = 'object' THEN elem->>'title'
+          ELSE elem::text
+        END,
+        ', '
+      ) FROM json_array_elements(${this.fieldExpression}::json) as elem)`;
     } else {
       // SQLite: Use GROUP_CONCAT with json_each to join array elements
       return `(SELECT GROUP_CONCAT(value, ', ') FROM json_each(${this.fieldExpression}))`;
@@ -252,6 +260,8 @@ export interface IFieldCteContext {
   mainTableName: string;
   fieldMap: Map<string, IFieldInstance>;
   tableNameMap: Map<string, string>; // tableId -> dbTableName
+  fieldCteMap?: Map<string, string>; // fieldId -> cteName for already generated CTEs
+  fieldTableMap?: Map<string, string>; // fieldId -> tableName for determining correct main table
 }
 
 export interface ILookupChainStep {
@@ -319,8 +329,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
 
     if (driver === DriverClient.Pg) {
-      // Use jsonb_strip_nulls to automatically remove null title keys
-      const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${titleRef}))::json`;
+      // Build JSON object with id and title, preserving null titles for formula fields
+      // Use COALESCE to ensure title is never completely null (empty string instead)
+      const conditionalJsonObject = `jsonb_build_object('id', ${recordIdRef}, 'title', COALESCE(${titleRef}, ''))::json`;
 
       if (isMultiValue) {
         // Filter out null records and return empty array if no valid records exist
@@ -564,7 +575,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         tempQb,
         this.dbProvider,
         { fieldMap: this.context.fieldMap },
-        undefined, // No fieldCteMap to prevent recursive processing
+        this.context.fieldCteMap, // Pass fieldCteMap to support cross-table dependencies
         linkTargetAlias,
         false // withAlias = false for use in jsonb_build_object
       );
@@ -601,7 +612,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         }
 
         if (driver === DriverClient.Pg) {
-          const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${linkTargetAlias}.__id, 'title', ${formattedFieldExpression}))::json`;
+          // Build JSON object preserving title field even if null (for formula field references)
+          const conditionalJsonObject = `jsonb_build_object('id', ${linkTargetAlias}.__id, 'title', COALESCE(${formattedFieldExpression}, ''))::json`;
           jsonExpression = `CASE WHEN ${linkTargetAlias}.__id IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
         } else {
           // SQLite
@@ -841,7 +853,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
 
     const cteName = `cte_${field.id}`;
-    const { mainTableName } = this.context;
+    // Determine the correct main table for this field
+    // For bidirectional link fields, we need to use the table where the field is defined
+    const fieldMainTableName =
+      this.context.fieldTableMap?.get(field.id) || this.context.mainTableName;
 
     // Create CTE callback function
     // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -859,7 +874,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         tempQb,
         this.dbProvider,
         { fieldMap: this.context.fieldMap },
-        undefined, // No fieldCteMap to prevent recursive Lookup processing
+        this.context.fieldCteMap, // Pass fieldCteMap to support cross-table dependencies
         foreignAlias,
         false // withAlias = false for use in jsonb_build_object
       );
@@ -900,12 +915,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             tempQb2,
             this.dbProvider,
             { fieldMap: this.context.fieldMap },
-            undefined, // No fieldCteMap to prevent recursive Lookup processing
+            this.context.fieldCteMap, // Pass fieldCteMap to support cross-table dependencies
             foreignAlias,
             false // withAlias = false for use in jsonb_build_object
           );
 
           // Use the visitor to get the correct field selection
+          // Handle all field types including formula fields
           const fieldResult2 = targetField.accept(fieldSelectVisitor2);
           const fieldExpression2 =
             typeof fieldResult2 === 'string' ? fieldResult2 : fieldResult2.toSQL().sql;
@@ -936,7 +952,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             tempQb3,
             this.dbProvider,
             { fieldMap: this.context.fieldMap },
-            undefined, // No fieldCteMap to prevent recursive processing
+            this.context.fieldCteMap, // Pass fieldCteMap to support cross-table dependencies
             foreignAlias,
             false // withAlias = false for use in aggregation functions
           );
@@ -971,7 +987,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       if (usesJunctionTable) {
         // Use junction table for many-to-many relationships and one-way one-to-many relationships
         qb.select(selectColumns)
-          .from(`${mainTableName} as ${mainAlias}`)
+          .from(`${fieldMainTableName} as ${mainAlias}`)
           .leftJoin(
             `${fkHostTableName} as ${junctionAlias}`,
             `${mainAlias}.__id`,
@@ -992,7 +1008,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // For non-one-way OneMany relationships, foreign key is stored in the foreign table
         // No junction table needed
         qb.select(selectColumns)
-          .from(`${mainTableName} as ${mainAlias}`)
+          .from(`${fieldMainTableName} as ${mainAlias}`)
           .leftJoin(
             `${foreignTableName} as ${foreignAlias}`,
             `${mainAlias}.__id`,
@@ -1014,9 +1030,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         // For OneOne and ManyOne relationships, the foreign key is always stored in fkHostTableName
         // But we need to determine the correct join condition based on which table we're querying from
-        const isForeignKeyInMainTable = fkHostTableName === mainTableName;
+        const isForeignKeyInMainTable = fkHostTableName === fieldMainTableName;
 
-        qb.select(selectColumns).from(`${mainTableName} as ${mainAlias}`);
+        qb.select(selectColumns).from(`${fieldMainTableName} as ${mainAlias}`);
 
         if (isForeignKeyInMainTable) {
           // Foreign key is stored in the main table (original field case)

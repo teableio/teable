@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { IFilter, IFormulaConversionContext, ISortItem } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -25,6 +25,7 @@ import type {
 @Injectable()
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
   private static readonly mainTableAlias = 'mt';
+  private readonly logger = new Logger(RecordQueryBuilderService.name);
 
   constructor(
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -39,11 +40,24 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     from: string,
     options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
+    // console.log('=== createRecordQueryBuilder called ===');
+    // console.log('From:', from);
+    // console.log('Options:', JSON.stringify(options, null, 2));
     const { tableIdOrDbTableName, viewId, filter, sort, currentUserId } = options;
     const { tableId, dbTableName } = await this.helper.getTableInfo(tableIdOrDbTableName);
     const fields = await this.helper.getAllFields(tableId);
+
+    this.logger.debug('Analyzing fields for cross-table dependencies...');
+
+    // First, analyze if any fields require cross-table contexts
+    const additionalLinkFields = await this.helper.analyzeFormulaFieldDependencies(fields, tableId);
+    this.logger.debug('Additional link fields needed: %d', additionalLinkFields.length);
+
+    // Combine original fields with additional link fields needed for formulas
+    const allFieldsForContext = [...fields, ...additionalLinkFields];
+
     const linkFieldCteContext = await this.helper.createLinkFieldContexts(
-      fields,
+      allFieldsForContext,
       tableId,
       dbTableName
     );
