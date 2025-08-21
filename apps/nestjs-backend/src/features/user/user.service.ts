@@ -14,6 +14,7 @@ import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
+import { CacheService } from '../../cache/cache.service';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
@@ -30,6 +31,7 @@ export class UserService {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     private readonly settingService: SettingService,
+    private readonly cacheService: CacheService,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
   ) {}
 
@@ -85,14 +87,37 @@ export class UserService {
   async createUserWithSettingCheck(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
-    defaultSpaceName?: string
+    defaultSpaceName?: string,
+    inviteCode?: string
   ) {
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
       throw new BadRequestException('The current instance disallow sign up by the administrator');
     }
+    if (setting.enableWaitlist) {
+      await this.checkWaitlistInviteCode(inviteCode);
+    }
 
     return await this.createUser(user, account, defaultSpaceName);
+  }
+
+  async checkWaitlistInviteCode(inviteCode?: string) {
+    if (!inviteCode) {
+      throw new BadRequestException('Waitlist is enabled, invite code is required');
+    }
+
+    const times = await this.cacheService.get(`waitlist:invite-code:${inviteCode}`);
+    if (!times || times <= 0) {
+      throw new BadRequestException('Waitlist is enabled, invite code is invalid');
+    }
+
+    await this.cacheService.set(
+      `waitlist:invite-code:${inviteCode}`,
+      times - 1,
+      1000 * 60 * 60 * 24 * 30 // 30 days
+    );
+
+    return true;
   }
 
   async createUser(

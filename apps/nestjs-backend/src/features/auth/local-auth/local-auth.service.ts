@@ -136,7 +136,7 @@ export class LocalAuthService {
   }
 
   async signup(body: ISignup) {
-    const { email, password, defaultSpaceName, refMeta } = body;
+    const { email, password, defaultSpaceName, refMeta, inviteCode } = body;
     await this.verifySignup(body);
 
     const user = await this.userService.getUserByEmail(email);
@@ -165,7 +165,8 @@ export class LocalAuthService {
           refMeta: isEmpty(refMeta) ? undefined : JSON.stringify(refMeta),
         },
         undefined,
-        defaultSpaceName
+        defaultSpaceName,
+        inviteCode
       );
     });
     this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
@@ -344,30 +345,6 @@ export class LocalAuthService {
       ...emailOptions,
     });
     return { token };
-  }
-
-  async checkWaitlistInviteCode(inviteCode?: string) {
-    const setting = await this.settingService.getSetting();
-    if (!setting.enableWaitlist) {
-      return true;
-    }
-
-    if (!inviteCode) {
-      throw new CustomHttpException('Invite code is required', HttpErrorCode.INVALID_CAPTCHA);
-    }
-
-    const times = await this.cacheService.get(`waitlist:invite-code:${inviteCode}`);
-    if (!times || times <= 0) {
-      throw new CustomHttpException('Invite code is invalid', HttpErrorCode.INVALID_CAPTCHA);
-    }
-
-    await this.cacheService.set(
-      `waitlist:invite-code:${inviteCode}`,
-      times - 1,
-      1000 * 60 * 60 * 24 * 30
-    );
-
-    return true;
   }
 
   async joinWaitlist(email: string) {

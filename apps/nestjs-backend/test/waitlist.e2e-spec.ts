@@ -1,7 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { inviteWaitlist, getWaitlist, joinWaitlist as joinWaitlistApi } from '@teable/openapi';
+import {
+  inviteWaitlist,
+  getWaitlist,
+  joinWaitlist as joinWaitlistApi,
+  signup,
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { LocalAuthService } from '../src/features/auth/local-auth/local-auth.service';
 import { SettingService } from '../src/features/setting/setting.service';
@@ -101,9 +106,8 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
 
   it('api/auth/signup - invite code is not correct when waitlist is enabled', async () => {
     const fackCode = getRandomString(10);
-    const demoEmail = getRandomString(10) + '@demo.com';
-    const approved1 = await authService.checkWaitlistInviteCode(fackCode);
-    expect(approved1).toBe(true);
+    const demoEmail = getRandomString(10).toLowerCase() + '@local.com';
+    const password = '12345678a';
 
     await runWithTestUser(clsService, async () => {
       await settingService.updateSetting({
@@ -111,13 +115,26 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
       });
     });
 
-    await expect(authService.checkWaitlistInviteCode(fackCode)).rejects.toThrow();
+    // no invite code
+    await expect(
+      signup({
+        email: demoEmail,
+        password,
+      })
+    ).rejects.toThrow();
 
     await joinWaitlistApi({
       email: demoEmail,
     });
 
-    await expect(authService.checkWaitlistInviteCode(fackCode)).rejects.toThrow();
+    // invite code is not correct
+    await expect(
+      signup({
+        email: demoEmail,
+        password,
+        inviteCode: fackCode,
+      })
+    ).rejects.toThrow();
 
     const res = await inviteWaitlist({
       list: [demoEmail],
@@ -126,7 +143,16 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
     expect(res.data[0].email).toEqual(demoEmail);
     const code = res.data[0].code;
 
-    const approved2 = await authService.checkWaitlistInviteCode(code);
-    expect(approved2).toBe(true);
+    // invite code is correct
+    const signupRes = await signup({
+      email: demoEmail,
+      password,
+      inviteCode: code,
+    });
+
+    expect(signupRes.data.email).toBe(demoEmail);
+    await prismaService.user.delete({
+      where: { email: signupRes.data.email },
+    });
   });
 });

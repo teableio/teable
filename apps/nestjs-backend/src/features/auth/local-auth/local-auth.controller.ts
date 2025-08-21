@@ -62,7 +62,6 @@ export class LocalAuthController {
     @Res({ passthrough: true }) res: Response,
     @Req() req: Express.Request
   ): Promise<IUserMeVo> {
-    await this.authService.checkWaitlistInviteCode(body?.inviteCode);
     const user = pickUserMe(await this.authService.signup(body));
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {
