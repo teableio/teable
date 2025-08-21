@@ -25,6 +25,7 @@ import type {
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IRecordSelectionMap } from '../record/query-builder/record-query-builder.interface';
+import { getTableAliasFromTable } from '../record/query-builder/record-query-builder.util';
 import type { IFieldSelectName } from './field-select.type';
 
 /**
@@ -44,12 +45,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly table: TableDomain,
-    private readonly fieldCteMap?: Map<string, string>,
+    private readonly fieldCteMap?: ReadonlyMap<string, string>,
     private readonly withAlias: boolean = true
   ) {}
 
   private get tableAlias() {
-    return this.table.getTableNameAndId();
+    return getTableAliasFromTable(this.table);
   }
 
   /**

@@ -5,6 +5,7 @@ import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { preservedDbFieldNames } from '../../field/constant';
+import { FieldCteVisitor } from '../../field/field-cte-visitor-v2';
 import { FieldSelectVisitor } from '../../field/field-select-visitor';
 import type {
   ICreateRecordAggregateBuilderOptions,
@@ -12,6 +13,7 @@ import type {
   IRecordQueryBuilder,
   IRecordSelectionMap,
 } from './record-query-builder.interface';
+import { getTableAliasFromTable } from './record-query-builder.util';
 import { TableDomainQueryService } from './table-domain';
 
 @Injectable()
@@ -37,10 +39,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableRaw.id);
     const table = tables.mustGetEntryTable();
-    const mainTableAlias = table.getTableNameAndId();
+    const mainTableAlias = getTableAliasFromTable(table);
     const qb = this.knex.from({ [mainTableAlias]: from });
 
-    const selectionMap = this.buildSelect(qb, table);
+    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables);
+    visitor.build();
+
+    const selectionMap = this.buildSelect(qb, table, visitor.fieldCteMap);
 
     if (filter) {
       this.buildFilter(qb, table, filter, selectionMap, currentUserId);
@@ -53,9 +58,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return { qb, alias: mainTableAlias };
   }
 
-  private buildSelect(qb: Knex.QueryBuilder, table: TableDomain): IRecordSelectionMap {
-    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, new Map());
-    const alias = table.getTableNameAndId();
+  private buildSelect(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    fieldCteMap: ReadonlyMap<string, string>
+  ): IRecordSelectionMap {
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, fieldCteMap);
+    const alias = getTableAliasFromTable(table);
 
     for (const field of preservedDbFieldNames) {
       qb.select(`${alias}.${field}`);

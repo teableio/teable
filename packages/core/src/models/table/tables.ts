@@ -1,3 +1,4 @@
+import type { LinkFieldCore } from '../field';
 import type { TableDomain } from './table-domain';
 
 /**
@@ -76,6 +77,18 @@ export class Tables {
    */
   getTable(tableId: string): TableDomain | undefined {
     return this._tableDomains.get(tableId);
+  }
+
+  getLinkForeignTable(field: LinkFieldCore): TableDomain | undefined {
+    return this.getTable(field.options.foreignTableId);
+  }
+
+  mustGetLinkForeignTable(field: LinkFieldCore): TableDomain {
+    const table = this.getLinkForeignTable(field);
+    if (!table) {
+      throw new Error(`Foreign table ${field.options.foreignTableId} not found`);
+    }
+    return table;
   }
 
   /**
