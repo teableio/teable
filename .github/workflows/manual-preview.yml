@@ -79,7 +79,7 @@ jobs:
       - name: ⚙️ Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: 📦 Build and push
+      - name: 📦 Build and push1
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
               --build-arg="ENABLE_CSP=false" \
