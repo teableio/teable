@@ -16,6 +16,7 @@ import type {
   ICreateRecordQueryBuilderOptions,
   ICreateRecordAggregateBuilderOptions,
 } from './record-query-builder.interface';
+import { TableDomainQueryService } from './table-domain/table-domain-query.service';
 
 /**
  * Service for building table record queries
@@ -30,6 +31,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   constructor(
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @Inject('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly helper: RecordQueryBuilderHelper
   ) {}
 

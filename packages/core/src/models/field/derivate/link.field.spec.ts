@@ -170,4 +170,85 @@ describe('LinkFieldCore', () => {
       });
     });
   });
+
+  describe('getForeignTableId', () => {
+    it('should return the foreign table ID from options', () => {
+      expect(field.getForeignTableId()).toBe('tblxxxxxxx');
+    });
+
+    it('should return undefined if no foreign table ID is set', () => {
+      const fieldWithoutForeignTable = plainToInstance(LinkFieldCore, {
+        ...json,
+        options: {
+          ...json.options,
+          foreignTableId: undefined,
+        },
+      });
+      expect(fieldWithoutForeignTable.getForeignTableId()).toBeUndefined();
+    });
+  });
+
+  describe('getForeignLookupField', () => {
+    it('should return the lookup field when table IDs match', () => {
+      const mockLookupField = { id: 'fldxxxxxxx', name: 'Lookup Field' } as any;
+      const mockTableDomain = {
+        id: 'tblxxxxxxx', // Matches the foreign table ID
+        getField: vi.fn((fieldId: string) => {
+          if (fieldId === 'fldxxxxxxx') {
+            return mockLookupField;
+          }
+          return undefined;
+        }),
+      } as any;
+
+      const result = field.getForeignLookupField(mockTableDomain);
+
+      expect(result).toBe(mockLookupField);
+      expect(mockTableDomain.getField).toHaveBeenCalledWith('fldxxxxxxx');
+    });
+
+    it('should return undefined when table IDs do not match', () => {
+      const mockTableDomain = {
+        id: 'tblwrongid', // Different from foreign table ID
+        getField: vi.fn(),
+      } as any;
+
+      const result = field.getForeignLookupField(mockTableDomain);
+
+      expect(result).toBeUndefined();
+      expect(mockTableDomain.getField).not.toHaveBeenCalled();
+    });
+
+    it('should return undefined when lookup field ID is not set', () => {
+      const fieldWithoutLookup = plainToInstance(LinkFieldCore, {
+        ...json,
+        options: {
+          ...json.options,
+          lookupFieldId: undefined,
+        },
+      });
+
+      const mockTableDomain = {
+        id: 'tblxxxxxxx',
+        getField: vi.fn(),
+      } as any;
+
+      const result = fieldWithoutLookup.getForeignLookupField(mockTableDomain);
+
+      expect(result).toBeUndefined();
+      expect(mockTableDomain.getField).not.toHaveBeenCalled();
+    });
+
+    it('should return undefined when lookup field is not found in table domain', () => {
+      const mockTableDomain = {
+        id: 'tblxxxxxxx',
+        getField: vi.fn(() => undefined), // Field not found
+      } as any;
+
+      const result = field.getForeignLookupField(mockTableDomain);
+
+      expect(result).toBeUndefined();
+      expect(mockTableDomain.getField).toHaveBeenCalledWith('fldxxxxxxx');
+    });
+  });
 });

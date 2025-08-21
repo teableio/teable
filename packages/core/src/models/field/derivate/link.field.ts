@@ -1,5 +1,6 @@
 import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
+import type { TableDomain } from '../../table/table-domain';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
@@ -78,5 +79,33 @@ export class LinkFieldCore extends FieldCore {
 
   accept<T>(visitor: IFieldVisitor<T>): T {
     return visitor.visitLinkField(this);
+  }
+
+  /**
+   * Get the foreign table ID that this link field references
+   */
+  getForeignTableId(): string | undefined {
+    return this.options.foreignTableId;
+  }
+
+  /**
+   * Get the lookup field from the foreign table
+   * @param tableDomain - The table domain to search for the lookup field
+   * @returns The lookup field instance if found and table IDs match
+   */
+  getForeignLookupField(tableDomain: TableDomain): FieldCore | undefined {
+    // Ensure the foreign table ID matches the provided table domain ID
+    if (this.options.foreignTableId !== tableDomain.id) {
+      return undefined;
+    }
+
+    // Get the lookup field ID from options
+    const lookupFieldId = this.options.lookupFieldId;
+    if (!lookupFieldId) {
+      return undefined;
+    }
+
+    // Get the lookup field instance from the table domain
+    return tableDomain.getField(lookupFieldId);
   }
 }
