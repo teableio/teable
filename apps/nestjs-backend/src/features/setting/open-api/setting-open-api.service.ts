@@ -111,12 +111,11 @@ export class SettingOpenApiService {
         ],
         temperature: 1,
       });
-      this.logger.log('testAttachments success', res);
+      this.logger.log(`testAttachments success, attachments: ${res.text}`);
       return true;
     } catch (error) {
       this.logger.error(
-        'testAttachments error',
-        error instanceof Error ? error.message : 'unknown error'
+        `testAttachments error ${error instanceof Error ? error.message : 'unknown error'}`
       );
       return false;
     }
