@@ -6,6 +6,7 @@ import type {
   IFieldMap,
 } from '../../../formula/function-convertor.interface';
 import { validateFormulaSupport } from '../../../utils/formula-validation';
+import type { TableDomain } from '../../table/table-domain';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
@@ -90,6 +91,25 @@ export class FormulaFieldCore extends FormulaAbstractCore {
   getReferenceFieldIds() {
     const visitor = new FieldReferenceVisitor();
     return Array.from(new Set(visitor.visit(this.tree)));
+  }
+
+  /**
+   * Get referenced fields from a table domain
+   * @param tableDomain - The table domain to search for referenced fields
+   * @returns Array of referenced field instances
+   */
+  getReferenceFields(tableDomain: TableDomain): FieldCore[] {
+    const referenceFieldIds = this.getReferenceFieldIds();
+    const referenceFields: FieldCore[] = [];
+
+    for (const fieldId of referenceFieldIds) {
+      const field = tableDomain.getField(fieldId);
+      if (field) {
+        referenceFields.push(field);
+      }
+    }
+
+    return referenceFields;
   }
 
   /**

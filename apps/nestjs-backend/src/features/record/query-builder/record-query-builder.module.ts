@@ -4,13 +4,14 @@ import { DbProvider } from '../../../db-provider/db.provider';
 import { RecordQueryBuilderHelper } from './record-query-builder.helper';
 import { RecordQueryBuilderService } from './record-query-builder.service';
 import { RECORD_QUERY_BUILDER_SYMBOL } from './record-query-builder.symbol';
+import { TableDomainQueryModule } from './table-domain/table-domain-query.module';
 
 /**
  * Module for record query builder functionality
  * This module provides services for building table record queries
  */
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, TableDomainQueryModule],
   providers: [
     DbProvider,
     RecordQueryBuilderHelper,
