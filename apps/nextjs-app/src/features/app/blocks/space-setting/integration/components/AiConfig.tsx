@@ -41,14 +41,14 @@ export const AIConfig = (props: IAIConfigProps) => {
   const { t } = useTranslation('common');
 
   const { mutateAsync: onTestChatModelAbility } = useMutation({
-    mutationFn: async (data: IAIIntegrationConfig) => {
-      const testModel = data.chatModel?.lg;
+    mutationFn: async (data: IAIIntegrationConfig['chatModel']) => {
+      const testModel = data?.lg;
       if (!testModel) {
         return;
       }
-      const models = generateModelKeyList(data.llmProviders);
+      const models = generateModelKeyList(llmProviders);
       const testLLMIndex = models.findIndex((model) => model.modelKey.includes(testModel));
-      const testLLM = data.llmProviders[testLLMIndex] as Required<LLMProvider>;
+      const testLLM = llmProviders[testLLMIndex] as Required<LLMProvider>;
       if (!testLLM) {
         return;
       }

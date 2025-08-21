@@ -34,6 +34,7 @@ export type LLMProvider = z.infer<typeof llmProviderSchema>;
 export const chatModelAbilitySchema = z.object({
   image: z.boolean().optional(),
   pdf: z.boolean().optional(),
+  webSearch: z.boolean().optional(),
 });
 
 export const chatModelAbilityType = chatModelAbilitySchema.keyof();
