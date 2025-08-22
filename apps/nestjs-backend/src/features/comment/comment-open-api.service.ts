@@ -558,6 +558,7 @@ export class CommentOpenApiService {
         recordId: {
           in: recordsId,
         },
+        tableId,
         deletedTime: null,
       },
       _count: {
