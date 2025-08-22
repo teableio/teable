@@ -47,7 +47,9 @@
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
     "title": "Tips",
-    "exportTips": "Exporting the database will export all data, including all records and attachments. The export process will be performed in the background, and you will be notified in the notification bar when it is complete. Note:\n1. All cross-base linked fields will be converted to single-line text fields.\n2. Authority matrix personnel settings will be cleared, but the configurations will remain. \n3. Database collaboration personnel settings will be cleared.",
+    "exportTips1": "Export the current base as a .tea file, which may take some time. You can check the export results in the notification center.",
+    "exportTips2": "You can import the .tea file in space -> more -> import",
+    "exportTips3": "Cross-base relation fields will be converted to single line text.",
     "moveBaseSuccessTitle": "Move base success",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },

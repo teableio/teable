@@ -42,7 +42,12 @@
   },
   "tip": {
     "delete": "Sind Sie sicher, dass Sie <0/> löschen wollen?",
-    "exportTips": "Das Exportieren der Datenbank exportiert alle Daten, einschließlich aller Datensätze und Anhänge. Der Exportvorgang wird im Hintergrund durchgeführt und das Ergebnis wird in der Benachrichtigungsleiste angezeigt. Hinweis:\n1. Alle bereichsübergreifenden Verknüpfungsfelder werden in einzeilige Textfelder umgewandelt.\n2. Einstellungen für Benutzer mit erweiterten Berechtigungen werden gelöscht, die Konfigurationen bleiben jedoch erhalten."
+    "title": "Tipps",
+    "exportTips1": "Exportieren Sie die aktuelle Base als .tea-Datei, was einige Zeit dauern kann. Sie können die Exportergebnisse im Benachrichtigungszentrum überprüfen.",
+    "exportTips2": "Sie können die .tea-Datei in Space -> mehr -> Import importieren",
+    "exportTips3": "Base-übergreifende Beziehungsfelder werden in einzeiligen Text umgewandelt.",
+    "moveBaseSuccessTitle": "Verschiebung erfolgreich",
+    "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben"
   },
   "sharedBase": {
     "title": "Geteilte Bases",

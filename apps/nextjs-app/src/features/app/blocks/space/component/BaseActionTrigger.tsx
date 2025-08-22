@@ -90,7 +90,13 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   };
 
   const exportTips = (
-    <pre className="text-wrap text-sm leading-relaxed">{t('space:tip.exportTips')}</pre>
+    <div className="text-wrap text-sm">
+      <p>{t('space:tip.exportTips1')}</p>
+      <p>{t('space:tip.exportTips2')}</p>
+      <br />
+      <p>Tips:</p>
+      <p>{t('space:tip.exportTips3')}</p>
+    </div>
   );
 
   const moveBaseContent = (

@@ -42,7 +42,12 @@
   },
   "tip": {
     "delete": "¿Estás seguro de que quieres eliminar <0/>?",
-    "exportTips": "Exportar la base de datos exportará todos los datos, incluidos todos los registros y archivos adjuntos. El proceso de exportación se realizará en segundo plano y el resultado se notificará en la barra de notificaciones. Nota:\n1. Todos los campos vinculados entre bases de datos se convertirán en campos de texto de una sola línea.\n2. Se borrarán los ajustes de personal con permisos avanzados, pero no se eliminarán las configuraciones."
+    "title": "Consejos",
+    "exportTips1": "Exportar la base actual como archivo .tea, lo que puede tomar cierto tiempo. Puedes verificar los resultados de la exportación en el centro de notificaciones.",
+    "exportTips2": "Puedes importar el archivo .tea en espacio -> más -> importar",
+    "exportTips3": "Los campos de relación entre bases se convertirán en texto de una sola línea.",
+    "moveBaseSuccessTitle": "Movimiento exitoso",
+    "moveBaseSuccessDescription": "{{baseName}} ha sido movido exitosamente a {{spaceName}}"
   },
   "sharedBase": {
     "title": "Bases compartidas",

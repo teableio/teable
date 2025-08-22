@@ -42,7 +42,12 @@
   },
   "tip": {
     "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?",
-    "exportTips": "L’exportation de la base de données exportera toutes les données, y compris tous les enregistrements et pièces jointes. Le processus d’exportation s’effectuera en arrière-plan et le résultat sera notifié dans la barre de notifications. Remarque :\n1. Tous les champs liés entre bases de données seront convertis en champs de texte sur une seule ligne.\n2. Les paramètres de personnel ayant des autorisations avancées seront effacés, mais les configurations resteront."
+    "title": "Conseils",
+    "exportTips1": "Exporter la base actuelle en fichier .tea, ce qui peut prendre un certain temps. Vous pouvez vérifier les résultats d'exportation dans le centre de notifications.",
+    "exportTips2": "Vous pouvez importer le fichier .tea dans espace -> plus -> importer",
+    "exportTips3": "Les champs de relation inter-base seront convertis en texte sur une seule ligne.",
+    "moveBaseSuccessTitle": "Déplacement réussi",
+    "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}"
   },
   "integration": {
     "title": "Intégrations",

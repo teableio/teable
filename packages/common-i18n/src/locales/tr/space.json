@@ -42,7 +42,12 @@
   },
   "tip": {
     "delete": "<0/> silmek istediğinizden emin misiniz?",
-    "exportTips": "Veritabanı dışa aktarıldığında, tüm veriler, kayıtlar ve ekler dahil olmak üzere dışa aktarılır. Dışa aktarma işlemi arka planda gerçekleşecek ve sonucu bildirim çubuğunda göreceksiniz. Not:\n1. Tüm veritabanları arası bağlantı alanları tek satırlık metin alanlarına dönüştürülecek.\n2. Gelişmiş izinlere sahip personel ayarları temizlenecek, ancak yapılandırmalar silinmeyecek."
+    "title": "İpuçları",
+    "exportTips1": "Mevcut veritabanını .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir. Dışa aktarma sonuçlarını bildirim merkezinde kontrol edebilirsiniz.",
+    "exportTips2": "Alan -> daha fazla -> içe aktar yolundan .tea dosyasını içe aktarabilirsiniz",
+    "exportTips3": "Veritabanları arası ilişki alanları tek satır metne dönüştürülecektir.",
+    "moveBaseSuccessTitle": "Taşıma başarılı",
+    "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı"
   },
   "sharedBase": {
     "title": "Paylaşılan veritabanları",
