@@ -6,6 +6,7 @@ import { FieldCalculateModule } from '../../field/field-calculate/field-calculat
 import { FieldDuplicateModule } from '../../field/field-duplicate/field-duplicate.module';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { GraphModule } from '../../graph/graph.module';
+import { RecordMaterialViewModule } from '../../record/material-view/record-material-view.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
@@ -27,6 +28,7 @@ import { TableOpenApiService } from './table-open-api.service';
     ShareDbModule,
     CalculationModule,
     GraphModule,
+    RecordMaterialViewModule,
   ],
   controllers: [TableController],
   providers: [DbProvider, TableOpenApiService, TableIndexService, TableDuplicateService],

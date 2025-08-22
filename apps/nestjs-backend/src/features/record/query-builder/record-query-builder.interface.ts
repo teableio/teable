@@ -1,4 +1,4 @@
-import type { IFilter, ISortItem } from '@teable/core';
+import type { IFilter, ISortItem, TableDomain } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from '../../field/field-select.type';
@@ -21,6 +21,10 @@ export interface ILinkFieldCteContext {
   mainTableName: string;
   tableNameMap?: Map<string, string>; // tableId -> dbTableName for nested lookup support
   additionalFields?: Map<string, IFieldInstance>; // Additional fields needed for rollup/lookup
+}
+
+export interface IPrepareMaterializedViewParams {
+  tableIdOrDbTableName: string;
 }
 
 /**
@@ -62,6 +66,10 @@ export interface ICreateRecordAggregateBuilderOptions {
  * This interface defines the public API for building table record queries
  */
 export interface IRecordQueryBuilder {
+  prepareMaterializedView(
+    from: string,
+    params: IPrepareMaterializedViewParams
+  ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }>;
   /**
    * Create a record query builder with select fields for the given table
    * @param queryBuilder - existing query builder to use

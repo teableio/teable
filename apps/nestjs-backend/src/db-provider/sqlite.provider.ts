@@ -12,6 +12,7 @@ import type {
   ISortItem,
   FieldCore,
   IFieldMap,
+  TableDomain,
 } from '@teable/core';
 import {
   DriverClient,
@@ -677,5 +678,19 @@ ORDER BY
     } catch (error) {
       throw new Error(`Failed to convert formula: ${(error as Error).message}`);
     }
+  }
+
+  generateMaterializedViewName(table: TableDomain): string {
+    return table.id + '_view';
+  }
+
+  createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string {
+    const viewName = this.generateMaterializedViewName(table);
+    return this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery();
+  }
+
+  dropMaterializedView(table: TableDomain): string {
+    const viewName = this.generateMaterializedViewName(table);
+    return this.knex.raw(`DROP VIEW IF EXISTS ??`, [viewName]).toQuery();
   }
 }
