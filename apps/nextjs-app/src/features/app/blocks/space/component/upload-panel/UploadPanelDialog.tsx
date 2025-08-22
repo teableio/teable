@@ -80,9 +80,9 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
               notify && importBaseFn({ spaceId, notify });
             }}
             className="flex items-center gap-2"
+            disabled={isLoading}
           >
             {t('space:import.confirm')}
-
             {isLoading && <Spin className="size-4" />}
           </Button>
         </DialogFooter>

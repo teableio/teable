@@ -83,7 +83,12 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           <p className="overflow-hidden text-wrap break-words text-base text-gray-500">
             {description}
           </p>
-          <Button size="sm" className="my-3" onClick={() => createTemplateToBase()}>
+          <Button
+            size="sm"
+            className="my-3"
+            onClick={() => createTemplateToBase()}
+            disabled={isLoading}
+          >
             {t('common:settings.templateAdmin.useTemplate')}
             {isLoading && <Spin className="size-3" />}
           </Button>
