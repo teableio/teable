@@ -107,10 +107,6 @@ export abstract class FieldCore implements IFieldVo {
   abstract accept<T>(visitor: IFieldVisitor<T>): T;
 
   getForeignLookupField(foreignTable: TableDomain): FieldCore | undefined {
-    if (!this.isLookup) {
-      return undefined;
-    }
-
     const lookupFieldId = this.lookupOptions?.lookupFieldId;
     if (!lookupFieldId) {
       return undefined;
@@ -128,7 +124,7 @@ export abstract class FieldCore implements IFieldVo {
   }
 
   getLinkField(table: TableDomain): FieldCore | undefined {
-    if (!this.isLookup) {
+    if (!this.lookupOptions) {
       return undefined;
     }
 

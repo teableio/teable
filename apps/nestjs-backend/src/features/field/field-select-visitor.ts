@@ -231,15 +231,6 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return rawExpression;
     }
 
-    // Check if the target lookup field exists in the context
-    const targetFieldExists = this.table.hasField(field.lookupOptions.lookupFieldId);
-    if (!targetFieldExists) {
-      // Target field has been deleted, return NULL to indicate this field should be null
-      const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
-      this.selectionMap.set(field.id, 'NULL');
-      return rawExpression;
-    }
-
     const cteName = this.fieldCteMap.get(field.lookupOptions.linkFieldId)!;
 
     // Return Raw expression for selecting pre-computed rollup value from link CTE

@@ -1,7 +1,9 @@
+/* eslint-disable sonarjs/no-duplicated-branches */
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { Logger } from '@nestjs/common';
-import { DriverClient, Relationship } from '@teable/core';
+import { DriverClient, FieldType, Relationship } from '@teable/core';
 import type {
   IFieldVisitor,
   AttachmentFieldCore,
@@ -27,6 +29,7 @@ import type {
   TableDomain,
   ILinkFieldOptions,
   FieldCore,
+  IRollupFieldOptions,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -38,44 +41,20 @@ import {
 import { ID_FIELD_NAME } from './constant';
 import { FieldFormattingVisitor } from './field-formatting-visitor';
 import { FieldSelectVisitor } from './field-select-visitor';
+import type { IFieldSelectName } from './field-select.type';
 
 type ICteResult = void;
 
 const JUNCTION_ALIAS = 'j';
 
-export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
-  private logger = new Logger(FieldCteVisitor.name);
-
-  static generateCTENameForField(table: TableDomain, field: LinkFieldCore) {
-    return `CTE_${getTableAliasFromTable(table)}_${field.id}`;
-  }
-
-  private readonly _table: TableDomain;
-  private readonly _fieldCteMap: Map<string, string>;
-
+class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   constructor(
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
-    private readonly tables: Tables
-  ) {
-    this._fieldCteMap = new Map();
-    this._table = tables.mustGetEntryTable();
-  }
-
-  get table() {
-    return this._table;
-  }
-
-  get fieldCteMap(): ReadonlyMap<string, string> {
-    return this._fieldCteMap;
-  }
-
-  public build() {
-    for (const field of this.table.fields) {
-      field.accept(this);
-    }
-  }
-
+    private readonly table: TableDomain,
+    private readonly foreignTable: TableDomain,
+    private readonly fieldCteMap: ReadonlyMap<string, string>
+  ) {}
   private getJsonAggregationFunction(fieldReference: string): string {
     const driver = this.dbProvider.driver;
 
@@ -91,13 +70,191 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   /**
-   * Generate JSON aggregation function for Link fields (creates objects with id and title)
-   * When title is null, only includes the id key
-   * @param field The link field to generate the CTE for
-   * @param foreignTable The table that the link field points to
+   * Generate rollup aggregation expression based on rollup function
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private getLinkValue(field: LinkFieldCore, foreignTable: TableDomain): string {
+  private generateRollupAggregation(
+    expression: string,
+    fieldExpression: string,
+    targetField: FieldCore
+  ): string {
+    // Parse the rollup function from expression like 'sum({values})'
+    const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
+    if (!functionMatch) {
+      throw new Error(`Invalid rollup expression: ${expression}`);
+    }
+
+    const functionName = functionMatch[1].toLowerCase();
+    const castIfPg = (sql: string) =>
+      this.dbProvider.driver === DriverClient.Pg ? `CAST(${sql} AS DOUBLE PRECISION)` : sql;
+
+    switch (functionName) {
+      case 'sum':
+        return castIfPg(`COALESCE(SUM(${fieldExpression}), 0)`);
+      case 'count':
+        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
+      case 'countall':
+        // For multiple select fields, count individual elements in JSON arrays
+        if (targetField.type === FieldType.MultipleSelect) {
+          if (this.dbProvider.driver === DriverClient.Pg) {
+            // PostgreSQL: Sum the length of each JSON array, ensure 0 when no records
+            return castIfPg(
+              `COALESCE(SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN jsonb_array_length(${fieldExpression}::jsonb) ELSE 0 END), 0)`
+            );
+          } else {
+            // SQLite: Sum the length of each JSON array, ensure 0 when no records
+            return castIfPg(
+              `COALESCE(SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN json_array_length(${fieldExpression}) ELSE 0 END), 0)`
+            );
+          }
+        }
+        // For other field types, count non-null values, ensure 0 when no records
+        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
+      case 'counta':
+        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
+      case 'max':
+        return castIfPg(`MAX(${fieldExpression})`);
+      case 'min':
+        return castIfPg(`MIN(${fieldExpression})`);
+      case 'and':
+        // For boolean AND, all values must be true (non-zero/non-null)
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `BOOL_AND(${fieldExpression}::boolean)`
+          : `MIN(${fieldExpression})`;
+      case 'or':
+        // For boolean OR, at least one value must be true
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `BOOL_OR(${fieldExpression}::boolean)`
+          : `MAX(${fieldExpression})`;
+      case 'xor':
+        // XOR is more complex, we'll use a custom expression
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COUNT(CASE WHEN ${fieldExpression}::boolean THEN 1 END) % 2 = 1)`
+          : `(COUNT(CASE WHEN ${fieldExpression} THEN 1 END) % 2 = 1)`;
+      case 'array_join':
+      case 'concatenate':
+        // Join all values into a single string with deterministic ordering
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${JUNCTION_ALIAS}.__id)`
+          : `GROUP_CONCAT(${fieldExpression}, ', ')`;
+      case 'array_unique':
+        // Get unique values as JSON array
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `json_agg(DISTINCT ${fieldExpression})`
+          : `json_group_array(DISTINCT ${fieldExpression})`;
+      case 'array_compact':
+        // Get non-null values as JSON array
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `json_agg(${fieldExpression}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`
+          : `json_group_array(${fieldExpression}) WHERE ${fieldExpression} IS NOT NULL`;
+      default:
+        throw new Error(`Unsupported rollup function: ${functionName}`);
+    }
+  }
+
+  /**
+   * Generate rollup expression for single-value relationships (ManyOne/OneOne)
+   * Avoids using aggregate functions so GROUP BY is not required.
+   */
+  private generateSingleValueRollupAggregation(
+    expression: string,
+    fieldExpression: string
+  ): string {
+    const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
+    if (!functionMatch) {
+      throw new Error(`Invalid rollup expression: ${expression}`);
+    }
+
+    const functionName = functionMatch[1].toLowerCase();
+
+    switch (functionName) {
+      case 'sum':
+        // For single-value relationship, sum reduces to the value itself, but should be 0 when null
+        return `COALESCE(${fieldExpression}, 0)`;
+      case 'max':
+      case 'min':
+      case 'array_join':
+      case 'concatenate':
+        // For single-value relationship, these reduce to the value itself
+        return `${fieldExpression}`;
+      case 'count':
+      case 'countall':
+      case 'counta':
+        // Presence check: 1 if not null, else 0
+        return `CASE WHEN ${fieldExpression} IS NULL THEN 0 ELSE 1 END`;
+      case 'and':
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COALESCE((${fieldExpression})::boolean, false))`
+          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
+      case 'or':
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COALESCE((${fieldExpression})::boolean, false))`
+          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
+      case 'xor':
+        // With a single value, XOR is equivalent to the value itself
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(COALESCE((${fieldExpression})::boolean, false))`
+          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
+      case 'array_unique':
+      case 'array_compact':
+        // Wrap single value into JSON array if present else empty array
+        return this.dbProvider.driver === DriverClient.Pg
+          ? `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::json ELSE json_build_array(${fieldExpression}) END)`
+          : `(CASE WHEN ${fieldExpression} IS NULL THEN json('[]') ELSE json_array(${fieldExpression}) END)`;
+      default:
+        // Fallback to the value to keep behavior sensible
+        return `${fieldExpression}`;
+    }
+  }
+  private visitLookupField(field: FieldCore): IFieldSelectName {
+    if (!field.isLookup) {
+      throw new Error('Not a lookup field');
+    }
+
+    const qb = this.qb.client.queryBuilder();
+    const selectVisitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      this.foreignTable,
+      this.fieldCteMap
+    );
+
+    const targetLookupField = field.mustGetForeignLookupField(this.foreignTable);
+    const targetFieldResult = targetLookupField.accept(selectVisitor);
+
+    const expression =
+      typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+    if (!field.isMultipleCellValue) {
+      return expression;
+    }
+    return this.getJsonAggregationFunction(expression);
+  }
+  visitNumberField(field: NumberFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitSingleLineTextField(field: SingleLineTextFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitLongTextField(field: LongTextFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitAttachmentField(field: AttachmentFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitCheckboxField(field: CheckboxFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitDateField(field: DateFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitRatingField(field: RatingFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitAutoNumberField(field: AutoNumberFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitLinkField(field: LinkFieldCore): IFieldSelectName {
+    const foreignTable = this.foreignTable;
     const driver = this.dbProvider.driver;
     const junctionAlias = JUNCTION_ALIAS;
 
@@ -115,7 +272,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       qb,
       this.dbProvider,
       foreignTable,
-      this._fieldCteMap
+      this.fieldCteMap
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
     let targetFieldSelectionExpression =
@@ -181,25 +338,90 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         throw new Error(`Unsupported database driver: ${driver}`);
       });
   }
-
-  private getLookupValue(field: FieldCore, foreignTable: TableDomain): string {
+  visitRollupField(field: RollupFieldCore): IFieldSelectName {
+    const targetField = field.mustGetForeignLookupField(this.foreignTable);
     const qb = this.qb.client.queryBuilder();
     const selectVisitor = new FieldSelectVisitor(
       qb,
       this.dbProvider,
-      foreignTable,
-      this._fieldCteMap
+      this.foreignTable,
+      this.fieldCteMap
     );
 
-    const targetLookupField = field.mustGetForeignLookupField(foreignTable);
+    const targetLookupField = field.mustGetForeignLookupField(this.foreignTable);
     const targetFieldResult = targetLookupField.accept(selectVisitor);
 
     const expression =
       typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
-    if (!field.isMultipleCellValue) {
-      return expression;
+    const rollupOptions = field.options as IRollupFieldOptions;
+    const linkField = field.getLinkField(this.table);
+    const options = linkField?.options as ILinkFieldOptions;
+    const isSingleValueRelationship =
+      options.relationship === Relationship.ManyOne || options.relationship === Relationship.OneOne;
+    return isSingleValueRelationship
+      ? this.generateSingleValueRollupAggregation(rollupOptions.expression, expression)
+      : this.generateRollupAggregation(rollupOptions.expression, expression, targetField);
+  }
+  visitSingleSelectField(field: SingleSelectFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitMultipleSelectField(field: MultipleSelectFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitFormulaField(field: FormulaFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitCreatedTimeField(field: CreatedTimeFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitLastModifiedTimeField(field: LastModifiedTimeFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitUserField(field: UserFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitCreatedByField(field: CreatedByFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitLastModifiedByField(field: LastModifiedByFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+  visitButtonField(field: ButtonFieldCore): IFieldSelectName {
+    return this.visitLookupField(field);
+  }
+}
+
+export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
+  private logger = new Logger(FieldCteVisitor.name);
+
+  static generateCTENameForField(table: TableDomain, field: LinkFieldCore) {
+    return `CTE_${getTableAliasFromTable(table)}_${field.id}`;
+  }
+
+  private readonly _table: TableDomain;
+  private readonly _fieldCteMap: Map<string, string>;
+
+  constructor(
+    private readonly qb: Knex.QueryBuilder,
+    private readonly dbProvider: IDbProvider,
+    private readonly tables: Tables
+  ) {
+    this._fieldCteMap = new Map();
+    this._table = tables.mustGetEntryTable();
+  }
+
+  get table() {
+    return this._table;
+  }
+
+  get fieldCteMap(): ReadonlyMap<string, string> {
+    return this._fieldCteMap;
+  }
+
+  public build() {
+    for (const field of this.table.fields) {
+      field.accept(this);
     }
-    return this.getJsonAggregationFunction(expression);
   }
 
   private generateLinkFieldCte(field: LinkFieldCore): void {
@@ -214,7 +436,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     this.qb
       // eslint-disable-next-line sonarjs/cognitive-complexity
       .with(cteName, (cqb) => {
-        const linkValue = this.getLinkValue(field, foreignTable);
+        const visitor = new FieldCteSelectionVisitor(
+          cqb,
+          this.dbProvider,
+          this.table,
+          foreignTable,
+          this.fieldCteMap
+        );
+        const linkValue = field.accept(visitor);
 
         cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
         cqb.select(cqb.client.raw(`${linkValue} as link_value`));
@@ -222,8 +451,28 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const lookupFields = field.getLookupFields(this.table);
 
         for (const lookupField of lookupFields) {
-          const lookupValue = this.getLookupValue(lookupField, foreignTable);
+          const visitor = new FieldCteSelectionVisitor(
+            cqb,
+            this.dbProvider,
+            this.table,
+            foreignTable,
+            this.fieldCteMap
+          );
+          const lookupValue = lookupField.accept(visitor);
           cqb.select(cqb.client.raw(`${lookupValue} as "lookup_${lookupField.id}"`));
+        }
+
+        const rollupFields = field.getRollupFields(this.table);
+        for (const rollupField of rollupFields) {
+          const visitor = new FieldCteSelectionVisitor(
+            cqb,
+            this.dbProvider,
+            this.table,
+            foreignTable,
+            this.fieldCteMap
+          );
+          const rollupValue = rollupField.accept(visitor);
+          cqb.select(cqb.client.raw(`${rollupValue} as "rollup_${rollupField.id}"`));
         }
 
         if (usesJunctionTable) {
