@@ -1,9 +1,25 @@
+import { BillingProductLevel } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
 import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useChatPanelStore } from '../components/sidebar/useChatPanelStore';
+import { useBaseUsageWithLoading } from '../hooks/useBaseUsage';
 
 export const CommunityPage = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  return (
+  const { baseUsage, loading, isFetched } = useBaseUsageWithLoading();
+  const { level } = baseUsage || {};
+  const { isExpanded } = useChatPanelStore();
+  // free user or community user
+  const displayDefaultBaseWelcome = level === BillingProductLevel.Free || level === undefined;
+
+  // community user, loading alway be true
+  if (loading && isFetched) {
+    return null;
+  }
+
+  // billing user never see the welcome page
+  return displayDefaultBaseWelcome ? (
     <div className="h-full flex-col md:flex">
       <div className="flex h-full flex-1 flex-col gap-2 lg:gap-4">
         <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
@@ -33,6 +49,10 @@ export const CommunityPage = () => {
           </ul>
         </div>
       </div>
+    </div>
+  ) : (
+    <div className="flex h-full min-w-0 items-center justify-center overflow-hidden transition-all md:flex">
+      {!isExpanded && <Spin className="min-w-0" />}
     </div>
   );
 };
