@@ -131,4 +131,8 @@ export abstract class FieldCore implements IFieldVo {
 
     return table.getField(linkFieldId);
   }
+
+  get isStructuredCellValue(): boolean {
+    return false;
+  }
 }

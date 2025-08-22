@@ -58,6 +58,53 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return { qb, alias: mainTableAlias };
   }
 
+  async createRecordAggregateBuilder(
+    from: string,
+    options: ICreateRecordAggregateBuilderOptions
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
+    const { tableIdOrDbTableName, filter, aggregationFields, groupBy, currentUserId } = options;
+    const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
+      where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
+      select: { id: true },
+    });
+
+    const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableRaw.id);
+    const table = tables.mustGetEntryTable();
+    const mainTableAlias = getTableAliasFromTable(table);
+    const qb = this.knex.from({ [mainTableAlias]: from });
+
+    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables);
+    visitor.build();
+
+    const selectionMap = this.buildAggregateSelect(qb, table, visitor.fieldCteMap);
+
+    if (filter) {
+      this.buildFilter(qb, table, filter, selectionMap, currentUserId);
+    }
+
+    const fieldMap = table.fieldList.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, FieldCore>
+    );
+
+    // Apply aggregation
+    this.dbProvider
+      .aggregationQuery(qb, table.dbTableName, fieldMap, aggregationFields)
+      .appendBuilder();
+
+    // Apply grouping if specified
+    if (groupBy && groupBy.length > 0) {
+      this.dbProvider
+        .groupQuery(qb, fieldMap, groupBy, undefined, { selectionMap })
+        .appendGroupBuilder();
+    }
+
+    return { qb, alias: mainTableAlias };
+  }
+
   private buildSelect(
     qb: Knex.QueryBuilder,
     table: TableDomain,
@@ -75,6 +122,21 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       if (result) {
         qb.select(result);
       }
+    }
+
+    return visitor.getSelectionMap();
+  }
+
+  private buildAggregateSelect(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    fieldCteMap: ReadonlyMap<string, string>
+  ) {
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, fieldCteMap);
+
+    // Add field-specific selections using visitor pattern
+    for (const field of table.fields) {
+      field.accept(visitor);
     }
 
     return visitor.getSelectionMap();
@@ -115,12 +177,5 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     );
     this.dbProvider.sortQuery(qb, map, sort, undefined, { selectionMap }).appendSortBuilder();
     return this;
-  }
-
-  createRecordAggregateBuilder(
-    from: string,
-    options: ICreateRecordAggregateBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
-    throw new Error('Method not implemented.');
   }
 }

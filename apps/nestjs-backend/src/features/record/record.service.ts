@@ -630,7 +630,6 @@ export class RecordService {
       qb.orderBy(`${alias}.${basicSortIndex}`, 'asc');
     }
 
-    this.logger.debug('buildFilterSortQuery: %s', qb.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder: qb, dbTableName, viewCte, alias };

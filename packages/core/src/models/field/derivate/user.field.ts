@@ -27,6 +27,10 @@ export class UserFieldCore extends UserAbstractCore {
     return defaultUserFieldOptions;
   }
 
+  override get isStructuredCellValue() {
+    return true;
+  }
+
   /*
    * If the field matches the full name, or email of exactly one user, it will be converted to that user;
    * If the content of a cell does not match any of the users, or if the content is ambiguous (e.g., there are two collaborators with the same name), the cell will be cleared.

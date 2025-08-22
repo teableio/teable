@@ -149,7 +149,7 @@ export interface IDbProvider {
   aggregationQuery(
     originQueryBuilder: Knex.QueryBuilder,
     dbTableName: string,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
     extra?: IAggregationQueryExtra
   ): IAggregationQueryInterface;
@@ -172,7 +172,7 @@ export interface IDbProvider {
 
   groupQuery(
     originKnex: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
+    fieldMap?: { [fieldId: string]: FieldCore },
     groupFieldIds?: string[],
     extra?: IGroupQueryExtra,
     context?: IRecordQueryGroupContext
