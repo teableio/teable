@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
+import type { FieldCore, IFilter, ISortItem, TableDomain, Tables } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
@@ -10,6 +10,7 @@ import { FieldSelectVisitor } from '../../field/field-select-visitor';
 import type {
   ICreateRecordAggregateBuilderOptions,
   ICreateRecordQueryBuilderOptions,
+  IPrepareMaterializedViewParams,
   IRecordQueryBuilder,
   IRecordSelectionMap,
 } from './record-query-builder.interface';
@@ -27,11 +28,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     @Inject('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  async createRecordQueryBuilder(
+  private async createQueryBuilder(
     from: string,
-    options: ICreateRecordQueryBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
-    const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
+    tableIdOrDbTableName: string
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; tables: Tables }> {
     const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
       where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
       select: { id: true },
@@ -41,6 +41,29 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const table = tables.mustGetEntryTable();
     const mainTableAlias = getTableAliasFromTable(table);
     const qb = this.knex.from({ [mainTableAlias]: from });
+
+    return { qb, alias: mainTableAlias, tables };
+  }
+
+  async prepareMaterializedView(
+    from: string,
+    params: IPrepareMaterializedViewParams
+  ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }> {
+    const { tableIdOrDbTableName } = params;
+    const { qb, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
+    const table = tables.mustGetEntryTable();
+
+    return { qb, table };
+  }
+
+  async createRecordQueryBuilder(
+    from: string,
+    options: ICreateRecordQueryBuilderOptions
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
+    const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
+    const { qb, alias, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
+
+    const table = tables.mustGetEntryTable();
 
     const visitor = new FieldCteVisitor(qb, this.dbProvider, tables);
     visitor.build();
@@ -55,7 +78,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       this.buildSort(qb, table, sort, selectionMap);
     }
 
-    return { qb, alias: mainTableAlias };
+    return { qb, alias };
   }
 
   async createRecordAggregateBuilder(
@@ -63,16 +86,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     options: ICreateRecordAggregateBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
     const { tableIdOrDbTableName, filter, aggregationFields, groupBy, currentUserId } = options;
-    const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
-      where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
-      select: { id: true },
-    });
+    const { qb, tables, alias } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
-    const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableRaw.id);
     const table = tables.mustGetEntryTable();
-    const mainTableAlias = getTableAliasFromTable(table);
-    const qb = this.knex.from({ [mainTableAlias]: from });
-
     const visitor = new FieldCteVisitor(qb, this.dbProvider, tables);
     visitor.build();
 
@@ -102,7 +118,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         .appendGroupBuilder();
     }
 
-    return { qb, alias: mainTableAlias };
+    return { qb, alias };
   }
 
   private buildSelect(

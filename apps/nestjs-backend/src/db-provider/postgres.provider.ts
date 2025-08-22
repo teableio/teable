@@ -758,4 +758,18 @@ ORDER BY
       throw new Error(`Failed to convert formula: ${(error as Error).message}`);
     }
   }
+
+  generateMaterializedViewName(table: TableDomain): string {
+    return 'mv_' + table.id;
+  }
+
+  createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string {
+    const viewName = this.generateMaterializedViewName(table);
+    return this.knex.raw(`CREATE MATERIALIZED VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery();
+  }
+
+  dropMaterializedView(table: TableDomain): string {
+    const viewName = this.generateMaterializedViewName(table);
+    return this.knex.raw(`DROP MATERIALIZED VIEW IF EXISTS ??`, [viewName]).toQuery();
+  }
 }
