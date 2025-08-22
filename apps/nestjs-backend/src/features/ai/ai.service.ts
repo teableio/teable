@@ -78,10 +78,10 @@ export class AiService {
       baseURL: baseUrl,
       apiKey,
     });
-    const modelProvider = provider(providerOptions);
+    const modelProvider = provider(providerOptions) as OpenAIProvider;
 
     return isImageGeneration
-      ? ((modelProvider as OpenAIProvider).image(model) as ReturnType<OpenAIProvider['image']>)
+      ? (modelProvider.image(model) as ReturnType<OpenAIProvider['image']>)
       : (modelProvider(model) as LanguageModelV1);
   }
 

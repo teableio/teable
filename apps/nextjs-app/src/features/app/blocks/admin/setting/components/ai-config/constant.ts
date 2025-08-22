@@ -12,6 +12,7 @@ import {
   Xai,
   Ollama,
   AmazonBedrock,
+  OpenRouter,
 } from '@teable/icons';
 import { LLMProviderType } from '@teable/openapi';
 
@@ -30,6 +31,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.TOGETHERAI]: Openai,
   [LLMProviderType.OLLAMA]: Ollama,
   [LLMProviderType.AMAZONBEDROCK]: AmazonBedrock,
+  [LLMProviderType.OPENROUTER]: OpenRouter,
 };
 
 export const LLM_PROVIDERS = [
@@ -131,5 +133,12 @@ export const LLM_PROVIDERS = [
     modelsPlaceholder: 'amazon.titan-embed-image-v1,amazon.titan-embed-text-v1',
     apiKeyPlaceholder: 'REGION.ACCESS_KEY_ID.SECRET_ACCESS_KEY',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.AMAZONBEDROCK],
+  },
+  {
+    value: LLMProviderType.OPENROUTER,
+    label: 'OpenRouter',
+    baseUrlPlaceholder: 'https://openrouter.ai/api/v1',
+    modelsPlaceholder: 'openai/gpt-4o,openai/gpt-4o-mini',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENROUTER],
   },
 ] as const;

@@ -8,6 +8,7 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createTogetherAI } from '@ai-sdk/togetherai';
 import { createXai } from '@ai-sdk/xai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { IAIConfig, Task } from '@teable/openapi';
 import { LLMProviderType } from '@teable/openapi';
 import { get } from 'lodash';
@@ -30,6 +31,7 @@ export const modelProviders = {
   [LLMProviderType.TOGETHERAI]: createTogetherAI,
   [LLMProviderType.OLLAMA]: createOllama,
   [LLMProviderType.AMAZONBEDROCK]: createAmazonBedrock,
+  [LLMProviderType.OPENROUTER]: createOpenRouter,
 } as const;
 
 export const getAdaptedProviderOptions = (

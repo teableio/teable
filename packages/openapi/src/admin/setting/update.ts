@@ -18,6 +18,7 @@ export enum LLMProviderType {
   TOGETHERAI = 'togetherai',
   OLLAMA = 'ollama',
   AMAZONBEDROCK = 'amazonBedrock',
+  OPENROUTER = 'openRouter',
 }
 
 export const llmProviderSchema = z.object({

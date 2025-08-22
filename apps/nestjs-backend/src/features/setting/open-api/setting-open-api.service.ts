@@ -1,4 +1,5 @@
 import { join } from 'path';
+import type { OpenAIProvider } from '@ai-sdk/openai';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -194,7 +195,7 @@ export class SettingOpenApiService {
       const providerOptions = getAdaptedProviderOptions(type, { baseURL: baseUrl, apiKey });
       const modelProvider = provider({
         ...providerOptions,
-      });
+      }) as OpenAIProvider;
       const modelInstance = modelProvider(model);
       const { text } = await generateText({
         model: modelInstance as LanguageModel,

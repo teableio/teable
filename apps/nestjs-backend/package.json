@@ -144,6 +144,7 @@
     "@nestjs/swagger": "7.3.0",
     "@nestjs/terminus": "10.2.3",
     "@nestjs/websockets": "10.3.5",
+    "@openrouter/ai-sdk-provider": "0.7.5",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/exporter-logs-otlp-http": "0.201.1",
     "@opentelemetry/exporter-trace-otlp-http": "0.201.1",
