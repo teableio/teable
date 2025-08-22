@@ -38,7 +38,8 @@
     "more": "Plus",
     "move": "Déplacer vers",
     "turnOn": "Activer",
-    "exit": "Déconnexion"
+    "exit": "Déconnexion",
+    "hardDelete": "Supprimer définitivement"
   },
   "quickAction": {
     "title": "Actions rapides...",
@@ -307,7 +308,9 @@
     "deletedTime": "Date de suppression",
     "fromSpace": "De l'espace \"{{name}}\"",
     "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?",
-    "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?"
+    "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?",
+    "addToTrash": "Ajouter à la corbeille",
+    "description": "Les données dans la corbeille occupent toujours un espace d'utilisation de records et d'utilisation de pièces jointes."
   },
   "automation": {
     "turnOnTip": "Voulez-vous activer l'automatisation actuelle?"
@@ -364,5 +367,8 @@
       "previewAppError": "Erreur d'application",
       "sendErrorToAI": "Envoyer l'erreur à AI"
     }
+  },
+  "base": {
+    "deleteTip": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" base?"
   }
 }

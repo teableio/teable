@@ -45,7 +45,8 @@
     "more": "Altro",
     "move": "Sposta in",
     "turnOn": "Attiva",
-    "exit": "Esci"
+    "exit": "Esci",
+    "hardDelete": "Eliminazione permanente"
   },
   "quickAction": {
     "title": "Azioni rapide...",
@@ -344,7 +345,9 @@
     "deletedTime": "Ora di eliminazione",
     "fromSpace": "Dallo spazio \"{{name}}\"",
     "permanentDeleteTips": "Sei sicuro di voler eliminare definitivamente \"{{name}}\" {{resource}}?",
-    "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?"
+    "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?",
+    "addToTrash": "Aggiungi al cestino",
+    "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati."
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin non impostato URL",
@@ -411,5 +414,8 @@
       "previewAppError": "Errore dell'applicazione",
       "sendErrorToAI": "Invia errore a AI"
     }
+  },
+  "base": {
+    "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?"
   }
 }

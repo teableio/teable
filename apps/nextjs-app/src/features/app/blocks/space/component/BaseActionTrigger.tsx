@@ -5,6 +5,8 @@ import type { IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
+  Button,
+  DialogFooter,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -25,7 +27,7 @@ interface IBaseActionTrigger {
   showExport: boolean;
   showMove: boolean;
   onRename?: () => void;
-  onDelete?: () => void;
+  onDelete?: (permanent?: boolean) => void;
   align?: 'center' | 'end' | 'start';
 }
 
@@ -80,9 +82,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     return null;
   }
 
-  const handleDelete = () => {
+  const handleDelete = (permanent?: boolean) => {
     if (onDelete) {
-      onDelete();
+      onDelete(permanent);
     }
     setDeleteConfirm(false);
   };
@@ -160,11 +162,26 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title={t('actions.deleteTip', { name: base.name })}
-        cancelText={t('actions.cancel')}
-        confirmText={t('actions.delete')}
+        title={t('base.deleteTip', { name: base.name })}
         onCancel={() => setDeleteConfirm(false)}
-        onConfirm={handleDelete}
+        content={
+          <>
+            <div className="space-y-2 text-sm">
+              <p>{t('common:trash.description')}</p>
+            </div>
+            <DialogFooter>
+              <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
+                {t('common:actions.cancel')}
+              </Button>
+              <Button size={'sm'} onClick={() => handleDelete(true)}>
+                {t('common:actions.hardDelete')}
+              </Button>
+              <Button size={'sm'} onClick={() => handleDelete()}>
+                {t('common:trash.addToTrash')}
+              </Button>
+            </DialogFooter>
+          </>
+        }
       />
 
       <ConfirmDialog

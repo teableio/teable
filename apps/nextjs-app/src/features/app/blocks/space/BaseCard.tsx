@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Database, MoreHorizontal } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
-import { PinType, deleteBase, updateBase } from '@teable/openapi';
+import { PinType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -44,7 +44,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   });
 
   const { mutate: deleteBaseMutator } = useMutation({
-    mutationFn: deleteBase,
+    mutationFn: ({ baseId, permanent }: { baseId: string; permanent?: boolean }) =>
+      permanent ? permanentDeleteBase(baseId) : deleteBase(baseId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.baseAll(),
@@ -171,7 +172,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 showDelete={hasDeletePermission}
                 showExport={hasUpdatePermission}
                 showMove={hasMovePermission}
-                onDelete={() => deleteBaseMutator(base.id)}
+                onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
                 onRename={onRename}
               >
                 <Button

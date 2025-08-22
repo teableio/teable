@@ -47,7 +47,8 @@
     "more": "更多",
     "expand": "展开",
     "deleteTip": "确定要删除 \"{{name}}\" 吗？",
-    "move": "移动至"
+    "move": "移动至",
+    "hardDelete": "彻底删除"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -777,7 +778,9 @@
     "deletedTime": "删除时间",
     "fromSpace": "来自 \"{{name}}\" 空间",
     "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？",
-    "resetTrashConfirm": "确定要清空回收站吗？"
+    "resetTrashConfirm": "确定要清空回收站吗？",
+    "addToTrash": "放入回收站",
+    "description": "回收站中的数据依然会占用记录用量和附件用量。"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "插件未设置 URL",
@@ -842,6 +845,9 @@
     "inviteSuccess": "邀请成功"
   },
   "noPermissionToCreateBase": "没有权限在任何空间中创建数据库",
+  "base": {
+    "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？"
+  },
   "app": {
     "previewAppError": "应用运行报错",
     "sendErrorToAI": "将错误发送给 AI"

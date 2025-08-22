@@ -28,6 +28,8 @@ import {
   Switch,
   Label,
   Input,
+  DialogFooter,
+  Button,
 } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -85,12 +87,14 @@ export const TableOperation = (props: ITableOperationProps) => {
     };
   }, [permission, table.permission]);
 
-  const deleteTable = async () => {
+  const deleteTable = async (permanent?: boolean) => {
     const tableId = table?.id;
 
     if (!tableId) return;
 
-    await base.deleteTable(tableId);
+    await base.deleteTable(tableId, permanent);
+    setDeleteConfirm(false);
+
     queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId as string));
 
     const firstTableId = tables.find((t) => t.id !== tableId)?.id;
@@ -231,16 +235,25 @@ export const TableOperation = (props: ITableOperationProps) => {
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
         title={t('table:table.deleteConfirm', { tableName: table?.name })}
-        cancelText={t('common:actions.cancel')}
-        confirmText={t('common:actions.confirm')}
         content={
-          <div className="space-y-2 text-sm">
-            <p>1. {t('table:table.deleteTip1')}</p>
-            <p>2. {t('table:table.deleteTip2')}</p>
-          </div>
+          <>
+            <div className="space-y-2 text-sm">
+              <p>{t('table:table.deleteTip1')}</p>
+              <p>{t('common:trash.description')}</p>
+            </div>
+            <DialogFooter>
+              <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
+                {t('common:actions.cancel')}
+              </Button>
+              <Button size={'sm'} onClick={() => deleteTable(true)}>
+                {t('common:actions.hardDelete')}
+              </Button>
+              <Button size={'sm'} onClick={() => deleteTable()}>
+                {t('common:trash.addToTrash')}
+              </Button>
+            </DialogFooter>
+          </>
         }
-        onCancel={() => setDeleteConfirm(false)}
-        onConfirm={deleteTable}
       />
 
       <ConfirmDialog

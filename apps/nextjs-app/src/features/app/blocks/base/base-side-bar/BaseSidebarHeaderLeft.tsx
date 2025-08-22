@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { ChevronsLeft, ChevronDown, Menu } from '@teable/icons';
-import { CollaboratorType, deleteBase, updateBase } from '@teable/openapi';
+import { CollaboratorType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import { Button, Input } from '@teable/ui-lib';
@@ -30,7 +30,8 @@ export const BaseSidebarHeaderLeft = () => {
   });
 
   const { mutate: deleteBaseMutator } = useMutation({
-    mutationFn: deleteBase,
+    mutationFn: ({ baseId, permanent }: { baseId: string; permanent?: boolean }) =>
+      permanent ? permanentDeleteBase(baseId) : deleteBase(baseId),
     onSuccess: () => {
       router.push({
         pathname: '/space/[spaceId]',
@@ -121,7 +122,7 @@ export const BaseSidebarHeaderLeft = () => {
           showDelete={hasDeletePermission}
           showExport={hasUpdatePermission}
           showMove={hasMovePermission}
-          onDelete={() => deleteBaseMutator(base.id)}
+          onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
           onRename={onRename}
           align="start"
         >

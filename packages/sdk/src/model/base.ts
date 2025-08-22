@@ -1,6 +1,6 @@
 import type { IRole } from '@teable/core';
 import type { IGetBaseVo, ICreateTableRo, CollaboratorType } from '@teable/openapi';
-import { createTable, deleteTable } from '@teable/openapi';
+import { createTable, deleteTable, permanentDeleteTable } from '@teable/openapi';
 
 export class Base implements IGetBaseVo {
   id: string;
@@ -26,7 +26,7 @@ export class Base implements IGetBaseVo {
     return createTable(this.id, tableRo);
   }
 
-  async deleteTable(tableId: string) {
-    return deleteTable(this.id, tableId);
+  async deleteTable(tableId: string, permanent?: boolean) {
+    return permanent ? permanentDeleteTable(this.id, tableId) : deleteTable(this.id, tableId);
   }
 }

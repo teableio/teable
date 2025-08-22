@@ -37,7 +37,8 @@
     "more": "もっと",
     "move": "移動先",
     "turnOn": "有効にする",
-    "exit": "ログアウト"
+    "exit": "ログアウト",
+    "hardDelete": "徹底削除"
   },
   "quickAction": {
     "title": "クイックアクション...",
@@ -328,7 +329,9 @@
     "deletedTime": "削除日時",
     "fromSpace": "「{{name}}」スペースから",
     "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？",
-    "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？"
+    "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？",
+    "addToTrash": "ゴミ箱に移動",
+    "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。"
   },
   "automation": {
     "turnOnTip": "現在のオートメーションを有効にしますか？"
@@ -385,5 +388,8 @@
       "previewAppError": "アプリケーションエラー",
       "sendErrorToAI": "エラーを AI に送信"
     }
+  },
+  "base": {
+    "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？"
   }
 }

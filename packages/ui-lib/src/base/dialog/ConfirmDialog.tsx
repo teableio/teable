@@ -61,19 +61,21 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
           </DialogHeader>
         )}
         {content}
-        <DialogFooter>
-          {cancelText && (
-            <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
-              {cancelText}
-            </Button>
-          )}
-          {confirmText && (
-            <Button size={'sm'} onClick={onConfirm}>
-              {confirmLoading && <Spin />}
-              {confirmText}
-            </Button>
-          )}
-        </DialogFooter>
+        {(cancelText || confirmText) && (
+          <DialogFooter>
+            {cancelText && (
+              <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
+                {cancelText}
+              </Button>
+            )}
+            {confirmText && (
+              <Button size={'sm'} onClick={onConfirm}>
+                {confirmLoading && <Spin />}
+                {confirmText}
+              </Button>
+            )}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -49,7 +49,8 @@
     "deleteTip": "Are you sure you want to delete \"{{name}}\"?",
     "move": "Move to",
     "turnOn": "Turn on",
-    "exit": "Exit"
+    "exit": "Exit",
+    "hardDelete": "Hard Delete"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -782,7 +783,9 @@
     "deletedTime": "Deleted time",
     "fromSpace": "From \"{{name}}\" space",
     "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
-    "resetTrashConfirm": "Are you sure you want to empty the trash?"
+    "resetTrashConfirm": "Are you sure you want to empty the trash?",
+    "addToTrash": "Add to Trash",
+    "description": "Data in the trash still occupies record usage and attachment usage."
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin Not Setting url",
@@ -847,6 +850,9 @@
     "inviteSuccess": "Invite successfully"
   },
   "noPermissionToCreateBase": "No permission to create base in any space",
+  "base": {
+    "deleteTip": "Are you sure you want to delete \"{{name}}\" base?"
+  },
   "app": {
     "previewAppError": "App running error",
     "sendErrorToAI": "Send error to AI"

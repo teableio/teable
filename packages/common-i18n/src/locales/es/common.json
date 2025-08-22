@@ -45,7 +45,8 @@
     "more": "Más",
     "move": "Mover a",
     "turnOn": "Activar",
-    "exit": "Cerrar sesión"
+    "exit": "Cerrar sesión",
+    "hardDelete": "Eliminar permanentemente"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
@@ -345,7 +346,9 @@
     "deletedTime": "Fecha de eliminación",
     "fromSpace": "Del espacio \"{{name}}\"",
     "permanentDeleteTips": "¿Estás seguro de que deseas eliminar permanentemente \"{{name}}\" {{resource}}?",
-    "resetTrashConfirm": "¿Estás seguro de que deseas vaciar la papelera?"
+    "resetTrashConfirm": "¿Estás seguro de que deseas vaciar la papelera?",
+    "addToTrash": "Mover a la papelera",
+    "description": "Los datos en la papelera aún ocupan espacio de uso de registros y uso de archivos adjuntos."
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Complemento no configurando URL",
@@ -412,5 +415,8 @@
       "previewAppError": "Error de aplicación",
       "sendErrorToAI": "Enviar error a AI"
     }
+  },
+  "base": {
+    "deleteTip": "¿Estás seguro de que quieres eliminar \"{{name}}\" base?"
   }
 }

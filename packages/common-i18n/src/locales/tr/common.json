@@ -41,7 +41,8 @@
     "hideNotMatchRow": "Eşleşmeyen satırları gizle",
     "move": "Taşı",
     "turnOn": "Aç",
-    "exit": "Çıkış"
+    "exit": "Çıkış",
+    "hardDelete": "Kalıcı olarak sil"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",
@@ -285,7 +286,9 @@
     "deletedTime": "Silinme zamanı",
     "fromSpace": "\"{{name}}\" alanından",
     "permanentDeleteTips": "\"{{name}}\" {{resource}} öğesini kalıcı olarak silmek istediğinizden emin misiniz?",
-    "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?"
+    "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?",
+    "addToTrash": "Çöp kutusuna taşı",
+    "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar."
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
@@ -352,5 +355,8 @@
       "previewAppError": "Uygulama hatası",
       "sendErrorToAI": "Hata AI'ye gönder"
     }
+  },
+  "base": {
+    "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?"
   }
 }
