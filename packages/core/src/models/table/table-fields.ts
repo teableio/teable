@@ -1,9 +1,7 @@
 import type { IFieldMap } from '../../formula';
-import { FieldType } from '../field/constant';
-import type { FormulaFieldCore } from '../field/derivate/formula.field';
 import type { LinkFieldCore } from '../field/derivate/link.field';
 import type { FieldCore } from '../field/field';
-import type { TableDomain } from './table-domain';
+import { isLinkField } from '../field/field.util';
 
 /**
  * TableFields represents a collection of fields within a table
@@ -140,6 +138,10 @@ export class TableFields {
     return this._fields.filter((field) => field.isComputed);
   }
 
+  getLinkFields(): LinkFieldCore[] {
+    return this._fields.filter(isLinkField);
+  }
+
   /**
    * Get lookup fields
    */
@@ -195,85 +197,20 @@ export class TableFields {
   }
 
   /**
-   * Get all related table IDs from link fields
+   * Get all foreign table ids from link fields
    */
-  getRelatedTableIds(): Set<string> {
-    const relatedTableIds = new Set<string>();
+  getAllForeignTableIds(): Set<string> {
+    const foreignTableIds = new Set<string>();
 
-    for (const field of this._fields) {
-      if (field.type === FieldType.Link && !field.isLookup) {
-        const linkField = field as LinkFieldCore;
-        const foreignTableId = linkField.getForeignTableId();
-        if (foreignTableId) {
-          relatedTableIds.add(foreignTableId);
-        }
+    for (const field of this) {
+      if (!isLinkField(field)) continue;
+      const foreignTableId = field.getForeignTableId();
+      if (foreignTableId) {
+        foreignTableIds.add(foreignTableId);
       }
     }
 
-    return relatedTableIds;
-  }
-
-  /**
-   * Get all related table IDs including those referenced through formula fields
-   * @param tableDomain - The table domain to search for referenced fields
-   */
-  getAllRelatedTableIds(tableDomain: TableDomain): Set<string> {
-    const relatedTableIds = new Set<string>();
-
-    for (const field of this._fields) {
-      this.collectRelatedTableIdsFromField(field, tableDomain, relatedTableIds);
-    }
-
-    return relatedTableIds;
-  }
-
-  /**
-   * Collect related table IDs from a single field
-   * @private
-   */
-  private collectRelatedTableIdsFromField(
-    field: FieldCore,
-    tableDomain: TableDomain,
-    relatedTableIds: Set<string>
-  ): void {
-    // Direct link field references
-    if (field.type === FieldType.Link && !field.isLookup) {
-      this.addLinkFieldTableId(field as LinkFieldCore, relatedTableIds);
-    }
-
-    // Formula field references (indirect through referenced link fields)
-    if (field.type === FieldType.Formula) {
-      this.collectTableIdsFromFormulaField(field as FormulaFieldCore, tableDomain, relatedTableIds);
-    }
-  }
-
-  /**
-   * Add table ID from a link field
-   * @private
-   */
-  private addLinkFieldTableId(linkField: LinkFieldCore, relatedTableIds: Set<string>): void {
-    const foreignTableId = linkField.getForeignTableId();
-    if (foreignTableId) {
-      relatedTableIds.add(foreignTableId);
-    }
-  }
-
-  /**
-   * Collect table IDs from formula field references
-   * @private
-   */
-  private collectTableIdsFromFormulaField(
-    formulaField: FormulaFieldCore,
-    tableDomain: TableDomain,
-    relatedTableIds: Set<string>
-  ): void {
-    const referencedFields = formulaField.getReferenceFields(tableDomain);
-
-    for (const referencedField of referencedFields) {
-      if (referencedField.type === FieldType.Link && !referencedField.isLookup) {
-        this.addLinkFieldTableId(referencedField as LinkFieldCore, relatedTableIds);
-      }
-    }
+    return foreignTableIds;
   }
 
   /**

@@ -10,10 +10,12 @@ import type { TableDomain } from '../../table/table-domain';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
+import { isLinkField } from '../field.util';
 import { getFormattingSchema, getDefaultFormatting } from '../formatting';
 import { getShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 import { type IFormulaFieldMeta, type IFormulaFieldOptions } from './formula-option.schema';
+import type { LinkFieldCore } from './link.field';
 
 const formulaFieldCellValueSchema = z.any();
 
@@ -110,6 +112,10 @@ export class FormulaFieldCore extends FormulaAbstractCore {
     }
 
     return referenceFields;
+  }
+
+  getReferenceLinkFields(tableDomain: TableDomain): LinkFieldCore[] {
+    return this.getReferenceFields(tableDomain).filter(isLinkField) as LinkFieldCore[];
   }
 
   /**

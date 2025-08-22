@@ -79,6 +79,14 @@ export class Tables {
     return this._tableDomains.get(tableId);
   }
 
+  mustGetTable(tableId: string): TableDomain {
+    const table = this.getTable(tableId);
+    if (!table) {
+      throw new Error(`Table ${tableId} not found`);
+    }
+    return table;
+  }
+
   getLinkForeignTable(field: LinkFieldCore): TableDomain | undefined {
     return this.getTable(field.options.foreignTableId);
   }
@@ -159,6 +167,10 @@ export class Tables {
     return entryTable;
   }
 
+  getTableListByIds(ids: Iterable<string>): TableDomain[] {
+    return [...ids].map((id) => this.getTable(id)).filter(Boolean) as TableDomain[];
+  }
+
   /**
    * Get all foreign table domains (excluding the entry table)
    */
@@ -226,7 +238,7 @@ export class Tables {
     const allRelatedTableIds = new Set<string>();
 
     for (const tableDomain of this._tableDomains.values()) {
-      const relatedTableIds = tableDomain.getAllRelatedTableIds();
+      const relatedTableIds = tableDomain.getAllForeignTableIds();
       for (const tableId of relatedTableIds) {
         allRelatedTableIds.add(tableId);
       }

@@ -67,6 +67,13 @@ export class RollupFieldCore extends FormulaAbstractCore {
       .safeParse(this.options);
   }
 
+  /**
+   * Override to return the foreign table ID for rollup fields
+   */
+  getForeignTableId(): string | undefined {
+    return this.lookupOptions?.foreignTableId;
+  }
+
   accept<T>(visitor: IFieldVisitor<T>): T {
     return visitor.visitRollupField(this);
   }
