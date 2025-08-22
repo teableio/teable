@@ -1,4 +1,5 @@
 import type { SafeParseReturnType } from 'zod';
+import type { TableDomain } from '../table';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { IFieldVisitor } from './field-visitor.interface';
 import type { IFieldVo } from './field.schema';
@@ -104,4 +105,30 @@ export abstract class FieldCore implements IFieldVo {
    * @returns The result of the visitor method call
    */
   abstract accept<T>(visitor: IFieldVisitor<T>): T;
+
+  getForeignLookupField(foreignTable: TableDomain): FieldCore | undefined {
+    if (!this.isLookup) {
+      return undefined;
+    }
+
+    const lookupFieldId = this.lookupOptions?.lookupFieldId;
+    if (!lookupFieldId) {
+      return undefined;
+    }
+
+    return foreignTable.getField(lookupFieldId);
+  }
+
+  getLinkField(table: TableDomain): FieldCore | undefined {
+    if (!this.isLookup) {
+      return undefined;
+    }
+
+    const linkFieldId = this.lookupOptions?.linkFieldId;
+    if (!linkFieldId) {
+      return undefined;
+    }
+
+    return table.getField(linkFieldId);
+  }
 }

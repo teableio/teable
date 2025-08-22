@@ -215,17 +215,10 @@ export class TableDomain {
   }
 
   /**
-   * Get all related table IDs from link fields in this table
+   * Get all foreign table IDs from link fields
    */
-  getRelatedTableIds(): Set<string> {
-    return this._fields.getRelatedTableIds();
-  }
-
-  /**
-   * Get all related table IDs including those referenced through formula fields
-   */
-  getAllRelatedTableIds(): Set<string> {
-    return this._fields.getAllRelatedTableIds(this);
+  getAllForeignTableIds(): Set<string> {
+    return this._fields.getAllForeignTableIds();
   }
 
   /**

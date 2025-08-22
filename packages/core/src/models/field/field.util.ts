@@ -1,11 +1,15 @@
 import type { ISetFieldPropertyOpContext } from '../../op-builder/field/set-field-property';
 import { FieldType } from './constant';
-import type { FormulaFieldCore } from './derivate';
+import type { FormulaFieldCore, LinkFieldCore } from './derivate';
 import type { FieldCore } from './field';
 import type { IFieldVo } from './field.schema';
 
 export function isFormulaField(field: FieldCore): field is FormulaFieldCore {
   return field.type === FieldType.Formula;
+}
+
+export function isLinkField(field: FieldCore): field is LinkFieldCore {
+  return field.type === FieldType.Link && !field.isLookup;
 }
 
 /**

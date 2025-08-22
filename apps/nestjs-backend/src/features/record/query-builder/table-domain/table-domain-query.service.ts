@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { TableDomain, Tables } from '@teable/core';
+import { isFormulaField, isLinkField, TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { createFieldInstanceByVo, rawField2FieldObj } from '../../../field/model/factory';
@@ -65,7 +65,6 @@ export class TableDomainQueryService {
           where: { deletedTime: null },
           select: { id: true },
           orderBy: { order: 'asc' },
-          take: 1,
         },
       },
     });
@@ -90,34 +89,31 @@ export class TableDomainQueryService {
    * through link fields and formula fields that reference link fields
    *
    * @param tableId - The root table ID to start from
-   * @param tables - Optional Tables object to continue building on
    * @returns Promise<Tables> - Tables domain object containing all related table domains
    */
-  async getAllRelatedTableDomains(tableId: string, tables?: Tables): Promise<Tables> {
-    // Create new Tables instance if not provided, using tableId as entry table
-    if (!tables) {
-      tables = new Tables(tableId);
-    }
+  async getAllRelatedTableDomains(tableId: string) {
+    return this.#getAllRelatedTableDomains(tableId);
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async #getAllRelatedTableDomains(
+    tableId: string,
+    tables: Tables = new Tables(tableId),
+    level = 1
+  ): Promise<Tables> {
     // Prevent infinite recursion
     if (tables.isVisited(tableId)) {
       return tables;
     }
 
+    const currentTableDomain = await this.getTableDomainById(tableId);
+    tables.addTable(tableId, currentTableDomain);
     // Mark as visited
     tables.markVisited(tableId);
 
-    // Get the current table domain
-    const currentTableDomain = await this.getTableDomainById(tableId);
-    tables.addTable(tableId, currentTableDomain);
-
-    // Get all related table IDs (including through formula fields)
-    const relatedTableIds = currentTableDomain.getAllRelatedTableIds();
-
-    // Recursively fetch related table domains
-    for (const relatedTableId of relatedTableIds) {
-      if (!tables.isVisited(relatedTableId)) {
-        await this.getAllRelatedTableDomains(relatedTableId, tables);
-      }
+    const foreignTableIds = currentTableDomain.getAllForeignTableIds();
+    for (const foreignTableId of foreignTableIds) {
+      await this.#getAllRelatedTableDomains(foreignTableId, tables, level + 1);
     }
 
     return tables;

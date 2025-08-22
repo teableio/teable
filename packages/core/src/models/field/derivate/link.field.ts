@@ -121,12 +121,17 @@ export class LinkFieldCore extends FieldCore {
 
   /**
    * Get the lookup field from the foreign table
-   * @param tableDomain - The table domain to search for the lookup field
+   * @param foreignTable - The table domain to search for the lookup field
+   * @override
    * @returns The lookup field instance if found and table IDs match
    */
-  getForeignLookupField(tableDomain: TableDomain): FieldCore | undefined {
+  override getForeignLookupField(foreignTable: TableDomain): FieldCore | undefined {
+    if (this.isLookup) {
+      return super.getForeignLookupField(foreignTable);
+    }
+
     // Ensure the foreign table ID matches the provided table domain ID
-    if (this.options.foreignTableId !== tableDomain.id) {
+    if (this.options.foreignTableId !== foreignTable.id) {
       return undefined;
     }
 
@@ -137,6 +142,14 @@ export class LinkFieldCore extends FieldCore {
     }
 
     // Get the lookup field instance from the table domain
-    return tableDomain.getField(lookupFieldId);
+    return foreignTable.getField(lookupFieldId);
+  }
+
+  mustGetForeignLookupField(tableDomain: TableDomain): FieldCore {
+    const field = this.getForeignLookupField(tableDomain);
+    if (!field) {
+      throw new Error(`Lookup field ${this.options.lookupFieldId} not found`);
+    }
+    return field;
   }
 }
