@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { isFormulaField, isLinkField, TableDomain, Tables } from '@teable/core';
+import { TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { createFieldInstanceByVo, rawField2FieldObj } from '../../../field/model/factory';
@@ -24,13 +24,10 @@ export class TableDomainQueryService {
    */
   async getTableDomainById(tableId: string): Promise<TableDomain> {
     // Fetch table metadata and fields in parallel for better performance
-    const [tableMeta, fieldRaws] = await Promise.all([
-      this.getTableMetadata(tableId),
-      this.getTableFields(tableId),
-    ]);
+    const tableMeta = await this.getTableMetadata(tableId);
 
     // Convert raw field data to FieldCore instances
-    const fieldInstances = fieldRaws.map((fieldRaw) => {
+    const fieldInstances = tableMeta.fields.map((fieldRaw) => {
       const fieldVo = rawField2FieldObj(fieldRaw);
       return createFieldInstanceByVo(fieldVo) as FieldCore;
     });
@@ -61,6 +58,26 @@ export class TableDomainQueryService {
         deletedTime: null,
       },
       include: {
+        fields: {
+          where: {
+            tableId,
+            deletedTime: null,
+          },
+          orderBy: [
+            {
+              isPrimary: {
+                sort: 'asc',
+                nulls: 'last',
+              },
+            },
+            {
+              order: 'asc',
+            },
+            {
+              createdTime: 'asc',
+            },
+          ],
+        },
         views: {
           where: { deletedTime: null },
           select: { id: true },
@@ -117,32 +134,5 @@ export class TableDomainQueryService {
     }
 
     return tables;
-  }
-
-  /**
-   * Get all fields for a table
-   * @private
-   */
-  private async getTableFields(tableId: string) {
-    return await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-      orderBy: [
-        {
-          isPrimary: {
-            sort: 'asc',
-            nulls: 'last',
-          },
-        },
-        {
-          order: 'asc',
-        },
-        {
-          createdTime: 'asc',
-        },
-      ],
-    });
   }
 }
