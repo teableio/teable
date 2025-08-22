@@ -114,7 +114,7 @@ export class FormulaFieldCore extends FormulaAbstractCore {
     return referenceFields;
   }
 
-  getReferenceLinkFields(tableDomain: TableDomain): LinkFieldCore[] {
+  override getLinkFields(tableDomain: TableDomain): LinkFieldCore[] {
     return this.getReferenceFields(tableDomain).filter(isLinkField) as LinkFieldCore[];
   }
 
