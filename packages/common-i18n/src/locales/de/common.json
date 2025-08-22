@@ -45,8 +45,7 @@
     "more": "Mehr",
     "move": "Verschieben nach",
     "turnOn": "Einschalten",
-    "exit": "Ausloggen",
-    "hardDelete": "Permanent löschen"
+    "exit": "Ausloggen"
   },
   "quickAction": {
     "title": "Schnelle Aktionen...",

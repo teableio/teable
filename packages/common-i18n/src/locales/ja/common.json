@@ -37,8 +37,7 @@
     "more": "もっと",
     "move": "移動先",
     "turnOn": "有効にする",
-    "exit": "ログアウト",
-    "hardDelete": "徹底削除"
+    "exit": "ログアウト"
   },
   "quickAction": {
     "title": "クイックアクション...",

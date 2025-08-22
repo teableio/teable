@@ -245,8 +245,8 @@ export const TableOperation = (props: ITableOperationProps) => {
               <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
                 {t('common:actions.cancel')}
               </Button>
-              <Button size={'sm'} onClick={() => deleteTable(true)}>
-                {t('common:actions.hardDelete')}
+              <Button variant="destructive" size={'sm'} onClick={() => deleteTable(true)}>
+                {t('common:actions.permanentDelete')}
               </Button>
               <Button size={'sm'} onClick={() => deleteTable()}>
                 {t('common:trash.addToTrash')}

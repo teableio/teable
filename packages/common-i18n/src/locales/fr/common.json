@@ -38,8 +38,7 @@
     "more": "Plus",
     "move": "Déplacer vers",
     "turnOn": "Activer",
-    "exit": "Déconnexion",
-    "hardDelete": "Supprimer définitivement"
+    "exit": "Déconnexion"
   },
   "quickAction": {
     "title": "Actions rapides...",
