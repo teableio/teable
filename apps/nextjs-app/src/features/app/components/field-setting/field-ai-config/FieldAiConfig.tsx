@@ -103,7 +103,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   const headerComponent = fieldAIEnable ? (
     <div
       className={cn(
-        'group flex cursor-pointer select-none items-center justify-between px-3 py-2 rounded-sm',
+        'group flex cursor-pointer select-none items-center justify-between px-3 py-2 rounded-sm gap-x-2',
         `transition-all duration-500 ease-in-out 
           bg-gradient-to-r from-blue-100/75 via-indigo-100/75 to-purple-100/75
         hover:from-blue-200/60 hover:via-indigo-200/60 hover:to-purple-200/60 
@@ -114,11 +114,27 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       )}
       onClick={() => setIsExpanded(!isExpanded)}
     >
-      <div className="flex items-center gap-x-1">
+      <div className="flex shrink-0 items-center gap-x-1">
         <MagicAi className="size-4 text-amber-500" />
         {t('table:field.aiConfig.title')}
       </div>
-      {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+      <div className="flex items-center gap-x-3 overflow-hidden">
+        {Boolean(aiConfig?.type) && (
+          <span
+            className="cursor-pointer truncate border-b border-muted-foreground/80 text-xs text-muted-foreground"
+            onClick={() => onChange?.({ aiConfig: undefined })}
+            tabIndex={0}
+            role="button"
+          >
+            {t('actions.removeConfig')}
+          </span>
+        )}
+        {isExpanded ? (
+          <ChevronDown className="size-4 shrink-0" />
+        ) : (
+          <ChevronRight className="size-4 shrink-0" />
+        )}
+      </div>
     </div>
   ) : (
     <UpgradeWrapper targetBillingLevel={BillingProductLevel.Plus}>

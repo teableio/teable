@@ -18,6 +18,7 @@
     "zoomOut": "缩小",
     "back": "返回",
     "remove": "移除",
+    "removeConfig": "清空配置",
     "saveSucceed": "保存成功！",
     "submitSucceed": "提交成功！",
     "editSucceed": "编辑成功！",

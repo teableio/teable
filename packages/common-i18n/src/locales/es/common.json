@@ -17,6 +17,7 @@
     "zoomOut": "Alejar",
     "back": "Volver",
     "remove": "Eliminar",
+    "removeConfig": "Eliminar configuración",
     "saveSucceed": "¡Guardado con éxito!",
     "submitSucceed": "¡Enviado con éxito!",
     "editSucceed": "¡Editado con éxito!",
