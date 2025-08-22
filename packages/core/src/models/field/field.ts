@@ -1,6 +1,7 @@
 import type { SafeParseReturnType } from 'zod';
 import type { TableDomain } from '../table';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
+import type { LinkFieldCore } from './derivate/link.field';
 import type { IFieldVisitor } from './field-visitor.interface';
 import type { IFieldVo } from './field.schema';
 import type { ILookupOptionsVo } from './lookup-options-base.schema';
@@ -123,7 +124,7 @@ export abstract class FieldCore implements IFieldVo {
     return field;
   }
 
-  getLinkField(table: TableDomain): FieldCore | undefined {
+  getLinkField(table: TableDomain): LinkFieldCore | undefined {
     if (!this.lookupOptions) {
       return undefined;
     }
@@ -133,7 +134,15 @@ export abstract class FieldCore implements IFieldVo {
       return undefined;
     }
 
-    return table.getField(linkFieldId);
+    return table.getField(linkFieldId) as LinkFieldCore | undefined;
+  }
+
+  getLinkFields(table: TableDomain): LinkFieldCore[] {
+    const linkField = this.getLinkField(table);
+    if (!linkField) {
+      return [];
+    }
+    return [linkField];
   }
 
   get isStructuredCellValue(): boolean {

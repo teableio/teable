@@ -402,7 +402,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   private readonly _fieldCteMap: Map<string, string>;
 
   constructor(
-    private readonly qb: Knex.QueryBuilder,
+    public readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly tables: Tables
   ) {
@@ -424,11 +424,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
   }
 
-  private generateLinkFieldCte(field: LinkFieldCore): void {
-    const foreignTable = this.tables.mustGetLinkForeignTable(field);
-    const cteName = FieldCteVisitor.generateCTENameForField(this.table, field);
-    const usesJunctionTable = getLinkUsesJunctionTable(field);
-    const options = field.options as ILinkFieldOptions;
+  private generateLinkFieldCte(linkField: LinkFieldCore): void {
+    const foreignTable = this.tables.mustGetLinkForeignTable(linkField);
+    const cteName = FieldCteVisitor.generateCTENameForField(this.table, linkField);
+    const usesJunctionTable = getLinkUsesJunctionTable(linkField);
+    const options = linkField.options as ILinkFieldOptions;
     const mainAlias = getTableAliasFromTable(this.table);
     const foreignAlias = getTableAliasFromTable(foreignTable);
     const { fkHostTableName, selfKeyName, foreignKeyName, relationship } = options;
@@ -443,12 +443,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           foreignTable,
           this.fieldCteMap
         );
-        const linkValue = field.accept(visitor);
+        const linkValue = linkField.accept(visitor);
 
         cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
         cqb.select(cqb.client.raw(`${linkValue} as link_value`));
 
-        const lookupFields = field.getLookupFields(this.table);
+        const lookupFields = linkField.getLookupFields(this.table);
 
         for (const lookupField of lookupFields) {
           const visitor = new FieldCteSelectionVisitor(
@@ -462,7 +462,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           cqb.select(cqb.client.raw(`${lookupValue} as "lookup_${lookupField.id}"`));
         }
 
-        const rollupFields = field.getRollupFields(this.table);
+        const rollupFields = linkField.getRollupFields(this.table);
         for (const rollupField of rollupFields) {
           const visitor = new FieldCteSelectionVisitor(
             cqb,
@@ -509,7 +509,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
           // For SQLite, add ORDER BY at query level
           if (this.dbProvider.driver === DriverClient.Sqlite) {
-            if (field.getHasOrderColumn()) {
+            if (linkField.getHasOrderColumn()) {
               cqb.orderBy(`${foreignAlias}.${selfKeyName}_order`);
             } else {
               cqb.orderBy(`${foreignAlias}.__id`);
@@ -547,7 +547,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       })
       .leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
 
-    this._fieldCteMap.set(field.id, cteName);
+    this._fieldCteMap.set(linkField.id, cteName);
   }
 
   visitNumberField(_field: NumberFieldCore): void {}
