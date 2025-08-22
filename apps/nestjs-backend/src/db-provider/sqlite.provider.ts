@@ -363,7 +363,7 @@ export class SqliteProvider implements IDbProvider {
   aggregationQuery(
     originQueryBuilder: Knex.QueryBuilder,
     dbTableName: string,
-    fields?: { [fieldId: string]: IFieldInstance },
+    fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
     extra?: IAggregationQueryExtra
   ): IAggregationQueryInterface {
@@ -379,7 +379,7 @@ export class SqliteProvider implements IDbProvider {
 
   filterQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fields?: { [p: string]: IFieldInstance },
+    fields?: { [p: string]: FieldCore },
     filter?: IFilter,
     extra?: IFilterQueryExtra,
     context?: IRecordQueryFilterContext

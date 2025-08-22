@@ -10,6 +10,10 @@ export class CreatedByFieldCore extends UserAbstractCore {
   type!: FieldType.CreatedBy;
   options!: ICreatedByFieldOptions;
 
+  override get isStructuredCellValue() {
+    return true;
+  }
+
   convertStringToCellValue(_value: string) {
     return null;
   }

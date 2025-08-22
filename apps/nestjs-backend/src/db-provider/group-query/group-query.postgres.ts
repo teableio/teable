@@ -1,6 +1,10 @@
-import type { INumberFieldOptions, IDateFieldOptions, DateFormattingPreset } from '@teable/core';
+import type {
+  INumberFieldOptions,
+  IDateFieldOptions,
+  DateFormattingPreset,
+  FieldCore,
+} from '@teable/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IRecordQueryGroupContext } from '../../features/record/query-builder/record-query-builder.interface';
 import { isUserOrLink } from '../../utils/is-user-or-link';
 import { getPostgresDateTimeFormatString } from './format-string';
@@ -11,7 +15,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
   constructor(
     protected readonly knex: Knex,
     protected readonly originQueryBuilder: Knex.QueryBuilder,
-    protected readonly fieldMap?: { [fieldId: string]: IFieldInstance },
+    protected readonly fieldMap?: { [fieldId: string]: FieldCore },
     protected readonly groupFieldIds?: string[],
     protected readonly extra?: IGroupQueryExtra,
     protected readonly context?: IRecordQueryGroupContext
@@ -24,7 +28,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return isDistinct;
   }
 
-  string(field: IFieldInstance): Knex.QueryBuilder {
+  string(field: FieldCore): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const column = this.knex.ref(columnName);
 
@@ -34,7 +38,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return this.originQueryBuilder.select(column).groupBy(columnName);
   }
 
-  number(field: IFieldInstance): Knex.QueryBuilder {
+  number(field: FieldCore): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};
@@ -51,7 +55,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return this.originQueryBuilder.select(column).groupBy(groupByColumn);
   }
 
-  date(field: IFieldInstance): Knex.QueryBuilder {
+  date(field: FieldCore): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
@@ -75,7 +79,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return this.originQueryBuilder.select(column).groupBy(groupByColumn);
   }
 
-  json(field: IFieldInstance): Knex.QueryBuilder {
+  json(field: FieldCore): Knex.QueryBuilder {
     const { type, isMultipleCellValue } = field;
     const columnName = this.getTableColumnName(field);
 
@@ -126,7 +130,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return this.originQueryBuilder.select(column).groupBy(columnName);
   }
 
-  multipleDate(field: IFieldInstance): Knex.QueryBuilder {
+  multipleDate(field: FieldCore): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
@@ -153,7 +157,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return this.originQueryBuilder.select(column).groupBy(groupByColumn);
   }
 
-  multipleNumber(field: IFieldInstance): Knex.QueryBuilder {
+  multipleNumber(field: FieldCore): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};

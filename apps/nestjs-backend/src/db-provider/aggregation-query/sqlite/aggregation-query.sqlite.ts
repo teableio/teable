@@ -1,11 +1,11 @@
-import type { IFieldInstance } from '../../../features/field/model/factory';
+import type { FieldCore } from '@teable/core';
 import { AbstractAggregationQuery } from '../aggregation-query.abstract';
 import type { AggregationFunctionSqlite } from './aggregation-function.sqlite';
 import { MultipleValueAggregationAdapter } from './multiple-value/multiple-value-aggregation.adapter';
 import { SingleValueAggregationAdapter } from './single-value/single-value-aggregation.adapter';
 
 export class AggregationQuerySqlite extends AbstractAggregationQuery {
-  private coreAggregation(field: IFieldInstance): AggregationFunctionSqlite {
+  private coreAggregation(field: FieldCore): AggregationFunctionSqlite {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
       return new MultipleValueAggregationAdapter(this.knex, this.dbTableName, field);
@@ -13,23 +13,23 @@ export class AggregationQuerySqlite extends AbstractAggregationQuery {
     return new SingleValueAggregationAdapter(this.knex, this.dbTableName, field);
   }
 
-  booleanAggregation(field: IFieldInstance): AggregationFunctionSqlite {
+  booleanAggregation(field: FieldCore): AggregationFunctionSqlite {
     return this.coreAggregation(field);
   }
 
-  numberAggregation(field: IFieldInstance): AggregationFunctionSqlite {
+  numberAggregation(field: FieldCore): AggregationFunctionSqlite {
     return this.coreAggregation(field);
   }
 
-  dateTimeAggregation(field: IFieldInstance): AggregationFunctionSqlite {
+  dateTimeAggregation(field: FieldCore): AggregationFunctionSqlite {
     return this.coreAggregation(field);
   }
 
-  stringAggregation(field: IFieldInstance): AggregationFunctionSqlite {
+  stringAggregation(field: FieldCore): AggregationFunctionSqlite {
     return this.coreAggregation(field);
   }
 
-  jsonAggregation(field: IFieldInstance): AggregationFunctionSqlite {
+  jsonAggregation(field: FieldCore): AggregationFunctionSqlite {
     return this.coreAggregation(field);
   }
 }

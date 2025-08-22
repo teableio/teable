@@ -8,6 +8,10 @@ export class LastModifiedByFieldCore extends UserAbstractCore {
   type!: FieldType.LastModifiedBy;
   options!: ILastModifiedByFieldOptions;
 
+  override get isStructuredCellValue() {
+    return true;
+  }
+
   convertStringToCellValue(_value: string) {
     return null;
   }

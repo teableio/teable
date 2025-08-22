@@ -1,8 +1,8 @@
 import { BadRequestException, Logger } from '@nestjs/common';
+import type { FieldCore } from '@teable/core';
 import { CellValueType, DbFieldType, getValidStatisticFunc, StatisticsFunc } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IAggregationQueryExtra } from '../db.provider.interface';
 import type { AbstractAggregationFunction } from './aggregation-function.abstract';
 import type { IAggregationQueryInterface } from './aggregation-query.interface';
@@ -14,7 +14,7 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     protected readonly knex: Knex,
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly dbTableName: string,
-    protected readonly fields?: { [fieldId: string]: IFieldInstance },
+    protected readonly fields?: { [fieldId: string]: FieldCore },
     protected readonly aggregationFields?: IAggregationField[],
     protected readonly extra?: IAggregationQueryExtra
   ) {}
@@ -82,7 +82,7 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
       });
   }
 
-  private getAggregationAdapter(field: IFieldInstance): AbstractAggregationFunction {
+  private getAggregationAdapter(field: FieldCore): AbstractAggregationFunction {
     const { dbFieldType } = field;
     switch (field.cellValueType) {
       case CellValueType.Boolean:
@@ -100,13 +100,13 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     }
   }
 
-  abstract booleanAggregation(field: IFieldInstance): AbstractAggregationFunction;
+  abstract booleanAggregation(field: FieldCore): AbstractAggregationFunction;
 
-  abstract numberAggregation(field: IFieldInstance): AbstractAggregationFunction;
+  abstract numberAggregation(field: FieldCore): AbstractAggregationFunction;
 
-  abstract dateTimeAggregation(field: IFieldInstance): AbstractAggregationFunction;
+  abstract dateTimeAggregation(field: FieldCore): AbstractAggregationFunction;
 
-  abstract stringAggregation(field: IFieldInstance): AbstractAggregationFunction;
+  abstract stringAggregation(field: FieldCore): AbstractAggregationFunction;
 
-  abstract jsonAggregation(field: IFieldInstance): AbstractAggregationFunction;
+  abstract jsonAggregation(field: FieldCore): AbstractAggregationFunction;
 }

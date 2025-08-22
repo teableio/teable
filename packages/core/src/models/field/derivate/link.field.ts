@@ -22,6 +22,10 @@ export class LinkFieldCore extends FieldCore {
     return {};
   }
 
+  override get isStructuredCellValue() {
+    return true;
+  }
+
   type!: FieldType.Link;
 
   options!: ILinkFieldOptions;

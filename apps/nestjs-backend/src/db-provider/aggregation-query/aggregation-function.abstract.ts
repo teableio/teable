@@ -1,7 +1,7 @@
 import { InternalServerErrorException, Logger } from '@nestjs/common';
+import type { FieldCore } from '@teable/core';
 import { StatisticsFunc } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IAggregationFunctionInterface } from './aggregation-function.interface';
 
 export abstract class AbstractAggregationFunction implements IAggregationFunctionInterface {
@@ -12,7 +12,7 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
   constructor(
     protected readonly knex: Knex,
     protected readonly dbTableName: string,
-    protected readonly field: IFieldInstance
+    protected readonly field: FieldCore
   ) {
     const { dbFieldName } = field;
 
