@@ -37,8 +37,8 @@ export type IAttachmentFieldCustomizeAIConfig = z.infer<
 >;
 
 export const attachmentFieldAIConfigSchema = z.union([
-  attachmentFieldGenerateImageAIConfigSchema,
-  attachmentFieldCustomizeAIConfigSchema,
+  attachmentFieldGenerateImageAIConfigSchema.strict(),
+  attachmentFieldCustomizeAIConfigSchema.strict(),
 ]);
 
 export type IAttachmentFieldAIConfig = z.infer<typeof attachmentFieldAIConfigSchema>;

@@ -23,8 +23,8 @@ export type ISingleSelectFieldCustomizeAIConfig = z.infer<
 >;
 
 export const singleSelectFieldAIConfigSchema = z.union([
-  singleSelectFieldClassifyAIConfigSchema,
-  singleSelectFieldCustomizeAIConfigSchema,
+  singleSelectFieldClassifyAIConfigSchema.strict(),
+  singleSelectFieldCustomizeAIConfigSchema.strict(),
 ]);
 
 export type ISingleSelectFieldAIConfig = z.infer<typeof singleSelectFieldAIConfigSchema>;

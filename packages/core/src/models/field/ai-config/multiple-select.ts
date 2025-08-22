@@ -21,8 +21,8 @@ export type IMultipleSelectFieldCustomizeAIConfig = z.infer<
 >;
 
 export const multipleSelectFieldAIConfigSchema = z.union([
-  multipleSelectFieldTagAIConfigSchema,
-  multipleSelectFieldCustomizeAIConfigSchema,
+  multipleSelectFieldTagAIConfigSchema.strict(),
+  multipleSelectFieldCustomizeAIConfigSchema.strict(),
 ]);
 
 export type IMultipleSelectFieldAIConfig = z.infer<typeof multipleSelectFieldAIConfigSchema>;
