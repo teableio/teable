@@ -142,7 +142,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return visitor.getSelectionMap();
   }
 
-  buildFilter(
+  private buildFilter(
     qb: Knex.QueryBuilder,
     table: TableDomain,
     filter: IFilter,
@@ -162,7 +162,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return this;
   }
 
-  buildSort(
+  private buildSort(
     qb: Knex.QueryBuilder,
     table: TableDomain,
     sort: ISortItem[],

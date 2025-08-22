@@ -105,44 +105,6 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return rawExpression;
       }
 
-      // Check if the target lookup field exists in the context
-      const targetFieldExists = this.table.hasField(field.lookupOptions.lookupFieldId);
-      if (!targetFieldExists) {
-        // Target field has been deleted, return NULL to indicate this field should be null
-        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
-        this.selectionMap.set(field.id, 'NULL');
-        return rawExpression;
-      }
-
-      // First check if this is a nested lookup field with its own CTE
-      const nestedCteName = `cte_nested_lookup_${field.id}`;
-      if (this.fieldCteMap.has(field.id) && this.fieldCteMap.get(field.id) === nestedCteName) {
-        // Return Raw expression for selecting from nested lookup CTE
-        const rawExpression = this.qb.client.raw(`??."nested_lookup_value" as ??`, [
-          nestedCteName,
-          field.dbFieldName,
-        ]);
-        // For WHERE clauses, store the CTE column reference
-        this.selectionMap.set(field.id, `${nestedCteName}.nested_lookup_value`);
-        return rawExpression;
-      }
-
-      // Check if this is a lookup to link field with its own CTE
-      const lookupToLinkCteName = `cte_lookup_to_link_${field.id}`;
-      if (
-        this.fieldCteMap?.has(field.id) &&
-        this.fieldCteMap.get(field.id) === lookupToLinkCteName
-      ) {
-        // Return Raw expression for selecting from lookup to link CTE
-        const rawExpression = this.qb.client.raw(`??."lookup_link_value" as ??`, [
-          lookupToLinkCteName,
-          field.dbFieldName,
-        ]);
-        // For WHERE clauses, store the CTE column reference
-        this.selectionMap.set(field.id, `${lookupToLinkCteName}.lookup_link_value`);
-        return rawExpression;
-      }
-
       // For regular lookup fields, use the corresponding link field CTE
       const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
@@ -158,7 +120,6 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
     }
 
-    // TODO: remove this fallback
     // Fallback to the original column
     const columnSelector = this.getColumnSelector(field);
     this.selectionMap.set(field.id, columnSelector);

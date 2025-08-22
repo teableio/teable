@@ -26,6 +26,7 @@ import type {
   Tables,
   TableDomain,
   ILinkFieldOptions,
+  FieldCore,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -75,6 +76,20 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
   }
 
+  private getJsonAggregationFunction(fieldReference: string): string {
+    const driver = this.dbProvider.driver;
+
+    if (driver === DriverClient.Pg) {
+      // Filter out null values to prevent null entries in the JSON array
+      return `json_agg(${fieldReference}) FILTER (WHERE ${fieldReference} IS NOT NULL)`;
+    } else if (driver === DriverClient.Sqlite) {
+      // For SQLite, we need to handle null filtering differently
+      return `json_group_array(${fieldReference}) WHERE ${fieldReference} IS NOT NULL`;
+    }
+
+    throw new Error(`Unsupported database driver: ${driver}`);
+  }
+
   /**
    * Generate JSON aggregation function for Link fields (creates objects with id and title)
    * When title is null, only includes the id key
@@ -82,7 +97,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
    * @param foreignTable The table that the link field points to
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private getLinkJsonAggregationFunction(field: LinkFieldCore, foreignTable: TableDomain): string {
+  private getLinkValue(field: LinkFieldCore, foreignTable: TableDomain): string {
     const driver = this.dbProvider.driver;
     const junctionAlias = JUNCTION_ALIAS;
 
@@ -167,6 +182,26 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       });
   }
 
+  private getLookupValue(field: FieldCore, foreignTable: TableDomain): string {
+    const qb = this.qb.client.queryBuilder();
+    const selectVisitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      foreignTable,
+      this._fieldCteMap
+    );
+
+    const targetLookupField = field.mustGetForeignLookupField(foreignTable);
+    const targetFieldResult = targetLookupField.accept(selectVisitor);
+
+    const expression =
+      typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+    if (!field.isMultipleCellValue) {
+      return expression;
+    }
+    return this.getJsonAggregationFunction(expression);
+  }
+
   private generateLinkFieldCte(field: LinkFieldCore): void {
     const foreignTable = this.tables.mustGetLinkForeignTable(field);
     const cteName = FieldCteVisitor.generateCTENameForField(this.table, field);
@@ -177,11 +212,19 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const { fkHostTableName, selfKeyName, foreignKeyName, relationship } = options;
 
     this.qb
+      // eslint-disable-next-line sonarjs/cognitive-complexity
       .with(cteName, (cqb) => {
-        const jsonAggFunction = this.getLinkJsonAggregationFunction(field, foreignTable);
+        const linkValue = this.getLinkValue(field, foreignTable);
 
         cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
-        cqb.select(cqb.client.raw(`${jsonAggFunction} as link_value`));
+        cqb.select(cqb.client.raw(`${linkValue} as link_value`));
+
+        const lookupFields = field.getLookupFields(this.table);
+
+        for (const lookupField of lookupFields) {
+          const lookupValue = this.getLookupValue(lookupField, foreignTable);
+          cqb.select(cqb.client.raw(`${lookupValue} as "lookup_${lookupField.id}"`));
+        }
 
         if (usesJunctionTable) {
           cqb
