@@ -1,7 +1,7 @@
 import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
 import type { TableDomain } from '../../table/table-domain';
-import { type FieldType, type CellValueType, Relationship } from '../constant';
+import { type CellValueType, FieldType, Relationship } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
 import {
@@ -161,6 +161,12 @@ export class LinkFieldCore extends FieldCore {
     return tableDomain.filterFields(
       (field) =>
         !!field.isLookup && !!field.lookupOptions && field.lookupOptions.linkFieldId === this.id
+    );
+  }
+
+  getRollupFields(tableDomain: TableDomain) {
+    return tableDomain.filterFields(
+      (field) => field.type === FieldType.Rollup && field.lookupOptions?.linkFieldId === this.id
     );
   }
 }
