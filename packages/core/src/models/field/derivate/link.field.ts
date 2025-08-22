@@ -156,4 +156,11 @@ export class LinkFieldCore extends FieldCore {
     }
     return field;
   }
+
+  getLookupFields(tableDomain: TableDomain) {
+    return tableDomain.filterFields(
+      (field) =>
+        !!field.isLookup && !!field.lookupOptions && field.lookupOptions.linkFieldId === this.id
+    );
+  }
 }

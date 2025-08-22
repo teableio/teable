@@ -42,7 +42,7 @@ export class TableDomain {
   }
 
   getTableNameAndId() {
-    return `${this.name}_${this.dbTableName}_${this.id}`;
+    return `${this.name}_${this.id}`;
   }
 
   /**

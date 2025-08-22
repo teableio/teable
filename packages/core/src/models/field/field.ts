@@ -119,6 +119,14 @@ export abstract class FieldCore implements IFieldVo {
     return foreignTable.getField(lookupFieldId);
   }
 
+  mustGetForeignLookupField(foreignTable: TableDomain): FieldCore {
+    const field = this.getForeignLookupField(foreignTable);
+    if (!field) {
+      throw new Error(`Lookup field ${this.lookupOptions?.lookupFieldId} not found`);
+    }
+    return field;
+  }
+
   getLinkField(table: TableDomain): FieldCore | undefined {
     if (!this.isLookup) {
       return undefined;
