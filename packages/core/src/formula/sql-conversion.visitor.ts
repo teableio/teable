@@ -651,7 +651,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {
-      throw new Error(`Field not found: ${fieldId}`);
+      return 'NULL';
     }
 
     // Check if this field has a CTE mapping (for link, lookup, rollup fields)
