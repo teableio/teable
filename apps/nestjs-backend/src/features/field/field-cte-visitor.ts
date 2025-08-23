@@ -372,7 +372,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     return match(driver)
       .with(DriverClient.Pg, () => {
         // Build JSON object with id and title, then strip null values to remove title key when null
-        const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${targetFieldSelectionExpression}))::json`;
+        const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${targetFieldSelectionExpression}))::jsonb`;
 
         if (isMultiValue) {
           // Filter out null records and return empty array if no valid records exist
