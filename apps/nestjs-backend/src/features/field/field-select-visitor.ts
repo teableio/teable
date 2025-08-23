@@ -109,7 +109,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
         const cteName = this.fieldCteMap.get(linkFieldId)!;
-        // Return Raw expression for selecting from link field CTE
+        // For multiple-value lookup: return CTE column directly; flattening is reverted
+        // Return Raw expression for selecting from link field CTE (non-flatten or non-PG)
         const rawExpression = this.qb.client.raw(`??."lookup_${field.id}" as ??`, [
           cteName,
           field.dbFieldName,
