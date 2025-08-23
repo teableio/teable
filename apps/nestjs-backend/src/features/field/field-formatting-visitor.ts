@@ -109,12 +109,12 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
       // we should extract the string values directly without re-serializing
       return `(SELECT string_agg(
         CASE
-          WHEN json_typeof(elem) = 'string' THEN elem #>> '{}'
-          WHEN json_typeof(elem) = 'object' THEN elem->>'title'
+          WHEN jsonb_typeof(elem) = 'string' THEN elem #>> '{}'
+          WHEN jsonb_typeof(elem) = 'object' THEN elem->>'title'
           ELSE elem::text
         END,
         ', '
-      ) FROM json_array_elements(COALESCE(${this.fieldExpression}, '[]'::json)) as elem)`;
+      ) FROM jsonb_array_elements(COALESCE(${this.fieldExpression}, '[]'::jsonb)) as elem)`;
     } else {
       // SQLite: Use GROUP_CONCAT with json_each to join array elements
       return `(SELECT GROUP_CONCAT(
