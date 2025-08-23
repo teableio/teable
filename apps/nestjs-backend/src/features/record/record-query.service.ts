@@ -88,7 +88,10 @@ export class RecordQueryService {
         // Convert database values to cell values
         for (const field of fields) {
           const dbValue = rawRecord[this.getQueryColumnName(field)];
-          const cellValue = field.convertDBValue2CellValue(dbValue);
+          let cellValue = field.convertDBValue2CellValue(dbValue);
+          if (field.isLookup && Array.isArray(cellValue)) {
+            cellValue = cellValue.flat(Infinity);
+          }
           recordFields[field.id] = cellValue;
         }
 

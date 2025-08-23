@@ -503,11 +503,15 @@ export class ReferenceService {
       return record.fields[field.id];
     }
 
-    return field.convertDBValue2CellValue({
+    let cellValue = field.convertDBValue2CellValue({
       id: user.id,
       title: user.name,
       email: user.email,
     });
+    if (field.isLookup && Array.isArray(cellValue)) {
+      cellValue = cellValue.flat(Infinity);
+    }
+    return cellValue;
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -967,7 +971,11 @@ export class ReferenceService {
   recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }): IRecord {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
       const queryColumnName = this.getQueryColumnName(field);
-      acc[field.id] = field.convertDBValue2CellValue(raw[queryColumnName] as string);
+      let cellValue = field.convertDBValue2CellValue(raw[queryColumnName] as string);
+      if (field.isLookup && Array.isArray(cellValue)) {
+        cellValue = cellValue.flat(Infinity);
+      }
+      acc[field.id] = cellValue;
       return acc;
     }, {});
 
