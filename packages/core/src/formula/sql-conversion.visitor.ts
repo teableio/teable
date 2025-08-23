@@ -679,7 +679,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
             return `("${cteName}"."link_value" IS NOT NULL AND "${cteName}"."link_value" != 'null' AND "${cteName}"."link_value" != '[]')`;
           }
         } else {
-          // For non-boolean context, extract title values as before
+          // For non-boolean context, extract title values as JSON array
           if (fieldInfo.isMultipleCellValue) {
             // For multi-value link fields (OneMany/ManyMany), extract array of titles
             if (isPostgreSQL) {

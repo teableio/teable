@@ -104,17 +104,27 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
   private formatMultipleStringValues(): string {
     if (this.isPostgreSQL) {
       // PostgreSQL: Handle both text arrays and object arrays (like link fields)
-      // First try to extract title from objects, fallback to text elements
+      // The key issue is that we need to avoid double JSON processing
+      // When the expression is already a JSON array from link field references,
+      // we should extract the string values directly without re-serializing
       return `(SELECT string_agg(
         CASE
+          WHEN json_typeof(elem) = 'string' THEN elem #>> '{}'
           WHEN json_typeof(elem) = 'object' THEN elem->>'title'
           ELSE elem::text
         END,
         ', '
-      ) FROM json_array_elements(${this.fieldExpression}::json) as elem)`;
+      ) FROM json_array_elements(COALESCE(${this.fieldExpression}, '[]'::json)) as elem)`;
     } else {
       // SQLite: Use GROUP_CONCAT with json_each to join array elements
-      return `(SELECT GROUP_CONCAT(value, ', ') FROM json_each(${this.fieldExpression}))`;
+      return `(SELECT GROUP_CONCAT(
+        CASE
+          WHEN json_type(value) = 'text' THEN json_extract(value, '$')
+          WHEN json_type(value) = 'object' THEN json_extract(value, '$.title')
+          ELSE value
+        END,
+        ', '
+      ) FROM json_each(COALESCE(${this.fieldExpression}, json('[]'))))`;
     }
   }
 
