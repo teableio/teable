@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
-import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../query-builder';
-import type { ICreateMaterializedViewParams } from './record-material-view.types';
+import { IRecordQueryBuilder } from '../../record/query-builder/record-query-builder.interface';
+import { InjectRecordQueryBuilder } from '../../record/query-builder/record-query-builder.provider';
+import type { ICreateMaterializedViewParams } from './database-material-view.types';
 
 @Injectable()
-export class RecordMaterialViewService {
+export class DatabaseMaterialViewService {
   constructor(
     @InjectRecordQueryBuilder()
     private readonly recordQueryBuilder: IRecordQueryBuilder,
