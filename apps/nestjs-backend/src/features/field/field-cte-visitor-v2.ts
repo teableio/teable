@@ -47,6 +47,8 @@ import type { IFieldSelectName } from './field-select.type';
 type ICteResult = void;
 
 const JUNCTION_ALIAS = 'j';
+// Use ASCII-safe alias for JOINed CTEs to avoid quoting/spacing issues
+const getJoinedCteAliasForFieldId = (linkFieldId: string) => `cte_${linkFieldId}_joined`;
 
 class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   constructor(
@@ -232,7 +234,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          const cteAlias = `${nestedCteName}_joined`;
+          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
           const linkExpr = `"${cteAlias}"."link_value"`;
           return field.isMultipleCellValue ? this.getJsonAggregationFunction(linkExpr) : linkExpr;
         } else {
@@ -252,13 +254,33 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          const cteAlias = `${nestedCteName}_joined`;
+          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
           const linkExpr = `"${cteAlias}"."link_value"`;
           return field.isMultipleCellValue ? this.getJsonAggregationFunction(linkExpr) : linkExpr;
         } else {
           // Fallback to subquery if CTE not JOINed in current scope
           const linkExpr = `((SELECT link_value FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
           return field.isMultipleCellValue ? this.getJsonAggregationFunction(linkExpr) : linkExpr;
+        }
+      }
+    }
+
+    // If the target is a Rollup field, read its precomputed rollup value from the link CTE
+    if (targetLookupField.type === FieldType.Rollup) {
+      const rollupField = targetLookupField as RollupFieldCore;
+      const rollupLinkField = rollupField.getLinkField(this.foreignTable);
+      if (rollupLinkField) {
+        const nestedLinkFieldId = rollupLinkField.id;
+        if (this.fieldCteMap.has(nestedLinkFieldId)) {
+          const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+          let expr: string;
+          if (this.joinedCtes?.has(nestedLinkFieldId)) {
+            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
+            expr = `"${cteAlias}"."rollup_${rollupField.id}"`;
+          } else {
+            expr = `((SELECT "rollup_${rollupField.id}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
+          }
+          return field.isMultipleCellValue ? this.getJsonAggregationFunction(expr) : expr;
         }
       }
     }
@@ -271,7 +293,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          const cteAlias = `${nestedCteName}_joined`;
+          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
           expression = `"${cteAlias}"."lookup_${targetLookupField.id}"`;
         } else {
           // Fallback to subquery if CTE not JOINed in current scope
@@ -409,6 +431,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       });
   }
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
+    if (field.isLookup) {
+      return this.visitLookupField(field);
+    }
     const targetField = field.mustGetForeignLookupField(this.foreignTable);
     const qb = this.qb.client.queryBuilder();
     const selectVisitor = new FieldSelectVisitor(
@@ -435,7 +460,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         if (columnName) {
           // Check if this CTE is JOINed in current scope
           if (this.joinedCtes?.has(nestedLinkFieldId)) {
-            const cteAlias = `${nestedCteName}_joined`;
+            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
             expression = `"${cteAlias}"."${columnName}"`;
           } else {
             // Fallback to subquery if CTE not JOINed in current scope
@@ -645,7 +670,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           // Add LEFT JOINs to nested CTEs
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-            const cteAlias = `${nestedCteName}_joined`;
+            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
             cqb.leftJoin(
               nestedCteName + ' as ' + cteAlias,
               `${cteAlias}.main_record_id`,
@@ -674,7 +699,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           // Add LEFT JOINs to nested CTEs
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-            const cteAlias = `${nestedCteName}_joined`;
+            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
             cqb.leftJoin(
               nestedCteName + ' as ' + cteAlias,
               `${cteAlias}.main_record_id`,
@@ -724,7 +749,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           // Add LEFT JOINs to nested CTEs for single-value relationships
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-            const cteAlias = `${nestedCteName}_joined`;
+            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
             cqb.leftJoin(
               nestedCteName + ' as ' + cteAlias,
               `${cteAlias}.main_record_id`,
@@ -922,7 +947,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Add LEFT JOINs to nested CTEs
         for (const nestedLinkFieldId of nestedJoins) {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-          const cteAlias = `${nestedCteName}_joined`;
+          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
           cqb.leftJoin(
             nestedCteName + ' as ' + cteAlias,
             `${cteAlias}.main_record_id`,
@@ -947,7 +972,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Add LEFT JOINs to nested CTEs
         for (const nestedLinkFieldId of nestedJoins) {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-          const cteAlias = `${nestedCteName}_joined`;
+          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
           cqb.leftJoin(
             nestedCteName + ' as ' + cteAlias,
             `${cteAlias}.main_record_id`,
@@ -985,7 +1010,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Add LEFT JOINs to nested CTEs for single-value relationships
         for (const nestedLinkFieldId of nestedJoins) {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-          const cteAlias = `${nestedCteName}_joined`;
+          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
           cqb.leftJoin(
             nestedCteName + ' as ' + cteAlias,
             `${cteAlias}.main_record_id`,
