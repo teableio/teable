@@ -1,5 +1,4 @@
-import type { IFieldMap } from '@teable/core';
-import type { PrismaService } from '@teable/db-main-prisma';
+import type { TableDomain } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IDbProvider } from '../db.provider.interface';
@@ -10,6 +9,7 @@ import type { IDbProvider } from '../db.provider.interface';
 export interface ICreateDatabaseColumnContext {
   /** Knex table builder instance */
   table: Knex.CreateTableBuilder;
+  tableDomain: TableDomain;
   /** Field ID */
   fieldId: string;
   /** the Field instance to add */
@@ -22,8 +22,6 @@ export interface ICreateDatabaseColumnContext {
   notNull?: boolean;
   /** Database provider for formula conversion */
   dbProvider?: IDbProvider;
-  /** Field map for formula conversion context */
-  fieldMap?: IFieldMap;
   /** Whether this is a new table creation (affects SQLite generated columns) */
   isNewTable?: boolean;
   /** Current table ID (for link field foreign key creation) */

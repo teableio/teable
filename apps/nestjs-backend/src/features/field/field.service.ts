@@ -38,6 +38,7 @@ import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
 
+import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
 import { FormulaFieldService } from './field-calculate/formula-field.service';
 import { LinkFieldQueryService } from './field-calculate/link-field-query.service';
 
@@ -62,7 +63,8 @@ export class FieldService implements IReadonlyAdapterService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
 
     private readonly formulaFieldService: FormulaFieldService,
-    private readonly linkFieldQueryService: LinkFieldQueryService
+    private readonly linkFieldQueryService: LinkFieldQueryService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
@@ -261,9 +263,7 @@ export class FieldService implements IReadonlyAdapterService {
     if (!tableMeta) {
       throw new NotFoundException(`Table not found: ${dbTableName}`);
     }
-
-    // Build field map for formula conversion with expansion support
-    const fieldMap = await this.buildFieldMapForTableWithExpansion(tableMeta.id);
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableMeta.id);
 
     for (const fieldInstance of fieldInstances) {
       const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
@@ -277,7 +277,7 @@ export class FieldService implements IReadonlyAdapterService {
       const alterTableQueries = this.dbProvider.createColumnSchema(
         dbTableName,
         fieldInstance,
-        fieldMap,
+        tableDomain,
         isNewTable,
         tableMeta.id,
         tableNameMap,
@@ -421,13 +421,10 @@ export class FieldService implements IReadonlyAdapterService {
       },
     });
 
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
+    tableDomain.updateField(fieldId, newField);
+
     const dbTableName = table.dbTableName;
-
-    // Build field map for formula conversion context
-    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
-
-    // Update the field map with the new field information to ensure we use the latest field data
-    fieldMap.set(fieldId, newField);
 
     // Build table name map for link field operations
     const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(tableId, [
@@ -458,7 +455,7 @@ export class FieldService implements IReadonlyAdapterService {
       dbTableName,
       oldField,
       newField,
-      fieldMap,
+      tableDomain,
       linkContext
     );
 
@@ -1125,14 +1122,14 @@ export class FieldService implements IReadonlyAdapterService {
     // Build field map for formula conversion context
     // Note: We need to rebuild the field map after the current field update
     // to ensure dependent formula fields use the latest field information
-    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
 
     // Use modifyColumnSchema to recreate the field with updated options
     const modifyColumnSql = this.dbProvider.modifyColumnSchema(
       dbTableName,
       oldField,
       newField,
-      fieldMap
+      tableDomain
     );
 
     // Execute the column modification
@@ -1162,6 +1159,8 @@ export class FieldService implements IReadonlyAdapterService {
       return;
     }
 
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
+
     try {
       // Get all formula fields that depend on this field
       const dependentFields = await this.formulaFieldService.getDependentFormulaFieldsInOrder(
@@ -1172,9 +1171,7 @@ export class FieldService implements IReadonlyAdapterService {
         return;
       }
 
-      // Build field map for formula conversion context
-      const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
-      fieldMap.set(field.id, field);
+      tableDomain.updateField(field.id, field);
 
       // Process dependent fields in dependency order (deepest first for deletion, then reverse for creation)
       const fieldsToProcess = [...dependentFields].reverse(); // Reverse to get shallowest first
@@ -1205,6 +1202,7 @@ export class FieldService implements IReadonlyAdapterService {
         // Recalculate the field's cellValueType and dbFieldType based on current dependencies
         if (fieldInstance.type === FieldType.Formula) {
           // Use the instance method to recalculate field types (including dbFieldType)
+          const fieldMap = tableDomain.fields.toFieldMap();
           (fieldInstance as FormulaFieldCore).recalculateFieldTypes(Object.fromEntries(fieldMap));
         }
 
@@ -1223,7 +1221,7 @@ export class FieldService implements IReadonlyAdapterService {
           dependentTableMeta.dbTableName,
           fieldInstance,
           fieldInstance,
-          fieldMap
+          tableDomain
         );
 
         // Execute the column modification

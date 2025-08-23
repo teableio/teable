@@ -1,15 +1,13 @@
 import { match } from 'ts-pattern';
 import { FieldType } from '../models/field/constant';
 import type { FormulaFieldCore } from '../models/field/derivate/formula.field';
+import type { TableDomain } from '../models/table/table-domain';
 import { FieldReferenceVisitor } from './field-reference.visitor';
 import {
   FunctionCallCollectorVisitor,
   type IFunctionCallInfo,
 } from './function-call-collector.visitor';
-import type {
-  IGeneratedColumnQuerySupportValidator,
-  IFieldMap,
-} from './function-convertor.interface';
+import type { IGeneratedColumnQuerySupportValidator } from './function-convertor.interface';
 import { parseFormula } from './parse-formula';
 import type { ExprContext } from './parser/Formula';
 
@@ -20,7 +18,7 @@ import type { ExprContext } from './parser/Formula';
 export class FormulaSupportGeneratedColumnValidator {
   constructor(
     private readonly supportValidator: IGeneratedColumnQuerySupportValidator,
-    private readonly fieldMap?: IFieldMap
+    private readonly tableDomain: TableDomain
   ) {}
 
   /**
@@ -34,7 +32,7 @@ export class FormulaSupportGeneratedColumnValidator {
       const tree = parseFormula(expression);
 
       // First check if any referenced fields are link, lookup, or rollup fields
-      if (this.fieldMap && !this.validateFieldReferences(tree)) {
+      if (!this.validateFieldReferences(tree)) {
         return false;
       }
 
@@ -63,10 +61,6 @@ export class FormulaSupportGeneratedColumnValidator {
     tree: ExprContext,
     visitedFields: Set<string> = new Set()
   ): boolean {
-    if (!this.fieldMap) {
-      return true;
-    }
-
     // Extract field references from the formula
     const fieldReferenceVisitor = new FieldReferenceVisitor();
     const fieldIds = fieldReferenceVisitor.visit(tree);
@@ -93,7 +87,7 @@ export class FormulaSupportGeneratedColumnValidator {
       return true; // Skip already visited fields to avoid infinite recursion
     }
 
-    const field = this.fieldMap!.get(fieldId);
+    const field = this.tableDomain.getField(fieldId);
     if (!field) {
       // If field is not found, it's invalid for generated columns
       return false;

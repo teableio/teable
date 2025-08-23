@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { createFieldInstanceByVo, rawField2FieldObj } from '../../../field/model/factory';
+import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/factory';
 
 /**
  * Service for querying and constructing table domain objects

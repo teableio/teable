@@ -1,10 +1,7 @@
 import { z } from 'zod';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
-import type {
-  IGeneratedColumnQuerySupportValidator,
-  IFieldMap,
-} from '../../../formula/function-convertor.interface';
+import type { IGeneratedColumnQuerySupportValidator } from '../../../formula/function-convertor.interface';
 import { validateFormulaSupport } from '../../../utils/formula-validation';
 import type { TableDomain } from '../../table/table-domain';
 import type { FieldType, CellValueType } from '../constant';
@@ -134,10 +131,10 @@ export class FormulaFieldCore extends FormulaAbstractCore {
    */
   validateGeneratedColumnSupport(
     supportValidator: IGeneratedColumnQuerySupportValidator,
-    fieldMap?: IFieldMap
+    tableDomain: TableDomain
   ): boolean {
     const expression = this.getExpression();
-    return validateFormulaSupport(supportValidator, expression, fieldMap);
+    return validateFormulaSupport(supportValidator, expression, tableDomain);
   }
 
   getIsPersistedAsGeneratedColumn() {

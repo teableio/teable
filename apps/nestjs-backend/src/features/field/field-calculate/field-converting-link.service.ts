@@ -18,7 +18,7 @@ import { DropColumnOperationType } from '../../../db-provider/drop-database-colu
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
-import { FieldService } from '../field.service';
+import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
 import type { IFieldInstance } from '../model/factory';
 import {
   createFieldInstanceByVo,
@@ -29,7 +29,6 @@ import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
 import { FieldSupplementService } from './field-supplement.service';
-import { FormulaFieldService } from './formula-field.service';
 
 const isLink = (field: IFieldInstance): field is LinkFieldDto =>
   !field.isLookup && field.type === FieldType.Link;
@@ -43,9 +42,8 @@ export class FieldConvertingLinkService {
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly fieldService: FieldService,
-    private readonly formulaFieldService: FormulaFieldService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   private async symLinkRelationshipChange(newField: LinkFieldDto) {
@@ -169,6 +167,7 @@ export class FieldConvertingLinkService {
       where: { id: { in: [tableId, foreignTableId] } },
       select: { id: true, dbTableName: true },
     });
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
 
     const currentTable = tables.find((table) => table.id === tableId);
     const foreignTable = tables.find((table) => table.id === foreignTableId);
@@ -182,12 +181,10 @@ export class FieldConvertingLinkService {
     tableNameMap.set(tableId, currentTable.dbTableName);
     tableNameMap.set(foreignTableId, foreignTable.dbTableName);
 
-    // Use dbProvider to create foreign key (handled by visitor)
-    const fieldMap = await this.formulaFieldService.buildFieldMapForTable(tableId);
     const createColumnQueries = this.dbProvider.createColumnSchema(
       currentTable.dbTableName,
       field,
-      fieldMap,
+      tableDomain,
       false,
       tableId,
       tableNameMap,

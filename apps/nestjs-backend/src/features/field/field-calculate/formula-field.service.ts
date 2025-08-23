@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { createFieldInstanceByRaw, type IFieldInstance } from '../model/factory';
 
 @Injectable()
 export class FormulaFieldService {
@@ -55,24 +54,5 @@ export class FormulaFieldService {
       tableId: row.table_id,
       level: row.level,
     }));
-  }
-
-  /**
-   * Build field map for formula conversion context
-   * Returns a Map of field instances for formula conversion
-   */
-  async buildFieldMapForTable(tableId: string): Promise<Map<string, IFieldInstance>> {
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-    });
-
-    const fieldMap = new Map<string, IFieldInstance>();
-
-    for (const fieldRaw of fieldRaws) {
-      const fieldInstance = createFieldInstanceByRaw(fieldRaw);
-      fieldMap.set(fieldInstance.id, fieldInstance);
-    }
-
-    return fieldMap;
   }
 }
