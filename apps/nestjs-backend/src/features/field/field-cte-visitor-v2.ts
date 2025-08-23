@@ -320,7 +320,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       foreignTable,
-      this.fieldCteMap
+      this.fieldCteMap,
+      false
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
     let targetFieldSelectionExpression =
