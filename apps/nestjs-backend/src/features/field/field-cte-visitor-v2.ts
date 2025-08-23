@@ -395,7 +395,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
             .with({ usesJunctionTable: false, hasOrderColumn: true }, () => {
               // OneMany/ManyOne/OneOne relationship: use the order column in the foreign key table
               const linkField = field as LinkFieldCore;
-              return `${foreignTableAlias}."${linkField.getOrderColumnName()}"`;
+              return `"${foreignTableAlias}"."${linkField.getOrderColumnName()}"`;
             })
             .with({ usesJunctionTable: false, hasOrderColumn: false }, () => recordIdRef) // Fallback to record ID if no order column is available
             .exhaustive();
