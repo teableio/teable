@@ -234,8 +234,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-          const linkExpr = `"${cteAlias}"."link_value"`;
+          const linkExpr = `"${nestedCteName}"."link_value"`;
           return field.isMultipleCellValue ? this.getJsonAggregationFunction(linkExpr) : linkExpr;
         } else {
           // Fallback to subquery if CTE not JOINed in current scope
@@ -254,8 +253,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-          const linkExpr = `"${cteAlias}"."link_value"`;
+          const linkExpr = `"${nestedCteName}"."link_value"`;
           return field.isMultipleCellValue ? this.getJsonAggregationFunction(linkExpr) : linkExpr;
         } else {
           // Fallback to subquery if CTE not JOINed in current scope
@@ -275,8 +273,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
           let expr: string;
           if (this.joinedCtes?.has(nestedLinkFieldId)) {
-            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-            expr = `"${cteAlias}"."rollup_${rollupField.id}"`;
+            expr = `"${nestedCteName}"."rollup_${rollupField.id}"`;
           } else {
             expr = `((SELECT "rollup_${rollupField.id}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
           }
@@ -293,8 +290,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-          expression = `"${cteAlias}"."lookup_${targetLookupField.id}"`;
+          expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
         } else {
           // Fallback to subquery if CTE not JOINed in current scope
           expression = `((SELECT "lookup_${targetLookupField.id}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
@@ -460,8 +456,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         if (columnName) {
           // Check if this CTE is JOINed in current scope
           if (this.joinedCtes?.has(nestedLinkFieldId)) {
-            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-            expression = `"${cteAlias}"."${columnName}"`;
+            expression = `"${nestedCteName}"."${columnName}"`;
           } else {
             // Fallback to subquery if CTE not JOINed in current scope
             expression = `((SELECT "${columnName}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
@@ -571,42 +566,32 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const lookupFields = linkField.getLookupFields(this.table);
     const rollupFields = linkField.getRollupFields(this.table);
 
-    // Check if any lookup/rollup fields depend on nested CTEs
-    for (const lookupField of lookupFields) {
-      const target = lookupField.getForeignLookupField(foreignTable);
-      if (target) {
-        if (target.type === FieldType.Link) {
-          const lf = target as LinkFieldCore;
-          if (this.fieldCteMap.has(lf.id)) {
-            nestedJoins.add(lf.id);
-          }
+    // Helper: add dependent link fields from a target field
+    const addDepLinksFromTarget = (field: FieldCore) => {
+      const targetField = field.getForeignLookupField(foreignTable);
+      if (!targetField) return;
+      const depLinks = targetField.getLinkFields(foreignTable);
+      for (const lf of depLinks) {
+        if (!lf?.id) continue;
+        if (!this._fieldCteMap.has(lf.id)) {
+          // Pre-generate nested CTE for foreign link field
+          this.generateLinkFieldCteForTable(foreignTable, lf);
         }
-        if (
-          target.lookupOptions?.linkFieldId &&
-          this.fieldCteMap.has(target.lookupOptions.linkFieldId)
-        ) {
-          nestedJoins.add(target.lookupOptions.linkFieldId);
-        }
+        nestedJoins.add(lf.id);
       }
+    };
+
+    // Check lookup fields: collect all dependent link fields
+    for (const lookupField of lookupFields) {
+      addDepLinksFromTarget(lookupField);
     }
 
+    // Check rollup fields: collect all dependent link fields
     for (const rollupField of rollupFields) {
-      const target = rollupField.getForeignLookupField(foreignTable);
-      if (target) {
-        if (target.type === FieldType.Link) {
-          const lf = target as LinkFieldCore;
-          if (this.fieldCteMap.has(lf.id)) {
-            nestedJoins.add(lf.id);
-          }
-        }
-        if (
-          target.lookupOptions?.linkFieldId &&
-          this.fieldCteMap.has(target.lookupOptions.linkFieldId)
-        ) {
-          nestedJoins.add(target.lookupOptions.linkFieldId);
-        }
-      }
+      addDepLinksFromTarget(rollupField);
     }
+
+    addDepLinksFromTarget(linkField);
 
     this.qb
       // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -670,12 +655,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           // Add LEFT JOINs to nested CTEs
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-            cqb.leftJoin(
-              nestedCteName + ' as ' + cteAlias,
-              `${cteAlias}.main_record_id`,
-              `${foreignAlias}.__id`
-            );
+            cqb.leftJoin(nestedCteName, `${nestedCteName}.main_record_id`, `${foreignAlias}.__id`);
           }
 
           cqb.groupBy(`${mainAlias}.__id`);
@@ -699,12 +679,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           // Add LEFT JOINs to nested CTEs
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-            cqb.leftJoin(
-              nestedCteName + ' as ' + cteAlias,
-              `${cteAlias}.main_record_id`,
-              `${foreignAlias}.__id`
-            );
+            cqb.leftJoin(nestedCteName, `${nestedCteName}.main_record_id`, `${foreignAlias}.__id`);
           }
 
           cqb.groupBy(`${mainAlias}.__id`);
@@ -749,12 +724,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           // Add LEFT JOINs to nested CTEs for single-value relationships
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-            const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-            cqb.leftJoin(
-              nestedCteName + ' as ' + cteAlias,
-              `${cteAlias}.main_record_id`,
-              `${foreignAlias}.__id`
-            );
+            cqb.leftJoin(nestedCteName, `${nestedCteName}.main_record_id`, `${foreignAlias}.__id`);
           }
         }
       })
@@ -947,12 +917,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Add LEFT JOINs to nested CTEs
         for (const nestedLinkFieldId of nestedJoins) {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-          cqb.leftJoin(
-            nestedCteName + ' as ' + cteAlias,
-            `${cteAlias}.main_record_id`,
-            `${foreignAlias}.__id`
-          );
+          cqb.leftJoin(nestedCteName, `${nestedCteName}.main_record_id`, `${foreignAlias}.__id`);
         }
 
         cqb.groupBy(`${mainAlias}.__id`);
@@ -972,12 +937,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Add LEFT JOINs to nested CTEs
         for (const nestedLinkFieldId of nestedJoins) {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-          cqb.leftJoin(
-            nestedCteName + ' as ' + cteAlias,
-            `${cteAlias}.main_record_id`,
-            `${foreignAlias}.__id`
-          );
+          cqb.leftJoin(nestedCteName, `${nestedCteName}.main_record_id`, `${foreignAlias}.__id`);
         }
 
         cqb.groupBy(`${mainAlias}.__id`);
@@ -1010,12 +970,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Add LEFT JOINs to nested CTEs for single-value relationships
         for (const nestedLinkFieldId of nestedJoins) {
           const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
-          const cteAlias = getJoinedCteAliasForFieldId(nestedLinkFieldId);
-          cqb.leftJoin(
-            nestedCteName + ' as ' + cteAlias,
-            `${cteAlias}.main_record_id`,
-            `${foreignAlias}.__id`
-          );
+          cqb.leftJoin(nestedCteName, `${nestedCteName}.main_record_id`, `${foreignAlias}.__id`);
         }
       }
     });
