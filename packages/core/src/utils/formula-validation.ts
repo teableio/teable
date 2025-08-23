@@ -1,8 +1,6 @@
 import { FormulaSupportGeneratedColumnValidator } from '../formula/formula-support-generated-column-validator';
-import type {
-  IGeneratedColumnQuerySupportValidator,
-  IFieldMap,
-} from '../formula/function-convertor.interface';
+import type { IGeneratedColumnQuerySupportValidator } from '../formula/function-convertor.interface';
+import type { TableDomain } from '../models';
 
 /**
  * Pure function to validate if a formula expression is supported for generated columns
@@ -14,8 +12,8 @@ import type {
 export function validateFormulaSupport(
   supportValidator: IGeneratedColumnQuerySupportValidator,
   expression: string,
-  fieldMap?: IFieldMap
+  tableDomain: TableDomain
 ): boolean {
-  const validator = new FormulaSupportGeneratedColumnValidator(supportValidator, fieldMap);
+  const validator = new FormulaSupportGeneratedColumnValidator(supportValidator, tableDomain);
   return validator.validateFormula(expression);
 }

@@ -16,7 +16,7 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { extractFieldReferences } from '../../../utils';
 import { DEFAULT_EXPRESSION } from '../../base/constant';
 import { replaceStringByMap } from '../../base/utils';
-import { FormulaFieldService } from '../field-calculate/formula-field.service';
+import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
 import { LinkFieldQueryService } from '../field-calculate/link-field-query.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw } from '../model/factory';
@@ -29,10 +29,10 @@ export class FieldDuplicateService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly fieldOpenApiService: FieldOpenApiService,
-    private readonly formulaFieldService: FormulaFieldService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   async createCommonFields(fields: IFieldWithTableIdJson[], fieldMap: Record<string, string>) {
@@ -152,6 +152,7 @@ export class FieldDuplicateService {
           dbTableName: true,
         },
       });
+      const tableDomain = await this.tableDomainQueryService.getTableDomainById(targetTableId);
       const newOptions = replaceStringByMap(options, { fieldMap });
       const { dbFieldType: currentDbFieldType } = await this.prismaService.txClient().field.update({
         where: {
@@ -174,9 +175,6 @@ export class FieldDuplicateService {
           isMultipleCellValue: isMultipleCellValue ?? null,
         });
 
-        // Build field map for formula conversion context
-        const formulaFieldMap = await this.formulaFieldService.buildFieldMapForTable(targetTableId);
-
         // Build table name map for link field operations
         const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
           targetTableId,
@@ -191,7 +189,7 @@ export class FieldDuplicateService {
           dbTableName,
           fieldInstance,
           fieldInstance,
-          formulaFieldMap,
+          tableDomain,
           linkContext
         );
 
@@ -1017,14 +1015,8 @@ export class FieldDuplicateService {
     }
 
     if (dbFieldType !== newField.dbFieldType) {
-      const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-        where: {
-          id: targetTableId,
-        },
-        select: {
-          dbTableName: true,
-        },
-      });
+      const tableDomain = await this.tableDomainQueryService.getTableDomainById(targetTableId);
+      const { dbTableName } = tableDomain;
 
       // Create field instance for the updated field
       const updatedFieldRaw = await this.prismaService.txClient().field.findUniqueOrThrow({
@@ -1036,9 +1028,6 @@ export class FieldDuplicateService {
         cellValueType,
         isMultipleCellValue: isMultipleCellValue ?? null,
       });
-
-      // Build field map for formula conversion context
-      const formulaFieldMap = await this.formulaFieldService.buildFieldMapForTable(targetTableId);
 
       // Build table name map for link field operations
       const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
@@ -1054,7 +1043,7 @@ export class FieldDuplicateService {
         dbTableName,
         fieldInstance,
         fieldInstance,
-        formulaFieldMap,
+        tableDomain,
         linkContext
       );
 

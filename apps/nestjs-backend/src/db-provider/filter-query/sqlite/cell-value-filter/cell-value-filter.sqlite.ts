@@ -1,4 +1,4 @@
-import type { IFilterOperator, IFilterValue } from '@teable/core';
+import type { FieldCore, IFilterOperator, IFilterValue } from '@teable/core';
 import {
   CellValueType,
   contains,
@@ -7,7 +7,6 @@ import {
   literalValueListSchema,
 } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../features/field/model/factory';
 import type { IDbProvider } from '../../../db.provider.interface';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
 
@@ -48,7 +47,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     return builderClient;
   }
 
-  protected getJsonQueryColumn(field: IFieldInstance, operator: IFilterOperator): string {
+  protected getJsonQueryColumn(field: FieldCore, operator: IFilterOperator): string {
     const defaultJsonColumn = 'json_each.value';
     if (field.type === FieldType.Link) {
       const object = field.isMultipleCellValue ? defaultJsonColumn : field.dbFieldName;

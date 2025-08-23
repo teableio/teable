@@ -86,7 +86,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     }
     // Create the standard formula column
 
-    if (this.context.dbProvider && this.context.fieldMap) {
+    if (this.context.dbProvider) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getSqliteColumnType(field.dbFieldType);
 
@@ -101,12 +101,12 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
       const supportValidator = new GeneratedColumnQuerySupportValidatorSqlite();
       const isSupported = field.validateGeneratedColumnSupport(
         supportValidator,
-        this.context.fieldMap
+        this.context.tableDomain
       );
 
       if (isSupported) {
         const conversionContext: IFormulaConversionContext = {
-          fieldMap: this.context.fieldMap || new Map(),
+          table: this.context.tableDomain,
           isGeneratedColumn: true, // Mark this as a generated column context
         };
 

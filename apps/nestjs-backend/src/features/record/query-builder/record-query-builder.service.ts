@@ -1,207 +1,139 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { IFilter, IFormulaConversionContext, ISortItem } from '@teable/core';
-import type { IAggregationField } from '@teable/openapi';
+import { Inject, Injectable } from '@nestjs/common';
+import type { FieldCore, IFilter, ISortItem, TableDomain, Tables } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { preservedDbFieldNames } from '../../field/constant';
+import { FieldCteVisitor } from '../../field/field-cte-visitor';
 import { FieldSelectVisitor } from '../../field/field-select-visitor';
-import type { IFieldInstance } from '../../field/model/factory';
-import { RecordQueryBuilderHelper } from './record-query-builder.helper';
+import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
 import type {
-  IRecordQueryBuilder,
-  IRecordQueryParams,
-  ILinkFieldCteContext,
-  IRecordSelectionMap,
-  ICreateRecordQueryBuilderOptions,
   ICreateRecordAggregateBuilderOptions,
+  ICreateRecordQueryBuilderOptions,
+  IPrepareMaterializedViewParams,
+  IRecordQueryBuilder,
+  IRecordSelectionMap,
 } from './record-query-builder.interface';
-import { TableDomainQueryService } from './table-domain/table-domain-query.service';
+import { getTableAliasFromTable } from './record-query-builder.util';
 
-/**
- * Service for building table record queries
- * This service encapsulates the logic for creating Knex query builders
- * with proper field selection using the visitor pattern
- */
 @Injectable()
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
-  private static readonly mainTableAlias = 'mt';
-  private readonly logger = new Logger(RecordQueryBuilderService.name);
-
   constructor(
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @Inject('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly helper: RecordQueryBuilderHelper
+    // TODO: remove dependency on prisma
+    @InjectDbProvider()
+    private readonly dbProvider: IDbProvider,
+    private readonly prismaService: PrismaService,
+    @Inject('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  /**
-   * Create a record [mainTableAlias]  query builder} with }select fields for the given table
-   */
+  private async createQueryBuilder(
+    from: string,
+    tableIdOrDbTableName: string
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; tables: Tables }> {
+    const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
+      where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
+      select: { id: true },
+    });
+
+    const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableRaw.id);
+    const table = tables.mustGetEntryTable();
+    const mainTableAlias = getTableAliasFromTable(table);
+    const qb = this.knex.from({ [mainTableAlias]: from });
+
+    return { qb, alias: mainTableAlias, tables };
+  }
+
+  async prepareMaterializedView(
+    from: string,
+    params: IPrepareMaterializedViewParams
+  ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }> {
+    const { tableIdOrDbTableName } = params;
+    const { qb, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
+    const table = tables.mustGetEntryTable();
+
+    return { qb, table };
+  }
+
   async createRecordQueryBuilder(
     from: string,
     options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
-    // console.log('=== createRecordQueryBuilder called ===');
-    // console.log('From:', from);
-    // console.log('Options:', JSON.stringify(options, null, 2));
-    const { tableIdOrDbTableName, viewId, filter, sort, currentUserId } = options;
-    const { tableId, dbTableName } = await this.helper.getTableInfo(tableIdOrDbTableName);
-    const fields = await this.helper.getAllFields(tableId);
+    const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
+    const { qb, alias, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
-    this.logger.debug('Analyzing fields for cross-table dependencies...');
+    const table = tables.mustGetEntryTable();
 
-    // First, analyze if any fields require cross-table contexts
-    const additionalLinkFields = await this.helper.analyzeFormulaFieldDependencies(fields, tableId);
-    this.logger.debug('Additional link fields needed: %d', additionalLinkFields.length);
+    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables);
+    visitor.build();
 
-    // Combine original fields with additional link fields needed for formulas
-    const allFieldsForContext = [...fields, ...additionalLinkFields];
+    const selectionMap = this.buildSelect(qb, table, visitor.fieldCteMap);
 
-    const linkFieldCteContext = await this.helper.createLinkFieldContexts(
-      allFieldsForContext,
-      tableId,
-      dbTableName
-    );
+    if (filter) {
+      this.buildFilter(qb, table, filter, selectionMap, currentUserId);
+    }
 
-    const params: IRecordQueryParams = {
-      tableId,
-      viewId,
-      fields,
-      from,
-      linkFieldContexts: linkFieldCteContext.linkFieldContexts,
-      filter,
-      sort,
-      currentUserId,
-    };
+    if (sort) {
+      this.buildSort(qb, table, sort, selectionMap);
+    }
 
-    const { qb } = await this.buildQueryWithParams(params, linkFieldCteContext);
-    return { qb, alias: RecordQueryBuilderService.mainTableAlias };
+    return { qb, alias };
   }
 
-  /**
-   * Create a record aggregate query builder for aggregation operations
-   */
   async createRecordAggregateBuilder(
     from: string,
     options: ICreateRecordAggregateBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
     const { tableIdOrDbTableName, filter, aggregationFields, groupBy, currentUserId } = options;
-    // Note: viewId is available in options but not used in current implementation
-    // It could be used for view-based field filtering or permissions in the future
-    const { tableId, dbTableName } = await this.helper.getTableInfo(tableIdOrDbTableName);
-    const fields = await this.helper.getAllFields(tableId);
-    const linkFieldCteContext = await this.helper.createLinkFieldContexts(
-      fields,
-      tableId,
-      dbTableName
-    );
+    const { qb, tables, alias } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
-    const queryBuilder = this.knex.from({ [RecordQueryBuilderService.mainTableAlias]: from });
+    const table = tables.mustGetEntryTable();
+    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables);
+    visitor.build();
 
-    // For aggregation queries, we don't need Link field CTEs as they're not typically used in aggregations
-    // This simplifies the query and improves performance
-    const fieldMap = fields.reduce(
+    const selectionMap = this.buildAggregateSelect(qb, table, visitor.fieldCteMap);
+
+    if (filter) {
+      this.buildFilter(qb, table, filter, selectionMap, currentUserId);
+    }
+
+    const fieldMap = table.fieldList.reduce(
       (map, field) => {
         map[field.id] = field;
         return map;
       },
-      {} as Record<string, IFieldInstance>
+      {} as Record<string, FieldCore>
     );
 
-    // Build aggregation query
-    const { qb } = await this.buildAggregateQuery(queryBuilder, {
-      tableId,
-      dbTableName,
-      fields,
-      fieldMap,
-      filter,
-      aggregationFields,
-      groupBy,
-      currentUserId,
-      linkFieldCteContext,
-    });
+    // Apply aggregation
+    this.dbProvider
+      .aggregationQuery(qb, table.dbTableName, fieldMap, aggregationFields)
+      .appendBuilder();
 
-    return { qb, alias: RecordQueryBuilderService.mainTableAlias };
-  }
-
-  /**
-   * Build query with detailed parameters
-   */
-  private async buildQueryWithParams(
-    params: IRecordQueryParams,
-    linkFieldCteContext: ILinkFieldCteContext
-  ): Promise<{ qb: Knex.QueryBuilder }> {
-    const { fields, linkFieldContexts, from, filter, sort, currentUserId } = params;
-    const { mainTableName } = linkFieldCteContext;
-    const mainTableAlias = RecordQueryBuilderService.mainTableAlias;
-
-    const queryBuilder = this.knex.from({ [mainTableAlias]: from });
-
-    // Build formula conversion context
-    const context = this.helper.buildFormulaContext(fields);
-
-    // Add field CTEs and their JOINs if Link field contexts are provided
-    const { fieldCteMap, enhancedContext } = await this.helper.addFieldCtesSync(
-      queryBuilder,
-      fields,
-      mainTableName,
-      mainTableAlias,
-      linkFieldContexts,
-      linkFieldCteContext.tableNameMap,
-      linkFieldCteContext.additionalFields
-    );
-
-    // Build select fields using enhanced context that includes foreign table fields
-    const selectionMap = this.buildSelect(
-      queryBuilder,
-      fields,
-      enhancedContext.fieldMap.size > 0 ? enhancedContext : context,
-      fieldCteMap,
-      mainTableAlias
-    );
-
-    if (filter) {
-      this.buildFilter(queryBuilder, fields, filter, selectionMap, currentUserId);
+    // Apply grouping if specified
+    if (groupBy && groupBy.length > 0) {
+      this.dbProvider
+        .groupQuery(qb, fieldMap, groupBy, undefined, { selectionMap })
+        .appendGroupBuilder();
     }
 
-    if (sort) {
-      this.buildSort(queryBuilder, fields, sort, selectionMap);
-    }
-
-    return { qb: queryBuilder };
+    return { qb, alias };
   }
 
-  /**
-   * Build select fields using visitor pattern
-   */
   private buildSelect(
     qb: Knex.QueryBuilder,
-    fields: IFieldInstance[],
-    context: IFormulaConversionContext,
-    fieldCteMap?: Map<string, string>,
-    mainTableAlias?: string
+    table: TableDomain,
+    fieldCteMap: ReadonlyMap<string, string>
   ): IRecordSelectionMap {
-    const visitor = new FieldSelectVisitor(
-      qb,
-      this.dbProvider,
-      context,
-      fieldCteMap,
-      mainTableAlias
-    );
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, fieldCteMap);
+    const alias = getTableAliasFromTable(table);
 
-    // Add default system fields with table alias
-    if (mainTableAlias) {
-      const systemFieldsWithAlias = Array.from(preservedDbFieldNames).map(
-        (fieldName) => `${mainTableAlias}.${fieldName}`
-      );
-      qb.select(systemFieldsWithAlias);
-    } else {
-      qb.select(Array.from(preservedDbFieldNames));
+    for (const field of preservedDbFieldNames) {
+      qb.select(`${alias}.${field}`);
     }
 
-    // Add field-specific selections using visitor pattern
-    for (const field of fields) {
+    for (const field of table.fields) {
       const result = field.accept(visitor);
       if (result) {
         qb.select(result);
@@ -211,19 +143,34 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return visitor.getSelectionMap();
   }
 
+  private buildAggregateSelect(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    fieldCteMap: ReadonlyMap<string, string>
+  ) {
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, fieldCteMap);
+
+    // Add field-specific selections using visitor pattern
+    for (const field of table.fields) {
+      field.accept(visitor);
+    }
+
+    return visitor.getSelectionMap();
+  }
+
   private buildFilter(
     qb: Knex.QueryBuilder,
-    fields: IFieldInstance[],
+    table: TableDomain,
     filter: IFilter,
     selectionMap: IRecordSelectionMap,
     currentUserId?: string
   ): this {
-    const map = fields.reduce(
+    const map = table.fieldList.reduce(
       (map, field) => {
         map[field.id] = field;
         return map;
       },
-      {} as Record<string, IFieldInstance>
+      {} as Record<string, FieldCore>
     );
     this.dbProvider
       .filterQuery(qb, map, filter, { withUserId: currentUserId }, { selectionMap })
@@ -233,102 +180,18 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
   private buildSort(
     qb: Knex.QueryBuilder,
-    fields: IFieldInstance[],
-    sortObjs: ISortItem[],
+    table: TableDomain,
+    sort: ISortItem[],
     selectionMap: IRecordSelectionMap
-  ) {
-    const map = fields.reduce(
+  ): this {
+    const map = table.fieldList.reduce(
       (map, field) => {
         map[field.id] = field;
         return map;
       },
-      {} as Record<string, IFieldInstance>
+      {} as Record<string, FieldCore>
     );
-    const sortContext = { selectionMap };
-    this.dbProvider.sortQuery(qb, map, sortObjs, undefined, sortContext).appendSortBuilder();
+    this.dbProvider.sortQuery(qb, map, sort, undefined, { selectionMap }).appendSortBuilder();
     return this;
-  }
-
-  private buildAggregateSelect(
-    qb: Knex.QueryBuilder,
-    fields: IFieldInstance[],
-    context: IFormulaConversionContext,
-    fieldCteMap?: Map<string, string>
-  ) {
-    const visitor = new FieldSelectVisitor(qb, this.dbProvider, context, fieldCteMap);
-
-    // Add field-specific selections using visitor pattern
-    for (const field of fields) {
-      field.accept(visitor);
-    }
-
-    return visitor.getSelectionMap();
-  }
-
-  /**
-   * Build aggregate query with special handling for aggregation operations
-   */
-  private async buildAggregateQuery(
-    queryBuilder: Knex.QueryBuilder,
-    params: {
-      tableId: string;
-      dbTableName: string;
-      fields: IFieldInstance[];
-      fieldMap: Record<string, IFieldInstance>;
-      filter?: IFilter;
-      aggregationFields: IAggregationField[];
-      groupBy?: string[];
-      currentUserId?: string;
-      linkFieldCteContext: ILinkFieldCteContext;
-    }
-  ): Promise<{ qb: Knex.QueryBuilder }> {
-    const {
-      dbTableName,
-      fields,
-      fieldMap,
-      filter,
-      aggregationFields,
-      groupBy,
-      currentUserId,
-      linkFieldCteContext,
-    } = params;
-
-    const { mainTableName } = linkFieldCteContext;
-
-    // Build formula conversion context
-    const context = this.helper.buildFormulaContext(fields);
-
-    // Add field CTEs and their JOINs if Link field contexts are provided
-    const { fieldCteMap } = await this.helper.addFieldCtesSync(
-      queryBuilder,
-      fields,
-      mainTableName,
-      RecordQueryBuilderService.mainTableAlias,
-      linkFieldCteContext.linkFieldContexts,
-      linkFieldCteContext.tableNameMap,
-      linkFieldCteContext.additionalFields
-    );
-
-    const selectionMap = this.buildAggregateSelect(queryBuilder, fields, context, fieldCteMap);
-
-    // Build select fields
-    // Apply filter if provided
-    if (filter) {
-      this.buildFilter(queryBuilder, fields, filter, selectionMap, currentUserId);
-    }
-
-    // Apply aggregation
-    this.dbProvider
-      .aggregationQuery(queryBuilder, dbTableName, fieldMap, aggregationFields)
-      .appendBuilder();
-
-    // Apply grouping if specified
-    if (groupBy && groupBy.length > 0) {
-      this.dbProvider
-        .groupQuery(queryBuilder, fieldMap, groupBy, undefined, { selectionMap })
-        .appendGroupBuilder();
-    }
-
-    return { qb: queryBuilder };
   }
 }

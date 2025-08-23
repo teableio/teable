@@ -134,7 +134,7 @@ export class SqliteProvider implements IDbProvider {
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFieldMap,
+    tableDomain: TableDomain,
     linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[] {
     const queries: string[] = [];
@@ -151,7 +151,7 @@ export class SqliteProvider implements IDbProvider {
         unique: fieldInstance.unique,
         notNull: fieldInstance.notNull,
         dbProvider: this,
-        fieldMap,
+        tableDomain,
         tableId: linkContext?.tableId || '',
         tableName,
         knex: this.knex,
@@ -172,7 +172,7 @@ export class SqliteProvider implements IDbProvider {
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
-    fieldMap: IFieldMap,
+    tableDomain: TableDomain,
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
@@ -188,7 +188,7 @@ export class SqliteProvider implements IDbProvider {
         unique: fieldInstance.unique,
         notNull: fieldInstance.notNull,
         dbProvider: this,
-        fieldMap,
+        tableDomain,
         isNewTable,
         tableId,
         tableName,

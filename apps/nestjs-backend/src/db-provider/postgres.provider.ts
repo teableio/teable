@@ -258,7 +258,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: IFieldMap,
+    tableDomain: TableDomain,
     linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[] {
     const queries: string[] = [];
@@ -275,7 +275,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         unique: fieldInstance.unique,
         notNull: fieldInstance.notNull,
         dbProvider: this,
-        fieldMap,
+        tableDomain,
         tableId: linkContext?.tableId || '',
         tableName,
         knex: this.knex,
@@ -296,7 +296,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
-    fieldMap: IFieldMap,
+    tableDomain: TableDomain,
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
@@ -313,7 +313,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         unique: fieldInstance.unique,
         notNull: fieldInstance.notNull,
         dbProvider: this,
-        fieldMap,
+        tableDomain,
         isNewTable,
         tableId,
         tableName,

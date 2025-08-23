@@ -87,7 +87,7 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       return;
     }
 
-    if (this.context.dbProvider && this.context.fieldMap) {
+    if (this.context.dbProvider && this.context.tableDomain) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getPostgresColumnType(field.dbFieldType);
 
@@ -103,12 +103,12 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       const supportValidator = new GeneratedColumnQuerySupportValidatorPostgres();
       const isSupported = field.validateGeneratedColumnSupport(
         supportValidator,
-        this.context.fieldMap
+        this.context.tableDomain
       );
 
       if (isSupported) {
         const conversionContext: IFormulaConversionContext = {
-          fieldMap: this.context.fieldMap || new Map(),
+          table: this.context.tableDomain,
           isGeneratedColumn: true, // Mark this as a generated column context
         };
 

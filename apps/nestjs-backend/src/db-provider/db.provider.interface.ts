@@ -110,14 +110,14 @@ export interface IDbProvider {
     tableName: string,
     oldFieldInstance: IFieldInstance,
     fieldInstance: IFieldInstance,
-    fieldMap: Map<string, FieldCore>,
+    tableDomain: TableDomain,
     linkContext?: { tableId: string; tableNameMap: Map<string, string> }
   ): string[];
 
   createColumnSchema(
     tableName: string,
     fieldInstance: IFieldInstance,
-    fieldMap: Map<string, FieldCore>,
+    tableDomain: TableDomain,
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
