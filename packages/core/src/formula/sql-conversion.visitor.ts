@@ -683,7 +683,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           if (fieldInfo.isMultipleCellValue) {
             // For multi-value link fields (OneMany/ManyMany), extract array of titles
             if (isPostgreSQL) {
-              return `(SELECT json_agg(value->>'title') FROM json_array_elements("${cteName}"."link_value") AS value)`;
+              return `(SELECT json_agg(value->>'title') FROM jsonb_array_elements("${cteName}"."link_value"::jsonb) AS value)::jsonb`;
             } else {
               // SQLite
               return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each("${cteName}"."link_value") AS value)`;
