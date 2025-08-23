@@ -41,7 +41,6 @@ export class TableDomainQueryService {
       description: tableMeta.description || undefined,
       lastModifiedTime:
         tableMeta.lastModifiedTime?.toISOString() || tableMeta.createdTime.toISOString(),
-      defaultViewId: tableMeta.defaultViewId,
       baseId: tableMeta.baseId,
       fields: fieldInstances,
     });
@@ -78,11 +77,6 @@ export class TableDomainQueryService {
             },
           ],
         },
-        views: {
-          where: { deletedTime: null },
-          select: { id: true },
-          orderBy: { order: 'asc' },
-        },
       },
     });
 
@@ -90,14 +84,7 @@ export class TableDomainQueryService {
       throw new NotFoundException(`Table with ID ${tableId} not found`);
     }
 
-    if (!tableMeta.views.length) {
-      throw new NotFoundException(`No views found for table ${tableId}`);
-    }
-
-    return {
-      ...tableMeta,
-      defaultViewId: tableMeta.views[0].id,
-    };
+    return tableMeta;
   }
 
   /**
