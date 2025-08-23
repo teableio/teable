@@ -47,8 +47,6 @@ import type { IFieldSelectName } from './field-select.type';
 type ICteResult = void;
 
 const JUNCTION_ALIAS = 'j';
-// Use ASCII-safe alias for JOINed CTEs to avoid quoting/spacing issues
-const getJoinedCteAliasForFieldId = (linkFieldId: string) => `cte_${linkFieldId}_joined`;
 
 class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   constructor(
@@ -373,9 +371,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     // Determine if this relationship should return multiple values (array) or single value (object)
     return match(driver)
       .with(DriverClient.Pg, () => {
-        // Build JSON object with id and title, preserving null titles for formula fields
-        // Use COALESCE to ensure title is never completely null (empty string instead)
-        const conditionalJsonObject = `jsonb_build_object('id', ${recordIdRef}, 'title', COALESCE(${targetFieldSelectionExpression}, ''))::json`;
+        // Build JSON object with id and title, then strip null values to remove title key when null
+        const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${targetFieldSelectionExpression}))::json`;
 
         if (isMultiValue) {
           // Filter out null records and return empty array if no valid records exist
