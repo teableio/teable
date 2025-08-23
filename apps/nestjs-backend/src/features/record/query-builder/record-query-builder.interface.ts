@@ -1,27 +1,7 @@
 import type { IFilter, ISortItem, TableDomain } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
-import type { IFieldSelectName } from '../../field/field-select.type';
-import type { IFieldInstance } from '../../field/model/factory';
-
-/**
- * Context information for Link fields needed for CTE generation
- */
-export interface ILinkFieldContext {
-  linkField: IFieldInstance; // Can be Link field or any Lookup field
-  lookupField: IFieldInstance;
-  foreignTableName: string;
-}
-
-/**
- * Complete context for CTE generation including main table name
- */
-export interface ILinkFieldCteContext {
-  linkFieldContexts: ILinkFieldContext[];
-  mainTableName: string;
-  tableNameMap?: Map<string, string>; // tableId -> dbTableName for nested lookup support
-  additionalFields?: Map<string, IFieldInstance>; // Additional fields needed for rollup/lookup
-}
+import type { IFieldSelectName } from './field-select.type';
 
 export interface IPrepareMaterializedViewParams {
   tableIdOrDbTableName: string;
@@ -91,29 +71,6 @@ export interface IRecordQueryBuilder {
     from: string,
     options: ICreateRecordAggregateBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string }>;
-}
-
-/**
- * Parameters for building record queries
- */
-export interface IRecordQueryParams {
-  /** The table ID */
-  tableId: string;
-  /** Optional view ID */
-  viewId?: string;
-  /** Array of field instances */
-  fields: IFieldInstance[];
-  /** Optional database table name (if already known) */
-  dbTableName?: string;
-  /** Optional existing query builder */
-  from: string;
-  /** Optional filter */
-  filter?: IFilter;
-  /** Optional sort */
-  sort?: ISortItem[];
-  /** Optional Link field contexts for CTE generation */
-  linkFieldContexts?: ILinkFieldContext[];
-  currentUserId?: string;
 }
 
 /**

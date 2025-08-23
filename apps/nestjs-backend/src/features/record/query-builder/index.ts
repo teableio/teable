@@ -1,6 +1,5 @@
 export type {
   IRecordQueryBuilder,
-  IRecordQueryParams,
   ICreateRecordQueryBuilderOptions,
   ICreateRecordAggregateBuilderOptions,
 } from './record-query-builder.interface';

@@ -5,9 +5,9 @@ import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { preservedDbFieldNames } from '../../field/constant';
-import { FieldCteVisitor } from '../../field/field-cte-visitor';
-import { FieldSelectVisitor } from '../../field/field-select-visitor';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
+import { FieldCteVisitor } from './field-cte-visitor';
+import { FieldSelectVisitor } from './field-select-visitor';
 import type {
   ICreateRecordAggregateBuilderOptions,
   ICreateRecordQueryBuilderOptions,

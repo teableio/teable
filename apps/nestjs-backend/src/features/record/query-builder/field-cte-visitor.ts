@@ -34,15 +34,12 @@ import type {
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
-import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import {
-  getLinkUsesJunctionTable,
-  getTableAliasFromTable,
-} from '../record/query-builder/record-query-builder.util';
-import { ID_FIELD_NAME } from './constant';
+import type { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { ID_FIELD_NAME } from '../../field/constant';
 import { FieldFormattingVisitor } from './field-formatting-visitor';
 import { FieldSelectVisitor } from './field-select-visitor';
 import type { IFieldSelectName } from './field-select.type';
+import { getLinkUsesJunctionTable, getTableAliasFromTable } from './record-query-builder.util';
 
 type ICteResult = void;
 
