@@ -136,7 +136,10 @@ export class RecordService {
       const fieldNameOrId = field[fieldKeyType];
       const queryColumnName = this.getQueryColumnName(field);
       const dbCellValue = record[queryColumnName];
-      const cellValue = field.convertDBValue2CellValue(dbCellValue);
+      let cellValue = field.convertDBValue2CellValue(dbCellValue);
+      if (field.isLookup && Array.isArray(cellValue)) {
+        cellValue = cellValue.flat(Infinity);
+      }
       if (cellValue != null) {
         acc[fieldNameOrId] =
           cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
@@ -215,12 +218,15 @@ export class RecordService {
 
     const result = await prisma.$queryRawUnsafe<{ id: string; [key: string]: unknown }[]>(sql);
     return result
-      .map(
-        (item) =>
-          field.convertDBValue2CellValue(item[field.dbFieldName]) as
-            | ILinkCellValue
-            | ILinkCellValue[]
-      )
+      .map((item) => {
+        let cellValue = field.convertDBValue2CellValue(item[field.dbFieldName]) as
+          | ILinkCellValue
+          | ILinkCellValue[];
+        if (field.isLookup && Array.isArray(cellValue)) {
+          cellValue = cellValue.flat(Infinity) as ILinkCellValue[];
+        }
+        return cellValue;
+      })
       .filter(Boolean)
       .flat()
       .map((item) => item.id);
