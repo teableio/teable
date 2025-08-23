@@ -218,6 +218,11 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       throw new Error('Not a lookup field');
     }
 
+    // If this lookup field is marked as error, don't attempt to resolve, just return NULL
+    if (field.hasError) {
+      return 'NULL';
+    }
+
     const qb = this.qb.client.queryBuilder();
     const selectVisitor = new FieldSelectVisitor(
       qb,
@@ -253,8 +258,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
               : linkExpr;
         }
       }
-      // If still not found, throw
-      throw new Error(`Lookup field ${field.lookupOptions?.lookupFieldId} not found`);
+      // If still not found or field has error, return NULL instead of throwing
+      return 'NULL';
     }
 
     // If the target is a Link field, read its link_value from the JOINed CTE or subquery
@@ -456,7 +461,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.isLookup) {
       return this.visitLookupField(field);
     }
-    const targetField = field.mustGetForeignLookupField(this.foreignTable);
+
+    // If rollup field is marked as error, don't attempt to resolve; just return NULL
+    if (field.hasError) {
+      return 'NULL';
+    }
+
     const qb = this.qb.client.queryBuilder();
     const selectVisitor = new FieldSelectVisitor(
       qb,
@@ -467,7 +477,10 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     );
 
     const foreignAlias = this.getForeignAlias();
-    const targetLookupField = field.mustGetForeignLookupField(this.foreignTable);
+    const targetLookupField = field.getForeignLookupField(this.foreignTable);
+    if (!targetLookupField) {
+      return 'NULL';
+    }
     // If the target of rollup depends on a foreign link CTE, reference the JOINed CTE columns or use subquery
     let expression: string;
     if (targetLookupField.lookupOptions) {
@@ -511,7 +524,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       options.relationship === Relationship.ManyOne || options.relationship === Relationship.OneOne;
     return isSingleValueRelationship
       ? this.generateSingleValueRollupAggregation(rollupOptions.expression, expression)
-      : this.generateRollupAggregation(rollupOptions.expression, expression, targetField);
+      : this.generateRollupAggregation(rollupOptions.expression, expression, targetLookupField);
   }
   visitSingleSelectField(field: SingleSelectFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
