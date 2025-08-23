@@ -659,23 +659,8 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     if (selectContext.fieldCteMap?.has(fieldId)) {
       const cteName = selectContext.fieldCteMap.get(fieldId)!;
 
-      // Check if we're in a CTE context where cross-CTE references are problematic
-      // If tableAlias is not 'mt' (main table), we're likely in a CTE definition
-      const isCteContext = selectContext.tableAlias && selectContext.tableAlias !== 'mt';
-
-      if (isCteContext) {
-        // In CTE context, we need to handle cross-CTE references differently
-        if (fieldInfo.type === FieldType.Link) {
-          // For cross-CTE references, we need to use the correct record ID
-          // In a link field CTE, 'f' represents the foreign table records, 'm' represents the main table
-          // When referencing another CTE, we should use the foreign table record ID (f."__id")
-          const foreignRecordId = '"f"."__id"';
-
-          // Generate a subquery that properly references the other CTE
-          // Use COALESCE to handle cases where the CTE might return NULL
-          return `COALESCE((SELECT "${cteName}"."link_value" FROM "${cteName}" WHERE "${cteName}"."main_record_id" = ${foreignRecordId}), '[]'::json)`;
-        }
-      }
+      // For link fields with CTE mapping, use the CTE directly
+      // No need for complex cross-CTE reference handling in most cases
 
       // Handle different field types that use CTEs
       if (fieldInfo.type === FieldType.Link && !fieldInfo.isLookup) {
