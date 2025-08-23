@@ -23,10 +23,10 @@ import type {
   TableDomain,
 } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IRecordSelectionMap } from '../record/query-builder/record-query-builder.interface';
-import { getTableAliasFromTable } from '../record/query-builder/record-query-builder.util';
+import type { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IFieldSelectName } from './field-select.type';
+import type { IRecordSelectionMap } from './record-query-builder.interface';
+import { getTableAliasFromTable } from './record-query-builder.util';
 
 /**
  * Field visitor that returns appropriate database column selectors for knex.select()
@@ -62,19 +62,15 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   /**
-   * Generate column select with alias
-   *
-   *   If tableAlias is provided, returns a Raw expression with the alias applied
-   *   Otherwise, returns the column name as string
+   * Generate column select with
    *
    * @example
    *   generateColumnSelectWithAlias('name') // returns 'name'
-   *   generateColumnSelectWithAlias('name', 't1') // returns Raw expression `t1.name as name`
    *
    * @param name  column name
    * @returns String column name with table alias or Raw expression
    */
-  private generateColumnSelectWithAlias(name: string): IFieldSelectName {
+  private generateColumnSelect(name: string): IFieldSelectName {
     const alias = this.tableAlias;
     if (!alias) {
       return name;
@@ -88,7 +84,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    * @returns String column name with table alias or Raw expression
    */
   private getColumnSelector(field: { dbFieldName: string }): IFieldSelectName {
-    return this.generateColumnSelectWithAlias(field.dbFieldName);
+    return this.generateColumnSelect(field.dbFieldName);
   }
 
   /**
@@ -157,12 +153,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
       // For generated columns, use table alias if provided
       const columnName = field.getGeneratedColumnName();
-      const columnSelector = this.generateColumnSelectWithAlias(columnName);
+      const columnSelector = this.generateColumnSelect(columnName);
       this.selectionMap.set(field.id, columnSelector);
       return columnSelector;
     }
     // For lookup formula fields, use table alias if provided
-    const lookupSelector = this.generateColumnSelectWithAlias(field.dbFieldName);
+    const lookupSelector = this.generateColumnSelect(field.dbFieldName);
     this.selectionMap.set(field.id, lookupSelector);
     return lookupSelector;
   }
