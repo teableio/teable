@@ -39,6 +39,11 @@ import { ID_FIELD_NAME } from '../../field/constant';
 import { FieldFormattingVisitor } from './field-formatting-visitor';
 import { FieldSelectVisitor } from './field-select-visitor';
 import type { IFieldSelectName } from './field-select.type';
+import type {
+  IMutableQueryBuilderState,
+  IReadonlyQueryBuilderState,
+} from './record-query-builder.interface';
+import { RecordQueryBuilderManager, ScopedSelectionState } from './record-query-builder.manager';
 import { getLinkUsesJunctionTable, getTableAliasFromTable } from './record-query-builder.util';
 
 type ICteResult = void;
@@ -51,11 +56,16 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly dbProvider: IDbProvider,
     private readonly table: TableDomain,
     private readonly foreignTable: TableDomain,
-    private readonly fieldCteMap: ReadonlyMap<string, string>,
+    private readonly state: IReadonlyQueryBuilderState,
     private readonly joinedCtes?: Set<string>, // Track which CTEs are already JOINed in current scope
     private readonly isSingleValueRelationshipContext: boolean = false, // In ManyOne/OneOne CTEs, avoid aggregates
     private readonly foreignAliasOverride?: string
   ) {}
+
+  private get fieldCteMap() {
+    return this.state.getFieldCteMap();
+  }
+
   private getForeignAlias(): string {
     return this.foreignAliasOverride || getTableAliasFromTable(this.foreignTable);
   }
@@ -229,7 +239,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       this.foreignTable,
-      this.fieldCteMap,
+      new ScopedSelectionState(this.state),
       false
     );
 
@@ -239,8 +249,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (!targetLookupField) {
       // Try to fetch via the CTE of the foreign link if present
       const nestedLinkFieldId = field.lookupOptions?.linkFieldId;
-      if (nestedLinkFieldId && this.fieldCteMap.has(nestedLinkFieldId)) {
-        const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+      const fieldCteMap = this.state.getFieldCteMap();
+      if (nestedLinkFieldId && fieldCteMap.has(nestedLinkFieldId)) {
+        const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
           const linkExpr = `"${nestedCteName}"."link_value"`;
@@ -266,8 +277,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     // If the target is a Link field, read its link_value from the JOINed CTE or subquery
     if (targetLookupField.type === FieldType.Link) {
       const nestedLinkFieldId = (targetLookupField as LinkFieldCore).id;
-      if (this.fieldCteMap.has(nestedLinkFieldId)) {
-        const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+      const fieldCteMap = this.state.getFieldCteMap();
+      if (fieldCteMap.has(nestedLinkFieldId)) {
+        const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
           const linkExpr = `"${nestedCteName}"."link_value"`;
@@ -315,8 +327,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     let expression: string;
     if (targetLookupField.isLookup && targetLookupField.lookupOptions) {
       const nestedLinkFieldId = targetLookupField.lookupOptions.linkFieldId;
-      if (nestedLinkFieldId && this.fieldCteMap.has(nestedLinkFieldId)) {
-        const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+      const fieldCteMap = this.state.getFieldCteMap();
+      if (nestedLinkFieldId && fieldCteMap.has(nestedLinkFieldId)) {
+        const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
           expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
@@ -392,7 +405,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       foreignTable,
-      this.fieldCteMap,
+      new ScopedSelectionState(this.state),
       false
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
@@ -473,7 +486,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       this.foreignTable,
-      this.fieldCteMap,
+      new ScopedSelectionState(this.state),
       false
     );
 
@@ -589,14 +602,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   private readonly _table: TableDomain;
-  private readonly _fieldCteMap: Map<string, string>;
+  private readonly state: IMutableQueryBuilderState;
 
   constructor(
     public readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
-    private readonly tables: Tables
+    private readonly tables: Tables,
+    state?: IMutableQueryBuilderState
   ) {
-    this._fieldCteMap = new Map();
+    this.state = state ?? new RecordQueryBuilderManager();
     this._table = tables.mustGetEntryTable();
   }
 
@@ -605,7 +619,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   get fieldCteMap(): ReadonlyMap<string, string> {
-    return this._fieldCteMap;
+    return this.state.getFieldCteMap();
   }
 
   public build() {
@@ -639,7 +653,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const depLinks = targetField.getLinkFields(foreignTable);
       for (const lf of depLinks) {
         if (!lf?.id) continue;
-        if (!this._fieldCteMap.has(lf.id)) {
+        if (!this.fieldCteMap.has(lf.id)) {
           // Pre-generate nested CTE for foreign link field
           this.generateLinkFieldCteForTable(foreignTable, lf);
         }
@@ -670,7 +684,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           this.dbProvider,
           this.table,
           foreignTable,
-          this.fieldCteMap,
+          this.state,
           joinedCtesInScope,
           usesJunctionTable || relationship === Relationship.OneMany ? false : true,
           foreignAliasUsed
@@ -686,7 +700,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             this.dbProvider,
             this.table,
             foreignTable,
-            this.fieldCteMap,
+            this.state,
             joinedCtesInScope,
             usesJunctionTable || relationship === Relationship.OneMany ? false : true,
             foreignAliasUsed
@@ -701,7 +715,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             this.dbProvider,
             this.table,
             foreignTable,
-            this.fieldCteMap,
+            this.state,
             joinedCtesInScope,
             usesJunctionTable || relationship === Relationship.OneMany ? false : true,
             foreignAliasUsed
@@ -726,7 +740,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
           // Add LEFT JOINs to nested CTEs
           for (const nestedLinkFieldId of nestedJoins) {
-            const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+            const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
             cqb.leftJoin(
               nestedCteName,
               `${nestedCteName}.main_record_id`,
@@ -754,7 +768,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
           // Add LEFT JOINs to nested CTEs
           for (const nestedLinkFieldId of nestedJoins) {
-            const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+            const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
             cqb.leftJoin(
               nestedCteName,
               `${nestedCteName}.main_record_id`,
@@ -803,7 +817,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
           // Add LEFT JOINs to nested CTEs for single-value relationships
           for (const nestedLinkFieldId of nestedJoins) {
-            const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+            const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
             cqb.leftJoin(
               nestedCteName,
               `${nestedCteName}.main_record_id`,
@@ -814,7 +828,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       })
       .leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
 
-    this._fieldCteMap.set(linkField.id, cteName);
+    this.state.setFieldCte(linkField.id, cteName);
   }
 
   /**
@@ -877,7 +891,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
     // Generate CTEs for each nested link field on the foreign table if not already generated
     for (const [nestedLinkFieldId, nestedLinkFieldCore] of nestedLinkFields) {
-      if (this._fieldCteMap.has(nestedLinkFieldId)) continue;
+      if (this.state.getFieldCteMap().has(nestedLinkFieldId)) continue;
       this.generateLinkFieldCteForTable(foreignTable, nestedLinkFieldCore);
     }
   }
@@ -951,7 +965,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         this.dbProvider,
         table,
         foreignTable,
-        this.fieldCteMap,
+        this.state,
         joinedCtesInScope,
         usesJunctionTable || relationship === Relationship.OneMany ? false : true,
         foreignAliasUsed
@@ -967,7 +981,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           this.dbProvider,
           table,
           foreignTable,
-          this.fieldCteMap,
+          this.state,
           joinedCtesInScope,
           usesJunctionTable || relationship === Relationship.OneMany ? false : true,
           foreignAliasUsed
@@ -982,7 +996,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           this.dbProvider,
           table,
           foreignTable,
-          this.fieldCteMap,
+          this.state,
           joinedCtesInScope,
           usesJunctionTable || relationship === Relationship.OneMany ? false : true,
           foreignAliasUsed
@@ -1007,7 +1021,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         // Add LEFT JOINs to nested CTEs
         for (const nestedLinkFieldId of nestedJoins) {
-          const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+          const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
           cqb.leftJoin(
             nestedCteName,
             `${nestedCteName}.main_record_id`,
@@ -1031,7 +1045,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         // Add LEFT JOINs to nested CTEs
         for (const nestedLinkFieldId of nestedJoins) {
-          const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+          const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
           cqb.leftJoin(
             nestedCteName,
             `${nestedCteName}.main_record_id`,
@@ -1068,7 +1082,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         // Add LEFT JOINs to nested CTEs for single-value relationships
         for (const nestedLinkFieldId of nestedJoins) {
-          const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
+          const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
           cqb.leftJoin(
             nestedCteName,
             `${nestedCteName}.main_record_id`,
@@ -1078,7 +1092,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       }
     });
 
-    this._fieldCteMap.set(linkField.id, cteName);
+    this.state.setFieldCte(linkField.id, cteName);
   }
 
   visitNumberField(_field: NumberFieldCore): void {}

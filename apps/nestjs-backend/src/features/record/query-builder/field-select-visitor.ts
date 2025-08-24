@@ -25,7 +25,10 @@ import type {
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IFieldSelectName } from './field-select.type';
-import type { IRecordSelectionMap } from './record-query-builder.interface';
+import type {
+  IRecordSelectionMap,
+  IMutableQueryBuilderState,
+} from './record-query-builder.interface';
 import { getTableAliasFromTable } from './record-query-builder.util';
 
 /**
@@ -39,13 +42,11 @@ import { getTableAliasFromTable } from './record-query-builder.util';
  * which can be accessed via getSelectionMap() method.
  */
 export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
-  private readonly selectionMap: IRecordSelectionMap = new Map();
-
   constructor(
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly table: TableDomain,
-    private readonly fieldCteMap?: ReadonlyMap<string, string>,
+    private readonly state: IMutableQueryBuilderState,
     private readonly withAlias: boolean = true
   ) {}
 
@@ -58,7 +59,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    * @returns Map where key is field ID and value is the selector name/expression
    */
   public getSelectionMap(): IRecordSelectionMap {
-    return new Map(this.selectionMap);
+    return new Map(this.state.getSelectionMap());
   }
 
   /**
@@ -92,19 +93,20 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    */
   private checkAndSelectLookupField(field: FieldCore): IFieldSelectName {
     // Check if this is a Lookup field
-    if (field.isLookup && field.lookupOptions && this.fieldCteMap) {
+    const fieldCteMap = this.state.getFieldCteMap();
+    if (field.isLookup && field.lookupOptions && fieldCteMap) {
       // Check if the field has error (e.g., target field deleted)
       if (field.hasError) {
         // Field has error, return NULL to indicate this field should be null
         const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
-        this.selectionMap.set(field.id, 'NULL');
+        this.state.setSelection(field.id, 'NULL');
         return rawExpression;
       }
 
       // For regular lookup fields, use the corresponding link field CTE
       const { linkFieldId } = field.lookupOptions;
-      if (linkFieldId && this.fieldCteMap.has(linkFieldId)) {
-        const cteName = this.fieldCteMap.get(linkFieldId)!;
+      if (linkFieldId && fieldCteMap.has(linkFieldId)) {
+        const cteName = fieldCteMap.get(linkFieldId)!;
         // For multiple-value lookup: return CTE column directly; flattening is reverted
         // Return Raw expression for selecting from link field CTE (non-flatten or non-PG)
         const rawExpression = this.qb.client.raw(`??."lookup_${field.id}" as ??`, [
@@ -112,14 +114,14 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
           field.dbFieldName,
         ]);
         // For WHERE clauses, store the CTE column reference
-        this.selectionMap.set(field.id, `"${cteName}"."lookup_${field.id}"`);
+        this.state.setSelection(field.id, `"${cteName}"."lookup_${field.id}"`);
         return rawExpression;
       }
     }
 
     // Fallback to the original column
     const columnSelector = this.getColumnSelector(field);
-    this.selectionMap.set(field.id, columnSelector);
+    this.state.setSelection(field.id, columnSelector);
     return columnSelector;
   }
 
@@ -134,7 +136,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           table: this.table,
           tableAlias: this.tableAlias, // Pass table alias to the conversion context
-          selectionMap: this.selectionMap,
+          selectionMap: this.getSelectionMap(),
         });
         // The table alias is now handled inside the SQL conversion visitor
         const finalSql = sql;
@@ -144,7 +146,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
             field.getGeneratedColumnName(),
           ]);
           const selectorName = this.qb.client.raw(finalSql);
-          this.selectionMap.set(field.id, selectorName);
+          this.state.setSelection(field.id, selectorName);
           return rawExpression;
         } else {
           // Return just the expression without alias for use in jsonb_build_object
@@ -154,12 +156,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // For generated columns, use table alias if provided
       const columnName = field.getGeneratedColumnName();
       const columnSelector = this.generateColumnSelect(columnName);
-      this.selectionMap.set(field.id, columnSelector);
+      this.state.setSelection(field.id, columnSelector);
       return columnSelector;
     }
     // For lookup formula fields, use table alias if provided
     const lookupSelector = this.generateColumnSelect(field.dbFieldName);
-    this.selectionMap.set(field.id, lookupSelector);
+    this.state.setSelection(field.id, lookupSelector);
     return lookupSelector;
   }
 
@@ -202,20 +204,22 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.checkAndSelectLookupField(field);
     }
 
-    if (!this.fieldCteMap?.has(field.id)) {
+    const fieldCteMap = this.state.getFieldCteMap();
+    if (!fieldCteMap?.has(field.id)) {
       throw new Error(`Link field ${field.id} should always select from a CTE, but no CTE found`);
     }
 
-    const cteName = this.fieldCteMap.get(field.id)!;
+    const cteName = fieldCteMap.get(field.id)!;
     // Return Raw expression for selecting from CTE
     const rawExpression = this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName]);
     // For WHERE clauses, store the CTE column reference
-    this.selectionMap.set(field.id, `"${cteName}"."link_value"`);
+    this.state.setSelection(field.id, `"${cteName}"."link_value"`);
     return rawExpression;
   }
 
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
-    if (!this.fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
+    const fieldCteMap = this.state.getFieldCteMap();
+    if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
       throw new Error(`Rollup field ${field.id} requires a field CTE map`);
     }
 
@@ -224,11 +228,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.hasError) {
       // Field has error, return NULL to indicate this field should be null
       const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
-      this.selectionMap.set(field.id, 'NULL');
+      this.state.setSelection(field.id, 'NULL');
       return rawExpression;
     }
 
-    const cteName = this.fieldCteMap.get(field.lookupOptions.linkFieldId)!;
+    const cteName = fieldCteMap.get(field.lookupOptions.linkFieldId)!;
 
     // Return Raw expression for selecting pre-computed rollup value from link CTE
     const rawExpression = this.qb.client.raw(`??."rollup_${field.id}" as ??`, [
@@ -236,7 +240,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       field.dbFieldName,
     ]);
     // For WHERE clauses, store the CTE column reference
-    this.selectionMap.set(field.id, `"${cteName}"."rollup_${field.id}"`);
+    this.state.setSelection(field.id, `"${cteName}"."rollup_${field.id}"`);
     return rawExpression;
   }
 
