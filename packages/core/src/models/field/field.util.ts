@@ -3,6 +3,7 @@ import { FieldType } from './constant';
 import type { FormulaFieldCore, LinkFieldCore } from './derivate';
 import type { FieldCore } from './field';
 import type { IFieldVo } from './field.schema';
+import type { IFieldWithExpression } from './field.type';
 
 export function isFormulaField(field: FieldCore): field is FormulaFieldCore {
   return field.type === FieldType.Formula;
@@ -10,6 +11,15 @@ export function isFormulaField(field: FieldCore): field is FormulaFieldCore {
 
 export function isLinkField(field: FieldCore): field is LinkFieldCore {
   return field.type === FieldType.Link && !field.isLookup;
+}
+
+export function isFieldHasExpression(field: FieldCore): field is IFieldWithExpression {
+  return (
+    isFormulaField(field) ||
+    field.type === FieldType.AutoNumber ||
+    field.type === FieldType.LastModifiedTime ||
+    field.type === FieldType.CreatedTime
+  );
 }
 
 /**

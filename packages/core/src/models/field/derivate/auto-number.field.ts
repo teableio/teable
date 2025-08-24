@@ -54,6 +54,10 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
     return autoNumberCellValueSchema.nullable().safeParse(value);
   }
 
+  getExpression() {
+    return this.options.expression;
+  }
+
   accept<T>(visitor: IFieldVisitor<T>): T {
     return visitor.visitAutoNumberField(this);
   }

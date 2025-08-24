@@ -31,6 +31,10 @@ export class LastModifiedTimeFieldCore extends FormulaAbstractCore {
     return lastModifiedTimeFieldOptionsRoSchema.safeParse(this.options);
   }
 
+  getExpression() {
+    return this.options.expression;
+  }
+
   accept<T>(visitor: IFieldVisitor<T>): T {
     return visitor.visitLastModifiedTimeField(this);
   }
