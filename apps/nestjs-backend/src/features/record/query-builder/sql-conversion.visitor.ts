@@ -9,11 +9,9 @@ import {
   LeftWhitespaceOrCommentsContext,
   RightWhitespaceOrCommentsContext,
   isFormulaField,
-  FormulaFieldCore,
   CircularReferenceError,
   FunctionCallContext,
   FunctionName,
-  FieldType,
   DriverClient,
   AbstractParseTreeVisitor,
   BinaryOpContext,
@@ -22,8 +20,20 @@ import {
   DecimalLiteralContext,
   FieldReferenceCurlyContext,
   isLinkField,
+  parseFormula,
+  isFieldHasExpression,
 } from '@teable/core';
-import type { FormulaVisitor, ExprContext, TableDomain } from '@teable/core';
+import type {
+  FormulaVisitor,
+  ExprContext,
+  TableDomain,
+  FieldCore,
+  AutoNumberFieldCore,
+  CreatedTimeFieldCore,
+  LastModifiedTimeFieldCore,
+  FormulaFieldCore,
+  IFieldWithExpression,
+} from '@teable/core';
 import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
 import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
 import type { Knex } from 'knex';
@@ -99,6 +109,22 @@ export interface ISelectQueryInterface
  */
 export interface IGeneratedColumnQuerySupportValidator
   extends ITeableToDbFunctionConverter<boolean, IFormulaConversionContext> {}
+
+/**
+ * Get should expand field reference
+ *
+ * @param field
+ * @returns boolean
+ */
+function shouldExpandFieldReference(
+  field: FieldCore
+): field is
+  | FormulaFieldCore
+  | AutoNumberFieldCore
+  | CreatedTimeFieldCore
+  | LastModifiedTimeFieldCore {
+  return isFieldHasExpression(field);
+}
 
 /**
  * Abstract base visitor that contains common functionality for SQL conversion
@@ -184,7 +210,7 @@ abstract class BaseSqlConversionVisitor<
     }
 
     // Check if this is a formula field that needs recursive expansion
-    if (isFormulaField(fieldInfo)) {
+    if (shouldExpandFieldReference(fieldInfo)) {
       return this.expandFormulaField(fieldId, fieldInfo);
     }
 
@@ -197,7 +223,7 @@ abstract class BaseSqlConversionVisitor<
    * @param fieldInfo The field information
    * @returns The expanded SQL expression
    */
-  protected expandFormulaField(fieldId: string, fieldInfo: FormulaFieldCore): string {
+  protected expandFormulaField(fieldId: string, fieldInfo: IFieldWithExpression): string {
     // Initialize expansion cache if not present
     if (!this.context.expansionCache) {
       this.context.expansionCache = new Map();
@@ -225,7 +251,7 @@ abstract class BaseSqlConversionVisitor<
 
     try {
       // Recursively expand the expression by parsing and visiting it
-      const tree = FormulaFieldCore.parse(expression);
+      const tree = parseFormula(expression);
       const expandedSql = tree.accept(this);
 
       // Cache the result
@@ -748,7 +774,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     // Check if this is a formula field that needs recursive expansion
-    if (isFormulaField(fieldInfo)) {
+    if (shouldExpandFieldReference(fieldInfo)) {
       return this.expandFormulaField(fieldId, fieldInfo);
     }
 

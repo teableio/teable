@@ -21,6 +21,10 @@ export class CreatedTimeFieldCore extends FormulaAbstractCore {
 
   declare cellValueType: CellValueType.DateTime;
 
+  getExpression() {
+    return this.options.expression;
+  }
+
   static defaultOptions(): ICreatedTimeFieldOptionsRo {
     return {
       formatting: defaultDatetimeFormatting,
