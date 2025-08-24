@@ -91,3 +91,35 @@ export interface IRecordQuerySortContext {
 export interface IRecordQueryGroupContext {
   selectionMap: IRecordSelectionMap;
 }
+
+/**
+ * Readonly state interface for query-builder shared state
+ * Provides read access to CTE map and selection map.
+ */
+export interface IReadonlyQueryBuilderState {
+  /** Get immutable view of fieldId -> CTE name */
+  getFieldCteMap(): ReadonlyMap<string, string>;
+  /** Get immutable view of fieldId -> selection (column/expression) */
+  getSelectionMap(): ReadonlyMap<string, IFieldSelectName>;
+  /** Convenience helpers */
+  hasFieldCte(fieldId: string): boolean;
+  getCteName(fieldId: string): string | undefined;
+}
+
+/**
+ * Mutable state interface for query-builder shared state
+ * Extends readonly with mutation capabilities. Only mutating visitors/services should hold this.
+ */
+export interface IMutableQueryBuilderState extends IReadonlyQueryBuilderState {
+  /** Set fieldId -> CTE name mapping */
+  setFieldCte(fieldId: string, cteName: string): void;
+  /** Clear all CTE mappings (rarely needed) */
+  clearFieldCtes(): void;
+
+  /** Record field selection for top-level select */
+  setSelection(fieldId: string, selection: IFieldSelectName): void;
+  /** Remove a selection entry */
+  deleteSelection(fieldId: string): void;
+  /** Clear selections */
+  clearSelections(): void;
+}
