@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import type { IFormulaConversionContext } from '@teable/core';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -591,11 +590,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   }
 
   // Field Reference - SQLite uses backticks for identifiers
-  fieldReference(
-    _fieldId: string,
-    columnName: string,
-    _context?: IFormulaConversionContext
-  ): string {
+  fieldReference(_fieldId: string, columnName: string): string {
     // For regular field references, return the column reference
     // Note: Expansion is handled at the expression level, not at individual field reference level
     return `\`${columnName}\``;

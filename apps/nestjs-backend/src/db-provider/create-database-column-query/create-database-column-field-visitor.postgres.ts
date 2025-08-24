@@ -18,7 +18,6 @@ import type {
   SingleSelectFieldCore,
   UserFieldCore,
   IFieldVisitor,
-  IFormulaConversionContext,
   FieldCore,
   ILinkFieldOptions,
   ButtonFieldCore,
@@ -28,8 +27,10 @@ import type { Knex } from 'knex';
 import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 import { SchemaType } from '../../features/field/util';
+import type { IFormulaConversionContext } from '../../features/record/query-builder/sql-conversion.visitor';
 import { GeneratedColumnQuerySupportValidatorPostgres } from '../generated-column-query/postgres/generated-column-query-support-validator.postgres';
 import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
+import { validateGeneratedColumnSupport } from './create-database-column-field.util';
 
 /**
  * PostgreSQL implementation of database column visitor.
@@ -87,21 +88,21 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       return;
     }
 
-    if (this.context.dbProvider && this.context.tableDomain) {
+    if (this.context.dbProvider) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getPostgresColumnType(field.dbFieldType);
 
-      // Use original expression since expansion logic has been moved
-      const expressionToConvert = field.options.expression;
+      const expression = field.getExpression();
 
       // Skip if no expression
-      if (!expressionToConvert) {
+      if (!expression) {
         return;
       }
 
       // Check if the formula is supported for generated columns
       const supportValidator = new GeneratedColumnQuerySupportValidatorPostgres();
-      const isSupported = field.validateGeneratedColumnSupport(
+      const isSupported = validateGeneratedColumnSupport(
+        field,
         supportValidator,
         this.context.tableDomain
       );
@@ -113,7 +114,7 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
         };
 
         const conversionResult = this.context.dbProvider.convertFormulaToGeneratedColumn(
-          expressionToConvert,
+          expression,
           conversionContext
         );
 

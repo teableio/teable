@@ -1,4 +1,7 @@
-import type { IFormulaConversionContext, ISelectQueryInterface } from '@teable/core';
+import type {
+  ISelectQueryInterface,
+  IFormulaConversionContext,
+} from '../../features/record/query-builder/sql-conversion.visitor';
 
 /**
  * Abstract base class for SELECT query implementations
@@ -160,11 +163,7 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract unaryMinus(value: string): string;
 
   // Field Reference
-  abstract fieldReference(
-    fieldId: string,
-    columnName: string,
-    context?: IFormulaConversionContext
-  ): string;
+  abstract fieldReference(fieldId: string, columnName: string): string;
 
   // Literals
   abstract stringLiteral(value: string): string;

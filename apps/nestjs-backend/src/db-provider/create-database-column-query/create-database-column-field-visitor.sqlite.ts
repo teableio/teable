@@ -18,7 +18,6 @@ import type {
   SingleSelectFieldCore,
   UserFieldCore,
   IFieldVisitor,
-  IFormulaConversionContext,
   FieldCore,
   ILinkFieldOptions,
   ButtonFieldCore,
@@ -27,8 +26,10 @@ import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
 import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 import { SchemaType } from '../../features/field/util';
+import type { IFormulaConversionContext } from '../../features/record/query-builder/sql-conversion.visitor';
 import { GeneratedColumnQuerySupportValidatorSqlite } from '../generated-column-query/sqlite/generated-column-query-support-validator.sqlite';
 import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
+import { validateGeneratedColumnSupport } from './create-database-column-field.util';
 
 /**
  * SQLite implementation of database column visitor.
@@ -99,7 +100,8 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
 
       // Check if the formula is supported for generated columns
       const supportValidator = new GeneratedColumnQuerySupportValidatorSqlite();
-      const isSupported = field.validateGeneratedColumnSupport(
+      const isSupported = validateGeneratedColumnSupport(
+        field,
         supportValidator,
         this.context.tableDomain
       );

@@ -1,6 +1,6 @@
-import { FormulaSupportGeneratedColumnValidator } from '../formula/formula-support-generated-column-validator';
-import type { IGeneratedColumnQuerySupportValidator } from '../formula/function-convertor.interface';
-import type { TableDomain } from '../models';
+import type { TableDomain } from '@teable/core';
+import { FormulaSupportGeneratedColumnValidator } from './formula-support-generated-column-validator';
+import type { IGeneratedColumnQuerySupportValidator } from './sql-conversion.visitor';
 
 /**
  * Pure function to validate if a formula expression is supported for generated columns

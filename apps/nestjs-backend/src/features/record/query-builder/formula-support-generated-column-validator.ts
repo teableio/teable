@@ -1,15 +1,12 @@
-import { match } from 'ts-pattern';
-import { FieldType } from '../models/field/constant';
-import type { FormulaFieldCore } from '../models/field/derivate/formula.field';
-import type { TableDomain } from '../models/table/table-domain';
-import { FieldReferenceVisitor } from './field-reference.visitor';
+import type { TableDomain, IFunctionCallInfo, ExprContext, FormulaFieldCore } from '@teable/core';
 import {
+  parseFormula,
   FunctionCallCollectorVisitor,
-  type IFunctionCallInfo,
-} from './function-call-collector.visitor';
-import type { IGeneratedColumnQuerySupportValidator } from './function-convertor.interface';
-import { parseFormula } from './parse-formula';
-import type { ExprContext } from './parser/Formula';
+  FieldReferenceVisitor,
+  FieldType,
+} from '@teable/core';
+import { match } from 'ts-pattern';
+import type { IGeneratedColumnQuerySupportValidator } from './sql-conversion.visitor';
 
 /**
  * Validates whether a formula expression is supported for generated column creation

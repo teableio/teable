@@ -417,7 +417,7 @@ describe('OpenAPI Formula Field (e2e)', () => {
       expect((formulaField as FormulaFieldCore).options.expression).toBe(`{${rollupField.id}} * 2`);
 
       // Verify the formula field calculates correctly
-      const records = await getRecords(table1.id);
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records.records).toHaveLength(2);
 
       const record1 = records.records[0];

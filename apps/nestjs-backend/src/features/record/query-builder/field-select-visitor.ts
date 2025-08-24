@@ -112,7 +112,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
           field.dbFieldName,
         ]);
         // For WHERE clauses, store the CTE column reference
-        this.selectionMap.set(field.id, `${cteName}.lookup_${field.id}`);
+        this.selectionMap.set(field.id, `"${cteName}"."lookup_${field.id}"`);
         return rawExpression;
       }
     }
@@ -133,8 +133,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       if (!isPersistedAsGeneratedColumn) {
         const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           table: this.table,
-          fieldCteMap: this.fieldCteMap,
           tableAlias: this.tableAlias, // Pass table alias to the conversion context
+          selectionMap: this.selectionMap,
         });
         // The table alias is now handled inside the SQL conversion visitor
         const finalSql = sql;
@@ -210,7 +210,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     // Return Raw expression for selecting from CTE
     const rawExpression = this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName]);
     // For WHERE clauses, store the CTE column reference
-    this.selectionMap.set(field.id, `${cteName}.link_value`);
+    this.selectionMap.set(field.id, `"${cteName}"."link_value"`);
     return rawExpression;
   }
 
@@ -236,7 +236,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       field.dbFieldName,
     ]);
     // For WHERE clauses, store the CTE column reference
-    this.selectionMap.set(field.id, `${cteName}.rollup_${field.id}`);
+    this.selectionMap.set(field.id, `"${cteName}"."rollup_${field.id}"`);
     return rawExpression;
   }
 

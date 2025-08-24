@@ -3,23 +3,12 @@ import { Logger } from '@nestjs/common';
 import type {
   FieldType,
   IFilter,
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-  IGeneratedColumnQueryInterface,
   ILookupOptionsVo,
-  ISelectQueryInterface,
-  ISelectFormulaConversionContext,
   ISortItem,
   FieldCore,
-  IFieldMap,
   TableDomain,
 } from '@teable/core';
-import {
-  DriverClient,
-  parseFormulaToSQL,
-  GeneratedColumnSqlConversionVisitor,
-  SelectColumnSqlConversionVisitor,
-} from '@teable/core';
+import { DriverClient, parseFormulaToSQL } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -29,6 +18,17 @@ import type {
   IRecordQuerySortContext,
   IRecordQueryGroupContext,
 } from '../features/record/query-builder/record-query-builder.interface';
+import type {
+  IGeneratedColumnQueryInterface,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+  ISelectQueryInterface,
+  ISelectFormulaConversionContext,
+} from '../features/record/query-builder/sql-conversion.visitor';
+import {
+  GeneratedColumnSqlConversionVisitor,
+  SelectColumnSqlConversionVisitor,
+} from '../features/record/query-builder/sql-conversion.visitor';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -646,6 +646,7 @@ ORDER BY
       generatedColumnQuery.setContext(contextWithDriver);
 
       const visitor = new GeneratedColumnSqlConversionVisitor(
+        this.knex,
         generatedColumnQuery,
         contextWithDriver
       );
@@ -672,7 +673,11 @@ ORDER BY
       const contextWithDriver = { ...context, driverClient: this.driver };
       selectQuery.setContext(contextWithDriver);
 
-      const visitor = new SelectColumnSqlConversionVisitor(selectQuery, contextWithDriver);
+      const visitor = new SelectColumnSqlConversionVisitor(
+        this.knex,
+        selectQuery,
+        contextWithDriver
+      );
 
       return parseFormulaToSQL(expression, visitor);
     } catch (error) {

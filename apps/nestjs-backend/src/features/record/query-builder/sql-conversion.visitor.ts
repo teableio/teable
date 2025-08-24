@@ -2,36 +2,34 @@
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
-import { match } from 'ts-pattern';
-import { isFormulaField } from '../models';
-import { FieldType } from '../models/field/constant';
-import { FormulaFieldCore } from '../models/field/derivate/formula.field';
-import { DriverClient } from '../utils/dsn-parser';
-import { CircularReferenceError } from './errors/circular-reference.error';
-import type {
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-  IGeneratedColumnQueryInterface,
-  ISelectQueryInterface,
-  ISelectFormulaConversionContext,
-  ITeableToDbFunctionConverter,
-} from './function-convertor.interface';
-import { FunctionName } from './functions/common';
+
 import {
-  BooleanLiteralContext,
-  DecimalLiteralContext,
-  IntegerLiteralContext,
   StringLiteralContext,
-  FieldReferenceCurlyContext,
-  BinaryOpContext,
-  BracketsContext,
-  FunctionCallContext,
+  IntegerLiteralContext,
   LeftWhitespaceOrCommentsContext,
   RightWhitespaceOrCommentsContext,
-} from './parser/Formula';
-import type { ExprContext, RootContext, UnaryOpContext } from './parser/Formula';
-import type { FormulaVisitor } from './parser/FormulaVisitor';
+  isFormulaField,
+  FormulaFieldCore,
+  CircularReferenceError,
+  FunctionCallContext,
+  FunctionName,
+  FieldType,
+  DriverClient,
+  AbstractParseTreeVisitor,
+  BinaryOpContext,
+  BooleanLiteralContext,
+  BracketsContext,
+  DecimalLiteralContext,
+  FieldReferenceCurlyContext,
+  isLinkField,
+} from '@teable/core';
+import type { FormulaVisitor, ExprContext, TableDomain } from '@teable/core';
+import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
+import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
+import type { Knex } from 'knex';
+import { match } from 'ts-pattern';
+import type { IFieldSelectName } from './field-select.type';
+import type { IRecordSelectionMap } from './record-query-builder.interface';
 
 function unescapeString(str: string): string {
   return str.replace(/\\(.)/g, (_, char) => {
@@ -47,13 +45,69 @@ function unescapeString(str: string): string {
 }
 
 /**
+ * Context information for formula conversion
+ */
+export interface IFormulaConversionContext {
+  table: TableDomain;
+  /** Whether this conversion is for a generated column (affects immutable function handling) */
+  isGeneratedColumn?: boolean;
+  driverClient?: DriverClient;
+  expansionCache?: Map<string, string>;
+}
+
+/**
+ * Extended context for select query formula conversion with CTE support
+ */
+export interface ISelectFormulaConversionContext extends IFormulaConversionContext {
+  selectionMap: IRecordSelectionMap;
+  /** Table alias to use for field references */
+  tableAlias?: string;
+}
+
+/**
+ * Result of formula conversion
+ */
+export interface IFormulaConversionResult {
+  sql: string;
+  dependencies: string[]; // field IDs that this formula depends on
+}
+
+/**
+ * Interface for database-specific generated column query implementations
+ * Each database provider (PostgreSQL, SQLite) should implement this interface
+ * to provide SQL translations for Teable formula functions that will be used
+ * in database generated columns. This interface ensures formula expressions
+ * are converted to immutable SQL expressions suitable for generated columns.
+ */
+export interface IGeneratedColumnQueryInterface
+  extends ITeableToDbFunctionConverter<string, IFormulaConversionContext> {}
+
+/**
+ * Interface for database-specific SELECT query implementations
+ * Each database provider (PostgreSQL, SQLite) should implement this interface
+ * to provide SQL translations for Teable formula functions that will be used
+ * in SELECT statements as computed columns. Unlike generated columns, these
+ * expressions can use mutable functions and have different optimization strategies.
+ */
+export interface ISelectQueryInterface
+  extends ITeableToDbFunctionConverter<string, IFormulaConversionContext> {}
+
+/**
+ * Interface for validating whether Teable formula functions convert to generated column are supported
+ * by a specific database provider. Each method returns a boolean indicating
+ * whether the corresponding function can be converted to a valid database expression.
+ */
+export interface IGeneratedColumnQuerySupportValidator
+  extends ITeableToDbFunctionConverter<boolean, IFormulaConversionContext> {}
+
+/**
  * Abstract base visitor that contains common functionality for SQL conversion
  */
 abstract class BaseSqlConversionVisitor<
     TFormulaQuery extends ITeableToDbFunctionConverter<string, IFormulaConversionContext>,
   >
   extends AbstractParseTreeVisitor<string>
-  implements FormulaVisitor<string>
+  implements FormulaVisitor<IFieldSelectName>
 {
   protected expansionStack: Set<string> = new Set();
 
@@ -62,6 +116,7 @@ abstract class BaseSqlConversionVisitor<
   }
 
   constructor(
+    protected readonly knex: Knex,
     protected formulaQuery: TFormulaQuery,
     protected context: IFormulaConversionContext
   ) {
@@ -133,7 +188,7 @@ abstract class BaseSqlConversionVisitor<
       return this.expandFormulaField(fieldId, fieldInfo);
     }
 
-    return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
+    return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName);
   }
 
   /**
@@ -162,7 +217,7 @@ abstract class BaseSqlConversionVisitor<
 
     // If no expression is found, fall back to normal field reference
     if (!expression) {
-      return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
+      return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName);
     }
 
     // Add to expansion stack to detect circular references
@@ -611,10 +666,6 @@ abstract class BaseSqlConversionVisitor<
 export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisitor<IGeneratedColumnQueryInterface> {
   private dependencies: string[] = [];
 
-  constructor(formulaQuery: IGeneratedColumnQueryInterface, context: IFormulaConversionContext) {
-    super(formulaQuery, context);
-  }
-
   /**
    * Get the conversion result with SQL and dependencies
    */
@@ -638,10 +689,6 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
  * Does not track dependencies as it's used for runtime queries
  */
 export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<ISelectQueryInterface> {
-  constructor(formulaQuery: ISelectQueryInterface, context: ISelectFormulaConversionContext) {
-    super(formulaQuery, context);
-  }
-
   /**
    * Override field reference handling to support CTE-based field references
    */
@@ -656,54 +703,47 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     // Check if this field has a CTE mapping (for link, lookup, rollup fields)
     const selectContext = this.context as ISelectFormulaConversionContext;
-    if (selectContext.fieldCteMap?.has(fieldId)) {
-      const cteName = selectContext.fieldCteMap.get(fieldId)!;
+    const selectionMap = selectContext.selectionMap;
+    const selection = selectionMap?.get(fieldId);
+    const selectionSql = typeof selection === 'string' ? selection : selection?.toSQL().sql;
+    // For link fields with CTE mapping, use the CTE directly
+    // No need for complex cross-CTE reference handling in most cases
 
-      // For link fields with CTE mapping, use the CTE directly
-      // No need for complex cross-CTE reference handling in most cases
+    // Handle different field types that use CTEs
+    if (isLinkField(fieldInfo)) {
+      // Check if this link field is being used in a boolean context
+      const isBooleanContext = this.isInBooleanContext(ctx);
 
-      // Handle different field types that use CTEs
-      if (fieldInfo.type === FieldType.Link && !fieldInfo.isLookup) {
-        // Check if this link field is being used in a boolean context
-        const isBooleanContext = this.isInBooleanContext(ctx);
+      // Use database driver from context
+      const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
 
-        // Use database driver from context
-        const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
-
-        if (isBooleanContext) {
-          // For boolean context, return whether the link field has any values
+      if (isBooleanContext) {
+        // For boolean context, return whether the link field has any values
+        if (isPostgreSQL) {
+          return `(${selectionSql} IS NOT NULL AND ${selectionSql}::text != 'null' AND ${selectionSql}::text != '[]')`;
+        } else {
+          // SQLite
+          return `(${selectionSql} IS NOT NULL AND ${selectionSql} != 'null' AND ${selectionSql} != '[]')`;
+        }
+      } else {
+        // For non-boolean context, extract title values as JSON array
+        if (fieldInfo.isMultipleCellValue) {
+          // For multi-value link fields (OneMany/ManyMany), extract array of titles
           if (isPostgreSQL) {
-            return `("${cteName}"."link_value" IS NOT NULL AND "${cteName}"."link_value"::text != 'null' AND "${cteName}"."link_value"::text != '[]')`;
+            return `(SELECT json_agg(value->>'title') FROM jsonb_array_elements(${selectionSql}::jsonb) AS value)::jsonb`;
           } else {
             // SQLite
-            return `("${cteName}"."link_value" IS NOT NULL AND "${cteName}"."link_value" != 'null' AND "${cteName}"."link_value" != '[]')`;
+            return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each(${selectionSql}) AS value)`;
           }
         } else {
-          // For non-boolean context, extract title values as JSON array
-          if (fieldInfo.isMultipleCellValue) {
-            // For multi-value link fields (OneMany/ManyMany), extract array of titles
-            if (isPostgreSQL) {
-              return `(SELECT json_agg(value->>'title') FROM jsonb_array_elements("${cteName}"."link_value"::jsonb) AS value)::jsonb`;
-            } else {
-              // SQLite
-              return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each("${cteName}"."link_value") AS value)`;
-            }
+          // For single-value link fields (ManyOne/OneOne), extract single title
+          if (isPostgreSQL) {
+            return `(${selectionSql}->>'title')`;
           } else {
-            // For single-value link fields (ManyOne/OneOne), extract single title
-            if (isPostgreSQL) {
-              return `("${cteName}"."link_value"->>'title')`;
-            } else {
-              // SQLite
-              return `json_extract("${cteName}"."link_value", '$.title')`;
-            }
+            // SQLite
+            return `json_extract(${selectionSql}, '$.title')`;
           }
         }
-      } else if (fieldInfo.isLookup) {
-        // Lookup field: use lookup_{fieldId} from CTE
-        return `"${cteName}"."lookup_${fieldId}"`;
-      } else if (fieldInfo.type === FieldType.Rollup) {
-        // Rollup field: use rollup_{fieldId} from CTE
-        return `"${cteName}"."rollup_${fieldId}"`;
       }
     }
 
@@ -712,12 +752,15 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
       return this.expandFormulaField(fieldId, fieldInfo);
     }
 
+    if (selectionSql) {
+      return selectionSql;
+    }
     // Use table alias if provided in context
     if (selectContext.tableAlias) {
       return `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
     }
 
-    return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName, this.context);
+    return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName);
   }
 
   /**

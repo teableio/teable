@@ -135,7 +135,7 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   unaryMinus(value: string): TReturn;
 
   // Field Reference
-  fieldReference(fieldId: string, columnName: string, context?: TContext): TReturn;
+  fieldReference(fieldId: string, columnName: string): TReturn;
 
   // Literals
   stringLiteral(value: string): TReturn;
@@ -156,60 +156,3 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   // Parentheses for grouping
   parentheses(expression: string): TReturn;
 }
-
-/**
- * Context information for formula conversion
- */
-export interface IFormulaConversionContext {
-  table: TableDomain;
-  /** Whether this conversion is for a generated column (affects immutable function handling) */
-  isGeneratedColumn?: boolean;
-  driverClient?: DriverClient;
-  expansionCache?: Map<string, string>;
-}
-
-/**
- * Extended context for select query formula conversion with CTE support
- */
-export interface ISelectFormulaConversionContext extends IFormulaConversionContext {
-  /** Map of field ID to CTE name for lookup/link/rollup fields */
-  fieldCteMap?: ReadonlyMap<string, string>;
-  /** Table alias to use for field references */
-  tableAlias?: string;
-}
-
-/**
- * Result of formula conversion
- */
-export interface IFormulaConversionResult {
-  sql: string;
-  dependencies: string[]; // field IDs that this formula depends on
-}
-
-/**
- * Interface for database-specific generated column query implementations
- * Each database provider (PostgreSQL, SQLite) should implement this interface
- * to provide SQL translations for Teable formula functions that will be used
- * in database generated columns. This interface ensures formula expressions
- * are converted to immutable SQL expressions suitable for generated columns.
- */
-export interface IGeneratedColumnQueryInterface
-  extends ITeableToDbFunctionConverter<string, IFormulaConversionContext> {}
-
-/**
- * Interface for database-specific SELECT query implementations
- * Each database provider (PostgreSQL, SQLite) should implement this interface
- * to provide SQL translations for Teable formula functions that will be used
- * in SELECT statements as computed columns. Unlike generated columns, these
- * expressions can use mutable functions and have different optimization strategies.
- */
-export interface ISelectQueryInterface
-  extends ITeableToDbFunctionConverter<string, IFormulaConversionContext> {}
-
-/**
- * Interface for validating whether Teable formula functions convert to generated column are supported
- * by a specific database provider. Each method returns a boolean indicating
- * whether the corresponding function can be converted to a valid database expression.
- */
-export interface IGeneratedColumnQuerySupportValidator
-  extends ITeableToDbFunctionConverter<boolean, IFormulaConversionContext> {}
