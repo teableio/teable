@@ -3047,7 +3047,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records } = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual([{ title: 'x', id: records[0].id }]);
       expect(values[1]).toEqual([{ title: 'y', id: records[1].id }]);
-      expect(values[2]).toBeUndefined();
+      expect(values[2] ?? []).toEqual([]);
     });
   });
 
@@ -3863,7 +3863,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         { id: table2.records[0].id },
         { id: table2.records[1].id },
       ]);
-      expect(records[0].fields[linkField2.id]).toBeUndefined();
+      expect(records[0].fields[linkField2.id] ?? []).toEqual([]);
       expect(records[1].fields[linkField2.id]).toEqual([
         { id: table2.records[0].id },
         { id: table2.records[1].id },

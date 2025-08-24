@@ -80,7 +80,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   private generateRollupAggregation(
     expression: string,
     fieldExpression: string,
-    targetField: FieldCore
+    targetField: FieldCore,
+    orderByField?: string
   ): string {
     // Parse the rollup function from expression like 'sum({values})'
     const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
@@ -138,9 +139,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       case 'array_join':
       case 'concatenate':
         // Join all values into a single string with deterministic ordering
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${JUNCTION_ALIAS}.__id)`
-          : `GROUP_CONCAT(${fieldExpression}, ', ')`;
+        if (this.dbProvider.driver === DriverClient.Pg) {
+          return orderByField
+            ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${orderByField})`
+            : `STRING_AGG(${fieldExpression}::text, ', ')`;
+        }
+        return `GROUP_CONCAT(${fieldExpression}, ', ')`;
       case 'array_unique':
         // Get unique values as JSON array
         return this.dbProvider.driver === DriverClient.Pg
@@ -519,9 +523,34 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     const options = linkField?.options as ILinkFieldOptions;
     const isSingleValueRelationship =
       options.relationship === Relationship.ManyOne || options.relationship === Relationship.OneOne;
-    return isSingleValueRelationship
-      ? this.generateSingleValueRollupAggregation(rollupOptions.expression, expression)
-      : this.generateRollupAggregation(rollupOptions.expression, expression, targetLookupField);
+
+    if (isSingleValueRelationship) {
+      return this.generateSingleValueRollupAggregation(rollupOptions.expression, expression);
+    }
+
+    // For aggregate rollups, derive a deterministic orderBy field if possible
+    let orderByField: string | undefined;
+    if (this.dbProvider.driver === DriverClient.Pg && linkField && options) {
+      const usesJunctionTable = getLinkUsesJunctionTable(linkField);
+      const hasOrderColumn = linkField.getHasOrderColumn();
+      if (usesJunctionTable) {
+        orderByField = hasOrderColumn
+          ? `${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}"`
+          : `${JUNCTION_ALIAS}."__id"`;
+      } else if (options.relationship === Relationship.OneMany) {
+        const foreignAlias = this.getForeignAlias();
+        orderByField = hasOrderColumn
+          ? `"${foreignAlias}"."${linkField.getOrderColumnName()}"`
+          : `"${foreignAlias}"."__id"`;
+      }
+    }
+
+    return this.generateRollupAggregation(
+      rollupOptions.expression,
+      expression,
+      targetLookupField,
+      orderByField
+    );
   }
   visitSingleSelectField(field: SingleSelectFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
