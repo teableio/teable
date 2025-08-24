@@ -1,4 +1,3 @@
-import type { IFormulaConversionContext } from '@teable/core';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**
@@ -468,11 +467,7 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
   }
 
   // Field Reference
-  fieldReference(
-    _fieldId: string,
-    columnName: string,
-    _context?: IFormulaConversionContext
-  ): string {
+  fieldReference(_fieldId: string, columnName: string): string {
     return `"${columnName}"`;
   }
 

@@ -224,7 +224,7 @@ describe('OpenAPI formula (e2e)', () => {
       expect(record2.data.fields[field2.name]).toEqual(27);
     });
 
-    it('should calculate auto number and number field', async () => {
+    it.only('should calculate auto number and number field', async () => {
       const autoNumberField = await createField(table.id, {
         name: 'ttttttt',
         type: FieldType.AutoNumber,

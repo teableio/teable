@@ -3,32 +3,33 @@ import { Logger } from '@nestjs/common';
 import type {
   FieldType,
   IFilter,
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-  IGeneratedColumnQueryInterface,
   ILookupOptionsVo,
-  ISelectQueryInterface,
-  ISelectFormulaConversionContext,
   ISortItem,
   TableDomain,
   FieldCore,
-  IFieldMap,
 } from '@teable/core';
-import {
-  DriverClient,
-  parseFormulaToSQL,
-  GeneratedColumnSqlConversionVisitor,
-  SelectColumnSqlConversionVisitor,
-} from '@teable/core';
+import { DriverClient, parseFormulaToSQL } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { IFieldSelectName } from '../features/record/query-builder/field-select.type';
 import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
   IRecordQueryGroupContext,
 } from '../features/record/query-builder/record-query-builder.interface';
+import type {
+  IGeneratedColumnQueryInterface,
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+  ISelectQueryInterface,
+  ISelectFormulaConversionContext,
+} from '../features/record/query-builder/sql-conversion.visitor';
+import {
+  GeneratedColumnSqlConversionVisitor,
+  SelectColumnSqlConversionVisitor,
+} from '../features/record/query-builder/sql-conversion.visitor';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -724,6 +725,7 @@ ORDER BY
       generatedColumnQuery.setContext(contextWithDriver);
 
       const visitor = new GeneratedColumnSqlConversionVisitor(
+        this.knex,
         generatedColumnQuery,
         contextWithDriver
       );
@@ -743,7 +745,7 @@ ORDER BY
   convertFormulaToSelectQuery(
     expression: string,
     context: ISelectFormulaConversionContext
-  ): string {
+  ): IFieldSelectName {
     try {
       const selectQuery = this.selectQuery();
 
@@ -751,7 +753,11 @@ ORDER BY
       const contextWithDriver = { ...context, driverClient: this.driver };
       selectQuery.setContext(contextWithDriver);
 
-      const visitor = new SelectColumnSqlConversionVisitor(selectQuery, contextWithDriver);
+      const visitor = new SelectColumnSqlConversionVisitor(
+        this.knex,
+        selectQuery,
+        contextWithDriver
+      );
 
       return parseFormulaToSQL(expression, visitor);
     } catch (error) {

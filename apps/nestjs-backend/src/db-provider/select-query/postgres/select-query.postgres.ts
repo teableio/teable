@@ -499,7 +499,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   // Field Reference
-  fieldReference(_fieldId: string, columnName: string, _context?: undefined): string {
+  fieldReference(_fieldId: string, columnName: string): string {
     return `"${columnName}"`;
   }
 

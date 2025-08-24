@@ -2,12 +2,7 @@ import type {
   DriverClient,
   FieldType,
   IFilter,
-  IFormulaConversionContext,
-  IFormulaConversionResult,
-  IGeneratedColumnQueryInterface,
   ILookupOptionsVo,
-  ISelectQueryInterface,
-  ISelectFormulaConversionContext,
   ISortItem,
   FieldCore,
   TableDomain,
@@ -17,11 +12,19 @@ import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teab
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
+import type { IFieldSelectName } from '../features/record/query-builder/field-select.type';
 import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
   IRecordQueryGroupContext,
 } from '../features/record/query-builder/record-query-builder.interface';
+import type {
+  IFormulaConversionContext,
+  IFormulaConversionResult,
+  IGeneratedColumnQueryInterface,
+  ISelectFormulaConversionContext,
+  ISelectQueryInterface,
+} from '../features/record/query-builder/sql-conversion.visitor';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { BaseQueryAbstract } from './base-query/abstract';
 import type { DropColumnOperationType } from './drop-database-column-query/drop-database-column-field-visitor.interface';
@@ -246,7 +249,10 @@ export interface IDbProvider {
 
   selectQuery(): ISelectQueryInterface;
 
-  convertFormulaToSelectQuery(expression: string, context: ISelectFormulaConversionContext): string;
+  convertFormulaToSelectQuery(
+    expression: string,
+    context: ISelectFormulaConversionContext
+  ): IFieldSelectName;
 
   generateMaterializedViewName(table: TableDomain): string;
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string;
