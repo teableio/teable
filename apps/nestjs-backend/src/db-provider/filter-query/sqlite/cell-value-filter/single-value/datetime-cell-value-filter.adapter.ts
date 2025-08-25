@@ -12,7 +12,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereBetween(this.tableColumnRef, dateTimeRange);
+    builderClient.whereRaw(`${this.tableColumnRef} BETWEEN ? AND ?`, dateTimeRange);
     return builderClient;
   }
 
@@ -24,9 +24,10 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where((builder) => {
-      builder.whereNotBetween(this.tableColumnRef, dateTimeRange).orWhereNull(this.tableColumnRef);
-    });
+    builderClient.whereRaw(
+      `(${this.tableColumnRef} NOT BETWEEN ? AND ? OR ${this.tableColumnRef} IS NULL)`,
+      dateTimeRange
+    );
     return builderClient;
   }
 
@@ -38,7 +39,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '>', dateTimeRange[1]);
+    builderClient.whereRaw(`${this.tableColumnRef} > ?`, [dateTimeRange[1]]);
     return builderClient;
   }
 
@@ -50,7 +51,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '>=', dateTimeRange[0]);
+    builderClient.whereRaw(`${this.tableColumnRef} >= ?`, [dateTimeRange[0]]);
     return builderClient;
   }
 
@@ -62,7 +63,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '<', dateTimeRange[0]);
+    builderClient.whereRaw(`${this.tableColumnRef} < ?`, [dateTimeRange[0]]);
     return builderClient;
   }
 
@@ -74,7 +75,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.tableColumnRef, '<=', dateTimeRange[1]);
+    builderClient.whereRaw(`${this.tableColumnRef} <= ?`, [dateTimeRange[1]]);
     return builderClient;
   }
 
@@ -86,7 +87,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereBetween(this.tableColumnRef, dateTimeRange);
+    builderClient.whereRaw(`${this.tableColumnRef} BETWEEN ? AND ?`, dateTimeRange);
     return builderClient;
   }
 }

@@ -11,7 +11,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw('LOWER(??) = LOWER(?)', [this.tableColumnRef, parseValue]);
+    builderClient.whereRaw(`LOWER(${this.tableColumnRef}) = LOWER(?)`, [parseValue]);
     return builderClient;
   }
 
@@ -23,10 +23,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`LOWER(??) IS DISTINCT FROM LOWER(?)`, [
-      this.tableColumnRef,
-      parseValue,
-    ]);
+    builderClient.whereRaw(`LOWER(${this.tableColumnRef}) IS DISTINCT FROM LOWER(?)`, [parseValue]);
     return builderClient;
   }
 
@@ -36,7 +33,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.where(this.tableColumnRef, 'iLIKE', `%${value}%`);
+    builderClient.whereRaw(`${this.tableColumnRef} iLIKE ?`, [`%${value}%`]);
     return builderClient;
   }
 
@@ -46,8 +43,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`LOWER(COALESCE(??, '')) NOT LIKE LOWER(?)`, [
-      this.tableColumnRef,
+    builderClient.whereRaw(`LOWER(COALESCE(${this.tableColumnRef}, '')) NOT LIKE LOWER(?)`, [
       `%${value}%`,
     ]);
     return builderClient;

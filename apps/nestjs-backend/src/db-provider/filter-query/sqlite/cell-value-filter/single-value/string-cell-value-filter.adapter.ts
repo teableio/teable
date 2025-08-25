@@ -11,7 +11,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterSqlite {
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw('LOWER(??) = LOWER(?)', [this.tableColumnRef, parseValue]);
+    builderClient.whereRaw(`LOWER(${this.tableColumnRef}) = LOWER(?)`, [parseValue]);
     return builderClient;
   }
 
@@ -23,10 +23,7 @@ export class StringCellValueFilterAdapter extends CellValueFilterSqlite {
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`LOWER(??) IS DISTINCT FROM LOWER(?)`, [
-      this.tableColumnRef,
-      parseValue,
-    ]);
+    builderClient.whereRaw(`LOWER(ifnull(${this.tableColumnRef}, '')) != LOWER(?)`, [parseValue]);
     return builderClient;
   }
 

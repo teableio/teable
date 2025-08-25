@@ -13,7 +13,7 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`?? IS DISTINCT FROM ?`, [this.tableColumnRef, parseValue]);
+    builderClient.whereRaw(`${this.tableColumnRef} IS DISTINCT FROM ?`, [parseValue]);
     return builderClient;
   }
 
@@ -23,7 +23,7 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`COALESCE(??, '') NOT LIKE ?`, [this.tableColumnRef, `%${value}%`]);
+    builderClient.whereRaw(`COALESCE(${this.tableColumnRef}, '') NOT LIKE ?`, [`%${value}%`]);
     return builderClient;
   }
 
@@ -35,8 +35,8 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
   ): Knex.QueryBuilder {
     const valueList = literalValueListSchema.parse(value);
 
-    const sql = `COALESCE(??, '') NOT IN (${this.createSqlPlaceholders(valueList)})`;
-    builderClient.whereRaw(sql, [this.tableColumnRef, ...valueList]);
+    const sql = `COALESCE(${this.tableColumnRef}, '') NOT IN (${this.createSqlPlaceholders(valueList)})`;
+    builderClient.whereRaw(sql, valueList);
     return builderClient;
   }
 }

@@ -10,7 +10,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.tableColumnRef]);
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ == "${value}")'`);
     return builderClient;
   }
 
@@ -20,9 +20,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
-      this.tableColumnRef,
-    ]);
+    builderClient.whereRaw(
+      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`
+    );
     return builderClient;
   }
 
@@ -32,9 +32,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
-      this.tableColumnRef,
-    ]);
+    builderClient.whereRaw(
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`
+    );
     return builderClient;
   }
 
@@ -45,8 +45,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     builderClient.whereRaw(
-      `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
-      [this.tableColumnRef]
+      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`
     );
     return builderClient;
   }
