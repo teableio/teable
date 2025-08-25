@@ -201,9 +201,17 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     return knex.raw(
       `
       EXISTS (
+        WITH RECURSIVE f(e) AS (
+          SELECT ${this.fieldName}::jsonb
+          UNION ALL
+          SELECT jsonb_array_elements(f.e)
+          FROM f
+          WHERE jsonb_typeof(f.e) = 'array'
+        )
         SELECT 1 FROM (
-          SELECT string_agg(elem->>'title', ', ') as aggregated
-          FROM jsonb_array_elements(${this.fieldName}::jsonb) as elem
+          SELECT string_agg((e->>'title')::text, ', ') as aggregated
+          FROM f
+          WHERE jsonb_typeof(e) <> 'array'
         ) as sub
         WHERE sub.aggregated ~* ?
       )

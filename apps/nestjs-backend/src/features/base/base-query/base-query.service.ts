@@ -80,10 +80,7 @@ export class BaseQueryService {
         }
         const dbCellValue = row[field.column];
         const fieldInstance = createFieldInstanceByVo(field.fieldSource);
-        let cellValue = fieldInstance.convertDBValue2CellValue(dbCellValue);
-        if (fieldInstance.isLookup && Array.isArray(cellValue)) {
-          cellValue = cellValue.flat(Infinity);
-        }
+        const cellValue = fieldInstance.convertDBValue2CellValue(dbCellValue);
 
         // number no need to convert string
         if (typeof cellValue === 'number') {
