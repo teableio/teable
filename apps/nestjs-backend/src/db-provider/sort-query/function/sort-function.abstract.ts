@@ -52,21 +52,21 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
   }
 
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    builderClient.orderByRaw(`?? ASC NULLS FIRST`, [this.columnName]);
+    builderClient.orderByRaw(`${this.columnName} ASC NULLS FIRST`);
     return builderClient;
   }
 
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    builderClient.orderByRaw(`?? DESC NULLS LAST`, [this.columnName]);
+    builderClient.orderByRaw(`${this.columnName} DESC NULLS LAST`);
     return builderClient;
   }
 
   getAscSQL() {
-    return this.knex.raw(`?? ASC NULLS FIRST`, [this.columnName]).toQuery();
+    return this.knex.raw(`${this.columnName} ASC NULLS FIRST`).toQuery();
   }
 
   getDescSQL() {
-    return this.knex.raw(`?? DESC NULLS LAST`, [this.columnName]).toQuery();
+    return this.knex.raw(`${this.columnName} DESC NULLS LAST`).toQuery();
   }
 
   protected createSqlPlaceholders(values: unknown[]): string {

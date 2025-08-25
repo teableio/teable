@@ -9,30 +9,31 @@ export class MultipleDateTimeSortAdapter extends SortFunctionPostgres {
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
 
-    const orderByColumn =
-      time === TimeFormatting.None
-        ? this.knex.raw(
-            `
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      ASC NULLS FIRST,
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      ASC NULLS FIRST
-      `,
-            [timeZone, formatString, this.columnName, timeZone, formatString, this.columnName]
-          )
-        : this.knex.raw(
-            `
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      ASC NULLS FIRST,
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      ASC NULLS FIRST
-      `,
-            [this.columnName, this.columnName]
-          );
+    let orderByColumn;
+    if (time === TimeFormatting.None) {
+      orderByColumn = this.knex.raw(
+        `
+        (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+        ASC NULLS FIRST,
+        (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+        ASC NULLS FIRST
+        `,
+        [timeZone, formatString, timeZone, formatString]
+      );
+    } else {
+      orderByColumn = this.knex.raw(
+        `
+        (SELECT to_jsonb(array_agg(elem))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+        ASC NULLS FIRST,
+        (SELECT to_jsonb(array_agg(elem))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+        ASC NULLS FIRST
+        `
+      );
+    }
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
   }
@@ -42,30 +43,31 @@ export class MultipleDateTimeSortAdapter extends SortFunctionPostgres {
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
 
-    const orderByColumn =
-      time === TimeFormatting.None
-        ? this.knex.raw(
-            `
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      DESC NULLS LAST,
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      DESC NULLS LAST
-      `,
-            [timeZone, formatString, this.columnName, timeZone, formatString, this.columnName]
-          )
-        : this.knex.raw(
-            `
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      DESC NULLS LAST,
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      DESC NULLS LAST
-      `,
-            [this.columnName, this.columnName]
-          );
+    let orderByColumn;
+    if (time === TimeFormatting.None) {
+      orderByColumn = this.knex.raw(
+        `
+        (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+        DESC NULLS LAST,
+        (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+        DESC NULLS LAST
+        `,
+        [timeZone, formatString, timeZone, formatString]
+      );
+    } else {
+      orderByColumn = this.knex.raw(
+        `
+        (SELECT to_jsonb(array_agg(elem))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+        DESC NULLS LAST,
+        (SELECT to_jsonb(array_agg(elem))
+        FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+        DESC NULLS LAST
+        `
+      );
+    }
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
   }
@@ -79,28 +81,27 @@ export class MultipleDateTimeSortAdapter extends SortFunctionPostgres {
       return this.knex
         .raw(
           `
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      ASC NULLS FIRST,
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      ASC NULLS FIRST
-      `,
-          [timeZone, formatString, this.columnName, timeZone, formatString, this.columnName]
+          (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+          ASC NULLS FIRST,
+          (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+          ASC NULLS FIRST
+          `,
+          [timeZone, formatString, timeZone, formatString]
         )
         .toQuery();
     } else {
       return this.knex
         .raw(
           `
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      ASC NULLS FIRST,
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      ASC NULLS FIRST
-      `,
-          [this.columnName, this.columnName]
+          (SELECT to_jsonb(array_agg(elem))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+          ASC NULLS FIRST,
+          (SELECT to_jsonb(array_agg(elem))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+          ASC NULLS FIRST
+          `
         )
         .toQuery();
     }
@@ -115,28 +116,27 @@ export class MultipleDateTimeSortAdapter extends SortFunctionPostgres {
       return this.knex
         .raw(
           `
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      DESC NULLS LAST,
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      DESC NULLS LAST
-      `,
-          [timeZone, formatString, this.columnName, timeZone, formatString, this.columnName]
+          (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+          DESC NULLS LAST,
+          (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+          DESC NULLS LAST
+          `,
+          [timeZone, formatString, timeZone, formatString]
         )
         .toQuery();
     } else {
       return this.knex
         .raw(
           `
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
-      DESC NULLS LAST,
-      (SELECT to_jsonb(array_agg(elem))
-      FROM jsonb_array_elements_text(??::jsonb) as elem)
-      DESC NULLS LAST
-      `,
-          [this.columnName, this.columnName]
+          (SELECT to_jsonb(array_agg(elem))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
+          DESC NULLS LAST,
+          (SELECT to_jsonb(array_agg(elem))
+          FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
+          DESC NULLS LAST
+          `
         )
         .toQuery();
     }

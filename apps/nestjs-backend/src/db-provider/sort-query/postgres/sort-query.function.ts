@@ -7,8 +7,7 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     const { dbFieldType } = this.field;
 
     builderClient.orderByRaw(
-      `${dbFieldType === DbFieldType.Json ? '??::text' : '??'} ASC NULLS FIRST`,
-      [this.columnName]
+      `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} ASC NULLS FIRST`
     );
     return builderClient;
   }
@@ -17,8 +16,7 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     const { dbFieldType } = this.field;
 
     builderClient.orderByRaw(
-      `${dbFieldType === DbFieldType.Json ? '??::text' : '??'} DESC NULLS LAST`,
-      [this.columnName]
+      `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} DESC NULLS LAST`
     );
     return builderClient;
   }
@@ -27,9 +25,9 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     const { dbFieldType } = this.field;
 
     return this.knex
-      .raw(`${dbFieldType === DbFieldType.Json ? '??::text' : '??'} ASC NULLS FIRST`, [
-        this.columnName,
-      ])
+      .raw(
+        `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} ASC NULLS FIRST`
+      )
       .toQuery();
   }
 
@@ -37,9 +35,9 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     const { dbFieldType } = this.field;
 
     return this.knex
-      .raw(`${dbFieldType === DbFieldType.Json ? '??::text' : '??'} DESC NULLS LAST`, [
-        this.columnName,
-      ])
+      .raw(
+        `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} DESC NULLS LAST`
+      )
       .toQuery();
   }
 }

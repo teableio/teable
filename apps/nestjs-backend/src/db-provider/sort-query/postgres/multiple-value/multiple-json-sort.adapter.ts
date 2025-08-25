@@ -8,13 +8,11 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
 
     if (isUserOrLink(type)) {
       builderClient.orderByRaw(
-        `jsonb_path_query_array(??::jsonb, '$[*].title')::text ASC NULLS FIRST`,
-        [this.columnName]
+        `jsonb_path_query_array(${this.columnName}::jsonb, '$[*].title')::text ASC NULLS FIRST`
       );
     } else {
       builderClient.orderByRaw(
-        `??::jsonb ->> 0 ASC NULLS FIRST, jsonb_array_length(??::jsonb) ASC`,
-        [this.columnName, this.columnName]
+        `${this.columnName}::jsonb ->> 0 ASC NULLS FIRST, jsonb_array_length(${this.columnName}::jsonb) ASC`
       );
     }
     return builderClient;
@@ -25,13 +23,11 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
 
     if (isUserOrLink(type)) {
       builderClient.orderByRaw(
-        `jsonb_path_query_array(??::jsonb, '$[*].title')::text DESC NULLS LAST`,
-        [this.columnName]
+        `jsonb_path_query_array(${this.columnName}::jsonb, '$[*].title')::text DESC NULLS LAST`
       );
     } else {
       builderClient.orderByRaw(
-        `??::jsonb ->> 0 DESC NULLS LAST, jsonb_array_length(??::jsonb) DESC`,
-        [this.columnName, this.columnName]
+        `${this.columnName}::jsonb ->> 0 DESC NULLS LAST, jsonb_array_length(${this.columnName}::jsonb) DESC`
       );
     }
     return builderClient;
@@ -42,16 +38,15 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
 
     if (isUserOrLink(type)) {
       return this.knex
-        .raw(`jsonb_path_query_array(??::jsonb, '$[*].title')::text ASC NULLS FIRST`, [
-          this.columnName,
-        ])
+        .raw(
+          `jsonb_path_query_array(${this.columnName}::jsonb, '$[*].title')::text ASC NULLS FIRST`
+        )
         .toQuery();
     } else {
       return this.knex
-        .raw(`??::jsonb ->> 0 ASC NULLS FIRST, jsonb_array_length(??::jsonb) ASC`, [
-          this.columnName,
-          this.columnName,
-        ])
+        .raw(
+          `${this.columnName}::jsonb ->> 0 ASC NULLS FIRST, jsonb_array_length(${this.columnName}::jsonb) ASC`
+        )
         .toQuery();
     }
   }
@@ -61,16 +56,15 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
 
     if (isUserOrLink(type)) {
       return this.knex
-        .raw(`jsonb_path_query_array(??::jsonb, '$[*].title')::text DESC NULLS LAST`, [
-          this.columnName,
-        ])
+        .raw(
+          `jsonb_path_query_array(${this.columnName}::jsonb, '$[*].title')::text DESC NULLS LAST`
+        )
         .toQuery();
     } else {
       return this.knex
-        .raw(`??::jsonb ->> 0 DESC NULLS LAST, jsonb_array_length(??::jsonb) DESC`, [
-          this.columnName,
-          this.columnName,
-        ])
+        .raw(
+          `${this.columnName}::jsonb ->> 0 DESC NULLS LAST, jsonb_array_length(${this.columnName}::jsonb) DESC`
+        )
         .toQuery();
     }
   }
