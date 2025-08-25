@@ -950,15 +950,15 @@ describe('Comprehensive Field Filter Tests (e2e)', () => {
       });
 
       test('should filter with isLess operator', async () => {
-        await doTest('Rollup Sum', isLess.value, 150, 1);
+        await doTest('Rollup Sum', isLess.value, 150, 2);
       });
 
       test('should filter with isEmpty operator', async () => {
-        await doTest('Rollup Sum', isEmpty.value, null, 1);
+        await doTest('Rollup Sum', isEmpty.value, null, 0);
       });
 
       test('should filter with isNotEmpty operator', async () => {
-        await doTest('Rollup Sum', isNotEmpty.value, null, 2);
+        await doTest('Rollup Sum', isNotEmpty.value, null, 3);
       });
     });
 

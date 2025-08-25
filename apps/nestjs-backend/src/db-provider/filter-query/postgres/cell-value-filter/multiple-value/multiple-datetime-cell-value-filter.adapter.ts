@@ -13,8 +13,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(
-      `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [this.tableColumnRef]
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
     );
     return builderClient;
   }
@@ -27,14 +26,9 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where((builder) => {
-      builder
-        .whereRaw(
-          `NOT ??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-          [this.tableColumnRef]
-        )
-        .orWhereNull(this.tableColumnRef);
-    });
+    builderClient.whereRaw(
+      `(NOT ${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")' OR ${this.tableColumnRef} IS NULL)`
+    );
 
     return builderClient;
   }
@@ -47,9 +41,9 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`, [
-      this.tableColumnRef,
-    ]);
+    builderClient.whereRaw(
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`
+    );
     return builderClient;
   }
 
@@ -61,9 +55,9 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`, [
-      this.tableColumnRef,
-    ]);
+    builderClient.whereRaw(
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`
+    );
     return builderClient;
   }
 
@@ -75,9 +69,9 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`, [
-      this.tableColumnRef,
-    ]);
+    builderClient.whereRaw(
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`
+    );
     return builderClient;
   }
 
@@ -89,9 +83,9 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`, [
-      this.tableColumnRef,
-    ]);
+    builderClient.whereRaw(
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`
+    );
     return builderClient;
   }
 
@@ -104,8 +98,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(
-      `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [this.tableColumnRef]
+      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
     );
     return builderClient;
   }

@@ -10,7 +10,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @> '[?]'::jsonb`, [this.tableColumnRef, Number(value)]);
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @> '[?]'::jsonb`, [Number(value)]);
     return builderClient;
   }
 
@@ -20,8 +20,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> '[?]'::jsonb`, [
-      this.tableColumnRef,
+    builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @> '[?]'::jsonb`, [
       Number(value),
     ]);
     return builderClient;
@@ -33,8 +32,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > ?)'`, [
-      this.tableColumnRef,
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ > ?)'`, [
       Number(value),
     ]);
     return builderClient;
@@ -46,8 +44,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= ?)'`, [
-      this.tableColumnRef,
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= ?)'`, [
       Number(value),
     ]);
     return builderClient;
@@ -59,8 +56,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < ?)'`, [
-      this.tableColumnRef,
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ < ?)'`, [
       Number(value),
     ]);
     return builderClient;
@@ -72,8 +68,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= ?)'`, [
-      this.tableColumnRef,
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ <= ?)'`, [
       Number(value),
     ]);
     return builderClient;
