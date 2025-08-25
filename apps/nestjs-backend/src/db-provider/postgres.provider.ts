@@ -480,7 +480,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     dbTableName: string,
     searchFields: IFieldInstance[],
     tableIndex: TableIndex[],
-    search: [string, string?, boolean?]
+    search: [string, string?, boolean?],
+    context?: IRecordQueryFilterContext
   ) {
     return SearchQueryAbstract.appendQueryBuilder(
       SearchQueryPostgres,
@@ -488,7 +489,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       dbTableName,
       searchFields,
       tableIndex,
-      search
+      search,
+      context
     );
   }
 
@@ -497,7 +499,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
-    tableIndex: TableIndex[]
+    tableIndex: TableIndex[],
+    context?: IRecordQueryFilterContext
   ) {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQueryPostgres,
@@ -505,7 +508,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       dbTableName,
       searchField,
       search,
-      tableIndex
+      tableIndex,
+      context
     );
   }
 
@@ -515,6 +519,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     searchField: IFieldInstance[],
     searchIndexRo: ISearchIndexByQueryRo,
     tableIndex: TableIndex[],
+    context?: IRecordQueryFilterContext,
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
@@ -525,6 +530,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       searchField,
       searchIndexRo,
       tableIndex,
+      context,
       baseSortIndex,
       setFilterQuery,
       setSortQuery
