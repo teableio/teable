@@ -791,9 +791,6 @@ export class LinkService {
           }
 
           cellValue = field.convertDBValue2CellValue(cellValue);
-          if (field.isLookup && Array.isArray(cellValue)) {
-            cellValue = cellValue.flat(Infinity);
-          }
 
           recordLookupFieldsMap[recordId][fieldId] = cellValue ?? undefined;
         }

@@ -22,6 +22,7 @@ import type {
   ButtonFieldCore,
   TableDomain,
 } from '@teable/core';
+import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IFieldSelectName } from './field-select.type';
@@ -107,13 +108,32 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && fieldCteMap.has(linkFieldId)) {
         const cteName = fieldCteMap.get(linkFieldId)!;
-        // For multiple-value lookup: return CTE column directly; flattening is reverted
-        // Return Raw expression for selecting from link field CTE (non-flatten or non-PG)
+        // For PostgreSQL multi-value lookup, flatten nested arrays via per-row recursive CTE
+        if (this.dbProvider.driver === DriverClient.Pg && field.isMultipleCellValue) {
+          const flattenedExpr = `(
+            WITH RECURSIVE f(e) AS (
+              SELECT "${cteName}"."lookup_${field.id}"::jsonb
+              UNION ALL
+              SELECT jsonb_array_elements(f.e)
+              FROM f
+              WHERE jsonb_typeof(f.e) = 'array'
+            )
+            SELECT COALESCE(
+              jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array'),
+              '[]'::jsonb
+            )
+            FROM f
+          )`;
+          const rawExpression = this.qb.client.raw(`${flattenedExpr} as ??`, [field.dbFieldName]);
+          // 让 WHERE/公式等引用到拍平后的表达式
+          this.state.setSelection(field.id, flattenedExpr);
+          return rawExpression;
+        }
+        // Default: return CTE column directly
         const rawExpression = this.qb.client.raw(`??."lookup_${field.id}" as ??`, [
           cteName,
           field.dbFieldName,
         ]);
-        // For WHERE clauses, store the CTE column reference
         this.state.setSelection(field.id, `"${cteName}"."lookup_${field.id}"`);
         return rawExpression;
       }
