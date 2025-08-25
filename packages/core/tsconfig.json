@@ -22,10 +22,5 @@
     "types": ["vitest/globals"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": [
-    "src",
-    "../../apps/nestjs-backend/src/features/record/query-builder/formula-support-generated-column-validator.spec.ts",
-    "../../apps/nestjs-backend/src/features/record/query-builder/formula-support-generated-column-validator.ts",
-    "../../apps/nestjs-backend/src/features/record/query-builder/formula-validation.ts"
-  ]
+  "include": ["src"]
 }

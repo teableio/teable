@@ -245,6 +245,24 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const foreignAlias = this.getForeignAlias();
     const targetLookupField = field.getForeignLookupField(this.foreignTable);
+    // 如果 lookup 指向 formula，则为 formula 内部引用到的 lookup/rollup 注入 CTE 列映射（覆盖 selectVisitor 的 state）
+    if (targetLookupField?.type === FieldType.Formula) {
+      const formulaField = targetLookupField as FormulaFieldCore;
+      const referenced = formulaField.getReferenceFields(this.foreignTable);
+      const overrideState = new ScopedSelectionState(this.state);
+      for (const ref of referenced) {
+        const linkId = ref.lookupOptions?.linkFieldId;
+        if (!linkId) continue;
+        const cteName = this.fieldCteMap.get(linkId);
+        if (!cteName) continue;
+        if (ref.isLookup) {
+          overrideState.setSelection(ref.id, `"${cteName}"."lookup_${ref.id}"`);
+        } else if (ref.type === FieldType.Rollup) {
+          overrideState.setSelection(ref.id, `"${cteName}"."rollup_${ref.id}"`);
+        }
+      }
+      (selectVisitor as unknown as { state: IMutableQueryBuilderState }).state = overrideState;
+    }
 
     if (!targetLookupField) {
       // Try to fetch via the CTE of the foreign link if present
@@ -482,11 +500,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     }
 
     const qb = this.qb.client.queryBuilder();
+    const scopedState = new ScopedSelectionState(this.state);
     const selectVisitor = new FieldSelectVisitor(
       qb,
       this.dbProvider,
       this.foreignTable,
-      new ScopedSelectionState(this.state),
+      scopedState,
       false
     );
 
@@ -495,6 +514,16 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (!targetLookupField) {
       return 'NULL';
     }
+    // If the target of rollup depends on a foreign link CTE, reference the JOINed CTE columns or use subquery
+    if (targetLookupField.type === FieldType.Formula) {
+      const formulaField = targetLookupField as FormulaFieldCore;
+      const referenced = formulaField.getReferenceFields(this.foreignTable);
+      for (const ref of referenced) {
+        // Pre-generate nested CTEs for foreign-table link dependencies if any lookup/rollup targets are themselves lookup fields.
+        ref.accept(selectVisitor);
+      }
+    }
+
     // If the target of rollup depends on a foreign link CTE, reference the JOINed CTE columns or use subquery
     let expression: string;
     if (targetLookupField.lookupOptions) {

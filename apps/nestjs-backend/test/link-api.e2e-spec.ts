@@ -4370,4 +4370,297 @@ describe('OpenAPI link (e2e)', () => {
       ]);
     });
   });
+
+  describe('rollup -> formula -> rollup chain', () => {
+    it('should aggregate correctly through formula referencing a rollup across links', async () => {
+      // Table2: text + number with records
+      const t2Text: IFieldRo = { name: 't2 text', type: FieldType.SingleLineText };
+      const t2Number: IFieldRo = {
+        name: 't2 number',
+        type: FieldType.Number,
+        options: { formatting: { type: NumberFormattingType.Decimal, precision: 0 } },
+      };
+
+      const table2 = await createTable(baseId, {
+        name: 'table2_rfr',
+        fields: [t2Text, t2Number],
+        records: [
+          { fields: { 't2 text': 'r1', 't2 number': 5 } },
+          { fields: { 't2 text': 'r2', 't2 number': 7 } },
+        ],
+      });
+
+      // Table3: text + link(to t2) + rollup(sum t2.number) + formula(rollup*2)
+      const t3Text: IFieldRo = { name: 't3 text', type: FieldType.SingleLineText };
+      const table3 = await createTable(baseId, {
+        name: 'table3_rfr',
+        fields: [t3Text],
+        records: [{ fields: { 't3 text': 'a' } }],
+      });
+
+      const linkT3ToT2 = await createField(table3.id, {
+        name: 't3->t2',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: table2.id },
+      });
+
+      const rollupT3 = await createField(table3.id, {
+        name: 't3 rollup',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields.find((f) => f.name === 't2 number')!.id,
+          linkFieldId: linkT3ToT2.id,
+        },
+      });
+
+      const formulaT3 = await createField(table3.id, {
+        name: 't3 formula x2',
+        type: FieldType.Formula,
+        options: { expression: `{${rollupT3.id}} * 2` },
+      });
+
+      // Link table3.r1 -> table2.r1 + table2.r2, so rollup=5+7=12, formula=24
+      await updateRecordByApi(table3.id, table3.records[0].id, linkT3ToT2.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      // Table4: text + link(to t3) + rollup(sum t3 formula)
+      const t4Text: IFieldRo = { name: 't4 text', type: FieldType.SingleLineText };
+      const table4 = await createTable(baseId, {
+        name: 'table4_rfr',
+        fields: [t4Text],
+        records: [{ fields: { 't4 text': 'x' } }],
+      });
+
+      const linkT4ToT3 = await createField(table4.id, {
+        name: 't4->t3',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: table3.id },
+      });
+
+      const rollupT4 = await createField(table4.id, {
+        name: 't4 rollup of t3 formula',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table3.id,
+          lookupFieldId: formulaT3.id,
+          linkFieldId: linkT4ToT3.id,
+        },
+      });
+
+      // Link table4.r1 -> table3.r1, so t4 rollup should be 24
+      await updateRecordByApi(table4.id, table4.records[0].id, linkT4ToT3.id, [
+        { id: table3.records[0].id },
+      ]);
+
+      const t4Fields = await getFields(table4.id);
+      const t4RollupField = t4Fields.find((f) => f.id === rollupT4.id)!;
+      const t4Res = await getRecords(table4.id);
+      expect(t4Res.records[0].fields[t4RollupField.name]).toEqual(24);
+    });
+
+    it('should sum formulas across multiple t3 records (OneMany)', async () => {
+      // Table2
+      const t2Text: IFieldRo = { name: 't2 text v2', type: FieldType.SingleLineText };
+      const t2Number: IFieldRo = {
+        name: 't2 number v2',
+        type: FieldType.Number,
+        options: { formatting: { type: NumberFormattingType.Decimal, precision: 0 } },
+      };
+      const table2 = await createTable(baseId, {
+        name: 'table2_rfrm_v2',
+        fields: [t2Text, t2Number],
+        records: [
+          { fields: { 't2 text v2': 'r1', 't2 number v2': 5 } },
+          { fields: { 't2 text v2': 'r2', 't2 number v2': 7 } },
+          { fields: { 't2 text v2': 'r3', 't2 number v2': 11 } },
+        ],
+      });
+
+      // Table3
+      const t3Text: IFieldRo = { name: 't3 text v2', type: FieldType.SingleLineText };
+      const table3 = await createTable(baseId, {
+        name: 'table3_rfrm_v2',
+        fields: [t3Text],
+        records: [{ fields: { 't3 text v2': 'a' } }, { fields: { 't3 text v2': 'b' } }],
+      });
+
+      const linkT3ToT2 = await createField(table3.id, {
+        name: 't3->t2 v2',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: table2.id },
+      });
+
+      const rollupT3 = await createField(table3.id, {
+        name: 't3 rollup v2',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields.find((f) => f.name === 't2 number v2')!.id,
+          linkFieldId: linkT3ToT2.id,
+        },
+      });
+
+      const formulaT3 = await createField(table3.id, {
+        name: 't3 formula x2 v2',
+        type: FieldType.Formula,
+        options: { expression: `{${rollupT3.id}} * 2` },
+      });
+
+      // r1 -> t2(r1,r2) => 5+7=12 => 24; r2 -> t2(r3) => 11 => 22
+      await updateRecordByApi(table3.id, table3.records[0].id, linkT3ToT2.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+      await updateRecordByApi(table3.id, table3.records[1].id, linkT3ToT2.id, [
+        { id: table2.records[2].id },
+      ]);
+
+      // Table4: rollup of t3 formula across two t3 records => 24 + 22 = 46
+      const t4Text: IFieldRo = { name: 't4 text v2', type: FieldType.SingleLineText };
+      const table4 = await createTable(baseId, {
+        name: 'table4_rfrm_v2',
+        fields: [t4Text],
+        records: [{ fields: { 't4 text v2': 'x' } }],
+      });
+
+      const linkT4ToT3 = await createField(table4.id, {
+        name: 't4->t3 v2',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: table3.id },
+      });
+
+      const rollupT4 = await createField(table4.id, {
+        name: 't4 rollup of t3 formula v2',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table3.id,
+          lookupFieldId: formulaT3.id,
+          linkFieldId: linkT4ToT3.id,
+        },
+      });
+
+      // Also create lookup of t3 formula to test lookup->formula->rollup chain resolution
+      const lookupT4 = await createField(table4.id, {
+        name: 't4 lookup t3 formula v2',
+        type: FieldType.Formula,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table3.id,
+          lookupFieldId: formulaT3.id,
+          linkFieldId: linkT4ToT3.id,
+        },
+      });
+
+      await updateRecordByApi(table4.id, table4.records[0].id, linkT4ToT3.id, [
+        { id: table3.records[0].id },
+        { id: table3.records[1].id },
+      ]);
+
+      const t4Fields = await getFields(table4.id);
+      const t4RollupField = t4Fields.find((f) => f.id === rollupT4.id)!;
+      const t4LookupField = t4Fields.find((f) => f.id === lookupT4.id)!;
+      const t4Res = await getRecords(table4.id);
+      expect(t4Res.records[0].fields[t4RollupField.name]).toEqual(46);
+      expect(t4Res.records[0].fields[t4LookupField.name]).toEqual([24, 22]);
+    });
+
+    it('should work when t3->t2 is ManyOne (single-value rollup)', async () => {
+      // Table2
+      const t2Text: IFieldRo = { name: 't2 text v3', type: FieldType.SingleLineText };
+      const t2Number: IFieldRo = {
+        name: 't2 number v3',
+        type: FieldType.Number,
+        options: { formatting: { type: NumberFormattingType.Decimal, precision: 0 } },
+      };
+      const table2 = await createTable(baseId, {
+        name: 'table2_rfrm_v3',
+        fields: [t2Text, t2Number],
+        records: [
+          { fields: { 't2 text v3': 'r1', 't2 number v3': 3 } },
+          { fields: { 't2 text v3': 'r2', 't2 number v3': 9 } },
+        ],
+      });
+
+      // Table3 with ManyOne link to t2
+      const t3Text: IFieldRo = { name: 't3 text v3', type: FieldType.SingleLineText };
+      const table3 = await createTable(baseId, {
+        name: 'table3_rfrm_v3',
+        fields: [t3Text],
+        records: [{ fields: { 't3 text v3': 'a' } }, { fields: { 't3 text v3': 'b' } }],
+      });
+
+      const linkT3ToT2 = await createField(table3.id, {
+        name: 't3->t2 v3',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: table2.id },
+      });
+
+      const rollupT3 = await createField(table3.id, {
+        name: 't3 rollup v3',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields.find((f) => f.name === 't2 number v3')!.id,
+          linkFieldId: linkT3ToT2.id,
+        },
+      });
+
+      const formulaT3 = await createField(table3.id, {
+        name: 't3 formula x2 v3',
+        type: FieldType.Formula,
+        options: { expression: `{${rollupT3.id}} * 2` },
+      });
+
+      // Link: r1 -> t2.r1 (3) => rollup 3 => formula 6; r2 -> t2.r2 (9) => formula 18
+      await updateRecordByApi(table3.id, table3.records[0].id, linkT3ToT2.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(table3.id, table3.records[1].id, linkT3ToT2.id, {
+        id: table2.records[1].id,
+      });
+
+      // Table4: OneMany to t3, rollup sum of t3 formula => 6 + 18 = 24
+      const t4Text: IFieldRo = { name: 't4 text v3', type: FieldType.SingleLineText };
+      const table4 = await createTable(baseId, {
+        name: 'table4_rfrm_v3',
+        fields: [t4Text],
+        records: [{ fields: { 't4 text v3': 'x' } }],
+      });
+
+      const linkT4ToT3 = await createField(table4.id, {
+        name: 't4->t3 v3',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: table3.id },
+      });
+
+      const rollupT4 = await createField(table4.id, {
+        name: 't4 rollup of t3 formula v3',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table3.id,
+          lookupFieldId: formulaT3.id,
+          linkFieldId: linkT4ToT3.id,
+        },
+      });
+
+      await updateRecordByApi(table4.id, table4.records[0].id, linkT4ToT3.id, [
+        { id: table3.records[0].id },
+        { id: table3.records[1].id },
+      ]);
+
+      const t4Fields = await getFields(table4.id);
+      const t4RollupField = t4Fields.find((f) => f.id === rollupT4.id)!;
+      const t4Res = await getRecords(table4.id);
+      expect(t4Res.records[0].fields[t4RollupField.name]).toEqual(24);
+    });
+  });
 });
