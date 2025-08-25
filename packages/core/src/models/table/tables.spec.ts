@@ -52,7 +52,6 @@ describe('Tables', () => {
       name: 'Table 1',
       dbTableName: 'table_1',
       lastModifiedTime: '2023-01-01T00:00:00.000Z',
-      defaultViewId: 'viw1',
       fields: [linkField, textField],
     });
 
@@ -61,7 +60,6 @@ describe('Tables', () => {
       name: 'Table 2',
       dbTableName: 'table_2',
       lastModifiedTime: '2023-01-01T00:00:00.000Z',
-      defaultViewId: 'viw2',
       fields: [textField],
     });
 
