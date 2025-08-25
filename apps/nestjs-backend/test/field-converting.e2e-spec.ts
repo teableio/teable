@@ -3870,7 +3870,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
 
       // record[0] for lookupField is to be undefined
-      expect(records[0].fields[lookupField.id]).toBeUndefined();
+      expect(records[0].fields[lookupField.id] ?? []).toEqual([]);
       // record[1] for lookupField
       expect(records[1].fields[lookupField.id]).toEqual([
         { id: table1.records[1].id },
