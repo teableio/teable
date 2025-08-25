@@ -88,9 +88,9 @@ describe('TableFields', () => {
     fields = new TableFields([linkField1, linkField2, lookupField, textField]);
   });
 
-  describe('getRelatedTableIds', () => {
+  describe('getAllForeignTableIds', () => {
     it('should return foreign table IDs from link fields', () => {
-      const relatedTableIds = fields.getRelatedTableIds();
+      const relatedTableIds = fields.getAllForeignTableIds();
 
       expect(relatedTableIds).toBeInstanceOf(Set);
       expect(relatedTableIds.size).toBe(2);
@@ -99,14 +99,14 @@ describe('TableFields', () => {
     });
 
     it('should exclude lookup fields', () => {
-      const relatedTableIds = fields.getRelatedTableIds();
+      const relatedTableIds = fields.getAllForeignTableIds();
 
       // Should not include the foreign table ID from lookup field
       expect(relatedTableIds.has('tblforeign3')).toBe(false);
     });
 
     it('should exclude non-link fields', () => {
-      const relatedTableIds = fields.getRelatedTableIds();
+      const relatedTableIds = fields.getAllForeignTableIds();
 
       // Should only include link field foreign table IDs
       expect(relatedTableIds.size).toBe(2);
@@ -116,7 +116,7 @@ describe('TableFields', () => {
       const textField = plainToInstance(SingleLineTextFieldCore, textFieldJson);
       const fieldsWithoutLinks = new TableFields([textField]);
 
-      const relatedTableIds = fieldsWithoutLinks.getRelatedTableIds();
+      const relatedTableIds = fieldsWithoutLinks.getAllForeignTableIds();
 
       expect(relatedTableIds).toBeInstanceOf(Set);
       expect(relatedTableIds.size).toBe(0);
@@ -125,7 +125,7 @@ describe('TableFields', () => {
     it('should return empty set when fields collection is empty', () => {
       const emptyFields = new TableFields([]);
 
-      const relatedTableIds = emptyFields.getRelatedTableIds();
+      const relatedTableIds = emptyFields.getAllForeignTableIds();
 
       expect(relatedTableIds).toBeInstanceOf(Set);
       expect(relatedTableIds.size).toBe(0);
