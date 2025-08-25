@@ -1,5 +1,12 @@
-import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
-import { mergeWithDefaultFilter, nullsToUndefined, ViewType } from '@teable/core';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotImplementedException,
+} from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { HttpErrorCode, mergeWithDefaultFilter, nullsToUndefined, ViewType } from '@teable/core';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -23,6 +30,7 @@ import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -410,7 +418,7 @@ export class AggregationServiceV2 implements IAggregationService {
       }
     );
 
-    const { qb, alias } = await this.recordQueryBuilder.createRecordAggregateBuilder(
+    const { qb, alias, selectionMap } = await this.recordQueryBuilder.createRecordAggregateBuilder(
       viewCte ?? dbTableName,
       {
         tableIdOrDbTableName: tableId,
@@ -435,7 +443,7 @@ export class AggregationServiceV2 implements IAggregationService {
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       qb.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search, { selectionMap });
       });
     }
 
@@ -508,13 +516,7 @@ export class AggregationServiceV2 implements IAggregationService {
           tableId,
           ...(withView?.viewId ? { id: withView.viewId } : {}),
           type: {
-            in: [
-              ViewType.Grid,
-              ViewType.Gantt,
-              ViewType.Kanban,
-              ViewType.Gallery,
-              ViewType.Calendar,
-            ],
+            in: [ViewType.Grid, ViewType.Kanban, ViewType.Gallery, ViewType.Calendar],
           },
           deletedTime: null,
         },
@@ -669,23 +671,169 @@ export class AggregationServiceV2 implements IAggregationService {
    * @returns Promise with search index results
    * @throws NotImplementedException - This method is not yet implemented
    */
-  async getRecordIndexBySearchOrder(
+
+  public async getRecordIndexBySearchOrder(
     tableId: string,
     queryRo: ISearchIndexByQueryRo,
     projection?: string[]
-  ): Promise<
-    | {
-        index: number;
-        fieldId: string;
-        recordId: string;
-      }[]
-    | null
-  > {
-    throw new NotImplementedException(
-      `AggregationServiceV2.getRecordIndexBySearchOrder is not implemented yet. TableId: ${tableId}, Query: ${JSON.stringify(queryRo)}, Projection: ${projection?.join(',')}`
-    );
-  }
+  ) {
+    const {
+      search,
+      take,
+      skip,
+      orderBy,
+      filter,
+      groupBy,
+      viewId,
+      ignoreViewQuery,
+      projection: queryProjection,
+    } = queryRo;
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
+    if (take > 1000) {
+      throw new BadGatewayException('The maximum search index result is 1000');
+    }
+
+    if (!search) {
+      throw new BadRequestException('Search query is required');
+    }
+
+    const finalProjection = queryProjection
+      ? projection
+        ? projection.filter((fieldId) => queryProjection.includes(fieldId))
+        : queryProjection
+      : projection;
+
+    const searchFields = await this.recordService.getSearchFields(
+      fieldInstanceMap,
+      search,
+      ignoreViewQuery ? undefined : viewId,
+      finalProjection
+    );
+
+    if (searchFields.length === 0) {
+      return null;
+    }
+
+    const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
+
+    const filterQuery = (qb: Knex.QueryBuilder) => {
+      this.dbProvider
+        .filterQuery(qb, fieldInstanceMap, filter, {
+          withUserId: this.cls.get('user.id'),
+        })
+        .appendQueryBuilder();
+    };
+
+    const sortQuery = (qb: Knex.QueryBuilder) => {
+      this.dbProvider
+        .sortQuery(qb, fieldInstanceMap, [...(groupBy ?? []), ...(orderBy ?? [])])
+        .appendSortBuilder();
+    };
+
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
+
+    const { viewCte, builder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        viewId,
+        keepPrimaryKey: Boolean(queryRo.filterLinkCellSelected),
+      }
+    );
+
+    const selectionMap = new Map(
+      Object.values(fieldInstanceMap).map((f) => [f.id, `"${f.dbFieldName}"`])
+    );
+
+    const queryBuilder = this.dbProvider.searchIndexQuery(
+      builder,
+      viewCte || dbTableName,
+      searchFields,
+      queryRo,
+      tableIndex,
+      { selectionMap },
+      basicSortIndex,
+      filterQuery,
+      sortQuery
+    );
+
+    const sql = queryBuilder.toQuery();
+    try {
+      return await this.prisma.$tx(async (prisma) => {
+        const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
+
+        // no result found
+        if (result?.length === 0) {
+          return null;
+        }
+
+        const recordIds = result;
+
+        if (search[2]) {
+          const baseSkip = skip ?? 0;
+          const accRecord: string[] = [];
+          return recordIds.map((rec) => {
+            if (!accRecord?.includes(rec.__id)) {
+              accRecord.push(rec.__id);
+            }
+            return {
+              index: baseSkip + accRecord?.length,
+              fieldId: rec.fieldId,
+              recordId: rec.__id,
+            };
+          });
+        }
+
+        const { queryBuilder: viewRecordsQB, alias } =
+          await this.recordService.buildFilterSortQuery(tableId, queryRo);
+        // step 2. find the index in current view
+        const indexQueryBuilder = this.knex
+          .with('t', viewRecordsQB.from({ [alias]: viewCte || dbTableName }))
+          .with('t1', (db) => {
+            db.select('__id').select(this.knex.raw('ROW_NUMBER() OVER () as row_num')).from('t');
+          })
+          .select('t1.row_num')
+          .select('t1.__id')
+          .from('t1')
+          .whereIn('t1.__id', [...new Set(recordIds.map((record) => record.__id))]);
+
+        const indexSql = indexQueryBuilder.toQuery();
+        this.logger.debug('getRecordIndexBySearchOrder indexSql: %s', indexSql);
+        const indexResult =
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(indexSql);
+
+        if (indexResult?.length === 0) {
+          return null;
+        }
+
+        const indexResultMap = keyBy(indexResult, '__id');
+
+        return result.map((item) => {
+          const index = Number(indexResultMap[item.__id]?.row_num);
+          if (isNaN(index)) {
+            throw new Error('Index not found');
+          }
+          return {
+            index,
+            fieldId: item.fieldId,
+            recordId: item.__id,
+          };
+        });
+      });
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2028') {
+        throw new CustomHttpException(`${error.message}`, HttpErrorCode.REQUEST_TIMEOUT, {
+          localization: {
+            i18nKey: 'httpErrors.custom.searchTimeOut',
+          },
+        });
+      }
+      throw error;
+    }
+  }
   /**
    * Get calendar daily collection data
    * @param tableId - The table ID

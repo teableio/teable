@@ -1,6 +1,7 @@
 import type { TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { ISearchQueryConstructor } from './types';
 
 export abstract class SearchQueryAbstract {
@@ -8,17 +9,17 @@ export abstract class SearchQueryAbstract {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     SearchQuery: ISearchQueryConstructor,
     originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     searchFields: IFieldInstance[],
     tableIndex: TableIndex[],
-    search: [string, string?, boolean?]
+    search: [string, string?, boolean?],
+    context?: IRecordQueryFilterContext
   ) {
     if (!search || !searchFields?.length) {
       return originQueryBuilder;
     }
 
     searchFields.forEach((fIns) => {
-      const builder = new SearchQuery(originQueryBuilder, dbTableName, fIns, search, tableIndex);
+      const builder = new SearchQuery(originQueryBuilder, fIns, search, tableIndex, context);
       builder.appendBuilder();
     });
 
@@ -32,16 +33,11 @@ export abstract class SearchQueryAbstract {
     dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
-    tableIndex: TableIndex[]
+    tableIndex: TableIndex[],
+    context?: IRecordQueryFilterContext
   ) {
     const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(
-        queryBuilder,
-        dbTableName,
-        field,
-        search,
-        tableIndex
-      );
+      const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex, context);
       return searchQueryBuilder.getSql();
     });
 
@@ -58,13 +54,24 @@ export abstract class SearchQueryAbstract {
     return queryBuilder;
   }
 
+  protected readonly fieldName: string;
+
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
-    protected readonly dbTableName: string,
     protected readonly field: IFieldInstance,
     protected readonly search: [string, string?, boolean?],
-    protected readonly tableIndex: TableIndex[]
-  ) {}
+    protected readonly tableIndex: TableIndex[],
+    protected readonly context?: IRecordQueryFilterContext
+  ) {
+    const { dbFieldName, id } = field;
+
+    const selection = context?.selectionMap.get(id);
+    if (selection) {
+      this.fieldName = selection as string;
+    } else {
+      this.fieldName = dbFieldName;
+    }
+  }
 
   protected abstract json(): Knex.QueryBuilder;
 

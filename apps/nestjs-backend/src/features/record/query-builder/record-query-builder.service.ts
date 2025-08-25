@@ -15,6 +15,7 @@ import type {
   IRecordQueryBuilder,
   IRecordSelectionMap,
   IMutableQueryBuilderState,
+  IReadonlyRecordSelectionMap,
 } from './record-query-builder.interface';
 import { RecordQueryBuilderManager } from './record-query-builder.manager';
 import { getTableAliasFromTable } from './record-query-builder.util';
@@ -61,7 +62,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   async createRecordQueryBuilder(
     from: string,
     options: ICreateRecordQueryBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
     const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
     const { qb, alias, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
@@ -80,13 +81,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       this.buildSort(qb, table, sort, selectionMap);
     }
 
-    return { qb, alias };
+    return { qb, alias, selectionMap };
   }
 
   async createRecordAggregateBuilder(
     from: string,
     options: ICreateRecordAggregateBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string }> {
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
     const { tableIdOrDbTableName, filter, aggregationFields, groupBy, currentUserId } = options;
     const { qb, tables, alias } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
@@ -121,7 +122,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         .appendGroupBuilder();
     }
 
-    return { qb, alias };
+    return { qb, alias, selectionMap };
   }
 
   private buildSelect(

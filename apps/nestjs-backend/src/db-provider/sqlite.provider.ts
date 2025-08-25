@@ -420,7 +420,8 @@ export class SqliteProvider implements IDbProvider {
     dbTableName: string,
     searchFields: IFieldInstance[],
     tableIndex: TableIndex[],
-    search: [string, string?, boolean?]
+    search: [string, string?, boolean?],
+    context?: IRecordQueryFilterContext
   ) {
     return SearchQueryAbstract.appendQueryBuilder(
       SearchQuerySqlite,
@@ -428,7 +429,8 @@ export class SqliteProvider implements IDbProvider {
       dbTableName,
       searchFields,
       tableIndex,
-      search
+      search,
+      context
     );
   }
 
@@ -437,7 +439,8 @@ export class SqliteProvider implements IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
-    tableIndex: TableIndex[]
+    tableIndex: TableIndex[],
+    context?: IRecordQueryFilterContext
   ) {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQuerySqlite,
@@ -445,7 +448,8 @@ export class SqliteProvider implements IDbProvider {
       dbTableName,
       searchField,
       search,
-      tableIndex
+      tableIndex,
+      context
     );
   }
 
@@ -455,6 +459,7 @@ export class SqliteProvider implements IDbProvider {
     searchField: IFieldInstance[],
     searchIndexRo: ISearchIndexByQueryRo,
     tableIndex: TableIndex[],
+    context?: IRecordQueryFilterContext,
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
@@ -465,6 +470,7 @@ export class SqliteProvider implements IDbProvider {
       searchField,
       searchIndexRo,
       tableIndex,
+      context,
       baseSortIndex,
       setFilterQuery,
       setSortQuery

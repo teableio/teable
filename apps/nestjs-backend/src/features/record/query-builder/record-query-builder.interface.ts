@@ -59,7 +59,7 @@ export interface IRecordQueryBuilder {
   createRecordQueryBuilder(
     from: string,
     options: ICreateRecordQueryBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string }>;
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }>;
 
   /**
    * Create a record aggregate query builder for aggregation operations
@@ -70,7 +70,7 @@ export interface IRecordQueryBuilder {
   createRecordAggregateBuilder(
     from: string,
     options: ICreateRecordAggregateBuilderOptions
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string }>;
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }>;
 }
 
 /**
@@ -79,6 +79,7 @@ export interface IRecordQueryBuilder {
 export type IRecordQueryFieldCteMap = Map<string, string>;
 
 export type IRecordSelectionMap = Map<string, IFieldSelectName>;
+export type IReadonlyRecordSelectionMap = Readonly<IRecordSelectionMap>;
 
 export interface IRecordQueryFilterContext {
   selectionMap: IRecordSelectionMap;
