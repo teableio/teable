@@ -740,7 +740,8 @@
         "fillRequiredFields": "Please fill in all required fields",
         "modelsRequired": "Please fill in at least one model",
         "noValidModel": "No valid model found",
-        "addCustomModel": "Add custom model"
+        "addCustomModel": "Add custom model",
+        "isOpenRouter": "OpenRouter"
       }
     }
   },
@@ -845,5 +846,9 @@
     "code": "Invite code",
     "inviteSuccess": "Invite successfully"
   },
-  "noPermissionToCreateBase": "No permission to create base in any space"
+  "noPermissionToCreateBase": "No permission to create base in any space",
+  "app": {
+    "previewAppError": "App running error",
+    "sendErrorToAI": "Send error to AI"
+  }
 }

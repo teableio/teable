@@ -380,6 +380,10 @@
     "times": "回",
     "generate": "生成",
     "code": "招待コード",
-    "inviteSuccess": "招待成功"
+    "inviteSuccess": "招待成功",
+    "app": {
+      "previewAppError": "アプリケーションエラー",
+      "sendErrorToAI": "エラーを AI に送信"
+    }
   }
 }

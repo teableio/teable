@@ -406,6 +406,10 @@
     "times": "Usages",
     "generate": "Genera",
     "code": "Codice di invito",
-    "inviteSuccess": "Invito riuscito"
+    "inviteSuccess": "Invito riuscito",
+    "app": {
+      "previewAppError": "Errore dell'applicazione",
+      "sendErrorToAI": "Invia errore a AI"
+    }
   }
 }

@@ -735,7 +735,8 @@
         "fillRequiredFields": "请填写所有必填字段",
         "modelsRequired": "请填写至少一个模型",
         "noValidModel": "未找到有效模型",
-        "addCustomModel": "添加自定义模型"
+        "addCustomModel": "添加自定义模型",
+        "isOpenRouter": "OpenRouter"
       }
     }
   },
@@ -840,5 +841,9 @@
     "code": "邀请码",
     "inviteSuccess": "邀请成功"
   },
-  "noPermissionToCreateBase": "没有权限在任何空间中创建数据库"
+  "noPermissionToCreateBase": "没有权限在任何空间中创建数据库",
+  "app": {
+    "previewAppError": "应用运行报错",
+    "sendErrorToAI": "将错误发送给 AI"
+  }
 }

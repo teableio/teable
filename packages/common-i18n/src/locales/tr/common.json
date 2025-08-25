@@ -347,6 +347,10 @@
     "times": "Kullanım",
     "generate": "Oluştur",
     "code": "Davet kodu",
-    "inviteSuccess": "Davet başarılı"
+    "inviteSuccess": "Davet başarılı",
+    "app": {
+      "previewAppError": "Uygulama hatası",
+      "sendErrorToAI": "Hata AI'ye gönder"
+    }
   }
 }

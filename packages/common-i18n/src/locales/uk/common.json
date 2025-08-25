@@ -420,6 +420,10 @@
     "times": "Використання",
     "generate": "Створити",
     "code": "Код запрошення",
-    "inviteSuccess": "Запрошення успішно"
+    "inviteSuccess": "Запрошення успішно",
+    "app": {
+      "previewAppError": "Помилка застосунку",
+      "sendErrorToAI": "Надіслати помилку в AI"
+    }
   }
 }

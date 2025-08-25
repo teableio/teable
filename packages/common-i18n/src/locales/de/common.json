@@ -427,6 +427,10 @@
     "times": "Verfügbare Anzahl",
     "generate": "Generieren",
     "code": "Einladungscode",
-    "inviteSuccess": "Einladung erfolgreich"
+    "inviteSuccess": "Einladung erfolgreich",
+    "app": {
+      "previewAppError": "Anwendungsfehler",
+      "sendErrorToAI": "Fehler an AI senden"
+    }
   }
 }
