@@ -241,42 +241,42 @@ export class S3Storage implements StorageAdapter {
     metadata?: Record<string, unknown>
   ) {
     try {
-      return await this.uploadFile(bucket, path, stream, metadata);
-    } catch {
-      const upload = new Upload({
-        client: this.s3Client,
-        params: {
-          Bucket: bucket,
-          Key: path,
-          Body: stream,
-          ContentType: metadata?.['Content-Type'] as string,
-          ContentLength: metadata?.['Content-Length'] as number,
-          ContentDisposition: metadata?.['Content-Disposition'] as string,
-          ContentEncoding: metadata?.['Content-Encoding'] as string,
-          ContentLanguage: metadata?.['Content-Language'] as string,
-          ContentMD5: metadata?.['Content-MD5'] as string,
-        },
-      });
-
-      return upload
-        .done()
-        .then((res) => ({
-          hash: res.ETag!,
-          path,
-        }))
-        .catch((error) => {
-          if (stream && typeof stream !== 'string' && 'destroy' in stream) {
-            (stream as Readable)?.removeAllListeners?.();
-            (stream as Readable)?.destroy?.();
-          }
-          throw new BadRequestException(`S3 upload failed: ${error?.message || 'Unknown error'}`);
-        })
-        .finally(() => {
-          if (stream && typeof stream !== 'string' && 'destroy' in stream) {
-            (stream as Readable)?.removeAllListeners?.();
-            (stream as Readable).destroy?.();
-          }
+      return await new Promise<{ hash: string; path: string }>((resolve, reject) => {
+        const upload = new Upload({
+          client: this.s3Client,
+          params: {
+            Bucket: bucket,
+            Key: path,
+            Body: stream,
+            ContentType: metadata?.['Content-Type'] as string,
+            ContentLength: metadata?.['Content-Length'] as number,
+            ContentDisposition: metadata?.['Content-Disposition'] as string,
+            ContentEncoding: metadata?.['Content-Encoding'] as string,
+            ContentLanguage: metadata?.['Content-Language'] as string,
+            ContentMD5: metadata?.['Content-MD5'] as string,
+          },
         });
+
+        upload
+          .done()
+          .then((res) => {
+            resolve({
+              hash: res.ETag!,
+              path,
+            });
+          })
+          .catch((error) => {
+            if (stream && typeof stream !== 'string' && 'destroy' in stream) {
+              (stream as Readable)?.removeAllListeners?.();
+              (stream as Readable)?.destroy?.();
+            }
+            reject(
+              new BadRequestException(`S3 upload failed: ${error?.message || 'Unknown error'}`)
+            );
+          });
+      });
+    } catch {
+      return this.uploadFile(bucket, path, stream, metadata);
     }
   }
 
