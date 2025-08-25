@@ -216,22 +216,7 @@ export class S3Storage implements StorageAdapter {
     stream: Buffer | Readable,
     metadata?: Record<string, unknown>
   ) {
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: path,
-      Body: stream,
-      ContentType: metadata?.['Content-Type'] as string,
-      ContentLength: metadata?.['Content-Length'] as number,
-      ContentDisposition: metadata?.['Content-Disposition'] as string,
-      ContentEncoding: metadata?.['Content-Encoding'] as string,
-      ContentLanguage: metadata?.['Content-Language'] as string,
-      ContentMD5: metadata?.['Content-MD5'] as string,
-    });
-
-    return this.s3Client.send(command).then((res) => ({
-      hash: res.ETag!,
-      path,
-    }));
+    return this.uploadFileStream(bucket, path, stream, metadata);
   }
 
   async uploadFileStream(
@@ -240,44 +225,40 @@ export class S3Storage implements StorageAdapter {
     stream: Buffer | Readable,
     metadata?: Record<string, unknown>
   ) {
-    try {
-      return await new Promise<{ hash: string; path: string }>((resolve, reject) => {
-        const upload = new Upload({
-          client: this.s3Client,
-          params: {
-            Bucket: bucket,
-            Key: path,
-            Body: stream,
-            ContentType: metadata?.['Content-Type'] as string,
-            ContentLength: metadata?.['Content-Length'] as number,
-            ContentDisposition: metadata?.['Content-Disposition'] as string,
-            ContentEncoding: metadata?.['Content-Encoding'] as string,
-            ContentLanguage: metadata?.['Content-Language'] as string,
-            ContentMD5: metadata?.['Content-MD5'] as string,
-          },
-        });
+    const upload = new Upload({
+      client: this.s3ClientPrivateNetwork,
+      params: {
+        Bucket: bucket,
+        Key: path,
+        Body: stream,
+        ContentType: metadata?.['Content-Type'] as string,
+        ContentLength: metadata?.['Content-Length'] as number,
+        ContentDisposition: metadata?.['Content-Disposition'] as string,
+        ContentEncoding: metadata?.['Content-Encoding'] as string,
+        ContentLanguage: metadata?.['Content-Language'] as string,
+        ContentMD5: metadata?.['Content-MD5'] as string,
+      },
+    });
 
-        upload
-          .done()
-          .then((res) => {
-            resolve({
-              hash: res.ETag!,
-              path,
-            });
-          })
-          .catch((error) => {
-            if (stream && typeof stream !== 'string' && 'destroy' in stream) {
-              (stream as Readable)?.removeAllListeners?.();
-              (stream as Readable)?.destroy?.();
-            }
-            reject(
-              new BadRequestException(`S3 upload failed: ${error?.message || 'Unknown error'}`)
-            );
-          });
+    return upload
+      .done()
+      .then((res) => ({
+        hash: res.ETag!,
+        path,
+      }))
+      .catch((error) => {
+        if (stream && typeof stream !== 'string' && 'destroy' in stream) {
+          (stream as Readable)?.removeAllListeners?.();
+          (stream as Readable)?.destroy?.();
+        }
+        throw new BadRequestException(`S3 upload failed: ${error?.message || 'Unknown error'}`);
+      })
+      .finally(() => {
+        if (stream && typeof stream !== 'string' && 'destroy' in stream) {
+          (stream as Readable)?.removeAllListeners?.();
+          (stream as Readable).destroy?.();
+        }
       });
-    } catch {
-      return this.uploadFile(bucket, path, stream, metadata);
-    }
   }
 
   // s3 file exists
