@@ -1,4 +1,4 @@
-import type { IFilter, IGroup } from '@teable/core';
+import type { IFilter, IGroup, StatisticsFunc } from '@teable/core';
 import type {
   IAggregationField,
   IQueryBaseRo,
@@ -140,5 +140,5 @@ export interface IWithView {
  */
 export interface ICustomFieldStats {
   fieldId: string;
-  statisticFunc?: import('@teable/core').StatisticsFunc;
+  statisticFunc?: StatisticsFunc;
 }

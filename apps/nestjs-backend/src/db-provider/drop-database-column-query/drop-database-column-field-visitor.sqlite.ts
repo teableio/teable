@@ -64,6 +64,7 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
     return [];
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private dropForeignKeyForLinkField(field: LinkFieldCore): string[] {
     const options = field.options as ILinkFieldOptions;
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
