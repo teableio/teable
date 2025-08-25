@@ -278,10 +278,11 @@ export class UserService {
           const size = stream?.headers?.['content-length']?.split(';')?.[0];
           const path = join(StorageAdapter.getDir(UploadType.Avatar), userId);
           const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-
           const { hash } = await this.storageAdapter.uploadFile(bucket, path, stream, {
             // eslint-disable-next-line @typescript-eslint/naming-convention
             'Content-Type': contentType,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Length': size,
           });
 
           await this.mountAttachment(userId, {
