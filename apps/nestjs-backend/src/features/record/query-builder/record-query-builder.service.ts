@@ -140,7 +140,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     for (const field of table.fields) {
       const result = field.accept(visitor);
       if (result) {
-        qb.select(result);
+        if (typeof result === 'string') {
+          qb.select(this.knex.raw(`${result} AS ??`, [field.dbFieldName]));
+        } else {
+          qb.select({ [field.dbFieldName]: result });
+        }
       }
     }
 
