@@ -17,19 +17,18 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
             `
       (
         SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) ASC NULLS FIRST
       `,
-            [formatString, offsetString, this.columnName]
+            [formatString, offsetString]
           )
         : this.knex.raw(
             `
       (
         SELECT group_concat(elem.value, ', ')
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) ASC NULLS FIRST
-      `,
-            [this.columnName]
+      `
           );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -47,19 +46,18 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
             `
       (
         SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) DESC NULLS LAST
       `,
-            [formatString, offsetString, this.columnName]
+            [formatString, offsetString]
           )
         : this.knex.raw(
             `
       (
         SELECT group_concat(elem.value, ', ')
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) DESC NULLS LAST
-      `,
-            [this.columnName]
+      `
           );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -77,10 +75,10 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
           `
         (
           SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
-          FROM json_each(??) as elem
+          FROM json_each(${this.columnName}) as elem
         ) ASC NULLS FIRST
         `,
-          [formatString, offsetString, this.columnName]
+          [formatString, offsetString]
         )
         .toQuery();
     } else {
@@ -89,10 +87,9 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
           `
         (
           SELECT group_concat(elem.value, ', ')
-          FROM json_each(??) as elem
+          FROM json_each(${this.columnName}) as elem
         ) ASC NULLS FIRST
-        `,
-          [this.columnName]
+        `
         )
         .toQuery();
     }
@@ -110,10 +107,10 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
           `
         (
           SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
-          FROM json_each(??) as elem
+          FROM json_each(${this.columnName}) as elem
         ) DESC NULLS LAST
         `,
-          [formatString, offsetString, this.columnName]
+          [formatString, offsetString]
         )
         .toQuery();
     } else {
@@ -122,10 +119,9 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
           `
         (
           SELECT group_concat(elem.value, ', ')
-          FROM json_each(??) as elem
+          FROM json_each(${this.columnName}) as elem
         ) DESC NULLS LAST
-        `,
-          [this.columnName]
+        `
         )
         .toQuery();
     }

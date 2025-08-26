@@ -187,14 +187,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.isLookup) {
       return this.checkAndSelectLookupField(field);
     }
-    const name = this.tableAlias
-      ? `"${this.tableAlias}"."${field.dbFieldName}"`
-      : field.dbFieldName;
+    const name = this.getColumnSelector(field);
 
     const raw = `to_char(${name} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
     const selection = this.qb.client.raw(raw);
 
-    this.state.setSelection(field.id, selection);
+    this.state.setSelection(field.id, name);
     return selection;
   }
 

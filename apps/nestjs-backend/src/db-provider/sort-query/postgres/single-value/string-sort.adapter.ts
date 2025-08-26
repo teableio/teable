@@ -17,8 +17,8 @@ export class StringSortAdapter extends SortFunctionPostgres {
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
-      `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) ASC NULLS FIRST`,
-      [...optionSets, this.columnName]
+      `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ${this.columnName}) ASC NULLS FIRST`,
+      [...optionSets]
     );
     return builderClient;
   }
@@ -36,8 +36,8 @@ export class StringSortAdapter extends SortFunctionPostgres {
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
-      `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) DESC NULLS LAST`,
-      [...optionSets, this.columnName]
+      `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ${this.columnName}) DESC NULLS LAST`,
+      [...optionSets]
     );
     return builderClient;
   }
@@ -53,10 +53,10 @@ export class StringSortAdapter extends SortFunctionPostgres {
 
     const optionSets = choices.map(({ name }) => name);
     return this.knex
-      .raw(`ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) ASC NULLS FIRST`, [
-        ...optionSets,
-        this.columnName,
-      ])
+      .raw(
+        `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ${this.columnName}) ASC NULLS FIRST`,
+        [...optionSets]
+      )
       .toQuery();
   }
 
@@ -72,9 +72,9 @@ export class StringSortAdapter extends SortFunctionPostgres {
     const optionSets = choices.map(({ name }) => name);
     return this.knex
       .raw(
-        `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) DESC NULLS LAST`,
+        `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ${this.columnName}) DESC NULLS LAST`,
 
-        [...optionSets, this.columnName]
+        [...optionSets]
       )
       .toQuery();
   }

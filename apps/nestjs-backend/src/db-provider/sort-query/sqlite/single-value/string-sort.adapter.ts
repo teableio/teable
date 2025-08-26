@@ -14,9 +14,9 @@ export class StringSortAdapter extends SortFunctionSqlite {
     const { choices } = options as ISelectFieldOptions;
 
     const optionSets = choices.map(({ name }) => name);
-    builderClient.orderByRaw(`${this.generateOrderByCase(optionSets)} ASC NULLS FIRST`, [
-      this.columnName,
-    ]);
+    builderClient.orderByRaw(
+      `${this.generateOrderByCase(optionSets, this.columnName)} ASC NULLS FIRST`
+    );
     return builderClient;
   }
 
@@ -30,9 +30,9 @@ export class StringSortAdapter extends SortFunctionSqlite {
     const { choices } = options as ISelectFieldOptions;
 
     const optionSets = choices.map(({ name }) => name);
-    builderClient.orderByRaw(`${this.generateOrderByCase(optionSets)} DESC NULLS LAST`, [
-      this.columnName,
-    ]);
+    builderClient.orderByRaw(
+      `${this.generateOrderByCase(optionSets, this.columnName)} DESC NULLS LAST`
+    );
     return builderClient;
   }
 
@@ -47,7 +47,7 @@ export class StringSortAdapter extends SortFunctionSqlite {
 
     const optionSets = choices.map(({ name }) => name);
     return this.knex
-      .raw(`${this.generateOrderByCase(optionSets)} ASC NULLS FIRST`, [this.columnName])
+      .raw(`${this.generateOrderByCase(optionSets, this.columnName)} ASC NULLS FIRST`)
       .toQuery();
   }
 
@@ -62,7 +62,7 @@ export class StringSortAdapter extends SortFunctionSqlite {
 
     const optionSets = choices.map(({ name }) => name);
     return this.knex
-      .raw(`${this.generateOrderByCase(optionSets)} DESC NULLS LAST`, [this.columnName])
+      .raw(`${this.generateOrderByCase(optionSets, this.columnName)} DESC NULLS LAST`)
       .toQuery();
   }
 }

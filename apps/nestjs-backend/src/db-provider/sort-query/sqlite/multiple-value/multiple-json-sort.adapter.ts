@@ -5,10 +5,9 @@ export class MultipleJsonSortAdapter extends SortFunctionSqlite {
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     builderClient.orderByRaw(
       `
-      json_extract(??, '$[0]') ASC NULLS FIRST,
-      json_array_length(??) ASC NULLS FIRST
-      `,
-      [this.columnName, this.columnName]
+      json_extract(${this.columnName}, '$[0]') ASC NULLS FIRST,
+      json_array_length${this.columnName} ASC NULLS FIRST
+      `
     );
     return builderClient;
   }
@@ -16,10 +15,9 @@ export class MultipleJsonSortAdapter extends SortFunctionSqlite {
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     builderClient.orderByRaw(
       `
-      json_extract(??, '$[0]') DESC NULLS LAST,
-      json_array_length(??) DESC NULLS LAST
-      `,
-      [this.columnName, this.columnName]
+      json_extract(${this.columnName}, '$[0]') DESC NULLS LAST,
+      json_array_length(${this.columnName}) DESC NULLS LAST
+      `
     );
     return builderClient;
   }
@@ -28,10 +26,9 @@ export class MultipleJsonSortAdapter extends SortFunctionSqlite {
     return this.knex
       .raw(
         `
-        json_extract(??, '$[0]') ASC NULLS FIRST,
-        json_array_length(??) ASC NULLS FIRST
-        `,
-        [this.columnName, this.columnName]
+        json_extract(${this.columnName}, '$[0]') ASC NULLS FIRST,
+        json_array_length(${this.columnName}) ASC NULLS FIRST
+        `
       )
       .toQuery();
   }
@@ -40,10 +37,9 @@ export class MultipleJsonSortAdapter extends SortFunctionSqlite {
     return this.knex
       .raw(
         `
-        json_extract(??, '$[0]') DESC NULLS LAST,
-        json_array_length(??) DESC NULLS LAST
-        `,
-        [this.columnName, this.columnName]
+        json_extract(${this.columnName}, '$[0]') DESC NULLS LAST,
+        json_array_length(${this.columnName}) DESC NULLS LAST
+        `
       )
       .toQuery();
   }

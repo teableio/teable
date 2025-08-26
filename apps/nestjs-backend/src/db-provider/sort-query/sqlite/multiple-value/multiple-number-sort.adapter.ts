@@ -10,10 +10,10 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
       `
       (
         SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) ASC NULLS FIRST
       `,
-      [precision, this.columnName]
+      [precision]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -26,10 +26,10 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
       `
       (
         SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) DESC NULLS LAST
       `,
-      [precision, this.columnName]
+      [precision]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -43,10 +43,10 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
         `
       (
         SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) ASC NULLS FIRST
       `,
-        [precision, this.columnName]
+        [precision]
       )
       .toQuery();
   }
@@ -59,10 +59,10 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
         `
       (
         SELECT group_concat(ROUND(elem.value, ?))
-        FROM json_each(??) as elem
+        FROM json_each(${this.columnName}) as elem
       ) DESC NULLS LAST
       `,
-        [precision, this.columnName]
+        [precision]
       )
       .toQuery();
   }

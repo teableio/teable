@@ -12,13 +12,12 @@ export class DateSortAdapter extends SortFunctionSqlite {
     const offsetString = `${getOffset(timeZone)} hour`;
 
     if (time === TimeFormatting.None) {
-      builderClient.orderByRaw('strftime(?, DATETIME(??, ?)) ASC NULLS FIRST', [
+      builderClient.orderByRaw('strftime(?, DATETIME(${this.columnName}, ?)) ASC NULLS FIRST', [
         formatString,
-        this.columnName,
         offsetString,
       ]);
     } else {
-      builderClient.orderByRaw('?? ASC NULLS FIRST', [this.columnName]);
+      builderClient.orderByRaw('${this.columnName} ASC NULLS FIRST');
     }
 
     return builderClient;
@@ -31,13 +30,12 @@ export class DateSortAdapter extends SortFunctionSqlite {
     const offsetString = `${getOffset(timeZone)} hour`;
 
     if (time === TimeFormatting.None) {
-      builderClient.orderByRaw('strftime(?, DATETIME(??, ?)) DESC NULLS LAST', [
+      builderClient.orderByRaw(`strftime(?, DATETIME(${this.columnName}, ?)) DESC NULLS LAST`, [
         formatString,
-        this.columnName,
         offsetString,
       ]);
     } else {
-      builderClient.orderByRaw('?? DESC NULLS LAST', [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName} DESC NULLS LAST`);
     }
 
     return builderClient;
@@ -51,14 +49,13 @@ export class DateSortAdapter extends SortFunctionSqlite {
 
     if (time === TimeFormatting.None) {
       return this.knex
-        .raw('strftime(?, DATETIME(??, ?)) ASC NULLS FIRST', [
+        .raw(`strftime(?, DATETIME(${this.columnName}, ?)) ASC NULLS FIRST`, [
           formatString,
-          this.columnName,
           offsetString,
         ])
         .toQuery();
     } else {
-      return this.knex.raw('?? ASC NULLS FIRST', [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName} ASC NULLS FIRST`).toQuery();
     }
   }
 
@@ -70,14 +67,13 @@ export class DateSortAdapter extends SortFunctionSqlite {
 
     if (time === TimeFormatting.None) {
       return this.knex
-        .raw('strftime(?, DATETIME(??, ?)) DESC NULLS LAST', [
+        .raw(`strftime(?, DATETIME(${this.columnName}, ?)) DESC NULLS LAST`, [
           formatString,
-          this.columnName,
           offsetString,
         ])
         .toQuery();
     } else {
-      return this.knex.raw('?? DESC NULLS LAST', [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName} DESC NULLS LAST`).toQuery();
     }
   }
 }
