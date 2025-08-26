@@ -21,6 +21,7 @@ import {
   ActionPrefix,
   FieldKeyType,
   FieldType,
+  IdPrefix,
   actionPrefixMap,
   getBasePermission,
 } from '@teable/core';
@@ -42,8 +43,10 @@ import { InjectModel } from 'nest-knexjs';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { RawOpType } from '../../../share-db/interface';
 import { updateOrder } from '../../../utils/update-order';
 import { PermissionService } from '../../auth/permission.service';
+import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
@@ -70,6 +73,7 @@ export class TableOpenApiService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly permissionService: PermissionService,
     private readonly tableDuplicateService: TableDuplicateService,
+    private readonly batchService: BatchService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -297,11 +301,6 @@ export class TableOpenApiService {
 
     return await this.prismaService.$tx(
       async () => {
-        // send delete signal to share-db
-        const deletedTime = new Date();
-        for (const tableId of tableIds) {
-          await this.tableService.deleteTable(baseId, tableId, deletedTime);
-        }
         await this.dropTables(tableIds);
         await this.cleanTaskRelatedData(tableIds);
         await this.cleanTablesRelatedData(baseId, tableIds);
@@ -315,10 +314,13 @@ export class TableOpenApiService {
   async dropTables(tableIds: string[]) {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { id: { in: tableIds } },
-      select: { dbTableName: true },
+      select: { dbTableName: true, version: true, id: true, baseId: true },
     });
 
     for (const table of tables) {
+      await this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
+        { docId: table.id, version: table.version },
+      ]);
       await this.prismaService
         .txClient()
         .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
