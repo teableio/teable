@@ -1321,8 +1321,6 @@ export class RecordService {
     );
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
 
-    this.logger.debug('getSnapshotBulkInner query: %s', nativeQuery);
-
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<
