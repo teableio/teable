@@ -47,8 +47,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly table: TableDomain,
-    private readonly state: IMutableQueryBuilderState,
-    private readonly withAlias: boolean = true
+    private readonly state: IMutableQueryBuilderState
   ) {}
 
   private get tableAlias() {
@@ -77,7 +76,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (!alias) {
       return name;
     }
-    return this.qb.client.raw(`??."${name}"`, [alias]);
+    return `"${alias}"."${name}"`;
   }
 
   /**
@@ -99,7 +98,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // Check if the field has error (e.g., target field deleted)
       if (field.hasError) {
         // Field has error, return NULL to indicate this field should be null
-        const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+        const rawExpression = this.qb.client.raw(`NULL `);
         this.state.setSelection(field.id, 'NULL');
         return rawExpression;
       }
@@ -120,16 +119,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
             )
             SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM f
           )`;
-          const rawExpression = this.qb.client.raw(`${flattenedExpr} as ??`, [field.dbFieldName]);
-          // 让 WHERE/公式等引用到拍平后的表达式
           this.state.setSelection(field.id, flattenedExpr);
-          return rawExpression;
+          return this.qb.client.raw(flattenedExpr);
         }
         // Default: return CTE column directly
-        const rawExpression = this.qb.client.raw(`??."lookup_${field.id}" as ??`, [
-          cteName,
-          field.dbFieldName,
-        ]);
+        const rawExpression = this.qb.client.raw(`??."lookup_${field.id}"`, [cteName]);
         this.state.setSelection(field.id, `"${cteName}"."lookup_${field.id}"`);
         return rawExpression;
       }
@@ -149,25 +143,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (!field.isLookup) {
       const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
       if (!isPersistedAsGeneratedColumn) {
-        const sql = this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
+        // Return just the expression without alias for use in jsonb_build_object
+        return this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
           table: this.table,
           tableAlias: this.tableAlias, // Pass table alias to the conversion context
           selectionMap: this.getSelectionMap(),
         });
-        // The table alias is now handled inside the SQL conversion visitor
-        const finalSql = sql;
-
-        if (this.withAlias) {
-          const rawExpression = this.qb.client.raw(`${finalSql} as ??`, [
-            field.getGeneratedColumnName(),
-          ]);
-          const selectorName = this.qb.client.raw(finalSql);
-          this.state.setSelection(field.id, selectorName);
-          return rawExpression;
-        } else {
-          // Return just the expression without alias for use in jsonb_build_object
-          return finalSql;
-        }
       }
       // For generated columns, use table alias if provided
       const columnName = field.getGeneratedColumnName();
@@ -208,13 +189,13 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     }
     const name = this.tableAlias
       ? `"${this.tableAlias}"."${field.dbFieldName}"`
-      : `"${field.dbFieldName}"`;
+      : field.dbFieldName;
 
     const raw = `to_char(${name} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
-    if (this.withAlias) {
-      return this.qb.client.raw(`${raw} as ??`, [field.dbFieldName]);
-    }
-    return this.qb.client.raw(raw);
+    const selection = this.qb.client.raw(raw);
+
+    this.state.setSelection(field.id, selection);
+    return selection;
   }
 
   visitRatingField(field: RatingFieldCore): IFieldSelectName {
@@ -238,7 +219,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const cteName = fieldCteMap.get(field.id)!;
     // Return Raw expression for selecting from CTE
-    const rawExpression = this.qb.client.raw(`??.link_value as ??`, [cteName, field.dbFieldName]);
+    const rawExpression = this.qb.client.raw(`??."link_value"`, [cteName]);
     // For WHERE clauses, store the CTE column reference
     this.state.setSelection(field.id, `"${cteName}"."link_value"`);
     return rawExpression;
@@ -254,7 +235,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     // Check if the field has error (e.g., target field deleted)
     if (field.hasError) {
       // Field has error, return NULL to indicate this field should be null
-      const rawExpression = this.qb.client.raw(`NULL as ??`, [field.dbFieldName]);
+      const rawExpression = this.qb.client.raw(`NULL`);
       this.state.setSelection(field.id, 'NULL');
       return rawExpression;
     }
@@ -262,10 +243,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     const cteName = fieldCteMap.get(field.lookupOptions.linkFieldId)!;
 
     // Return Raw expression for selecting pre-computed rollup value from link CTE
-    const rawExpression = this.qb.client.raw(`??."rollup_${field.id}" as ??`, [
-      cteName,
-      field.dbFieldName,
-    ]);
+    const rawExpression = this.qb.client.raw(`??."rollup_${field.id}"`, [cteName]);
     // For WHERE clauses, store the CTE column reference
     this.state.setSelection(field.id, `"${cteName}"."rollup_${field.id}"`);
     return rawExpression;

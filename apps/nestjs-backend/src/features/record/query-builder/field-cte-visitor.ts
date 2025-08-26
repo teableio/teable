@@ -239,8 +239,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       this.foreignTable,
-      new ScopedSelectionState(this.state),
-      false
+      new ScopedSelectionState(this.state)
     );
 
     const foreignAlias = this.getForeignAlias();
@@ -423,8 +422,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       foreignTable,
-      new ScopedSelectionState(this.state),
-      false
+      new ScopedSelectionState(this.state)
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
     let targetFieldSelectionExpression =
@@ -505,8 +503,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       this.foreignTable,
-      scopedState,
-      false
+      scopedState
     );
 
     const foreignAlias = this.getForeignAlias();
