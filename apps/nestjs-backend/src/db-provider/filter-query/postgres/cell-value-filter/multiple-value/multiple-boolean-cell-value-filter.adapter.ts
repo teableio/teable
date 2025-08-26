@@ -11,7 +11,7 @@ export class MultipleBooleanCellValueFilterAdapter extends CellValueFilterPostgr
     value: IFilterValue,
     dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    return new BooleanCellValueFilterAdapter(this.field).isOperatorHandler(
+    return new BooleanCellValueFilterAdapter(this.field, this.context).isOperatorHandler(
       builderClient,
       operator,
       value,
