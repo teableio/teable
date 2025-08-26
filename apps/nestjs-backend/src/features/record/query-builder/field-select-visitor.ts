@@ -118,11 +118,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
               FROM f
               WHERE jsonb_typeof(f.e) = 'array'
             )
-            SELECT COALESCE(
-              jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array'),
-              '[]'::jsonb
-            )
-            FROM f
+            SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM f
           )`;
           const rawExpression = this.qb.client.raw(`${flattenedExpr} as ??`, [field.dbFieldName]);
           // 让 WHERE/公式等引用到拍平后的表达式
