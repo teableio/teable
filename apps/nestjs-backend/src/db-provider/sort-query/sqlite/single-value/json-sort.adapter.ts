@@ -7,9 +7,9 @@ export class JsonSortAdapter extends SortFunctionSqlite {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      builderClient.orderByRaw(`json_extract(??, '$.title') ASC NULLS FIRST`, [this.columnName]);
+      builderClient.orderByRaw(`json_extract(${this.columnName}, '$.title') ASC NULLS FIRST`);
     } else {
-      builderClient.orderByRaw(`?? ASC NULLS FIRST`, [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName} ASC NULLS FIRST`);
     }
     return builderClient;
   }
@@ -18,9 +18,9 @@ export class JsonSortAdapter extends SortFunctionSqlite {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      builderClient.orderByRaw(`json_extract(??, '$.title') DESC NULLS LAST`, [this.columnName]);
+      builderClient.orderByRaw(`json_extract(${this.columnName}, '$.title') DESC NULLS LAST`);
     } else {
-      builderClient.orderByRaw(`?? DESC NULLS LAST`, [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName} DESC NULLS LAST`);
     }
     return builderClient;
   }
@@ -29,11 +29,9 @@ export class JsonSortAdapter extends SortFunctionSqlite {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      return this.knex
-        .raw(`json_extract(??, '$.title') ASC NULLS FIRST`, [this.columnName])
-        .toQuery();
+      return this.knex.raw(`json_extract(${this.columnName}, '$.title') ASC NULLS FIRST`).toQuery();
     } else {
-      return this.knex.raw(`?? ASC NULLS FIRST`, [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName} ASC NULLS FIRST`).toQuery();
     }
   }
 
@@ -41,11 +39,9 @@ export class JsonSortAdapter extends SortFunctionSqlite {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      return this.knex
-        .raw(`json_extract(??, '$.title') DESC NULLS LAST`, [this.columnName])
-        .toQuery();
+      return this.knex.raw(`json_extract(${this.columnName}, '$.title') DESC NULLS LAST`).toQuery();
     } else {
-      return this.knex.raw(`?? DESC NULLS LAST`, [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName} DESC NULLS LAST`).toQuery();
     }
   }
 }

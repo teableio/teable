@@ -10,13 +10,12 @@ export class DateSortAdapter extends SortFunctionPostgres {
     const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
 
     if (time === TimeFormatting.None) {
-      builderClient.orderByRaw('TO_CHAR(TIMEZONE(?, ??), ?) ASC NULLS FIRST', [
+      builderClient.orderByRaw(`TO_CHAR(TIMEZONE(?, ${this.columnName}), ?) ASC NULLS FIRST`, [
         timeZone,
-        this.columnName,
         formatString,
       ]);
     } else {
-      builderClient.orderBy(this.columnName, 'asc', 'first');
+      builderClient.orderByRaw(`${this.columnName} ASC NULLS FIRST`);
     }
 
     return builderClient;
@@ -28,13 +27,12 @@ export class DateSortAdapter extends SortFunctionPostgres {
     const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
 
     if (time === TimeFormatting.None) {
-      builderClient.orderByRaw('TO_CHAR(TIMEZONE(?, ??), ?) DESC NULLS LAST', [
-        timeZone,
-        this.columnName,
-        formatString,
-      ]);
+      builderClient.orderByRaw(
+        `TO_CHAR(TIMEZONE(?, ${(this, this.columnName)}), ?) DESC NULLS LAST`,
+        [timeZone, formatString]
+      );
     } else {
-      builderClient.orderBy(this.columnName, 'desc', 'last');
+      builderClient.orderByRaw(`${this.columnName} DESC NULLS LAST`);
     }
 
     return builderClient;
@@ -47,14 +45,13 @@ export class DateSortAdapter extends SortFunctionPostgres {
 
     if (time === TimeFormatting.None) {
       return this.knex
-        .raw('TO_CHAR(TIMEZONE(?, ??), ?) ASC NULLS FIRST', [
+        .raw(`TO_CHAR(TIMEZONE(?, ${this.columnName}), ?) ASC NULLS FIRST`, [
           timeZone,
-          this.columnName,
           formatString,
         ])
         .toQuery();
     } else {
-      return this.knex.raw('?? ASC NULLS FIRST', [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName} ASC NULLS FIRST`).toQuery();
     }
   }
 
@@ -65,14 +62,13 @@ export class DateSortAdapter extends SortFunctionPostgres {
 
     if (time === TimeFormatting.None) {
       return this.knex
-        .raw('TO_CHAR(TIMEZONE(?, ??), ?) DESC NULLS LAST', [
+        .raw(`TO_CHAR(TIMEZONE(?, ${this.columnName}), ?) DESC NULLS LAST`, [
           timeZone,
-          this.columnName,
           formatString,
         ])
         .toQuery();
     } else {
-      return this.knex.raw('?? DESC NULLS LAST', [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName} DESC NULLS LAST`).toQuery();
     }
   }
 }

@@ -7,9 +7,9 @@ export class JsonSortAdapter extends SortFunctionPostgres {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      builderClient.orderByRaw(`??::jsonb ->> 'title' ASC NULLS FIRST`, [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName}::jsonb ->> 'title' ASC NULLS FIRST`);
     } else {
-      builderClient.orderByRaw(`??::jsonb ASC NULLS FIRST`, [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName}::jsonb ASC NULLS FIRST`);
     }
     return builderClient;
   }
@@ -18,9 +18,9 @@ export class JsonSortAdapter extends SortFunctionPostgres {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      builderClient.orderByRaw(`??::jsonb ->> 'title' DESC NULLS LAST`, [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName}::jsonb ->> 'title' DESC NULLS LAST`);
     } else {
-      builderClient.orderByRaw(`??::jsonb DESC NULLS LAST`, [this.columnName]);
+      builderClient.orderByRaw(`${this.columnName}::jsonb DESC NULLS LAST`);
     }
     return builderClient;
   }
@@ -29,9 +29,9 @@ export class JsonSortAdapter extends SortFunctionPostgres {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      return this.knex.raw(`??::jsonb ->> 'title' ASC NULLS FIRST`, [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName}::jsonb ->> 'title' ASC NULLS FIRST`).toQuery();
     } else {
-      return this.knex.raw(`??::jsonb ASC NULLS FIRST`, [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName}::jsonb ASC NULLS FIRST`).toQuery();
     }
   }
 
@@ -39,9 +39,9 @@ export class JsonSortAdapter extends SortFunctionPostgres {
     const { type } = this.field;
 
     if (isUserOrLink(type)) {
-      return this.knex.raw(`??::jsonb ->> 'title' DESC NULLS LAST`, [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName}::jsonb ->> 'title' DESC NULLS LAST`).toQuery();
     } else {
-      return this.knex.raw(`??::jsonb DESC NULLS LAST`, [this.columnName]).toQuery();
+      return this.knex.raw(`${this.columnName}::jsonb DESC NULLS LAST`).toQuery();
     }
   }
 }
