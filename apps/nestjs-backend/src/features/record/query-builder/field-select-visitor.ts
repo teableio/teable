@@ -203,7 +203,18 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   visitDateField(field: DateFieldCore): IFieldSelectName {
-    return this.checkAndSelectLookupField(field);
+    if (field.isLookup) {
+      return this.checkAndSelectLookupField(field);
+    }
+    const name = this.tableAlias
+      ? `"${this.tableAlias}"."${field.dbFieldName}"`
+      : `"${field.dbFieldName}"`;
+
+    const raw = `to_char(${name} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+    if (this.withAlias) {
+      return this.qb.client.raw(`${raw} as ??`, [field.dbFieldName]);
+    }
+    return this.qb.client.raw(raw);
   }
 
   visitRatingField(field: RatingFieldCore): IFieldSelectName {
