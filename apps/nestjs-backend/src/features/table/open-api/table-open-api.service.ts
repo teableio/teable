@@ -295,14 +295,13 @@ export class TableOpenApiService {
       console.log('Permanent delete tables error:', e);
     }
 
-    // send delete signal to share-db
-    const deletedTime = new Date();
-    for (const tableId of tableIds) {
-      await this.tableService.deleteTable(baseId, tableId, deletedTime);
-    }
-
     return await this.prismaService.$tx(
       async () => {
+        // send delete signal to share-db
+        const deletedTime = new Date();
+        for (const tableId of tableIds) {
+          await this.tableService.deleteTable(baseId, tableId, deletedTime);
+        }
         await this.dropTables(tableIds);
         await this.cleanTaskRelatedData(tableIds);
         await this.cleanTablesRelatedData(baseId, tableIds);
