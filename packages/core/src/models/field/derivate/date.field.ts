@@ -62,6 +62,11 @@ export class DateFieldCore extends FieldCore {
       return dayjs().toISOString();
     }
 
+    const dayjsObj = dayjs(value);
+    if (dayjsObj.isValid() && dayjsObj.toISOString() === value) {
+      return value;
+    }
+
     const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
 
     const format = `${this.options.formatting.date}${hasTime && this.options.formatting.time !== TimeFormatting.None ? ' ' + this.options.formatting.time : ''}`;
