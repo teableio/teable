@@ -1,5 +1,6 @@
 import type { SafeParseReturnType } from 'zod';
 import type { TableDomain } from '../table';
+import type { IFilter } from '../view/filter';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { LinkFieldCore } from './derivate/link.field';
 import type { IFieldVisitor } from './field-visitor.interface';
@@ -147,5 +148,12 @@ export abstract class FieldCore implements IFieldVo {
 
   get isStructuredCellValue(): boolean {
     return false;
+  }
+
+  /**
+   * Returns the filter configured on this field's lookup options, if any.
+   */
+  getFilter(): IFilter | undefined {
+    return this.lookupOptions?.filter ?? undefined;
   }
 }

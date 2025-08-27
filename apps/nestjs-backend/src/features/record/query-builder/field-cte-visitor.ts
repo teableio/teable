@@ -4,8 +4,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { Logger } from '@nestjs/common';
-import { DriverClient, FieldType, Relationship } from '@teable/core';
+import { DriverClient, FieldType, Relationship, mergeFilter, and } from '@teable/core';
 import type {
+  IFilter,
   IFieldVisitor,
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -69,6 +70,42 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   private getForeignAlias(): string {
     return this.foreignAliasOverride || getTableAliasFromTable(this.foreignTable);
   }
+
+  /**
+   * Build a subquery (SELECT 1 WHERE ...) for foreign table filter using provider's filterQuery.
+   * The subquery references the current foreign alias in-scope and carries proper bindings.
+   */
+  private buildForeignFilterSubquery(filter?: IFilter): string | undefined {
+    if (!filter) return undefined;
+
+    const foreignAlias = this.getForeignAlias();
+    // Build selectionMap mapping foreign field ids to alias-qualified columns
+    const selectionMap = new Map<string, string>();
+    for (const f of this.foreignTable.fieldList) {
+      selectionMap.set(f.id, `"${foreignAlias}"."${f.dbFieldName}"`);
+    }
+
+    // Build field map for filter compiler
+    const fieldMap = this.foreignTable.fieldList.reduce(
+      (map, f) => {
+        map[f.id] = f as FieldCore;
+        return map;
+      },
+      {} as Record<string, FieldCore>
+    );
+
+    // Build subquery with WHERE conditions
+    const sub = this.qb.client.queryBuilder().select(this.qb.client.raw('1'));
+    this.dbProvider
+      .filterQuery(sub, fieldMap, filter, undefined, { selectionMap } as unknown as {
+        selectionMap: Map<string, string>;
+      })
+      .appendQueryBuilder();
+    // Inline final SQL with literal bindings to avoid placeholder/operator collisions
+    return `(${sub.toQuery()})`;
+  }
+
+  // removed aggregateLookupExpression; we now push filters into CTE WHERE via filterQuery only
   private getJsonAggregationFunction(fieldReference: string): string {
     const driver = this.dbProvider.driver;
 
@@ -365,13 +402,28 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       expression =
         typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
     }
-    if (!field.isMultipleCellValue) {
+    // Field-specific filter applied here
+    const filter = field.getFilter?.();
+    const sub = this.buildForeignFilterSubquery(filter);
+    if (!sub) {
+      if (!field.isMultipleCellValue || this.isSingleValueRelationshipContext) {
+        return expression;
+      }
+      return this.getJsonAggregationFunction(expression);
+    }
+
+    if (!field.isMultipleCellValue || this.isSingleValueRelationshipContext) {
+      // Single value: conditionally null out
+      if (this.dbProvider.driver === DriverClient.Pg) {
+        return `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
+      }
       return expression;
     }
-    // In single-value relationship context (ManyOne/OneOne), avoid aggregation to prevent unnecessary GROUP BY
-    if (this.isSingleValueRelationshipContext) {
-      return expression;
+
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      return `json_agg(${expression}) FILTER (WHERE (EXISTS ${sub}) AND ${expression} IS NOT NULL)`;
     }
+
     return this.getJsonAggregationFunction(expression);
   }
   visitNumberField(field: NumberFieldCore): IFieldSelectName {
@@ -774,6 +826,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             );
           }
 
+          // Removed global application of all lookup/rollup filters: we now apply per-field filters only at selection time
+
           cqb.groupBy(`${mainAlias}.__id`);
 
           // For SQLite, add ORDER BY at query level since json_group_array doesn't support internal ordering
@@ -801,6 +855,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               `${foreignAliasUsed}.__id`
             );
           }
+
+          // Removed global application of all lookup/rollup filters
 
           cqb.groupBy(`${mainAlias}.__id`);
 
@@ -841,6 +897,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             );
           }
 
+          // Removed global application of all lookup/rollup filters
+
           // Add LEFT JOINs to nested CTEs for single-value relationships
           for (const nestedLinkFieldId of nestedJoins) {
             const nestedCteName = this.state.getFieldCteMap().get(nestedLinkFieldId)!;
@@ -855,6 +913,68 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       .leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
 
     this.state.setFieldCte(linkField.id, cteName);
+  }
+
+  /**
+   * Apply lookup/rollup filters declared on fields of current link to the foreign alias inside CTE
+   */
+  private applyLookupRollupFiltersOnForeign(
+    cqb: Knex.QueryBuilder,
+    foreignTable: TableDomain,
+    foreignAliasUsed: string,
+    fields: FieldCore[]
+  ) {
+    // Collect filters from lookupOptions on both lookup and rollup fields
+    const filters: IFilter[] = [];
+    for (const f of fields) {
+      const lf = f.getFilter?.() as IFilter | undefined;
+      if (lf) filters.push(lf);
+    }
+    if (!filters.length) return;
+
+    // Merge filters with AND: (f1 AND f2 AND ...)
+    let mergedFilter: IFilter | undefined = undefined;
+    for (const f of filters) {
+      mergedFilter = mergeFilter(mergedFilter, f, and.value);
+    }
+    if (!mergedFilter) return;
+
+    // Build selectionMap for foreign alias
+    const selectionMap = new Map<string, string>();
+    for (const f of foreignTable.fieldList) {
+      selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+    }
+    const fieldMap = foreignTable.fieldList.reduce(
+      (map, f) => {
+        map[f.id] = f as FieldCore;
+        return map;
+      },
+      {} as Record<string, FieldCore>
+    );
+
+    const filterQb = cqb.client.queryBuilder();
+    this.dbProvider
+      .filterQuery(filterQb, fieldMap, mergedFilter, undefined, {
+        selectionMap,
+      } as unknown as { selectionMap: Map<string, string> })
+      .appendQueryBuilder();
+
+    // Extract only the WHERE clause by wrapping as EXISTS (SELECT 1 FROM dual WHERE ...)
+    // We simply append the compiled WHERE conditions to cqb via whereRaw using the built SQL
+    const sql = filterQb.toSQL().sql;
+    if (sql && sql.toLowerCase().includes('where')) {
+      // Use EXISTS (SELECT 1 FROM (SELECT 1) t WHERE ...)
+      // But simpler: add the full where predicate to current builder
+      // Knex does not expose bindings here since we used toSQL only; rebuild via subquery
+      cqb.andWhere((qbInner) => {
+        // Re-run filterQuery directly on qbInner to ensure bindings are correct
+        this.dbProvider
+          .filterQuery(qbInner, fieldMap, mergedFilter!, undefined, {
+            selectionMap,
+          } as unknown as { selectionMap: Map<string, string> })
+          .appendQueryBuilder();
+      });
+    }
   }
 
   /**
