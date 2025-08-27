@@ -20,6 +20,7 @@ import {
 } from 'reactflow';
 import { tableConfig } from '@/features/i18n/table.config';
 import { BaseErdTableNode } from './BaseErdTableNode';
+import { SelfConnectingEdge } from './SelfConnectingEdge';
 
 const openTable = (baseId: string, tableId: string) => {
   const url = new URL(`/base/${baseId}/${tableId}`, window.location.origin);
@@ -110,8 +111,8 @@ const buildEdges = (
       const relationshipLabel = edge.relationship ? translationMap[edge.relationship] : '';
       // `[${source.tableName}]${source.fieldName} - ${relationshipLabel} - [${target.tableName}]${target.fieldName}`
 
-      // const { start, end } = getMarkerId(baseId, edge.relationship ?? Relationship.OneOne);
-
+      const { start, end } = getMarkerId(baseId, edge.relationship ?? Relationship.OneOne);
+      const isSelfConnecting = source.tableId === target.tableId;
       const { title } =
         edge.type === 'lookup'
           ? { title: translationMap['lookup'] }
@@ -122,6 +123,7 @@ const buildEdges = (
             });
       return {
         id: `${source.tableId}-${source.fieldId}-${target.tableId}-${target.fieldId}`,
+        type: isSelfConnecting ? 'selfConnecting' : 'default',
         source: source.tableId,
         target: target.tableId,
         sourceHandle: source.fieldId,
@@ -129,14 +131,14 @@ const buildEdges = (
         style: { strokeWidth: 1 },
         label: relationshipLabel ? relationshipLabel : title,
         data: {},
-        markerStart,
-        markerEnd,
+        markerStart: markerStart,
+        markerEnd: markerEnd,
       };
     });
 };
 
 // todo: custom markers for edges
-const ERMarkers = ({ baseId }: { baseId: string }) => {
+const CustomMarkers = ({ baseId }: { baseId: string }) => {
   return (
     <svg style={{ position: 'absolute', top: 0, left: 0 }}>
       <defs>
@@ -183,7 +185,9 @@ const connectionLineStyle = { stroke: '#fff' };
 const nodeTypes = {
   tableNode: BaseErdTableNode,
 };
-const edgeTypes = {};
+const edgeTypes = {
+  selfConnecting: SelfConnectingEdge,
+};
 
 export const BaseErd = (props: { baseId: string }) => {
   const { baseId } = props;
@@ -223,7 +227,7 @@ export const BaseErd = (props: { baseId: string }) => {
 
   return (
     <>
-      <ERMarkers baseId={baseId} />
+      <CustomMarkers baseId={baseId} />
 
       <ReactFlow
         nodes={nodes}
