@@ -8,9 +8,9 @@ export class AggregationQueryPostgres extends AbstractAggregationQuery {
   private coreAggregation(field: FieldCore): AggregationFunctionPostgres {
     const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
-      return new MultipleValueAggregationAdapter(this.knex, this.dbTableName, field);
+      return new MultipleValueAggregationAdapter(this.knex, this.dbTableName, field, this.context);
     }
-    return new SingleValueAggregationAdapter(this.knex, this.dbTableName, field);
+    return new SingleValueAggregationAdapter(this.knex, this.dbTableName, field, this.context);
   }
 
   booleanAggregation(field: FieldCore): AggregationFunctionPostgres {

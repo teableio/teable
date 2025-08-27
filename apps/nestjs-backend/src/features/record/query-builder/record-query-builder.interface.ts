@@ -79,18 +79,18 @@ export interface IRecordQueryBuilder {
 export type IRecordQueryFieldCteMap = Map<string, string>;
 
 export type IRecordSelectionMap = Map<string, IFieldSelectName>;
-export type IReadonlyRecordSelectionMap = Readonly<IRecordSelectionMap>;
+export type IReadonlyRecordSelectionMap = ReadonlyMap<string, IFieldSelectName>;
 
 export interface IRecordQueryFilterContext {
-  selectionMap: IRecordSelectionMap;
+  selectionMap: IReadonlyRecordSelectionMap;
 }
 
 export interface IRecordQuerySortContext {
-  selectionMap: IRecordSelectionMap;
+  selectionMap: IReadonlyRecordSelectionMap;
 }
 
 export interface IRecordQueryGroupContext {
-  selectionMap: IRecordSelectionMap;
+  selectionMap: IReadonlyRecordSelectionMap;
 }
 
 /**

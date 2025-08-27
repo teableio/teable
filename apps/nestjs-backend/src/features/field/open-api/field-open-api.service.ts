@@ -677,11 +677,7 @@ export class FieldOpenApiService {
         chunkSize
       );
 
-      if (
-        !fieldInstance.isComputed &&
-        fieldInstance.type !== FieldType.Button &&
-        fieldInstance.type !== FieldType.Link
-      ) {
+      if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
         await this.prismaService.$tx(async () => {
           await this.recordOpenApiService.simpleUpdateRecords(sourceTableId, {
             fieldKeyType: FieldKeyType.Id,
@@ -709,7 +705,7 @@ export class FieldOpenApiService {
   private async getFieldRecordsCount(dbTableName: string, field: IFieldInstance) {
     // For checkbox fields, use 'is' operator with null value instead of 'isEmpty'
     // because checkbox fields only support 'is' operator
-    const operator = field.cellValueType === CellValueType.Boolean ? 'is' : 'isEmpty';
+    const operator = field.cellValueType === CellValueType.Boolean ? 'isNot' : 'isNotEmpty';
 
     const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,

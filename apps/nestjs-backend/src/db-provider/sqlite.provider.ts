@@ -366,7 +366,8 @@ export class SqliteProvider implements IDbProvider {
     dbTableName: string,
     fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
-    extra?: IAggregationQueryExtra
+    extra?: IAggregationQueryExtra,
+    context?: IRecordQueryFilterContext
   ): IAggregationQueryInterface {
     return new AggregationQuerySqlite(
       this.knex,
@@ -374,7 +375,8 @@ export class SqliteProvider implements IDbProvider {
       dbTableName,
       fields,
       aggregationFields,
-      extra
+      extra,
+      context
     );
   }
 

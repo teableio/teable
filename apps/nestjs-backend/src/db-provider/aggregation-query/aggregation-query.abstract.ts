@@ -3,6 +3,7 @@ import type { FieldCore } from '@teable/core';
 import { CellValueType, DbFieldType, getValidStatisticFunc, StatisticsFunc } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
+import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationQueryExtra } from '../db.provider.interface';
 import type { AbstractAggregationFunction } from './aggregation-function.abstract';
 import type { IAggregationQueryInterface } from './aggregation-query.interface';
@@ -16,7 +17,8 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     protected readonly dbTableName: string,
     protected readonly fields?: { [fieldId: string]: FieldCore },
     protected readonly aggregationFields?: IAggregationField[],
-    protected readonly extra?: IAggregationQueryExtra
+    protected readonly extra?: IAggregationQueryExtra,
+    protected readonly context?: IRecordQueryFilterContext
   ) {}
 
   appendBuilder(): Knex.QueryBuilder {

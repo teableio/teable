@@ -12,9 +12,7 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
       return super.unique();
     }
 
-    return this.knex
-      .raw(`COUNT(DISTINCT json_extract(??, '$.id'))`, [this.tableColumnRef])
-      .toQuery();
+    return this.knex.raw(`COUNT(DISTINCT json_extract(${this.tableColumnRef}, '$.id'))`).toQuery();
   }
 
   percentUnique(): string {
@@ -24,14 +22,14 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
       isMultipleCellValue
     ) {
       return this.knex
-        .raw(`(COUNT(DISTINCT ??) * 1.0 / MAX(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+        .raw(`(COUNT(DISTINCT ${this.tableColumnRef}) * 1.0 / MAX(COUNT(*), 1)) * 100`)
         .toQuery();
     }
 
     return this.knex
-      .raw(`(COUNT(DISTINCT json_extract(??, '$.id')) * 1.0 / MAX(COUNT(*), 1)) * 100`, [
-        this.tableColumnRef,
-      ])
+      .raw(
+        `(COUNT(DISTINCT json_extract(${this.tableColumnRef}, '$.id')) * 1.0 / MAX(COUNT(*), 1)) * 100`
+      )
       .toQuery();
   }
   dateRangeOfDays(): string {
@@ -48,13 +46,13 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
 
   percentEmpty(): string {
     return this.knex
-      .raw(`((COUNT(*) - COUNT(??)) * 1.0 / MAX(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+      .raw(`((COUNT(*) - COUNT(${this.tableColumnRef})) * 1.0 / MAX(COUNT(*), 1)) * 100`)
       .toQuery();
   }
 
   percentFilled(): string {
     return this.knex
-      .raw(`(COUNT(??) * 1.0 / MAX(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+      .raw(`(COUNT(${this.tableColumnRef}) * 1.0 / MAX(COUNT(*), 1)) * 100`)
       .toQuery();
   }
 
