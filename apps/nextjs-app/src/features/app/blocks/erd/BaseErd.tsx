@@ -20,30 +20,12 @@ import {
 } from 'reactflow';
 import { tableConfig } from '@/features/i18n/table.config';
 import { BaseErdTableNode } from './BaseErdTableNode';
+import { CustomMarkers, getMarker } from './CustomMakers';
 import { SelfConnectingEdge } from './SelfConnectingEdge';
 
 const openTable = (baseId: string, tableId: string) => {
   const url = new URL(`/base/${baseId}/${tableId}`, window.location.origin);
   window.open(url.toString(), '_blank');
-};
-
-const buildMarkerId = (baseId: string) => {
-  return {
-    one: `${baseId}-one`,
-    many: `${baseId}-many`,
-  };
-};
-
-const getMarkerId = (baseId: string, relationship: Relationship) => {
-  const { one, many } = buildMarkerId(baseId);
-  const start =
-    relationship === Relationship.OneOne || relationship === Relationship.OneMany ? one : many;
-  const end =
-    relationship === Relationship.OneOne || relationship === Relationship.ManyOne ? one : many;
-  return {
-    start,
-    end,
-  };
 };
 
 const buildNodes = (
@@ -93,7 +75,12 @@ const buildEdges = (
       return showAllRelations || Boolean(edge.relationship);
     })
     .map((edge) => {
-      const markerStart = !edge.isOneWay
+      const { source, target } = edge;
+
+      const relationshipLabel = edge.relationship ? translationMap[edge.relationship] : '';
+      // `[${source.tableName}]${source.fieldName} - ${relationshipLabel} - [${target.tableName}]${target.fieldName}`
+
+      const defaultMarkerStart = !edge.isOneWay
         ? {
             type: MarkerType.ArrowClosed,
             orient: 'auto-start-reverse',
@@ -101,17 +88,15 @@ const buildEdges = (
             height: 16,
           }
         : undefined;
-      const markerEnd = {
+      const defaultMarkerEnd = {
         type: MarkerType.ArrowClosed,
         width: 16,
         height: 16,
       };
-      const { source, target } = edge;
+      const { start: markerStart, end: markerEnd } = edge.relationship
+        ? getMarker(baseId, edge.relationship)
+        : { start: defaultMarkerStart, end: defaultMarkerEnd };
 
-      const relationshipLabel = edge.relationship ? translationMap[edge.relationship] : '';
-      // `[${source.tableName}]${source.fieldName} - ${relationshipLabel} - [${target.tableName}]${target.fieldName}`
-
-      const { start, end } = getMarkerId(baseId, edge.relationship ?? Relationship.OneOne);
       const isSelfConnecting = source.tableId === target.tableId;
       const { title } =
         edge.type === 'lookup'
@@ -130,55 +115,10 @@ const buildEdges = (
         targetHandle: target.fieldId,
         style: { strokeWidth: 1 },
         label: relationshipLabel ? relationshipLabel : title,
-        data: {},
-        markerStart: markerStart,
-        markerEnd: markerEnd,
+        markerStart,
+        markerEnd,
       };
     });
-};
-
-// todo: custom markers for edges
-const CustomMarkers = ({ baseId }: { baseId: string }) => {
-  return (
-    <svg style={{ position: 'absolute', top: 0, left: 0 }}>
-      <defs>
-        <marker
-          id={buildMarkerId(baseId).one}
-          markerWidth="16"
-          markerHeight="16"
-          viewBox="-10 -10 20 20"
-          markerUnits="strokeWidth"
-          orient="auto-start-reverse"
-          refX="0"
-          refY="0"
-        >
-          <polyline
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points="-5,-4 0,0 -5,4 -5,-4"
-            style={{ stroke: 'rgb(177, 177, 183)', fill: 'rgb(177, 177, 183)', strokeWidth: 1 }}
-          ></polyline>
-        </marker>
-        <marker
-          id={buildMarkerId(baseId).many}
-          markerWidth="16"
-          markerHeight="16"
-          viewBox="-10 -10 20 20"
-          markerUnits="strokeWidth"
-          orient="auto-start-reverse"
-          refX="0"
-          refY="0"
-        >
-          <circle
-            cx="8"
-            cy="8"
-            r="8"
-            style={{ stroke: 'rgb(177, 177, 183)', fill: 'rgb(177, 177, 183)', strokeWidth: 1 }}
-          ></circle>
-        </marker>
-      </defs>
-    </svg>
-  );
 };
 
 const connectionLineStyle = { stroke: '#fff' };
@@ -195,7 +135,7 @@ export const BaseErd = (props: { baseId: string }) => {
   const fieldStaticGetter = useFieldStaticGetter();
   const [showAllRelations, setShowAllRelations] = useState(false);
   const [baseErd, setBaseErd] = useState<IBaseErdVo | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<IBaseErdTableNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const translationMap = useMemo(() => {
@@ -216,62 +156,49 @@ export const BaseErd = (props: { baseId: string }) => {
 
   useEffect(() => {
     if (baseErd) {
-      const { baseId, nodes, edges } = baseErd;
+      const { baseId, nodes } = baseErd;
       setNodes(buildNodes(baseId, nodes, fieldStaticGetter, openTable));
-      setEdges(buildEdges(baseId, edges, translationMap, fieldStaticGetter, showAllRelations));
     } else {
       setNodes([]);
+    }
+  }, [baseErd, fieldStaticGetter, setNodes]);
+
+  useEffect(() => {
+    if (baseErd) {
+      const { baseId, edges } = baseErd;
+      setEdges(buildEdges(baseId, edges, translationMap, fieldStaticGetter, showAllRelations));
+    } else {
       setEdges([]);
     }
-  }, [baseErd, showAllRelations, translationMap, fieldStaticGetter, setNodes, setEdges]);
+  }, [baseErd, showAllRelations, translationMap, fieldStaticGetter, setEdges]);
 
   return (
-    <>
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      connectionLineStyle={connectionLineStyle}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      fitView
+      minZoom={0.25}
+      maxZoom={1.5}
+    >
       <CustomMarkers baseId={baseId} />
-
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        connectionLineStyle={connectionLineStyle}
-        fitView
-        minZoom={0.25}
-        maxZoom={1}
-        // onEdgeMouseEnter={(event, edge) => {
-        //   setEdges((prev) => {
-        //     return prev.map((e) => {
-        //       if (e.id === edge.id) {
-        //         return { ...e, style: { ...e.style, strokeWidth: 1.5 }, label: e.data.label };
-        //       }
-        //       return e;
-        //     });
-        //   });
-        // }}
-        // onEdgeMouseLeave={(event, edge) => {
-        //   setEdges((prev) => {
-        //     return prev.map((e) => {
-        //       return { ...e, style: { ...e.style, strokeWidth: 1 }, label: '' };
-        //     });
-        //   });
-        // }}
-      >
-        <Background variant={BackgroundVariant.Dots} className="bg-secondary" />
-        <Controls
-          className="Controls"
-          fitViewOptions={{
-            duration: 500,
-          }}
-        />
-        <div className="absolute right-10 top-10 z-10 flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Switch checked={showAllRelations} onCheckedChange={setShowAllRelations} />
-            <Label>Show All Relations</Label>
-          </div>
+      <Background variant={BackgroundVariant.Dots} className="bg-secondary" />
+      <Controls
+        className="Controls"
+        fitViewOptions={{
+          duration: 500,
+        }}
+      />
+      <div className="absolute right-10 top-10 z-10 flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Switch checked={showAllRelations} onCheckedChange={setShowAllRelations} />
+          <Label>Show All Relations</Label>
         </div>
-      </ReactFlow>
-    </>
+      </div>
+    </ReactFlow>
   );
 };
