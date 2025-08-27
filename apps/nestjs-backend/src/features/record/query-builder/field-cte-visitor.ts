@@ -4,34 +4,38 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { Logger } from '@nestjs/common';
-import { DriverClient, FieldType, Relationship, mergeFilter, and } from '@teable/core';
-import type {
-  IFilter,
-  IFieldVisitor,
-  AttachmentFieldCore,
-  AutoNumberFieldCore,
-  CheckboxFieldCore,
-  CreatedByFieldCore,
-  CreatedTimeFieldCore,
-  DateFieldCore,
-  FormulaFieldCore,
-  LastModifiedByFieldCore,
-  LastModifiedTimeFieldCore,
-  LinkFieldCore,
-  LongTextFieldCore,
-  MultipleSelectFieldCore,
-  NumberFieldCore,
-  RatingFieldCore,
-  RollupFieldCore,
-  SingleLineTextFieldCore,
-  SingleSelectFieldCore,
-  UserFieldCore,
-  ButtonFieldCore,
-  Tables,
-  TableDomain,
-  ILinkFieldOptions,
-  FieldCore,
-  IRollupFieldOptions,
+import {
+  DriverClient,
+  FieldType,
+  Relationship,
+  mergeFilter,
+  and,
+  type IFilter,
+  type IFieldVisitor,
+  type AttachmentFieldCore,
+  type AutoNumberFieldCore,
+  type CheckboxFieldCore,
+  type CreatedByFieldCore,
+  type CreatedTimeFieldCore,
+  type DateFieldCore,
+  type FormulaFieldCore,
+  type LastModifiedByFieldCore,
+  type LastModifiedTimeFieldCore,
+  type LinkFieldCore,
+  type LongTextFieldCore,
+  type MultipleSelectFieldCore,
+  type NumberFieldCore,
+  type RatingFieldCore,
+  type RollupFieldCore,
+  type SingleLineTextFieldCore,
+  type SingleSelectFieldCore,
+  type UserFieldCore,
+  type ButtonFieldCore,
+  type Tables,
+  type TableDomain,
+  type ILinkFieldOptions,
+  type FieldCore,
+  type IRollupFieldOptions,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -62,29 +66,34 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly isSingleValueRelationshipContext: boolean = false, // In ManyOne/OneOne CTEs, avoid aggregates
     private readonly foreignAliasOverride?: string
   ) {}
-
   private get fieldCteMap() {
     return this.state.getFieldCteMap();
   }
-
   private getForeignAlias(): string {
     return this.foreignAliasOverride || getTableAliasFromTable(this.foreignTable);
   }
-
+  private getJsonAggregationFunction(fieldReference: string): string {
+    const driver = this.dbProvider.driver;
+    if (driver === DriverClient.Pg) {
+      // Filter out null values to prevent null entries in the JSON array
+      return `json_agg(${fieldReference}) FILTER (WHERE ${fieldReference} IS NOT NULL)`;
+    } else if (driver === DriverClient.Sqlite) {
+      // For SQLite, we need to handle null filtering differently
+      return `json_group_array(${fieldReference}) WHERE ${fieldReference} IS NOT NULL`;
+    }
+    throw new Error(`Unsupported database driver: ${driver}`);
+  }
   /**
    * Build a subquery (SELECT 1 WHERE ...) for foreign table filter using provider's filterQuery.
    * The subquery references the current foreign alias in-scope and carries proper bindings.
    */
-  private buildForeignFilterSubquery(filter?: IFilter): string | undefined {
-    if (!filter) return undefined;
-
+  private buildForeignFilterSubquery(filter: IFilter): string {
     const foreignAlias = this.getForeignAlias();
     // Build selectionMap mapping foreign field ids to alias-qualified columns
     const selectionMap = new Map<string, string>();
     for (const f of this.foreignTable.fieldList) {
       selectionMap.set(f.id, `"${foreignAlias}"."${f.dbFieldName}"`);
     }
-
     // Build field map for filter compiler
     const fieldMap = this.foreignTable.fieldList.reduce(
       (map, f) => {
@@ -93,7 +102,6 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       },
       {} as Record<string, FieldCore>
     );
-
     // Build subquery with WHERE conditions
     const sub = this.qb.client.queryBuilder().select(this.qb.client.raw('1'));
     this.dbProvider
@@ -101,25 +109,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         selectionMap: Map<string, string>;
       })
       .appendQueryBuilder();
-    // Inline final SQL with literal bindings to avoid placeholder/operator collisions
     return `(${sub.toQuery()})`;
   }
-
-  // removed aggregateLookupExpression; we now push filters into CTE WHERE via filterQuery only
-  private getJsonAggregationFunction(fieldReference: string): string {
-    const driver = this.dbProvider.driver;
-
-    if (driver === DriverClient.Pg) {
-      // Filter out null values to prevent null entries in the JSON array
-      return `json_agg(${fieldReference}) FILTER (WHERE ${fieldReference} IS NOT NULL)`;
-    } else if (driver === DriverClient.Sqlite) {
-      // For SQLite, we need to handle null filtering differently
-      return `json_group_array(${fieldReference}) WHERE ${fieldReference} IS NOT NULL`;
-    }
-
-    throw new Error(`Unsupported database driver: ${driver}`);
-  }
-
   /**
    * Generate rollup aggregation expression based on rollup function
    */
@@ -135,11 +126,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (!functionMatch) {
       throw new Error(`Invalid rollup expression: ${expression}`);
     }
-
     const functionName = functionMatch[1].toLowerCase();
     const castIfPg = (sql: string) =>
       this.dbProvider.driver === DriverClient.Pg ? `CAST(${sql} AS DOUBLE PRECISION)` : sql;
-
     switch (functionName) {
       case 'sum':
         return castIfPg(`COALESCE(SUM(${fieldExpression}), 0)`);
@@ -404,13 +393,13 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     }
     // Field-specific filter applied here
     const filter = field.getFilter?.();
-    const sub = this.buildForeignFilterSubquery(filter);
-    if (!sub) {
+    if (!filter) {
       if (!field.isMultipleCellValue || this.isSingleValueRelationshipContext) {
         return expression;
       }
       return this.getJsonAggregationFunction(expression);
     }
+    const sub = this.buildForeignFilterSubquery(filter);
 
     if (!field.isMultipleCellValue || this.isSingleValueRelationshipContext) {
       // Single value: conditionally null out
@@ -490,6 +479,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         // Build JSON object with id and title, then strip null values to remove title key when null
         const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${targetFieldSelectionExpression}))::jsonb`;
 
+        // Apply field-level filter for Link (only affects this column)
+        const linkFieldFilter = (field as FieldCore).getFilter?.();
+        const linkFilterSub = linkFieldFilter
+          ? this.buildForeignFilterSubquery(linkFieldFilter)
+          : undefined;
+
         if (isMultiValue) {
           // Filter out null records and return empty array if no valid records exist
           // Order by junction table __id if available (for consistent insertion order)
@@ -513,10 +508,17 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
             .with({ usesJunctionTable: false, hasOrderColumn: false }, () => recordIdRef) // Fallback to record ID if no order column is available
             .exhaustive();
 
-          return `COALESCE(json_agg(${conditionalJsonObject} ORDER BY ${orderByField}) FILTER (WHERE ${recordIdRef} IS NOT NULL), '[]'::json)`;
+          const baseFilter = `${recordIdRef} IS NOT NULL`;
+          const appliedFilter = linkFilterSub
+            ? `(EXISTS ${linkFilterSub}) AND ${baseFilter}`
+            : baseFilter;
+          return `COALESCE(json_agg(${conditionalJsonObject} ORDER BY ${orderByField}) FILTER (WHERE ${appliedFilter}), '[]'::json)`;
         } else {
           // For single value relationships (ManyOne, OneOne), return single object or null
-          return `CASE WHEN ${recordIdRef} IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
+          const cond = linkFilterSub
+            ? `${recordIdRef} IS NOT NULL AND EXISTS ${linkFilterSub}`
+            : `${recordIdRef} IS NOT NULL`;
+          return `CASE WHEN ${cond} THEN ${conditionalJsonObject} ELSE NULL END`;
         }
       })
       .with(DriverClient.Sqlite, () => {
@@ -616,6 +618,17 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       options.relationship === Relationship.ManyOne || options.relationship === Relationship.OneOne;
 
     if (isSingleValueRelationship) {
+      // Apply rollup field-level filter if exists
+      const rollupFilter = (field as FieldCore).getFilter?.();
+      if (rollupFilter) {
+        const sub = this.buildForeignFilterSubquery(rollupFilter);
+        return this.generateSingleValueRollupAggregation(
+          rollupOptions.expression,
+          this.dbProvider.driver === DriverClient.Pg
+            ? `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`
+            : expression
+        );
+      }
       return this.generateSingleValueRollupAggregation(rollupOptions.expression, expression);
     }
 
@@ -636,6 +649,18 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       }
     }
 
+    // Aggregate rollup with optional field-level filter
+    const rollupFilter = (field as FieldCore).getFilter?.();
+    if (rollupFilter && this.dbProvider.driver === DriverClient.Pg) {
+      const sub = this.buildForeignFilterSubquery(rollupFilter);
+      const filteredExpr = `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
+      return this.generateRollupAggregation(
+        rollupOptions.expression,
+        filteredExpr,
+        targetLookupField,
+        orderByField
+      );
+    }
     return this.generateRollupAggregation(
       rollupOptions.expression,
       expression,
