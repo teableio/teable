@@ -9,6 +9,7 @@ import { ActionPrefix, actionPrefixMap, generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
+  IBaseErdVo,
   ICreateBaseFromTemplateRo,
   ICreateBaseRo,
   IDuplicateBaseRo,
@@ -26,6 +27,7 @@ import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { GraphService } from '../graph/graph.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 
@@ -40,6 +42,7 @@ export class BaseService {
     private readonly baseDuplicateService: BaseDuplicateService,
     private readonly permissionService: PermissionService,
     private readonly tableOpenApiService: TableOpenApiService,
+    private readonly graphService: GraphService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -428,5 +431,9 @@ export class BaseService {
       where: { id: baseId },
       data: { spaceId },
     });
+  }
+
+  async generateBaseErd(baseId: string): Promise<IBaseErdVo> {
+    return await this.graphService.generateBaseErd(baseId);
   }
 }

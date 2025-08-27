@@ -37,6 +37,7 @@ import {
 import type {
   CreateBaseInvitationLinkVo,
   EmailInvitationVo,
+  IBaseErdVo,
   ICreateBaseVo,
   IDbConnectionVo,
   IGetBaseAllVo,
@@ -341,5 +342,11 @@ export class BaseController {
     @Body(new ZodValidationPipe(moveBaseRoSchema)) moveBaseRo: IMoveBaseRo
   ) {
     await this.baseService.moveBase(baseId, moveBaseRo);
+  }
+
+  @Permissions('base|read')
+  @Get(':baseId/erd')
+  async generateBaseErd(@Param('baseId') baseId: string): Promise<IBaseErdVo> {
+    return await this.baseService.generateBaseErd(baseId);
   }
 }

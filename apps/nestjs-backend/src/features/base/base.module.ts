@@ -5,6 +5,7 @@ import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
 import { FieldModule } from '../field/field.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
+import { GraphModule } from '../graph/graph.module';
 import { InvitationModule } from '../invitation/invitation.module';
 import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
@@ -40,6 +41,7 @@ import { DbConnectionService } from './db-connection.service';
     BaseImportAttachmentsModule,
     BaseImportCsvModule,
     BaseImportAttachmentsCsvModule,
+    GraphModule,
   ],
   providers: [
     DbProvider,
