@@ -43,7 +43,9 @@ export class QueryAggregation {
         aggregation.map((v) => ({
           fieldId: v.column,
           statisticFunc: v.statisticFunc,
-        }))
+        })),
+        undefined,
+        undefined
       )
       .appendBuilder();
     return {

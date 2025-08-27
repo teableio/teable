@@ -155,7 +155,8 @@ export interface IDbProvider {
     dbTableName: string,
     fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
-    extra?: IAggregationQueryExtra
+    extra?: IAggregationQueryExtra,
+    context?: IRecordQueryFilterContext
   ): IAggregationQueryInterface;
 
   filterQuery(

@@ -426,7 +426,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     dbTableName: string,
     fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
-    extra?: IAggregationQueryExtra
+    extra?: IAggregationQueryExtra,
+    context?: IRecordQueryFilterContext
   ): IAggregationQueryInterface {
     return new AggregationQueryPostgres(
       this.knex,
@@ -434,7 +435,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       dbTableName,
       fields,
       aggregationFields,
-      extra
+      extra,
+      context
     );
   }
 

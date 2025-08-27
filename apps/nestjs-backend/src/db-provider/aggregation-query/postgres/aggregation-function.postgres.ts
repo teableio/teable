@@ -12,7 +12,7 @@ export class AggregationFunctionPostgres extends AbstractAggregationFunction {
       return super.unique();
     }
 
-    return this.knex.raw(`COUNT(DISTINCT ?? ->> 'id')`, [this.tableColumnRef]).toQuery();
+    return this.knex.raw(`COUNT(DISTINCT ${this.tableColumnRef} ->> 'id')`).toQuery();
   }
 
   percentUnique(): string {
@@ -22,14 +22,12 @@ export class AggregationFunctionPostgres extends AbstractAggregationFunction {
       isMultipleCellValue
     ) {
       return this.knex
-        .raw(`(COUNT(DISTINCT ??) * 1.0 / GREATEST(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+        .raw(`(COUNT(DISTINCT ${this.tableColumnRef}) * 1.0 / GREATEST(COUNT(*), 1)) * 100`)
         .toQuery();
     }
 
     return this.knex
-      .raw(`(COUNT(DISTINCT ?? ->> 'id') * 1.0 / GREATEST(COUNT(*), 1)) * 100`, [
-        this.tableColumnRef,
-      ])
+      .raw(`(COUNT(DISTINCT ${this.tableColumnRef} ->> 'id') * 1.0 / GREATEST(COUNT(*), 1)) * 100`)
       .toQuery();
   }
 
@@ -44,21 +42,21 @@ export class AggregationFunctionPostgres extends AbstractAggregationFunction {
   totalAttachmentSize(): string {
     return this.knex
       .raw(
-        `SELECT SUM(("value"::json ->> 'size')::INTEGER) AS "value" FROM ??, jsonb_array_elements(??)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT SUM(("value"::json ->> 'size')::INTEGER) AS "value" FROM ??, jsonb_array_elements(${this.tableColumnRef})`,
+        [this.dbTableName]
       )
       .toQuery();
   }
 
   percentEmpty(): string {
     return this.knex
-      .raw(`((COUNT(*) - COUNT(??)) * 1.0 / GREATEST(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+      .raw(`((COUNT(*) - COUNT(${this.tableColumnRef})) * 1.0 / GREATEST(COUNT(*), 1)) * 100`)
       .toQuery();
   }
 
   percentFilled(): string {
     return this.knex
-      .raw(`(COUNT(??) * 1.0 / GREATEST(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+      .raw(`(COUNT(${this.tableColumnRef}) * 1.0 / GREATEST(COUNT(*), 1)) * 100`)
       .toQuery();
   }
 

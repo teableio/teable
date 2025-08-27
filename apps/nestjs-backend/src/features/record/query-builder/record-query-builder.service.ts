@@ -13,7 +13,6 @@ import type {
   ICreateRecordQueryBuilderOptions,
   IPrepareMaterializedViewParams,
   IRecordQueryBuilder,
-  IRecordSelectionMap,
   IMutableQueryBuilderState,
   IReadonlyRecordSelectionMap,
 } from './record-query-builder.interface';
@@ -71,8 +70,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
     visitor.build();
 
-    const selectionMap = this.buildSelect(qb, table, state);
+    this.buildSelect(qb, table, state);
 
+    const selectionMap = state.getSelectionMap();
     if (filter) {
       this.buildFilter(qb, table, filter, selectionMap, currentUserId);
     }
@@ -96,7 +96,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
     visitor.build();
 
-    const selectionMap = this.buildAggregateSelect(qb, table, state);
+    this.buildAggregateSelect(qb, table, state);
+    const selectionMap = state.getSelectionMap();
 
     if (filter) {
       this.buildFilter(qb, table, filter, selectionMap, currentUserId);
@@ -112,7 +113,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     // Apply aggregation
     this.dbProvider
-      .aggregationQuery(qb, table.dbTableName, fieldMap, aggregationFields)
+      .aggregationQuery(qb, table.dbTableName, fieldMap, aggregationFields, undefined, {
+        selectionMap,
+      })
       .appendBuilder();
 
     // Apply grouping if specified
@@ -129,7 +132,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     qb: Knex.QueryBuilder,
     table: TableDomain,
     state: IMutableQueryBuilderState
-  ): IRecordSelectionMap {
+  ): this {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state);
     const alias = getTableAliasFromTable(table);
 
@@ -148,14 +151,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       }
     }
 
-    return visitor.getSelectionMap();
+    return this;
   }
 
   private buildAggregateSelect(
     qb: Knex.QueryBuilder,
     table: TableDomain,
     state: IMutableQueryBuilderState
-  ) {
+  ): this {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state);
 
     // Add field-specific selections using visitor pattern
@@ -163,14 +166,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       field.accept(visitor);
     }
 
-    return visitor.getSelectionMap();
+    return this;
   }
 
   private buildFilter(
     qb: Knex.QueryBuilder,
     table: TableDomain,
     filter: IFilter,
-    selectionMap: IRecordSelectionMap,
+    selectionMap: IReadonlyRecordSelectionMap,
     currentUserId?: string
   ): this {
     const map = table.fieldList.reduce(
@@ -190,7 +193,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     qb: Knex.QueryBuilder,
     table: TableDomain,
     sort: ISortItem[],
-    selectionMap: IRecordSelectionMap
+    selectionMap: IReadonlyRecordSelectionMap
   ): this {
     const map = table.fieldList.reduce(
       (map, field) => {

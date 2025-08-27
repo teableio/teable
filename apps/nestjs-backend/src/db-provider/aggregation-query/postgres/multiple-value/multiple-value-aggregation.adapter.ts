@@ -4,8 +4,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   unique(): string {
     return this.knex
       .raw(
-        `SELECT COUNT(DISTINCT "value") AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT COUNT(DISTINCT "value") AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
@@ -13,8 +13,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   max(): string {
     return this.knex
       .raw(
-        `SELECT MAX("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT MAX("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
@@ -22,8 +22,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   min(): string {
     return this.knex
       .raw(
-        `SELECT MIN("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT MIN("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
@@ -31,8 +31,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   sum(): string {
     return this.knex
       .raw(
-        `SELECT SUM("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT SUM("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
@@ -40,8 +40,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   average(): string {
     return this.knex
       .raw(
-        `SELECT AVG("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT AVG("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
@@ -49,8 +49,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   percentUnique(): string {
     return this.knex
       .raw(
-        `SELECT (COUNT(DISTINCT "value") * 1.0 / GREATEST(COUNT(*), 1)) * 100 AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT (COUNT(DISTINCT "value") * 1.0 / GREATEST(COUNT(*), 1)) * 100 AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
