@@ -710,21 +710,21 @@ export class FieldOpenApiService {
     const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,
       viewId: undefined,
-      filter: {
-        conjunction: 'and',
-        filterSet: [
-          {
-            fieldId: field.id,
-            operator,
-            value: null,
-          },
-        ],
-      },
+      // filter: {
+      //   conjunction: 'and',
+      //   filterSet: [
+      //     {
+      //       fieldId: field.id,
+      //       operator,
+      //       value: null,
+      //     },
+      //   ],
+      // },
 
       aggregationFields: [
         {
-          fieldId: '*',
-          statisticFunc: StatisticsFunc.Count,
+          fieldId: field.id,
+          statisticFunc: StatisticsFunc.Filled,
           alias: 'count',
         },
       ],

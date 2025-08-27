@@ -526,7 +526,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
           const appliedFilter = linkFilterSub
             ? `(EXISTS ${linkFilterSub}) AND ${baseFilter}`
             : baseFilter;
-          return `COALESCE(json_agg(${conditionalJsonObject} ORDER BY ${orderByField}) FILTER (WHERE ${appliedFilter}), '[]'::json)`;
+          return `json_agg(${conditionalJsonObject} ORDER BY ${orderByField}) FILTER (WHERE ${appliedFilter})`;
         } else {
           // For single value relationships (ManyOne, OneOne), return single object or null
           const cond = linkFilterSub
