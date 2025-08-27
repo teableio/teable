@@ -9,14 +9,16 @@ const buildMarkerId = (baseId: string) => {
 
 export const getMarker = (baseId: string, relationship: Relationship) => {
   const { one, many } = buildMarkerId(baseId);
-  const start =
-    relationship === Relationship.OneOne || relationship === Relationship.OneMany ? one : many;
-  const end =
-    relationship === Relationship.OneOne || relationship === Relationship.ManyOne ? one : many;
-  return {
-    start,
-    end,
-  };
+  switch (relationship) {
+    case Relationship.OneOne:
+      return { start: one, end: one };
+    case Relationship.ManyMany:
+      return { start: many, end: many };
+    case Relationship.ManyOne:
+      return { start: many, end: one };
+    case Relationship.OneMany:
+      return { start: one, end: many };
+  }
 };
 export const CustomMarkers = ({ baseId }: { baseId: string }) => {
   // same color as reactflow default marker

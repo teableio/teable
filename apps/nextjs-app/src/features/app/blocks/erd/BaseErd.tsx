@@ -183,7 +183,7 @@ export const BaseErd = (props: { baseId: string }) => {
       onEdgesChange={onEdgesChange}
       fitView
       minZoom={0.25}
-      maxZoom={1.5}
+      maxZoom={1.25}
     >
       <CustomMarkers baseId={baseId} />
       <Background variant={BackgroundVariant.Dots} className="bg-secondary" />
