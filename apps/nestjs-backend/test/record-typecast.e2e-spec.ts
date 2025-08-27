@@ -142,6 +142,18 @@ describe('Record Typecast', () => {
 
   describe('attachment field', () => {
     let table: ITableFullVo;
+    let tmpPath: string;
+    beforeAll(async () => {
+      tmpPath = path.resolve(
+        path.join(StorageAdapter.TEMPORARY_DIR, `test-prefill-attachment-field.txt`)
+      );
+      fs.writeFileSync(tmpPath, 'xxxx');
+    });
+
+    afterAll(async () => {
+      fs.unlinkSync(tmpPath);
+    });
+
     beforeEach(async () => {
       table = await createTable(baseId, {
         name: 'table1',
@@ -170,11 +182,6 @@ describe('Record Typecast', () => {
     });
 
     it('prefill attachment field', async () => {
-      const tmpPath = path.resolve(
-        path.join(StorageAdapter.TEMPORARY_DIR, `test-prefill-attachment-field.txt`)
-      );
-      fs.writeFileSync(tmpPath, 'xxxx');
-
       const attachment = await uploadAttachment(
         table.id,
         table.records[0].id,
@@ -235,6 +242,36 @@ describe('Record Typecast', () => {
       });
       expect(error?.status).toBe(400);
       expect(error?.message).toContain('Attachment(not-exist-token) not found');
+    });
+
+    it.only('should insert attachment by token', async () => {
+      const attachment = await uploadAttachment(
+        table.id,
+        table.records[0].id,
+        table.fields[1].id,
+        fs.createReadStream(tmpPath)
+      ).then((res) => res.data);
+
+      const cellValue = attachment.fields[table.fields[1].id] as IAttachmentCellValue;
+      await createRecords(table.id, {
+        typecast: true,
+        records: [
+          {
+            fields: {
+              [table.fields[1].id]: [cellValue[0].token],
+            },
+          },
+        ],
+      });
+
+      const { records } = await getRecords(table.id);
+      console.log(records[1].fields.attachment);
+      expect(records[1].fields.attachment).toHaveLength(1);
+      expect(records[1].fields.attachment).toEqual([
+        expect.objectContaining({
+          ...pick(cellValue[0], ['token', 'path', 'size', 'mimetype']),
+        }),
+      ]);
     });
   });
 });

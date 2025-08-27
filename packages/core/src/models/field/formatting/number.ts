@@ -23,11 +23,11 @@ export const currencyFormattingSchema = baseFormatting.extend({
   symbol: z.string(),
 });
 
-export const numberFormattingSchema = z.union([
-  decimalFormattingSchema,
-  percentFormattingSchema,
-  currencyFormattingSchema,
-]);
+export const numberFormattingSchema = z
+  .union([decimalFormattingSchema, percentFormattingSchema, currencyFormattingSchema])
+  .describe(
+    'Only be used in number field (number field or formula / rollup field with cellValueType equals Number'
+  );
 
 export type IDecimalFormatting = z.infer<typeof decimalFormattingSchema>;
 

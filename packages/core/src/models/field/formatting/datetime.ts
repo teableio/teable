@@ -31,6 +31,9 @@ export const datetimeFormattingSchema = z
     }),
     timeZone: timeZoneStringSchema,
   })
+  .describe(
+    'Only be used in date field (date field or formula / rollup field with cellValueType equals dateTime)'
+  )
   .openapi({
     description:
       'caveat: the formatting is just a formatter, it dose not effect the storing value of the record',

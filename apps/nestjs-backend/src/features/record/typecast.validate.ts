@@ -379,7 +379,7 @@ export class TypeCastAndValidate {
     );
   }
 
-  private async getAttachmentCvMapByCv(cellValues: unknown[]): Promise<
+  private async getAttachmentCvMapByToken(cellValues: unknown[]): Promise<
     Record<
       string,
       {
@@ -394,9 +394,12 @@ export class TypeCastAndValidate {
   > {
     const tokens = cellValues
       .flat()
-      .flatMap((v) => {
+      .map((v) => {
         if (isObject(v) && 'token' in v && typeof v.token === 'string') {
-          return [v.token];
+          return v.token;
+        }
+        if (typeof v === 'string' && !v.startsWith(IdPrefix.Attachment)) {
+          return v;
         }
       })
       .filter(Boolean) as string[];
@@ -418,14 +421,26 @@ export class TypeCastAndValidate {
   }
 
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
-    const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
-    const attachmentCvMap = await this.getAttachmentCvMapByCv(cellValues);
+    const attachmentItemsIdMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
+    const attachmentCvTokenMap = await this.getAttachmentCvMapByToken(cellValues);
     const unsignedValues = this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
-        const splitValues = typeof cellValue === 'string' ? cellValue.split(',') : cellValue;
+        const splitValues = this.valueToStringArray(cellValue);
         if (Array.isArray(splitValues)) {
-          const result = splitValues.map((v) => attachmentItemsMap[v]).filter(Boolean);
+          const result = splitValues.map((v) => {
+            if (attachmentItemsIdMap[v]) {
+              return attachmentItemsIdMap[v];
+            }
+            if (attachmentCvTokenMap[v]) {
+              return {
+                id: generateAttachmentId(),
+                name: 'Unnamed attachment',
+                ...attachmentCvTokenMap[v],
+              };
+            }
+            return null;
+          });
           if (result.length) {
             return result;
           }
@@ -433,13 +448,13 @@ export class TypeCastAndValidate {
       },
       (validatedCellValue: unknown) => {
         const attachmentCellValue = validatedCellValue as IAttachmentCellValue;
-        const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvMap[v.token]);
+        const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvTokenMap[v.token]);
         if (notInAttachmentMap) {
           throw new BadRequestException(`Attachment(${notInAttachmentMap.token}) not found`);
         }
         return attachmentCellValue.map((v) => {
           return {
-            ...nullsToUndefined(attachmentCvMap[v.token]),
+            ...nullsToUndefined(attachmentCvTokenMap[v.token]),
             name: v.name,
             id: generateAttachmentId(),
           };
@@ -447,7 +462,7 @@ export class TypeCastAndValidate {
       }
     );
 
-    const allAttachmentsPromises = unsignedValues.map((cellValues) => {
+    return unsignedValues.map((cellValues) => {
       const attachmentCellValue = cellValues as (IAttachmentItem & {
         thumbnailPath?: { sm?: string; lg?: string };
       })[];
@@ -455,9 +470,8 @@ export class TypeCastAndValidate {
         return attachmentCellValue;
       }
 
-      return Promise.all(attachmentCellValue);
+      return attachmentCellValue;
     });
-    return await Promise.all(allAttachmentsPromises);
   }
 
   /**

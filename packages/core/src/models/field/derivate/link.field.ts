@@ -61,7 +61,12 @@ export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
   })
   .merge(
     z.object({
-      lookupFieldId: z.string().optional(),
+      lookupFieldId: z
+        .string()
+        .optional()
+        .describe(
+          'Link field will display the value of this field from the foreign table, if not provided, it will use the primary field of the foreign table, in common case you can safely ignore it'
+        ),
     })
   );
 
