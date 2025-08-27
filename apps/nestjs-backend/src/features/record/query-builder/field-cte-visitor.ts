@@ -390,6 +390,11 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       const targetFieldResult = targetLookupField.accept(selectVisitor);
       expression =
         typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+      // Self-join: ensure expression uses the foreign alias override
+      const defaultForeignAlias = getTableAliasFromTable(this.foreignTable);
+      if (defaultForeignAlias !== foreignAlias) {
+        expression = expression.replaceAll(`"${defaultForeignAlias}"`, `"${foreignAlias}"`);
+      }
     }
     // Field-specific filter applied here
     const filter = field.getFilter?.();
@@ -463,7 +468,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       foreignTable,
-      new ScopedSelectionState(this.state)
+      new ScopedSelectionState(this.state),
+      foreignTableAlias
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
     let targetFieldSelectionExpression =
@@ -472,6 +478,14 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     // Apply field formatting if targetLookupField is provided
     const formattingVisitor = new FieldFormattingVisitor(targetFieldSelectionExpression, driver);
     targetFieldSelectionExpression = targetLookupField.accept(formattingVisitor);
+    // Self-join: ensure selection expression uses the foreign alias override
+    const defaultForeignAlias = getTableAliasFromTable(foreignTable);
+    if (defaultForeignAlias !== foreignTableAlias) {
+      targetFieldSelectionExpression = targetFieldSelectionExpression.replaceAll(
+        `"${defaultForeignAlias}"`,
+        `"${foreignTableAlias}"`
+      );
+    }
 
     // Determine if this relationship should return multiple values (array) or single value (object)
     return match(driver)
@@ -557,7 +571,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       this.foreignTable,
-      scopedState
+      scopedState,
+      this.getForeignAlias()
     );
 
     const foreignAlias = this.getForeignAlias();

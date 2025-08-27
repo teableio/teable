@@ -47,11 +47,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly table: TableDomain,
-    private readonly state: IMutableQueryBuilderState
+    private readonly state: IMutableQueryBuilderState,
+    private readonly aliasOverride?: string
   ) {}
 
   private get tableAlias() {
-    return getTableAliasFromTable(this.table);
+    return this.aliasOverride || getTableAliasFromTable(this.table);
   }
 
   /**
