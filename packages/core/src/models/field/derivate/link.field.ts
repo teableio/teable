@@ -1,6 +1,7 @@
 import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
 import type { TableDomain } from '../../table/table-domain';
+import type { IFilter } from '../../view/filter/filter';
 import { type CellValueType, FieldType, Relationship } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
@@ -168,5 +169,9 @@ export class LinkFieldCore extends FieldCore {
     return tableDomain.filterFields(
       (field) => field.type === FieldType.Rollup && field.lookupOptions?.linkFieldId === this.id
     );
+  }
+
+  override getFilter(): IFilter | undefined {
+    return this.options?.filter ?? undefined;
   }
 }
