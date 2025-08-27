@@ -175,6 +175,7 @@
     "react-syntax-highlighter": "15.5.0",
     "react-textarea-autosize": "8.5.3",
     "react-use": "17.5.1",
+    "reactflow": "11.11.1",
     "react-virtuoso": "4.7.10",
     "recharts": "2.12.3",
     "reconnecting-websocket": "4.4.0",
