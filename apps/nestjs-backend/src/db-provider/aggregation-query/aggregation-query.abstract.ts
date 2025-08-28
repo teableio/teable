@@ -55,14 +55,26 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     if (this.extra?.groupBy) {
       const groupByFields = this.extra.groupBy
         .map((fieldId) => {
-          return this.fields ? this.fields[fieldId].dbFieldName : null;
+          return (
+            (this.context?.selectionMap.get(fieldId) as string | undefined) ??
+            this.fields?.[fieldId]?.dbFieldName ??
+            null
+          );
         })
         .filter(Boolean) as string[];
       if (!groupByFields.length) {
         return queryBuilder;
       }
-      queryBuilder.groupBy(groupByFields);
-      queryBuilder.select(groupByFields);
+      for (const fieldId of groupByFields) {
+        queryBuilder.groupByRaw(fieldId);
+      }
+      for (const fieldId of groupByFields) {
+        const field = this.fields && this.fields[fieldId];
+        if (!field) {
+          continue;
+        }
+        queryBuilder.select(this.knex.raw(`${fieldId} AS ??`, [field.dbFieldName]));
+      }
     }
     return queryBuilder;
   }

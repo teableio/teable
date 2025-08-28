@@ -113,11 +113,17 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     // Apply aggregation
     this.dbProvider
-      .aggregationQuery(qb, fieldMap, aggregationFields, undefined, {
-        selectionMap,
-        tableDbName: table.dbTableName,
-        tableAlias: alias,
-      })
+      .aggregationQuery(
+        qb,
+        fieldMap,
+        aggregationFields,
+        { groupBy },
+        {
+          selectionMap,
+          tableDbName: table.dbTableName,
+          tableAlias: alias,
+        }
+      )
       .appendBuilder();
 
     // Apply grouping if specified
