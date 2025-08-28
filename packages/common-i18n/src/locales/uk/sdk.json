@@ -273,6 +273,10 @@
       "button": "Кнопка",
       "createdBy": "Створено",
       "lastModifiedBy": "Востаннє змінено"
+    },
+    "link": {
+      "oneWay": "Однонаправленный",
+      "twoWay": "Двунаправленный"
     }
   },
   "permission": {

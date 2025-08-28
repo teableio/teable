@@ -273,6 +273,10 @@
       "button": "Pulsante",
       "createdBy": "Creato da",
       "lastModifiedBy": "Ultima modifica di"
+    },
+    "link": {
+      "oneWay": "Unidirezionale",
+      "twoWay": "Bidirezionale"
     }
   },
   "permission": {

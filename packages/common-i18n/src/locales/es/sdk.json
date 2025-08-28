@@ -206,6 +206,10 @@
       "button": "Botón",
       "createdBy": "Creado por",
       "lastModifiedBy": "Última modificación por"
+    },
+    "link": {
+      "oneWay": "Unidireccional",
+      "twoWay": "Bidireccional"
     }
   },
   "formula": {

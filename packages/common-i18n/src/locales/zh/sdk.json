@@ -287,6 +287,10 @@
       "button": "按钮",
       "createdBy": "创建人",
       "lastModifiedBy": "最近修改人"
+    },
+    "link": {
+      "oneWay": "单向",
+      "twoWay": "双向"
     }
   },
   "permission": {

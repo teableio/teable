@@ -34,8 +34,8 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
     });
 
     return (
-      <div key={field.id} className="relative flex h-6 w-full items-center">
-        <div className="flex w-full items-center gap-2 p-2">
+      <div key={field.id} className="relative flex h-6 w-full items-center p-2">
+        <div className="flex w-full items-center gap-2">
           <Icon className="size-4 shrink-0" />
           <span className=" truncate" title={field.name}>
             {field.name}
@@ -60,9 +60,9 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
   });
 
   return (
-    <div key={tableId} className="min-w-24 max-w-40 rounded-md border bg-white">
+    <div key={tableId} className="min-w-28 max-w-36 rounded-md border bg-white ">
       <div
-        className="flex h-8 items-center gap-2 border-b p-2"
+        className=" flex h-10 items-center gap-2 border-b px-2 py-4"
         onDoubleClick={() => openTable(crossBaseId ?? baseId, tableId)}
       >
         {icon ? (
@@ -74,7 +74,9 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
           {title}
         </span>
       </div>
-      <div className="flex w-full cursor-default flex-col gap-2">{fieldComponents}</div>
+      <div className="flex w-full cursor-default flex-col gap-2 py-2 text-sm">
+        {fieldComponents}
+      </div>
     </div>
   );
 });

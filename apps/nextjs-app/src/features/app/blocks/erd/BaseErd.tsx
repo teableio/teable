@@ -1,14 +1,19 @@
 import { Relationship } from '@teable/core';
-import {
-  getBaseErd,
-  type IBaseErdVo,
-  type IBaseErdEdge,
-  type IBaseErdTableNode,
-} from '@teable/openapi';
+import { getBaseErd } from '@teable/openapi';
+import type { IBaseErdEdge, IBaseErdVo, IBaseErdTableNode } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk/hooks';
-import { Label, Switch } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Switch,
+} from '@teable/ui-lib/shadcn';
+import { uniq } from 'lodash';
+import { FilterIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -54,7 +59,8 @@ const buildNodes = (
       position: { x, y },
     });
     const rowIndex = yMap[colIndex]?.rowIndex ?? 0;
-    const height = node.fields.length * 24 + (node.fields.length - 1) * 8 + 100;
+    // 24(h6) is the height of a field, 8(gap-2) is the gap between fields, 100 is the gap between tables
+    const height = node.fields.length * 24 + (node.fields.length + 1) * 8 + 100;
     yMap[colIndex] = {
       rowIndex: rowIndex + 1,
       height: y + height,
@@ -66,28 +72,23 @@ const buildNodes = (
 const buildEdges = (
   baseId: string,
   edges: IBaseErdEdge[],
+  showEdgeTypes: IBaseErdEdge['type'][],
   translationMap: Record<string, string>,
-  fieldStaticGetter: ReturnType<typeof useFieldStaticGetter>,
-  showAllRelations: boolean
+  getEdgeTypeInfo: (type: IBaseErdEdge['type']) => { title: string }
 ) => {
   return edges
     .filter((edge) => {
-      return showAllRelations || Boolean(edge.relationship);
+      return Boolean(edge.relationship) || showEdgeTypes.includes(edge.type);
     })
     .map((edge) => {
       const { source, target } = edge;
 
-      const relationshipLabel = edge.relationship ? translationMap[edge.relationship] : '';
+      const wayLabel = edge.isOneWay ? translationMap['oneWay'] : translationMap['twoWay'];
+      const relationshipLabel = edge.relationship
+        ? `${translationMap[edge.relationship]}(${wayLabel})`
+        : '';
       // `[${source.tableName}]${source.fieldName} - ${relationshipLabel} - [${target.tableName}]${target.fieldName}`
 
-      const defaultMarkerStart = !edge.isOneWay
-        ? {
-            type: MarkerType.ArrowClosed,
-            orient: 'auto-start-reverse',
-            width: 16,
-            height: 16,
-          }
-        : undefined;
       const defaultMarkerEnd = {
         type: MarkerType.ArrowClosed,
         width: 16,
@@ -95,17 +96,10 @@ const buildEdges = (
       };
       const { start: markerStart, end: markerEnd } = edge.relationship
         ? getMarker(baseId, edge.relationship)
-        : { start: defaultMarkerStart, end: defaultMarkerEnd };
+        : { start: undefined, end: defaultMarkerEnd };
 
       const isSelfConnecting = source.tableId === target.tableId;
-      const { title } =
-        edge.type === 'lookup'
-          ? { title: translationMap['lookup'] }
-          : fieldStaticGetter(edge.type, {
-              isLookup: false,
-              hasAiConfig: false,
-              deniedReadRecord: false,
-            });
+      const { title } = getEdgeTypeInfo(edge.type);
       return {
         id: `${source.tableId}-${source.fieldId}-${target.tableId}-${target.fieldId}`,
         type: isSelfConnecting ? 'selfConnecting' : 'default',
@@ -133,7 +127,7 @@ export const BaseErd = (props: { baseId: string }) => {
   const { baseId } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const fieldStaticGetter = useFieldStaticGetter();
-  const [showAllRelations, setShowAllRelations] = useState(false);
+  const [showEdgeTypes, setShowEdgeTypes] = useState<IBaseErdEdge['type'][]>([]);
   const [baseErd, setBaseErd] = useState<IBaseErdVo | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<IBaseErdTableNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -145,6 +139,8 @@ export const BaseErd = (props: { baseId: string }) => {
       [Relationship.ManyOne]: t('table:field.editor.manyToOne'),
       [Relationship.ManyMany]: t('table:field.editor.manyToMany'),
       lookup: t('sdk:field.title.lookup'),
+      oneWay: t('sdk:field.link.oneWay'),
+      twoWay: t('sdk:field.link.twoWay'),
     };
   }, [t]);
 
@@ -153,6 +149,28 @@ export const BaseErd = (props: { baseId: string }) => {
       setBaseErd(baseErd.data);
     });
   }, [baseId]);
+
+  const getEdgeTypeInfo = useCallback(
+    (type: IBaseErdEdge['type']) => {
+      const { title } =
+        type === 'lookup'
+          ? { title: translationMap['lookup'] }
+          : fieldStaticGetter(type, {
+              isLookup: false,
+              hasAiConfig: false,
+              deniedReadRecord: false,
+            });
+      return { type, title };
+    },
+    [translationMap, fieldStaticGetter]
+  );
+
+  const allEdgeTypes = useMemo(() => {
+    const { edges = [] } = baseErd ?? {};
+    return uniq(edges.map((edge) => edge.type))
+      .sort()
+      .map((type) => getEdgeTypeInfo(type));
+  }, [baseErd, getEdgeTypeInfo]);
 
   useEffect(() => {
     if (baseErd) {
@@ -166,11 +184,11 @@ export const BaseErd = (props: { baseId: string }) => {
   useEffect(() => {
     if (baseErd) {
       const { baseId, edges } = baseErd;
-      setEdges(buildEdges(baseId, edges, translationMap, fieldStaticGetter, showAllRelations));
+      setEdges(buildEdges(baseId, edges, showEdgeTypes, translationMap, getEdgeTypeInfo));
     } else {
       setEdges([]);
     }
-  }, [baseErd, showAllRelations, translationMap, fieldStaticGetter, setEdges]);
+  }, [baseErd, translationMap, setEdges, showEdgeTypes, getEdgeTypeInfo]);
 
   return (
     <ReactFlow
@@ -193,11 +211,46 @@ export const BaseErd = (props: { baseId: string }) => {
           duration: 500,
         }}
       />
-      <div className="absolute right-10 top-10 z-10 flex items-center gap-2">
-        <div className="flex items-center gap-2">
-          <Switch checked={showAllRelations} onCheckedChange={setShowAllRelations} />
-          <Label>Show All Relations</Label>
-        </div>
+      <div className="absolute right-10 top-10 z-10 flex ">
+        {allEdgeTypes.length === 1 && (
+          <div className="w-min-content flex items-center gap-2 p-2">
+            <Switch
+              checked={showEdgeTypes.includes(allEdgeTypes[0].type)}
+              onCheckedChange={(checked) => {
+                setShowEdgeTypes((prev) =>
+                  checked
+                    ? [...prev, allEdgeTypes[0].type]
+                    : prev.filter((t) => t !== allEdgeTypes[0].type)
+                );
+              }}
+            />
+            <Label>{allEdgeTypes[0].title}</Label>
+          </div>
+        )}
+        {allEdgeTypes.length > 1 && (
+          <Popover modal>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <FilterIcon className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-fit p-0">
+              {allEdgeTypes.map(({ type, title }) => (
+                <div key={type} className="w-min-content flex items-center gap-2 p-2">
+                  <Switch
+                    checked={showEdgeTypes.includes(type)}
+                    onCheckedChange={(checked) => {
+                      setShowEdgeTypes((prev) =>
+                        checked ? [...prev, type] : prev.filter((t) => t !== type)
+                      );
+                    }}
+                  />
+                  <Label>{title}</Label>
+                </div>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
     </ReactFlow>
   );

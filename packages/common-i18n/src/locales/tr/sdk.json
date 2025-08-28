@@ -264,6 +264,10 @@
       "button": "Düğme",
       "createdBy": "Oluşturan",
       "lastModifiedBy": "Son değiştiren"
+    },
+    "link": {
+      "oneWay": "Tek yönlü",
+      "twoWay": "Çift yönlü"
     }
   },
   "permission": {

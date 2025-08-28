@@ -243,6 +243,10 @@
       "button": "Bouton",
       "createdBy": "Créé par",
       "lastModifiedBy": "Dernière modification par"
+    },
+    "link": {
+      "oneWay": "Unidirectionnel",
+      "twoWay": "Bidirectionnel"
     }
   },
   "spaceRole": {

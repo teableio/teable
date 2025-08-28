@@ -273,6 +273,10 @@
       "button": "Button",
       "createdBy": "Erstellt von",
       "lastModifiedBy": "Letzte Änderung von"
+    },
+    "link": {
+      "oneWay": "Einfach",
+      "twoWay": "Doppelt"
     }
   },
   "permission": {

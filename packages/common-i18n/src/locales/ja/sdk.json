@@ -246,6 +246,10 @@
       "button": "ボタン",
       "createdBy": "作成者",
       "lastModifiedBy": "最終更新者"
+    },
+    "link": {
+      "oneWay": "一方向",
+      "twoWay": "双方向"
     }
   },
   "permission": {
