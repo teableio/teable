@@ -29,20 +29,21 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     if (!field) return this.originQueryBuilder;
 
     const columnName = this.getTableColumnName(field);
-    const column = this.knex.ref(columnName);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(columnName);
     }
-    return this.originQueryBuilder.select(column).groupBy(columnName);
+    return this.originQueryBuilder
+      .select({ [field.dbFieldName]: this.knex.raw(columnName) })
+      .groupByRaw(columnName);
   }
 
   number(field: IFieldInstance): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    const column = this.knex.raw('ROUND(??, ?) as ??', [columnName, precision, columnName]);
-    const groupByColumn = this.knex.raw('ROUND(??, ?)', [columnName, precision]);
+    const column = this.knex.raw(`ROUND(${columnName}, ?) as ${columnName}`, [precision]);
+    const groupByColumn = this.knex.raw(`ROUND(${columnName}, ?)`, [precision]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
@@ -56,15 +57,12 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
     const offsetStr = `${getOffset(timeZone)} hour`;
-    const column = this.knex.raw('strftime(?, DATETIME(??, ?)) as ??', [
+    const column = this.knex.raw(`strftime(?, DATETIME(${columnName}, ?)) as ${columnName}`, [
       formatString,
-      columnName,
       offsetStr,
-      columnName,
     ]);
-    const groupByColumn = this.knex.raw('strftime(?, DATETIME(??, ?))', [
+    const groupByColumn = this.knex.raw(`strftime(?, DATETIME(${columnName}, ?))`, [
       formatString,
-      columnName,
       offsetStr,
     ]);
 
@@ -82,14 +80,11 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
       if (isUserOrLink(type)) {
         if (!isMultipleCellValue) {
           const groupByColumn = this.knex.raw(
-            `json_extract(??, '$.id') || json_extract(??, '$.title')`,
-            [columnName, columnName]
+            `json_extract(${columnName}, '$.id') || json_extract(${columnName}, '$.title')`
           );
           return this.originQueryBuilder.countDistinct(groupByColumn);
         }
-        const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
-          columnName,
-        ]);
+        const groupByColumn = this.knex.raw(`json_extract(${columnName}, '$[0].id', '$[0].title')`);
         return this.originQueryBuilder.countDistinct(groupByColumn);
       }
       return this.originQueryBuilder.countDistinct(columnName);
@@ -98,20 +93,17 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     if (isUserOrLink(type)) {
       if (!isMultipleCellValue) {
         const groupByColumn = this.knex.raw(
-          `json_extract(??, '$.id') || json_extract(??, '$.title')`,
-          [columnName, columnName]
+          `json_extract(${columnName}, '$.id') || json_extract(${columnName}, '$.title')`
         );
         return this.originQueryBuilder.select(columnName).groupBy(groupByColumn);
       }
 
-      const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
-        columnName,
-      ]);
+      const groupByColumn = this.knex.raw(`json_extract(${columnName}, '$[0].id', '$[0].title')`);
       return this.originQueryBuilder.select(columnName).groupBy(groupByColumn);
     }
 
-    const column = this.knex.raw(`CAST(?? as text) as ??`, [columnName, columnName]);
-    return this.originQueryBuilder.select(column).groupBy(columnName);
+    const column = this.knex.raw(`CAST(${columnName} as text) as ${columnName}`);
+    return this.originQueryBuilder.select(column).groupByRaw(columnName);
   }
 
   multipleDate(field: IFieldInstance): Knex.QueryBuilder {
@@ -125,19 +117,19 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
       `
       (
         SELECT json_group_array(strftime(?, DATETIME(value, ?)))
-        FROM json_each(??)
-      ) as ??
+        FROM json_each(${columnName})
+      ) as ${columnName}
       `,
-      [formatString, offsetStr, columnName, columnName]
+      [formatString, offsetStr]
     );
     const groupByColumn = this.knex.raw(
       `
       (
         SELECT json_group_array(strftime(?, DATETIME(value, ?)))
-        FROM json_each(??)
+        FROM json_each(${columnName})
       )
       `,
-      [formatString, offsetStr, columnName]
+      [formatString, offsetStr]
     );
 
     if (this.isDistinct) {
@@ -154,19 +146,19 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
       `
       (
         SELECT json_group_array(ROUND(value, ?))
-        FROM json_each(??)
-      ) as ??
+        FROM json_each(${columnName})
+      ) as ${columnName}
       `,
-      [precision, columnName, columnName]
+      [precision]
     );
     const groupByColumn = this.knex.raw(
       `
       (
         SELECT json_group_array(ROUND(value, ?))
-        FROM json_each(??)
+        FROM json_each(${columnName})
       )
       `,
-      [precision, columnName]
+      [precision]
     );
 
     if (this.isDistinct) {

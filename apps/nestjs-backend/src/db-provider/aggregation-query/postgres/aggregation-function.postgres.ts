@@ -42,7 +42,7 @@ export class AggregationFunctionPostgres extends AbstractAggregationFunction {
   totalAttachmentSize(): string {
     return this.knex
       .raw(
-        `SELECT SUM(("value"::json ->> 'size')::INTEGER) AS "value" FROM ??, jsonb_array_elements(${this.tableColumnRef})`,
+        `SELECT SUM(("value"::json ->> 'size')::INTEGER) AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements(${this.tableColumnRef})`,
         [this.dbTableName]
       )
       .toQuery();

@@ -93,6 +93,12 @@ export interface IRecordQueryGroupContext {
   selectionMap: IReadonlyRecordSelectionMap;
 }
 
+export interface IRecordQueryAggregateContext {
+  selectionMap: IReadonlyRecordSelectionMap;
+  tableDbName: string;
+  tableAlias: string;
+}
+
 /**
  * Readonly state interface for query-builder shared state
  * Provides read access to CTE map and selection map.

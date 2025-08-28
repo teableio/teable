@@ -17,6 +17,7 @@ import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
   IRecordQueryGroupContext,
+  IRecordQueryAggregateContext,
 } from '../features/record/query-builder/record-query-builder.interface';
 import type {
   IGeneratedColumnQueryInterface,
@@ -363,16 +364,14 @@ export class SqliteProvider implements IDbProvider {
 
   aggregationQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
     extra?: IAggregationQueryExtra,
-    context?: IRecordQueryFilterContext
+    context?: IRecordQueryAggregateContext
   ): IAggregationQueryInterface {
     return new AggregationQuerySqlite(
       this.knex,
       originQueryBuilder,
-      dbTableName,
       fields,
       aggregationFields,
       extra,

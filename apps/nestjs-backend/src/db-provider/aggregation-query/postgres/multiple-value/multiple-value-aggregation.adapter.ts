@@ -4,7 +4,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   unique(): string {
     return this.knex
       .raw(
-        `SELECT COUNT(DISTINCT "value") AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        `SELECT COUNT(DISTINCT "value") AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
         [this.dbTableName]
       )
       .toQuery();
@@ -13,7 +13,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   max(): string {
     return this.knex
       .raw(
-        `SELECT MAX("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        `SELECT MAX("value"::INTEGER) AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
         [this.dbTableName]
       )
       .toQuery();
@@ -22,7 +22,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   min(): string {
     return this.knex
       .raw(
-        `SELECT MIN("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        `SELECT MIN("value"::INTEGER) AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
         [this.dbTableName]
       )
       .toQuery();
@@ -31,7 +31,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   sum(): string {
     return this.knex
       .raw(
-        `SELECT SUM("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        `SELECT SUM("value"::INTEGER) AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
         [this.dbTableName]
       )
       .toQuery();
@@ -40,7 +40,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   average(): string {
     return this.knex
       .raw(
-        `SELECT AVG("value"::INTEGER) AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        `SELECT AVG("value"::INTEGER) AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
         [this.dbTableName]
       )
       .toQuery();
@@ -49,7 +49,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   percentUnique(): string {
     return this.knex
       .raw(
-        `SELECT (COUNT(DISTINCT "value") * 1.0 / GREATEST(COUNT(*), 1)) * 100 AS "value" FROM ??, jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        `SELECT (COUNT(DISTINCT "value") * 1.0 / GREATEST(COUNT(*), 1)) * 100 AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
         [this.dbTableName]
       )
       .toQuery();
@@ -58,8 +58,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   dateRangeOfDays(): string {
     return this.knex
       .raw(
-        `SELECT extract(DAY FROM (MAX("value"::TIMESTAMPTZ) - MIN("value"::TIMESTAMPTZ)))::INTEGER AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT extract(DAY FROM (MAX("value"::TIMESTAMPTZ) - MIN("value"::TIMESTAMPTZ)))::INTEGER AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }
@@ -67,8 +67,8 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   dateRangeOfMonths(): string {
     return this.knex
       .raw(
-        `SELECT CONCAT(MAX("value"::TIMESTAMPTZ), ',', MIN("value"::TIMESTAMPTZ)) AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
-        [this.dbTableName, this.tableColumnRef]
+        `SELECT CONCAT(MAX("value"::TIMESTAMPTZ), ',', MIN("value"::TIMESTAMPTZ)) AS "value" FROM ?? as "${this.tableAlias}", jsonb_array_elements_text(${this.tableColumnRef}::jsonb)`,
+        [this.dbTableName]
       )
       .toQuery();
   }

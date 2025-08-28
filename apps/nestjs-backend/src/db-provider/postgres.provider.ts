@@ -18,6 +18,7 @@ import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
   IRecordQueryGroupContext,
+  IRecordQueryAggregateContext,
 } from '../features/record/query-builder/record-query-builder.interface';
 import type {
   IGeneratedColumnQueryInterface,
@@ -423,16 +424,14 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   aggregationQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     fields?: { [fieldId: string]: FieldCore },
     aggregationFields?: IAggregationField[],
     extra?: IAggregationQueryExtra,
-    context?: IRecordQueryFilterContext
+    context?: IRecordQueryAggregateContext
   ): IAggregationQueryInterface {
     return new AggregationQueryPostgres(
       this.knex,
       originQueryBuilder,
-      dbTableName,
       fields,
       aggregationFields,
       extra,
