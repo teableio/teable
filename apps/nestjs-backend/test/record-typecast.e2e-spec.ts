@@ -244,7 +244,7 @@ describe('Record Typecast', () => {
       expect(error?.message).toContain('Attachment(not-exist-token) not found');
     });
 
-    it.only('should insert attachment by token', async () => {
+    it('should insert attachment by token', async () => {
       const attachment = await uploadAttachment(
         table.id,
         table.records[0].id,

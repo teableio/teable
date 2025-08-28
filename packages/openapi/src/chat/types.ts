@@ -273,6 +273,20 @@ export const taskPlanSchema = z.object({
         tasks: z.array(
           z.object({
             type: z.nativeEnum(OperationType).describe('IMPORTANT: Type of the task'),
+            withSheetContext: z
+              .boolean()
+              .optional()
+              .describe(
+                '1. Only set it to true when user gives [sheetContext] before\n' +
+                  '2. Only set it to true when you are creating createRecords task'
+              ),
+            withAttachments: z
+              .boolean()
+              .optional()
+              .describe(
+                '1. Only set it to true when user gives [attachments] before\n' +
+                  '2. Only set it to true when you are creating createRecords task within a table with attachment field'
+              ),
             description: z.string().describe(`
             Brief and accurate task description, including the following information based on task type:
 
@@ -308,7 +322,9 @@ export const taskPlanSchema = z.object({
             - AI purpose
 
             Create Records (createRecords):
-            - Simplify ask for generate sample data (3 to 5 rows is always enough) or follow user gavin context.
+            - If user not provide [attachments] and [sheetContext] ask for generate 3 to 5 rows sample data.
+            - If the user provides [attachments], instruct the AI agent to generate records so that each attachment is stored in a separate row.
+            - If the user provides [sheetContext], the AI agent should generate records with records, based on the sheetContext.
 
             Create View (createView):
             - List of view names

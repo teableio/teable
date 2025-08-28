@@ -53,17 +53,22 @@ export type ITextFieldImproveTextAIConfig = z.infer<typeof textFieldImproveTextA
 export const textFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
   type: z.literal(FieldAIActionType.Customization),
   attachmentFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
-  prompt: z.string(),
+  prompt: z
+    .string()
+    .describe(
+      `The prompt to use for the AI operation, use {fieldId} to reference the field in the table, example: "Summarize the content of {fieldId} into 100 words"\n` +
+        `But if your reference field is attachment, do not reference it here, just put it in attachmentFieldIds the AI will known it`
+    ),
 });
 
 export type ITextFieldCustomizeAIConfig = z.infer<typeof textFieldCustomizeAIConfigSchema>;
 
 export const textFieldAIConfigSchema = z.union([
-  textFieldExtractInfoAIConfigSchema.strict(),
-  textFieldSummarizeAIConfigSchema.strict(),
-  textFieldTranslateAIConfigSchema.strict(),
-  textFieldImproveTextAIConfigSchema.strict(),
-  textFieldCustomizeAIConfigSchema.strict(),
+  textFieldExtractInfoAIConfigSchema,
+  textFieldSummarizeAIConfigSchema,
+  textFieldTranslateAIConfigSchema,
+  textFieldImproveTextAIConfigSchema,
+  textFieldCustomizeAIConfigSchema,
 ]);
 
 export type ITextFieldAIConfig = z.infer<typeof textFieldAIConfigSchema>;
