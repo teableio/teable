@@ -44,7 +44,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const { options } = field;
     const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};
     const column = this.knex.raw(
-      `ROUND(${columnName}::numeric, ?)::float as ${field.dbFieldName}`,
+      `ROUND(${columnName}::numeric, ?)::float as "${field.dbFieldName}"`,
       [precision]
     );
     const groupByColumn = this.knex.raw(`ROUND(${columnName}::numeric, ?)::float`, [precision]);
@@ -61,10 +61,10 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
     const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
 
-    const column = this.knex.raw(`TO_CHAR(TIMEZONE(?, ${columnName}), ?) as ${field.dbFieldName}`, [
-      timeZone,
-      formatString,
-    ]);
+    const column = this.knex.raw(
+      `TO_CHAR(TIMEZONE(?, ${columnName}), ?) as "${field.dbFieldName}"`,
+      [timeZone, formatString]
+    );
     const groupByColumn = this.knex.raw(`TO_CHAR(TIMEZONE(?, ${columnName}), ?)`, [
       timeZone,
       formatString,
@@ -103,7 +103,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
           `NULLIF(jsonb_build_object(
             'id', ${columnName}::jsonb ->> 'id',
             'title', ${columnName}::jsonb ->> 'title'
-          ), '{"id":null,"title":null}') as ${field.dbFieldName}`
+          ), '{"id":null,"title":null}') as "${field.dbFieldName}"`
         );
         const groupByColumn = this.knex.raw(
           `${columnName}::jsonb ->> 'id', ${columnName}::jsonb ->> 'title'`
@@ -113,7 +113,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
       }
 
       const column = this.knex.raw(
-        `(jsonb_agg(${columnName}::jsonb) -> 0) as ${field.dbFieldName}`
+        `(jsonb_agg(${columnName}::jsonb) -> 0) as "${field.dbFieldName}"`
       );
       const groupByColumn = this.knex.raw(
         `jsonb_path_query_array(${columnName}::jsonb, '$[*].id')::text, jsonb_path_query_array(${columnName}::jsonb, '$[*].title')::text`
@@ -135,7 +135,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const column = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as ${field.dbFieldName}
+      FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as "${field.dbFieldName}"
       `,
       [timeZone, formatString]
     );
@@ -160,7 +160,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const column = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
-      FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as ${field.dbFieldName}
+      FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as "${field.dbFieldName}"
       `,
       [precision]
     );
