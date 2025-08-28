@@ -40,7 +40,6 @@ export class TableListener {
     }
 
     const tableId = await this.getTableId(event);
-    this.logger.log(`handleTableLastModifiedTimeEvent: ${tableId}`);
     if (!tableId) {
       return;
     }

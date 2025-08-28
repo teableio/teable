@@ -308,7 +308,7 @@ export const taskPlanSchema = z.object({
             - AI purpose
 
             Create Records (createRecords):
-            - Some requirements for the records,
+            - Simplify ask for generate sample data (3 to 5 rows is always enough) or follow user gavin context.
 
             Create View (createView):
             - List of view names
