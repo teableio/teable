@@ -713,7 +713,7 @@
       "updateRecord": "Update record",
 
       "updateBase": "Update database info",
-      "planTask": "Plan task",
+      "planTask": "Plan task...",
       "generateTables": "Generate tables",
       "generatePrimaryFields": "Generate primary fields",
       "generateFields": "Generate fields",
@@ -723,6 +723,8 @@
       "generateLinkFields": "Generate link fields",
       "generateLookupFields": "Generate lookup fields",
       "generateLinkFieldsRecords": "Generate link fields records",
+      "generateRollupFields": "Generate rollup fields",
+      "generateFormulaFields": "Generate formula fields",
 
       "generateWorkflow": "Generate workflow",
       "generateTrigger": "Generate trigger",

@@ -713,7 +713,7 @@
       "updateRecord": "更新记录",
 
       "updateBase": "更新数据库信息",
-      "planTask": "规划任务",
+      "planTask": "规划任务中...",
       "generateTables": "生成表格",
       "generatePrimaryFields": "生成主键字段",
       "generateFields": "生成字段",
@@ -723,6 +723,8 @@
       "generateLinkFields": "生成关联字段",
       "generateLookupFields": "生成查找字段",
       "generateLinkFieldsRecords": "生成关联字段记录",
+      "generateRollupFields": "生成聚合字段",
+      "generateFormulaFields": "生成公式字段",
 
       "generateWorkflow": "生成工作流",
       "generateTrigger": "生成触发器",

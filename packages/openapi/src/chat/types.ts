@@ -1,3 +1,4 @@
+import { FieldType } from '@teable/core';
 import { z } from '../zod';
 
 export enum McpToolInvocationName {
@@ -190,3 +191,134 @@ export enum ToolInvocationName {
   KnowledgeTool = 'knowledge-tool',
   WebSearch = 'web-search',
 }
+
+// build base types
+export const COMMON_FIELD_TYPES = [
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.Number,
+  FieldType.SingleSelect,
+  FieldType.MultipleSelect,
+  FieldType.Date,
+  FieldType.Rating,
+  FieldType.Checkbox,
+  FieldType.Attachment,
+  FieldType.User,
+  FieldType.CreatedTime,
+  FieldType.LastModifiedTime,
+  FieldType.CreatedBy,
+  FieldType.LastModifiedBy,
+  FieldType.AutoNumber,
+];
+
+export enum FieldCategory {
+  Common = 'common',
+  Ai = 'ai',
+  Link = 'link',
+  Lookup = 'lookup',
+  Rollup = 'rollup',
+  Formula = 'formula',
+}
+
+export enum OperationType {
+  CreateRecords = 'createRecords',
+  CreateView = 'createView',
+  CreateCommonField = 'createCommonField',
+  CreateLinkField = 'createLinkField',
+  CreateLookupField = 'createLookupField',
+  CreateRollupField = 'createRollupField',
+  CreateFormulaField = 'createFormulaField',
+  CreateAiField = 'createAiField',
+}
+
+export enum ViewType {
+  Grid = 'grid',
+  Form = 'form',
+  Kanban = 'kanban',
+  Gallery = 'gallery',
+  Calendar = 'calendar',
+}
+
+export enum RelationshipType {
+  OneToOne = 'one-to-one',
+  OneToMany = 'one-to-many',
+  ManyToOne = 'many-to-one',
+  ManyToMany = 'many-to-many',
+}
+
+export enum AggregationType {
+  Sum = 'sum',
+  Count = 'count',
+  Average = 'average',
+  Min = 'min',
+  Max = 'max',
+  Concatenate = 'concatenate',
+}
+
+// Main task plan schema
+export const taskPlanSchema = z.object({
+  plans: z
+    .array(
+      z.object({
+        tableName: z.string().describe('Name of the table to create'),
+        description: z.string().describe('Description of the table to create'),
+        icon: z
+          .string()
+          .optional()
+          .describe('Only one emoji icon of the table to create, no other text'),
+        defaultViewName: z.string().describe('Default view name of the table to create'),
+        primaryFieldDescription: z
+          .string()
+          .describe('describe the primary field name and field type'),
+        tasks: z.array(
+          z.object({
+            type: z.nativeEnum(OperationType).describe('IMPORTANT: Type of the task'),
+            description: z.string().describe(`
+            Brief and accurate task description, including the following information based on task type:
+
+            Create Table (createTable):
+            - Table name and purpose description
+            - Primary field name and type
+            - Default view name
+            - Detailed table description and usage scenarios
+            
+            Create Common Field (createCommonField):
+            - Field names and types (only allowed these types: ${COMMON_FIELD_TYPES.join(', ')})
+            
+            Create Link Field (createLinkField):
+            - Link field name
+            - Target table name
+            - Relationship type (one-to-one, one-to-many, many-to-many)
+            
+            Create Lookup Field (createLookupField):
+            - Lookup field name
+            - Source table and source field
+            
+            Create Rollup Field (createRollupField):
+            - Rollup field name
+            - Source table and source field
+            - Aggregation type (sum, count, average, min, max, concatenate)
+            
+            Create Formula Field (createFormulaField):
+            - Formula field name
+            - Formula purpose
+            
+            Create AI Field (createAiField):
+            - AI field name
+            - AI purpose
+
+            Create Records (createRecords):
+            - Some requirements for the records,
+
+            Create View (createView):
+            - List of view names
+            - View type (grid, form, kanban, gallery, calendar)
+          `),
+          })
+        ),
+      })
+    )
+    .describe('Array of tasks to execute in order'),
+});
+
+export type ITaskPlan = z.infer<typeof taskPlanSchema>;
