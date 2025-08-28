@@ -14,6 +14,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAutoFillCellVo,
   IButtonClickVo,
@@ -40,8 +41,13 @@ import {
   recordInsertOrderRoSchema,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
+import { PerformanceCacheService } from '../../../performance-cache';
+import { generateRecordCacheKey } from '../../../performance-cache/generate-keys';
+import type { IClsStore } from '../../../types/cls';
+import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';
@@ -53,7 +59,10 @@ import { TqlPipe } from './tql.pipe';
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,
-    private readonly recordOpenApiService: RecordOpenApiService
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly prismaService: PrismaService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Permissions('record|update')
@@ -197,7 +206,31 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
   ) {
-    return this.recordService.getDocIdsByQuery(tableId, query);
+    return this.getDocIdsWithCache(tableId, query);
+  }
+
+  private async getDocIdsWithCache(tableId: string, query: IGetRecordsRo) {
+    const table = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: {
+        id: tableId,
+      },
+      select: {
+        lastModifiedTime: true,
+      },
+    });
+    const cacheQuery = filterHasMe(query.filter)
+      ? { ...query, currentUserId: this.cls.get('user.id') }
+      : query;
+
+    const cacheKey = generateRecordCacheKey(
+      'doc_ids',
+      tableId,
+      table.lastModifiedTime?.getTime().toString() ?? '0',
+      cacheQuery
+    );
+    return this.performanceCacheService.wrap(cacheKey, () => {
+      return this.recordService.getDocIdsByQuery(tableId, cacheQuery);
+    });
   }
 
   @Permissions('table|read')

@@ -1,5 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import type { IFilter } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAggregationVo,
   ICalendarDailyCollectionVo,
@@ -23,6 +25,11 @@ import {
   ISearchIndexByQueryRo,
   searchIndexByQueryRoSchema,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import { PerformanceCacheService } from '../../../performance-cache';
+import { generateAggCacheKey } from '../../../performance-cache/generate-keys';
+import type { IClsStore } from '../../../types/cls';
+import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
@@ -30,7 +37,41 @@ import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
 export class AggregationOpenApiController {
-  constructor(private readonly aggregationOpenApiService: AggregationOpenApiService) {}
+  constructor(
+    private readonly aggregationOpenApiService: AggregationOpenApiService,
+    private readonly prismaService: PrismaService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly performanceCacheService: PerformanceCacheService
+  ) {}
+
+  private async getAggregationWithCache<T>(
+    cacheKeyPrefix: string,
+    tableId: string,
+    query: { filter?: IFilter } | undefined,
+    fn: () => Promise<T>
+  ) {
+    const table = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: {
+        id: tableId,
+      },
+      select: {
+        lastModifiedTime: true,
+      },
+    });
+    const cacheQuery = filterHasMe(query?.filter)
+      ? { ...query, currentUserId: this.cls.get('user.id') }
+      : query;
+
+    const cacheKey = generateAggCacheKey(
+      cacheKeyPrefix,
+      tableId,
+      table.lastModifiedTime?.getTime().toString() ?? '0',
+      cacheQuery
+    );
+    return this.performanceCacheService.wrap(cacheKey, () => {
+      return fn();
+    });
+  }
 
   @Get()
   @Permissions('table|read')
@@ -38,7 +79,9 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(aggregationRoSchema), TqlPipe) query?: IAggregationRo
   ): Promise<IAggregationVo> {
-    return await this.aggregationOpenApiService.getAggregation(tableId, query);
+    return await this.getAggregationWithCache('aggregation', tableId, query, () =>
+      this.aggregationOpenApiService.getAggregation(tableId, query)
+    );
   }
 
   @Get('/row-count')
@@ -47,7 +90,9 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(queryBaseSchema), TqlPipe) query?: IQueryBaseRo
   ): Promise<IRowCountVo> {
-    return await this.aggregationOpenApiService.getRowCount(tableId, query);
+    return await this.getAggregationWithCache('row_count', tableId, query, () =>
+      this.aggregationOpenApiService.getRowCount(tableId, query)
+    );
   }
 
   @Get('/search-count')
@@ -56,7 +101,9 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(searchCountRoSchema), TqlPipe) query: ISearchCountRo
   ): Promise<ISearchCountVo> {
-    return await this.aggregationOpenApiService.getSearchCount(tableId, query);
+    return await this.getAggregationWithCache('search_count', tableId, query, () =>
+      this.aggregationOpenApiService.getSearchCount(tableId, query)
+    );
   }
 
   @Get('/search-index')
@@ -65,7 +112,9 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(searchIndexByQueryRoSchema), TqlPipe) query: ISearchIndexByQueryRo
   ): Promise<ISearchIndexVo> {
-    return await this.aggregationOpenApiService.getRecordIndexBySearchOrder(tableId, query);
+    return await this.getAggregationWithCache('search_index', tableId, query, () =>
+      this.aggregationOpenApiService.getRecordIndexBySearchOrder(tableId, query)
+    );
   }
 
   @Get('/group-points')
@@ -74,7 +123,9 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(groupPointsRoSchema), TqlPipe) query?: IGroupPointsRo
   ): Promise<IGroupPointsVo> {
-    return await this.aggregationOpenApiService.getGroupPoints(tableId, query);
+    return await this.getAggregationWithCache('group_points', tableId, query, () =>
+      this.aggregationOpenApiService.getGroupPoints(tableId, query)
+    );
   }
 
   @Get('/calendar-daily-collection')
@@ -84,7 +135,9 @@ export class AggregationOpenApiController {
     @Query(new ZodValidationPipe(calendarDailyCollectionRoSchema), TqlPipe)
     query: ICalendarDailyCollectionRo
   ): Promise<ICalendarDailyCollectionVo> {
-    return await this.aggregationOpenApiService.getCalendarDailyCollection(tableId, query);
+    return await this.getAggregationWithCache('calendar_daily_collection', tableId, query, () =>
+      this.aggregationOpenApiService.getCalendarDailyCollection(tableId, query)
+    );
   }
 
   @Get('/task-status-collection')

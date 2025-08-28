@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PerformanceCacheModule } from '../../../performance-cache';
 import { AttachmentsStorageModule } from '../../attachments/attachments-storage.module';
 import { AttachmentsModule } from '../../attachments/attachments.module';
 import { CalculationModule } from '../../calculation/calculation.module';
@@ -22,6 +23,7 @@ import { RecordOpenApiService } from './record-open-api.service';
     CollaboratorModule,
     ViewModule,
     ViewOpenApiModule,
+    PerformanceCacheModule,
   ],
   controllers: [RecordOpenApiController],
   providers: [RecordOpenApiService],

@@ -50,7 +50,7 @@ export class ShareDbService extends ShareDBClass {
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client
-    this.prismaService.bindAfterTransaction(() => {
+    this.prismaService.bindAfterTransaction(async () => {
       const rawOpMaps = this.cls.get('tx.rawOpMaps');
       this.cls.set('tx.rawOpMaps', undefined);
 
@@ -60,7 +60,8 @@ export class ShareDbService extends ShareDBClass {
       }
 
       if (ops.length) {
-        this.publishOpsMap(rawOpMaps);
+        await this.updateTableMetaByRawOpMap(rawOpMaps);
+        await this.publishOpsMap(rawOpMaps);
         this.eventEmitterService.ops2Event(ops);
       }
     });
@@ -68,6 +69,30 @@ export class ShareDbService extends ShareDBClass {
 
   getConnection() {
     return this.connect();
+  }
+
+  @Timing()
+  private async updateTableMetaByRawOpMap(rawOpMap?: IRawOpMap[]) {
+    if (!rawOpMap?.length) {
+      return;
+    }
+    const collection = rawOpMap.flatMap((map) => Object.keys(map));
+    const tableIds = collection
+      .filter(
+        (c) =>
+          c.startsWith(IdPrefix.Record) ||
+          c.startsWith(IdPrefix.View) ||
+          c.startsWith(IdPrefix.Field)
+      )
+      .map((c) => c.split('_')[1]);
+
+    if (!tableIds.length) {
+      return;
+    }
+    await this.prismaService.txClient().tableMeta.updateMany({
+      where: { id: { in: tableIds } },
+      data: { lastModifiedTime: new Date().toISOString() },
+    });
   }
 
   @Timing()
