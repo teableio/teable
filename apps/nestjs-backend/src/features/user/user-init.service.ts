@@ -1,5 +1,6 @@
 import { join, resolve } from 'path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { AUTOMATION_ROBOT_ID, APP_ROBOT_ID } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { createReadStream } from 'fs-extra';
@@ -18,10 +19,11 @@ export class UserInitService implements OnModuleInit {
 
   async onModuleInit() {
     await this.uploadStatic(
-      'automationRobot',
+      AUTOMATION_ROBOT_ID,
       'static/system/automation-robot.png',
       UploadType.Avatar
     );
+    await this.uploadStatic(APP_ROBOT_ID, 'static/system/automation-robot.png', UploadType.Avatar);
     await this.uploadStatic('anonymous', 'static/system/anonymous.png', UploadType.Avatar);
 
     this.logger.log('System users initialized');

@@ -7,7 +7,7 @@ import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from './permission.service';
-import type { IJwtAuthAutomationInfo, IJwtAuthInfo } from './strategies/types';
+import type { IJwtAuthInternalInfo, IJwtAuthInfo, JwtAuthInternalType } from './strategies/types';
 
 @Injectable()
 export class AuthService {
@@ -49,8 +49,9 @@ export class AuthService {
     };
   }
 
-  async getTempAutomationToken(baseId: string, expiresIn: string = '10m') {
-    const payload: IJwtAuthAutomationInfo = {
+  async getTempInternalToken(baseId: string, type: JwtAuthInternalType, expiresIn: string = '10m') {
+    const payload: IJwtAuthInternalInfo = {
+      type,
       baseId,
     };
     return {

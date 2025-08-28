@@ -10,6 +10,12 @@ export interface IJwtAuthInfo {
   userId: string;
 }
 
-export interface IJwtAuthAutomationInfo {
+export enum JwtAuthInternalType {
+  Automation = 'automation',
+  App = 'app',
+}
+
+export interface IJwtAuthInternalInfo {
+  type: JwtAuthInternalType;
   baseId: string;
 }
