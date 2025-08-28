@@ -167,7 +167,7 @@ export const BaseErd = (props: { baseId: string }) => {
 
   const allEdgeTypes = useMemo(() => {
     const { edges = [] } = baseErd ?? {};
-    return uniq(edges.map((edge) => edge.type))
+    return uniq(edges.filter((edge) => !edge.relationship).map((edge) => edge.type))
       .sort()
       .map((type) => getEdgeTypeInfo(type));
   }, [baseErd, getEdgeTypeInfo]);
@@ -212,29 +212,14 @@ export const BaseErd = (props: { baseId: string }) => {
         }}
       />
       <div className="absolute right-10 top-10 z-10 flex ">
-        {allEdgeTypes.length === 1 && (
-          <div className="w-min-content flex items-center gap-2 p-2">
-            <Switch
-              checked={showEdgeTypes.includes(allEdgeTypes[0].type)}
-              onCheckedChange={(checked) => {
-                setShowEdgeTypes((prev) =>
-                  checked
-                    ? [...prev, allEdgeTypes[0].type]
-                    : prev.filter((t) => t !== allEdgeTypes[0].type)
-                );
-              }}
-            />
-            <Label>{allEdgeTypes[0].title}</Label>
-          </div>
-        )}
-        {allEdgeTypes.length > 1 && (
+        {allEdgeTypes.length > 0 && (
           <Popover modal>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="flex items-center gap-2">
                 <FilterIcon className="size-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-fit p-0">
+            <PopoverContent className="w-fit min-w-24 p-0">
               {allEdgeTypes.map(({ type, title }) => (
                 <div key={type} className="w-min-content flex items-center gap-2 p-2">
                   <Switch
