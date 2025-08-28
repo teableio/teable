@@ -240,7 +240,7 @@ export class AggregationServiceV2 implements IAggregationService {
         viewId,
         filter,
         aggregationFields: statisticFields,
-        groupBy: groupBy?.map((item) => item.fieldId),
+        groupBy,
         currentUserId: withUserId,
       }
     );

@@ -111,13 +111,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       {} as Record<string, FieldCore>
     );
 
+    const groupByFieldIds = groupBy?.map((item) => item.fieldId);
     // Apply aggregation
     this.dbProvider
       .aggregationQuery(
         qb,
         fieldMap,
         aggregationFields,
-        { groupBy },
+        { groupBy: groupByFieldIds },
         {
           selectionMap,
           tableDbName: table.dbTableName,
@@ -129,8 +130,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     // Apply grouping if specified
     if (groupBy && groupBy.length > 0) {
       this.dbProvider
-        .groupQuery(qb, fieldMap, groupBy, undefined, { selectionMap })
+        .groupQuery(qb, fieldMap, groupByFieldIds, undefined, { selectionMap })
         .appendGroupBuilder();
+
+      this.buildSort(qb, table, groupBy, selectionMap);
     }
 
     return { qb, alias, selectionMap };
