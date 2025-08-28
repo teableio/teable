@@ -379,7 +379,7 @@ export class TypeCastAndValidate {
     );
   }
 
-  private async getAttachmentCvMapByToken(cellValues: unknown[]): Promise<
+  private async getAttachmentCvMapByCv(cellValues: unknown[]): Promise<
     Record<
       string,
       {
@@ -394,12 +394,9 @@ export class TypeCastAndValidate {
   > {
     const tokens = cellValues
       .flat()
-      .map((v) => {
+      .flatMap((v) => {
         if (isObject(v) && 'token' in v && typeof v.token === 'string') {
-          return v.token;
-        }
-        if (typeof v === 'string' && !v.startsWith(IdPrefix.Attachment)) {
-          return v;
+          return [v.token];
         }
       })
       .filter(Boolean) as string[];
@@ -421,26 +418,14 @@ export class TypeCastAndValidate {
   }
 
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
-    const attachmentItemsIdMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
-    const attachmentCvTokenMap = await this.getAttachmentCvMapByToken(cellValues);
+    const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
+    const attachmentCvMap = await this.getAttachmentCvMapByCv(cellValues);
     const unsignedValues = this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
-        const splitValues = this.valueToStringArray(cellValue);
+        const splitValues = typeof cellValue === 'string' ? cellValue.split(',') : cellValue;
         if (Array.isArray(splitValues)) {
-          const result = splitValues.map((v) => {
-            if (attachmentItemsIdMap[v]) {
-              return attachmentItemsIdMap[v];
-            }
-            if (attachmentCvTokenMap[v]) {
-              return {
-                id: generateAttachmentId(),
-                name: 'Unnamed attachment',
-                ...attachmentCvTokenMap[v],
-              };
-            }
-            return null;
-          });
+          const result = splitValues.map((v) => attachmentItemsMap[v]).filter(Boolean);
           if (result.length) {
             return result;
           }
@@ -448,13 +433,13 @@ export class TypeCastAndValidate {
       },
       (validatedCellValue: unknown) => {
         const attachmentCellValue = validatedCellValue as IAttachmentCellValue;
-        const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvTokenMap[v.token]);
+        const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvMap[v.token]);
         if (notInAttachmentMap) {
           throw new BadRequestException(`Attachment(${notInAttachmentMap.token}) not found`);
         }
         return attachmentCellValue.map((v) => {
           return {
-            ...nullsToUndefined(attachmentCvTokenMap[v.token]),
+            ...nullsToUndefined(attachmentCvMap[v.token]),
             name: v.name,
             id: generateAttachmentId(),
           };
