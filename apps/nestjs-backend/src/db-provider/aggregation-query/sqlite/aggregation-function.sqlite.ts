@@ -41,7 +41,7 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
   }
 
   totalAttachmentSize(): string {
-    return `SELECT SUM(json_extract(json_each.value, '$.size')) AS value FROM ${this.dbTableName}, json_each(${this.tableColumnRef})`;
+    return `SELECT SUM(json_extract(json_each.value, '$.size')) AS value FROM ${this.dbTableName} as "${this.tableAlias}", json_each(${this.tableColumnRef})`;
   }
 
   percentEmpty(): string {

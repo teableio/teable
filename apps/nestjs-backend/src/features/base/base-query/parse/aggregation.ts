@@ -38,14 +38,13 @@ export class QueryAggregation {
     dbProvider
       .aggregationQuery(
         queryBuilder,
-        dbTableName,
         fieldInstanceMap,
         aggregation.map((v) => ({
           fieldId: v.column,
           statisticFunc: v.statisticFunc,
         })),
         undefined,
-        undefined
+        { tableAlias: 'main_table', selectionMap: new Map(), tableDbName: dbTableName }
       )
       .appendBuilder();
     return {

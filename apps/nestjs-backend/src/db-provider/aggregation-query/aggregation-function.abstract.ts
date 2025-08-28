@@ -2,7 +2,7 @@ import { InternalServerErrorException } from '@nestjs/common';
 import type { FieldCore } from '@teable/core';
 import { StatisticsFunc } from '@teable/core';
 import type { Knex } from 'knex';
-import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
+import type { IRecordQueryAggregateContext } from '../../features/record/query-builder/record-query-builder.interface';
 import type { IAggregationFunctionInterface } from './aggregation-function.interface';
 
 export abstract class AbstractAggregationFunction implements IAggregationFunctionInterface {
@@ -10,9 +10,8 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
 
   constructor(
     protected readonly knex: Knex,
-    protected readonly dbTableName: string,
     protected readonly field: FieldCore,
-    readonly context?: IRecordQueryFilterContext
+    readonly context?: IRecordQueryAggregateContext
   ) {
     const { dbFieldName, id } = field;
 
@@ -22,6 +21,14 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     } else {
       this.tableColumnRef = dbFieldName;
     }
+  }
+
+  get dbTableName() {
+    return this.context?.tableDbName;
+  }
+
+  get tableAlias() {
+    return this.context?.tableAlias;
   }
 
   compiler(builderClient: Knex.QueryBuilder, aggFunc: StatisticsFunc, alias: string | undefined) {

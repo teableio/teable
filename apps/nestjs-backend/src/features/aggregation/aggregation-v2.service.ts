@@ -6,7 +6,13 @@ import {
   NotImplementedException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { HttpErrorCode, mergeWithDefaultFilter, nullsToUndefined, ViewType } from '@teable/core';
+import {
+  FieldKeyType,
+  HttpErrorCode,
+  mergeWithDefaultFilter,
+  nullsToUndefined,
+  ViewType,
+} from '@teable/core';
 import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
