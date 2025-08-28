@@ -294,6 +294,26 @@ export class FieldSupplementService {
         });
     }
 
+    const isSameSymmetricFieldId =
+      (!symmetricFieldId && !oldOptions.symmetricFieldId) ||
+      symmetricFieldId === oldOptions.symmetricFieldId;
+
+    if (
+      newOptionsRo.foreignTableId === oldOptions.foreignTableId &&
+      newOptionsRo.relationship === oldOptions.relationship &&
+      isSameSymmetricFieldId
+    ) {
+      return {
+        ...newOptionsRo,
+        isOneWay: isOneWay || false,
+        symmetricFieldId,
+        lookupFieldId,
+        fkHostTableName: oldOptions.fkHostTableName,
+        selfKeyName: oldOptions.selfKeyName,
+        foreignKeyName: oldOptions.foreignKeyName,
+      };
+    }
+
     return this.generateLinkOptionsVo({
       tableId,
       optionsRo: newOptionsRo,

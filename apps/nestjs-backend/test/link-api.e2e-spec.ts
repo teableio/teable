@@ -3482,7 +3482,7 @@ describe('OpenAPI link (e2e)', () => {
     });
   });
 
-  describe('link field show by field', () => {
+  describe('link field show by lookup field', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
@@ -3713,6 +3713,59 @@ describe('OpenAPI link (e2e)', () => {
 
       const res2 = await getRecord(table1.id, table1.records[0].id);
       expect(res2.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'A1' });
+    });
+
+    it('should work with link field show by field - change lookuped field when link field is one-many way', async () => {
+      const textField = await createField(table2.id, {
+        type: FieldType.SingleLineText,
+        name: 'text field',
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          isOneWay: true,
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [textField.id]: 'H1',
+            [table2.fields[0].id]: 'A1',
+          },
+        },
+      });
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: [{ id: table2.records[0].id }],
+          },
+        },
+      });
+
+      const res = await getRecord(table1.id, table1.records[0].id);
+      expect(res.fields[linkField.id]).toEqual([{ id: table2.records[0].id, title: 'A1' }]);
+
+      await convertField(table1.id, linkField.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          isOneWay: true,
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+        },
+      });
+
+      const res1 = await getRecord(table1.id, table1.records[0].id);
+      expect(res1.fields[linkField.id]).toEqual([{ id: table2.records[0].id, title: 'H1' }]);
     });
   });
 
