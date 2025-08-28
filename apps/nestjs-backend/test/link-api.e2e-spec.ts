@@ -920,7 +920,7 @@ describe('OpenAPI link (e2e)', () => {
 
       const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
       expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
@@ -1225,7 +1225,7 @@ describe('OpenAPI link (e2e)', () => {
       const table1RecordResult = await getRecords(table1.id);
       const table2RecordResult = await getRecords(table2.id);
 
-      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toBeUndefined();
       expect(table1RecordResult.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
@@ -1300,7 +1300,7 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'B1', id: table2.records[0].id },
         { title: 'B2', id: table2.records[1].id },
       ]);
-      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should throw error when add a duplicate record in oneMany link field in create record', async () => {
@@ -1506,7 +1506,7 @@ describe('OpenAPI link (e2e)', () => {
 
       const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
       expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
@@ -1619,7 +1619,7 @@ describe('OpenAPI link (e2e)', () => {
 
       const table2RecordResult = await getRecords(table2.id);
 
-      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toBeUndefined();
       expect(table1RecordResult.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
@@ -1774,7 +1774,7 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'B2', id: table2.records[1].id },
       ]);
 
-      expect(table1RecordResult2.records[2].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[2].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should set a text value in a link record with typecast', async () => {
@@ -2245,8 +2245,8 @@ describe('OpenAPI link (e2e)', () => {
 
       const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([]);
-      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should update foreign link field when change lookupField value', async () => {
@@ -2265,7 +2265,7 @@ describe('OpenAPI link (e2e)', () => {
 
       const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
 
       await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'AX');
 
@@ -2357,7 +2357,7 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'B2', id: table2.records[1].id },
       ]);
 
-      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([]);
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should throw error when add a duplicate record in oneMany link field in create record', async () => {
@@ -2724,7 +2724,7 @@ describe('OpenAPI link (e2e)', () => {
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
-      expect(table2Record.fields[symManyOneField.id]).toEqual([]);
+      expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
     });
 
     it('should update single link record when delete a record', async () => {
@@ -2877,8 +2877,8 @@ describe('OpenAPI link (e2e)', () => {
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
-      expect(table2Record.fields[symManyOneField.id] ?? []).toEqual([]);
-      expect(table2Record.fields[symOneManyField.id] ?? []).toEqual([]);
+      expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
+      expect(table2Record.fields[symOneManyField.id]).toBeUndefined();
     });
 
     it.each([
@@ -2926,7 +2926,7 @@ describe('OpenAPI link (e2e)', () => {
         await deleteRecord(table2.id, table2.records[0].id);
 
         const table1Record = await getRecord(table1.id, table1.records[0].id);
-        expect(table1Record.fields[linkField.id] ?? []).toEqual([]);
+        expect(table1Record.fields[linkField.id]).toBeUndefined();
 
         // check if the record is successfully deleted
         await deleteRecord(table1.id, table1.records[1].id);
@@ -4165,7 +4165,7 @@ describe('OpenAPI link (e2e)', () => {
 
       const table2Record2ResUpdated = await getRecord(table2.id, table2RecordId2);
 
-      expect(table2Record2ResUpdated.fields[symmetricLinkFieldId]).toEqual([]);
+      expect(table2Record2ResUpdated.fields[symmetricLinkFieldId]).toBeUndefined();
 
       const table1RecordRes2 = await updateRecord(table1.id, table1RecordId2, {
         fieldKeyType: FieldKeyType.Id,
