@@ -8,6 +8,7 @@ import type {
   UserCollaboratorItem,
 } from '@teable/openapi';
 import {
+  baseErdVoSchema,
   CREATE_BASE,
   CREATE_BASE_INVITATION_LINK,
   CREATE_SPACE,
@@ -23,6 +24,7 @@ import {
   GET_BASE_LIST,
   getBaseAll,
   getBaseCollaboratorList,
+  getBaseErd,
   getUserCollaborators,
   listBaseCollaboratorUserVoSchema,
   listBaseInvitationLink,
@@ -490,5 +492,27 @@ describe('OpenAPI BaseController (e2e)', () => {
 
     expect(res.data.find((v) => v.id === baseId1)).toBeUndefined();
     expect(res.data.find((v) => v.id === baseId2)).toBeDefined();
+  });
+
+  describe('Base ERD', () => {
+    let baseId: string;
+    let spaceId1: string;
+    beforeEach(async () => {
+      spaceId1 = await createSpace({
+        name: 'new space test base erd',
+      }).then((res) => res.id);
+      baseId = await createBase({
+        name: 'new base test base erd',
+        spaceId: spaceId1,
+      }).then((res) => res.id);
+    });
+    afterEach(async () => {
+      await permanentDeleteSpace(spaceId1);
+    });
+    it('/api/base/:baseId/erd (GET)', async () => {
+      const res = await getBaseErd(baseId);
+      expect(baseErdVoSchema.safeParse(res.data).success).toEqual(true);
+      expect(res.data.baseId).toEqual(baseId);
+    });
   });
 });
