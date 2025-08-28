@@ -2,13 +2,17 @@ import {
   BadGatewayException,
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotImplementedException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import {
+  CellValueType,
   FieldKeyType,
   HttpErrorCode,
+  identify,
+  IdPrefix,
   mergeWithDefaultFilter,
   nullsToUndefined,
   ViewType,
@@ -33,7 +37,7 @@ import type {
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isDate, isEmpty, keyBy } from 'lodash';
+import { groupBy, isDate, isEmpty, isString, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
@@ -42,6 +46,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
+import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import { RecordPermissionService } from '../record/record-permission.service';
 import { RecordService } from '../record/record.service';
@@ -846,12 +851,123 @@ export class AggregationServiceV2 implements IAggregationService {
    * @returns Promise<ICalendarDailyCollectionVo> - The calendar collection data
    * @throws NotImplementedException - This method is not yet implemented
    */
-  async getCalendarDailyCollection(
+
+  public async getCalendarDailyCollection(
     tableId: string,
     query: ICalendarDailyCollectionRo
   ): Promise<ICalendarDailyCollectionVo> {
-    throw new NotImplementedException(
-      `AggregationServiceV2.getCalendarDailyCollection is not implemented yet. TableId: ${tableId}, Query: ${JSON.stringify(query)}`
+    const {
+      startDate,
+      endDate,
+      startDateFieldId,
+      endDateFieldId,
+      filter,
+      search,
+      ignoreViewQuery,
+    } = query;
+
+    if (identify(tableId) !== IdPrefix.Table) {
+      throw new InternalServerErrorException('query collection must be table id');
+    }
+
+    const fields = await this.recordService.getFieldsByProjection(tableId);
+    const fieldMap = fields.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
     );
+
+    const startField = fieldMap[startDateFieldId];
+    if (
+      !startField ||
+      startField.cellValueType !== CellValueType.DateTime ||
+      startField.isMultipleCellValue
+    ) {
+      throw new BadRequestException('Invalid start date field id');
+    }
+
+    const endField = endDateFieldId ? fieldMap[endDateFieldId] : startField;
+
+    if (
+      !endField ||
+      endField.cellValueType !== CellValueType.DateTime ||
+      endField.isMultipleCellValue
+    ) {
+      throw new BadRequestException('Invalid end date field id');
+    }
+
+    const viewId = ignoreViewQuery ? undefined : query.viewId;
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    const { viewCte, builder: queryBuilder } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      {
+        viewId,
+      }
+    );
+    queryBuilder.from(viewCte || dbTableName);
+    const viewRaw = await this.findView(tableId, { viewId });
+    const filterStr = viewRaw?.filter;
+    const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
+    const currentUserId = this.cls.get('user.id');
+
+    if (mergedFilter) {
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldMap, mergedFilter, { withUserId: currentUserId })
+        .appendQueryBuilder();
+    }
+
+    if (search) {
+      const searchFields = await this.recordService.getSearchFields(
+        fieldMap,
+        search,
+        query?.viewId
+      );
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+      });
+    }
+    this.dbProvider.calendarDailyCollectionQuery(queryBuilder, {
+      startDate,
+      endDate,
+      startField: startField as DateFieldDto,
+      endField: endField as DateFieldDto,
+      dbTableName: viewCte || dbTableName,
+    });
+    const result = await this.prisma
+      .txClient()
+      .$queryRawUnsafe<
+        { date: Date | string; count: number; ids: string[] | string }[]
+      >(queryBuilder.toQuery());
+
+    const countMap = result.reduce(
+      (map, item) => {
+        const key = isString(item.date) ? item.date : item.date.toISOString().split('T')[0];
+        map[key] = Number(item.count);
+        return map;
+      },
+      {} as Record<string, number>
+    );
+    let recordIds = result
+      .map((item) => (isString(item.ids) ? item.ids.split(',') : item.ids))
+      .flat();
+    recordIds = Array.from(new Set(recordIds));
+
+    if (!recordIds.length) {
+      return {
+        countMap,
+        records: [],
+      };
+    }
+
+    const { records } = await this.recordService.getRecordsById(tableId, recordIds);
+
+    return {
+      countMap,
+      records,
+    };
   }
 }
