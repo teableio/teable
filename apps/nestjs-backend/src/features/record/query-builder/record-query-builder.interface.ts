@@ -1,4 +1,4 @@
-import type { IFilter, ISortItem, TableDomain } from '@teable/core';
+import type { IFilter, IGroup, ISortItem, TableDomain } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from './field-select.type';
@@ -35,8 +35,8 @@ export interface ICreateRecordAggregateBuilderOptions {
   filter?: IFilter;
   /** Aggregation fields to compute */
   aggregationFields: IAggregationField[];
-  /** Optional group by field IDs */
-  groupBy?: string[];
+  /** Optional group by */
+  groupBy?: IGroup;
   /** Optional current user ID */
   currentUserId?: string;
 }

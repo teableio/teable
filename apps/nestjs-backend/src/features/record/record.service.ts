@@ -1956,11 +1956,6 @@ export class RecordService {
         currentUserId: withUserId,
       }
     );
-    // if (filter) {
-    //   this.dbProvider
-    //     .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
-    //     .appendQueryBuilder();
-    // }
 
     if (search && search[2]) {
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
@@ -2040,20 +2035,15 @@ export class RecordService {
         viewId,
         filter: mergedFilter,
         aggregationFields: [
-          // {
-          //   fieldId: ID_FIELD_NAME,
-          //   statisticFunc: StatisticsFunc.Count,
-          // },
+          {
+            fieldId: '*',
+            statisticFunc: StatisticsFunc.Count,
+            alias: '__c',
+          },
         ],
-        groupBy: groupFieldIds,
+        groupBy,
         currentUserId: withUserId,
       });
-
-    // if (mergedFilter) {
-    //   this.dbProvider
-    //     .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
-    //     .appendQueryBuilder();
-    // }
 
     if (search && search[2]) {
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
@@ -2063,14 +2053,7 @@ export class RecordService {
       });
     }
 
-    // this.dbProvider
-    //   .sortQuery(queryBuilder, fieldInstanceMap, groupBy, undefined, undefined)
-    //   .appendSortBuilder();
-    // this.dbProvider
-    //   .groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds, undefined, undefined)
-    //   .appendGroupBuilder();
-
-    queryBuilder.count({ __c: '*' }).limit(this.thresholdConfig.maxGroupPoints);
+    queryBuilder.limit(this.thresholdConfig.maxGroupPoints);
 
     const groupSql = queryBuilder.toQuery();
     this.logger.debug('groupSql: %s', groupSql);
