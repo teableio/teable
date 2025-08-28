@@ -334,7 +334,7 @@ export class BaseService {
           withRecords,
           baseId,
         });
-        await this.prismaService.template.update({
+        await this.prismaService.txClient().template.update({
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
         });
