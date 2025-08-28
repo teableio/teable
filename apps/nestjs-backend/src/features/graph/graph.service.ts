@@ -621,15 +621,7 @@ export class GraphService {
    * if A -> B & B -> A, keep A <-> B
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private async generateBaseErdEdges({
-    linkFieldRaws,
-    tableMap,
-    fieldMap,
-    crossBaseLinkFieldRaws,
-    crossBaseTableMap,
-    crossBaseFieldMap,
-    references,
-  }: {
+  private async generateBaseErdEdges(params: {
     linkFieldRaws: (Pick<Field, 'id' | 'name' | 'type' | 'tableId'> & {
       options: ILinkFieldOptions;
     })[];
@@ -642,6 +634,16 @@ export class GraphService {
     crossBaseFieldMap: Record<string, Pick<Field, 'id' | 'tableId' | 'name' | 'type' | 'isLookup'>>;
     references: { fromFieldId: string; toFieldId: string }[];
   }) {
+    const {
+      linkFieldRaws,
+      tableMap,
+      fieldMap,
+      crossBaseLinkFieldRaws,
+      crossBaseTableMap,
+      crossBaseFieldMap,
+      references,
+    } = params;
+
     const fieldEdgeMap = new Map<string, boolean>();
     const edges: IBaseErdEdge[] = [];
     for (const field of [...linkFieldRaws, ...crossBaseLinkFieldRaws]) {
@@ -653,6 +655,11 @@ export class GraphService {
 
       const targetTable = tableMap[field.tableId] ?? crossBaseTableMap[field.tableId];
       const targetField = fieldMap[field.id] ?? crossBaseFieldMap[field.id];
+
+      if (!sourceTable || !targetTable || !sourceField || !targetField) {
+        continue;
+      }
+
       const edge: IBaseErdEdge = {
         source: {
           tableId: sourceTable.id,

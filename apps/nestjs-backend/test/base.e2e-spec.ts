@@ -1,11 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
-import { Role } from '@teable/core';
+import type { ILinkFieldOptions } from '@teable/core';
+import { FieldType, Relationship, Role } from '@teable/core';
 import type {
   ICreateBaseVo,
   ICreateSpaceVo,
   IUserMeVo,
   ListBaseInvitationLinkVo,
   UserCollaboratorItem,
+  IBaseErdEdge,
 } from '@teable/openapi';
 import {
   baseErdVoSchema,
@@ -14,6 +16,7 @@ import {
   CREATE_SPACE,
   createBaseInvitationLink,
   createBaseInvitationLinkVoSchema,
+  createTable,
   DELETE_BASE,
   DELETE_BASE_COLLABORATOR,
   DELETE_SPACE,
@@ -42,6 +45,7 @@ import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import {
   createBase,
+  createField,
   createSpace,
   deleteSpace,
   initApp,
@@ -495,24 +499,198 @@ describe('OpenAPI BaseController (e2e)', () => {
   });
 
   describe('Base ERD', () => {
-    let baseId: string;
     let spaceId1: string;
+
     beforeEach(async () => {
       spaceId1 = await createSpace({
         name: 'new space test base erd',
-      }).then((res) => res.id);
-      baseId = await createBase({
-        name: 'new base test base erd',
-        spaceId: spaceId1,
       }).then((res) => res.id);
     });
     afterEach(async () => {
       await permanentDeleteSpace(spaceId1);
     });
-    it('/api/base/:baseId/erd (GET)', async () => {
-      const res = await getBaseErd(baseId);
-      expect(baseErdVoSchema.safeParse(res.data).success).toEqual(true);
-      expect(res.data.baseId).toEqual(baseId);
+
+    const getRelationReference = (edges: IBaseErdEdge[]) => {
+      return edges
+        .filter((edge) => Boolean(edge.relationship))
+        .map((edge) => {
+          const { source, target } = edge;
+          return `${source.tableId}.${source.fieldId}-${target.tableId}.${target.fieldId}`;
+        })
+        .sort();
+    };
+
+    const getTypeMap = (edges: IBaseErdEdge[]) => {
+      return edges
+        .filter((edge) => !edge.relationship)
+        .reduce(
+          (acc, edge) => {
+            acc[edge.type] = (acc[edge.type] || 0) + 1;
+            return acc;
+          },
+          {} as Record<FieldType | 'lookup', number>
+        );
+    };
+
+    it('/api/base/:baseId/erd (GET) - relationship', async () => {
+      const baseId = await createBase({
+        spaceId: spaceId1,
+      }).then((res) => res.id);
+      const table1 = await createTable(baseId).then((res) => res.data);
+      const table2 = await createTable(baseId).then((res) => res.data);
+
+      await createField(table1.id, {
+        name: 'new link field1',
+        type: FieldType.Link,
+        options: {
+          isOneWay: true,
+          foreignTableId: table2.id,
+          relationship: Relationship.OneOne,
+        },
+      });
+
+      await createField(table1.id, {
+        name: 'new link field2',
+        type: FieldType.Link,
+        options: {
+          isOneWay: true,
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      await createField(table1.id, {
+        name: 'new link field3',
+        type: FieldType.Link,
+        options: {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        },
+      });
+
+      await createField(table1.id, {
+        name: 'new link field4',
+        type: FieldType.Link,
+        options: {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyMany,
+        },
+      });
+
+      const data = await getBaseErd(baseId).then((res) => res.data);
+      expect(baseErdVoSchema.safeParse(data).success).toEqual(true);
+      expect(data.baseId).toEqual(baseId);
+      expect(getRelationReference(data.edges).length).toEqual(4);
+    });
+
+    it('/api/base/:baseId/erd (GET) - reference(formula, lookup, rollup, link)', async () => {
+      const baseId = await createBase({
+        spaceId: spaceId1,
+      }).then((res) => res.id);
+      const table1 = await createTable(baseId).then((res) => res.data);
+      const table2 = await createTable(baseId).then((res) => res.data);
+
+      const textField = table1.fields[0];
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          foreignTableId: table2.id,
+          relationship: Relationship.OneOne,
+        },
+      });
+
+      const lookupField = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      await createField(table1.id, {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${textField.id}}`,
+        },
+      });
+
+      await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupField.id}}`,
+        },
+      });
+
+      const data = await getBaseErd(baseId).then((res) => res.data);
+      expect(baseErdVoSchema.safeParse(data).success).toEqual(true);
+      expect(data.baseId).toEqual(baseId);
+      expect(getRelationReference(data.edges).length).toEqual(1);
+      const typeMap = getTypeMap(data.edges);
+      expect(typeMap).toEqual({
+        formula: 2,
+        link: (linkField.options as ILinkFieldOptions).isOneWay ? 1 : 2,
+        lookup: 1,
+        rollup: 1,
+      });
+    });
+
+    it('/api/base/:baseId/erd (GET) - cross base', async () => {
+      const baseId1 = await createBase({
+        spaceId: spaceId1,
+      }).then((res) => res.id);
+      const base1Table1 = await createTable(baseId1).then((res) => res.data);
+
+      const baseId2 = await createBase({
+        spaceId: spaceId1,
+      }).then((res) => res.id);
+      const base2Table1 = await createTable(baseId2).then((res) => res.data);
+
+      await createField(base1Table1.id, {
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          foreignTableId: base2Table1.id,
+          relationship: Relationship.OneOne,
+        },
+      });
+
+      const baseId3 = await createBase({
+        spaceId: spaceId1,
+      }).then((res) => res.id);
+      const base3Table1 = await createTable(baseId3).then((res) => res.data);
+
+      await createField(base2Table1.id, {
+        type: FieldType.Link,
+        options: {
+          baseId: baseId3,
+          foreignTableId: base3Table1.id,
+          relationship: Relationship.OneOne,
+        },
+      });
+
+      const base1Erd = await getBaseErd(baseId1).then((res) => res.data);
+      expect(baseErdVoSchema.safeParse(base1Erd).success).toEqual(true);
+      expect(base1Erd.baseId).toEqual(baseId1);
+      expect(getRelationReference(base1Erd.edges).length).toEqual(1);
+
+      const base2Erd = await getBaseErd(baseId2).then((res) => res.data);
+      expect(baseErdVoSchema.safeParse(base2Erd).success).toEqual(true);
+      expect(base2Erd.baseId).toEqual(baseId2);
+      expect(getRelationReference(base2Erd.edges).length).toEqual(2);
     });
   });
 });
