@@ -782,7 +782,8 @@
     },
     "buildBase": {
       "title": "生成数据库",
-      "generateSuccess": "生成数据库成功"
+      "generateSuccess": "生成数据库成功",
+      "generateError": "生成数据库失败"
     },
     "buildAutomation": {
       "title": "生成自动化",
