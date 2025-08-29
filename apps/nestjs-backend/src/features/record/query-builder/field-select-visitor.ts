@@ -227,7 +227,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
-      throw new Error(`Rollup field ${field.id} requires a field CTE map`);
+      return this.getColumnSelector(field);
     }
 
     // Rollup fields use the link field's CTE with pre-computed rollup values
