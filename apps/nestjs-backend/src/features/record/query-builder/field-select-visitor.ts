@@ -213,7 +213,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.id)) {
-      throw new Error(`Link field ${field.id} should always select from a CTE, but no CTE found`);
+      return this.getColumnSelector(field);
     }
 
     const cteName = fieldCteMap.get(field.id)!;

@@ -51,7 +51,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const mainTableAlias = getTableAliasFromTable(table);
     const qb = this.knex.from({ [mainTableAlias]: from });
 
-    const state: IMutableQueryBuilderState = new RecordQueryBuilderManager();
+    const state: IMutableQueryBuilderState = new RecordQueryBuilderManager('table');
     const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
     visitor.build();
 
@@ -68,7 +68,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const mainTableAlias = getTableAliasFromTable(table);
     const qb = this.knex.from({ [mainTableAlias]: tableRaw.dbViewName });
 
-    const state = new RecordQueryBuilderManager();
+    const state = new RecordQueryBuilderManager('view');
 
     return { qb, table, state, alias: mainTableAlias };
   }

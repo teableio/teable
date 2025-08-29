@@ -265,6 +265,7 @@ export interface IDbProvider {
   ): string[];
   recreateDatabaseView(table: TableDomain, qb: Knex.QueryBuilder): string[];
   dropDatabaseView(tableId: string): string[];
+  refreshDatabaseView(tableId: string, options?: { concurrently?: boolean }): string | undefined;
 
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string;
   dropMaterializedView(tableId: string): string;

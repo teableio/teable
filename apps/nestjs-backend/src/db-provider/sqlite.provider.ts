@@ -714,6 +714,11 @@ ORDER BY
     return [this.knex.raw(`DROP VIEW IF EXISTS ??`, [viewName]).toQuery()];
   }
 
+  // SQLite views are not materialized; nothing to refresh
+  refreshDatabaseView(_tableId: string): string | undefined {
+    return undefined;
+  }
+
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string {
     const viewName = this.generateDatabaseViewName(table.id);
     return this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery();

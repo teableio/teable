@@ -52,4 +52,11 @@ export class DatabaseViewService implements IDatabaseView {
       data: { dbViewName: null },
     });
   }
+
+  public async refreshView(tableId: string) {
+    const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
+    if (sql) {
+      await this.prisma.$executeRawUnsafe(sql);
+    }
+  }
 }

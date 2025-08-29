@@ -4,11 +4,14 @@ import type {
   IMutableQueryBuilderState,
 } from './record-query-builder.interface';
 
+type IRecordQueryContext = 'table' | 'view';
+
 /**
  * Central manager for query-builder shared state.
  * Implements both readonly and mutable interfaces; pass as readonly where mutation is not allowed.
  */
 export class RecordQueryBuilderManager implements IMutableQueryBuilderState {
+  constructor(public readonly context: IRecordQueryContext) {}
   private readonly fieldIdToCteName: Map<string, string> = new Map();
   private readonly fieldIdToSelection: Map<string, IFieldSelectName> = new Map();
 

@@ -821,6 +821,15 @@ ORDER BY
     ];
   }
 
+  refreshDatabaseView(tableId: string, options?: { concurrently?: boolean }): string {
+    const viewName = this.generateDatabaseViewName(tableId);
+    const concurrently = options?.concurrently ?? true;
+    if (concurrently) {
+      return `REFRESH MATERIALIZED VIEW CONCURRENTLY "${viewName}"`;
+    }
+    return `REFRESH MATERIALIZED VIEW "${viewName}"`;
+  }
+
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string {
     const viewName = this.generateDatabaseViewName(table.id);
     return this.knex.raw(`CREATE MATERIALIZED VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery();
