@@ -573,6 +573,7 @@ export class SqliteProvider implements IDbProvider {
   lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
         type: 'type',
         name: 'name',

@@ -1317,4 +1317,54 @@ export class ReferenceService {
     }
     return Array.from(allNodes);
   }
+
+  /**
+   * Given a list of fieldIds, return unique tableIds related by Reference graph.
+   * The result includes the tables of the start fields and all connected fields
+   * discovered through the reference relationships (transitively), de-duplicated.
+   */
+  async getRelatedTableIdsByFieldIds(startFieldIds: string[]): Promise<string[]> {
+    if (!startFieldIds.length) return [];
+
+    const visitedFieldIds = new Set<string>();
+    const queue: string[] = [...startFieldIds];
+    const tableIds = new Set<string>();
+
+    // Prime map for initial fields → tableId
+    const initialFields = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: startFieldIds }, deletedTime: null },
+      select: { id: true, tableId: true },
+    });
+    for (const f of initialFields) {
+      tableIds.add(f.tableId);
+    }
+
+    while (queue.length) {
+      const fid = queue.shift()!;
+      if (visitedFieldIds.has(fid)) continue;
+      visitedFieldIds.add(fid);
+
+      // 1) Fields (lookup/rollup) whose lookupOptions.lookupFieldId === fid
+      const q1 = this.dbProvider.lookupOptionsQuery('lookupFieldId', fid);
+      const deps1 = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ tableId: string; id: string }[]>(q1);
+      for (const row of deps1) {
+        tableIds.add(row.tableId);
+        queue.push(row.id);
+      }
+
+      // 2) Fields (lookup/rollup) attached to a link: lookupOptions.linkFieldId === fid
+      const q2 = this.dbProvider.lookupOptionsQuery('linkFieldId', fid);
+      const deps2 = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ tableId: string; id: string }[]>(q2);
+      for (const row of deps2) {
+        tableIds.add(row.tableId);
+        queue.push(row.id);
+      }
+    }
+
+    return Array.from(tableIds);
+  }
 }

@@ -728,7 +728,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     private readonly tables: Tables,
     state?: IMutableQueryBuilderState
   ) {
-    this.state = state ?? new RecordQueryBuilderManager();
+    this.state = state ?? new RecordQueryBuilderManager('table');
     this._table = tables.mustGetEntryTable();
   }
 

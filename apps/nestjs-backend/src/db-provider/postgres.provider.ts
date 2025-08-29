@@ -785,7 +785,8 @@ ORDER BY
         .raw(`CREATE MATERIALIZED VIEW ?? AS ${qb.toQuery()}`, [viewName])
         .toQuery();
       const createIndex = `CREATE UNIQUE INDEX IF NOT EXISTS ${viewName}__id_uidx ON "${viewName}" ("__id")`;
-      return [createMv, createIndex];
+      const refresh = this.refreshDatabaseView(table.id);
+      return [createMv, createIndex, ...refresh];
     }
     return [this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery()];
   }
@@ -823,6 +824,11 @@ ORDER BY
 
   refreshDatabaseView(tableId: string, options?: { concurrently?: boolean }): string {
     const viewName = this.generateDatabaseViewName(tableId);
+    this.logger.debug(
+      'refreshDatabaseView %s with concurrently %s',
+      viewName,
+      options?.concurrently
+    );
     const concurrently = options?.concurrently ?? true;
     if (concurrently) {
       return `REFRESH MATERIALIZED VIEW CONCURRENTLY "${viewName}"`;

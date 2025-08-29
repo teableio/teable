@@ -3,6 +3,7 @@ import type { TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { ReferenceService } from '../calculation/reference.service';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import type { IDatabaseView } from './database-view.interface';
 
@@ -13,7 +14,8 @@ export class DatabaseViewService implements IDatabaseView {
     private readonly dbProvider: IDbProvider,
     @InjectRecordQueryBuilder()
     private readonly recordQueryBuilderService: IRecordQueryBuilder,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly referenceService: ReferenceService
   ) {}
 
   public async createView(table: TableDomain) {
@@ -57,6 +59,17 @@ export class DatabaseViewService implements IDatabaseView {
     const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
     if (sql) {
       await this.prisma.$executeRawUnsafe(sql);
+    }
+  }
+
+  public async refreshViewsByFieldIds(fieldIds: string[]) {
+    if (!fieldIds?.length) return;
+    const tableIds = await this.referenceService.getRelatedTableIdsByFieldIds(fieldIds);
+    for (const tableId of tableIds) {
+      const sql = this.dbProvider.refreshDatabaseView(tableId, { concurrently: true });
+      if (sql) {
+        await this.prisma.$executeRawUnsafe(sql);
+      }
     }
   }
 }
