@@ -3,7 +3,7 @@ import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from './field-select.type';
 
-export interface IPrepareMaterializedViewParams {
+export interface IPrepareViewParams {
   tableIdOrDbTableName: string;
 }
 
@@ -46,9 +46,9 @@ export interface ICreateRecordAggregateBuilderOptions {
  * This interface defines the public API for building table record queries
  */
 export interface IRecordQueryBuilder {
-  prepareMaterializedView(
+  prepareView(
     from: string,
-    params: IPrepareMaterializedViewParams
+    params: IPrepareViewParams
   ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }>;
   /**
    * Create a record query builder with select fields for the given table

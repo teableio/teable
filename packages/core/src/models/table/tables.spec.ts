@@ -186,7 +186,7 @@ describe('Tables', () => {
 
     it('should get table IDs and domains', () => {
       const tableIds = tables.getTableIds();
-      const tableDomains = tables.getTableDomainsArray();
+      const tableDomains = tables.getTableDomainByIdsArray();
 
       expect(tableIds).toHaveLength(2);
       expect(tableIds).toContain('tbl1');

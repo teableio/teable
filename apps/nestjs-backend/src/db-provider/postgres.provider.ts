@@ -331,9 +331,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     const additionalSqls =
       (visitor as CreatePostgresDatabaseColumnFieldVisitor | undefined)?.getSql() ?? [];
 
-    this.logger.debug('createColumnSchema main:', mainSqls);
-    this.logger.debug('createColumnSchema additional:', additionalSqls);
-
     return [...mainSqls, ...additionalSqls].filter(Boolean);
   }
 
@@ -772,17 +769,63 @@ ORDER BY
     }
   }
 
-  generateMaterializedViewName(table: TableDomain): string {
-    return 'mv_' + table.id;
+  generateDatabaseViewName(tableId: string): string {
+    return tableId + '_view';
+  }
+
+  createDatabaseView(
+    table: TableDomain,
+    qb: Knex.QueryBuilder,
+    options?: { materialized?: boolean }
+  ): string[] {
+    const viewName = this.generateDatabaseViewName(table.id);
+    if (options?.materialized) {
+      // Create MV and add unique index on __id to support concurrent refresh
+      const createMv = this.knex
+        .raw(`CREATE MATERIALIZED VIEW ?? AS ${qb.toQuery()}`, [viewName])
+        .toQuery();
+      const createIndex = `CREATE UNIQUE INDEX IF NOT EXISTS ${viewName}__id_uidx ON "${viewName}" ("__id")`;
+      return [createMv, createIndex];
+    }
+    return [this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery()];
+  }
+
+  recreateDatabaseView(table: TableDomain, qb: Knex.QueryBuilder): string[] {
+    const oldName = this.generateDatabaseViewName(table.id);
+    const newName = `${oldName}_new`;
+    const stmts: string[] = [];
+    // Clean temp and conflicting indexes
+    stmts.push(`DROP INDEX IF EXISTS "${newName}__id_uidx"`);
+    stmts.push(`DROP INDEX IF EXISTS "${oldName}__id_uidx"`);
+    stmts.push(`DROP MATERIALIZED VIEW IF EXISTS "${newName}"`);
+    // Create empty MV and index, then initial non-concurrent populate
+    stmts.push(`CREATE MATERIALIZED VIEW "${newName}" AS ${qb.toQuery()} WITH NO DATA`);
+    stmts.push(`CREATE UNIQUE INDEX "${newName}__id_uidx" ON "${newName}" ("__id")`);
+    stmts.push(`REFRESH MATERIALIZED VIEW "${newName}"`);
+    // Swap
+    stmts.push(`DROP MATERIALIZED VIEW IF EXISTS "${oldName}"`);
+    stmts.push(`ALTER MATERIALIZED VIEW "${newName}" RENAME TO "${oldName}"`);
+    // Keep index name stable after swap
+    stmts.push(`ALTER INDEX "${newName}__id_uidx" RENAME TO "${oldName}__id_uidx"`);
+    return stmts;
+  }
+
+  dropDatabaseView(tableId: string): string[] {
+    const viewName = this.generateDatabaseViewName(tableId);
+    // Try dropping both MV and normal VIEW to be safe
+    return [
+      this.knex.raw(`DROP MATERIALIZED VIEW IF EXISTS ??`, [viewName]).toQuery(),
+      this.knex.raw(`DROP VIEW IF EXISTS ??`, [viewName]).toQuery(),
+    ];
   }
 
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string {
-    const viewName = this.generateMaterializedViewName(table);
+    const viewName = this.generateDatabaseViewName(table.id);
     return this.knex.raw(`CREATE MATERIALIZED VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery();
   }
 
-  dropMaterializedView(table: TableDomain): string {
-    const viewName = this.generateMaterializedViewName(table);
+  dropMaterializedView(tableId: string): string {
+    const viewName = this.generateDatabaseViewName(tableId);
     return this.knex.raw(`DROP MATERIALIZED VIEW IF EXISTS ??`, [viewName]).toQuery();
   }
 }

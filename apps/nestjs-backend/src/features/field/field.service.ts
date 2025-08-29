@@ -284,8 +284,6 @@ export class FieldService implements IReadonlyAdapterService {
         isSymmetricField
       );
 
-      this.logger.log('alterTableQueries', alterTableQueries);
-
       // Execute all queries (main table alteration + any additional queries like junction tables)
       for (const query of alterTableQueries) {
         await this.prismaService.txClient().$executeRawUnsafe(query);

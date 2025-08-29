@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
-import { DatabaseMaterialViewModule } from '../../database-view/material-view/database-material-view.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { FieldDuplicateModule } from '../../field/field-duplicate/field-duplicate.module';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
@@ -28,7 +27,6 @@ import { TableOpenApiService } from './table-open-api.service';
     ShareDbModule,
     CalculationModule,
     GraphModule,
-    DatabaseMaterialViewModule,
   ],
   controllers: [TableController],
   providers: [DbProvider, TableOpenApiService, TableIndexService, TableDuplicateService],

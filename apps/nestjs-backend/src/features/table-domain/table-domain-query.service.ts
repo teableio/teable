@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
+import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/factory';
 
@@ -23,16 +24,83 @@ export class TableDomainQueryService {
    * @throws NotFoundException - If table is not found or has been deleted
    */
   async getTableDomainById(tableId: string): Promise<TableDomain> {
-    // Fetch table metadata and fields in parallel for better performance
-    const tableMeta = await this.getTableMetadata(tableId);
+    const tableMeta = await this.getTableMetaById(tableId);
+    const fieldRaws = await this.getTableFields(tableMeta.id);
+    return this.buildTableDomain(tableMeta, fieldRaws);
+  }
 
-    // Convert raw field data to FieldCore instances
-    const fieldInstances = tableMeta.fields.map((fieldRaw) => {
+  /**
+   * Get a complete table domain object by dbTableName
+   * @param dbTableName - The physical table name in the database
+   */
+  async getTableDomainByDbTableName(dbTableName: string): Promise<TableDomain> {
+    const tableMeta = await this.getTableMetaByDbTableName(dbTableName);
+    const fieldRaws = await this.getTableFields(tableMeta.id);
+    return this.buildTableDomain(tableMeta, fieldRaws);
+  }
+
+  /**
+   * Get table metadata by ID
+   * @private
+   */
+  private async getTableMetaById(tableId: string) {
+    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { id: tableId, deletedTime: null },
+    });
+
+    if (!tableMeta) {
+      throw new NotFoundException(`Table with ID ${tableId} not found`);
+    }
+
+    return tableMeta;
+  }
+
+  private async getTableMetaByDbTableName(dbTableName: string) {
+    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { dbTableName, deletedTime: null },
+    });
+
+    if (!tableMeta) {
+      throw new NotFoundException(`Table with dbTableName ${dbTableName} not found`);
+    }
+
+    return tableMeta;
+  }
+
+  private async getTableFields(tableId: string) {
+    return this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      orderBy: [
+        {
+          isPrimary: {
+            sort: 'asc',
+            nulls: 'last',
+          },
+        },
+        { order: 'asc' },
+        { createdTime: 'asc' },
+      ],
+    });
+  }
+
+  private buildTableDomain(
+    tableMeta: {
+      id: string;
+      name: string;
+      dbTableName: string;
+      icon: string | null;
+      description: string | null;
+      lastModifiedTime: Date | null;
+      createdTime: Date;
+      baseId: string;
+    },
+    fieldRaws: Field[]
+  ): TableDomain {
+    const fieldInstances = fieldRaws.map((fieldRaw) => {
       const fieldVo = rawField2FieldObj(fieldRaw);
       return createFieldInstanceByVo(fieldVo) as FieldCore;
     });
 
-    // Construct and return the TableDomain object
     return new TableDomain({
       id: tableMeta.id,
       name: tableMeta.name,
@@ -44,47 +112,6 @@ export class TableDomainQueryService {
       baseId: tableMeta.baseId,
       fields: fieldInstances,
     });
-  }
-
-  /**
-   * Get table metadata by ID
-   * @private
-   */
-  private async getTableMetadata(tableId: string) {
-    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
-      where: {
-        id: tableId,
-        deletedTime: null,
-      },
-      include: {
-        fields: {
-          where: {
-            tableId,
-            deletedTime: null,
-          },
-          orderBy: [
-            {
-              isPrimary: {
-                sort: 'asc',
-                nulls: 'last',
-              },
-            },
-            {
-              order: 'asc',
-            },
-            {
-              createdTime: 'asc',
-            },
-          ],
-        },
-      },
-    });
-
-    if (!tableMeta) {
-      throw new NotFoundException(`Table with ID ${tableId} not found`);
-    }
-
-    return tableMeta;
   }
 
   /**
