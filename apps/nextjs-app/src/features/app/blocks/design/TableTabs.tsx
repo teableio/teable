@@ -21,7 +21,7 @@ const BaseErdialog = ({ baseId }: { baseId: string }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline">ER</Button>
+        <Button variant="outline">ERD</Button>
       </DialogTrigger>
       <DialogContent
         className="flex max-w-7xl p-0"
