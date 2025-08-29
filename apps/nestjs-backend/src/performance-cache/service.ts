@@ -23,10 +23,12 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
   constructor(private readonly configService: ConfigService) {
     try {
-      const redisUri = this.configService.get<string>('BACKEND_CACHE_REDIS_URI');
+      const redisUri = this.configService.get<string>('BACKEND_PERFORMANCE_CACHE');
 
       if (!redisUri) {
-        this.logger.warn('Performance cache is disabled - BACKEND_CACHE_REDIS_URI not configured');
+        this.logger.warn(
+          'Performance cache is disabled - BACKEND_PERFORMANCE_CACHE not configured'
+        );
         return;
       }
 
@@ -260,6 +262,10 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     options: ICacheOptions = {}
   ): Promise<TResult> {
     const finalOptions = { preventConcurrent: true, ...options };
+
+    if (!this.isAvailable()) {
+      return fn();
+    }
 
     // Try to get from cache first
     const cached = await this.get(key, options);
