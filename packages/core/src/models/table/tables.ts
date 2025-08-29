@@ -137,7 +137,7 @@ export class Tables {
   /**
    * Get all table domains as array
    */
-  getTableDomainsArray(): TableDomain[] {
+  getTableDomainByIdsArray(): TableDomain[] {
     return Array.from(this._tableDomains.values());
   }
 

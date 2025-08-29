@@ -1,0 +1,44 @@
+import { Injectable } from '@nestjs/common';
+import type { TableDomain } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
+import type { IDatabaseView } from './database-view.interface';
+
+@Injectable()
+export class DatabaseViewService implements IDatabaseView {
+  constructor(
+    @InjectDbProvider()
+    private readonly dbProvider: IDbProvider,
+    @InjectRecordQueryBuilder()
+    private readonly recordQueryBuilderService: IRecordQueryBuilder,
+    private readonly prisma: PrismaService
+  ) {}
+
+  public async createView(table: TableDomain) {
+    const { qb } = await this.recordQueryBuilderService.prepareView(table.dbTableName, {
+      tableIdOrDbTableName: table.id,
+    });
+    const sqls = this.dbProvider.createDatabaseView(table, qb, { materialized: true });
+    for (const sql of sqls) {
+      await this.prisma.$executeRawUnsafe(sql);
+    }
+  }
+
+  public async recreateView(table: TableDomain) {
+    const { qb } = await this.recordQueryBuilderService.prepareView(table.dbTableName, {
+      tableIdOrDbTableName: table.id,
+    });
+
+    const sqls = this.dbProvider.recreateDatabaseView(table, qb);
+    await this.prisma.$transaction(sqls.map((s) => this.prisma.$executeRawUnsafe(s)));
+  }
+
+  public async dropView(tableId: string) {
+    const sqls = this.dbProvider.dropDatabaseView(tableId);
+    for (const sql of sqls) {
+      await this.prisma.$executeRawUnsafe(sql);
+    }
+  }
+}

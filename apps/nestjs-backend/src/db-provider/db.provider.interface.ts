@@ -257,7 +257,15 @@ export interface IDbProvider {
     context: ISelectFormulaConversionContext
   ): IFieldSelectName;
 
-  generateMaterializedViewName(table: TableDomain): string;
+  generateDatabaseViewName(tableId: string): string;
+  createDatabaseView(
+    table: TableDomain,
+    qb: Knex.QueryBuilder,
+    options?: { materialized?: boolean }
+  ): string[];
+  recreateDatabaseView(table: TableDomain, qb: Knex.QueryBuilder): string[];
+  dropDatabaseView(tableId: string): string[];
+
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string;
-  dropMaterializedView(table: TableDomain): string;
+  dropMaterializedView(tableId: string): string;
 }

@@ -692,17 +692,35 @@ ORDER BY
     }
   }
 
-  generateMaterializedViewName(table: TableDomain): string {
-    return table.id + '_view';
+  generateDatabaseViewName(tableId: string): string {
+    return tableId + '_view';
+  }
+
+  createDatabaseView(table: TableDomain, qb: Knex.QueryBuilder): string[] {
+    const viewName = this.generateDatabaseViewName(table.id);
+    return [this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery()];
+  }
+
+  recreateDatabaseView(table: TableDomain, qb: Knex.QueryBuilder): string[] {
+    const viewName = this.generateDatabaseViewName(table.id);
+    return [
+      this.knex.raw(`DROP VIEW IF EXISTS ??`, [viewName]).toQuery(),
+      this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery(),
+    ];
+  }
+
+  dropDatabaseView(tableId: string): string[] {
+    const viewName = this.generateDatabaseViewName(tableId);
+    return [this.knex.raw(`DROP VIEW IF EXISTS ??`, [viewName]).toQuery()];
   }
 
   createMaterializedView(table: TableDomain, qb: Knex.QueryBuilder): string {
-    const viewName = this.generateMaterializedViewName(table);
+    const viewName = this.generateDatabaseViewName(table.id);
     return this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery();
   }
 
-  dropMaterializedView(table: TableDomain): string {
-    const viewName = this.generateMaterializedViewName(table);
+  dropMaterializedView(tableId: string): string {
+    const viewName = this.generateDatabaseViewName(tableId);
     return this.knex.raw(`DROP VIEW IF EXISTS ??`, [viewName]).toQuery();
   }
 }

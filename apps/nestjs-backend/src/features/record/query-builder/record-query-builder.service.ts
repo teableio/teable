@@ -11,7 +11,7 @@ import { FieldSelectVisitor } from './field-select-visitor';
 import type {
   ICreateRecordAggregateBuilderOptions,
   ICreateRecordQueryBuilderOptions,
-  IPrepareMaterializedViewParams,
+  IPrepareViewParams,
   IRecordQueryBuilder,
   IMutableQueryBuilderState,
   IReadonlyRecordSelectionMap,
@@ -47,9 +47,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return { qb, alias: mainTableAlias, tables };
   }
 
-  async prepareMaterializedView(
+  async prepareView(
     from: string,
-    params: IPrepareMaterializedViewParams
+    params: IPrepareViewParams
   ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }> {
     const { tableIdOrDbTableName } = params;
     const { qb, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
