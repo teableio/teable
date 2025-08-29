@@ -6,6 +6,9 @@ import type {
   FieldCreateEvent,
   FieldDeleteEvent,
   FieldUpdateEvent,
+  RecordCreateEvent,
+  RecordDeleteEvent,
+  RecordUpdateEvent,
 } from '../../event-emitter/events';
 import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
 import { DatabaseViewService } from './database-view.service';
@@ -39,5 +42,14 @@ export class DatabaseViewListener {
   ): Promise<void> {
     const table = await this.tableDomainQueryService.getTableDomainById(payload.payload.tableId);
     await this.databaseViewService.recreateView(table);
+  }
+
+  @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
+  @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
+  @OnEvent(Events.TABLE_RECORD_DELETE, { async: true })
+  public async refreshOnRecordChange(
+    payload: RecordCreateEvent | RecordUpdateEvent | RecordDeleteEvent
+  ) {
+    await this.databaseViewService.refreshView(payload.payload.tableId);
   }
 }
