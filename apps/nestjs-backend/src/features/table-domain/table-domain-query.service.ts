@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
-import type { Field } from '@teable/db-main-prisma';
+import type { Field, TableMeta } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/factory';
 
@@ -83,19 +83,7 @@ export class TableDomainQueryService {
     });
   }
 
-  private buildTableDomain(
-    tableMeta: {
-      id: string;
-      name: string;
-      dbTableName: string;
-      icon: string | null;
-      description: string | null;
-      lastModifiedTime: Date | null;
-      createdTime: Date;
-      baseId: string;
-    },
-    fieldRaws: Field[]
-  ): TableDomain {
+  private buildTableDomain(tableMeta: TableMeta, fieldRaws: Field[]): TableDomain {
     const fieldInstances = fieldRaws.map((fieldRaw) => {
       const fieldVo = rawField2FieldObj(fieldRaw);
       return createFieldInstanceByVo(fieldVo) as FieldCore;
@@ -105,6 +93,7 @@ export class TableDomainQueryService {
       id: tableMeta.id,
       name: tableMeta.name,
       dbTableName: tableMeta.dbTableName,
+      dbViewName: tableMeta.dbViewName ?? undefined,
       icon: tableMeta.icon || undefined,
       description: tableMeta.description || undefined,
       lastModifiedTime:

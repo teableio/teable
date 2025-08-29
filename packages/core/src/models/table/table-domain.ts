@@ -14,6 +14,7 @@ export class TableDomain {
   readonly description?: string;
   readonly lastModifiedTime: string;
   readonly baseId?: string;
+  readonly dbViewName?: string;
 
   private readonly _fields: TableFields;
 
@@ -26,6 +27,7 @@ export class TableDomain {
     description?: string;
     baseId?: string;
     fields?: FieldCore[];
+    dbViewName?: string;
   }) {
     this.id = params.id;
     this.name = params.name;
@@ -34,6 +36,7 @@ export class TableDomain {
     this.description = params.description;
     this.lastModifiedTime = params.lastModifiedTime;
     this.baseId = params.baseId;
+    this.dbViewName = params.dbViewName;
 
     this._fields = new TableFields(params.fields);
   }
@@ -230,6 +233,7 @@ export class TableDomain {
       description: this.description,
       lastModifiedTime: this.lastModifiedTime,
       baseId: this.baseId,
+      dbViewName: this.dbViewName,
       fields: this._fields.toArray(),
     });
   }
@@ -246,6 +250,7 @@ export class TableDomain {
       description: this.description,
       lastModifiedTime: this.lastModifiedTime,
       baseId: this.baseId,
+      dbViewName: this.dbViewName,
       fields: this._fields.toArray(),
       fieldCount: this.fieldCount,
     };

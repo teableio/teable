@@ -807,6 +807,8 @@ ORDER BY
     stmts.push(`ALTER MATERIALIZED VIEW "${newName}" RENAME TO "${oldName}"`);
     // Keep index name stable after swap
     stmts.push(`ALTER INDEX "${newName}__id_uidx" RENAME TO "${oldName}__id_uidx"`);
+    // Ensure final MV has data (defensive refresh)
+    stmts.push(`REFRESH MATERIALIZED VIEW "${oldName}"`);
     return stmts;
   }
 
