@@ -1,13 +1,17 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { Events, TableCreateEvent, TableDeleteEvent } from '../../event-emitter/events';
+import {
+  Events,
+  TableCreateEvent,
+  TableDeleteEvent,
+  RecordDeleteEvent,
+} from '../../event-emitter/events';
 import type {
   FieldCreateEvent,
   FieldDeleteEvent,
   FieldUpdateEvent,
   RecordCreateEvent,
-  RecordDeleteEvent,
   RecordUpdateEvent,
 } from '../../event-emitter/events';
 import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
@@ -44,12 +48,21 @@ export class DatabaseViewListener {
     await this.databaseViewService.recreateView(table);
   }
 
-  @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
-  @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
-  @OnEvent(Events.TABLE_RECORD_DELETE, { async: true })
-  public async refreshOnRecordChange(
-    payload: RecordCreateEvent | RecordUpdateEvent | RecordDeleteEvent
-  ) {
+  @OnEvent(Events.TABLE_RECORD_CREATE)
+  @OnEvent(Events.TABLE_RECORD_UPDATE)
+  public async refreshOnRecordChange(payload: RecordCreateEvent | RecordUpdateEvent) {
+    const { tableId } = payload.payload;
+    const fieldIds = payload.getFieldIds();
+    // Always include the table itself if no field ids
+    if (!fieldIds.length) {
+      await this.databaseViewService.refreshView(tableId);
+      return;
+    }
+    await this.databaseViewService.refreshViewsByFieldIds(fieldIds);
+  }
+
+  @OnEvent(Events.TABLE_RECORD_DELETE)
+  public async refreshOnRecordDelete(payload: RecordDeleteEvent) {
     await this.databaseViewService.refreshView(payload.payload.tableId);
   }
 }
