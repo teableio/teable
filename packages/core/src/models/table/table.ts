@@ -5,6 +5,8 @@ export class TableCore {
 
   dbTableName!: string;
 
+  dbViewName?: string | null;
+
   icon?: string;
 
   description?: string;

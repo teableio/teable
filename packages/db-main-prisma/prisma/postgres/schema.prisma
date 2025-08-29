@@ -63,6 +63,7 @@ model TableMeta {
   description      String?
   icon             String?
   dbTableName      String    @map("db_table_name")
+  dbViewName       String?   @map("db_view_name")
   version          Int
   order            Float
   createdTime      DateTime  @default(now()) @map("created_time")

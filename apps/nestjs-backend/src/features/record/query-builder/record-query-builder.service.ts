@@ -23,28 +23,71 @@ import { getTableAliasFromTable } from './record-query-builder.util';
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
   constructor(
     private readonly tableDomainQueryService: TableDomainQueryService,
-    // TODO: remove dependency on prisma
     @InjectDbProvider()
     private readonly dbProvider: IDbProvider,
     private readonly prismaService: PrismaService,
     @Inject('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  private async createQueryBuilder(
-    from: string,
-    tableIdOrDbTableName: string
-  ): Promise<{ qb: Knex.QueryBuilder; alias: string; tables: Tables }> {
-    const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
+  private async getTableMeta(tableIdOrDbTableName: string) {
+    return this.prismaService.tableMeta.findFirstOrThrow({
       where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
-      select: { id: true },
+      select: { id: true, dbViewName: true },
     });
+  }
 
+  private async createQueryBuilderFromTable(
+    from: string,
+    tableRaw: { id: string }
+  ): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    tables: Tables;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
     const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableRaw.id);
     const table = tables.mustGetEntryTable();
     const mainTableAlias = getTableAliasFromTable(table);
     const qb = this.knex.from({ [mainTableAlias]: from });
 
-    return { qb, alias: mainTableAlias, tables };
+    const state: IMutableQueryBuilderState = new RecordQueryBuilderManager();
+    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
+    visitor.build();
+
+    return { qb, alias: mainTableAlias, tables, table, state };
+  }
+
+  private async createQueryBuilderFromView(tableRaw: { id: string; dbViewName: string }): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableRaw.id);
+    const mainTableAlias = getTableAliasFromTable(table);
+    const qb = this.knex.from({ [mainTableAlias]: tableRaw.dbViewName });
+
+    const state = new RecordQueryBuilderManager();
+
+    return { qb, table, state, alias: mainTableAlias };
+  }
+
+  private async createQueryBuilder(
+    from: string,
+    tableIdOrDbTableName: string
+  ): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
+    const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
+    if (tableRaw.dbViewName) {
+      return this.createQueryBuilderFromView(tableRaw as { id: string; dbViewName: string });
+    }
+
+    return this.createQueryBuilderFromTable(from, tableRaw);
   }
 
   async prepareView(
@@ -52,8 +95,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     params: IPrepareViewParams
   ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }> {
     const { tableIdOrDbTableName } = params;
-    const { qb, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
-    const table = tables.mustGetEntryTable();
+    const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
+    const { qb, table, state } = await this.createQueryBuilderFromTable(from, tableRaw);
+
+    this.buildSelect(qb, table, state);
 
     return { qb, table };
   }
@@ -63,12 +108,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
     const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
-    const { qb, alias, tables } = await this.createQueryBuilder(from, tableIdOrDbTableName);
-
-    const table = tables.mustGetEntryTable();
-    const state: IMutableQueryBuilderState = new RecordQueryBuilderManager();
-    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
-    visitor.build();
+    const { qb, alias, table, state } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
     this.buildSelect(qb, table, state);
 
@@ -89,12 +129,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     options: ICreateRecordAggregateBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
     const { tableIdOrDbTableName, filter, aggregationFields, groupBy, currentUserId } = options;
-    const { qb, tables, alias } = await this.createQueryBuilder(from, tableIdOrDbTableName);
-
-    const table = tables.mustGetEntryTable();
-    const state: IMutableQueryBuilderState = new RecordQueryBuilderManager();
-    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
-    visitor.build();
+    const { qb, table, alias, state } = await this.createQueryBuilder(from, tableIdOrDbTableName);
 
     this.buildAggregateSelect(qb, table, state);
     const selectionMap = state.getSelectionMap();

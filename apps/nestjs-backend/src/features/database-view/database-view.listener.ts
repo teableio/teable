@@ -24,13 +24,11 @@ export class DatabaseViewListener {
       payload.payload.table.dbTableName
     );
     await this.databaseViewService.createView(table);
-    // TODO: update table meta
   }
 
   @OnEvent(Events.TABLE_DELETE)
   public async onTableDelete(payload: TableDeleteEvent) {
     await this.databaseViewService.dropView(payload.payload.tableId);
-    // TODO: update table meta
   }
 
   @OnEvent(Events.TABLE_FIELD_DELETE)
@@ -39,7 +37,6 @@ export class DatabaseViewListener {
   public async recreateView(
     payload: FieldCreateEvent | FieldUpdateEvent | FieldDeleteEvent
   ): Promise<void> {
-    this.logger.debug(`Recreating view for table ${payload.payload.tableId}`);
     const table = await this.tableDomainQueryService.getTableDomainById(payload.payload.tableId);
     await this.databaseViewService.recreateView(table);
   }

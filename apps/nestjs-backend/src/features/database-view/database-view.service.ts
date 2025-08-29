@@ -24,6 +24,12 @@ export class DatabaseViewService implements IDatabaseView {
     for (const sql of sqls) {
       await this.prisma.$executeRawUnsafe(sql);
     }
+    // persist view name to table meta
+    const viewName = this.dbProvider.generateDatabaseViewName(table.id);
+    await this.prisma.tableMeta.update({
+      where: { id: table.id },
+      data: { dbViewName: viewName },
+    });
   }
 
   public async recreateView(table: TableDomain) {
@@ -40,5 +46,10 @@ export class DatabaseViewService implements IDatabaseView {
     for (const sql of sqls) {
       await this.prisma.$executeRawUnsafe(sql);
     }
+    // clear persisted view name
+    await this.prisma.tableMeta.update({
+      where: { id: tableId },
+      data: { dbViewName: null },
+    });
   }
 }
