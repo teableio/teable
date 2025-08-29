@@ -259,67 +259,60 @@ export enum AggregationType {
 export const taskPlanSchema = z.object({
   plans: z
     .array(
-      z.object({
-        tableName: z.string().describe('Name of the table to create'),
-        description: z.string().describe('Description of the table to create'),
-        icon: z
-          .string()
-          .optional()
-          .describe('Only one emoji icon of the table to create, no other text'),
-        defaultViewName: z.string().describe('Default view name of the table to create'),
-        primaryFieldDescription: z
-          .string()
-          .describe('describe the primary field name and field type'),
-        tasks: z.array(
-          z.object({
-            type: z.nativeEnum(OperationType).describe('IMPORTANT: Type of the task'),
-            withSheetContext: z
-              .boolean()
-              .optional()
-              .describe(
-                '1. Only set it to true when user gives [sheetContext] before\n' +
-                  '2. Only set it to true when you are creating createRecords task'
-              ),
-            withAttachments: z
-              .boolean()
-              .optional()
-              .describe(
-                '1. Only set it to true when user gives [attachments] before\n' +
-                  '2. Only set it to true when you are creating createRecords task within a table with attachment field'
-              ),
-            description: z.string().describe(`
+      z
+        .object({
+          tableName: z.string().describe('Name of the table to create'),
+          description: z.string().describe('Description of the table to create'),
+          icon: z
+            .string()
+            .optional()
+            .describe('Only one emoji icon of the table to create, no other text'),
+          tasks: z.array(
+            z.object({
+              type: z.nativeEnum(OperationType).describe('IMPORTANT: Type of the task'),
+              withSheetContext: z
+                .boolean()
+                .optional()
+                .describe(
+                  '1. Only set it to true when user gives [sheetContext] before\n' +
+                    '2. Only set it to true when you are creating createRecords task'
+                ),
+              withAttachments: z
+                .boolean()
+                .optional()
+                .describe(
+                  '1. Only set it to true when user gives [attachments] before\n' +
+                    '2. Only set it to true when you are creating createRecords task within a table with attachment field'
+                ),
+              description: z.string().describe(`
             Brief and accurate task description, including the following information based on task type:
 
-            Create Table (createTable):
-            - Table name and purpose description
-            - Primary field name and type
-            - Default view name
-            - Detailed table description and usage scenarios
-            
             Create Common Field (createCommonField):
-            - Field names and types (only allowed these types: ${COMMON_FIELD_TYPES.join(', ')})
-            
+            - Generate field name and field type, separate by "|"
+            - Only allowed these types: ${COMMON_FIELD_TYPES.join(', ')})
+            - Example: "User name, text | Age, number | Birthday, date"
+
             Create Link Field (createLinkField):
-            - Link field name
-            - Target table name
-            - Relationship type (one-to-one, one-to-many, many-to-many)
-            
+            - Generate Link field name and Target table name and relationship type, separate by "|",
+            - Relationship type: (one-to-one, one-to-many, many-to-one, many-to-many)
+            - Example: "Collaborators, User, one-to-one | Tasks, Task, one-to-many"
+
             Create Lookup Field (createLookupField):
-            - Lookup field name
-            - Source table and source field
-            
+            - Generate field name, table name, lookup source field name separate by "|"
+            - Example: "Task owner, Task, Owner | Deadline, Project, Project End Date"
+
             Create Rollup Field (createRollupField):
-            - Rollup field name
-            - Source table and source field
+            - Generate field name, table name, rollup source field name and rollup function, separate by "|"
             - Aggregation type (sum, count, average, min, max, concatenate)
-            
+            - Example: "Total income, Orders, Price, sum | Average rating, Feedback, rating, average"
+
             Create Formula Field (createFormulaField):
-            - Formula field name
-            - Formula purpose
+            - Formula field name and related field names, purpose, separate by "|"
+            - Example: "Total price, Order, Price, Low average transaction price warning | Distance, Route, Distance, sum"
             
             Create AI Field (createAiField):
-            - AI field name
-            - AI purpose
+            - AI field name and purpose, separate by "|"
+            - Example: "Feedback, tag emotion | Attachment, extract price from pdf"
 
             Create Records (createRecords):
             - If user not provide [attachments] and [sheetContext] ask for generate 3 to 5 rows sample data.
@@ -327,12 +320,14 @@ export const taskPlanSchema = z.object({
             - If the user provides [sheetContext], the AI agent should generate records with records, based on the sheetContext.
 
             Create View (createView):
-            - List of view names
-            - View type (grid, form, kanban, gallery, calendar)
+            - Generate view name and view type, separate by "|"
+            - The view type only supports these types: grid, form, kanban, gallery, calendar
+            - Example: "Overall, grid | Status, kanban"
           `),
-          })
-        ),
-      })
+            })
+          ),
+        })
+        .describe('Task list for each table, each type of task only needs to be generated once.')
     )
     .describe('Array of tasks to execute in order'),
 });
