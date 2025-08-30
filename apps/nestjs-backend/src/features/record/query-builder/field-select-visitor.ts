@@ -149,6 +149,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
           table: this.table,
           tableAlias: this.tableAlias, // Pass table alias to the conversion context
           selectionMap: this.getSelectionMap(),
+          // Provide CTE map so formula references can resolve link/lookup/rollup via CTEs directly
+          fieldCteMap: this.state.getFieldCteMap(),
         });
       }
       // For generated columns, use table alias if provided

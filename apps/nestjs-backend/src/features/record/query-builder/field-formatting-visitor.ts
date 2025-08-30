@@ -98,6 +98,72 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
   }
 
   /**
+   * Apply number formatting to a custom numeric expression
+   * Useful for formatting per-element inside JSON array iteration
+   */
+  private applyNumberFormattingTo(expression: string, formatting: INumberFormatting): string {
+    const { type, precision } = formatting;
+
+    return match({ type, precision, isPostgreSQL: this.isPostgreSQL })
+      .with(
+        { type: NumberFormattingType.Decimal, precision: P.number },
+        ({ precision, isPostgreSQL }) =>
+          isPostgreSQL
+            ? `ROUND(CAST(${expression} AS NUMERIC), ${precision})::TEXT`
+            : `PRINTF('%.${precision}f', ${expression})`
+      )
+      .with(
+        { type: NumberFormattingType.Percent, precision: P.number },
+        ({ precision, isPostgreSQL }) =>
+          isPostgreSQL
+            ? `ROUND(CAST(${expression} * 100 AS NUMERIC), ${precision})::TEXT || '%'`
+            : `PRINTF('%.${precision}f', ${expression} * 100) || '%'`
+      )
+      .with({ type: NumberFormattingType.Currency }, ({ precision, isPostgreSQL }) => {
+        const symbol = (formatting as ICurrencyFormatting).symbol || '$';
+        return match({ precision, isPostgreSQL })
+          .with(
+            { precision: P.number, isPostgreSQL: true },
+            ({ precision }) =>
+              `'${symbol}' || ROUND(CAST(${expression} AS NUMERIC), ${precision})::TEXT`
+          )
+          .with(
+            { precision: P.number, isPostgreSQL: false },
+            ({ precision }) => `'${symbol}' || PRINTF('%.${precision}f', ${expression})`
+          )
+          .with({ isPostgreSQL: true }, () => `'${symbol}' || (${expression})::TEXT`)
+          .with({ isPostgreSQL: false }, () => `'${symbol}' || CAST(${expression} AS TEXT)`)
+          .exhaustive();
+      })
+      .otherwise(({ isPostgreSQL }) =>
+        isPostgreSQL ? `(${expression})::TEXT` : `CAST(${expression} AS TEXT)`
+      );
+  }
+
+  /**
+   * Format multiple numeric values contained in a JSON array to a comma-separated string
+   */
+  private formatMultipleNumberValues(formatting: INumberFormatting): string {
+    if (this.isPostgreSQL) {
+      const elemNumExpr = `(elem #>> '{}')::numeric`;
+      const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
+      return `(
+        SELECT string_agg(${formatted}, ', ')
+        FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) as elem
+      )`;
+    } else {
+      // SQLite: json_each + per-element formatting via printf
+      // Note: Currency symbol handled in applyNumberFormattingTo
+      const elemNumExpr = `CAST(json_extract(value, '$') AS NUMERIC)`;
+      const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
+      return `(
+        SELECT GROUP_CONCAT(${formatted}, ', ')
+        FROM json_each(COALESCE(${this.fieldExpression}, json('[]')))
+      )`;
+    }
+  }
+
+  /**
    * Format multiple string values (like multiple select) to comma-separated string
    * Also handles link field arrays with objects containing id and title
    */
@@ -114,7 +180,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
           ELSE elem::text
         END,
         ', '
-      ) FROM jsonb_array_elements(COALESCE(${this.fieldExpression}, '[]'::jsonb)) as elem)`;
+      ) FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) as elem)`;
     } else {
       // SQLite: Use GROUP_CONCAT with json_each to join array elements
       return `(SELECT GROUP_CONCAT(
@@ -140,6 +206,9 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
 
   visitNumberField(field: NumberFieldCore): string {
     const formatting = field.options.formatting;
+    if (field.isMultipleCellValue) {
+      return this.formatMultipleNumberValues(formatting);
+    }
     return this.applyNumberFormatting(formatting);
   }
 
@@ -195,6 +264,14 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
 
     // Apply formatting based on the formula's result type using match pattern
     return match({ cellValueType, formatting, isMultipleCellValue })
+      .with(
+        {
+          cellValueType: CellValueType.Number,
+          formatting: P.not(P.nullish),
+          isMultipleCellValue: true,
+        },
+        ({ formatting }) => this.formatMultipleNumberValues(formatting as INumberFormatting)
+      )
       .with(
         { cellValueType: CellValueType.Number, formatting: P.not(P.nullish) },
         ({ formatting }) => this.applyNumberFormatting(formatting as INumberFormatting)
