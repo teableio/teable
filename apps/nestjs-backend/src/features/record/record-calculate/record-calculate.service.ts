@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { IMakeOptional, IUserFieldOptions } from '@teable/core';
-import { FieldKeyType, generateRecordId, FieldType } from '@teable/core';
+import { FieldKeyType, generateRecordId, FieldType, CellFormat } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
 import { keyBy, uniq } from 'lodash';
@@ -71,7 +71,11 @@ export class RecordCalculateService {
       const oldRecords = (
         await this.recordService.getSnapshotBulk(
           tableId,
-          records.map((r) => r.id)
+          records.map((r) => r.id),
+          undefined,
+          undefined,
+          CellFormat.Json,
+          true
         )
       ).map((s) => s.data);
       oldRecordsMap = keyBy(oldRecords, 'id');
@@ -350,7 +354,9 @@ export class RecordCalculateService {
       tableId,
       recordIds,
       this.recordService.convertProjection(projection),
-      fieldKeyType
+      fieldKeyType,
+      CellFormat.Json,
+      true
     );
 
     return {

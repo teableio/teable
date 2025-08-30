@@ -6,6 +6,7 @@ import {
   TableCreateEvent,
   TableDeleteEvent,
   RecordDeleteEvent,
+  getFieldIdsFromRecord,
 } from '../../event-emitter/events';
 import type {
   FieldCreateEvent,
@@ -48,13 +49,13 @@ export class DatabaseViewListener {
     await this.databaseViewService.recreateView(table);
   }
 
-  @OnEvent(Events.TABLE_RECORD_CREATE)
-  @OnEvent(Events.TABLE_RECORD_UPDATE)
+  @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
+  @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   public async refreshOnRecordChange(payload: RecordCreateEvent | RecordUpdateEvent) {
     const { tableId } = payload.payload;
-    const fieldIds = payload.getFieldIds?.();
+    const fieldIds = getFieldIdsFromRecord(payload.payload.record);
     // Always include the table itself if no field ids
-    if (!fieldIds.length) {
+    if (!fieldIds?.length) {
       await this.databaseViewService.refreshView(tableId);
       return;
     }

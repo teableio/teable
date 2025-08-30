@@ -32,6 +32,11 @@ export class DatabaseViewService implements IDatabaseView {
         where: { id: table.id },
         data: { dbViewName: viewName },
       });
+
+      const refresh = this.dbProvider.refreshDatabaseView(table.id, { concurrently: false });
+      if (refresh) {
+        await tx.$executeRawUnsafe(refresh);
+      }
     });
     // persist view name to table meta
   }

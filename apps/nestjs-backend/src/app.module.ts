@@ -87,7 +87,7 @@ export const appModules = {
     PluginPanelModule,
     PluginContextMenuModule,
     PluginChartModule,
-    DatabaseViewModule,
+    // DatabaseViewModule,
   ],
   providers: [InitBootstrapProvider],
 };
