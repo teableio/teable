@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { FieldCore, IFilter, ISortItem, TableDomain, Tables } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -21,6 +21,7 @@ import { getTableAliasFromTable } from './record-query-builder.util';
 
 @Injectable()
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
+  private readonly logger = new Logger(RecordQueryBuilderService.name);
   constructor(
     private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectDbProvider()
@@ -84,7 +85,16 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   }> {
     const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
     if (tableRaw.dbViewName) {
-      return this.createQueryBuilderFromView(tableRaw as { id: string; dbViewName: string });
+      try {
+        return await this.createQueryBuilderFromView(
+          tableRaw as { id: string; dbViewName: string }
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to create query builder from view ${tableRaw.dbViewName}: ${error}, fallback to table`
+        );
+        return await this.createQueryBuilderFromTable(from, tableRaw);
+      }
     }
 
     return this.createQueryBuilderFromTable(from, tableRaw);
