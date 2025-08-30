@@ -786,7 +786,7 @@ ORDER BY
         .toQuery();
       const createIndex = `CREATE UNIQUE INDEX IF NOT EXISTS ${viewName}__id_uidx ON "${viewName}" ("__id")`;
       const refresh = this.refreshDatabaseView(table.id);
-      return [createMv, createIndex, ...refresh];
+      return [createMv, createIndex, refresh];
     }
     return [this.knex.raw(`CREATE VIEW ?? AS ${qb.toQuery()}`, [viewName]).toQuery()];
   }

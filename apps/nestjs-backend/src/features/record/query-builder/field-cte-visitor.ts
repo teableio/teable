@@ -741,7 +741,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   public build() {
-    for (const field of this.table.fields) {
+    for (const field of this.table.fields.ordered) {
       field.accept(this);
     }
   }
@@ -953,68 +953,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       .leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
 
     this.state.setFieldCte(linkField.id, cteName);
-  }
-
-  /**
-   * Apply lookup/rollup filters declared on fields of current link to the foreign alias inside CTE
-   */
-  private applyLookupRollupFiltersOnForeign(
-    cqb: Knex.QueryBuilder,
-    foreignTable: TableDomain,
-    foreignAliasUsed: string,
-    fields: FieldCore[]
-  ) {
-    // Collect filters from lookupOptions on both lookup and rollup fields
-    const filters: IFilter[] = [];
-    for (const f of fields) {
-      const lf = f.getFilter?.() as IFilter | undefined;
-      if (lf) filters.push(lf);
-    }
-    if (!filters.length) return;
-
-    // Merge filters with AND: (f1 AND f2 AND ...)
-    let mergedFilter: IFilter | undefined = undefined;
-    for (const f of filters) {
-      mergedFilter = mergeFilter(mergedFilter, f, and.value);
-    }
-    if (!mergedFilter) return;
-
-    // Build selectionMap for foreign alias
-    const selectionMap = new Map<string, string>();
-    for (const f of foreignTable.fieldList) {
-      selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
-    }
-    const fieldMap = foreignTable.fieldList.reduce(
-      (map, f) => {
-        map[f.id] = f as FieldCore;
-        return map;
-      },
-      {} as Record<string, FieldCore>
-    );
-
-    const filterQb = cqb.client.queryBuilder();
-    this.dbProvider
-      .filterQuery(filterQb, fieldMap, mergedFilter, undefined, {
-        selectionMap,
-      } as unknown as { selectionMap: Map<string, string> })
-      .appendQueryBuilder();
-
-    // Extract only the WHERE clause by wrapping as EXISTS (SELECT 1 FROM dual WHERE ...)
-    // We simply append the compiled WHERE conditions to cqb via whereRaw using the built SQL
-    const sql = filterQb.toSQL().sql;
-    if (sql && sql.toLowerCase().includes('where')) {
-      // Use EXISTS (SELECT 1 FROM (SELECT 1) t WHERE ...)
-      // But simpler: add the full where predicate to current builder
-      // Knex does not expose bindings here since we used toSQL only; rebuild via subquery
-      cqb.andWhere((qbInner) => {
-        // Re-run filterQuery directly on qbInner to ensure bindings are correct
-        this.dbProvider
-          .filterQuery(qbInner, fieldMap, mergedFilter!, undefined, {
-            selectionMap,
-          } as unknown as { selectionMap: Map<string, string> })
-          .appendQueryBuilder();
-      });
-    }
   }
 
   /**

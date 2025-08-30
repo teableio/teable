@@ -52,7 +52,7 @@ export class DatabaseViewListener {
   @OnEvent(Events.TABLE_RECORD_UPDATE)
   public async refreshOnRecordChange(payload: RecordCreateEvent | RecordUpdateEvent) {
     const { tableId } = payload.payload;
-    const fieldIds = payload.getFieldIds();
+    const fieldIds = payload.getFieldIds?.();
     // Always include the table itself if no field ids
     if (!fieldIds.length) {
       await this.databaseViewService.refreshView(tableId);

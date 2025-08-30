@@ -23,15 +23,17 @@ export class DatabaseViewService implements IDatabaseView {
       tableIdOrDbTableName: table.id,
     });
     const sqls = this.dbProvider.createDatabaseView(table, qb, { materialized: true });
-    for (const sql of sqls) {
-      await this.prisma.$executeRawUnsafe(sql);
-    }
-    // persist view name to table meta
-    const viewName = this.dbProvider.generateDatabaseViewName(table.id);
-    await this.prisma.tableMeta.update({
-      where: { id: table.id },
-      data: { dbViewName: viewName },
+    await this.prisma.$transaction(async (tx) => {
+      for (const sql of sqls) {
+        await tx.$executeRawUnsafe(sql);
+      }
+      const viewName = this.dbProvider.generateDatabaseViewName(table.id);
+      await tx.tableMeta.update({
+        where: { id: table.id },
+        data: { dbViewName: viewName },
+      });
     });
+    // persist view name to table meta
   }
 
   public async recreateView(table: TableDomain) {
