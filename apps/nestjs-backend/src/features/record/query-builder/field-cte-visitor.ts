@@ -482,32 +482,33 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
         if (isMultiValue) {
           // Filter out null records and return empty array if no valid records exist
-          // Order by junction table __id if available (for consistent insertion order)
-          // For relationships without junction table, use the order column if field has order column
+          // Build an ORDER BY clause with NULLS FIRST semantics and stable tie-breaks using __id
 
-          const orderByField = match({ usesJunctionTable, hasOrderColumn })
+          const orderByClause = match({ usesJunctionTable, hasOrderColumn })
             .with({ usesJunctionTable: true, hasOrderColumn: true }, () => {
-              // ManyMany relationship: use junction table order column if available
+              // ManyMany with order column: NULLS FIRST, then order column ASC, then junction __id ASC
               const linkField = field as LinkFieldCore;
-              return `${junctionAlias}."${linkField.getOrderColumnName()}"`;
+              const ord = `${junctionAlias}."${linkField.getOrderColumnName()}"`;
+              return `${ord} IS NULL DESC, ${ord} ASC, ${junctionAlias}."__id" ASC`;
             })
             .with({ usesJunctionTable: true, hasOrderColumn: false }, () => {
-              // ManyMany relationship: use junction table __id
-              return `${junctionAlias}."__id"`;
+              // ManyMany without order column: order by junction __id
+              return `${junctionAlias}."__id" ASC`;
             })
             .with({ usesJunctionTable: false, hasOrderColumn: true }, () => {
-              // OneMany/ManyOne/OneOne relationship: use the order column in the foreign key table
+              // OneMany/ManyOne/OneOne with order column: NULLS FIRST, then order ASC, then foreign __id ASC
               const linkField = field as LinkFieldCore;
-              return `"${foreignTableAlias}"."${linkField.getOrderColumnName()}"`;
+              const ord = `"${foreignTableAlias}"."${linkField.getOrderColumnName()}"`;
+              return `${ord} IS NULL DESC, ${ord} ASC, "${foreignTableAlias}"."__id" ASC`;
             })
-            .with({ usesJunctionTable: false, hasOrderColumn: false }, () => recordIdRef) // Fallback to record ID if no order column is available
+            .with({ usesJunctionTable: false, hasOrderColumn: false }, () => `${recordIdRef} ASC`) // Fallback to record ID if no order column is available
             .exhaustive();
 
           const baseFilter = `${recordIdRef} IS NOT NULL`;
           const appliedFilter = linkFilterSub
             ? `(EXISTS ${linkFilterSub}) AND ${baseFilter}`
             : baseFilter;
-          return `json_agg(${conditionalJsonObject} ORDER BY ${orderByField}) FILTER (WHERE ${appliedFilter})`;
+          return `json_agg(${conditionalJsonObject} ORDER BY ${orderByClause}) FILTER (WHERE ${appliedFilter})`;
         } else {
           // For single value relationships (ManyOne, OneOne), return single object or null
           const cond = linkFilterSub
@@ -635,13 +636,13 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       const hasOrderColumn = linkField.getHasOrderColumn();
       if (usesJunctionTable) {
         orderByField = hasOrderColumn
-          ? `${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}"`
-          : `${JUNCTION_ALIAS}."__id"`;
+          ? `${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}" IS NULL DESC, ${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}" ASC, ${JUNCTION_ALIAS}."__id" ASC`
+          : `${JUNCTION_ALIAS}."__id" ASC`;
       } else if (options.relationship === Relationship.OneMany) {
         const foreignAlias = this.getForeignAlias();
         orderByField = hasOrderColumn
-          ? `"${foreignAlias}"."${linkField.getOrderColumnName()}"`
-          : `"${foreignAlias}"."__id"`;
+          ? `"${foreignAlias}"."${linkField.getOrderColumnName()}" IS NULL DESC, "${foreignAlias}"."${linkField.getOrderColumnName()}" ASC, "${foreignAlias}"."__id" ASC`
+          : `"${foreignAlias}"."__id" ASC`;
       }
     }
 
@@ -881,13 +882,16 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
           cqb.groupBy(`${mainAlias}.__id`);
 
-          // For SQLite, add ORDER BY at query level
+          // For SQLite, add ORDER BY at query level (NULLS FIRST + stable tie-breaker)
           if (this.dbProvider.driver === DriverClient.Sqlite) {
             if (linkField.getHasOrderColumn()) {
-              cqb.orderBy(`${foreignAliasUsed}.${selfKeyName}_order`);
-            } else {
-              cqb.orderBy(`${foreignAliasUsed}.__id`);
+              cqb.orderByRaw(
+                `(CASE WHEN ${foreignAliasUsed}.${selfKeyName}_order IS NULL THEN 0 ELSE 1 END) ASC`
+              );
+              cqb.orderBy(`${foreignAliasUsed}.${selfKeyName}_order`, 'asc');
             }
+            // Always tie-break by record id for deterministic order
+            cqb.orderBy(`${foreignAliasUsed}.__id`, 'asc');
           }
         } else if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
           // Direct join for many-to-one and one-to-one relationships
@@ -1137,7 +1141,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         cqb.groupBy(`${mainAlias}.__id`);
 
         if (this.dbProvider.driver === DriverClient.Sqlite) {
-          cqb.orderBy(`${JUNCTION_ALIAS}.__id`);
+          if (linkField.getHasOrderColumn()) {
+            const ordCol = `${JUNCTION_ALIAS}.${linkField.getOrderColumnName()}`;
+            cqb.orderByRaw(`(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC`);
+            cqb.orderBy(ordCol, 'asc');
+          }
+          cqb.orderBy(`${JUNCTION_ALIAS}.__id`, 'asc');
         }
       } else if (relationship === Relationship.OneMany) {
         cqb
@@ -1162,10 +1171,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         if (this.dbProvider.driver === DriverClient.Sqlite) {
           if (linkField.getHasOrderColumn()) {
-            cqb.orderBy(`${foreignAliasUsed}.${selfKeyName}_order`);
-          } else {
-            cqb.orderBy(`${foreignAliasUsed}.__id`);
+            cqb.orderByRaw(
+              `(CASE WHEN ${foreignAliasUsed}.${selfKeyName}_order IS NULL THEN 0 ELSE 1 END) ASC`
+            );
+            cqb.orderBy(`${foreignAliasUsed}.${selfKeyName}_order`, 'asc');
           }
+          cqb.orderBy(`${foreignAliasUsed}.__id`, 'asc');
         }
       } else if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
         const isForeignKeyInMainTable = fkHostTableName === table.dbTableName;
