@@ -8,8 +8,6 @@ import {
   DriverClient,
   FieldType,
   Relationship,
-  mergeFilter,
-  and,
   type IFilter,
   type IFieldVisitor,
   type AttachmentFieldCore,
@@ -91,7 +89,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     const foreignAlias = this.getForeignAlias();
     // Build selectionMap mapping foreign field ids to alias-qualified columns
     const selectionMap = new Map<string, string>();
-    for (const f of this.foreignTable.fieldList) {
+    for (const f of this.foreignTable.fields.ordered) {
       selectionMap.set(f.id, `"${foreignAlias}"."${f.dbFieldName}"`);
     }
     // Build field map for filter compiler
@@ -270,24 +268,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const foreignAlias = this.getForeignAlias();
     const targetLookupField = field.getForeignLookupField(this.foreignTable);
-    // 如果 lookup 指向 formula，则为 formula 内部引用到的 lookup/rollup 注入 CTE 列映射（覆盖 selectVisitor 的 state）
-    if (targetLookupField?.type === FieldType.Formula) {
-      const formulaField = targetLookupField as FormulaFieldCore;
-      const referenced = formulaField.getReferenceFields(this.foreignTable);
-      const overrideState = new ScopedSelectionState(this.state);
-      for (const ref of referenced) {
-        const linkId = ref.lookupOptions?.linkFieldId;
-        if (!linkId) continue;
-        const cteName = this.fieldCteMap.get(linkId);
-        if (!cteName) continue;
-        if (ref.isLookup) {
-          overrideState.setSelection(ref.id, `"${cteName}"."lookup_${ref.id}"`);
-        } else if (ref.type === FieldType.Rollup) {
-          overrideState.setSelection(ref.id, `"${cteName}"."rollup_${ref.id}"`);
-        }
-      }
-      (selectVisitor as unknown as { state: IMutableQueryBuilderState }).state = overrideState;
-    }
+    // 依赖解析交由 SQL 转换器通过 CTE map 处理（不再注入 selection 覆盖）
 
     if (!targetLookupField) {
       // Try to fetch via the CTE of the foreign link if present

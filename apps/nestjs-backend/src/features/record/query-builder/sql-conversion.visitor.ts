@@ -72,6 +72,8 @@ export interface ISelectFormulaConversionContext extends IFormulaConversionConte
   selectionMap: IRecordSelectionMap;
   /** Table alias to use for field references */
   tableAlias?: string;
+  /** CTE map: linkFieldId -> cteName */
+  fieldCteMap?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -731,12 +733,26 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     const selectContext = this.context as ISelectFormulaConversionContext;
     const selectionMap = selectContext.selectionMap;
     const selection = selectionMap?.get(fieldId);
-    const selectionSql = typeof selection === 'string' ? selection : selection?.toSQL().sql;
+    let selectionSql = typeof selection === 'string' ? selection : selection?.toSQL().sql;
+    const cteMap = selectContext.fieldCteMap;
     // For link fields with CTE mapping, use the CTE directly
     // No need for complex cross-CTE reference handling in most cases
 
     // Handle different field types that use CTEs
     if (isLinkField(fieldInfo)) {
+      // Prefer CTE map resolution when available
+      if (cteMap?.has(fieldId)) {
+        const cteName = cteMap.get(fieldId)!;
+        selectionSql = `"${cteName}"."link_value"`;
+      }
+      // Provide a safe fallback if selection map has no entry
+      if (!selectionSql) {
+        if (selectContext.tableAlias) {
+          selectionSql = `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
+        } else {
+          selectionSql = `"${fieldInfo.dbFieldName}"`;
+        }
+      }
       // Check if this link field is being used in a boolean context
       const isBooleanContext = this.isInBooleanContext(ctx);
 
@@ -776,6 +792,23 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     // Check if this is a formula field that needs recursive expansion
     if (shouldExpandFieldReference(fieldInfo)) {
       return this.expandFormulaField(fieldId, fieldInfo);
+    }
+
+    // If this is a lookup or rollup and CTE map is available, use it
+    if (
+      cteMap &&
+      fieldInfo.lookupOptions?.linkFieldId &&
+      cteMap.has(fieldInfo.lookupOptions.linkFieldId)
+    ) {
+      const cteName = cteMap.get(fieldInfo.lookupOptions.linkFieldId)!;
+      const columnName = fieldInfo.isLookup
+        ? `lookup_${fieldInfo.id}`
+        : (fieldInfo as unknown as { type?: string }).type === 'rollup'
+          ? `rollup_${fieldInfo.id}`
+          : undefined;
+      if (columnName) {
+        return `"${cteName}"."${columnName}"`;
+      }
     }
 
     if (selectionSql) {
