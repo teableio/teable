@@ -1427,11 +1427,11 @@ export class FieldSupplementService {
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
     const dropTable = async (tableName: string) => {
-      const alterTableSchema = this.knex.schema.dropTable(tableName);
+      const alterTableSchema = this.knex
+        .raw('DROP TABLE IF EXISTS ?? CASCADE', [tableName])
+        .toQuery();
 
-      for (const sql of alterTableSchema.toSQL()) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
-      }
+      await this.prismaService.txClient().$executeRawUnsafe(alterTableSchema);
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
@@ -1443,7 +1443,7 @@ export class FieldSupplementService {
 
       // TODO: move to db provider
       const dropOrder = this.knex
-        .raw(`ALTER TABLE ?? DROP COLUMN IF EXISTS ??`, [tableName, columnName + '_order'])
+        .raw(`ALTER TABLE ?? DROP COLUMN IF EXISTS ?? CASCADE`, [tableName, columnName + '_order'])
         .toQuery();
 
       await this.prismaService.txClient().$executeRawUnsafe(dropOrder);
