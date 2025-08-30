@@ -85,7 +85,7 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
 
     // Helper function to drop table
     const dropTable = (tableName: string): string => {
-      return this.context.knex.schema.dropTableIfExists(tableName).toSQL()[0].sql;
+      return this.context.knex.raw('DROP TABLE IF EXISTS ?? CASCADE', [tableName]).toQuery();
     };
 
     // Helper function to drop column with index and order column
