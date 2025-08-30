@@ -265,6 +265,13 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
   // Formula field types - these may use generated columns
   visitFormulaField(field: FormulaFieldCore): IFieldSelectName {
+    // If the formula field has an error (e.g., referenced field deleted), return NULL
+    if (field.hasError) {
+      const rawExpression = this.qb.client.raw(`NULL`);
+      this.state.setSelection(field.id, 'NULL');
+      return rawExpression;
+    }
+
     // For Formula fields, check Lookup first, then use formula logic
     if (field.isLookup) {
       return this.checkAndSelectLookupField(field);
