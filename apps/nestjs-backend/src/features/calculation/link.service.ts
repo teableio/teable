@@ -1036,36 +1036,36 @@ export class LinkService {
 
     // Handle regular additions
     if (toAdd.length) {
-      // Group additions by target record to handle order correctly
-      const targetGroups = new Map<string, Array<[string, string]>>();
-      for (const [source, target] of toAdd) {
-        if (!targetGroups.has(target)) {
-          targetGroups.set(target, []);
+      // Group additions by source record to maintain per-source ordering
+      const sourceGroups = new Map<string, string[]>();
+      for (const [sourceRecordId, targetRecordId] of toAdd) {
+        if (!sourceGroups.has(sourceRecordId)) {
+          sourceGroups.set(sourceRecordId, []);
         }
-        targetGroups.get(target)!.push([source, target]);
+        sourceGroups.get(sourceRecordId)!.push(targetRecordId);
       }
 
       const insertData: Array<Record<string, unknown>> = [];
 
-      for (const [targetRecordId, sourceTargetPairs] of targetGroups) {
+      for (const [sourceRecordId, targetRecordIds] of sourceGroups) {
         let currentMaxOrder = 0;
 
-        // Get current max order for this target record if field has order column
+        // Get current max order for this source record if field has order column
         if (field.getHasOrderColumn()) {
           currentMaxOrder = await this.getMaxOrderForTarget(
             fkHostTableName,
-            foreignKeyName,
-            targetRecordId,
+            selfKeyName,
+            sourceRecordId,
             field.getOrderColumnName()
           );
         }
 
-        // Add records with incremental order values
-        for (let i = 0; i < sourceTargetPairs.length; i++) {
-          const [source, target] = sourceTargetPairs[i];
+        // Add records with incremental order values per source
+        for (let i = 0; i < targetRecordIds.length; i++) {
+          const targetRecordId = targetRecordIds[i];
           const data: Record<string, unknown> = {
-            [selfKeyName]: source,
-            [foreignKeyName]: target,
+            [selfKeyName]: sourceRecordId,
+            [foreignKeyName]: targetRecordId,
           };
 
           if (field.getHasOrderColumn()) {
