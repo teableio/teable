@@ -9,6 +9,5 @@ import { DatabaseViewService } from './database-view.service';
 @Module({
   imports: [RecordQueryBuilderModule, TableDomainQueryModule, CalculationModule],
   providers: [DbProvider, DatabaseViewService, DatabaseViewListener],
-  exports: [DatabaseViewService],
 })
 export class DatabaseViewModule {}
