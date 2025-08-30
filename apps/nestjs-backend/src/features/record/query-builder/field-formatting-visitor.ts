@@ -147,18 +147,21 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
     if (this.isPostgreSQL) {
       const elemNumExpr = `(elem #>> '{}')::numeric`;
       const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
+      // Preserve original array order using WITH ORDINALITY
       return `(
-        SELECT string_agg(${formatted}, ', ')
-        FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) as elem
+        SELECT string_agg(${formatted}, ', ' ORDER BY ord)
+        FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
       )`;
     } else {
       // SQLite: json_each + per-element formatting via printf
       // Note: Currency symbol handled in applyNumberFormattingTo
       const elemNumExpr = `CAST(json_extract(value, '$') AS NUMERIC)`;
       const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
+      // Preserve original array order using json_each key
       return `(
         SELECT GROUP_CONCAT(${formatted}, ', ')
         FROM json_each(COALESCE(${this.fieldExpression}, json('[]')))
+        ORDER BY key
       )`;
     }
   }
@@ -173,24 +176,32 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
       // The key issue is that we need to avoid double JSON processing
       // When the expression is already a JSON array from link field references,
       // we should extract the string values directly without re-serializing
-      return `(SELECT string_agg(
-        CASE
-          WHEN jsonb_typeof(elem) = 'string' THEN elem #>> '{}'
-          WHEN jsonb_typeof(elem) = 'object' THEN elem->>'title'
-          ELSE elem::text
-        END,
-        ', '
-      ) FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) as elem)`;
+      return `(
+        SELECT string_agg(
+          CASE
+            WHEN jsonb_typeof(elem) = 'string' THEN elem #>> '{}'
+            WHEN jsonb_typeof(elem) = 'object' THEN elem->>'title'
+            ELSE elem::text
+          END,
+          ', '
+          ORDER BY ord
+        )
+        FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+      )`;
     } else {
       // SQLite: Use GROUP_CONCAT with json_each to join array elements
-      return `(SELECT GROUP_CONCAT(
-        CASE
-          WHEN json_type(value) = 'text' THEN json_extract(value, '$')
-          WHEN json_type(value) = 'object' THEN json_extract(value, '$.title')
-          ELSE value
-        END,
-        ', '
-      ) FROM json_each(COALESCE(${this.fieldExpression}, json('[]'))))`;
+      return `(
+        SELECT GROUP_CONCAT(
+          CASE
+            WHEN json_type(value) = 'text' THEN json_extract(value, '$')
+            WHEN json_type(value) = 'object' THEN json_extract(value, '$.title')
+            ELSE value
+          END,
+          ', '
+        )
+        FROM json_each(COALESCE(${this.fieldExpression}, json('[]')))
+        ORDER BY key
+      )`;
     }
   }
 

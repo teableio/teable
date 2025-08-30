@@ -377,11 +377,38 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         expression = expression.replaceAll(`"${defaultForeignAlias}"`, `"${foreignAlias}"`);
       }
     }
+    // Build deterministic order-by for multi-value lookups using the link field configuration
+    const linkForOrderingId = field.lookupOptions?.linkFieldId;
+    let orderByClause: string | undefined;
+    if (linkForOrderingId) {
+      try {
+        const linkForOrdering = this.table.getField(linkForOrderingId) as LinkFieldCore;
+        const usesJunctionTable = getLinkUsesJunctionTable(linkForOrdering);
+        const hasOrderColumn = linkForOrdering.getHasOrderColumn();
+        if (this.dbProvider.driver === DriverClient.Pg) {
+          if (usesJunctionTable) {
+            orderByClause = hasOrderColumn
+              ? `${JUNCTION_ALIAS}."${linkForOrdering.getOrderColumnName()}" IS NULL DESC, ${JUNCTION_ALIAS}."${linkForOrdering.getOrderColumnName()}" ASC, ${JUNCTION_ALIAS}."__id" ASC`
+              : `${JUNCTION_ALIAS}."__id" ASC`;
+          } else {
+            orderByClause = hasOrderColumn
+              ? `"${foreignAlias}"."${linkForOrdering.getOrderColumnName()}" IS NULL DESC, "${foreignAlias}"."${linkForOrdering.getOrderColumnName()}" ASC, "${foreignAlias}"."__id" ASC`
+              : `"${foreignAlias}"."__id" ASC`;
+          }
+        }
+      } catch (_) {
+        // ignore ordering if link field not found in current table context
+      }
+    }
+
     // Field-specific filter applied here
     const filter = field.getFilter?.();
     if (!filter) {
       if (!field.isMultipleCellValue || this.isSingleValueRelationshipContext) {
         return expression;
+      }
+      if (this.dbProvider.driver === DriverClient.Pg && orderByClause) {
+        return `json_agg(${expression} ORDER BY ${orderByClause}) FILTER (WHERE ${expression} IS NOT NULL)`;
       }
       return this.getJsonAggregationFunction(expression);
     }
@@ -396,6 +423,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     }
 
     if (this.dbProvider.driver === DriverClient.Pg) {
+      if (orderByClause) {
+        return `json_agg(${expression} ORDER BY ${orderByClause}) FILTER (WHERE (EXISTS ${sub}) AND ${expression} IS NOT NULL)`;
+      }
       return `json_agg(${expression}) FILTER (WHERE (EXISTS ${sub}) AND ${expression} IS NOT NULL)`;
     }
 
@@ -510,10 +540,16 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
             : baseFilter;
           return `json_agg(${conditionalJsonObject} ORDER BY ${orderByClause}) FILTER (WHERE ${appliedFilter})`;
         } else {
-          // For single value relationships (ManyOne, OneOne), return single object or null
+          // For single value relationships (ManyOne, OneOne)
+          // If lookup field is a Formula, return array-of-one to keep API consistent with tests
+          const isFormulaLookup = targetLookupField.type === FieldType.Formula;
           const cond = linkFilterSub
             ? `${recordIdRef} IS NOT NULL AND EXISTS ${linkFilterSub}`
             : `${recordIdRef} IS NOT NULL`;
+          if (isFormulaLookup) {
+            return `CASE WHEN ${cond} THEN jsonb_build_array(${conditionalJsonObject})::jsonb ELSE '[]'::jsonb END`;
+          }
+          // Otherwise, return single object or null
           return `CASE WHEN ${cond} THEN ${conditionalJsonObject} ELSE NULL END`;
         }
       })
@@ -529,7 +565,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
           // Note: SQLite's json_group_array doesn't support ORDER BY, so ordering must be handled at query level
           return `CASE WHEN COUNT(${recordIdRef}) > 0 THEN json_group_array(${conditionalJsonObject}) ELSE '[]' END`;
         } else {
-          // For single value relationships, return single object or null
+          // For single value relationships
+          // If lookup field is a Formula, return array-of-one, else return single object or null
+          const isFormulaLookup = targetLookupField.type === FieldType.Formula;
+          if (isFormulaLookup) {
+            return `CASE WHEN ${recordIdRef} IS NOT NULL THEN json_array(${conditionalJsonObject}) ELSE json('[]') END`;
+          }
           return `CASE WHEN ${recordIdRef} IS NOT NULL THEN ${conditionalJsonObject} ELSE NULL END`;
         }
       })
