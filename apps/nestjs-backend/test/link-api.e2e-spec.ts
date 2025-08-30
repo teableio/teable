@@ -3002,6 +3002,215 @@ describe('OpenAPI link (e2e)', () => {
     });
   });
 
+  describe('formula primary referencing link-derived fields', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'Title',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'Amount',
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+        },
+      };
+
+      // Table2: Title + Amount
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { Title: '21', Amount: 444 } },
+          { fields: { Title: '22', Amount: 555 } },
+          { fields: { Title: '23', Amount: 666 } },
+        ],
+      });
+
+      // Table1: Title
+      table1 = await createTable(baseId, {
+        name: 'table1',
+        fields: [textFieldRo],
+        records: [{ fields: { Title: 'A1' } }],
+      });
+
+      // Link: table1 (OneMany) -> table2
+      const linkField = await createField(table1.id, {
+        name: 't1->t2',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      // Lookup: table1.lookup Amount via link (array of numbers)
+      const lookupAmount = await createField(table1.id, {
+        name: 'Amounts (lookup)',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[1].id, // Amount
+          linkFieldId: linkField.id,
+        },
+      });
+
+      // Formula: reference lookup to produce number[]; its formatting should be applied when used as Link title
+      const formula = await createField(table1.id, {
+        name: 'Amounts Formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupAmount.id}}`,
+        },
+      });
+
+      // Attach two t2 records to t1 record
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: [{ id: table2.records[0].id }, { id: table2.records[1].id }],
+          },
+        },
+      });
+
+      // Point symmetric link (on table2) title to table1 formula
+      const t2Fields = await getFields(table2.id);
+      const t2Link = t2Fields.find((f) => f.type === FieldType.Link && !f.isLookup)!;
+      await convertField(table2.id, t2Link.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: (t2Link.options as ILinkFieldOptions).relationship!,
+          foreignTableId: table1.id,
+          lookupFieldId: formula.id,
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('reads table1 with formula referencing lookup (number array)', async () => {
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Name });
+      const rec = records[0];
+      expect(rec.fields['Amounts (lookup)']).toEqual([444, 555]);
+      expect(rec.fields['Amounts Formula']).toEqual([444, 555]);
+    });
+
+    it('reads table2 link with title formatted as decimals from formula', async () => {
+      const t2Fields = await getFields(table2.id);
+      const t2LinkName = t2Fields.find((f) => f.type === FieldType.Link && !f.isLookup)!.name;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Name });
+      const rec1 = records.find((r) => r.fields['Title'] === '21')!;
+      const rec2 = records.find((r) => r.fields['Title'] === '22')!;
+      // Both should link back to table1 A1 with title using formatted decimals
+      expect(rec1.fields[t2LinkName]).toEqual([
+        { id: table1.records[0].id, title: '444.00, 555.00' },
+      ]);
+      expect(rec2.fields[t2LinkName]).toEqual([
+        { id: table1.records[0].id, title: '444.00, 555.00' },
+      ]);
+    });
+
+    it('formula referencing rollup is formatted and usable as link title', async () => {
+      // Create rollup on table1: sum of Amount via link
+      const t1Fields = await getFields(table1.id);
+      const linkField = t1Fields.find((f) => f.type === FieldType.Link && !f.isLookup)!;
+      const rollup = await createField(table1.id, {
+        name: 'Sum Amounts',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[1].id, // Amount
+          linkFieldId: linkField.id,
+        },
+      });
+
+      // Formula references rollup
+      const formulaRollup = await createField(table1.id, {
+        name: 'Sum Formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${rollup.id}}`,
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+        },
+      });
+
+      // Point table2 symmetric link title to this formula
+      const t2Fields = await getFields(table2.id);
+      const t2Link = t2Fields.find((f) => f.type === FieldType.Link && !f.isLookup)!;
+      await convertField(table2.id, t2Link.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: (t2Link.options as ILinkFieldOptions).relationship!,
+          foreignTableId: table1.id,
+          lookupFieldId: formulaRollup.id,
+        },
+      });
+
+      const t2LinkName = (await getFields(table2.id)).find(
+        (f) => f.type === FieldType.Link && !f.isLookup
+      )!.name;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Name });
+      // For 21 and 22 both linked to table1.A1, sum is 444+555=999 => '999.00'
+      const rec1 = records.find((r) => r.fields['Title'] === '21')!;
+      const rec2 = records.find((r) => r.fields['Title'] === '22')!;
+      expect(rec1.fields[t2LinkName]).toEqual([{ id: table1.records[0].id, title: '999.00' }]);
+      expect(rec2.fields[t2LinkName]).toEqual([{ id: table1.records[0].id, title: '999.00' }]);
+    });
+
+    it('formula referencing text lookup renders comma-joined titles', async () => {
+      // Create text lookup on table1: Title via link
+      const t1Fields = await getFields(table1.id);
+      const linkField = t1Fields.find((f) => f.type === FieldType.Link && !f.isLookup)!;
+      const lookupTitle = await createField(table1.id, {
+        name: 'Titles (lookup)',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id, // Title
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const formulaText = await createField(table1.id, {
+        name: 'Titles Formula',
+        type: FieldType.Formula,
+        options: { expression: `{${lookupTitle.id}}` },
+      });
+
+      // Point table2 symmetric link title to this formula
+      const t2Fields = await getFields(table2.id);
+      const t2Link = t2Fields.find((f) => f.type === FieldType.Link && !f.isLookup)!;
+      await convertField(table2.id, t2Link.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: (t2Link.options as ILinkFieldOptions).relationship!,
+          foreignTableId: table1.id,
+          lookupFieldId: formulaText.id,
+        },
+      });
+
+      const t2LinkName = (await getFields(table2.id)).find(
+        (f) => f.type === FieldType.Link && !f.isLookup
+      )!.name;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Name });
+      const rec1 = records.find((r) => r.fields['Title'] === '21')!;
+      const rec2 = records.find((r) => r.fields['Title'] === '22')!;
+      expect(rec1.fields[t2LinkName]).toEqual([{ id: table1.records[0].id, title: '21, 22' }]);
+      expect(rec2.fields[t2LinkName]).toEqual([{ id: table1.records[0].id, title: '21, 22' }]);
+    });
+  });
+
   describe('Create two bi-link for two tables', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;

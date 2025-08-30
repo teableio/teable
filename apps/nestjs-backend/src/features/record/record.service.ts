@@ -1308,7 +1308,8 @@ export class RecordService {
       projection?: { [fieldNameOrId: string]: boolean };
       fieldKeyType: FieldKeyType;
       cellFormat: CellFormat;
-    }
+    },
+    disableViewCache?: boolean
   ): Promise<ISnapshotBase<IRecord>[]> {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
@@ -1317,6 +1318,7 @@ export class RecordService {
       {
         tableIdOrDbTableName: tableId,
         viewId: undefined,
+        disableViewCache,
       }
     );
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
@@ -1380,7 +1382,8 @@ export class RecordService {
     recordIds: string[],
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
-    cellFormat = CellFormat.Json
+    cellFormat = CellFormat.Json,
+    disableViewCache = false
   ) {
     const dbTableName = await this.getDbTableName(tableId);
     const { viewCte, builder } = await this.recordPermissionService.wrapView(
@@ -1391,13 +1394,18 @@ export class RecordService {
       }
     );
     const viewQueryDbTableName = viewCte ?? dbTableName;
-    return this.getSnapshotBulkInner(builder, viewQueryDbTableName, {
-      tableId,
-      recordIds,
-      projection,
-      fieldKeyType,
-      cellFormat,
-    });
+    return this.getSnapshotBulkInner(
+      builder,
+      viewQueryDbTableName,
+      {
+        tableId,
+        recordIds,
+        projection,
+        fieldKeyType,
+        cellFormat,
+      },
+      disableViewCache
+    );
   }
 
   async getSnapshotBulk(
@@ -1405,16 +1413,22 @@ export class RecordService {
     recordIds: string[],
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
-    cellFormat = CellFormat.Json
+    cellFormat = CellFormat.Json,
+    disableViewCache = false
   ): Promise<ISnapshotBase<IRecord>[]> {
     const dbTableName = await this.getDbTableName(tableId);
-    return this.getSnapshotBulkInner(this.knex.queryBuilder(), dbTableName, {
-      tableId,
-      recordIds,
-      projection,
-      fieldKeyType,
-      cellFormat,
-    });
+    return this.getSnapshotBulkInner(
+      this.knex.queryBuilder(),
+      dbTableName,
+      {
+        tableId,
+        recordIds,
+        projection,
+        fieldKeyType,
+        cellFormat,
+      },
+      disableViewCache
+    );
   }
 
   async getDocIdsByQuery(

@@ -76,7 +76,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
   private async createQueryBuilder(
     from: string,
-    tableIdOrDbTableName: string
+    tableIdOrDbTableName: string,
+    disableViewCache = false
   ): Promise<{
     qb: Knex.QueryBuilder;
     alias: string;
@@ -84,6 +85,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     state: IMutableQueryBuilderState;
   }> {
     const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
+    if (disableViewCache) {
+      return this.createQueryBuilderFromTable(from, tableRaw);
+    }
     if (tableRaw.dbViewName) {
       return await this.createQueryBuilderFromView(tableRaw as { id: string; dbViewName: string });
     }
@@ -109,7 +113,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
     const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
-    const { qb, alias, table, state } = await this.createQueryBuilder(from, tableIdOrDbTableName);
+    const { qb, alias, table, state } = await this.createQueryBuilder(
+      from,
+      tableIdOrDbTableName,
+      options.disableViewCache
+    );
 
     this.buildSelect(qb, table, state);
 

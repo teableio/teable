@@ -18,7 +18,7 @@ type IRecordUpdatePayload = {
   oldField: IFieldVo | undefined;
 };
 
-function getFieldIdsFromRecord(record: IRecord | IRecord[]) {
+export function getFieldIdsFromRecord(record: IRecord | IRecord[]) {
   const records = Array.isArray(record) ? record : [record];
   const fieldIds: string[] = [];
   for (const r of records) {
@@ -35,10 +35,6 @@ export class RecordCreateEvent extends OpEvent<IRecordCreatePayload> {
 
   constructor(tableId: string, record: IRecord | IRecord[], context: IEventContext) {
     super({ tableId, record }, context, Array.isArray(record));
-  }
-
-  public getFieldIds() {
-    return getFieldIdsFromRecord(this.payload.record);
   }
 }
 
@@ -62,10 +58,6 @@ export class RecordUpdateEvent extends OpEvent<IRecordUpdatePayload> {
     context: IEventContext
   ) {
     super({ tableId, record, oldField }, context, Array.isArray(record));
-  }
-
-  public getFieldIds() {
-    return getFieldIdsFromRecord(this.payload.record);
   }
 }
 
