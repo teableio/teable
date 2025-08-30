@@ -1,11 +1,11 @@
 import { MagicAi, Code, ChevronRight, AlertCircle, Edit } from '@teable/icons';
+import { getFormulaPrompt } from '@teable/openapi';
 import { Textarea, cn, Button, ScrollArea } from '@teable/ui-lib';
 import { TerminalIcon } from 'lucide-react';
 import { useEffect, useState, type FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useFields } from '../../../../hooks';
 import { useAIStream } from '../../../../hooks/use-ai';
-import { getFormulaPrompt } from '../extensions/ai';
 
 interface IAiPromptContainerProps {
   onApply: (expression: string) => void;

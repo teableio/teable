@@ -1,9 +1,10 @@
 import type { FunctionName } from '@teable/core';
+import type { IFunctionSchema } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
 import type { FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useFormulaFunctionsMap } from '../constants';
-import type { IFuncHelpData, IFunctionSchema } from '../interface';
+import type { IFuncHelpData } from '../interface';
 
 interface ICodeHelperProps {
   funcHelpData: IFuncHelpData | null;

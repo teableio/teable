@@ -1,9 +1,9 @@
 import type { FunctionName } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
+import type { IFunctionSchema } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
 import type { FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
-import type { IFunctionSchema } from '../interface';
 
 interface IFunctionGuideProps {
   data: Partial<IFunctionSchema<FunctionName>> | null;

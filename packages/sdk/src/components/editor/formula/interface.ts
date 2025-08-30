@@ -1,4 +1,5 @@
-import type { FormulaFuncType, FunctionName, FUNCTIONS } from '@teable/core';
+import type { FormulaFuncType, FunctionName } from '@teable/core';
+import type { IFunctionSchema } from '@teable/openapi';
 
 export interface IFocusToken {
   value: string;
@@ -8,15 +9,6 @@ export interface IFocusToken {
 export interface IFuncHelpData {
   funcName: FunctionName;
   focusParamIndex: number;
-}
-
-export interface IFunctionSchema<T extends FunctionName> {
-  name: T;
-  func: (typeof FUNCTIONS)[T];
-  params: string[];
-  definition: string;
-  summary: string;
-  example: string;
 }
 
 export type IFunctionMap = {

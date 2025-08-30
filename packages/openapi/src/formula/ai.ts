@@ -1,7 +1,6 @@
-import type { useFields } from '../../../../hooks/use-fields';
-import { funcDefine } from '../constants';
+import { funcDefine } from './func-define';
 
-export const getFormulaPrompt = (prompt: string, fields: ReturnType<typeof useFields>) => {
+export const getFormulaPrompt = (prompt: string, fields: { name: string }[]) => {
   const context = fields.map((field) => field.name).join('\n');
 
   // Convert function definitions to a readable format

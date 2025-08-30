@@ -6,6 +6,7 @@ import { keymap } from '@codemirror/view';
 import type { FunctionName } from '@teable/core';
 import { FieldType, FormulaLexer } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
+import type { IFunctionSchema } from '@teable/openapi';
 import { Button, cn, Tabs, TabsContent, TabsList, TabsTrigger } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
 import Fuse from 'fuse.js';
@@ -24,12 +25,7 @@ import {
   useFunctionsDisplayMap,
 } from './constants';
 import { THEME_EXTENSIONS, TOKEN_EXTENSIONS, getVariableExtensions } from './extensions';
-import type {
-  IFocusToken,
-  IFuncHelpData,
-  IFunctionCollectionItem,
-  IFunctionSchema,
-} from './interface';
+import type { IFocusToken, IFuncHelpData, IFunctionCollectionItem } from './interface';
 import { SuggestionItemType } from './interface';
 import { FormulaNodePathVisitor } from './visitor';
 
