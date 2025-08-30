@@ -1,4 +1,6 @@
 import type { IFieldMap } from '../../formula';
+import { FieldType } from '../field/constant';
+import type { FormulaFieldCore } from '../field/derivate/formula.field';
 import type { LinkFieldCore } from '../field/derivate/link.field';
 import type { FieldCore } from '../field/field';
 import { isLinkField } from '../field/field.util';
@@ -26,6 +28,110 @@ export class TableFields {
    */
   get length(): number {
     return this._fields.length;
+  }
+
+  /**
+   * Get fields ordered by dependency (topological order)
+   * - Formula fields depend on fields referenced in their expression
+   * - Lookup fields depend on their link field
+   * - Rollup fields depend on their link field
+   * The order is stable relative to original positions when possible.
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  get ordered(): FieldCore[] {
+    const fields = this._fields;
+    const idToIndex = new Map<string, number>();
+    const idToField = new Map<string, FieldCore>();
+
+    fields.forEach((f, i) => {
+      idToIndex.set(f.id, i);
+      idToField.set(f.id, f);
+    });
+
+    // Build adjacency list dep -> dependents and in-degree counts
+    const adjacency = new Map<string, Set<string>>();
+    const inDegree = new Map<string, number>();
+    for (const f of fields) {
+      inDegree.set(f.id, 0);
+    }
+
+    const addEdge = (fromId: string, toId: string) => {
+      if (!idToField.has(fromId) || !idToField.has(toId) || fromId === toId) return;
+      let set = adjacency.get(fromId);
+      if (!set) {
+        set = new Set<string>();
+        adjacency.set(fromId, set);
+      }
+      if (!set.has(toId)) {
+        set.add(toId);
+        inDegree.set(toId, (inDegree.get(toId) || 0) + 1);
+      }
+    };
+
+    for (const f of fields) {
+      // Collect dependencies for each field
+      let deps: string[] = [];
+      if (f.type === FieldType.Formula) {
+        // Prefer instance method if available, fallback to static helper
+        deps = (f as unknown as FormulaFieldCore).getReferenceFieldIds?.();
+      }
+
+      // Lookup fields depend on their link field
+      if (f.isLookup && f.lookupOptions?.linkFieldId) {
+        deps = [...deps, f.lookupOptions.linkFieldId];
+      }
+
+      // Rollup fields also depend on their link field
+      if (f.type === FieldType.Rollup && f.lookupOptions?.linkFieldId) {
+        deps = [...deps, f.lookupOptions.linkFieldId];
+      }
+
+      // Create edges dep -> f.id
+      for (const depId of new Set(deps)) {
+        addEdge(depId, f.id);
+      }
+    }
+
+    // Kahn's algorithm with stable ordering by original index
+    const zeroQueue: string[] = [];
+    for (const [id, deg] of inDegree) {
+      if (deg === 0) zeroQueue.push(id);
+    }
+    zeroQueue.sort((a, b) => idToIndex.get(a)! - idToIndex.get(b)!);
+
+    const resultIds: string[] = [];
+    while (zeroQueue.length > 0) {
+      const id = zeroQueue.shift()!;
+      resultIds.push(id);
+      const neighbors = adjacency.get(id);
+      if (!neighbors) continue;
+      // To keep stability, process neighbors by original index
+      const orderedNeighbors = Array.from(neighbors).sort(
+        (a, b) => idToIndex.get(a)! - idToIndex.get(b)!
+      );
+      for (const nb of orderedNeighbors) {
+        const nextDeg = (inDegree.get(nb) || 0) - 1;
+        inDegree.set(nb, nextDeg);
+        if (nextDeg === 0) {
+          // insert in position to keep queue ordered by original index
+          const idx = zeroQueue.findIndex((x) => idToIndex.get(x)! > idToIndex.get(nb)!);
+          if (idx === -1) zeroQueue.push(nb);
+          else zeroQueue.splice(idx, 0, nb);
+        }
+      }
+    }
+
+    // If cycles exist, append remaining nodes by original order
+    if (resultIds.length < fields.length) {
+      const remaining = fields
+        .map((f, i) => ({ id: f.id, i }))
+        .filter(({ id }) => !resultIds.includes(id))
+        .sort((a, b) => a.i - b.i)
+        .map(({ id }) => id);
+      resultIds.push(...remaining);
+    }
+
+    return resultIds.map((id) => idToField.get(id)!) as FieldCore[];
   }
 
   /**

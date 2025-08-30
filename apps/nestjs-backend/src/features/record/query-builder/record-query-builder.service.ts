@@ -85,16 +85,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   }> {
     const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
     if (tableRaw.dbViewName) {
-      try {
-        return await this.createQueryBuilderFromView(
-          tableRaw as { id: string; dbViewName: string }
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Failed to create query builder from view ${tableRaw.dbViewName}: ${error}, fallback to table`
-        );
-        return await this.createQueryBuilderFromTable(from, tableRaw);
-      }
+      return await this.createQueryBuilderFromView(tableRaw as { id: string; dbViewName: string });
     }
 
     return this.createQueryBuilderFromTable(from, tableRaw);
@@ -196,7 +187,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       qb.select(`${alias}.${field}`);
     }
 
-    for (const field of table.fields) {
+    for (const field of table.fields.ordered) {
       const result = field.accept(visitor);
       if (result) {
         if (typeof result === 'string') {
@@ -218,7 +209,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state);
 
     // Add field-specific selections using visitor pattern
-    for (const field of table.fields) {
+    for (const field of table.fields.ordered) {
       field.accept(visitor);
     }
 
