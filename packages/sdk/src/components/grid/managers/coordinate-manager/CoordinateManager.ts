@@ -109,6 +109,7 @@ export class CoordinateManager implements ICoordinate {
     return this.columnWidthMap[index] ?? this.defaultColumnWidth;
   }
 
+  /* eslint-disable sonarjs/cognitive-complexity */
   protected getCellMetaData(index: number, itemType: ItemType): ICellMetaData {
     let cellMetadataMap, itemSize, lastMeasuredIndex, offset;
     const isColumnType = itemType === ItemType.Column;
@@ -125,8 +126,8 @@ export class CoordinateManager implements ICoordinate {
       cellMetadataMap = this.rowMetaDataMap;
     }
     if (index > lastMeasuredIndex) {
-      if (lastMeasuredIndex >= 0) {
-        const itemMetadata = cellMetadataMap[lastMeasuredIndex];
+      const itemMetadata = cellMetadataMap?.[lastMeasuredIndex];
+      if (lastMeasuredIndex >= 0 && itemMetadata) {
         offset = itemMetadata.offset + itemMetadata.size;
       }
 
