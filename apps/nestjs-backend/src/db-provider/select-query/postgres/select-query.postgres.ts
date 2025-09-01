@@ -7,6 +7,18 @@ import { SelectQueryAbstract } from '../select-query.abstract';
  * mutable functions and have different optimization strategies.
  */
 export class SelectQueryPostgres extends SelectQueryAbstract {
+  private tzWrap(date: string): string {
+    const tz = this.context?.timeZone as string | undefined;
+    if (!tz) {
+      // Default behavior: interpret as timestamp without timezone
+      return `${date}::timestamp`;
+    }
+    // Sanitize single quotes to prevent SQL issues
+    const safeTz = tz.replace(/'/g, "''");
+    // Interpret input as timestamptz if it has offset and convert to target timezone
+    // AT TIME ZONE returns timestamp without time zone in that zone
+    return `${date}::timestamptz AT TIME ZONE '${safeTz}'`;
+  }
   // Numeric Functions
   sum(params: string[]): string {
     // In SELECT context, we can use window functions and aggregates more freely
@@ -190,19 +202,28 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   dateAdd(date: string, count: string, unit: string): string {
-    return `${date}::timestamp + INTERVAL '${count} ${unit}'`;
+    const cleanUnit = unit.replace(/^'|'$/g, '');
+    return `${this.tzWrap(date)} + INTERVAL '${count} ${cleanUnit}'`;
   }
 
   datestr(date: string): string {
-    return `${date}::date::text`;
+    return `${this.tzWrap(date)}::date::text`;
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
-    return `EXTRACT(${unit} FROM ${endDate}::timestamp - ${startDate}::timestamp)`;
+    const cleanUnit = unit.replace(/^'|'$/g, '').toLowerCase();
+    const diffSeconds = `EXTRACT(EPOCH FROM (${this.tzWrap(endDate)} - ${this.tzWrap(startDate)}))`;
+    return `CASE
+      WHEN '${cleanUnit}' IN ('day','days') THEN (${diffSeconds}) / 86400
+      WHEN '${cleanUnit}' IN ('hour','hours') THEN (${diffSeconds}) / 3600
+      WHEN '${cleanUnit}' IN ('minute','minutes') THEN (${diffSeconds}) / 60
+      WHEN '${cleanUnit}' IN ('second','seconds') THEN (${diffSeconds})
+      ELSE (${diffSeconds}) / 86400
+    END`;
   }
 
   datetimeFormat(date: string, format: string): string {
-    return `TO_CHAR(${date}::timestamp, ${format})`;
+    return `TO_CHAR(${this.tzWrap(date)}, ${format})`;
   }
 
   datetimeParse(dateString: string, format: string): string {
@@ -210,30 +231,34 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   day(date: string): string {
-    return `EXTRACT(DAY FROM ${date}::timestamp)::int`;
+    return `EXTRACT(DAY FROM ${this.tzWrap(date)})::int`;
   }
 
   fromNow(date: string): string {
+    const tz = this.context?.timeZone?.replace(/'/g, "''");
+    if (tz) {
+      return `EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE '${tz}') - ${this.tzWrap(date)}))`;
+    }
     return `EXTRACT(EPOCH FROM (NOW() - ${date}::timestamp))`;
   }
 
   hour(date: string): string {
-    return `EXTRACT(HOUR FROM ${date}::timestamp)::int`;
+    return `EXTRACT(HOUR FROM ${this.tzWrap(date)})::int`;
   }
 
   isAfter(date1: string, date2: string): string {
-    return `${date1}::timestamp > ${date2}::timestamp`;
+    return `${this.tzWrap(date1)} > ${this.tzWrap(date2)}`;
   }
 
   isBefore(date1: string, date2: string): string {
-    return `${date1}::timestamp < ${date2}::timestamp`;
+    return `${this.tzWrap(date1)} < ${this.tzWrap(date2)}`;
   }
 
   isSame(date1: string, date2: string, unit?: string): string {
     if (unit) {
-      return `DATE_TRUNC('${unit}', ${date1}::timestamp) = DATE_TRUNC('${unit}', ${date2}::timestamp)`;
+      return `DATE_TRUNC('${unit}', ${this.tzWrap(date1)}) = DATE_TRUNC('${unit}', ${this.tzWrap(date2)})`;
     }
-    return `${date1}::timestamp = ${date2}::timestamp`;
+    return `${this.tzWrap(date1)} = ${this.tzWrap(date2)}`;
   }
 
   lastModifiedTime(): string {
@@ -242,36 +267,40 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   minute(date: string): string {
-    return `EXTRACT(MINUTE FROM ${date}::timestamp)::int`;
+    return `EXTRACT(MINUTE FROM ${this.tzWrap(date)})::int`;
   }
 
   month(date: string): string {
-    return `EXTRACT(MONTH FROM ${date}::timestamp)::int`;
+    return `EXTRACT(MONTH FROM ${this.tzWrap(date)})::int`;
   }
 
   second(date: string): string {
-    return `EXTRACT(SECOND FROM ${date}::timestamp)::int`;
+    return `EXTRACT(SECOND FROM ${this.tzWrap(date)})::int`;
   }
 
   timestr(date: string): string {
-    return `${date}::time::text`;
+    return `${this.tzWrap(date)}::time::text`;
   }
 
   toNow(date: string): string {
+    const tz = this.context?.timeZone?.replace(/'/g, "''");
+    if (tz) {
+      return `EXTRACT(EPOCH FROM (${this.tzWrap(date)} - (NOW() AT TIME ZONE '${tz}')))`;
+    }
     return `EXTRACT(EPOCH FROM (${date}::timestamp - NOW()))`;
   }
 
   weekNum(date: string): string {
-    return `EXTRACT(WEEK FROM ${date}::timestamp)::int`;
+    return `EXTRACT(WEEK FROM ${this.tzWrap(date)})::int`;
   }
 
   weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${date}::timestamp)::int`;
+    return `EXTRACT(DOW FROM ${this.tzWrap(date)})::int`;
   }
 
   workday(startDate: string, days: string): string {
-    // Simplified implementation - would need more complex logic for actual workdays
-    return `${startDate}::date + INTERVAL '${days} days'`;
+    // Simplified implementation in the target timezone
+    return `${this.tzWrap(startDate)}::date + INTERVAL '${days} days'`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
@@ -280,7 +309,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   year(date: string): string {
-    return `EXTRACT(YEAR FROM ${date}::timestamp)::int`;
+    return `EXTRACT(YEAR FROM ${this.tzWrap(date)})::int`;
   }
 
   createdTime(): string {

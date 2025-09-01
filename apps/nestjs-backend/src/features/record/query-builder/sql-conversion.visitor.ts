@@ -63,6 +63,8 @@ export interface IFormulaConversionContext {
   isGeneratedColumn?: boolean;
   driverClient?: DriverClient;
   expansionCache?: Map<string, string>;
+  /** Optional timezone to interpret date/time literals and fields in SELECT context */
+  timeZone?: string;
 }
 
 /**

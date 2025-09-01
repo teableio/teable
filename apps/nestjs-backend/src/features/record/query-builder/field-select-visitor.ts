@@ -155,6 +155,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
           selectionMap: this.getSelectionMap(),
           // Provide CTE map so formula references can resolve link/lookup/rollup via CTEs directly
           fieldCteMap: this.state.getFieldCteMap(),
+          // Pass timezone for date/time function evaluation in SELECT context
+          timeZone: field.options?.timeZone,
         });
       }
       // For generated columns, use table alias if provided

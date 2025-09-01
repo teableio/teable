@@ -1,9 +1,26 @@
-import type { TableDomain, IFunctionCallInfo, ExprContext, FormulaFieldCore } from '@teable/core';
 import {
   parseFormula,
   FunctionCallCollectorVisitor,
   FieldReferenceVisitor,
   FieldType,
+  AbstractParseTreeVisitor,
+  CellValueType,
+} from '@teable/core';
+import type {
+  TableDomain,
+  IFunctionCallInfo,
+  ExprContext,
+  FormulaFieldCore,
+  StringLiteralContext,
+  IntegerLiteralContext,
+  DecimalLiteralContext,
+  BooleanLiteralContext,
+  FunctionCallContext,
+  FieldReferenceCurlyContext,
+  BracketsContext,
+  BinaryOpContext,
+  UnaryOpContext,
+  RuleNode,
 } from '@teable/core';
 import { match } from 'ts-pattern';
 import type { IGeneratedColumnQuerySupportValidator } from './sql-conversion.visitor';
@@ -38,9 +55,11 @@ export class FormulaSupportGeneratedColumnValidator {
       const functionCalls = collector.visit(tree);
 
       // Check if all functions are supported
-      return functionCalls.every((funcCall: IFunctionCallInfo) => {
-        return this.isFunctionSupported(funcCall.name, funcCall.paramCount);
-      });
+      return (
+        functionCalls.every((funcCall: IFunctionCallInfo) => {
+          return this.isFunctionSupported(funcCall.name, funcCall.paramCount);
+        }) && this.validateTypeSafety(tree)
+      );
     } catch (error) {
       // If parsing fails, the formula is not valid for generated columns
       console.warn(`Failed to parse formula expression: ${expression}`, error);
@@ -314,5 +333,164 @@ export class FormulaSupportGeneratedColumnValidator {
       .with('AUTO_NUMBER', () => this.supportValidator.autoNumber())
       .with('TEXT_ALL', () => this.supportValidator.textAll(dummyParam))
       .otherwise(() => false);
+  }
+
+  /**
+   * Perform a conservative type-safety validation over binary/unary operations.
+   * Only blocks clearly invalid expressions (e.g., arithmetic with definite string literals
+   * or text fields). If types are uncertain, it allows it to avoid false negatives.
+   */
+  private validateTypeSafety(tree: ExprContext): boolean {
+    try {
+      class TypeInferVisitor extends AbstractParseTreeVisitor<
+        'string' | 'number' | 'boolean' | 'unknown'
+      > {
+        constructor(private readonly tableDomain: TableDomain) {
+          super();
+        }
+
+        protected defaultResult(): 'string' | 'number' | 'boolean' | 'unknown' {
+          return 'unknown';
+        }
+
+        visitStringLiteral(
+          _ctx: StringLiteralContext
+        ): 'string' | 'number' | 'boolean' | 'unknown' {
+          return 'string';
+        }
+
+        visitIntegerLiteral(
+          _ctx: IntegerLiteralContext
+        ): 'string' | 'number' | 'boolean' | 'unknown' {
+          return 'number';
+        }
+
+        visitDecimalLiteral(
+          _ctx: DecimalLiteralContext
+        ): 'string' | 'number' | 'boolean' | 'unknown' {
+          return 'number';
+        }
+
+        visitBooleanLiteral(
+          _ctx: BooleanLiteralContext
+        ): 'string' | 'number' | 'boolean' | 'unknown' {
+          return 'boolean';
+        }
+
+        visitBrackets(ctx: BracketsContext): 'string' | 'number' | 'boolean' | 'unknown' {
+          return ctx.expr().accept(this);
+        }
+
+        visitUnaryOp(ctx: UnaryOpContext): 'string' | 'number' | 'boolean' | 'unknown' {
+          const operandType = ctx.expr().accept(this);
+          // Unary minus is numeric-only; if we can prove it's string, mark as unknown (invalid later)
+          return operandType === 'string' ? 'unknown' : 'number';
+        }
+
+        visitFieldReferenceCurly(
+          ctx: FieldReferenceCurlyContext
+        ): 'string' | 'number' | 'boolean' | 'unknown' {
+          const fieldId = ctx.text.slice(1, -1);
+          const field = this.tableDomain.getField(fieldId);
+          if (!field) return 'unknown';
+          switch (field.cellValueType) {
+            case CellValueType.String:
+              return 'string';
+            case CellValueType.Number:
+              return 'number';
+            case CellValueType.Boolean:
+              return 'boolean';
+            case CellValueType.DateTime:
+              // Treat datetime as unknown for arithmetic, will be validated by function support
+              return 'unknown';
+            default:
+              return 'unknown';
+          }
+        }
+
+        visitFunctionCall(_ctx: FunctionCallContext): 'string' | 'number' | 'boolean' | 'unknown' {
+          // We don't derive precise return types here; keep as unknown to avoid false negatives
+          return 'unknown';
+        }
+
+        visitBinaryOp(ctx: BinaryOpContext): 'string' | 'number' | 'boolean' | 'unknown' {
+          const operator = ctx._op?.text ?? '';
+          const leftType = ctx.expr(0).accept(this);
+          const rightType = ctx.expr(1).accept(this);
+
+          const arithmetic = ['-', '*', '/', '%'];
+          const comparison = ['>', '<', '>=', '<=', '=', '!=', '<>'];
+          const stringConcat = ['&'];
+
+          if (operator === '+') {
+            // Ambiguous in our grammar; be conservative: if either side is string, treat as string
+            if (leftType === 'string' || rightType === 'string') return 'string';
+            if (leftType === 'number' && rightType === 'number') return 'number';
+            return 'unknown';
+          }
+
+          if (arithmetic.includes(operator)) {
+            // Arithmetic requires numeric operands. If any side is definitively string -> invalid
+            if (leftType === 'string' || rightType === 'string') return 'unknown';
+            return 'number';
+          }
+
+          if (comparison.includes(operator)) {
+            return 'boolean';
+          }
+
+          if (stringConcat.includes(operator)) {
+            return 'string';
+          }
+
+          return 'unknown';
+        }
+      }
+
+      class InvalidArithmeticDetector extends AbstractParseTreeVisitor<boolean> {
+        constructor(private readonly infer: TypeInferVisitor) {
+          super();
+        }
+
+        protected defaultResult(): boolean {
+          return false;
+        }
+
+        visitChildren(node: RuleNode): boolean {
+          const n = node.childCount;
+          for (let i = 0; i < n; i++) {
+            const child = node.getChild(i);
+            if (child && child.accept(this)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        visitBinaryOp(ctx: BinaryOpContext): boolean {
+          const operator = ctx._op?.text ?? '';
+          const arithmetic = ['-', '*', '/', '%'];
+          if (arithmetic.includes(operator)) {
+            const leftType = ctx.expr(0).accept(this.infer);
+            const rightType = ctx.expr(1).accept(this.infer);
+            // If we can prove any operand is a string, this arithmetic is unsafe
+            if (leftType === 'string' || rightType === 'string') {
+              return true;
+            }
+          }
+          // Continue walking
+          return this.visitChildren(ctx);
+        }
+      }
+
+      const infer = new TypeInferVisitor(this.tableDomain);
+      const detector = new InvalidArithmeticDetector(infer);
+      // If detector finds invalid arithmetic, validation fails
+      return !tree.accept(detector);
+    } catch (e) {
+      console.warn('Type-safety validation failed with error:', e);
+      // On validator failure, be conservative and disable generated column support
+      return false;
+    }
   }
 }
