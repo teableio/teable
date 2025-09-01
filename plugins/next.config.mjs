@@ -3,8 +3,7 @@ import { UniverPlugin } from '@univerjs/webpack-plugin'
 
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = '/plugin';
-console.log('isProd', isProd);
-console.log('process.env.NEXT_BUILD_ENV_ASSET_PREFIX', process.env.NEXT_BUILD_ENV_ASSET_PREFIX);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   assetPrefix:
