@@ -78,10 +78,10 @@ RUN set -ex; \
         pnpm install --prod --prefer-offline --frozen-lockfile; \
         pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
+RUN find ./apps/nextjs-app/.next/static -name "*.js.map" -o -name "*.css.map" -delete;
+RUN find ./plugins/.next/standalone/plugins/.next/static -name "*.js.map" -o -name "*.css.map" -delete;
+        
 RUN set -ex; \
-        apt-get update; \
-        apt-get install -y --no-install-recommends rsync; \
-        rm -rf /var/lib/apt/lists/*; \
         chmod +x ./scripts/upload-assets.mjs; \
         zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST";
 

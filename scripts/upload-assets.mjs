@@ -1,7 +1,6 @@
 #!/usr/bin/env zx
-const env = $.env;
-const nextjsDir = env.NEXTJS_DIR ?? 'apps/nextjs-app';
-const staticDir = `${nextjsDir}/.next/static`;
+const staticDir = `apps/nextjs-app/.next/static`;
+const pluginStaticDir = `plugins/.next/standalone/plugins/.next/static`;
 const mcPath = '~/minio-binaries/mc';
 
 // [[name, endpoint, accessKey, secretKey, bucket]]
@@ -67,16 +66,12 @@ const setupMinioCli = async (list) => {
 };
 await setupMinioCli(parsedList);
 
-const tempSyncStaticDir = async () => {
-  const rsync = await $`rsync -av --exclude={'*.js.map','*.css.map'} ${staticDir} ~/temp/`;
-  console.log('rsync: ', rsync.stdout);
-};
-await tempSyncStaticDir();
-
 const syncStaticDir = async (list) => {
   for (const [name, _, __, ___, bucket] of list) {
-    const cp = await $`${mcPath} cp --recursive ~/temp/static ${name}/${bucket}/_next/`;
-    console.log('cp: ', cp.stdout);
+    const cpAppStaticDir = await $`${mcPath} cp --recursive ${staticDir} ${name}/${bucket}/_next/`;
+    console.log('cpAppStaticDir: ', cpAppStaticDir.stdout);
+    const cpPluginStaticDir = await $`${mcPath} cp --recursive ${pluginStaticDir} ${name}/${bucket}/plugin/_next/`;
+    console.log('cpPluginStaticDir: ', cpPluginStaticDir.stdout);
   }
 };
 
