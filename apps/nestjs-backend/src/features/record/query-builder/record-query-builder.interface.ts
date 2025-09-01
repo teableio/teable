@@ -21,10 +21,7 @@ export interface ICreateRecordQueryBuilderOptions {
   sort?: ISortItem[];
   /** Optional current user ID */
   currentUserId?: string;
-  /**
-   * Force read data from table instead of view
-   */
-  disableViewCache?: boolean;
+  useViewCache?: boolean;
 }
 
 /**

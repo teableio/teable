@@ -90,7 +90,7 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe, FieldKeyPipe) query: IGetRecordsRo
   ): Promise<IRecordsVo> {
-    return await this.recordService.getRecords(tableId, query);
+    return await this.recordService.getRecords(tableId, query, true);
   }
 
   @Permissions('record|read')

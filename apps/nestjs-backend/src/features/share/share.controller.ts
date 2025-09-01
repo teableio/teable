@@ -257,7 +257,7 @@ export class ShareController {
   @Get('/:shareId/socket/record/snapshot-bulk')
   async getRecordSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids);
+    return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids, true);
   }
 
   @ShareLinkView()

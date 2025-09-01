@@ -102,14 +102,8 @@ export class ShareSocketService {
     return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId, filter, projection });
   }
 
-  async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
-    const { tableId } = shareInfo;
-    await this.validRecordSnapshotPermission(shareInfo, ids);
-    return this.recordService.getSnapshotBulk(tableId, ids);
-  }
-
-  async validRecordSnapshotPermission(shareInfo: IShareViewInfo, ids: string[]) {
-    const { tableId, shareMeta, view } = shareInfo;
+  async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[], useViewCache: boolean) {
+    const { tableId, view, shareMeta } = shareInfo;
     if (!shareMeta?.includeRecords) {
       throw new ForbiddenException(`Record(${ids.join(',')}) permission not allowed: read`);
     }
@@ -117,5 +111,13 @@ export class ShareSocketService {
     if (diff.length) {
       throw new ForbiddenException(`Record(${diff.join(',')}) permission not allowed: read`);
     }
+    return this.recordService.getSnapshotBulk(
+      tableId,
+      ids,
+      undefined,
+      undefined,
+      undefined,
+      useViewCache
+    );
   }
 }
