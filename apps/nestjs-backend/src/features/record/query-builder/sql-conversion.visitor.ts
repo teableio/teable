@@ -407,17 +407,33 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitBinaryOp(ctx: BinaryOpContext): string {
-    const left = ctx.expr(0).accept(this);
-    const right = ctx.expr(1).accept(this);
+    let left = ctx.expr(0).accept(this);
+    let right = ctx.expr(1).accept(this);
     const operator = ctx._op;
+
+    // For comparison operators, ensure operands are comparable to avoid
+    // Postgres errors like "operator does not exist: text > integer".
+    // If one side is number and the other is string, safely cast the string
+    // side to numeric (driver-aware) before building the comparison.
+    const leftType = this.inferExpressionType(ctx.expr(0));
+    const rightType = this.inferExpressionType(ctx.expr(1));
+    const needsNumericCoercion = (op: string) =>
+      ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
+    if (operator.text && needsNumericCoercion(operator.text)) {
+      if (leftType === 'number' && rightType === 'string') {
+        right = this.safeCastToNumeric(right);
+      } else if (leftType === 'string' && rightType === 'number') {
+        left = this.safeCastToNumeric(left);
+      }
+    }
 
     return match(operator.text)
       .with('+', () => {
         // Check if either operand is a string type for concatenation
-        const leftType = this.inferExpressionType(ctx.expr(0));
-        const rightType = this.inferExpressionType(ctx.expr(1));
+        const _leftType = this.inferExpressionType(ctx.expr(0));
+        const _rightType = this.inferExpressionType(ctx.expr(1));
 
-        if (leftType === 'string' || rightType === 'string') {
+        if (_leftType === 'string' || _rightType === 'string') {
           return this.formulaQuery.stringConcat(left, right);
         }
 
@@ -442,6 +458,19 @@ abstract class BaseSqlConversionVisitor<
       .otherwise((op) => {
         throw new Error(`Unsupported binary operator: ${op}`);
       });
+  }
+
+  /**
+   * Safely cast an expression to numeric for comparisons.
+   * For PostgreSQL, avoid runtime errors by returning NULL for non-numeric text.
+   * For other drivers, fall back to a direct numeric cast.
+   */
+  private safeCastToNumeric(value: string): string {
+    if (this.context.driverClient === DriverClient.Pg) {
+      // Accept optional sign, integers or decimals; treat empty/invalid as NULL
+      return `CASE WHEN (${value})::text ~ '^[+-]?((\\d+\\.\\d+)|(\\d+)|(\\.\\d+))$' THEN (${value})::numeric ELSE NULL END`;
+    }
+    return this.formulaQuery.castToNumber(value);
   }
   /**
    * Infer the type of an expression for type-aware operations

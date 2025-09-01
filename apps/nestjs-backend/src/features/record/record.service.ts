@@ -1555,6 +1555,15 @@ export class RecordService {
             ...field,
             isStructuredCellValue: field.isStructuredCellValue,
           }))
+          // Exclude fields that don't have a physical column on the table
+          // Link and Rollup fields (and lookup variants) are computed via CTEs and
+          // are not selectable in search-index queries built directly from the base table.
+          .filter((field) => {
+            if (field.type === FieldType.Link) return false;
+            if (field.type === FieldType.Rollup) return false;
+            if (field.isLookup) return false;
+            return true;
+          })
           .filter((field) => {
             if (!viewColumnMeta) {
               return true;
