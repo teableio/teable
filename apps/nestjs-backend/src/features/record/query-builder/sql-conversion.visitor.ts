@@ -8,7 +8,6 @@ import {
   IntegerLiteralContext,
   LeftWhitespaceOrCommentsContext,
   RightWhitespaceOrCommentsContext,
-  isFormulaField,
   CircularReferenceError,
   FunctionCallContext,
   FunctionName,

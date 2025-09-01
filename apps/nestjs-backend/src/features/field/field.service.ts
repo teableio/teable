@@ -178,7 +178,7 @@ export class FieldService implements IReadonlyAdapterService {
         select: { id: true },
       })
     ).map(({ id }) => id);
-    const datas: Prisma.FieldCreateManyInput[] = fieldInstances
+    const data: Prisma.FieldCreateManyInput[] = fieldInstances
       .filter(({ id }) => !existedFieldIds.includes(id))
       .map(
         (
@@ -199,6 +199,7 @@ export class FieldService implements IReadonlyAdapterService {
             cellValueType,
             isMultipleCellValue,
             isLookup,
+            meta,
           },
           index
         ) => ({
@@ -223,12 +224,13 @@ export class FieldService implements IReadonlyAdapterService {
           cellValueType,
           isMultipleCellValue,
           createdBy: userId,
+          meta: meta ? JSON.stringify(meta) : undefined,
           tableId,
         })
       );
 
     return this.prismaService.txClient().field.createMany({
-      data: datas,
+      data: data,
     });
   }
 
@@ -374,10 +376,18 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   private async alterTableModifyFieldName(fieldId: string, newDbFieldName: string) {
-    const { dbFieldName, table } = await this.prismaService.txClient().field.findFirstOrThrow({
-      where: { id: fieldId, deletedTime: null },
-      select: { dbFieldName: true, table: { select: { id: true, dbTableName: true } } },
-    });
+    const { dbFieldName, table, type, isLookup } = await this.prismaService
+      .txClient()
+      .field.findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+        select: {
+          dbFieldName: true,
+          type: true,
+          isLookup: true,
+          table: { select: { id: true, dbTableName: true } },
+        },
+      });
+
     const existingField = await this.prismaService.txClient().field.findFirst({
       where: { tableId: table.id, dbFieldName: newDbFieldName, deletedTime: null },
       select: { id: true },
@@ -396,14 +406,17 @@ export class FieldService implements IReadonlyAdapterService {
       );
     }
 
-    const alterTableSql = this.dbProvider.renameColumn(
-      table.dbTableName,
-      dbFieldName,
-      newDbFieldName
-    );
+    // Link fields do not create standard columns; skip physical rename for non-lookup links
+    if (!(type === FieldType.Link && !isLookup)) {
+      const alterTableSql = this.dbProvider.renameColumn(
+        table.dbTableName,
+        dbFieldName,
+        newDbFieldName
+      );
 
-    for (const alterTableQuery of alterTableSql) {
-      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      for (const alterTableQuery of alterTableSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      }
     }
   }
 
