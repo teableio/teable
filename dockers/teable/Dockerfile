@@ -77,11 +77,10 @@ RUN set -ex; \
         zx ./scripts/post-build-cleanup.mjs; \
         pnpm install --prod --prefer-offline --frozen-lockfile; \
         pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
-
-RUN find ./apps/nextjs-app/.next/static -name "*.js.map" -o -name "*.css.map" -delete;
-RUN find ./plugins/.next/standalone/plugins/.next/static -name "*.js.map" -o -name "*.css.map" -delete;
         
 RUN set -ex; \
+        find ./apps/nextjs-app/.next/static -name "*.js.map" -o -name "*.css.map" | xargs rm -f; \
+        find ./plugins/.next/standalone/plugins/.next/static -name "*.js.map" -o -name "*.css.map" | xargs rm -f; \
         chmod +x ./scripts/upload-assets.mjs; \
         zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST";
 
