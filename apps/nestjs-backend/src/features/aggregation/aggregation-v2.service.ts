@@ -122,7 +122,10 @@ export class AggregationServiceV2 implements IAggregationService {
     const aggregations: IRawAggregations = [];
     if (aggregationResult) {
       for (const [key, value] of Object.entries(aggregationResult)) {
-        const statisticField = statisticFields?.find((item) => item.fieldId === key);
+        // Match by alias to ensure uniqueness across different functions of the same field
+        const statisticField = statisticFields?.find(
+          (item) => item.alias === key || item.fieldId === key
+        );
         if (!statisticField) {
           continue;
         }
@@ -318,8 +321,9 @@ export class AggregationServiceV2 implements IAggregationService {
         const groupId = String(string2Hash(flagString));
 
         for (const statisticField of statisticFields) {
-          const { fieldId, statisticFunc } = statisticField;
-          const aggKey = fieldId;
+          const { fieldId, statisticFunc, alias } = statisticField;
+          // Use unique alias to read the correct aggregated column
+          const aggKey = alias ?? `${fieldId}_${statisticFunc}`;
           const curFieldAggregation = aggregationByFieldId[fieldId]!;
           const convertValue = this.formatConvertValue(groupedAggregation[aggKey], statisticFunc);
 
@@ -608,7 +612,8 @@ export class AggregationServiceV2 implements IAggregationService {
             return {
               fieldId,
               statisticFunc: item,
-              alias: fieldId,
+              // Ensure unique alias per function to avoid collisions in result set
+              alias: `${fieldId}_${item}`,
             };
           });
           (calculatedStatisticFields = calculatedStatisticFields ?? []).push(...statisticFieldList);
