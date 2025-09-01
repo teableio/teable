@@ -2,9 +2,8 @@ import type { IFieldSelectName } from './field-select.type';
 import type {
   IReadonlyQueryBuilderState,
   IMutableQueryBuilderState,
+  IRecordQueryContext,
 } from './record-query-builder.interface';
-
-type IRecordQueryContext = 'table' | 'view';
 
 /**
  * Central manager for query-builder shared state.
@@ -22,6 +21,10 @@ export class RecordQueryBuilderManager implements IMutableQueryBuilderState {
 
   getSelectionMap(): ReadonlyMap<string, IFieldSelectName> {
     return this.fieldIdToSelection;
+  }
+
+  getContext(): IRecordQueryContext {
+    return this.context;
   }
 
   hasFieldCte(fieldId: string): boolean {
@@ -78,6 +81,10 @@ export class ScopedSelectionState implements IMutableQueryBuilderState {
 
   getSelectionMap(): ReadonlyMap<string, IFieldSelectName> {
     return this.localSelection;
+  }
+
+  getContext(): IRecordQueryContext {
+    return this.base.getContext();
   }
 
   hasFieldCte(fieldId: string): boolean {

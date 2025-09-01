@@ -331,6 +331,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
   }
 
   visitRollupField(_field: RollupFieldCore): void {
+    // Rollup fields are computed; do not create a physical column.
     return;
   }
 

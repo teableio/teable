@@ -82,6 +82,9 @@ export type IRecordQueryFieldCteMap = Map<string, string>;
 export type IRecordSelectionMap = Map<string, IFieldSelectName>;
 export type IReadonlyRecordSelectionMap = ReadonlyMap<string, IFieldSelectName>;
 
+// Query context: whether we build directly from base table or from materialized view
+export type IRecordQueryContext = 'table' | 'view';
+
 export interface IRecordQueryFilterContext {
   selectionMap: IReadonlyRecordSelectionMap;
 }
@@ -109,6 +112,8 @@ export interface IReadonlyQueryBuilderState {
   getFieldCteMap(): ReadonlyMap<string, string>;
   /** Get immutable view of fieldId -> selection (column/expression) */
   getSelectionMap(): ReadonlyMap<string, IFieldSelectName>;
+  /** Get current query context (table or view) */
+  getContext(): IRecordQueryContext;
   /** Convenience helpers */
   hasFieldCte(fieldId: string): boolean;
   getCteName(fieldId: string): string | undefined;

@@ -787,7 +787,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   private generateLinkFieldCte(linkField: LinkFieldCore): void {
-    const foreignTable = this.tables.mustGetLinkForeignTable(linkField);
+    const foreignTable = this.tables.getLinkForeignTable(linkField);
+    // Skip CTE generation if foreign table is missing (e.g., deleted)
+    if (!foreignTable) {
+      return;
+    }
     const cteName = FieldCteVisitor.generateCTENameForField(this.table, linkField);
     const usesJunctionTable = getLinkUsesJunctionTable(linkField);
     const options = linkField.options as ILinkFieldOptions;
@@ -1069,7 +1073,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private generateLinkFieldCteForTable(table: TableDomain, linkField: LinkFieldCore): void {
-    const foreignTable = this.tables.mustGetLinkForeignTable(linkField);
+    const foreignTable = this.tables.getLinkForeignTable(linkField);
+    if (!foreignTable) {
+      return;
+    }
     const cteName = FieldCteVisitor.generateCTENameForField(table, linkField);
     const usesJunctionTable = getLinkUsesJunctionTable(linkField);
     const options = linkField.options as ILinkFieldOptions;
@@ -1278,6 +1285,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   visitRatingField(_field: RatingFieldCore): void {}
   visitAutoNumberField(_field: AutoNumberFieldCore): void {}
   visitLinkField(field: LinkFieldCore): void {
+    // Skip errored link fields
+    if (field.hasError) return;
     return this.generateLinkFieldCte(field);
   }
   visitRollupField(_field: RollupFieldCore): void {}

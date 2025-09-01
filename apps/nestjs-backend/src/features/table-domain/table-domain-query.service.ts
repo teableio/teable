@@ -133,7 +133,15 @@ export class TableDomainQueryService {
 
     const foreignTableIds = currentTableDomain.getAllForeignTableIds();
     for (const foreignTableId of foreignTableIds) {
-      await this.#getAllRelatedTableDomains(foreignTableId, tables, level + 1);
+      try {
+        await this.#getAllRelatedTableDomains(foreignTableId, tables, level + 1);
+      } catch (e) {
+        // If the related table was deleted or not found, skip it gracefully
+        if (e?.constructor?.name === 'NotFoundException') {
+          continue;
+        }
+        throw e;
+      }
     }
 
     return tables;

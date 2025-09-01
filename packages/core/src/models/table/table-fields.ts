@@ -310,6 +310,8 @@ export class TableFields {
 
     for (const field of this) {
       if (!isLinkField(field)) continue;
+      // Skip errored link fields to avoid traversing deleted/missing tables
+      if (field.hasError) continue;
       const foreignTableId = field.getForeignTableId();
       if (foreignTableId) {
         foreignTableIds.add(foreignTableId);
