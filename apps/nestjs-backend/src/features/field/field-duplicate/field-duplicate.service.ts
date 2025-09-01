@@ -285,6 +285,7 @@ export class FieldDuplicateService {
     await this.createCommonLinkFields(commonLinkFields, tableIdMap, fieldMap, fkMap);
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async createSelfLinkFields(
     fields: IFieldWithTableIdJson[],
     fieldMap: Record<string, string>,
@@ -435,14 +436,21 @@ export class FieldDuplicateService {
       });
 
       if (genDbFieldName !== groupField.dbFieldName) {
-        const alterTableSql = this.dbProvider.renameColumn(
+        const exists = await this.dbProvider.checkColumnExist(
           targetDbTableName,
           genDbFieldName,
-          groupField.dbFieldName
+          this.prismaService.txClient()
         );
+        if (exists) {
+          const alterTableSql = this.dbProvider.renameColumn(
+            targetDbTableName,
+            genDbFieldName,
+            groupField.dbFieldName
+          );
 
-        for (const sql of alterTableSql) {
-          await this.prismaService.txClient().$executeRawUnsafe(sql);
+          for (const sql of alterTableSql) {
+            await this.prismaService.txClient().$executeRawUnsafe(sql);
+          }
         }
       }
     }
@@ -609,14 +617,31 @@ export class FieldDuplicateService {
     });
 
     if (genDbFieldName !== dbFieldName) {
-      const alterTableSql = this.dbProvider.renameColumn(
+      const exists = await this.dbProvider.checkColumnExist(
         targetDbTableName,
         genDbFieldName,
-        dbFieldName
+        this.prismaService.txClient()
       );
+      if (exists) {
+        // Debug logging for rename operation to diagnose failures
+        // eslint-disable-next-line no-console
+        console.log('[repairSymmetricField] renameColumn info', {
+          targetDbTableName,
+          genDbFieldName,
+          desiredDbFieldName: dbFieldName,
+          symmetricFieldId: newFieldId,
+        });
+        const alterTableSql = this.dbProvider.renameColumn(
+          targetDbTableName,
+          genDbFieldName,
+          dbFieldName
+        );
 
-      for (const sql of alterTableSql) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql);
+        for (const sql of alterTableSql) {
+          // eslint-disable-next-line no-console
+          console.log('[repairSymmetricField] executing SQL', sql);
+          await this.prismaService.txClient().$executeRawUnsafe(sql);
+        }
       }
     }
   }
