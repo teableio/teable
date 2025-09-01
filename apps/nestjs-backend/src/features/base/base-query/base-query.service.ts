@@ -43,6 +43,22 @@ export class BaseQueryService {
     return field.dbFieldName;
   }
 
+  // Quote an identifier if not already quoted
+  private quoteIdentifier(name: string): string {
+    if (!name) return name as unknown as string;
+    if (name.startsWith('"') && name.endsWith('"')) return name;
+    return `"${name}"`;
+  }
+
+  // Quote a composite table name like schema.table
+  private quoteDbTableName(dbTableName: string): string {
+    const parts = dbTableName.split('.');
+    if (parts.length === 2) {
+      return `${this.quoteIdentifier(parts[0])}.${this.quoteIdentifier(parts[1])}`;
+    }
+    return this.quoteIdentifier(dbTableName);
+  }
+
   private convertFieldMapToColumn(fieldMap: Record<string, IFieldInstance>): IBaseQueryColumn[] {
     return Object.values(fieldMap).map((field) => {
       const type = getQueryColumnTypeByFieldInstance(field);
@@ -146,7 +162,8 @@ export class BaseQueryService {
         (acc, key) => {
           acc[key] = createFieldInstanceByVo({
             ...fieldMap[key],
-            dbFieldName: `${alias}.${fieldMap[key].dbFieldName}`,
+            // Ensure alias and column are quoted to preserve case
+            dbFieldName: `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(fieldMap[key].dbFieldName)}`,
           });
           return acc;
         },
@@ -307,7 +324,8 @@ export class BaseQueryService {
     return fields.reduce(
       (acc, field) => {
         if (dbTableName) {
-          field.dbFieldName = `${dbTableName}.${field.dbFieldName}`;
+          const qualifiedTable = this.quoteDbTableName(dbTableName);
+          field.dbFieldName = `${qualifiedTable}.${this.quoteIdentifier(field.dbFieldName)}`;
         }
         acc[field.id] = field;
         return acc;
