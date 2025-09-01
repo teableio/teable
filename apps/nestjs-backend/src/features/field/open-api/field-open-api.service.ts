@@ -17,6 +17,7 @@ import type {
   IColumnMeta,
   ILinkFieldOptions,
   IGetFieldsQuery,
+  IFilter,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDuplicateFieldRo } from '@teable/openapi';
@@ -672,6 +673,7 @@ export class FieldOpenApiService {
     for (let i = 0; i < page; i++) {
       const sourceRecords = await this.getFieldRecords(
         dbTableName,
+        fieldInstance,
         sourceDbFieldName,
         i,
         chunkSize
@@ -703,28 +705,32 @@ export class FieldOpenApiService {
   }
 
   private async getFieldRecordsCount(dbTableName: string, field: IFieldInstance) {
-    // For checkbox fields, use 'is' operator with null value instead of 'isEmpty'
-    // because checkbox fields only support 'is' operator
-    const operator = field.cellValueType === CellValueType.Boolean ? 'isNot' : 'isNotEmpty';
+    // Build a filter that counts only non-empty values for the field
+    // - For boolean (checkbox) fields: use OR(is true, is false)
+    // - For other fields: use isNotEmpty
+    const filter: IFilter =
+      field.cellValueType === CellValueType.Boolean
+        ? {
+            conjunction: 'or',
+            filterSet: [
+              { fieldId: field.id, operator: 'is', value: true },
+              { fieldId: field.id, operator: 'is', value: false },
+            ],
+          }
+        : {
+            conjunction: 'and',
+            filterSet: [{ fieldId: field.id, operator: 'isNotEmpty', value: null }],
+          };
 
     const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,
       viewId: undefined,
-      // filter: {
-      //   conjunction: 'and',
-      //   filterSet: [
-      //     {
-      //       fieldId: field.id,
-      //       operator,
-      //       value: null,
-      //     },
-      //   ],
-      // },
-
+      filter,
       aggregationFields: [
         {
-          fieldId: field.id,
-          statisticFunc: StatisticsFunc.Filled,
+          // Use Count with '*' so it just counts filtered rows
+          fieldId: '*',
+          statisticFunc: StatisticsFunc.Count,
           alias: 'count',
         },
       ],
@@ -737,13 +743,30 @@ export class FieldOpenApiService {
 
   private async getFieldRecords(
     dbTableName: string,
+    field: IFieldInstance,
     dbFieldName: string,
     page: number,
     chunkSize: number
   ) {
+    // Align fetching with counting logic: only fetch non-empty values for the field
+    const filter: IFilter =
+      field.cellValueType === CellValueType.Boolean
+        ? {
+            conjunction: 'or',
+            filterSet: [
+              { fieldId: field.id, operator: 'is', value: true },
+              { fieldId: field.id, operator: 'is', value: false },
+            ],
+          }
+        : {
+            conjunction: 'and',
+            filterSet: [{ fieldId: field.id, operator: 'isNotEmpty', value: null }],
+          };
+
     const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
       tableIdOrDbTableName: dbTableName,
       viewId: undefined,
+      filter,
     });
     const query = qb
       // TODO: handle where now link or lookup cannot use alias
