@@ -22,9 +22,8 @@ export class LastModifiedByFieldDto extends LastModifiedByFieldCore implements F
 
   convertDBValue2CellValue(value: unknown): unknown {
     if (value === null) return null;
-
     const parsedValue: IUserCellValue | IUserCellValue[] =
-      typeof value === 'string' ? JSON.parse(value) : value;
+      typeof value === 'string' ? JSON.parse(value) : (value as IUserCellValue | IUserCellValue[]);
     return this.applyTransformation<IUserCellValue>(parsedValue, UserFieldDto.fullAvatarUrl);
   }
 

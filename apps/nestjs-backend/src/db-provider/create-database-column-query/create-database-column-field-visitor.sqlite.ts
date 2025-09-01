@@ -375,18 +375,20 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
   }
 
   visitCreatedByField(_field: CreatedByFieldCore): void {
+    // Persist as generated column that mirrors __created_by (TEXT)
     const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
     this.context.table.specificType(
       this.context.dbFieldName,
-      `INTEGER GENERATED ALWAYS AS (__created_by) ${storageType}`
+      `TEXT GENERATED ALWAYS AS (__created_by) ${storageType}`
     );
   }
 
   visitLastModifiedByField(_field: LastModifiedByFieldCore): void {
+    // Persist as generated column that mirrors __last_modified_by (TEXT)
     const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
     this.context.table.specificType(
       this.context.dbFieldName,
-      `INTEGER GENERATED ALWAYS AS (__last_modified_by) ${storageType}`
+      `TEXT GENERATED ALWAYS AS (__last_modified_by) ${storageType}`
     );
   }
 }

@@ -370,16 +370,18 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   visitCreatedByField(_field: CreatedByFieldCore): void {
+    // Persist as generated column that mirrors __created_by (TEXT)
     this.context.table.specificType(
       this.context.dbFieldName,
-      'INTEGER GENERATED ALWAYS AS (__created_by) STORED'
+      'TEXT GENERATED ALWAYS AS (__created_by) STORED'
     );
   }
 
   visitLastModifiedByField(_field: LastModifiedByFieldCore): void {
+    // Persist as generated column that mirrors __last_modified_by (TEXT)
     this.context.table.specificType(
       this.context.dbFieldName,
-      'INTEGER GENERATED ALWAYS AS (__last_modified_by) STORED'
+      'TEXT GENERATED ALWAYS AS (__last_modified_by) STORED'
     );
   }
 }

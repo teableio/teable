@@ -43,9 +43,13 @@ export class UserNameListener {
       .join('table_meta', 'c.base_id', 'table_meta.base_id')
       .join('field', 'table_meta.id', 'field.table_id')
       .from('c')
-      .whereIn('field.type', [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy])
+      // Only normal User fields should be updated on rename.
+      // CreatedBy/LastModifiedBy are generated and not updatable.
+      .whereIn('field.type', [FieldType.User])
       .whereNull('table_meta.deleted_time')
       .whereNull('field.deleted_time')
+      // Only update physical (non-lookup) user fields
+      .whereNull('field.is_lookup')
       .select({
         id: 'field.id',
         tableId: 'field.table_id',

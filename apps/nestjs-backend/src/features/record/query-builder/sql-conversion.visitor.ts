@@ -11,6 +11,7 @@ import {
   CircularReferenceError,
   FunctionCallContext,
   FunctionName,
+  FieldType,
   DriverClient,
   AbstractParseTreeVisitor,
   BinaryOpContext,
@@ -214,6 +215,9 @@ abstract class BaseSqlConversionVisitor<
     if (shouldExpandFieldReference(fieldInfo)) {
       return this.expandFormulaField(fieldId, fieldInfo);
     }
+
+    // Note: user-related field handling for select queries is implemented
+    // in SelectColumnSqlConversionVisitor where selection context exists.
 
     return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName);
   }
@@ -808,6 +812,32 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
       if (columnName) {
         return `"${cteName}"."${columnName}"`;
       }
+    }
+
+    // Handle user-related fields
+    if (fieldInfo.type === FieldType.CreatedBy || fieldInfo.type === FieldType.LastModifiedBy) {
+      // For system user fields, derive directly from system columns to avoid JSON dependency
+      const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
+      const alias = selectContext.tableAlias;
+      const sysCol = fieldInfo.type === FieldType.CreatedBy ? '__created_by' : '__last_modified_by';
+      const idRef = alias ? `"${alias}"."${sysCol}"` : `"${sysCol}"`;
+      return isPostgreSQL
+        ? `(SELECT u.name FROM users u WHERE u.id = ${idRef})`
+        : `(SELECT name FROM users WHERE id = ${idRef})`;
+    }
+    if (fieldInfo.type === FieldType.User) {
+      // For normal User fields, extract title from the JSON selection when available
+      const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
+      if (!selectionSql) {
+        if (selectContext.tableAlias) {
+          selectionSql = `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
+        } else {
+          selectionSql = `"${fieldInfo.dbFieldName}"`;
+        }
+      }
+      return isPostgreSQL
+        ? `(${selectionSql}->>'title')`
+        : `json_extract(${selectionSql}, '$.title')`;
     }
 
     if (selectionSql) {
