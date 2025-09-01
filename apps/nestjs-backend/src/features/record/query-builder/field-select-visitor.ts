@@ -313,10 +313,51 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   visitCreatedByField(field: CreatedByFieldCore): IFieldSelectName {
-    return this.checkAndSelectLookupField(field);
+    // Build JSON with user info from system column __created_by
+    const alias = this.tableAlias;
+    const idRef = alias ? `"${alias}"."__created_by"` : `"__created_by"`;
+
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      const expr = `(
+        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email)
+        FROM users u
+        WHERE u.id = ${idRef}
+      )`;
+      this.state.setSelection(field.id, expr);
+      return this.qb.client.raw(expr);
+    } else {
+      // SQLite returns TEXT JSON via json_object
+      const expr = `json_object(
+        'id', ${idRef},
+        'title', (SELECT name FROM users WHERE id = ${idRef}),
+        'email', (SELECT email FROM users WHERE id = ${idRef})
+      )`;
+      this.state.setSelection(field.id, expr);
+      return this.qb.client.raw(expr);
+    }
   }
 
   visitLastModifiedByField(field: LastModifiedByFieldCore): IFieldSelectName {
-    return this.checkAndSelectLookupField(field);
+    // Build JSON with user info from system column __last_modified_by
+    const alias = this.tableAlias;
+    const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
+
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      const expr = `(
+        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email)
+        FROM users u
+        WHERE u.id = ${idRef}
+      )`;
+      this.state.setSelection(field.id, expr);
+      return this.qb.client.raw(expr);
+    } else {
+      const expr = `json_object(
+        'id', ${idRef},
+        'title', (SELECT name FROM users WHERE id = ${idRef}),
+        'email', (SELECT email FROM users WHERE id = ${idRef})
+      )`;
+      this.state.setSelection(field.id, expr);
+      return this.qb.client.raw(expr);
+    }
   }
 }

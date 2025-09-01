@@ -90,13 +90,19 @@ export class FormulaSupportGeneratedColumnValidator {
       return false;
     }
 
-    // Check if the field is a link, lookup, or rollup field
+    // Disallow referencing non-immutable or generated-backed fields
+    // 1) Link / Lookup / Rollup (require joins/CTEs)
+    // 2) System generated fields and user-by fields
     if (
       field.type === FieldType.Link ||
       field.type === FieldType.Rollup ||
-      field.isLookup === true
+      field.isLookup === true ||
+      field.type === FieldType.CreatedTime ||
+      field.type === FieldType.LastModifiedTime ||
+      field.type === FieldType.AutoNumber ||
+      field.type === FieldType.CreatedBy ||
+      field.type === FieldType.LastModifiedBy
     ) {
-      // Link, lookup, and rollup fields are not supported in generated columns
       return false;
     }
 
