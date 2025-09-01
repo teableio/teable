@@ -49,8 +49,8 @@ export class DatabaseViewListener {
     await this.databaseViewService.recreateView(table);
   }
 
-  @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
-  @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
+  @OnEvent(Events.TABLE_RECORD_CREATE)
+  @OnEvent(Events.TABLE_RECORD_UPDATE)
   public async refreshOnRecordChange(payload: RecordCreateEvent | RecordUpdateEvent) {
     const { tableId } = payload.payload;
     const fieldIds = getFieldIdsFromRecord(payload.payload.record);

@@ -112,12 +112,16 @@ export class ExportOpenApiService {
 
     try {
       while (!isOver) {
-        const { records } = await this.recordService.getRecords(tableId, {
-          take: 1000,
-          skip: count,
-          viewId: viewRaw?.id ? viewRaw?.id : undefined,
-          filter: mergedFilter,
-        });
+        const { records } = await this.recordService.getRecords(
+          tableId,
+          {
+            take: 1000,
+            skip: count,
+            viewId: viewRaw?.id ? viewRaw?.id : undefined,
+            filter: mergedFilter,
+          },
+          true
+        );
         if (records.length === 0) {
           isOver = true;
           // end the stream
