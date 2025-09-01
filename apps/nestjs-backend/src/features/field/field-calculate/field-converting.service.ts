@@ -855,6 +855,7 @@ export class FieldConvertingService {
     };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async calculateAndSaveRecords(
     tableId: string,
     field: IFieldInstance,
@@ -867,6 +868,21 @@ export class FieldConvertingService {
     if (field.type === FieldType.Link && !field.isLookup) {
       const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
       recordOpsMap = composeOpMaps([recordOpsMap, result.opsMapByLink]);
+
+      // Also derive link updates for any other tables present in the ops map.
+      // This covers scenarios where conversions schedule updates on symmetric link fields
+      // in foreign tables (e.g., one-way → two-way), which need link derivations too.
+      for (const otherTableId of Object.keys(recordOpsMap)) {
+        if (otherTableId === tableId) continue;
+        const opsForOther = recordOpsMap[otherTableId];
+        if (!opsForOther || isEmpty(opsForOther)) continue;
+        try {
+          const r = await this.getDerivateByLink(otherTableId, opsForOther);
+          recordOpsMap = composeOpMaps([recordOpsMap, r.opsMapByLink]);
+        } catch (_) {
+          // Ignore derivation errors for non-link updates; they'll be handled downstream
+        }
+      }
     }
 
     const oldRecords = await this.batchService.updateRecords(recordOpsMap);

@@ -136,6 +136,12 @@ export class FieldConvertingLinkService {
     } else if (newField.options.relationship !== oldField.options.relationship) {
       await this.fieldSupplementService.cleanForeignKey(oldField.options);
       await this.createForeignKeyUsingDbProvider(tableId, newField);
+      // eslint-disable-next-line sonarjs/no-duplicated-branches
+    } else if (newField.options.isOneWay !== oldField.options.isOneWay) {
+      // one-way <-> two-way switch within the same relationship type
+      // drop previous FK/junction and recreate according to new isOneWay
+      await this.fieldSupplementService.cleanForeignKey(oldField.options);
+      await this.createForeignKeyUsingDbProvider(tableId, newField);
     }
 
     // change one-way to two-way or two-way to one-way (symmetricFieldId add or delete, symmetricFieldId can not be change)
@@ -312,9 +318,10 @@ export class FieldConvertingLinkService {
     return records;
   }
 
-  async oneWayToTwoWay(newField: LinkFieldDto) {
+  async oneWayToTwoWay(oldField: LinkFieldDto, newField: LinkFieldDto) {
+    // Read existing links using OLD options (pre-change physical schema)
+    const foreignKeys = await this.linkService.getAllForeignKeys(oldField.options);
     const { foreignTableId, relationship, symmetricFieldId } = newField.options;
-    const foreignKeys = await this.linkService.getAllForeignKeys(newField.options);
     const foreignKeyMap = groupBy(foreignKeys, 'foreignId');
 
     const opsMap: {
@@ -356,7 +363,7 @@ export class FieldConvertingLinkService {
       !newField.options.isOneWay &&
       oldField.options.isOneWay
     ) {
-      return this.oneWayToTwoWay(newField);
+      return this.oneWayToTwoWay(oldField, newField);
     }
     if (newField.options.foreignTableId === oldField.options.foreignTableId) {
       return this.convertLinkOnlyRelationship(tableId, newField, oldField);

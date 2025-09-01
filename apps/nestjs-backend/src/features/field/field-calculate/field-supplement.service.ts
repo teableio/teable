@@ -408,14 +408,22 @@ export class FieldSupplementService {
       oldOptions.relationship === newOptionsRo.relationship &&
       oldIsOneWay !== newIsOneWay
     ) {
+      // Recompute full link options when toggling one-way <-> two-way to ensure
+      // fkHostTableName/selfKeyName/foreignKeyName are correct for the new mode.
+      const optionsVo = await this.generateUpdatedLinkOptionsVo(
+        tableId,
+        oldFieldVo.id,
+        oldOptions,
+        newOptionsRo
+      );
+
       return {
         ...oldFieldVo,
         ...fieldRo,
-        options: {
-          ...oldOptions,
-          ...newOptionsRo,
-          symmetricFieldId: newOptionsRo.isOneWay ? undefined : generateFieldId(),
-        },
+        options: optionsVo,
+        isMultipleCellValue: isMultiValueLink(optionsVo.relationship) || undefined,
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.String,
       };
     }
 

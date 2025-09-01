@@ -59,6 +59,7 @@ export class LinkFieldDto extends LinkFieldCore implements FieldBase {
 
       case Relationship.OneMany:
         // OneMany relationships use the selfKeyName (foreign key in target table) + _order
+        // Note: one-way OneMany does not have an order column; callers must check getHasOrderColumn()
         return `${this.options.selfKeyName}_order`;
 
       case Relationship.ManyOne:
@@ -70,4 +71,6 @@ export class LinkFieldDto extends LinkFieldCore implements FieldBase {
         throw new Error(`Unsupported relationship type: ${relationship}`);
     }
   }
+
+  // Use base class getHasOrderColumn() which prefers meta when provided
 }

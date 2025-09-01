@@ -38,7 +38,26 @@ export class LinkFieldCore extends FieldCore {
   declare isMultipleCellValue?: boolean | undefined;
 
   getHasOrderColumn(): boolean {
-    return this.meta?.hasOrderColumn || false;
+    // One-way OneMany: explicitly no order column in junction
+    if (this.options.relationship === Relationship.OneMany && this.options.isOneWay) {
+      return false;
+    }
+    // Prefer meta when provided (and not contradicted by the above)
+    if (this.meta && typeof this.meta.hasOrderColumn === 'boolean') {
+      return this.meta.hasOrderColumn;
+    }
+    // Compute from options
+    switch (this.options.relationship) {
+      case Relationship.ManyMany:
+        return true; // junction __order
+      case Relationship.OneMany:
+        return true; // two-way OneMany keeps <selfKey>_order
+      case Relationship.ManyOne:
+      case Relationship.OneOne:
+        return true; // *_order in host table
+      default:
+        return false;
+    }
   }
 
   /**
