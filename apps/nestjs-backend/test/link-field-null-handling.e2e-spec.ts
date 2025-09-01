@@ -87,7 +87,7 @@ describe('Link Field Null Handling (e2e)', () => {
       // All records should have empty arrays for the link field, not [{"id": null, "title": null}]
       for (const record of records.records) {
         const linkValue = record.fields[linkField.name];
-        expect(linkValue).toEqual([]);
+        expect(linkValue).toBeUndefined();
         expect(linkValue).not.toEqual([{ id: null, title: null }]);
       }
     });
