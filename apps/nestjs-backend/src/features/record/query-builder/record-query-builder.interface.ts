@@ -22,6 +22,8 @@ export interface ICreateRecordQueryBuilderOptions {
   /** Optional current user ID */
   currentUserId?: string;
   useViewCache?: boolean;
+  /** Limit SELECT to these field IDs (plus system columns) */
+  selectFieldIds?: string[];
 }
 
 /**
