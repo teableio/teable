@@ -555,7 +555,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Tarih/saatler arasındaki farkı belirtilen birimde döndürür. Varsayılan birim saniyedir. (Birim belirteçlerinin listesi için buraya bakın.)\nTarih/saatler arasındaki fark [date2]'nin [date1]'den çıkarılmasıyla belirlenir. Bu, eğer [date2] [date1]'den sonraysa, sonuç değerinin negatif olacağı anlamına gelir.",
-      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
       "summary": "Başlangıç tarihinden itibaren belirtilen tatiller hariç iş gününü döndürür",

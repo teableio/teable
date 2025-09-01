@@ -572,7 +572,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Returns the difference between datetimes in specified units. Default units are seconds. (See list of unit specifiers here.)\nThe difference between datetimes is determined by subtracting [date2] from [date1]. This means that if [date2] is later than [date1], the resulting value will be negative.",
-      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
       "summary": "Returns the workday to the start date, excluding the specified holidays",

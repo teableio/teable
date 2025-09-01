@@ -553,7 +553,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Renvoie la différence entre les datetimes dans les unités spécifiées. Les unités par défaut sont les secondes. (Voir la liste des spécificateurs d'unité ici.)\nLa différence entre les datetimes est déterminée en soustrayant [date2] de [date1]. Cela signifie que si [date2] est plus tard que [date1], la valeur résultante sera négative.",
-      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
       "summary": "Renvoie le jour ouvrable à partir de la date de début, en excluant les jours fériés spécifiés.",

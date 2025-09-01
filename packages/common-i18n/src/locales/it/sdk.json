@@ -572,7 +572,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Restituisce la differenza tra le date in unità specificate. Le unità predefinite sono i secondi. (Vedi l'elenco dei specificatori di unità qui.)\nLa differenza tra le date è determinata sottraendo [date2] da [date1]. Ciò significa che se [date2] è successiva a [date1], il valore risultante sarà negativo.",
-      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
       "summary": "Restituisce il giorno lavorativo alla data di inizio, escludendo le festività specificate",
