@@ -19,7 +19,7 @@ export class LoggerModule {
         const isCi = ['true', '1'].includes(process.env?.CI ?? '');
 
         const disableAutoLogging = isCi || env === 'test';
-        const autoLogging = !disableAutoLogging && (env === 'production' || level === 'debug');
+        const shouldAutoLog = !disableAutoLogging && (env === 'production' || level === 'debug');
 
         return {
           pinoHttp: {
@@ -35,19 +35,22 @@ export class LoggerModule {
             },
             name: 'teable',
             level: level,
-            autoLogging: {
-              ignore: (req) => {
-                const url = req.url;
-                if (!url) return autoLogging;
+            // Disable automatic HTTP request logging in CI and tests
+            autoLogging: shouldAutoLog
+              ? {
+                  ignore: (req) => {
+                    const url = req.url;
+                    if (!url) return false;
 
-                if (url.startsWith('/_next/')) return true;
-                if (url === '/favicon.ico') return true;
-                if (url.startsWith('/.well-known/')) return true;
-                if (url === '/health' || url === '/ping') return true;
-                if (req.headers.upgrade === 'websocket') return true;
-                return autoLogging;
-              },
-            },
+                    if (url.startsWith('/_next/')) return true;
+                    if (url === '/favicon.ico') return true;
+                    if (url.startsWith('/.well-known/')) return true;
+                    if (url === '/health' || url === '/ping') return true;
+                    if (req.headers.upgrade === 'websocket') return true;
+                    return false;
+                  },
+                }
+              : false,
             genReqId: (req, res) => {
               const existingID = req.id ?? req.headers[X_REQUEST_ID];
               if (existingID) return existingID;
