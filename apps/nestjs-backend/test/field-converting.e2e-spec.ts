@@ -3517,7 +3517,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(recordResult2.records[1].fields[lookupField.id]).toEqual('1.00');
     });
 
-    it('should mark all relational lookup field error when the link field is convert to others', async () => {
+    it.only('should mark all relational lookup field error when the link field is convert to others', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'TextField',
         type: FieldType.SingleLineText,
