@@ -10,7 +10,7 @@ import {
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { groupBy, isEqual } from 'lodash';
+import { isEqual } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -319,40 +319,63 @@ export class FieldConvertingLinkService {
   }
 
   async oneWayToTwoWay(oldField: LinkFieldDto, newField: LinkFieldDto) {
-    // Read existing links using OLD options (pre-change physical schema)
-    const foreignKeys = await this.linkService.getAllForeignKeys(oldField.options);
+    // Resolve table ids
     const { foreignTableId, relationship, symmetricFieldId } = newField.options;
-    const foreignKeyMap = groupBy(foreignKeys, 'foreignId');
-
-    const opsMap: {
-      [recordId: string]: IOtOperation[];
-    } = {};
-
-    Object.keys(foreignKeyMap).forEach((foreignId) => {
-      const ids = foreignKeyMap[foreignId].map((item) => item.id);
-      // relational behavior needs to be reversed
-      if (relationship === Relationship.OneOne || relationship === Relationship.OneMany) {
-        opsMap[foreignId] = [
-          RecordOpBuilder.editor.setRecord.build({
-            fieldId: symmetricFieldId as string,
-            newCellValue: { id: ids[0] },
-            oldCellValue: null,
-          }),
-        ];
-      }
-
-      if (relationship === Relationship.ManyMany || relationship === Relationship.ManyOne) {
-        opsMap[foreignId] = [
-          RecordOpBuilder.editor.setRecord.build({
-            fieldId: symmetricFieldId as string,
-            newCellValue: ids.map((id) => ({ id })),
-            oldCellValue: null,
-          }),
-        ];
-      }
+    const sourceFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: oldField.id, deletedTime: null },
+      select: { tableId: true },
     });
+    const sourceTableId = sourceFieldRaw.tableId;
 
-    return { [foreignTableId]: opsMap };
+    // Fetch existing source records and derive mapping directly from cell values
+    const sourceRecords = await this.getRecords(sourceTableId, oldField);
+
+    const targetOpsMap: { [recordId: string]: IOtOperation[] } = {};
+    const sourceOpsMap: { [recordId: string]: IOtOperation[] } = {};
+
+    for (const record of sourceRecords) {
+      const sourceId = record.id;
+      const cell = record.fields[oldField.id] as ILinkCellValue | ILinkCellValue[] | undefined;
+      if (!cell) continue;
+      const links = [cell].flat();
+
+      // source side new value
+      const newSourceValue =
+        relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+          ? { id: links[0].id }
+          : links.map((l) => ({ id: l.id }));
+
+      sourceOpsMap[sourceId] = [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: newField.id,
+          newCellValue: newSourceValue,
+          oldCellValue: cell,
+        }),
+      ];
+
+      // target side symmetric value
+      for (const l of links) {
+        if (relationship === Relationship.OneOne || relationship === Relationship.OneMany) {
+          targetOpsMap[l.id] = [
+            RecordOpBuilder.editor.setRecord.build({
+              fieldId: symmetricFieldId as string,
+              newCellValue: { id: sourceId },
+              oldCellValue: undefined,
+            }),
+          ];
+        } else {
+          targetOpsMap[l.id] = [
+            RecordOpBuilder.editor.setRecord.build({
+              fieldId: symmetricFieldId as string,
+              newCellValue: [{ id: sourceId }],
+              oldCellValue: undefined,
+            }),
+          ];
+        }
+      }
+    }
+
+    return { [sourceTableId]: sourceOpsMap, [foreignTableId]: targetOpsMap };
   }
 
   async modifyLinkOptions(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
@@ -364,6 +387,37 @@ export class FieldConvertingLinkService {
       oldField.options.isOneWay
     ) {
       return this.oneWayToTwoWay(oldField, newField);
+    }
+    // Preserve source values when converting from TwoWay to OneWay
+    if (
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.relationship === oldField.options.relationship &&
+      !!oldField.options.symmetricFieldId &&
+      !newField.options.symmetricFieldId &&
+      newField.options.isOneWay &&
+      !oldField.options.isOneWay
+    ) {
+      // Preserve source table link values as-is when converting from TwoWay to OneWay
+      const sourceFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+        where: { id: oldField.id, deletedTime: null },
+        select: { tableId: true },
+      });
+      const sourceTableId = sourceFieldRaw.tableId;
+      const sourceRecords = await this.getRecords(sourceTableId, oldField);
+      const sourceOpsMap: { [recordId: string]: IOtOperation[] } = {};
+      sourceRecords.forEach((record) => {
+        const existingValue = record.fields[newField.id];
+        if (existingValue == null) return;
+        sourceOpsMap[record.id] = [
+          RecordOpBuilder.editor.setRecord.build({
+            fieldId: newField.id,
+            newCellValue: existingValue,
+            // Force reapply after FK cleanup by setting oldCellValue to null
+            oldCellValue: null,
+          }),
+        ];
+      });
+      return { [sourceTableId]: sourceOpsMap } as IOpsMap;
     }
     if (newField.options.foreignTableId === oldField.options.foreignTableId) {
       return this.convertLinkOnlyRelationship(tableId, newField, oldField);

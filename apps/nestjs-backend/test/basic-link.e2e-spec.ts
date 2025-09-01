@@ -1687,8 +1687,12 @@ describe('Basic Link Field (e2e)', () => {
           );
 
           // Verify record data integrity after conversion
-          const updatedSourceRecords = await getRecords(sourceTable.id);
-          const updatedTargetRecords = await getRecords(targetTable.id);
+          const updatedSourceRecords = await getRecords(sourceTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const updatedTargetRecords = await getRecords(targetTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+          });
 
           // Check that the original link data is preserved
           const sourceRecord = updatedSourceRecords.records.find(
@@ -1712,9 +1716,11 @@ describe('Basic Link Field (e2e)', () => {
 
           expect(targetRecord1?.fields[symmetricField.id]).toEqual({
             id: sourceRecords.records[0].id,
+            title: 'Source1',
           });
           expect(targetRecord2?.fields[symmetricField.id]).toEqual({
             id: sourceRecords.records[0].id,
+            title: 'Source1',
           });
           expect(targetRecord3?.fields[symmetricField.id]).toBeUndefined();
         });
