@@ -196,13 +196,11 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
       return;
     }
 
-    // Skip foreign key creation for symmetric fields
-    // A symmetric field is one that has a symmetricFieldId pointing to an existing field
+    // Do not create a standard column for Link fields.
+    // Only create FK/junction structures for the non-symmetric side.
     if (this.context.isSymmetricField || this.isSymmetricField(field)) {
       return;
     }
-
-    // Handle foreign key creation (moved from createForeignKey method)
     this.createForeignKeyForLinkField(field);
   }
 

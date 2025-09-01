@@ -118,6 +118,15 @@ export class FieldDuplicateService {
         },
         name,
       });
+      // Ensure meta is present for Postgres generated columns
+      // In duplication flow, we use a safe default expression that is supported as generated column
+      // Explicitly persist meta to satisfy consumers expecting it on error formulas
+      if (newField.meta) {
+        await this.prismaService.txClient().field.update({
+          where: { id: newField.id },
+          data: { meta: JSON.stringify(newField.meta) },
+        });
+      }
       await this.replenishmentConstraint(newField.id, targetTableId, order, {
         notNull,
         unique,
