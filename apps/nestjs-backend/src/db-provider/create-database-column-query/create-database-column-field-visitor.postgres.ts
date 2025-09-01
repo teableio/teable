@@ -328,6 +328,7 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   visitRollupField(_field: RollupFieldCore): void {
+    // Rollup fields are computed in query time via CTEs; no physical column.
     return;
   }
 

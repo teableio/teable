@@ -55,6 +55,10 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     return this.aliasOverride || getTableAliasFromTable(this.table);
   }
 
+  private isViewContext(): boolean {
+    return this.state.getContext() === 'view';
+  }
+
   /**
    * Returns the selection map containing field ID to selector name mappings
    * @returns Map where key is field ID and value is the selector name/expression
@@ -215,7 +219,16 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.id)) {
-      return this.getColumnSelector(field);
+      // If we are selecting from a materialized view, the view already exposes
+      // the projected column for this field, so select the physical column.
+      if (this.isViewContext()) {
+        return this.getColumnSelector(field);
+      }
+      // When building directly from base table and no CTE is available
+      // (e.g., foreign table deleted), return NULL instead of a physical column.
+      const raw = this.qb.client.raw('NULL');
+      this.state.setSelection(field.id, 'NULL');
+      return raw;
     }
 
     const cteName = fieldCteMap.get(field.id)!;
@@ -229,7 +242,14 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
-      return this.getColumnSelector(field);
+      if (this.isViewContext()) {
+        // In view context, select the view column directly
+        return this.getColumnSelector(field);
+      }
+      // From base table context, without CTE, return NULL fallback
+      const raw = this.qb.client.raw('NULL');
+      this.state.setSelection(field.id, 'NULL');
+      return raw;
     }
 
     // Rollup fields use the link field's CTE with pre-computed rollup values
