@@ -439,7 +439,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Devuelve la diferencia entre datos en unidades especificadas. ",
-      "example": "Datetime_diff (\"2022-08-01\", \"2023-09-08\", \"día\") => 403"
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
       "summary": "Devuelve la jornada laboral a la fecha de inicio, excluyendo las vacaciones especificadas",
