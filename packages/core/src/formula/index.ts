@@ -15,3 +15,4 @@ export type { FormulaVisitor } from './parser/FormulaVisitor';
 export type { IFieldMap } from './function-convertor.interface';
 
 export { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
+export type { RuleNode } from 'antlr4ts/tree/RuleNode';
