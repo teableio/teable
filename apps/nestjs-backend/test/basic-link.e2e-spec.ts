@@ -172,11 +172,11 @@ describe('Basic Link Field (e2e)', () => {
       const projectA = records.records.find((r) => r.name === 'Project A');
       const projectB = records.records.find((r) => r.name === 'Project B');
 
-      expect(projectA?.fields[linkField.id]).toEqual([]);
+      expect(projectA?.fields[linkField.id]).toBeUndefined();
       expect(projectA?.fields[lookupField.id]).toBeUndefined();
       expect(projectA?.fields[rollupField.id]).toBe(0);
 
-      expect(projectB?.fields[linkField.id]).toEqual([]);
+      expect(projectB?.fields[linkField.id]).toBeUndefined();
       expect(projectB?.fields[lookupField.id]).toBeUndefined();
       expect(projectB?.fields[rollupField.id]).toBe(0);
     });

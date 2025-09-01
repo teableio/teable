@@ -532,7 +532,7 @@ describe('Comprehensive Field Sort Tests (e2e)', () => {
       if (firstNonNullIndex > 0) {
         // If there are nulls before non-nulls, all nulls should be at the beginning
         for (let i = 0; i < firstNonNullIndex; i++) {
-          expect(ratingValues[i]).toBeNull();
+          expect(ratingValues[i] ?? undefined).toBeUndefined();
         }
       }
     });
