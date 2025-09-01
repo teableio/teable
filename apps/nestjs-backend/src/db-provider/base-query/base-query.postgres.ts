@@ -11,6 +11,7 @@ export class BaseQueryPostgres extends BaseQueryAbstract {
     dbFieldName: string,
     alias: string
   ): Knex.QueryBuilder {
-    return queryBuilder.select(this.knex.raw(`MAX(??::text) AS ??`, [dbFieldName, alias]));
+    // dbFieldName may already be a fully-qualified quoted identifier path
+    return queryBuilder.select(this.knex.raw(`MAX(${dbFieldName}::text) AS ??`, [alias]));
   }
 }
