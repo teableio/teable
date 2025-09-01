@@ -107,7 +107,7 @@ class TestService {
   }
 }
 
-describe.runIf(process.env.BACKEND_CACHE_REDIS_URI)('Performance Cache Decorators', () => {
+describe.runIf(process.env.BACKEND_PERFORMANCE_CACHE)('Performance Cache Decorators', () => {
   let module: TestingModule;
   let testService: TestService;
 
@@ -120,8 +120,8 @@ describe.runIf(process.env.BACKEND_CACHE_REDIS_URI)('Performance Cache Decorator
           provide: ConfigService,
           useValue: {
             get: vi.fn((key: string) => {
-              if (key === 'BACKEND_CACHE_REDIS_URI') {
-                return process.env.BACKEND_CACHE_REDIS_URI || 'redis://localhost:6379';
+              if (key === 'BACKEND_PERFORMANCE_CACHE') {
+                return process.env.BACKEND_PERFORMANCE_CACHE || 'redis://localhost:6379';
               }
               return undefined;
             }),

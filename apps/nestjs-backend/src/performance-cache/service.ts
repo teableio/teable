@@ -46,9 +46,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       // Initialize Redlock for distributed locking
       this.redlock = new Redlock([store.redis], {
         driftFactor: 0.01, // 1% drift tolerance
-        retryCount: 10, // Retry 3 times before giving up
-        retryDelay: 300, // 200ms base delay between retries
-        retryJitter: 100, // Add up to 200ms random jitter
+        retryCount: 10, // Retry 10 times before giving up
+        retryDelay: 300, // 300ms base delay between retries
+        retryJitter: 100, // Add up to 100ms random jitter
         automaticExtensionThreshold: 500, // Auto-extend if <500ms remaining
       });
 
