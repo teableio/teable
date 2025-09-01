@@ -477,14 +477,23 @@ export class TableDuplicateService {
         },
       });
 
-      const alterTableSql = this.dbProvider.renameColumn(
+      // Only attempt to rename if a physical column exists.
+      // Link fields do not create standard columns; self-link symmetric side definitely doesn't.
+      const prisma = this.prismaService.txClient();
+      const exists = await this.dbProvider.checkColumnExist(
         targetDbTableName,
         genDbFieldName,
-        groupField.dbFieldName
+        prisma
       );
-
-      for (const sql of alterTableSql) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      if (exists) {
+        const alterTableSql = this.dbProvider.renameColumn(
+          targetDbTableName,
+          genDbFieldName,
+          groupField.dbFieldName
+        );
+        for (const sql of alterTableSql) {
+          await prisma.$executeRawUnsafe(sql);
+        }
       }
     }
 
