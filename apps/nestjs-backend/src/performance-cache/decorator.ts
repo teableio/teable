@@ -30,12 +30,6 @@ const DEFAULT_OPTIONS: Partial<ICacheDecoratorOptions> = {
  *     return this.userRepository.findById(userId);
  *   }
  *
- *   // User-based cache
- *   @PerformanceCache({ perUser: true, ttl: 300 })
- *   async getUserDashboard() {
- *     return this.buildDashboard();
- *   }
- *
  *   // Custom key generator
  *   @PerformanceCache({
  *     keyGenerator: (tableId, filters) => `table:${tableId}:${JSON.stringify(filters)}`
@@ -135,29 +129,4 @@ function getInjectedService<T>(
   } catch (error) {
     return null;
   }
-}
-
-/**
- * Cache key generation decorator
- * Provides unified cache key prefix for methods in class
- *
- * @param prefix Cache key prefix
- *
- * @example
- * ```typescript
- * @CacheKey('user-service')
- * class UserService {
- *   @PerformanceCache() // Generated key will include 'user-service' prefix
- *   async getUserById(userId: string) {
- *     return this.userRepository.findById(userId);
- *   }
- * }
- * ```
- */
-export function CacheKey(prefix: string) {
-  return function <T extends { new (...args: any[]): object }>(constructor: T) {
-    return class extends constructor {
-      readonly __cachePrefix = prefix;
-    };
-  };
 }

@@ -34,7 +34,6 @@ export interface ICacheDecoratorOptions extends ICacheOptions {
   /** Cache key generation function, uses default parameter hash if not provided */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   keyGenerator?: (...args: any[]) => keyof IPerformanceCacheStore;
-  /** Whether to generate cache key based on user ID */
   /** Condition function, skip cache when returns false */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   condition?: (...args: any[]) => boolean;
