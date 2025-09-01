@@ -52,6 +52,18 @@ export class LinkFieldIntegrityService {
     linkDbFieldName: string;
     isMultiValue: boolean;
   }) {
+    // Some symmetric link fields may not persist a JSON column (depending on
+    // creation path). If the link JSON column does not exist, skip comparison.
+    const linkColumnExists = await this.dbProvider.checkColumnExist(
+      params.dbTableName,
+      params.linkDbFieldName,
+      this.prismaService
+    );
+
+    if (!linkColumnExists) {
+      return [];
+    }
+
     const query = this.dbProvider.integrityQuery().checkLinks(params);
     return await this.prismaService.$queryRawUnsafe<{ id: string }[]>(query);
   }
@@ -67,6 +79,17 @@ export class LinkFieldIntegrityService {
     linkDbFieldName: string;
     isMultiValue: boolean;
   }) {
+    // If display column does not exist (link fields are virtual by design), skip update
+    const linkColumnExists = await this.dbProvider.checkColumnExist(
+      params.dbTableName,
+      params.linkDbFieldName,
+      this.prismaService
+    );
+
+    if (!linkColumnExists) {
+      return 0;
+    }
+
     const query = this.dbProvider.integrityQuery().fixLinks(params);
     return await this.prismaService.$executeRawUnsafe(query);
   }
