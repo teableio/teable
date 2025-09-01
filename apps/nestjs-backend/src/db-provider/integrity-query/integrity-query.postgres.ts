@@ -21,6 +21,7 @@ export class IntegrityQueryPostgres extends IntegrityQueryAbstract {
     linkDbFieldName: string;
     isMultiValue: boolean;
   }): string {
+    // Multi-value relationships (ManyMany, OneMany)
     if (isMultiValue) {
       const fkGroupedQuery = this.knex(fkHostTableName)
         .select({
@@ -33,76 +34,55 @@ export class IntegrityQueryPostgres extends IntegrityQueryAbstract {
         .whereNotNull(selfKeyName)
         .groupBy(selfKeyName)
         .as('fk_grouped');
-      const thisKnex = this.knex;
-      return this.knex(dbTableName)
-        .leftJoin(fkGroupedQuery, `${dbTableName}.__id`, `fk_grouped.${selfKeyName}`)
-        .select({
-          id: '__id',
-        })
+
+      // Always alias main table as t1 to avoid ambiguous identifiers
+      return this.knex(`${dbTableName} as t1`)
+        .leftJoin(fkGroupedQuery, `t1.__id`, `fk_grouped.${selfKeyName}`)
+        .select({ id: 't1.__id' })
         .where(function () {
           this.whereNull(`fk_grouped.${selfKeyName}`)
-            .whereNotNull(linkDbFieldName)
+            .whereRaw(`"t1"."${linkDbFieldName}" IS NOT NULL`)
             .orWhere(function () {
-              this.whereNotNull(linkDbFieldName).andWhereRaw(
+              // Compare aggregated FK ids with ids from JSON array in link column
+              this.whereRaw(`"t1"."${linkDbFieldName}" IS NOT NULL`).andWhereRaw(
                 `"fk_grouped".fk_ids != (
                   SELECT string_agg(id, ',' ORDER BY id)
                   FROM (
                       SELECT (link->>'id')::text as id
-                      FROM jsonb_array_elements(??::jsonb) as link
+                      FROM jsonb_array_elements(("t1"."${linkDbFieldName}")::jsonb) as link
                   ) t
-                )`,
-                [thisKnex.ref(linkDbFieldName)]
+                )`
               );
             });
         })
         .toQuery();
     }
 
+    // Single-value relationships where FK is in the same table as the link field (ManyOne/OneOne on main table)
     if (fkHostTableName === dbTableName) {
-      return this.knex(dbTableName)
-        .select({
-          id: '__id',
-        })
-        .where(function () {
-          this.whereNull(foreignKeyName)
-            .whereNotNull(linkDbFieldName)
-            .orWhere(function () {
-              this.whereNotNull(linkDbFieldName).andWhereRaw(
-                `("${linkDbFieldName}"->>'id')::text != "${foreignKeyName}"::text`
-              );
-            });
-        })
-        .toQuery();
-    }
-
-    if (dbTableName === fkHostTableName) {
       return this.knex(`${dbTableName} as t1`)
-        .select({
-          id: 't1.__id',
-        })
-        .leftJoin(`${dbTableName} as t2`, 't2.' + foreignKeyName, 't1.__id')
+        .select({ id: 't1.__id' })
         .where(function () {
-          this.whereNull('t2.' + foreignKeyName)
-            .whereNotNull('t1.' + linkDbFieldName)
+          this.whereRaw(`"t1"."${foreignKeyName}" IS NULL`)
+            .whereRaw(`"t1"."${linkDbFieldName}" IS NOT NULL`)
             .orWhere(function () {
-              this.whereNotNull('t1.' + linkDbFieldName).andWhereRaw(
-                `("t1"."${linkDbFieldName}"->>'id')::text != "t2"."${foreignKeyName}"::text`
+              this.whereRaw(`"t1"."${linkDbFieldName}" IS NOT NULL`).andWhereRaw(
+                `("t1"."${linkDbFieldName}"->>'id')::text != "t1"."${foreignKeyName}"::text`
               );
             });
         })
         .toQuery();
     }
 
+    // Single-value relationships where FK is stored in another host table (e.g., OneOne with FK on the other side)
     return this.knex(`${dbTableName} as t1`)
-      .select({
-        id: 't1.__id',
-      })
+      .select({ id: 't1.__id' })
       .leftJoin(`${fkHostTableName} as t2`, 't2.' + selfKeyName, 't1.__id')
       .where(function () {
-        this.whereNull('t2.' + foreignKeyName)
-          .whereNotNull('t1.' + linkDbFieldName)
+        this.whereRaw(`"t2"."${foreignKeyName}" IS NULL`)
+          .whereRaw(`"t1"."${linkDbFieldName}" IS NOT NULL`)
           .orWhere(function () {
-            this.whereNotNull('t1.' + linkDbFieldName).andWhereRaw(
+            this.whereRaw(`"t1"."${linkDbFieldName}" IS NOT NULL`).andWhereRaw(
               `("t1"."${linkDbFieldName}"->>'id')::text != "t2"."${foreignKeyName}"::text`
             );
           });
@@ -192,6 +172,15 @@ export class IntegrityQueryPostgres extends IntegrityQueryAbstract {
       .toQuery();
   }
 
+  /**
+   * Deprecated: Do NOT use in new code.
+   * Link fields typically do not persist a display JSON column in Postgres;
+   * their values are computed from junction tables or fk columns. This method
+   * exists only for legacy tests that used to mutate a JSON display column to
+   * create inconsistencies. Prefer changing junction/fk data directly.
+   *
+   * @deprecated Use junction/fk mutations instead of updating a JSON column.
+   */
   updateJsonField({
     recordIds,
     dbTableName,

@@ -194,6 +194,13 @@ export class IntegrityQuerySqlite extends IntegrityQueryAbstract {
       .toQuery();
   }
 
+  /**
+   * Deprecated: Do NOT use in new code.
+   * Link fields' display values are derived; avoid updating a JSON column.
+   * This exists only for legacy tests; prefer mutating junction/fk data.
+   *
+   * @deprecated Use junction/fk mutations instead of updating a JSON column.
+   */
   updateJsonField({
     recordIds,
     dbTableName,
