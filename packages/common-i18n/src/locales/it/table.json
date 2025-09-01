@@ -319,6 +319,7 @@
         "summarize": "Riepilogo del contenuto",
         "translate": "Traduzione concisa e facile da capire, leggera",
         "extractInfo": "Estrai email, telefono, nome, indirizzo...",
+        "extractDate": "Estrai ora di inizio",
         "improveText": "Formale, amichevole, umoristica...",
         "attachPromptForTag": "Non consentito superare tre tag",
         "attachPromptForClassify": "Classifica “In Progress” come “No Risk”",

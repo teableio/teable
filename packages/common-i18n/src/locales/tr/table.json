@@ -308,6 +308,7 @@
         "summarize": "İçerik özetini",
         "translate": "Kısa ve anlaşılır, hafif tonlu çeviri",
         "extractInfo": "Email, telefon, ad, adres...",
+        "extractDate": "Başlangıç saatini çıkar",
         "improveText": "Resmi, arkadaşça, komik...",
         "attachPromptForTag": "Üç etiketden fazla izin verilmiyor",
         "attachPromptForClassify": "“Devam Ediyor” olarak “Risk Yok” olarak sınıflandır",

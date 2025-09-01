@@ -318,6 +318,7 @@
         "summarize": "总结内容的关键点",
         "translate": "翻译简洁易懂，语气轻松",
         "extractInfo": "提取邮箱，电话，姓名，地址...",
+        "extractDate": "提取开始时间",
         "improveText": "语气正式，友好，幽默...",
         "attachPromptForTag": "不允许超过三个标签",
         "attachPromptForClassify": "将\"正在进行中\"的分类为\"无风险\"",

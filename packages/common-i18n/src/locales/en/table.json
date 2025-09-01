@@ -319,6 +319,7 @@
         "summarize": "Summary of the content",
         "translate": "Translation concise and easy to understand, light-hearted",
         "extractInfo": "Extract email, phone, name, address...",
+        "extractDate": "Extract start time",
         "improveText": "Formal, friendly, humorous...",
         "attachPromptForTag": "Not allowed to exceed three tags",
         "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",

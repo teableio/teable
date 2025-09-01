@@ -23,6 +23,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { UpgradeWrapper } from '../../billing/UpgradeWrapper';
 import type { IFieldEditorRo } from '../type';
 import { AttachmentFieldAiConfig } from './AttachmentFieldAiConfig';
+import { DateFieldAiConfig } from './DateFieldAiConfig';
 import { MultipleSelectFieldAiConfig } from './MultipleSelectFieldAiConfig';
 import { RatingFieldAiConfig } from './RatingFieldAiConfig';
 import { SingleSelectFieldAiConfig } from './SingleSelectFieldAiConfig';
@@ -41,6 +42,7 @@ const SUPPORTED_FIELD_TYPES = new Set([
   FieldType.Attachment,
   FieldType.Rating,
   FieldType.Number,
+  FieldType.Date,
 ]);
 
 export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange }) => {
@@ -91,6 +93,8 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       case FieldType.Rating:
       case FieldType.Number:
         return <RatingFieldAiConfig field={field} onChange={onChange} />;
+      case FieldType.Date:
+        return <DateFieldAiConfig field={field} onChange={onChange} />;
       default:
         throw new Error(`Unsupported field type: ${fieldType}`);
     }

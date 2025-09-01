@@ -310,6 +310,7 @@
         "summarize": "Résumé du contenu",
         "translate": "Traduction concise et facile à comprendre, légèrement humoristique",
         "extractInfo": "Extraction des emails, téléphones, noms, adresses...",
+        "extractDate": "Extraction de l'heure de début",
         "improveText": "Formel, amical, humoristique...",
         "attachPromptForTag": "Ne pas dépasser trois tags",
         "attachPromptForClassify": "Classer “En cours” comme “Aucun risque”",

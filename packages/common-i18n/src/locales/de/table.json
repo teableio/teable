@@ -319,6 +319,7 @@
         "summarize": "Zusammenfassung des Inhalts",
         "translate": "Übersetzung kurz und verständlich, lebendig",
         "extractInfo": "Email, Telefon, Name, Adresse extrahieren...",
+        "extractDate": "Startzeit extrahieren",
         "improveText": "Formell, freundlich, humorvoll...",
         "attachPromptForTag": "Nicht erlaubt, mehr als drei Tags zu überschreiten",
         "attachPromptForClassify": "Klassifizieren Sie “In Progress” als “Kein Risiko”",

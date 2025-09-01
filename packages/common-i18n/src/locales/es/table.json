@@ -315,6 +315,7 @@
         "summarize": "Resumen del contenido",
         "translate": "Traducción concisa y fácil de entender, light-hearted",
         "extractInfo": "Extraer email, teléfono, nombre, dirección...",
+        "extractDate": "Extraer hora de inicio",
         "improveText": "Formal, amigable, humorístico...",
         "attachPromptForTag": "No permitido superar tres etiquetas",
         "attachPromptForClassify": "Clasificar “En curso” como “Sin riesgo”",

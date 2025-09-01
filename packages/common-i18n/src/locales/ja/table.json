@@ -310,6 +310,7 @@
         "summarize": "コンテンツのサマリー",
         "translate": "簡潔でわかりやすく、軽快な翻訳",
         "extractInfo": "メール、電話番号、名前、住所などを抽出...",
+        "extractDate": "開始時間を抽出...",
         "improveText": "正式、親切、ユーモアがある...",
         "attachPromptForTag": "3つ以内のタグを許可しない",
         "attachPromptForClassify": "「進行中」を「リスクなし」と分類",
