@@ -8,8 +8,10 @@ export class PluginStaticProxyMiddleware implements NestMiddleware {
   async use(req: Request, res: Response, next: () => void): Promise<any> {
     const assetPrefix = process.env.NEXT_BUILD_ENV_ASSET_PREFIX;
     console.log('PluginStaticProxyMiddleware assetPrefix', assetPrefix);
+    console.log('PluginStaticProxyMiddleware req.path', req.path);
     if (assetPrefix && req.path.startsWith('/plugin/_next/static/')) {
       const assetUrl = path.join(assetPrefix, req.path);
+      console.log('PluginStaticProxyMiddleware assetUrl', assetUrl);
       return res.redirect(302, assetUrl);
     }
 
