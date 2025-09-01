@@ -268,6 +268,14 @@ export class FieldService implements IReadonlyAdapterService {
     for (const fieldInstance of fieldInstances) {
       const { dbFieldName, type, isLookup, unique, notNull, id: fieldId } = fieldInstance;
 
+      // Early validation: creating a field with NOT NULL is not allowed
+      // Do this before generating/issuing any SQL to avoid DB-level 23502 errors
+      if (notNull) {
+        throw new BadRequestException(
+          `Field type "${type}" does not support field validation when creating a new field`
+        );
+      }
+
       // Build table name map for all field operations
       const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
         tableMeta.id,
@@ -306,11 +314,7 @@ export class FieldService implements IReadonlyAdapterService {
         await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
       }
 
-      if (notNull) {
-        throw new BadRequestException(
-          `Field type "${type}" does not support field validation when creating a new field`
-        );
-      }
+      // NOT NULL handled above; keep unique handling here
     }
   }
 
