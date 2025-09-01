@@ -1122,6 +1122,23 @@ export class FieldService implements IReadonlyAdapterService {
     if (oldField.type === newField.type) {
       return;
     }
+    // If either side is Formula, we must reconcile the physical schema using modifyColumnSchema.
+    // This ensures that converting to Formula creates generated columns (or proper projection),
+    // and converting back from Formula recreates the original physical column.
+    if (oldField.type === FieldType.Formula || newField.type === FieldType.Formula) {
+      const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
+      const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+        dbTableName,
+        oldField,
+        newField,
+        tableDomain
+      );
+      for (const sql of modifyColumnSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
+      return;
+    }
+
     await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
   }
 
