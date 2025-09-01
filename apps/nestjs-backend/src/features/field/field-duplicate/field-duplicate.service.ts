@@ -141,6 +141,8 @@ export class FieldDuplicateService {
           },
           data: {
             hasError,
+            // error formulas should not be persisted as generated columns
+            meta: null,
           },
         });
       }
@@ -1044,6 +1046,8 @@ export class FieldDuplicateService {
             ...options,
             expression: newExpression ? JSON.parse(newExpression) : undefined,
           }),
+          // error formulas should not be persisted as generated columns
+          meta: null,
         },
       });
     }

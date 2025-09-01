@@ -11,7 +11,7 @@ import type { View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDuplicateTableRo, IDuplicateTableVo, IFieldWithTableIdJson } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, pick } from 'lodash';
+import { get, pick, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -106,7 +106,7 @@ export class TableDuplicateService {
         return {
           ...newTableVo,
           views: viewPlain.map((v) => createViewVoByRaw(v)),
-          fields: fieldPlain.map((f) => rawField2FieldObj(f)),
+          fields: fieldPlain.map((f) => omit(rawField2FieldObj(f), ['meta'])),
           viewMap: sourceToTargetViewMap,
           fieldMap: sourceToTargetFieldMap,
         } as IDuplicateTableVo;
@@ -155,8 +155,33 @@ export class TableDuplicateService {
       name.startsWith(ROW_ORDER_FIELD_PREFIX)
     );
 
+    // Exclude computed field columns (formula/lookup/rollup/created time/etc.) from data insertion
+    // because generated columns cannot be directly inserted into
+    let computedDbFieldNames: string[] = [];
+    try {
+      const targetTable = await prisma.tableMeta.findFirst({
+        where: { dbTableName: targetDbTableName, deletedTime: null },
+        select: { id: true },
+      });
+      if (targetTable?.id) {
+        const computedFields = await prisma.field.findMany({
+          where: { tableId: targetTable.id, deletedTime: null, isComputed: true },
+          select: { dbFieldName: true },
+        });
+        computedDbFieldNames = computedFields.map((f) => f.dbFieldName);
+      }
+    } catch (_e) {
+      // Best effort; if query fails, fallback to existing filters
+      computedDbFieldNames = [];
+    }
+
+    const computedSet = new Set(computedDbFieldNames);
+
     const newFieldColumns = newOriginColumns.filter(
-      (name) => !name.startsWith(ROW_ORDER_FIELD_PREFIX) && !name.startsWith('__fk_fld')
+      (name) =>
+        !name.startsWith(ROW_ORDER_FIELD_PREFIX) &&
+        !name.startsWith('__fk_fld') &&
+        !computedSet.has(name)
     );
 
     const oldFkColumns = oldOriginColumns.filter((name) => name.startsWith('__fk_fld'));
@@ -197,7 +222,11 @@ export class TableDuplicateService {
       },
     });
     const excludeDbFieldNames = excludeFields.map(({ dbFieldName }) => dbFieldName);
-    const excludeColumnsSet = new Set([...systemColumns, ...excludeDbFieldNames]);
+    const excludeColumnsSet = new Set([
+      ...systemColumns,
+      ...excludeDbFieldNames,
+      ...computedDbFieldNames,
+    ]);
 
     // use new table field columns info
     // old table contains ghost columns or customer columns

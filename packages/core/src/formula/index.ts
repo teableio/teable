@@ -10,21 +10,7 @@ export * from './parse-formula';
 export { FunctionName, FormulaFuncType } from './functions/common';
 export { FormulaLexer } from './parser/FormulaLexer';
 export { FUNCTIONS } from './functions/factory';
-export {
-  FunctionCallContext,
-  IntegerLiteralContext,
-  LeftWhitespaceOrCommentsContext,
-  RightWhitespaceOrCommentsContext,
-  StringLiteralContext,
-  ExprContext,
-  FieldReferenceCurlyContext,
-  BinaryOpContext,
-  UnaryOpContext,
-  RootContext,
-  DecimalLiteralContext,
-  BooleanLiteralContext,
-  BracketsContext,
-} from './parser/Formula';
+export * from './parser/Formula';
 export type { FormulaVisitor } from './parser/FormulaVisitor';
 export type { IFieldMap } from './function-convertor.interface';
 
