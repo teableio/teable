@@ -104,7 +104,6 @@ export class FieldCalculationService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    console.log('getRecordsByPage: ', query);
     return this.prismaService
       .txClient()
       .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
