@@ -123,7 +123,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       options.useViewCache
     );
 
-    this.buildSelect(qb, table, state);
+    this.buildSelect(qb, table, state, options.selectFieldIds);
 
     const selectionMap = state.getSelectionMap();
     if (filter) {
@@ -190,7 +190,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   private buildSelect(
     qb: Knex.QueryBuilder,
     table: TableDomain,
-    state: IMutableQueryBuilderState
+    state: IMutableQueryBuilderState,
+    selectFieldIds?: string[]
   ): this {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state);
     const alias = getTableAliasFromTable(table);
@@ -199,7 +200,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       qb.select(`${alias}.${field}`);
     }
 
+    const allowSet = selectFieldIds ? new Set(selectFieldIds) : undefined;
     for (const field of table.fields.ordered) {
+      if (allowSet?.size && !allowSet.has(field.id)) continue;
       const result = field.accept(visitor);
       if (result) {
         if (typeof result === 'string') {

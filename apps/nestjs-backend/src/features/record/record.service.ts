@@ -567,6 +567,8 @@ export class RecordService {
         filter,
         currentUserId,
         sort: [...(groupBy ?? []), ...(orderBy ?? [])],
+        // Only select fields required by filter/order/search to avoid touching unrelated columns
+        selectFieldIds: fieldMap ? Object.values(fieldMap).map((f) => f.id) : [],
       }
     );
 
@@ -1318,12 +1320,14 @@ export class RecordService {
   ): Promise<ISnapshotBase<IRecord>[]> {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
+    const fieldIds = fields.map((f) => f.id);
     const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
       viewQueryDbTableName,
       {
         tableIdOrDbTableName: tableId,
         viewId: undefined,
         useViewCache: query.useViewCache,
+        selectFieldIds: fieldIds,
       }
     );
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
