@@ -117,7 +117,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     expression: string,
     fieldExpression: string,
     targetField: FieldCore,
-    orderByField?: string
+    orderByField?: string,
+    rowPresenceExpr?: string
   ): string {
     // Parse the rollup function from expression like 'sum({values})'
     const functionMatch = expression.match(/^(\w+)\(\{values\}\)$/);
@@ -147,8 +148,10 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
             );
           }
         }
-        // For other field types, count non-null values, ensure 0 when no records
-        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
+        // For other field types, count linked rows rather than non-null target values.
+        // Use a reliable row-presence expression (foreign record id) when available;
+        // fallback to counting the field expression to preserve prior behavior.
+        return castIfPg(`COALESCE(COUNT(${rowPresenceExpr ?? fieldExpression}), 0)`);
       case 'counta':
         return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'max':
@@ -247,6 +250,67 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         // Fallback to the value to keep behavior sensible
         return `${fieldExpression}`;
     }
+  }
+  private buildSingleValueRollup(field: FieldCore, expression: string): string {
+    const rollupOptions = field.options as IRollupFieldOptions;
+    const rollupFilter = (field as FieldCore).getFilter?.();
+    if (rollupFilter) {
+      const sub = this.buildForeignFilterSubquery(rollupFilter);
+      const filteredExpr =
+        this.dbProvider.driver === DriverClient.Pg
+          ? `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`
+          : expression;
+      return this.generateSingleValueRollupAggregation(rollupOptions.expression, filteredExpr);
+    }
+    return this.generateSingleValueRollupAggregation(rollupOptions.expression, expression);
+  }
+  private buildAggregateRollup(
+    rollupField: FieldCore,
+    targetField: FieldCore,
+    expression: string
+  ): string {
+    const linkField = rollupField.getLinkField(this.table);
+    const options = linkField?.options as ILinkFieldOptions | undefined;
+    const rollupOptions = rollupField.options as IRollupFieldOptions;
+
+    let orderByField: string | undefined;
+    if (this.dbProvider.driver === DriverClient.Pg && linkField && options) {
+      const usesJunctionTable = getLinkUsesJunctionTable(linkField);
+      const hasOrderColumn = linkField.getHasOrderColumn();
+      if (usesJunctionTable) {
+        orderByField = hasOrderColumn
+          ? `${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}" IS NULL DESC, ${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}" ASC, ${JUNCTION_ALIAS}."__id" ASC`
+          : `${JUNCTION_ALIAS}."__id" ASC`;
+      } else if (options.relationship === Relationship.OneMany) {
+        const foreignAlias = this.getForeignAlias();
+        orderByField = hasOrderColumn
+          ? `"${foreignAlias}"."${linkField.getOrderColumnName()}" IS NULL DESC, "${foreignAlias}"."${linkField.getOrderColumnName()}" ASC, "${foreignAlias}"."__id" ASC`
+          : `"${foreignAlias}"."__id" ASC`;
+      }
+    }
+
+    const rowPresenceField = `"${this.getForeignAlias()}"."__id"`;
+
+    const rollupFilter = (rollupField as FieldCore).getFilter?.();
+    if (rollupFilter && this.dbProvider.driver === DriverClient.Pg) {
+      const sub = this.buildForeignFilterSubquery(rollupFilter);
+      const filteredExpr = `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
+      return this.generateRollupAggregation(
+        rollupOptions.expression,
+        filteredExpr,
+        targetField,
+        orderByField,
+        rowPresenceField
+      );
+    }
+
+    return this.generateRollupAggregation(
+      rollupOptions.expression,
+      expression,
+      targetField,
+      orderByField,
+      rowPresenceField
+    );
   }
   private visitLookupField(field: FieldCore): IFieldSelectName {
     if (!field.isLookup) {
@@ -649,62 +713,15 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       expression =
         typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
     }
-    const rollupOptions = field.options as IRollupFieldOptions;
     const linkField = field.getLinkField(this.table);
     const options = linkField?.options as ILinkFieldOptions;
     const isSingleValueRelationship =
       options.relationship === Relationship.ManyOne || options.relationship === Relationship.OneOne;
 
     if (isSingleValueRelationship) {
-      // Apply rollup field-level filter if exists
-      const rollupFilter = (field as FieldCore).getFilter?.();
-      if (rollupFilter) {
-        const sub = this.buildForeignFilterSubquery(rollupFilter);
-        return this.generateSingleValueRollupAggregation(
-          rollupOptions.expression,
-          this.dbProvider.driver === DriverClient.Pg
-            ? `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`
-            : expression
-        );
-      }
-      return this.generateSingleValueRollupAggregation(rollupOptions.expression, expression);
+      return this.buildSingleValueRollup(field, expression);
     }
-
-    // For aggregate rollups, derive a deterministic orderBy field if possible
-    let orderByField: string | undefined;
-    if (this.dbProvider.driver === DriverClient.Pg && linkField && options) {
-      const usesJunctionTable = getLinkUsesJunctionTable(linkField);
-      const hasOrderColumn = linkField.getHasOrderColumn();
-      if (usesJunctionTable) {
-        orderByField = hasOrderColumn
-          ? `${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}" IS NULL DESC, ${JUNCTION_ALIAS}."${linkField.getOrderColumnName()}" ASC, ${JUNCTION_ALIAS}."__id" ASC`
-          : `${JUNCTION_ALIAS}."__id" ASC`;
-      } else if (options.relationship === Relationship.OneMany) {
-        const foreignAlias = this.getForeignAlias();
-        orderByField = hasOrderColumn
-          ? `"${foreignAlias}"."${linkField.getOrderColumnName()}" IS NULL DESC, "${foreignAlias}"."${linkField.getOrderColumnName()}" ASC, "${foreignAlias}"."__id" ASC`
-          : `"${foreignAlias}"."__id" ASC`;
-      }
-    }
-
-    // Aggregate rollup with optional field-level filter
-    const rollupFilter = (field as FieldCore).getFilter?.();
-    if (rollupFilter && this.dbProvider.driver === DriverClient.Pg) {
-      const sub = this.buildForeignFilterSubquery(rollupFilter);
-      const filteredExpr = `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
-      return this.generateRollupAggregation(
-        rollupOptions.expression,
-        filteredExpr,
-        targetLookupField,
-        orderByField
-      );
-    }
-    return this.generateRollupAggregation(
-      rollupOptions.expression,
-      expression,
-      targetLookupField,
-      orderByField
-    );
+    return this.buildAggregateRollup(field, targetLookupField, expression);
   }
   visitSingleSelectField(field: SingleSelectFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
