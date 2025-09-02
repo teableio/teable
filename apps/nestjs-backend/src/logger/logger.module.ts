@@ -42,7 +42,8 @@ export class LoggerModule {
                     const url = req.url;
                     if (!url) return false;
 
-                    if (url.startsWith('/_next/')) return true;
+                    if (url.startsWith('/_next')) return true;
+                    if (url.startsWith('/__next')) return true;
                     if (url === '/favicon.ico') return true;
                     if (url.startsWith('/.well-known/')) return true;
                     if (url === '/health' || url === '/ping') return true;

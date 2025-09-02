@@ -220,6 +220,14 @@ export class FieldOpenApiService {
             await this.fieldService.resolvePending(tableId, [field.id]);
           }
         }
+
+        // Repair dependent formula generated columns for fields restored in this table
+        const createdFieldIds = newFields
+          .filter((nf) => nf.tableId === tableId)
+          .map((nf) => nf.field.id);
+        if (createdFieldIds.length) {
+          await this.fieldService.recreateDependentFormulaColumns(tableId, createdFieldIds);
+        }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );

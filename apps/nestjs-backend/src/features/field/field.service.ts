@@ -49,6 +49,7 @@ import {
   rawField2FieldObj,
   applyFieldPropertyOpsAndCreateInstance,
 } from './model/factory';
+import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 
 type IOpContext = ISetFieldPropertyOpContext;
 
@@ -746,6 +747,82 @@ export class FieldService implements IReadonlyAdapterService {
         ],
       }))
     );
+  }
+
+  /**
+   * After restoring base fields (e.g., via undo), repair dependent formula fields:
+   * - If dependencies are incomplete, keep hasError=true and skip DB column creation
+   * - If dependencies are complete and formula is persisted as a generated column,
+   *   recreate the underlying generated column via modifyColumnSchema
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async recreateDependentFormulaColumns(tableId: string, fieldIds: string[]) {
+    if (!fieldIds?.length) return;
+
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
+
+    for (const sourceFieldId of fieldIds) {
+      try {
+        const deps = await this.formulaFieldService.getDependentFormulaFieldsInOrder(sourceFieldId);
+        if (!deps.length) continue;
+
+        for (const { id: formulaFieldId, tableId: formulaTableId } of deps) {
+          if (formulaTableId !== tableId) continue;
+
+          const formulaRaw = await this.prismaService.txClient().field.findUnique({
+            where: { id: formulaFieldId, tableId: formulaTableId, deletedTime: null },
+          });
+          if (!formulaRaw) continue;
+
+          const formulaField = createFieldInstanceByRaw(formulaRaw);
+          if (formulaField.type !== FieldType.Formula) continue;
+
+          const formulaCore = formulaField as FormulaFieldDto;
+          const referencedIds = formulaCore.getReferenceFieldIds();
+          if (referencedIds.length) {
+            const existing = await this.prismaService.txClient().field.findMany({
+              where: { id: { in: referencedIds }, deletedTime: null },
+              select: { id: true },
+            });
+            const allPresent = existing.length === referencedIds.length;
+            if (!allPresent) {
+              await this.markError(formulaTableId, [formulaFieldId], true);
+              continue;
+            }
+          }
+
+          // Dependencies satisfied: clear error
+          await this.markError(formulaTableId, [formulaFieldId], false);
+
+          // If not persisted as generated column, nothing to recreate at DB level
+          if (!formulaCore.getIsPersistedAsGeneratedColumn()) continue;
+
+          // Recalculate types and recreate generated column
+          const fieldMap = tableDomain.fields.toFieldMap();
+          formulaCore.recalculateFieldTypes(Object.fromEntries(fieldMap));
+
+          const tableMeta = await this.prismaService.txClient().tableMeta.findUnique({
+            where: { id: formulaTableId },
+            select: { dbTableName: true },
+          });
+          if (!tableMeta) continue;
+
+          const sqls = this.dbProvider.modifyColumnSchema(
+            tableMeta.dbTableName,
+            formulaCore,
+            formulaCore,
+            tableDomain
+          );
+          for (const sql of sqls) {
+            await this.prismaService.txClient().$executeRawUnsafe(sql);
+          }
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Failed to recreate dependent formulas for ${sourceFieldId}: ${String(e)}`
+        );
+      }
+    }
   }
 
   private async checkFieldName(tableId: string, fieldId: string, name: string) {
