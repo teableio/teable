@@ -761,7 +761,6 @@ export class LinkService {
       );
 
       const nativeQuery = qb.whereIn('__id', recordIds).toQuery();
-
       const recordRaw = await this.prismaService
         .txClient()
         .$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(nativeQuery);

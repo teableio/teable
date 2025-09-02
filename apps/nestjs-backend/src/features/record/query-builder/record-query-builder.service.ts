@@ -56,6 +56,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
     visitor.build();
 
+    // CTE map built for link fields; selections happen later.
+
     return { qb, alias: mainTableAlias, tables, table, state };
   }
 
@@ -124,6 +126,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     );
 
     this.buildSelect(qb, table, state, options.selectFieldIds);
+
+    // Selection map collected as fields are visited.
 
     const selectionMap = state.getSelectionMap();
     if (filter) {
