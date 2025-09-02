@@ -45,50 +45,35 @@ export class QuerySelect {
     }
 
     const aggregationColumn = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
-    const aliasSelect = select
-      ? select.reduce(
-          (acc, cur) => {
-            const field = currentFieldMap[cur.column];
-            if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
-              if (cur.alias) {
-                // replace ? to _ because of knex queryBuilder cannot use ? as alias
-                const alias = cur.alias.replace(/\?/g, '_');
-                acc[alias] = field.dbFieldName;
-                currentFieldMap[cur.column].name = alias;
-                currentFieldMap[cur.column].dbFieldName = alias;
-              } else {
-                const alias = field.id;
-                acc[alias] = field.dbFieldName;
-                currentFieldMap[cur.column].dbFieldName = alias;
-              }
-            } else if (field && !aggregationColumn.includes(cur.column)) {
-              // filter aggregation column, because aggregation column has selected when parse aggregation
-              queryBuilder.select(cur.column);
-            } else if (field) {
-              // aggregation field id as alias
-              currentFieldMap[cur.column].dbFieldName = cur.column;
-            }
-            return acc;
-          },
-          {} as Record<string, string>
-        )
-      : Object.values(currentFieldMap).reduce(
-          (acc, cur) => {
-            if (getQueryColumnTypeByFieldInstance(cur) === BaseQueryColumnType.Field) {
-              const alias = cur.id;
-              acc[alias] = cur.dbFieldName;
-              currentFieldMap[cur.id].dbFieldName = alias;
-            } else {
-              // aggregation field id as alias
-              currentFieldMap[cur.id].dbFieldName = cur.id;
-              !aggregationColumn.includes(cur.id) && queryBuilder.select(cur.id);
-            }
-            return acc;
-          },
-          {} as Record<string, string>
-        );
-    if (!isEmpty(aliasSelect)) {
-      queryBuilder.select(aliasSelect);
+    if (select) {
+      select.forEach((cur) => {
+        const field = currentFieldMap[cur.column];
+        if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
+          const alias = (cur.alias ? cur.alias : field.id).replace(/\?/g, '_');
+          // Use raw to avoid knex double-quoting an already quoted identifier
+          queryBuilder.select(knex.raw(`${field.dbFieldName} as ??`, [alias]));
+          currentFieldMap[cur.column].name = alias;
+          currentFieldMap[cur.column].dbFieldName = alias;
+        } else if (field && !aggregationColumn.includes(cur.column)) {
+          // filter aggregation column, because aggregation column has selected when parse aggregation
+          queryBuilder.select(cur.column);
+        } else if (field) {
+          // aggregation field id as alias
+          currentFieldMap[cur.column].dbFieldName = cur.column;
+        }
+      });
+    } else {
+      Object.values(currentFieldMap).forEach((cur) => {
+        if (getQueryColumnTypeByFieldInstance(cur) === BaseQueryColumnType.Field) {
+          const alias = cur.id;
+          queryBuilder.select(knex.raw(`${cur.dbFieldName} as ??`, [alias]));
+          currentFieldMap[cur.id].dbFieldName = alias;
+        } else {
+          // aggregation field id as alias
+          currentFieldMap[cur.id].dbFieldName = cur.id;
+          !aggregationColumn.includes(cur.id) && queryBuilder.select(cur.id);
+        }
+      });
     }
     // delete not selected field from fieldMap
     // tips: The current query has an aggregation and cannot be deleted. ( select * count(fld) as fld_count from xxxxx) => fld_count cannot be deleted
@@ -188,10 +173,11 @@ export class QuerySelect {
       }
       queryBuilder.select(
         typeof column === 'string'
-          ? {
-              [fieldId]: column,
-            }
-          : knex.raw(`${column.sql} as ??`, [...column.bindings, fieldId])
+          ? knex.raw(`${column} as ??`, [fieldId])
+          : knex.raw(`${column.sql} as ??`, [
+              ...(Array.isArray((column as any).bindings) ? (column as any).bindings : []),
+              fieldId,
+            ])
       );
     });
 

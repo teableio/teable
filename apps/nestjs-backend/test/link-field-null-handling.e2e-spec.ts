@@ -91,15 +91,6 @@ describe('Link Field Null Handling (e2e)', () => {
         expect(linkValue).not.toEqual([{ id: null, title: null }]);
       }
     });
-
-    // Temporarily skip these tests to focus on the basic fix
-    it.skip('should return proper link data when links are established', async () => {
-      // Test skipped due to transaction issues in test environment
-    });
-
-    it.skip('should handle mixed scenarios correctly', async () => {
-      // Test skipped due to transaction issues in test environment
-    });
   });
 
   describe('Link field with ManyOne relationship', () => {
