@@ -232,10 +232,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
             })
           ).data;
 
-          // console.log(
-          //   'records',
-          //   records.map((r) => r.fields[field.name])
-          // );
+          console.log('records', JSON.stringify(records.map((f) => f.fields)));
           expect(records.length).toBe(expectResultLength);
         }
       );

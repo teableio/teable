@@ -206,7 +206,7 @@ describe('BaseSqlQuery e2e', () => {
       ]);
     });
 
-    it.only('groupBy with date', async () => {
+    it('groupBy with date', async () => {
       const table = await createTable(baseId, {
         fields: [
           {
