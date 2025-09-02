@@ -56,7 +56,8 @@ export class QuerySelect {
           currentFieldMap[cur.column].dbFieldName = alias;
         } else if (field && !aggregationColumn.includes(cur.column)) {
           // filter aggregation column, because aggregation column has selected when parse aggregation
-          queryBuilder.select(cur.column);
+          // quote alias to preserve case for aggregated columns coming from subqueries
+          queryBuilder.select(knex.raw('??', [cur.column]));
         } else if (field) {
           // aggregation field id as alias
           currentFieldMap[cur.column].dbFieldName = cur.column;
@@ -71,7 +72,7 @@ export class QuerySelect {
         } else {
           // aggregation field id as alias
           currentFieldMap[cur.id].dbFieldName = cur.id;
-          !aggregationColumn.includes(cur.id) && queryBuilder.select(cur.id);
+          !aggregationColumn.includes(cur.id) && queryBuilder.select(knex.raw('??', [cur.id]));
         }
       });
     }
@@ -127,15 +128,41 @@ export class QuerySelect {
       {} as Record<string, string>
     );
     const fieldDbFieldNames = Object.keys(fieldIdDbFieldNamesMap);
+    // Also build a map from field id to dbFieldName for easier matching when GROUP BY uses aliases
+    const fieldIdToDbFieldNameMap = Object.values(fieldMap).reduce(
+      (acc, cur) => {
+        acc[cur.id] = cur.dbFieldName;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
     return currentGroupByColumns.reduce(
       (acc: Record<string, any>, column: any) => {
-        const dbFieldName = fieldDbFieldNames.find((name) =>
-          typeof column === 'string'
-            ? column === name
-            : column.sql?.includes(name) || column.bindings?.includes(name)
-        );
-        if (dbFieldName) {
-          acc[fieldIdDbFieldNamesMap[dbFieldName]] = column;
+        let matchedFieldId: string | undefined;
+
+        if (typeof column === 'string') {
+          // Case 1: GROUP BY uses a plain alias/id (e.g., aggregation alias like fldX_sum)
+          if (fieldIdToDbFieldNameMap[column]) {
+            matchedFieldId = column;
+          } else {
+            // Case 2: GROUP BY uses the full qualified dbFieldName
+            const dbFieldName = fieldDbFieldNames.find((name) => column === name);
+            if (dbFieldName) {
+              matchedFieldId = fieldIdDbFieldNamesMap[dbFieldName];
+            }
+          }
+        } else {
+          // knex may store complex refs as objects; try matching by dbFieldName occurrence
+          const dbFieldName = fieldDbFieldNames.find(
+            (name) => column.sql?.includes(name) || column.bindings?.includes(name)
+          );
+          if (dbFieldName) {
+            matchedFieldId = fieldIdDbFieldNamesMap[dbFieldName];
+          }
+        }
+
+        if (matchedFieldId) {
+          acc[matchedFieldId] = column;
         }
         return acc;
       },
@@ -180,6 +207,18 @@ export class QuerySelect {
             ])
       );
     });
+
+    // Ensure aggregation aliases used in GROUP BY are also selected even if not detected above
+    if (groupBy && groupBy.length) {
+      const aggregationIds = groupBy
+        .filter((v) => v.type === BaseQueryColumnType.Aggregation)
+        .map((v) => v.column);
+      aggregationIds.forEach((id) => {
+        if (!groupByColumnMap[id]) {
+          queryBuilder.select(knex.raw('?? as ??', [id, id]));
+        }
+      });
+    }
 
     const res = cloneDeep(groupFieldMap);
     Object.values(res).forEach((field) => {

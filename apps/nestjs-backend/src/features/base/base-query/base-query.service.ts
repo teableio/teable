@@ -214,6 +214,7 @@ export class BaseQueryService {
         dbProvider: this.dbProvider,
         queryBuilder: currentQueryBuilder,
         fieldMap: currentFieldMap,
+        knex: this.knex,
       }
     );
     currentFieldMap = groupedFieldMap;
