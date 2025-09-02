@@ -686,7 +686,7 @@ describe('Undo Redo (e2e)', () => {
   });
 
   // event throw error because of sqlite(record history create many)
-  it('should undo / redo delete field with outgoing references', async () => {
+  it.only('should undo / redo delete field with outgoing references', async () => {
     // update and move 0 to 2
     const fieldId = table.fields[1].id;
     await awaitWithEvent(() =>

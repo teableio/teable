@@ -13,7 +13,6 @@ export class UndoRedoController {
     @Headers('x-window-id') windowId: string,
     @Param('tableId') tableId: string
   ): Promise<IUndoVo> {
-    console.log('undo', tableId, windowId);
     return await this.undoRedoService.undo(tableId, windowId);
   }
 

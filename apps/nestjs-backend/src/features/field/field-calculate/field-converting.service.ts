@@ -1421,15 +1421,17 @@ export class FieldConvertingService {
     oldField: IFieldInstance,
     recordOpsMap?: IOpsMap
   ) {
-    // Skip calculation when converting two-way -> one-way on the same relationship/table
-    if (this.isTogglingToOneWay(newField, oldField)) {
-      return;
-    }
+    // For two-way -> one-way toggles, we still need to apply recordOpsMap
+    // to persist preserved source link values, but can skip computed field recalculation.
+    const skipComputed = this.isTogglingToOneWay(newField, oldField);
+
     // calculate and submit records
     await this.calculateAndSaveRecords(tableId, newField, recordOpsMap);
 
-    // calculate computed fields
-    await this.calculateField(tableId, newField, oldField);
+    // calculate computed fields unless explicitly skipped
+    if (!skipComputed) {
+      await this.calculateField(tableId, newField, oldField);
+    }
   }
 
   private isTogglingToOneWay(newField: IFieldInstance, oldField: IFieldInstance): boolean {

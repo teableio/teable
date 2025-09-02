@@ -397,26 +397,36 @@ export class FieldConvertingLinkService {
       newField.options.isOneWay &&
       !oldField.options.isOneWay
     ) {
-      // Preserve source table link values as-is when converting from TwoWay to OneWay
+      // Preserve source table link values by copying old values into the updated field
       const sourceFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
         where: { id: oldField.id, deletedTime: null },
         select: { tableId: true },
       });
       const sourceTableId = sourceFieldRaw.tableId;
       const sourceRecords = await this.getRecords(sourceTableId, oldField);
+
       const sourceOpsMap: { [recordId: string]: IOtOperation[] } = {};
-      sourceRecords.forEach((record) => {
-        const existingValue = record.fields[newField.id];
-        if (existingValue == null) return;
+      for (const record of sourceRecords) {
+        const cell = record.fields[oldField.id] as ILinkCellValue | ILinkCellValue[] | undefined;
+        if (cell == null) continue;
+
+        const links = [cell].flat();
+        const relationship = newField.options.relationship;
+        const newValue =
+          relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+            ? { id: links[0].id }
+            : links.map((l) => ({ id: l.id }));
+
         sourceOpsMap[record.id] = [
           RecordOpBuilder.editor.setRecord.build({
             fieldId: newField.id,
-            newCellValue: existingValue,
-            // Force reapply after FK cleanup by setting oldCellValue to null
+            newCellValue: newValue,
+            // Force reapply after FK/junction cleanup by setting oldCellValue to null
             oldCellValue: null,
           }),
         ];
-      });
+      }
+
       return { [sourceTableId]: sourceOpsMap } as IOpsMap;
     }
     if (newField.options.foreignTableId === oldField.options.foreignTableId) {
