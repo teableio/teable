@@ -62,7 +62,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly state: IReadonlyQueryBuilderState,
     private readonly joinedCtes?: Set<string>, // Track which CTEs are already JOINed in current scope
     private readonly isSingleValueRelationshipContext: boolean = false, // In ManyOne/OneOne CTEs, avoid aggregates
-    private readonly foreignAliasOverride?: string
+    private readonly foreignAliasOverride?: string,
+    private readonly currentLinkFieldId?: string
   ) {}
   private get fieldCteMap() {
     return this.state.getFieldCteMap();
@@ -338,7 +339,12 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       // Try to fetch via the CTE of the foreign link if present
       const nestedLinkFieldId = field.lookupOptions?.linkFieldId;
       const fieldCteMap = this.state.getFieldCteMap();
-      if (nestedLinkFieldId && fieldCteMap.has(nestedLinkFieldId)) {
+      // Guard against self-referencing the CTE being defined (would require WITH RECURSIVE)
+      if (
+        nestedLinkFieldId &&
+        fieldCteMap.has(nestedLinkFieldId) &&
+        nestedLinkFieldId !== this.currentLinkFieldId
+      ) {
         const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
@@ -366,7 +372,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (targetLookupField.type === FieldType.Link) {
       const nestedLinkFieldId = (targetLookupField as LinkFieldCore).id;
       const fieldCteMap = this.state.getFieldCteMap();
-      if (fieldCteMap.has(nestedLinkFieldId)) {
+      if (fieldCteMap.has(nestedLinkFieldId) && nestedLinkFieldId !== this.currentLinkFieldId) {
         const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
         // Check if this CTE is JOINed in current scope
         if (this.joinedCtes?.has(nestedLinkFieldId)) {
@@ -386,6 +392,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
               : linkExpr;
         }
       }
+      // If self-referencing or missing, return NULL
+      return 'NULL';
     }
 
     // If the target is a Rollup field, read its precomputed rollup value from the link CTE
@@ -849,7 +857,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           this.state,
           joinedCtesInScope,
           usesJunctionTable || relationship === Relationship.OneMany ? false : true,
-          foreignAliasUsed
+          foreignAliasUsed,
+          linkField.id
         );
         const linkValue = linkField.accept(visitor);
 
@@ -865,7 +874,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             this.state,
             joinedCtesInScope,
             usesJunctionTable || relationship === Relationship.OneMany ? false : true,
-            foreignAliasUsed
+            foreignAliasUsed,
+            linkField.id
           );
           const lookupValue = lookupField.accept(visitor);
           cqb.select(cqb.client.raw(`${lookupValue} as "lookup_${lookupField.id}"`));
@@ -880,7 +890,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             this.state,
             joinedCtesInScope,
             usesJunctionTable || relationship === Relationship.OneMany ? false : true,
-            foreignAliasUsed
+            foreignAliasUsed,
+            linkField.id
           );
           const rollupValue = rollupField.accept(visitor);
           cqb.select(cqb.client.raw(`${rollupValue} as "rollup_${rollupField.id}"`));
@@ -1142,7 +1153,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         this.state,
         joinedCtesInScope,
         usesJunctionTable || relationship === Relationship.OneMany ? false : true,
-        foreignAliasUsed
+        foreignAliasUsed,
+        linkField.id
       );
       const linkValue = linkField.accept(visitor);
 
@@ -1158,7 +1170,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           this.state,
           joinedCtesInScope,
           usesJunctionTable || relationship === Relationship.OneMany ? false : true,
-          foreignAliasUsed
+          foreignAliasUsed,
+          linkField.id
         );
         const lookupValue = lookupField.accept(visitor);
         cqb.select(cqb.client.raw(`${lookupValue} as "lookup_${lookupField.id}"`));
@@ -1173,7 +1186,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           this.state,
           joinedCtesInScope,
           usesJunctionTable || relationship === Relationship.OneMany ? false : true,
-          foreignAliasUsed
+          foreignAliasUsed,
+          linkField.id
         );
         const rollupValue = rollupField.accept(visitor);
         cqb.select(cqb.client.raw(`${rollupValue} as "rollup_${rollupField.id}"`));

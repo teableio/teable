@@ -67,10 +67,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   private createStandardColumn(field: FieldCore): void {
+    // Lookup fields: do NOT create a persisted column.
+    // They are computed at query time via CTEs/views.
     if (field.isLookup) {
       return;
     }
-
     const schemaType = this.getSchemaType(field.dbFieldType);
     const column = this.context.table[schemaType](this.context.dbFieldName);
 

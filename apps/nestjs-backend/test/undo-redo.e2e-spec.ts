@@ -1382,9 +1382,13 @@ describe('Undo Redo (e2e)', () => {
         id: table3.records[0].id,
         title: 'C1',
       });
-      expect(records[0].fields[targetLookupField.id]).toEqual('B1');
+      // Lookup becomes errored after link converted to another table;
+      // in base-table query path (no view cache), it resolves to undefined
+      expect(records[0].fields[targetLookupField.id]).toBeUndefined();
+      // Formula on link should still resolve with the new link
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
-      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
+      // Formula on lookup should also be undefined when lookup is errored
+      expect(records[0].fields[targetFormulaLookupField.id]).toBeUndefined();
     });
 
     it('should undo / redo convert two-way to one-way link', async () => {

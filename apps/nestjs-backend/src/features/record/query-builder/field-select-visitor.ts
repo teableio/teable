@@ -102,10 +102,17 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (field.isLookup && field.lookupOptions && fieldCteMap) {
       // Check if the field has error (e.g., target field deleted)
       if (field.hasError) {
-        // Field has error, return NULL to indicate this field should be null
-        const rawExpression = this.qb.client.raw(`NULL `);
+        // Lookup has no standard column in base table.
+        // When building from a materialized view, fallback to the view's column.
+        if (this.isViewContext()) {
+          const columnSelector = this.getColumnSelector(field);
+          this.state.setSelection(field.id, columnSelector);
+          return columnSelector;
+        }
+        // Base-table context: return NULL to avoid missing-column errors.
+        const raw = this.qb.client.raw('NULL');
         this.state.setSelection(field.id, 'NULL');
-        return rawExpression;
+        return raw;
       }
 
       // For regular lookup fields, use the corresponding link field CTE
