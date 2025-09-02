@@ -973,6 +973,12 @@ export class FieldService implements IReadonlyAdapterService {
       };
     }
 
+    if (key === 'meta') {
+      return {
+        meta: newValue ? JSON.stringify(newValue) : null,
+      } as Prisma.FieldUpdateInput;
+    }
+
     if (key === 'lookupOptions') {
       return {
         lookupOptions: newValue ? JSON.stringify(newValue) : null,
