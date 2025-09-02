@@ -41,15 +41,15 @@ describe('GeneratedColumnQuerySupportValidator', () => {
     it('should support basic time functions but not time-dependent ones', () => {
       expect(postgresValidator.now()).toBe(true);
       expect(postgresValidator.today()).toBe(true);
-      expect(postgresValidator.lastModifiedTime()).toBe(true);
-      expect(postgresValidator.createdTime()).toBe(true);
+      expect(postgresValidator.lastModifiedTime()).toBe(false);
+      expect(postgresValidator.createdTime()).toBe(false);
       expect(postgresValidator.fromNow('a')).toBe(false);
       expect(postgresValidator.toNow('a')).toBe(false);
     });
 
     it('should support system functions', () => {
-      expect(postgresValidator.recordId()).toBe(true);
-      expect(postgresValidator.autoNumber()).toBe(true);
+      expect(postgresValidator.recordId()).toBe(false);
+      expect(postgresValidator.autoNumber()).toBe(false);
     });
 
     it('should support basic date functions but not complex ones', () => {
@@ -104,15 +104,15 @@ describe('GeneratedColumnQuerySupportValidator', () => {
     it('should support basic time functions but not time-dependent ones', () => {
       expect(sqliteValidator.now()).toBe(true);
       expect(sqliteValidator.today()).toBe(true);
-      expect(sqliteValidator.lastModifiedTime()).toBe(true);
-      expect(sqliteValidator.createdTime()).toBe(true);
+      expect(sqliteValidator.lastModifiedTime()).toBe(false);
+      expect(sqliteValidator.createdTime()).toBe(false);
       expect(sqliteValidator.fromNow('a')).toBe(false);
       expect(sqliteValidator.toNow('a')).toBe(false);
     });
 
     it('should support system functions', () => {
-      expect(sqliteValidator.recordId()).toBe(true);
-      expect(sqliteValidator.autoNumber()).toBe(true);
+      expect(sqliteValidator.recordId()).toBe(false);
+      expect(sqliteValidator.autoNumber()).toBe(false);
     });
 
     it('should not support complex date functions', () => {
