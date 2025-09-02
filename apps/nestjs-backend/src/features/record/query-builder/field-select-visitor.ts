@@ -96,19 +96,20 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   /**
    * Check if field is a Lookup field and return appropriate selector
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private checkAndSelectLookupField(field: FieldCore): IFieldSelectName {
     // Check if this is a Lookup field
-    const fieldCteMap = this.state.getFieldCteMap();
-    if (field.isLookup && field.lookupOptions && fieldCteMap) {
+    if (field.isLookup) {
+      const fieldCteMap = this.state.getFieldCteMap();
+      // Lookup has no standard column in base table.
+      // When building from a materialized view, fallback to the view's column.
+      if (this.isViewContext()) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
       // Check if the field has error (e.g., target field deleted)
-      if (field.hasError) {
-        // Lookup has no standard column in base table.
-        // When building from a materialized view, fallback to the view's column.
-        if (this.isViewContext()) {
-          const columnSelector = this.getColumnSelector(field);
-          this.state.setSelection(field.id, columnSelector);
-          return columnSelector;
-        }
+      if (field.hasError || !field.lookupOptions) {
         // Base-table context: return NULL to avoid missing-column errors.
         const raw = this.qb.client.raw('NULL');
         this.state.setSelection(field.id, 'NULL');
@@ -139,12 +140,15 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         this.state.setSelection(field.id, `"${cteName}"."lookup_${field.id}"`);
         return rawExpression;
       }
-    }
 
-    // Fallback to the original column
-    const columnSelector = this.getColumnSelector(field);
-    this.state.setSelection(field.id, columnSelector);
-    return columnSelector;
+      const raw = this.qb.client.raw('NULL');
+      this.state.setSelection(field.id, 'NULL');
+      return raw;
+    } else {
+      const columnSelector = this.getColumnSelector(field);
+      this.state.setSelection(field.id, columnSelector);
+      return columnSelector;
+    }
   }
 
   /**
@@ -249,12 +253,13 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
+    if (this.isViewContext()) {
+      // In view context, select the view column directly
+      return this.getColumnSelector(field);
+    }
+
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
-      if (this.isViewContext()) {
-        // In view context, select the view column directly
-        return this.getColumnSelector(field);
-      }
       // From base table context, without CTE, return NULL fallback
       const raw = this.qb.client.raw('NULL');
       this.state.setSelection(field.id, 'NULL');
@@ -268,6 +273,13 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       const rawExpression = this.qb.client.raw(`NULL`);
       this.state.setSelection(field.id, 'NULL');
       return rawExpression;
+    }
+
+    const linkField = field.getLinkField(this.table);
+    if (!linkField) {
+      const raw = this.qb.client.raw('NULL');
+      this.state.setSelection(field.id, 'NULL');
+      return raw;
     }
 
     const cteName = fieldCteMap.get(field.lookupOptions.linkFieldId)!;
