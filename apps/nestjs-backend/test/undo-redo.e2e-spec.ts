@@ -1177,10 +1177,6 @@ describe('Undo Redo (e2e)', () => {
       table2 = await createTable(baseId, { name: 'table2' });
       table3 = await createTable(baseId, { name: 'table3' });
 
-      console.log('table1', table1.id);
-      console.log('table2', table2.id);
-      console.log('table3', table3.id);
-
       refField1 = (await createField(table1.id, refField1Ro)).data;
       refField2 = (await createField(table1.id, refField2Ro)).data;
 
@@ -1208,11 +1204,10 @@ describe('Undo Redo (e2e)', () => {
 
       const linkField = (await createField(table1.id, linkFieldRo)).data;
 
-      const record = await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
-      console.log('updated:record', record);
       await deleteRecord(table1.id, table1.records[0].id);
 
       await undo(table1.id);
