@@ -512,7 +512,8 @@ export class FieldOpenApiService {
       });
     }
 
-    return newFieldVo;
+    // Keep API response consistent with getField/getFields by filtering out meta
+    return omit(newFieldVo, ['meta']) as IFieldVo;
   }
 
   async getFilterLinkRecords(tableId: string, fieldId: string) {
