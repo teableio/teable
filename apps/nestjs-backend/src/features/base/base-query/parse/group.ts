@@ -31,7 +31,8 @@ export class QueryGroup {
       )
       .appendGroupBuilder();
     aggregationGroup.forEach((v) => {
-      queryBuilder.groupBy(fieldMap[v.column].dbFieldName);
+      // Group by the aggregation column alias directly to avoid double quoting qualified paths
+      queryBuilder.groupBy(v.column);
     });
     return {
       queryBuilder,

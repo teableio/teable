@@ -162,8 +162,10 @@ export class BaseQueryService {
         (acc, key) => {
           acc[key] = createFieldInstanceByVo({
             ...fieldMap[key],
-            // Ensure alias and column are quoted to preserve case
-            dbFieldName: `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(fieldMap[key].dbFieldName)}`,
+            // When wrapping as a subquery alias, quote alias and column name
+            dbFieldName: `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(
+              (fieldMap[key].dbFieldName ?? '').split('.').pop() as string
+            )}`,
           });
           return acc;
         },
@@ -272,6 +274,8 @@ export class BaseQueryService {
   ) {
     const { baseId, fieldMap, queryBuilder } = context;
     let resFieldMap = { ...fieldMap };
+
+    const unquotePath = (ref: string) => ref.replace(/"/g, '');
     for (const join of joins) {
       const joinTable = join.table;
       const joinDbTableName = await this.getDbTableName(baseId, joinTable);
@@ -283,33 +287,33 @@ export class BaseQueryService {
         case BaseQueryJoinType.Inner:
           queryBuilder.innerJoin(
             joinDbTableName,
-            joinedField.dbFieldName,
+            this.knex.ref(unquotePath(joinedField.dbFieldName)),
             '=',
-            joinField.dbFieldName
+            this.knex.ref(unquotePath(joinField.dbFieldName))
           );
           break;
         case BaseQueryJoinType.Left:
           queryBuilder.leftJoin(
             joinDbTableName,
-            joinedField.dbFieldName,
+            this.knex.ref(unquotePath(joinedField.dbFieldName)),
             '=',
-            joinField.dbFieldName
+            this.knex.ref(unquotePath(joinField.dbFieldName))
           );
           break;
         case BaseQueryJoinType.Right:
           queryBuilder.rightJoin(
             joinDbTableName,
-            joinedField.dbFieldName,
+            this.knex.ref(unquotePath(joinedField.dbFieldName)),
             '=',
-            joinField.dbFieldName
+            this.knex.ref(unquotePath(joinField.dbFieldName))
           );
           break;
         case BaseQueryJoinType.Full:
           queryBuilder.fullOuterJoin(
             joinDbTableName,
-            joinedField.dbFieldName,
+            this.knex.ref(unquotePath(joinedField.dbFieldName)),
             '=',
-            joinField.dbFieldName
+            this.knex.ref(unquotePath(joinField.dbFieldName))
           );
           break;
         default:

@@ -1003,10 +1003,7 @@ describe('Comprehensive Aggregation Tests (e2e)', () => {
     });
   });
 
-  // TODO: Link Field Aggregation is not fully implemented yet
-  // Link fields don't create direct database columns and require special CTE handling
-  // Skip these tests until Link field aggregation is properly implemented
-  describe.skip('Link Field Aggregation', () => {
+  describe('Link Field Aggregation', () => {
     let linkFieldId: string;
 
     beforeEach(() => {
