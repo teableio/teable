@@ -886,7 +886,6 @@ export class FieldConvertingService {
     }
 
     const oldRecords = await this.batchService.updateRecords(recordOpsMap);
-
     await this.referenceService.calculateOpsMap(recordOpsMap, undefined, oldRecords);
   }
 
@@ -1422,10 +1421,26 @@ export class FieldConvertingService {
     oldField: IFieldInstance,
     recordOpsMap?: IOpsMap
   ) {
+    // Skip calculation when converting two-way -> one-way on the same relationship/table
+    if (this.isTogglingToOneWay(newField, oldField)) {
+      return;
+    }
     // calculate and submit records
     await this.calculateAndSaveRecords(tableId, newField, recordOpsMap);
 
     // calculate computed fields
     await this.calculateField(tableId, newField, oldField);
+  }
+
+  private isTogglingToOneWay(newField: IFieldInstance, oldField: IFieldInstance): boolean {
+    if (newField.type !== FieldType.Link || newField.isLookup) return false;
+    const newOpts = newField.options as ILinkFieldOptions;
+    const oldOpts = oldField.options as ILinkFieldOptions;
+    return (
+      newOpts.foreignTableId === oldOpts.foreignTableId &&
+      newOpts.relationship === oldOpts.relationship &&
+      Boolean(newOpts.isOneWay) &&
+      !oldOpts.isOneWay
+    );
   }
 }
