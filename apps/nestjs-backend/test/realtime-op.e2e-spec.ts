@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, IdPrefix, Relationship } from '@teable/core';
-import { enableShareView as apiEnableShareView, updateRecords } from '@teable/openapi';
+import { enableShareView as apiEnableShareView, axios, updateRecords } from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {
@@ -12,10 +12,11 @@ import {
   createRecords,
   updateRecord,
   getRecords,
+  convertField,
 } from './utils/init-app';
 import { subscribeDocs, waitFor } from './utils/wait';
 
-describe('Realtime Ops on Field Create (e2e)', () => {
+describe('Realtime Ops (e2e)', () => {
   let app: INestApplication;
   let shareDbService!: ShareDbService;
   let appUrl: string;
@@ -27,11 +28,15 @@ describe('Realtime Ops on Field Create (e2e)', () => {
     app = appCtx.app;
     appUrl = appCtx.appUrl;
     shareDbService = app.get(ShareDbService);
+    // Ensure field convert emits OPERATION_FIELD_CONVERT for dependency push
+    const windowId = 'win-realtime-e2e';
+    axios.interceptors.request.use((config) => {
+      config.headers['X-Window-Id'] = windowId;
+      return config;
+    });
   });
 
-  afterAll(async () => {
-    await app.close();
-  });
+  // Keep app running for next suite to preserve session cookie
 
   it('should publish record ops when creating a formula field', async () => {
     // 1. Create a table and enable share view for socket access
@@ -242,5 +247,141 @@ describe('Realtime Ops on Field Create (e2e)', () => {
 
     await waitFor(() => values.length >= 1);
     expect(values[0]).toEqual(5);
+  });
+
+  it('pushes ops when formula dependency changes (expression update)', async () => {
+    const table = await createTable(baseId, { name: 'dep-formula', records: [{ fields: {} }] });
+    const tableId = table.id;
+    const num = await createField(tableId, { type: FieldType.Number });
+    const formula = await createField(tableId, {
+      type: FieldType.Formula,
+      options: { expression: `{${num.id}} + 1` },
+    });
+    const rec = (await getRecords(tableId)).records[0];
+    await updateRecord(tableId, rec.id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: { [num.id]: 3 } },
+    });
+
+    const shareRes = await apiEnableShareView({ tableId, viewId: table.views[0].id });
+    const wsUrl = appUrl.replace('http', 'ws') + `/socket?shareId=${shareRes.data.shareId}`;
+    const conn = shareDbService.connect(undefined, { url: wsUrl, headers: {} });
+    const col = `${IdPrefix.Record}_${tableId}`;
+    const doc: Doc<any> = conn.get(col, rec.id);
+    await subscribeDocs([doc]);
+
+    let val: any;
+    doc.on('op', (ops: any[]) => {
+      const hit = ops?.find((op) => Array.isArray(op.p) && op.p[1] === formula.id);
+      if (hit && Object.prototype.hasOwnProperty.call(hit, 'oi')) val = hit.oi;
+    });
+
+    // convert formula: +1 -> +2
+    await convertField(tableId, formula.id, {
+      type: FieldType.Formula,
+      options: { expression: `{${num.id}} + 2` },
+    });
+    await waitFor(() => val === 5);
+  });
+
+  it('pushes ops when lookup definition changes (lookupFieldId update)', async () => {
+    const tableA = await createTable(baseId, { name: 'A-upd', records: [{ fields: {} }] });
+    const titleA = tableA.fields[0];
+    const numA = await createField(tableA.id, { type: FieldType.Number });
+    const aRec = (await getRecords(tableA.id)).records[0];
+    await updateRecord(tableA.id, aRec.id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: { [titleA.id]: 'A-Title', [numA.id]: 9 } },
+    });
+
+    const tableB = await createTable(baseId, { name: 'B-upd', records: [{ fields: {} }] });
+    const link = await createField(tableB.id, {
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyOne, foreignTableId: tableA.id },
+    });
+    const lookup = await createField(tableB.id, {
+      type: FieldType.SingleLineText,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: tableA.id,
+        linkFieldId: link.id,
+        lookupFieldId: titleA.id,
+      } as any,
+    });
+    const bRec = (await getRecords(tableB.id)).records[0];
+    await updateRecord(tableB.id, bRec.id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: { [link.id]: { id: aRec.id } } },
+    });
+
+    const shareRes = await apiEnableShareView({ tableId: tableB.id, viewId: tableB.views[0].id });
+    const wsUrl = appUrl.replace('http', 'ws') + `/socket?shareId=${shareRes.data.shareId}`;
+    const conn = shareDbService.connect(undefined, { url: wsUrl, headers: {} });
+    const col = `${IdPrefix.Record}_${tableB.id}`;
+    const doc: Doc<any> = conn.get(col, bRec.id);
+    await subscribeDocs([doc]);
+
+    let val: any;
+    doc.on('op', (ops: any[]) => {
+      const hit = ops?.find((op) => Array.isArray(op.p) && op.p[1] === lookup.id);
+      if (hit && Object.prototype.hasOwnProperty.call(hit, 'oi')) val = hit.oi;
+    });
+
+    await convertField(tableB.id, lookup.id, {
+      type: FieldType.Number,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: tableA.id,
+        linkFieldId: link.id,
+        lookupFieldId: numA.id,
+      } as any,
+    });
+    await waitFor(() => val === 9);
+  });
+
+  it('pushes ops when link is converted to normal field (dependents become null)', async () => {
+    const tableA = await createTable(baseId, { name: 'A2-upd', records: [{ fields: {} }] });
+    const titleA = tableA.fields[0];
+    const aRec = (await getRecords(tableA.id)).records[0];
+    await updateRecord(tableA.id, aRec.id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: { [titleA.id]: 'T' } },
+    });
+
+    const tableB = await createTable(baseId, { name: 'B2-upd', records: [{ fields: {} }] });
+    const link = await createField(tableB.id, {
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyOne, foreignTableId: tableA.id },
+    });
+    const lookup = await createField(tableB.id, {
+      type: FieldType.SingleLineText,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: tableA.id,
+        linkFieldId: link.id,
+        lookupFieldId: titleA.id,
+      } as any,
+    });
+    const bRec = (await getRecords(tableB.id)).records[0];
+    await updateRecord(tableB.id, bRec.id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: { [link.id]: { id: aRec.id } } },
+    });
+
+    const shareRes = await apiEnableShareView({ tableId: tableB.id, viewId: tableB.views[0].id });
+    const wsUrl = appUrl.replace('http', 'ws') + `/socket?shareId=${shareRes.data.shareId}`;
+    const conn = shareDbService.connect(undefined, { url: wsUrl, headers: {} });
+    const col = `${IdPrefix.Record}_${tableB.id}`;
+    const doc: Doc<any> = conn.get(col, bRec.id);
+    await subscribeDocs([doc]);
+
+    let val: any;
+    doc.on('op', (ops: any[]) => {
+      const hit = ops?.find((op) => Array.isArray(op.p) && op.p[1] === lookup.id);
+      if (hit && Object.prototype.hasOwnProperty.call(hit, 'oi')) val = hit.oi;
+    });
+
+    await convertField(tableB.id, link.id, { type: FieldType.SingleLineText });
+    await waitFor(() => val === null);
   });
 });
