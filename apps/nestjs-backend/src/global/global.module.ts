@@ -16,6 +16,7 @@ import { PermissionGuard } from '../features/auth/guard/permission.guard';
 import { PermissionModule } from '../features/auth/permission.module';
 import { DataLoaderModule } from '../features/data-loader/data-loader.module';
 import { ModelModule } from '../features/model/model.module';
+import { RealtimeOpModule } from '../features/realtime/realtime-op.module';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
@@ -49,6 +50,7 @@ const globalModules = {
     PermissionModule,
     DataLoaderModule,
     PerformanceCacheModule,
+    RealtimeOpModule,
   ],
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
