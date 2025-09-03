@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import type { IFieldVo } from '@teable/core';
 import { Events } from '../../event-emitter/events';
 import { ICreateFieldsPayload } from '../undo-redo/operations/create-fields.operation';
 import { RealtimeOpService } from './realtime-op.service';
@@ -21,6 +22,24 @@ export class RealtimeOpListener {
       await this.realtimeOpService.publishOnFieldCreate(tableId, fieldIds);
     } catch (e) {
       this.logger.warn(`Realtime publish on field create failed: ${(e as Error).message}`);
+    }
+  }
+
+  // Field convert/update: after metadata and constraints applied
+  @OnEvent(Events.OPERATION_FIELD_CONVERT, { async: true })
+  async onFieldConvert(event: {
+    tableId: string;
+    newField: IFieldVo;
+    oldField: IFieldVo;
+    references?: string[];
+  }) {
+    try {
+      const { tableId, newField, references } = event;
+      if (!newField?.id) return;
+      const updatedFieldIds = Array.from(new Set([newField.id, ...(references || [])]));
+      await this.realtimeOpService.publishOnFieldUpdateDependencies(tableId, updatedFieldIds);
+    } catch (e) {
+      this.logger.warn(`Realtime publish on field convert failed: ${(e as Error).message}`);
     }
   }
 }
