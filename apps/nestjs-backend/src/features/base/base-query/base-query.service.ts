@@ -288,33 +288,37 @@ export class BaseQueryService {
         case BaseQueryJoinType.Inner:
           queryBuilder.innerJoin(
             joinDbTableName,
-            this.knex.ref(unquotePath(joinedField.dbFieldName)),
-            '=',
-            this.knex.ref(unquotePath(joinField.dbFieldName))
+            this.knex.raw('?? = ??', [
+              unquotePath(joinedField.dbFieldName),
+              unquotePath(joinField.dbFieldName),
+            ])
           );
           break;
         case BaseQueryJoinType.Left:
           queryBuilder.leftJoin(
             joinDbTableName,
-            this.knex.ref(unquotePath(joinedField.dbFieldName)),
-            '=',
-            this.knex.ref(unquotePath(joinField.dbFieldName))
+            this.knex.raw('?? = ??', [
+              unquotePath(joinedField.dbFieldName),
+              unquotePath(joinField.dbFieldName),
+            ])
           );
           break;
         case BaseQueryJoinType.Right:
           queryBuilder.rightJoin(
             joinDbTableName,
-            this.knex.ref(unquotePath(joinedField.dbFieldName)),
-            '=',
-            this.knex.ref(unquotePath(joinField.dbFieldName))
+            this.knex.raw('?? = ??', [
+              unquotePath(joinedField.dbFieldName),
+              unquotePath(joinField.dbFieldName),
+            ])
           );
           break;
         case BaseQueryJoinType.Full:
           queryBuilder.fullOuterJoin(
             joinDbTableName,
-            this.knex.ref(unquotePath(joinedField.dbFieldName)),
-            '=',
-            this.knex.ref(unquotePath(joinField.dbFieldName))
+            this.knex.raw('?? = ??', [
+              unquotePath(joinedField.dbFieldName),
+              unquotePath(joinField.dbFieldName),
+            ])
           );
           break;
         default:
