@@ -3545,6 +3545,66 @@ describe('OpenAPI link (e2e)', () => {
       expect(res1.fields[linkField.id]).toEqual({ id: table2.records[0].id, title: 'H2' });
     });
 
+    it('should work with link field show by field - delete record', async () => {
+      const textField = await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        name: 'text field',
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'tabele1 link field',
+        type: FieldType.Link,
+        options: {
+          isOneWay: true,
+          relationship: Relationship.OneOne,
+          foreignTableId: table1.id,
+          lookupFieldId: textField.id,
+        },
+      });
+      const table1RecordId1 = table1.records[0].id;
+      const table1RecordId2 = table1.records[1].id;
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table1RecordId1,
+            fields: {
+              [textField.id]: 'table1:A1',
+            },
+          },
+          {
+            id: table1RecordId2,
+            fields: {
+              [textField.id]: 'table1:A2',
+            },
+          },
+        ],
+      });
+
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table1RecordId1,
+            fields: {
+              [linkField.id]: { id: table1RecordId2 },
+            },
+          },
+          {
+            id: table1RecordId2,
+            fields: {
+              [linkField.id]: { id: table1RecordId1 },
+            },
+          },
+        ],
+      });
+
+      const res = await getRecord(table1.id, table1RecordId1);
+      expect(res.fields[linkField.id]).toEqual({ id: table1RecordId2, title: 'table1:A2' });
+
+      await deleteRecord(table1.id, table1RecordId1);
+    });
+
     it('should work with link field show by field - convert field', async () => {
       const textField = await createField(table2.id, {
         type: FieldType.SingleLineText,
