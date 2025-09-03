@@ -28,6 +28,7 @@ import {
   ViewType,
   FieldType,
   CellValueType,
+  DriverClient,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -551,7 +552,10 @@ export class ViewService implements IReadonlyAdapterService {
       };
     }
 
-    const dbTableName = 'public.view';
+    const dbTableName =
+      this.dbProvider.driver === DriverClient.Sqlite
+        ? 'view'
+        : this.dbProvider.joinDbTableName('public', 'view');
     const idFieldName = 'id';
     if (updateViewKeySet.size === 0) {
       return {
