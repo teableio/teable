@@ -577,7 +577,7 @@ export class ViewService implements IReadonlyAdapterService {
       return acc;
     }, {});
     const schemaTypeMap = columnList.reduce((acc: Record<string, SchemaType>, cur) => {
-      acc[camelCase(cur.name)] = cur.type as SchemaType;
+      acc[camelCase(cur.name)] = cur.type.toLowerCase() as SchemaType;
       return acc;
     }, {});
 
