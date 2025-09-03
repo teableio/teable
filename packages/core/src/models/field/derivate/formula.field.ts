@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
 import type { TableDomain } from '../../table/table-domain';
-import type { FieldType, CellValueType } from '../constant';
+import type { CellValueType } from '../constant';
+import { FieldType } from '../constant';
 import type { FieldCore } from '../field';
 import type { IFieldVisitor } from '../field-visitor.interface';
 import { isLinkField } from '../field.util';
@@ -107,6 +108,31 @@ export class FormulaFieldCore extends FormulaAbstractCore {
     }
 
     return referenceFields;
+  }
+
+  /**
+   * Check recursively whether all references in this formula are resolvable in the given table
+   * - Missing referenced field returns true (unresolved)
+   * - If a referenced formula exists but itself has unresolved references (or hasError), returns true
+   */
+  hasUnresolvedReferences(tableDomain: TableDomain, visited: Set<string> = new Set()): boolean {
+    // Prevent infinite loops on circular references
+    if (visited.has(this.id)) return false;
+    visited.add(this.id);
+
+    const ids = this.getReferenceFieldIds();
+    for (const id of ids) {
+      const ref = tableDomain.getField(id);
+      if (!ref) return true;
+      if (ref.hasError) return true;
+      // Drill down if the referenced field is a formula
+      if (ref.type === FieldType.Formula) {
+        const refFormula = ref as FormulaFieldCore;
+        if (refFormula.hasUnresolvedReferences(tableDomain, visited)) return true;
+      }
+    }
+
+    return false;
   }
 
   override getLinkFields(tableDomain: TableDomain): LinkFieldCore[] {

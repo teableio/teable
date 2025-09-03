@@ -1,4 +1,5 @@
 import { plainToInstance } from 'class-transformer';
+import { TableDomain } from '../../table/table-domain';
 import { Colors } from '../colors';
 import { DbFieldType, FieldType, CellValueType } from '../constant';
 import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '../formatting';
@@ -279,6 +280,76 @@ describe('FormulaFieldCore', () => {
           )
           .toPlain()
       ).toEqual(3);
+    });
+  });
+
+  describe('reference resolution', () => {
+    it('should detect missing references recursively', () => {
+      // f1 references missing fld999
+      const f1 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF1',
+        name: 'F1',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fld999} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+
+      // f2 references f1
+      const f2 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF2',
+        name: 'F2',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fldF1} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+
+      const table = new TableDomain({
+        id: 'tbl',
+        name: 'tbl',
+        dbTableName: 'tbl',
+        lastModifiedTime: new Date().toISOString(),
+        fields: [f1, f2],
+      });
+
+      expect(f1.hasUnresolvedReferences(table)).toBe(true);
+      expect(f2.hasUnresolvedReferences(table)).toBe(true);
+    });
+
+    it('should return false when all references exist', () => {
+      const num = numberField; // fld123 exists
+      const f1 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF1',
+        name: 'F1',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fld123} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+      const f2 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF2',
+        name: 'F2',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fldF1} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+
+      const table = new TableDomain({
+        id: 'tbl',
+        name: 'tbl',
+        dbTableName: 'tbl',
+        lastModifiedTime: new Date().toISOString(),
+        fields: [num, f1, f2],
+      });
+
+      expect(f1.hasUnresolvedReferences(table)).toBe(false);
+      expect(f2.hasUnresolvedReferences(table)).toBe(false);
     });
   });
 
