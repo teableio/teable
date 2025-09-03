@@ -157,6 +157,17 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    */
   private getFormulaColumnSelector(field: FormulaFieldCore): IFieldSelectName {
     if (!field.isLookup) {
+      // If any referenced field is missing in current table, fall back to NULL
+      const refIds = field.getReferenceFieldIds?.() || [];
+      if (refIds.length) {
+        const hasMissing = refIds.some((id) => !this.table.getField(id));
+        if (hasMissing) {
+          const raw = this.qb.client.raw('NULL');
+          this.state.setSelection(field.id, 'NULL');
+          return raw;
+        }
+      }
+
       const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
       if (!isPersistedAsGeneratedColumn) {
         // Return just the expression without alias for use in jsonb_build_object

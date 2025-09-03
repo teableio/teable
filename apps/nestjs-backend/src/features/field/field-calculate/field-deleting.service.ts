@@ -149,8 +149,23 @@ export class FieldDeletingService {
 
     // 4. Mark remaining fields as error
     if (errorFieldIds.length > 0) {
+      // Additionally, propagate error to downstream formula fields (same table) that depend
+      // on these errored fields (e.g., a -> b -> c; deleting a should set b and c hasError)
+      const transitiveFormulaIds = new Set<string>();
+      for (const fid of errorFieldIds) {
+        try {
+          const deps = await this.formulaFieldService.getDependentFormulaFieldsInOrder(fid);
+          deps.filter((d) => d.tableId === tableId).forEach((d) => transitiveFormulaIds.add(d.id));
+        } catch (e) {
+          this.logger.warn(`Failed to load dependent formulas for field ${fid}: ${e}`);
+        }
+      }
+
+      // Merge direct and transitive ids
+      const allErrorIds = Array.from(new Set<string>([...errorFieldIds, ...transitiveFormulaIds]));
+
       const fieldRaws = await this.prismaService.txClient().field.findMany({
-        where: { id: { in: errorFieldIds } },
+        where: { id: { in: allErrorIds } },
         select: { id: true, tableId: true },
       });
 
