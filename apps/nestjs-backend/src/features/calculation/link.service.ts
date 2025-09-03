@@ -1220,18 +1220,13 @@ export class LinkService {
   }
 
   async getRelatedLinkFieldRaws(tableId: string) {
-    const { id: primaryFieldId } = await this.prismaService
-      .txClient()
-      .field.findFirstOrThrow({
-        where: { tableId, deletedTime: null, isPrimary: true },
-        select: { id: true },
-      })
-      .catch(() => {
-        throw new BadRequestException(`Primary field not found`);
-      });
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true },
+    });
 
     const references = await this.prismaService.txClient().reference.findMany({
-      where: { fromFieldId: primaryFieldId },
+      where: { fromFieldId: { in: fieldRaws.map((f) => f.id) } },
       select: { toFieldId: true },
     });
 
