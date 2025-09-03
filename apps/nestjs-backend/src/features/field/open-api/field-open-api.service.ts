@@ -34,13 +34,13 @@ import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
+import { RealtimeOpService } from '../../realtime/realtime-op.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../../record/query-builder';
 import { RecordService } from '../../record/record.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
-import { ID_FIELD_NAME } from '../constant';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
@@ -73,6 +73,7 @@ export class FieldOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly tableIndexService: TableIndexService,
     private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly realtimeOpService: RealtimeOpService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
@@ -268,6 +269,8 @@ export class FieldOpenApiService {
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+
+    // Realtime ops are handled by OPERATION_FIELDS_CREATE listener after calc
 
     for (const { tableId, field } of newFields) {
       await this.tableIndexService.createSearchFieldSingleIndex(tableId, field);

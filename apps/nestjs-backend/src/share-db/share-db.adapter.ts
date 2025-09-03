@@ -93,7 +93,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         collection,
         results as string[],
         projection,
-        undefined,
+        options,
         (error, snapshots) => {
           if (error) {
             return callback(error, []);
@@ -191,16 +191,27 @@ export class ShareDbAdapter extends ShareDb.DB {
     collection: string,
     ids: string[],
     projection: IProjection | undefined,
-    options: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any,
     callback: (err: unknown | null, data?: Record<string, Snapshot>) => void
   ) {
     try {
       const [docType, collectionId] = collection.split('_');
 
-      const snapshotData = await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
-        collectionId,
-        ids,
-        projection && projection['$submit'] ? undefined : projection
+      const { cookie, shareId } = this.getCookieAndShareId(options);
+      const snapshotData = await this.cls.runWith(
+        {
+          ...this.cls.get(),
+          cookie,
+          shareViewId: shareId,
+        },
+        async () => {
+          return this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
+            collectionId,
+            ids,
+            projection && projection['$submit'] ? undefined : projection
+          );
+        }
       );
       if (snapshotData.length) {
         const snapshots = snapshotData.map(
