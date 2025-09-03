@@ -206,6 +206,7 @@ export class FieldViewSyncService {
       return;
     }
 
+    const opsMap: { [viewId: string]: IOtOperation[] } = {};
     for (let i = 0; i < views.length; i++) {
       const filterString = views[i].filter;
       // empty filter or the field is not in filter, skip
@@ -221,9 +222,10 @@ export class FieldViewSyncService {
         newValue: newFilter ? (newFilter?.filterSet?.length ? newFilter : null) : null,
         oldValue: filter,
       });
-
-      await this.viewService.updateViewByOps(tableId, views[i].id, [ops]);
+      opsMap[views[i].id] = [ops];
     }
+
+    await this.viewService.batchUpdateViewByOps(tableId, opsMap);
   }
 
   async getLinkForeignFields(tableId: string) {

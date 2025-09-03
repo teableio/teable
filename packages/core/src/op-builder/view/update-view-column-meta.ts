@@ -1,12 +1,12 @@
-import type { IColumnMeta, IOtOperation, IColumn } from '../../models';
+import type { IOtOperation, IColumn } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
 export interface IUpdateViewColumnMetaOpContext {
   name: OpName.UpdateViewColumnMeta;
   fieldId: string;
-  newColumnMeta?: IColumnMeta | null;
-  oldColumnMeta?: IColumnMeta | null;
+  newColumnMeta?: IColumn | null;
+  oldColumnMeta?: IColumn | null;
 }
 
 export class UpdateViewColumnMetaBuilder implements IOpBuilder {

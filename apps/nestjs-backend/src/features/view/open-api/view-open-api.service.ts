@@ -418,16 +418,18 @@ export class ViewOpenApiService {
     this.logger.log(`lucky view shuffle! ${tableId}`, 'shuffle');
 
     await this.prismaService.$tx(async () => {
+      const opsMap: { [viewId: string]: IOtOperation[] } = {};
       for (let i = 0; i < views.length; i++) {
         const view = views[i];
-        await this.viewService.updateViewByOps(tableId, view.id, [
+        opsMap[view.id] = [
           ViewOpBuilder.editor.setViewProperty.build({
             key: 'order',
             newValue: i,
             oldValue: view.order,
           }),
-        ]);
+        ];
       }
+      await this.viewService.batchUpdateViewByOps(tableId, opsMap);
     });
   }
 

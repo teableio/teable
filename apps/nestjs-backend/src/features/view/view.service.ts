@@ -16,6 +16,7 @@ import type {
   IFilterSet,
   IGalleryViewOptions,
   ICalendarViewOptions,
+  IColumn,
 } from '@teable/core';
 import {
   getUniqName,
@@ -31,7 +32,8 @@ import {
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { isEmpty, merge } from 'lodash';
+import { camelCase, isEmpty, isNull, isString, keyBy, merge, uniq } from 'lodash';
+import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
@@ -42,6 +44,7 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { BatchService } from '../calculation/batch.service';
+import { SchemaType } from '../field/util';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 
@@ -354,10 +357,11 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async updateViewByOps(tableId: string, viewId: string, ops: IOtOperation[]) {
-    const { version } = await this.prismaService.txClient().view.findFirstOrThrow({
+    const { version, columnMeta } = await this.prismaService.txClient().view.findFirstOrThrow({
       where: { id: viewId, tableId, deletedTime: null },
       select: {
         version: true,
+        columnMeta: true,
       },
     });
     const opContext = ops.map((op) => {
@@ -367,7 +371,14 @@ export class ViewService implements IReadonlyAdapterService {
       }
       return ctx as IViewOpContext;
     });
-    await this.update(version + 1, tableId, viewId, opContext);
+    await this.update(
+      {
+        viewId,
+        version: version + 1,
+        columnMeta: columnMeta ? JSON.parse(columnMeta) : {},
+      },
+      opContext
+    );
     await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
       {
         docId: viewId,
@@ -375,6 +386,245 @@ export class ViewService implements IReadonlyAdapterService {
         data: ops,
       },
     ]);
+  }
+
+  async batchUpdateViewByOps(tableId: string, opsMap: { [viewId: string]: IOtOperation[] }) {
+    const viewIds = Object.keys(opsMap);
+    if (viewIds.length === 0) {
+      return;
+    }
+    const {
+      updateViewMap,
+      updateViewKeySet,
+      dbFieldNameMap,
+      schemaTypeMap,
+      dbTableName,
+      idFieldName,
+    } = await this.getBatchUpdateViewContext(opsMap);
+    if (updateViewKeySet.size === 0) {
+      return;
+    }
+
+    const userId = this.cls.get('user.id');
+    const updateViewKeyMap = [...updateViewKeySet, 'version'].reduce(
+      (acc: Record<string, boolean>, key) => {
+        acc[key] = true;
+        return acc;
+      },
+      {}
+    );
+
+    const viewRaws = await this.prismaService.txClient().view.findMany({
+      where: { id: { in: viewIds }, tableId, deletedTime: null },
+      select: {
+        ...updateViewKeyMap,
+        id: true,
+        version: true,
+      },
+    });
+
+    const viewMap = keyBy(viewRaws, 'id');
+
+    const data = viewIds.reduce(
+      (acc: { id: string; values: { [key: string]: unknown } }[], viewId) => {
+        const view = viewMap[viewId];
+        if (!view) {
+          return acc;
+        }
+        const updateView = updateViewMap[viewId];
+        if (!updateView) {
+          return acc;
+        }
+
+        const values: Record<string, unknown> = {
+          ...updateView.property,
+          version: view.version + 1,
+          lastModifiedBy: userId,
+        };
+
+        if (updateViewKeyMap['columnMeta']) {
+          const { columnMeta } = updateView;
+          const _view = view as unknown as { columnMeta: string };
+          const originColumnMeta = isString(_view.columnMeta) ? JSON.parse(_view.columnMeta) : {};
+          const newColumnMetaKeys = uniq([
+            ...Object.keys(originColumnMeta),
+            ...Object.keys(columnMeta),
+          ]);
+
+          const newColumnMeta = newColumnMetaKeys.reduce(
+            (acc: IColumnMeta, key) => {
+              if (isNull(columnMeta[key])) {
+                delete acc[key];
+              } else if (columnMeta[key]) {
+                acc[key] = columnMeta[key] as IColumn;
+              }
+              return acc;
+            },
+            { ...originColumnMeta }
+          );
+          values.columnMeta = JSON.stringify(newColumnMeta);
+        }
+
+        const dbValues = Object.keys(values).reduce((acc: Record<string, unknown>, key) => {
+          if (!updateViewKeyMap[key]) {
+            return acc;
+          }
+          acc[dbFieldNameMap[key]] = values[key];
+          return acc;
+        }, {});
+
+        acc.push({
+          id: viewId,
+          values: dbValues,
+        });
+
+        return acc;
+      },
+      []
+    );
+
+    const schemas = [...Object.keys(updateViewKeyMap)].map((key) => ({
+      dbFieldName: dbFieldNameMap[key],
+      schemaType: schemaTypeMap[key] ?? SchemaType.Text,
+    }));
+
+    await this.batchUpdateDB(dbTableName, idFieldName, schemas, data);
+
+    const opDataList = viewIds.reduce(
+      (acc: { docId: string; version: number; data?: unknown }[], viewId) => {
+        const view = viewMap[viewId];
+        if (view) {
+          acc.push({
+            docId: viewId,
+            version: view.version,
+            data: opsMap[viewId],
+          });
+        }
+        return acc;
+      },
+      []
+    );
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
+  }
+
+  async getBatchUpdateViewContext(opsMap: { [viewId: string]: IOtOperation[] }) {
+    const updateViewMap: {
+      [viewId: string]: {
+        property: Record<string, string | null>;
+        columnMeta: Record<string, IColumn | null>;
+      };
+    } = {};
+    const updateViewKeySet = new Set<string>();
+    for (const [viewId, ops] of Object.entries(opsMap)) {
+      const opContexts = ops.map((op) => {
+        const ctx = ViewOpBuilder.detect(op);
+        if (!ctx) {
+          throw new Error('unknown field editing op');
+        }
+        return ctx as IViewOpContext;
+      });
+
+      const setPropertyOpContexts: ISetViewPropertyOpContext[] = [];
+      const updateColumnMetaOpContexts: IUpdateViewColumnMetaOpContext[] = [];
+      for (const opContext of opContexts) {
+        if (opContext.name === OpName.SetViewProperty) {
+          setPropertyOpContexts.push(opContext);
+        } else if (opContext.name === OpName.UpdateViewColumnMeta) {
+          updateColumnMetaOpContexts.push(opContext);
+        }
+      }
+
+      const property = this.mergeSetViewProperty(setPropertyOpContexts);
+      const columnMeta = this.mergeUpdatedViewColumnMeta(updateColumnMetaOpContexts);
+
+      Object.keys(property).forEach((key) => {
+        updateViewKeySet.add(key);
+      });
+      if (Object.keys(columnMeta).length > 0) {
+        updateViewKeySet.add('columnMeta');
+      }
+
+      updateViewMap[viewId] = {
+        property,
+        columnMeta,
+      };
+    }
+
+    const dbTableName = 'public.view';
+    const idFieldName = 'id';
+    if (updateViewKeySet.size === 0) {
+      return {
+        updateViewMap,
+        updateViewKeySet,
+        dbFieldNameMap: {},
+        schemaTypeMap: {},
+        dbTableName,
+        idFieldName,
+      };
+    }
+
+    const columnListQuery = this.knex.queryBuilder().columnList(dbTableName);
+    const columnList = await this.prismaService.$queryRawUnsafe<{ name: string; type: string }[]>(
+      columnListQuery.toQuery()
+    );
+    const dbFieldNameMap = columnList.reduce((acc: Record<string, string>, cur) => {
+      acc[camelCase(cur.name)] = cur.name;
+      return acc;
+    }, {});
+    const schemaTypeMap = columnList.reduce((acc: Record<string, SchemaType>, cur) => {
+      acc[camelCase(cur.name)] = cur.type as SchemaType;
+      return acc;
+    }, {});
+
+    return {
+      updateViewMap,
+      updateViewKeySet,
+      dbFieldNameMap,
+      schemaTypeMap,
+      dbTableName,
+      idFieldName,
+    };
+  }
+
+  async batchUpdateDB(
+    dbTableName: string,
+    idFieldName: string,
+    schemas: { schemaType: SchemaType; dbFieldName: string }[],
+    data: { id: string; values: { [key: string]: unknown } }[]
+  ) {
+    const tempTableName = `temp_` + customAlphabet('abcdefghijklmnopqrstuvwxyz', 10)();
+    // 1.create temporary table structure
+    const createTempTableSchema = this.knex.schema.createTable(tempTableName, (table) => {
+      table.string(idFieldName).primary();
+      schemas.forEach(({ dbFieldName, schemaType }) => {
+        table[schemaType](dbFieldName);
+      });
+    });
+
+    const createTempTableSql = createTempTableSchema
+      .toQuery()
+      .replace('create table', 'create temporary table');
+
+    const { insertTempTableSql, updateRecordSql } = this.dbProvider.executeUpdateRecordsSqlList({
+      dbTableName,
+      tempTableName,
+      idFieldName,
+      dbFieldNames: schemas.map((s) => s.dbFieldName),
+      data,
+    });
+    const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
+
+    await this.prismaService.$tx(async (tx) => {
+      // temp table should in one transaction
+      await tx.$executeRawUnsafe(createTempTableSql);
+      // 2.initialize temporary table data
+      await tx.$executeRawUnsafe(insertTempTableSql);
+      // 3.update data
+      await tx.$executeRawUnsafe(updateRecordSql);
+      // 4.delete temporary table
+      await tx.$executeRawUnsafe(dropTempTableSql);
+    });
   }
 
   async create(tableId: string, view: IViewVo) {
@@ -445,41 +695,97 @@ export class ViewService implements IReadonlyAdapterService {
     );
   }
 
-  async update(version: number, tableId: string, viewId: string, opContexts: IViewOpContext[]) {
+  mergeUpdatedViewColumnMeta(opContexts: IUpdateViewColumnMetaOpContext[]) {
+    const result: Record<string, IColumn | null> = {};
+    for (const opContext of opContexts) {
+      const { fieldId, newColumnMeta } = opContext;
+
+      if (!newColumnMeta) {
+        result[fieldId] = null;
+      } else {
+        const old = result[fieldId] ?? {};
+        result[fieldId] = {
+          ...old,
+          ...newColumnMeta,
+        };
+      }
+    }
+
+    return result;
+  }
+
+  mergeSetViewProperty(opContexts: ISetViewPropertyOpContext[]) {
+    const result: Record<string, string | null> = {};
+    for (const opContext of opContexts) {
+      const { key, newValue } = opContext;
+      const parseResult = viewVoSchema.partial().safeParse({ [key]: newValue });
+      if (!parseResult.success) {
+        throw new BadRequestException(fromZodError(parseResult.error).message);
+      }
+      const parsedValue = parseResult.data[key] as IViewPropertyKeys;
+      result[key] =
+        parsedValue == null
+          ? null
+          : typeof parsedValue === 'object'
+            ? JSON.stringify(parsedValue)
+            : parsedValue;
+    }
+    return result;
+  }
+
+  async update(
+    view: {
+      version: number;
+      columnMeta: IColumnMeta;
+      viewId: string;
+    },
+    opContexts: IViewOpContext[]
+  ) {
+    const { version, columnMeta: originColumnMeta, viewId } = view;
     const userId = this.cls.get('user.id');
 
+    const setPropertyOps: ISetViewPropertyOpContext[] = [];
+    const updateColumnMetaOps: IUpdateViewColumnMetaOpContext[] = [];
     for (const opContext of opContexts) {
-      const updateData: Prisma.ViewUpdateInput = { version, lastModifiedBy: userId };
-      if (opContext.name === OpName.UpdateViewColumnMeta) {
-        const columnMeta = await this.getUpdatedColumnMeta(tableId, viewId, opContext);
-        await this.prismaService.txClient().view.update({
-          where: { id: viewId },
-          data: {
-            ...updateData,
-            columnMeta,
-          },
-        });
-        continue;
+      if (opContext.name === OpName.SetViewProperty) {
+        setPropertyOps.push(opContext);
+      } else if (opContext.name === OpName.UpdateViewColumnMeta) {
+        updateColumnMetaOps.push(opContext);
       }
-      const { key, newValue } = opContext;
-      const result = viewVoSchema.partial().safeParse({ [key]: newValue });
-      if (!result.success) {
-        throw new BadRequestException(fromZodError(result.error).message);
-      }
-      const parsedValue = result.data[key] as IViewPropertyKeys;
-      await this.prismaService.txClient().view.update({
-        where: { id: viewId },
-        data: {
-          ...updateData,
-          [key]:
-            parsedValue == null
-              ? null
-              : typeof parsedValue === 'object'
-                ? JSON.stringify(parsedValue)
-                : parsedValue,
-        },
-      });
     }
+
+    const property = setPropertyOps.length > 0 ? this.mergeSetViewProperty(setPropertyOps) : {};
+
+    const data: Prisma.ViewUpdateInput = {
+      ...property,
+      version: version + 1,
+      lastModifiedBy: userId,
+    };
+
+    if (updateColumnMetaOps.length > 0) {
+      const columnMeta = this.mergeUpdatedViewColumnMeta(updateColumnMetaOps);
+      const newColumnMetaKeys = uniq([
+        ...Object.keys(originColumnMeta),
+        ...Object.keys(columnMeta),
+      ]);
+      const newColumnMeta = newColumnMetaKeys.reduce(
+        (acc: IColumnMeta, key) => {
+          if (isNull(columnMeta[key])) {
+            delete acc[key];
+          } else if (columnMeta[key]) {
+            acc[key] = columnMeta[key] as IColumn;
+          }
+          return acc;
+        },
+        { ...originColumnMeta }
+      );
+      data.columnMeta = JSON.stringify(newColumnMeta);
+    }
+
+    await this.prismaService.txClient().view.update({
+      where: { id: viewId },
+      data,
+    });
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
@@ -546,6 +852,7 @@ export class ViewService implements IReadonlyAdapterService {
       return;
     }
 
+    const opsMap: { [viewId: string]: IOtOperation[] } = {};
     for (let i = 0; i < view.length; i++) {
       const ops: IOtOperation[] = [];
       const viewId = view[i].id;
@@ -566,8 +873,10 @@ export class ViewService implements IReadonlyAdapterService {
       });
 
       // 2. build update ops and emit
-      await this.updateViewByOps(tableId, viewId, ops);
+      opsMap[viewId] = ops;
     }
+
+    await this.batchUpdateViewByOps(tableId, opsMap);
   }
 
   async deleteViewRelativeByFields(tableId: string, fieldIds: string[]) {
@@ -589,6 +898,7 @@ export class ViewService implements IReadonlyAdapterService {
       throw new Error(`no view in this table`);
     }
 
+    const opsMap: { [viewId: string]: IOtOperation[] } = {};
     for (let i = 0; i < view.length; i++) {
       const ops: IOtOperation[] = [];
       const viewId = view[i].id;
@@ -630,8 +940,9 @@ export class ViewService implements IReadonlyAdapterService {
       });
 
       // 2. build update ops and emit
-      await this.updateViewByOps(tableId, viewId, ops);
+      opsMap[viewId] = ops;
     }
+    await this.batchUpdateViewByOps(tableId, opsMap);
   }
 
   getDeleteFilterByFieldIdOps(filter: IFilterSet, fieldId: string) {
