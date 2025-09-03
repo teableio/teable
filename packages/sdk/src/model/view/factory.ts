@@ -24,8 +24,6 @@ export function createViewInstance(view: IViewVo, doc?: Doc<IViewVo>) {
         return plainToInstance(PluginView, view);
       case ViewType.Calendar:
         return plainToInstance(CalendarView, view);
-      case ViewType.Gantt:
-        throw new Error('did not implement yet');
       default:
         assertNever(view.type);
     }

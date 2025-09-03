@@ -63,9 +63,6 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(LastModifiedByField, field);
       case FieldType.Button:
         return plainToInstance(ButtonField, field);
-      case FieldType.Count:
-      case FieldType.Duration:
-        return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:
         assertNever(field.type);
     }

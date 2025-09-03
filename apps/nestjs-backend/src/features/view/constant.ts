@@ -21,8 +21,5 @@ export const defaultShareMetaMap: Record<ViewType, IShareViewMeta | undefined> =
   [ViewType.Gallery]: {
     includeRecords: true,
   },
-  [ViewType.Gantt]: {
-    includeRecords: true,
-  },
   [ViewType.Plugin]: undefined,
 };

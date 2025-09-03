@@ -25,8 +25,6 @@ export function createViewInstanceByRaw(viewRaw: View) {
       return plainToInstance(FormViewDto, viewVo);
     case ViewType.Plugin:
       return plainToInstance(PluginViewDto, viewVo);
-    case ViewType.Gantt:
-      throw new Error('did not implement yet');
     default:
       assertNever(viewVo.type);
   }

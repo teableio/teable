@@ -29,16 +29,12 @@ export const useFieldTypeSubtitle = () => {
           return t('table:field.subTitle.date');
         case FieldType.Number:
           return t('table:field.subTitle.number');
-        case FieldType.Duration:
-          return t('table:field.subTitle.duration');
         case FieldType.Rating:
           return t('table:field.subTitle.rating');
         case FieldType.Formula:
           return t('table:field.subTitle.formula');
         case FieldType.Rollup:
           return t('table:field.subTitle.rollup');
-        case FieldType.Count:
-          return t('table:field.subTitle.count');
         case FieldType.CreatedTime:
           return t('table:field.subTitle.createdTime');
         case FieldType.LastModifiedTime:

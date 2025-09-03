@@ -61,10 +61,6 @@ export function safeParseOptions(fieldType: FieldType, value: unknown) {
       return rollupFieldOptionsSchema.safeParse(value);
     case FieldType.Button:
       return buttonFieldOptionsSchema.safeParse(value);
-    case FieldType.Count:
-    case FieldType.Duration: {
-      throw new Error(`${fieldType} is not supported`);
-    }
     default:
       assertNever(fieldType);
   }

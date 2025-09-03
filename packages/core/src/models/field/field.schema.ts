@@ -290,9 +290,6 @@ export const getOptionsSchema = (type: FieldType) => {
       return lastModifiedByFieldOptionsSchema;
     case FieldType.Button:
       return buttonFieldOptionsSchema;
-    case FieldType.Duration:
-    case FieldType.Count:
-      throw new Error('no implementation');
     default:
       assertNever(type);
   }

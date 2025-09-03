@@ -313,13 +313,7 @@ export class AggregationService {
           tableId,
           ...(withView?.viewId ? { id: withView.viewId } : {}),
           type: {
-            in: [
-              ViewType.Grid,
-              ViewType.Gantt,
-              ViewType.Kanban,
-              ViewType.Gallery,
-              ViewType.Calendar,
-            ],
+            in: [ViewType.Grid, ViewType.Kanban, ViewType.Gallery, ViewType.Calendar],
           },
           deletedTime: null,
         },

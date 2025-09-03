@@ -56,9 +56,6 @@ export const validateCellValue = (field: IFieldVo, cellValue: unknown) => {
     }
     case FieldType.Button:
       return validateWithSchema(buttonFieldCelValueSchema, cellValue);
-    case FieldType.Count:
-    case FieldType.Duration:
-      throw new Error('did not implement yet');
     default:
       assertNever(type);
   }

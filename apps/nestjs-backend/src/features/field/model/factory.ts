@@ -90,9 +90,6 @@ export function createFieldInstanceByVo(field: IFieldVo) {
       return plainToInstance(LastModifiedByFieldDto, field);
     case FieldType.Button:
       return plainToInstance(ButtonFieldDto, field);
-    case FieldType.Count:
-    case FieldType.Duration:
-      throw new Error('did not implement yet');
     default:
       assertNever(field.type);
   }

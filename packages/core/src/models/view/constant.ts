@@ -12,6 +12,5 @@ export enum ViewType {
   Kanban = 'kanban',
   Form = 'form',
   Gallery = 'gallery',
-  Gantt = 'gantt',
   Plugin = 'plugin',
 }
