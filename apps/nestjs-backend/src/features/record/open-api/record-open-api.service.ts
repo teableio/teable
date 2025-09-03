@@ -240,33 +240,11 @@ export class RecordOpenApiService {
   }
 
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {
-    const data = await this.deleteRecords(tableId, [recordId], windowId);
-    return data.records[0];
+    return this.recordModifyService.deleteRecord(tableId, recordId, windowId);
   }
 
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
-    const { records, orders } = await this.prismaService.$tx(async () => {
-      const records = await this.recordService.getRecordsById(tableId, recordIds, false);
-      await this.recordCalculateService.calculateDeletedRecord(tableId, records.records);
-      const orders = windowId
-        ? await this.recordService.getRecordIndexes(tableId, recordIds)
-        : undefined;
-      await this.recordService.batchDeleteRecords(tableId, recordIds);
-      return { records, orders };
-    });
-
-    this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
-      operationId: generateOperationId(),
-      windowId,
-      tableId,
-      userId: this.cls.get('user.id'),
-      records: records.records.map((record, index) => ({
-        ...record,
-        order: orders?.[index],
-      })),
-    });
-
-    return records;
+    return this.recordModifyService.deleteRecords(tableId, recordIds, windowId);
   }
 
   async getRecordHistory(
