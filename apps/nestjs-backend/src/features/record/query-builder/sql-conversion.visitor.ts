@@ -760,6 +760,17 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {
+      // Fallback: referenced field not found in current table domain.
+      // Return NULL and emit a warning for visibility without breaking the query.
+      try {
+        const t = this.context.table;
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Select formula fallback: missing field {${fieldId}} in table ${t?.name || ''}(${t?.id || ''}); selecting NULL`
+        );
+      } catch {
+        // ignore logging failures
+      }
       return 'NULL';
     }
 
