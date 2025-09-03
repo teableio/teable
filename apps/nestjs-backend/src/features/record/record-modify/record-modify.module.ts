@@ -1,32 +1,24 @@
 import { Module } from '@nestjs/common';
 import { AttachmentsStorageModule } from '../../attachments/attachments-storage.module';
-import { AttachmentsModule } from '../../attachments/attachments.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
-import { RecordCalculateModule } from '../record-calculate/record-calculate.module';
-import { RecordModifyModule } from '../record-modify/record-modify.module';
 import { RecordModule } from '../record.module';
-import { RecordOpenApiController } from './record-open-api.controller';
-import { RecordOpenApiService } from './record-open-api.service';
+import { RecordModifyService } from './record-modify.service';
 
 @Module({
   imports: [
     RecordModule,
-    RecordCalculateModule,
-    RecordModifyModule,
-    FieldCalculateModule,
     CalculationModule,
-    AttachmentsStorageModule,
-    AttachmentsModule,
-    CollaboratorModule,
-    ViewModule,
+    FieldCalculateModule,
     ViewOpenApiModule,
+    ViewModule,
+    AttachmentsStorageModule,
+    CollaboratorModule,
   ],
-  controllers: [RecordOpenApiController],
-  providers: [RecordOpenApiService],
-  exports: [RecordOpenApiService],
+  providers: [RecordModifyService],
+  exports: [RecordModifyService],
 })
-export class RecordOpenApiModule {}
+export class RecordModifyModule {}
