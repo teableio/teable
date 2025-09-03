@@ -1,5 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { FieldKeyType, CellFormat, FieldType, generateRecordId } from '@teable/core';
+import {
+  FieldKeyType,
+  CellFormat,
+  FieldType,
+  generateRecordId,
+  generateOperationId,
+} from '@teable/core';
 import type { IMakeOptional, IUserFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -521,5 +527,36 @@ export class RecordModifyService {
       IMakeOptional<IRecordInnerRo, 'id'>
     >(tableId, records, fieldKeyType, typecast);
     await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
+  }
+
+  // ===== Delete logic (no JS-side recalculation) =====
+  async deleteRecord(tableId: string, recordId: string, windowId?: string) {
+    const result = await this.deleteRecords(tableId, [recordId], windowId);
+    return result.records[0];
+  }
+
+  async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
+    const { records, orders } = await this.prismaService.$tx(async () => {
+      const records = await this.recordService.getRecordsById(tableId, recordIds, false);
+      // Do NOT perform JS-side cascading recalculation/cleanup
+      const orders = windowId
+        ? await this.recordService.getRecordIndexes(tableId, recordIds)
+        : undefined;
+      await this.recordService.batchDeleteRecords(tableId, recordIds);
+      return { records, orders };
+    });
+
+    this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
+      operationId: generateOperationId(),
+      windowId,
+      tableId,
+      userId: this.cls.get('user.id'),
+      records: records.records.map((record, index) => ({
+        ...record,
+        order: orders?.[index],
+      })),
+    });
+
+    return records;
   }
 }
