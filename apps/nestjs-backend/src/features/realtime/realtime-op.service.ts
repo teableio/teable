@@ -156,4 +156,12 @@ export class RealtimeOpService {
       }
     });
   }
+
+  // Field delete uses the same dependency push path
+  async publishOnFieldDeleteDependencies(
+    tableId: string,
+    deletedFieldIds: string[]
+  ): Promise<void> {
+    return this.publishOnFieldUpdateDependencies(tableId, deletedFieldIds);
+  }
 }
