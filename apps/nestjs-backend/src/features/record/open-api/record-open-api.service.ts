@@ -30,6 +30,7 @@ import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { RecordModifyService } from '../record-modify/record-modify.service';
+import { RecordModifySharedService } from '../record-modify/record-modify.shared.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
@@ -45,7 +46,8 @@ export class RecordOpenApiService {
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly dataLoaderService: DataLoaderService
+    private readonly dataLoaderService: DataLoaderService,
+    private readonly recordModifySharedService: RecordModifySharedService
   ) {}
 
   @retryOnDeadlock()
@@ -116,62 +118,6 @@ export class RecordOpenApiService {
       throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
     }
     return map(usedFields, createFieldInstanceByRaw);
-  }
-
-  async validateFieldsAndTypecast<
-    T extends {
-      fields: Record<string, unknown>;
-    },
-  >(
-    tableId: string,
-    records: T[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    typecast: boolean = false,
-    ignoreMissingFields: boolean = false
-  ): Promise<T[]> {
-    const recordsFields = map(records, 'fields');
-    const effectFieldInstance = await this.getEffectFieldInstances(
-      tableId,
-      recordsFields,
-      fieldKeyType,
-      ignoreMissingFields
-    );
-
-    const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
-    for (const field of effectFieldInstance) {
-      // skip computed field
-      if (field.isComputed) {
-        continue;
-      }
-      const typeCastAndValidate = new TypeCastAndValidate({
-        services: {
-          prismaService: this.prismaService,
-          fieldConvertingService: this.fieldConvertingService,
-          recordService: this.recordService,
-          attachmentsStorageService: this.attachmentsStorageService,
-          collaboratorService: this.collaboratorService,
-          dataLoaderService: this.dataLoaderService,
-        },
-        field,
-        tableId,
-        typecast,
-      });
-      const fieldIdOrName = field[fieldKeyType];
-
-      const cellValues = recordsFields.map((recordFields) => recordFields[fieldIdOrName]);
-
-      const newCellValues = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
-      newRecordsFields.forEach((recordField, i) => {
-        // do not generate undefined field key
-        if (newCellValues[i] !== undefined) {
-          recordField[fieldIdOrName] = newCellValues[i];
-        }
-      });
-    }
-    return records.map((record, i) => ({
-      ...record,
-      fields: newRecordsFields[i],
-    }));
   }
 
   @retryOnDeadlock()
@@ -504,5 +450,25 @@ export class RecordOpenApiService {
         },
       },
     });
+  }
+
+  public validateFieldsAndTypecast<
+    T extends {
+      fields: Record<string, unknown>;
+    },
+  >(
+    tableId: string,
+    records: T[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    typecast: boolean = false,
+    ignoreMissingFields: boolean = false
+  ) {
+    return this.recordModifySharedService.validateFieldsAndTypecast(
+      tableId,
+      records,
+      fieldKeyType,
+      typecast,
+      ignoreMissingFields
+    );
   }
 }

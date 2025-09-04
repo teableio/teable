@@ -10,6 +10,7 @@ import { AttachmentsStorageService } from '../../attachments/attachments-storage
 import type { ICellContext, ICellChange } from '../../calculation/utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from '../../calculation/utils/changes';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
+import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -29,7 +30,8 @@ export class RecordModifySharedService {
     private readonly viewService: ViewService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   // Shared change compression and filtering utilities
@@ -117,6 +119,7 @@ export class RecordModifySharedService {
       if (field.isComputed) continue;
       const typeCastAndValidate = new TypeCastAndValidate({
         services: {
+          dataLoaderService: this.dataLoaderService,
           prismaService: this.prismaService,
           fieldConvertingService: this.fieldConvertingService,
           recordService: this.recordService,

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AttachmentsStorageModule } from '../../attachments/attachments-storage.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
+import { DataLoaderModule } from '../../data-loader/data-loader.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
@@ -22,6 +23,7 @@ import { RecordUpdateService } from './record-update.service';
     ViewModule,
     AttachmentsStorageModule,
     CollaboratorModule,
+    DataLoaderModule,
   ],
   providers: [
     RecordModifyService,
@@ -31,6 +33,6 @@ import { RecordUpdateService } from './record-update.service';
     RecordDeleteService,
     RecordDuplicateService,
   ],
-  exports: [RecordModifyService],
+  exports: [RecordModifyService, RecordModifySharedService],
 })
 export class RecordModifyModule {}
