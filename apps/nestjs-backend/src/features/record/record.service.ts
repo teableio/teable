@@ -656,7 +656,7 @@ export class RecordService {
       return;
     }
 
-    const fieldRaws = await await this.dataLoaderService.field.load(tableId);
+    const fieldRaws = await this.dataLoaderService.field.load(tableId);
 
     const fieldMap = keyBy(fieldRaws, 'id');
 
