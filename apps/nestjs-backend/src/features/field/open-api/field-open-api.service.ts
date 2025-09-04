@@ -217,7 +217,6 @@ export class FieldOpenApiService {
       async () => {
         for (const { tableId, field } of newFields) {
           if (field.isComputed) {
-            await this.fieldCalculationService.calculateFields(tableId, [field.id]);
             await this.fieldService.resolvePending(tableId, [field.id]);
           }
         }
@@ -262,7 +261,6 @@ export class FieldOpenApiService {
       async () => {
         for (const { tableId, field } of newFields) {
           if (field.isComputed) {
-            await this.fieldCalculationService.calculateFields(tableId, [field.id]);
             await this.fieldService.resolvePending(tableId, [field.id]);
           }
         }

@@ -119,8 +119,6 @@ export class FieldDeletingService {
           },
         });
       }
-
-      await this.fieldCalculationService.calculateFields(fieldRawMap[field.id].tableId, [field.id]);
     }
 
     return fieldInstances.map((field) => field.id);
