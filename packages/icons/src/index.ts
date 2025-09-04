@@ -172,3 +172,4 @@ export { default as ZoomIn } from './components/ZoomIn';
 export { default as ZoomOut } from './components/ZoomOut';
 export { default as AmazonBedrock } from './components/AmazonBedrock';
 export { default as TeableAi } from './components/TeableAi';
+export { default as Compose } from './components/Compose';

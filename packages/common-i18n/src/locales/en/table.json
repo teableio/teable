@@ -668,7 +668,8 @@
       "result": "Result",
       "thinking": "Thinking...",
       "toBeConfirmed": "To be confirmed",
-      "errorMessage": "Error message"
+      "errorMessage": "Error message",
+      "confirm": "Confirm"
     },
     "tools": {
       "getTeableApi": "Get Teable API",

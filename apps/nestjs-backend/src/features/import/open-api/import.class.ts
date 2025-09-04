@@ -58,7 +58,7 @@ export interface IImportConstructorParams {
   fileName?: string;
 }
 
-interface IParseResult {
+export interface IParseResult {
   [x: string]: unknown[][];
 }
 

@@ -56,7 +56,7 @@ describe('OpenAPI CommentController (e2e)', () => {
     await deleteTable(baseId, tableId);
   });
 
-  it('should achieve the whole comment curd flow', async () => {
+  it('should achieve the whole comment crud flow', async () => {
     // create comment
     const createRes = await createComment(tableId, recordId, {
       content: [

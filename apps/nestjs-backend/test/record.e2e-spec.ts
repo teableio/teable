@@ -44,7 +44,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     await app.close();
   });
 
-  describe('simple curd', () => {
+  describe('simple crud', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
       table = await createTable(baseId, { name: 'table1' });

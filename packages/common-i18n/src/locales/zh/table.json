@@ -668,7 +668,8 @@
       "result": "结果",
       "thinking": "思考中...",
       "toBeConfirmed": "待确认",
-      "errorMessage": "错误信息"
+      "errorMessage": "错误信息",
+      "confirm": "确认"
     },
     "tools": {
       "getTeableApi": "获取 Teable API",
