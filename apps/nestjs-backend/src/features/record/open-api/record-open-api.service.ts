@@ -6,7 +6,7 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType, generateOperationId } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ICreateRecordsRo } from '@teable/openapi';
 import type {
@@ -20,11 +20,7 @@ import type {
   IUpdateRecordsRo,
 } from '@teable/openapi';
 import { forEach, keyBy, map, pick } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events } from '../../../event-emitter/events';
-import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import { AttachmentsService } from '../../attachments/attachments.service';
@@ -33,7 +29,6 @@ import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
-import { RecordCalculateService } from '../record-calculate/record-calculate.service';
 import { RecordModifyService } from '../record-modify/record-modify.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
@@ -42,17 +37,14 @@ import { TypeCastAndValidate } from '../typecast.validate';
 @Injectable()
 export class RecordOpenApiService {
   constructor(
-    private readonly recordCalculateService: RecordCalculateService,
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly eventEmitterService: EventEmitterService,
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly cls: ClsService<IClsStore>,
     private readonly dataLoaderService: DataLoaderService
   ) {}
 
