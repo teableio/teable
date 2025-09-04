@@ -538,7 +538,16 @@ export class RecordModifyService {
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
     const { records, orders } = await this.prismaService.$tx(async () => {
       const records = await this.recordService.getRecordsById(tableId, recordIds, false);
-      // Do NOT perform JS-side cascading recalculation/cleanup
+      // Pre-clean link foreign keys to satisfy FK constraints, without JS-side recalculation
+      const cellContextsByTableId = await this.linkService.getDeleteRecordUpdateContext(
+        tableId,
+        records.records
+      );
+      for (const effectedTableId in cellContextsByTableId) {
+        const cellContexts = cellContextsByTableId[effectedTableId];
+        await this.linkService.getDerivateByLink(effectedTableId, cellContexts);
+      }
+
       const orders = windowId
         ? await this.recordService.getRecordIndexes(tableId, recordIds)
         : undefined;
