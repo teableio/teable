@@ -6,7 +6,12 @@ import { FieldCalculateModule } from '../../field/field-calculate/field-calculat
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { RecordModule } from '../record.module';
+import { RecordCreateService } from './record-create.service';
+import { RecordDeleteService } from './record-delete.service';
+import { RecordDuplicateService } from './record-duplicate.service';
 import { RecordModifyService } from './record-modify.service';
+import { RecordModifySharedService } from './record-modify.shared.service';
+import { RecordUpdateService } from './record-update.service';
 
 @Module({
   imports: [
@@ -18,7 +23,14 @@ import { RecordModifyService } from './record-modify.service';
     AttachmentsStorageModule,
     CollaboratorModule,
   ],
-  providers: [RecordModifyService],
+  providers: [
+    RecordModifyService,
+    RecordModifySharedService,
+    RecordCreateService,
+    RecordUpdateService,
+    RecordDeleteService,
+    RecordDuplicateService,
+  ],
   exports: [RecordModifyService],
 })
 export class RecordModifyModule {}
