@@ -37,7 +37,6 @@ export * from './integrity';
 export * from './plugin-panel';
 export * from './plugin-context-menu';
 export * from './template';
-export * from './chat';
 export * from './query';
 export * from './automation';
 export * from './mail';
