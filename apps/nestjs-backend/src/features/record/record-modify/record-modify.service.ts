@@ -15,7 +15,7 @@ import type {
   ICreateRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
-import { forEach, keyBy, map } from 'lodash';
+import { forEach, keyBy, map, isEqual } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
@@ -26,8 +26,8 @@ import { AttachmentsStorageService } from '../../attachments/attachments-storage
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
-import type { ICellContext } from '../../calculation/utils/changes';
-import { formatChangesToOps } from '../../calculation/utils/changes';
+import type { ICellChange, ICellContext } from '../../calculation/utils/changes';
+import { formatChangesToOps, mergeDuplicateChange } from '../../calculation/utils/changes';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
@@ -55,6 +55,34 @@ export class RecordModifyService {
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
+
+  private async compressAndFilterChanges(
+    tableId: string,
+    cellContexts: ICellContext[]
+  ): Promise<ICellChange[]> {
+    if (!cellContexts.length) return [];
+
+    const rawChanges: ICellChange[] = cellContexts.map((ctx) => ({
+      tableId,
+      recordId: ctx.recordId,
+      fieldId: ctx.fieldId,
+      newValue: ctx.newValue,
+      oldValue: ctx.oldValue,
+    }));
+
+    const merged = mergeDuplicateChange(rawChanges);
+    const nonNoop = merged.filter((c) => !isEqual(c.newValue, c.oldValue));
+    if (!nonNoop.length) return [];
+
+    const fieldIds = Array.from(new Set(nonNoop.map((c) => c.fieldId)));
+    const sysTypes = [FieldType.LastModifiedTime, FieldType.LastModifiedBy];
+    const sysFields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, id: { in: fieldIds }, deletedTime: null, type: { in: sysTypes } },
+      select: { id: true },
+    });
+    const sysSet = new Set(sysFields.map((f) => f.id));
+    return nonNoop.filter((c) => !sysSet.has(c.fieldId));
+  }
 
   private async getEffectFieldInstances(
     tableId: string,
@@ -243,15 +271,8 @@ export class RecordModifyService {
       const ctxs = await this.generateCellContexts(tableId, fieldKeyType, preparedRecords);
       // Persist link foreign keys based on link contexts; ignore returned cellChanges
       await this.linkService.getDerivateByLink(tableId, ctxs);
-      const opsMap = formatChangesToOps(
-        ctxs.map((ctx) => ({
-          tableId,
-          recordId: ctx.recordId,
-          fieldId: ctx.fieldId,
-          newValue: ctx.newValue,
-          oldValue: ctx.oldValue,
-        }))
-      );
+      const changes = await this.compressAndFilterChanges(tableId, ctxs);
+      const opsMap = formatChangesToOps(changes);
       await this.batchService.updateRecords(opsMap);
       return ctxs;
     });
@@ -304,15 +325,8 @@ export class RecordModifyService {
 
     const cellContexts = await this.generateCellContexts(tableId, fieldKeyType, preparedRecords);
     await this.linkService.getDerivateByLink(tableId, cellContexts);
-    const opsMap = formatChangesToOps(
-      cellContexts.map((ctx) => ({
-        tableId,
-        recordId: ctx.recordId,
-        fieldId: ctx.fieldId,
-        newValue: ctx.newValue,
-        oldValue: ctx.oldValue,
-      }))
-    );
+    const changes = await this.compressAndFilterChanges(tableId, cellContexts);
+    const opsMap = formatChangesToOps(changes);
     await this.batchService.updateRecords(opsMap);
     return cellContexts;
   }
@@ -500,15 +514,8 @@ export class RecordModifyService {
     const recordIds = plainRecords.map((r) => r.id);
     const createCtxs = await this.generateCellContexts(tableId, fieldKeyType, plainRecords, true);
     await this.linkService.getDerivateByLink(tableId, createCtxs);
-    const opsMap = formatChangesToOps(
-      createCtxs.map((ctx) => ({
-        tableId,
-        recordId: ctx.recordId,
-        fieldId: ctx.fieldId,
-        newValue: ctx.newValue,
-        oldValue: ctx.oldValue,
-      }))
-    );
+    const changes = await this.compressAndFilterChanges(tableId, createCtxs);
+    const opsMap = formatChangesToOps(changes);
     await this.batchService.updateRecords(opsMap);
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       tableId,
