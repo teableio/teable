@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
+import type { DataLoaderService } from '../data-loader/data-loader.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
@@ -28,6 +29,7 @@ describe('TypeCastAndValidate', () => {
   const recordService = mockDeep<RecordService>();
   const attachmentsStorageService = mockDeep<AttachmentsStorageService>();
   const collaboratorService = mockDeep<CollaboratorService>();
+  const dataLoaderService = mockDeep<DataLoaderService>();
 
   const services = {
     prismaService,
@@ -35,6 +37,7 @@ describe('TypeCastAndValidate', () => {
     recordService,
     attachmentsStorageService,
     collaboratorService,
+    dataLoaderService,
   };
   const tableId = 'tableId';
 
@@ -43,6 +46,7 @@ describe('TypeCastAndValidate', () => {
     mockReset(prismaService);
     mockReset(recordService);
     mockReset(collaboratorService);
+    mockReset(dataLoaderService);
   });
 
   describe('typecastCellValuesWithField', () => {
