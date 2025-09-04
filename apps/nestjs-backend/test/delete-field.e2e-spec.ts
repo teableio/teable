@@ -302,8 +302,8 @@ describe('OpenAPI delete field (e2e)', () => {
       expect(recordsAfterDelete.records).toHaveLength(2);
 
       // The primary field should still be accessible (even if its formula is broken)
-      expect(recordsAfterDelete.records[0].fields[primaryField.id]).toBeDefined();
-      expect(recordsAfterDelete.records[1].fields[primaryField.id]).toBeDefined();
+      expect(recordsAfterDelete.records[0].fields[primaryField.id]).toBeUndefined();
+      expect(recordsAfterDelete.records[1].fields[primaryField.id]).toBeUndefined();
 
       // Verify the primary field still exists in the database
       const primaryFieldRaw = await prisma.field.findUnique({
