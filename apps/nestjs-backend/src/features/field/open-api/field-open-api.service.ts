@@ -637,8 +637,8 @@ export class FieldOpenApiService {
     });
 
     if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
-      // do not async duplicate records
-      this.duplicateFieldData(
+      // Duplicate records synchronously to avoid cross-transaction CLS leaks
+      await this.duplicateFieldData(
         sourceTableId,
         newField.id,
         fieldRaw.dbFieldName,
