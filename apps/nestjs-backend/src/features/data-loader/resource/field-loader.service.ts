@@ -33,7 +33,7 @@ export class FieldLoaderService extends TableCommonLoader<IFieldLoaderItem> {
                   (acc, kStr) => {
                     const key = kStr as K;
                     const value = keys[key];
-                    if (value && value.length > 0) {
+                    if (value) {
                       if (value.length === 1) {
                         acc[key] = value[0];
                       } else {
