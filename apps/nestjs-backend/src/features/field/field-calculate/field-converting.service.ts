@@ -39,7 +39,6 @@ import {
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
-import { ReferenceService } from '../../calculation/reference.service';
 import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
@@ -70,7 +69,6 @@ export class FieldConvertingService {
     private readonly fieldService: FieldService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly referenceService: ReferenceService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
@@ -871,8 +869,7 @@ export class FieldConvertingService {
       }
     }
 
-    const oldRecords = await this.batchService.updateRecords(recordOpsMap);
-    await this.referenceService.calculateOpsMap(recordOpsMap, undefined, oldRecords);
+    await this.batchService.updateRecords(recordOpsMap);
   }
 
   private async getExistRecords(tableId: string, oldField: IFieldInstance) {
@@ -1183,7 +1180,6 @@ export class FieldConvertingService {
 
     this.logger.log(`calculating field: ${newField.name}`);
 
-    await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     await this.fieldService.resolvePending(tableId, [newField.id]);
   }
 

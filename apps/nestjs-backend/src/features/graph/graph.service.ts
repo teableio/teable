@@ -20,11 +20,10 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
-import type { IGraphItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
+import type { IGraphItem } from '../calculation/utils/dfs';
 import { pruneGraph, topoOrderWithStart } from '../calculation/utils/dfs';
 import { FieldConvertingLinkService } from '../field/field-calculate/field-converting-link.service';
-import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import {
@@ -57,7 +56,6 @@ export class GraphService {
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly fieldConvertingService: FieldConvertingService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig

@@ -1483,4 +1483,153 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(records[0].fields[f2.id]).toEqual('abc-x-y');
     });
   });
+
+  describe('compute on update: cascades across tables', () => {
+    let t1: ITableFullVo;
+    let t2: ITableFullVo;
+    let t3: ITableFullVo;
+
+    beforeEach(async () => {
+      t1 = await createTable(baseId, { name: 'cascade-t1' });
+      t2 = await createTable(baseId, { name: 'cascade-t2' });
+      t3 = await createTable(baseId, { name: 'cascade-t3' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, t1.id);
+      await permanentDeleteTable(baseId, t2.id);
+      await permanentDeleteTable(baseId, t3.id);
+    });
+
+    it('updates cascade: formula -> formula -> lookup -> nested lookup', async () => {
+      // Table 1: base number, f1 = n1 + 1, f2 = f1 * 2
+      const n1 = await createField(t1.id, { type: FieldType.Number });
+      const f1 = await createField(t1.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${n1.id}} + 1` },
+      });
+      const f2 = await createField(t1.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${f1.id}} * 2` },
+      });
+
+      // Set base value
+      const t1RecId = t1.records[0].id;
+      await updateRecord(t1.id, t1RecId, {
+        record: { fields: { [n1.id]: 3 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Table 2: link -> t1 (ManyOne), lookup f2
+      const link12 = await createField(t2.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: t1.id },
+      });
+      const lookup2 = await createField(t2.id, {
+        type: FieldType.Formula,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: t1.id,
+          lookupFieldId: f2.id,
+          linkFieldId: link12.id,
+        },
+      });
+
+      const t2RecId = t2.records[0].id;
+      await updateRecord(t2.id, t2RecId, {
+        record: { fields: { [link12.id]: { id: t1RecId } } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Verify initial computed values at t1 and t2: n1=3 -> f1=4 -> f2=8 -> lookup2=8
+      const t1Rec0 = await getRecord(t1.id, t1RecId);
+      const t2Rec0 = await getRecord(t2.id, t2RecId);
+      expect(t1Rec0.fields[f1.id]).toEqual(4);
+      expect(t1Rec0.fields[f2.id]).toEqual(8);
+      expect(t2Rec0.fields[lookup2.id]).toEqual(8);
+
+      // Update base: n1=10 -> f1=11 -> f2=22, and lookup2 should update
+      await updateRecord(t1.id, t1RecId, {
+        record: { fields: { [n1.id]: 10 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const t1Rec = await getRecord(t1.id, t1RecId);
+      const t2Rec = await getRecord(t2.id, t2RecId);
+      expect(t1Rec.fields[f1.id]).toEqual(11);
+      expect(t1Rec.fields[f2.id]).toEqual(22);
+      expect(t2Rec.fields[lookup2.id]).toEqual(22);
+    });
+
+    it('updates cascade with rollup across link set and nested lookup', async () => {
+      // Table 1: number field
+      const n = await createField(t1.id, { type: FieldType.Number });
+
+      // Create two specific records in t1 with values 5 and 7
+      const created = await createRecords(t1.id, {
+        records: [{ fields: { [n.id]: 5 } }, { fields: { [n.id]: 7 } }],
+        fieldKeyType: FieldKeyType.Id,
+      });
+      const t1IdA = created.records[0].id;
+      const t1IdB = created.records[1].id;
+
+      // Table 2: ManyMany link to t1, rollup sum of n
+      const link = await createField(t2.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: t1.id },
+      });
+      const roll = await createField(t2.id, {
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: t1.id,
+          lookupFieldId: n.id,
+          linkFieldId: link.id,
+        },
+      });
+
+      const t2RecId2 = t2.records[0].id;
+      await updateRecord(t2.id, t2RecId2, {
+        record: { fields: { [link.id]: [{ id: t1IdA }, { id: t1IdB }] } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Table 3: link to t2, lookup rollup
+      const link2 = await createField(t3.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: t2.id },
+      });
+      const nested = await createField(t3.id, {
+        type: FieldType.Rollup,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: t2.id,
+          lookupFieldId: roll.id,
+          linkFieldId: link2.id,
+        },
+      });
+
+      const t3RecId2 = t3.records[0].id;
+      await updateRecord(t3.id, t3RecId2, {
+        record: { fields: { [link2.id]: { id: t2RecId2 } } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Initial: 5 + 7 = 12
+      let rec2 = await getRecord(t2.id, t2RecId2);
+      let rec3 = await getRecord(t3.id, t3RecId2);
+      expect(rec2.fields[roll.id]).toEqual(12);
+      expect(rec3.fields[nested.id]).toEqual(12);
+
+      // Update one base number to 20 -> rollup becomes 25, nested lookup 25
+      await updateRecord(t1.id, t1IdA, {
+        record: { fields: { [n.id]: 20 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      rec2 = await getRecord(t2.id, t2RecId2);
+      rec3 = await getRecord(t3.id, t3RecId2);
+      expect(rec2.fields[roll.id]).toEqual(27);
+      expect(rec3.fields[nested.id]).toEqual(27);
+    });
+  });
 });

@@ -35,7 +35,6 @@ const isLink = (field: IFieldInstance): field is LinkFieldDto =>
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly linkService: LinkService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
