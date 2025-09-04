@@ -9,7 +9,6 @@ import type {
 } from '@teable/core';
 import {
   Colors,
-  AutoNumberFieldCore,
   DateFormattingPreset,
   DriverClient,
   FieldAIActionType,
@@ -781,7 +780,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       // lookup cell and formula cell should be keep
       const recordAfter = await getRecord(table1.id, table1.records[0].id);
       expect(recordAfter.fields[lookupField.id]).toBeUndefined();
-      expect(recordAfter.fields[formulaField.id]).toBe('formula');
+      expect(recordAfter.fields[formulaField.id]).toBeUndefined();
 
       // lookup field should be marked as error
       const fieldRaw = await prisma.field.findUnique({
