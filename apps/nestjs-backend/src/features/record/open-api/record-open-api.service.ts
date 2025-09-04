@@ -32,6 +32,7 @@ import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
+import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -56,7 +57,8 @@ export class RecordOpenApiService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly attachmentsService: AttachmentsService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   @retryOnDeadlock()
@@ -195,12 +197,8 @@ export class RecordOpenApiService {
 
     const usedFieldIdsOrNames = Array.from(fieldIdsOrNamesSet);
 
-    const usedFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        [fieldKeyType]: { in: usedFieldIdsOrNames },
-        deletedTime: null,
-      },
+    const usedFields = await this.dataLoaderService.field.load(tableId, {
+      [fieldKeyType]: usedFieldIdsOrNames,
     });
 
     if (!ignoreMissingFields && usedFields.length !== usedFieldIdsOrNames.length) {
@@ -245,6 +243,7 @@ export class RecordOpenApiService {
           recordService: this.recordService,
           attachmentsStorageService: this.attachmentsStorageService,
           collaboratorService: this.collaboratorService,
+          dataLoaderService: this.dataLoaderService,
         },
         field,
         tableId,

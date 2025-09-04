@@ -74,3 +74,11 @@ export const checkTableAccess = (
     );
   }
 };
+
+export const getTableNames = (sql: string) => {
+  const parser = new Parser();
+  const opt = {
+    database: databaseTypeMap[DriverClient.Pg],
+  };
+  return parser.tableList(sql, opt);
+};

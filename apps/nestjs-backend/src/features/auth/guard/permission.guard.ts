@@ -68,7 +68,6 @@ export class PermissionGuard {
 
   protected async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
-      console.log('permissions', permissions);
       throw new ForbiddenException('permission check ID does not exist');
     }
     const accessTokenId = this.cls.get('accessTokenId');

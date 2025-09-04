@@ -8,16 +8,16 @@ import {
   replaceOrderBy,
   replaceSearch,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Request } from 'express';
 import { keyBy } from 'lodash';
+import { DataLoaderService } from '../../data-loader/data-loader.service';
 
 @Injectable({ scope: Scope.REQUEST })
 export class FieldKeyPipe<T extends IGetRecordsRo> implements PipeTransform {
   constructor(
-    private readonly prismaService: PrismaService,
-    @Inject(REQUEST) private readonly request: Request
+    @Inject(REQUEST) private readonly request: Request,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   async transform(value: T) {
@@ -39,10 +39,7 @@ export class FieldKeyPipe<T extends IGetRecordsRo> implements PipeTransform {
       return value;
     }
 
-    const fields = await this.prismaService.field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, name: true, dbFieldName: true },
-    });
+    const fields = await this.dataLoaderService.field.load(tableId);
     const fieldMap = keyBy(fields, fieldKeyType);
 
     const transformedValue = { ...value };

@@ -14,6 +14,7 @@ import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
+import { DataLoaderService } from '../../data-loader/data-loader.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import type { IFieldRaws } from '../type';
@@ -27,7 +28,8 @@ export class RecordCalculateService {
     private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly clsService: ClsService<IClsStore>
+    private readonly clsService: ClsService<IClsStore>,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   async multipleCreateRecords(
@@ -57,14 +59,8 @@ export class RecordCalculateService {
         return acc;
       }, new Set())
     );
-
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        [fieldKeyType]: { in: fieldKeys },
-        deletedTime: null,
-      },
-      select: { id: true, name: true, dbFieldName: true },
+    const fieldRaws = await this.dataLoaderService.field.load(tableId, {
+      [fieldKeyType]: fieldKeys,
     });
     const fieldIdMap = keyBy(fieldRaws, fieldKeyType);
 
@@ -333,20 +329,7 @@ export class RecordCalculateService {
       };
     });
 
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        options: true,
-        unique: true,
-        notNull: true,
-        isComputed: true,
-        isLookup: true,
-        dbFieldName: true,
-      },
-    });
+    const fieldRaws = await this.dataLoaderService.field.load(tableId);
 
     await this.recordService.batchCreateRecords(tableId, records, fieldKeyType, fieldRaws);
 

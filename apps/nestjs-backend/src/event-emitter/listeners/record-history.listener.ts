@@ -9,6 +9,8 @@ import { Knex } from 'knex';
 import { isObject, isString } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { DataLoaderService } from '../../features/data-loader/data-loader.service';
+import { rawField2FieldObj } from '../../features/field/model/factory';
 import { EventEmitterService } from '../event-emitter.service';
 import { Events, RecordUpdateEvent } from '../events';
 
@@ -21,7 +23,8 @@ export class RecordHistoryListener {
     private readonly prismaService: PrismaService,
     private readonly eventEmitterService: EventEmitterService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
@@ -49,25 +52,11 @@ export class RecordHistoryListener {
 
     const fieldIds = Array.from(fieldIdSet);
 
-    const applyFields = await this.prismaService.field.findMany({
-      where: {
-        id: { in: fieldIds },
-      },
-      select: {
-        id: true,
-        type: true,
-        name: true,
-        options: true,
-        cellValueType: true,
-        isComputed: true,
-      },
+    const fields = await this.dataLoaderService.field.load(tableId, {
+      id: fieldIds,
     });
-    const fields = applyFields.map(({ options, ...rest }) => ({
-      ...rest,
-      options: options ? JSON.parse(options) : options,
-    }));
 
-    const fieldMap = new Map(fields.map((field) => [field.id, field]));
+    const fieldMap = new Map(fields.map((field) => [field.id, rawField2FieldObj(field)]));
 
     const batchSize = 5000;
     const totalCount = records.length;

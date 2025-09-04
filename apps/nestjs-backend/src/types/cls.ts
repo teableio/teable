@@ -2,6 +2,7 @@ import type { Action, IFieldVo } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { ClsStore } from 'nestjs-cls';
 import type { IRawOpMap } from '../share-db/interface';
+import type { IDataLoaderCache } from './data-loader';
 
 export interface IClsStore extends ClsStore {
   user: {
@@ -42,4 +43,5 @@ export interface IClsStore extends ClsStore {
     }[];
   };
   tempAuthBaseId?: string; // for automation robot
+  dataLoaderCache?: IDataLoaderCache;
 }

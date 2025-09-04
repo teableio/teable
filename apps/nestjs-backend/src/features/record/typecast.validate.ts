@@ -21,6 +21,7 @@ import { isObject, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
+import type { DataLoaderService } from '../data-loader/data-loader.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -35,6 +36,7 @@ interface IServices {
   recordService: RecordService;
   attachmentsStorageService: AttachmentsStorageService;
   collaboratorService: CollaboratorService;
+  dataLoaderService: DataLoaderService;
 }
 
 interface IObjectType {
@@ -221,6 +223,7 @@ export class TypeCastAndValidate {
     );
 
     await this.services.fieldConvertingService.stageAlter(this.tableId, newField, this.field);
+    await this.services.dataLoaderService.field.clear();
   }
 
   /**

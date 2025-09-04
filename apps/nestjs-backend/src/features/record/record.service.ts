@@ -37,7 +37,6 @@ import {
   parseGroup,
   Relationship,
 } from '@teable/core';
-import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
@@ -73,6 +72,7 @@ import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { BatchService } from '../calculation/batch.service';
+import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -113,7 +113,8 @@ export class RecordService {
     private readonly tableIndexService: TableIndexService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   private dbRecord2RecordFields(
@@ -647,6 +648,7 @@ export class RecordService {
     });
 
     const columnMeta = JSON.parse(view.columnMeta) as IColumnMeta;
+
     const useVisible = Object.values(columnMeta).some((column) => 'visible' in column);
     const useHidden = Object.values(columnMeta).some((column) => 'hidden' in column);
 
@@ -654,10 +656,7 @@ export class RecordService {
       return;
     }
 
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, name: true, dbFieldName: true },
-    });
+    const fieldRaws = await await this.dataLoaderService.field.load(tableId);
 
     const fieldMap = keyBy(fieldRaws, 'id');
 
@@ -1108,19 +1107,15 @@ export class RecordService {
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id
   ) {
-    const whereParams: Prisma.FieldWhereInput = {};
+    let fields = await this.dataLoaderService.field.load(tableId);
     if (projection) {
       const projectionFieldKeys = Object.entries(projection)
         .filter(([, v]) => v)
         .map(([k]) => k);
       if (projectionFieldKeys.length) {
-        whereParams[fieldKeyType] = { in: projectionFieldKeys };
+        fields = fields.filter((field) => projectionFieldKeys.includes(field[fieldKeyType]));
       }
     }
-
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, ...whereParams, deletedTime: null },
-    });
 
     return fields.map((field) => createFieldInstanceByRaw(field));
   }
@@ -1324,11 +1319,8 @@ export class RecordService {
       }
     });
 
-    const primaryFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
-      where: { tableId, isPrimary: true, deletedTime: null },
-    });
+    const primaryField = await this.getPrimaryField(tableId);
 
-    const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
     const snapshots = result
       .sort((a, b) => {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
@@ -1590,13 +1582,10 @@ export class RecordService {
       return null;
     }
 
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-        ...(enabledFieldIds ? { id: { in: enabledFieldIds } } : {}),
-      },
+    const fieldsRaw = await this.dataLoaderService.field.load(tableId, {
+      id: enabledFieldIds,
     });
+
     const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
     const fieldInstanceMap = fieldInstances.reduce(
       (map, field) => {
@@ -1711,14 +1700,19 @@ export class RecordService {
     });
   }
 
-  async getRecordsHeadWithTitles(tableId: string, titles: string[]) {
-    const dbTableName = await this.getDbTableName(tableId);
-    const field = await this.prismaService.txClient().field.findFirst({
-      where: { tableId, isPrimary: true, deletedTime: null },
+  private async getPrimaryField(tableId: string) {
+    const field = await this.dataLoaderService.field.load(tableId, {
+      isPrimary: [true],
     });
-    if (!field) {
+    if (!field.length) {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
+    return createFieldInstanceByRaw(field[0]);
+  }
+
+  async getRecordsHeadWithTitles(tableId: string, titles: string[]) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const field = await this.getPrimaryField(tableId);
 
     // only text field support type cast to title
     if (field.dbFieldType !== DbFieldType.Text) {
@@ -1736,17 +1730,10 @@ export class RecordService {
 
   async getRecordsHeadWithIds(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
-    const fieldRaw = await this.prismaService.txClient().field.findFirst({
-      where: { tableId, isPrimary: true, deletedTime: null },
-    });
-    if (!fieldRaw) {
-      throw new BadRequestException(`Could not find primary index ${tableId}`);
-    }
-
-    const field = createFieldInstanceByRaw(fieldRaw);
+    const field = await this.getPrimaryField(tableId);
 
     const queryBuilder = this.knex(dbTableName)
-      .select({ title: fieldRaw.dbFieldName, id: '__id' })
+      .select({ title: field.dbFieldName, id: '__id' })
       .whereIn('__id', recordIds);
 
     const querySql = queryBuilder.toQuery();

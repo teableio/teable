@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
 import { CalculationModule } from '../calculation/calculation.module';
+import { DataLoaderModule } from '../data-loader/date-loader.module';
 import { TableIndexService } from '../table/table-index.service';
 import { RecordPermissionService } from './record-permission.service';
 import { RecordService } from './record.service';
 import { UserNameListener } from './user-name.listener.service';
 
 @Module({
-  imports: [CalculationModule, AttachmentsStorageModule],
+  imports: [CalculationModule, AttachmentsStorageModule, DataLoaderModule],
   providers: [
     UserNameListener,
     RecordService,

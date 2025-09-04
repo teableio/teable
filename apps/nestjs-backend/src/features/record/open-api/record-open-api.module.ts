@@ -4,6 +4,7 @@ import { AttachmentsStorageModule } from '../../attachments/attachments-storage.
 import { AttachmentsModule } from '../../attachments/attachments.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
+import { DataLoaderModule } from '../../data-loader/date-loader.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
@@ -24,6 +25,7 @@ import { RecordOpenApiService } from './record-open-api.service';
     ViewModule,
     ViewOpenApiModule,
     PerformanceCacheModule,
+    DataLoaderModule,
   ],
   controllers: [RecordOpenApiController],
   providers: [RecordOpenApiService],
