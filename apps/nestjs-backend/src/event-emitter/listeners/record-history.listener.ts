@@ -6,7 +6,7 @@ import { FieldType, generateRecordHistoryId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Field } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { isObject, isString } from 'lodash';
+import { isEqual, isObject, isString } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { DataLoaderService } from '../../features/data-loader/data-loader.service';
@@ -89,6 +89,11 @@ export class RecordHistoryListener {
           const oldField = _oldField ?? field;
           const { type, name, cellValueType, isComputed } = field;
           const { oldValue, newValue } = changeValue;
+
+          // Skip no-op changes to avoid duplicate history entries
+          if (isEqual(oldValue, newValue)) {
+            return null;
+          }
 
           if (oldField.isComputed && isComputed) {
             return null;
