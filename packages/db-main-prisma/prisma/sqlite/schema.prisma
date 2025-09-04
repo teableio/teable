@@ -1,6 +1,6 @@
 generator client {
-  provider        = "prisma-client-js"
-  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -19,61 +19,62 @@ model Space {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   isTemplate       Boolean?  @map("is_template")
 
-  baseGroup      Base[]
+  baseGroup Base[]
 
   @@map("space")
 }
 
 model PinResource {
-  id               String    @id @default(cuid())
-  type             String    @map("type")
-  resourceId       String    @map("resource_id")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
-  order            Float     @map("order")
+  id          String   @id @default(cuid())
+  type        String   @map("type")
+  resourceId  String   @map("resource_id")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+  order       Float    @map("order")
 
-  @@index([order])
   @@unique([createdBy, resourceId])
+  @@index([order])
   @@map("pin_resource")
 }
 
 model Base {
-  id                         String      @id @default(cuid())
-  spaceId                    String      @map("space_id")
-  name                       String
-  order                      Float
-  icon                       String?
-  schemaPass                 String?     @map("schema_pass")
-  deletedTime                DateTime?   @map("deleted_time")
-  createdTime                DateTime    @default(now()) @map("created_time")
-  createdBy                  String      @map("created_by")
-  lastModifiedBy             String?     @map("last_modified_by")
-  lastModifiedTime           DateTime?   @updatedAt @map("last_modified_time")
-  space          Space                   @relation(fields: [spaceId], references: [id])
-  tables         TableMeta[]
+  id               String      @id @default(cuid())
+  spaceId          String      @map("space_id")
+  name             String
+  order            Float
+  icon             String?
+  schemaPass       String?     @map("schema_pass")
+  deletedTime      DateTime?   @map("deleted_time")
+  createdTime      DateTime    @default(now()) @map("created_time")
+  createdBy        String      @map("created_by")
+  lastModifiedBy   String?     @map("last_modified_by")
+  lastModifiedTime DateTime?   @updatedAt @map("last_modified_time")
+  space            Space       @relation(fields: [spaceId], references: [id])
+  tables           TableMeta[]
 
   @@index([order])
   @@map("base")
 }
 
 model TableMeta {
-  id               String    @id
-  baseId           String    @map("base_id")
-  name             String
-  description      String?
-  icon             String?
-  dbTableName      String    @map("db_table_name")
-  version          Int
-  order            Float
-  createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  deletedTime      DateTime? @map("deleted_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String?   @map("last_modified_by")
-  base             Base      @relation(fields: [baseId], references: [id])
-  fields           Field[]
-  views            View[]
-  pluginPanel      PluginPanel[]
+  id                String              @id
+  baseId            String              @map("base_id")
+  name              String
+  description       String?
+  icon              String?
+  dbTableName       String              @map("db_table_name")
+  dbViewName        String?             @map("db_view_name")
+  version           Int
+  order             Float
+  createdTime       DateTime            @default(now()) @map("created_time")
+  lastModifiedTime  DateTime?           @updatedAt @map("last_modified_time")
+  deletedTime       DateTime?           @map("deleted_time")
+  createdBy         String              @map("created_by")
+  lastModifiedBy    String?             @map("last_modified_by")
+  base              Base                @relation(fields: [baseId], references: [id])
+  fields            Field[]
+  views             View[]
+  pluginPanel       PluginPanel[]
   pluginContextMenu PluginContextMenu[]
 
   @@index([order])
@@ -132,7 +133,7 @@ model View {
   columnMeta       String    @map("column_meta")
   isLocked         Boolean?  @map("is_locked")
   enableShare      Boolean?  @map("enable_share")
-  shareId          String?   @map("share_id") @unique
+  shareId          String?   @unique @map("share_id")
   shareMeta        String?   @map("share_meta")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
@@ -161,9 +162,9 @@ model Ops {
 }
 
 model Reference {
-  id          String @id @default(cuid())
-  fromFieldId String @map("from_field_id")
-  toFieldId   String @map("to_field_id")
+  id          String   @id @default(cuid())
+  fromFieldId String   @map("from_field_id")
+  toFieldId   String   @map("to_field_id")
   createdTime DateTime @default(now()) @map("created_time")
 
   @@unique([toFieldId, fromFieldId])
@@ -173,38 +174,39 @@ model Reference {
 }
 
 model User {
-  id               String    @id @default(cuid())
-  name             String
-  password         String?
-  salt             String?
-  phone            String?   @unique
-  email            String    @unique
-  avatar           String?
-  isSystem         Boolean?  @map("is_system")
-  isAdmin          Boolean?  @map("is_admin")
-  isTrialUsed      Boolean?  @map("is_trial_used")
-  notifyMeta       String?   @map("notify_meta")
-  lastSignTime     DateTime? @map("last_sign_time")
-  deactivatedTime  DateTime? @map("deactivated_time")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  deletedTime      DateTime? @map("deleted_time")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  id                   String    @id @default(cuid())
+  name                 String
+  password             String?
+  salt                 String?
+  phone                String?   @unique
+  email                String    @unique
+  avatar               String?
+  isSystem             Boolean?  @map("is_system")
+  isAdmin              Boolean?  @map("is_admin")
+  isTrialUsed          Boolean?  @map("is_trial_used")
+  notifyMeta           String?   @map("notify_meta")
+  lastSignTime         DateTime? @map("last_sign_time")
+  deactivatedTime      DateTime? @map("deactivated_time")
+  createdTime          DateTime  @default(now()) @map("created_time")
+  deletedTime          DateTime? @map("deleted_time")
+  lastModifiedTime     DateTime? @updatedAt @map("last_modified_time")
   permanentDeletedTime DateTime? @map("permanent_deleted_time")
-  refMeta          String?   @map("ref_meta")
+  refMeta              String?   @map("ref_meta")
 
-  accounts         Account[]
+  accounts Account[]
+
   @@map("users")
 }
 
 model Account {
-  id               String    @id @default(cuid())
-  userId           String    @map("user_id")
-  type             String
-  provider         String
-  providerId       String    @map("provider_id")
-  createdTime      DateTime  @default(now()) @map("created_time")
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  type        String
+  provider    String
+  providerId  String   @map("provider_id")
+  createdTime DateTime @default(now()) @map("created_time")
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerId])
   @@map("account")
@@ -337,8 +339,8 @@ model AccessToken {
 }
 
 model Setting {
-  name             String @unique
-  content          String?   
+  name             String    @unique
+  content          String?
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   createdBy        String    @map("created_by")
@@ -346,6 +348,7 @@ model Setting {
 
   @@map("setting")
 }
+
 model OAuthApp {
   id               String    @id @default(cuid())
   name             String
@@ -357,53 +360,53 @@ model OAuthApp {
   scopes           String?
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  createdBy        String     @map("created_by")
+  createdBy        String    @map("created_by")
 
   @@map("oauth_app")
 }
 
 model OAuthAppAuthorized {
-  id               String    @id @default(cuid())
-  clientId         String    @map("client_id")
-  userId           String    @map("user_id")
-  authorizedTime   DateTime  @map("authorized_time")
+  id             String   @id @default(cuid())
+  clientId       String   @map("client_id")
+  userId         String   @map("user_id")
+  authorizedTime DateTime @map("authorized_time")
 
   @@unique([clientId, userId])
   @@map("oauth_app_authorized")
 }
 
 model OAuthAppSecret {
-  id              String    @id @default(cuid())
-  clientId        String    @map("client_id")
-  secret          String    @unique
-  maskedSecret    String    @map("masked_secret")
-  createdTime     DateTime  @default(now()) @map("created_time")
-  createdBy       String    @map("created_by")
-  lastUsedTime    DateTime? @map("last_used_time")
+  id           String    @id @default(cuid())
+  clientId     String    @map("client_id")
+  secret       String    @unique
+  maskedSecret String    @map("masked_secret")
+  createdTime  DateTime  @default(now()) @map("created_time")
+  createdBy    String    @map("created_by")
+  lastUsedTime DateTime? @map("last_used_time")
 
   @@map("oauth_app_secret")
 }
 
 model OAuthAppToken {
-  id               String    @id @default(cuid())
-  appSecretId      String    @map("app_secret_id")
-  refreshTokenSign String    @map("refresh_token_sign")  @unique
-  expiredTime      DateTime  @map("expired_time")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
+  id               String   @id @default(cuid())
+  appSecretId      String   @map("app_secret_id")
+  refreshTokenSign String   @unique @map("refresh_token_sign")
+  expiredTime      DateTime @map("expired_time")
+  createdTime      DateTime @default(now()) @map("created_time")
+  createdBy        String   @map("created_by")
 
   @@map("oauth_app_token")
 }
 
 model RecordHistory {
-  id               String    @id @default(cuid())
-  tableId          String    @map("table_id")
-  recordId         String    @map("record_id")
-  fieldId          String    @map("field_id")
-  before           String    @map("before")
-  after            String    @map("after")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  fieldId     String   @map("field_id")
+  before      String   @map("before")
+  after       String   @map("after")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
 
   @@index([tableId, recordId, createdTime])
   @@index([tableId, createdTime])
@@ -411,36 +414,36 @@ model RecordHistory {
 }
 
 model Trash {
-  id               String    @id @default(cuid())
-  resourceType     String    @map("resource_type")
-  resourceId       String    @map("resource_id")
-  parentId         String?   @map("parent_id")
-  deletedTime      DateTime  @default(now()) @map("deleted_time")
-  deletedBy        String    @map("deleted_by")
+  id           String   @id @default(cuid())
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id")
+  parentId     String?  @map("parent_id")
+  deletedTime  DateTime @default(now()) @map("deleted_time")
+  deletedBy    String   @map("deleted_by")
 
   @@unique([resourceType, resourceId])
   @@map("trash")
 }
 
 model TableTrash {
-  id               String    @id @default(cuid())
-  tableId          String    @map("table_id")
-  resourceType     String    @map("resource_type")
-  snapshot         String    @map("snapshot")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
+  id           String   @id @default(cuid())
+  tableId      String   @map("table_id")
+  resourceType String   @map("resource_type")
+  snapshot     String   @map("snapshot")
+  createdTime  DateTime @default(now()) @map("created_time")
+  createdBy    String   @map("created_by")
 
   @@index([tableId])
   @@map("table_trash")
 }
 
 model RecordTrash {
-  id               String    @id @default(cuid())
-  tableId          String    @map("table_id")
-  recordId         String    @map("record_id")
-  snapshot         String    @map("snapshot")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  snapshot    String   @map("snapshot")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
 
   @@index([tableId, recordId])
   @@map("record_trash")
@@ -466,7 +469,7 @@ model Plugin {
   createdBy        String    @map("created_by")
   lastModifiedBy   String?   @map("last_modified_by")
 
-  pluginInstall    PluginInstall[]
+  pluginInstall PluginInstall[]
 
   @@map("plugin")
 }
@@ -484,7 +487,7 @@ model PluginInstall {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
-  plugin           Plugin    @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  plugin Plugin @relation(fields: [pluginId], references: [id], onDelete: Cascade)
 
   @@index([positionId])
   @@index([baseId])
@@ -506,28 +509,28 @@ model Dashboard {
 }
 
 model Comment {
-  id               String     @id @default(cuid())
-  tableId          String     @map("table_id")
-  recordId         String     @map("record_id")
-  quoteId          String?    @map("quote_Id")
-  content          String?
-  reaction         String?
+  id       String  @id @default(cuid())
+  tableId  String  @map("table_id")
+  recordId String  @map("record_id")
+  quoteId  String? @map("quote_Id")
+  content  String?
+  reaction String?
 
-  deletedTime      DateTime?  @map("deleted_time")
-  createdTime      DateTime   @default(now()) @map("created_time")
-  createdBy        String     @map("created_by")
-  lastModifiedTime DateTime?  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
-  @@map("comment")
   @@index([tableId, recordId])
+  @@map("comment")
 }
 
 model CommentSubscription {
-  id               String     @id @default(cuid())
-  tableId          String     @map("table_id")
-  recordId         String     @map("record_id")
-  createdBy        String     @map("created_by")
-  createdTime      DateTime   @default(now()) @map("created_time")
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  createdBy   String   @map("created_by")
+  createdTime DateTime @default(now()) @map("created_time")
 
   @@unique([tableId, recordId])
   @@index([tableId, recordId])
@@ -535,13 +538,13 @@ model CommentSubscription {
 }
 
 model Integration {
-  id                String    @id @default(cuid())
-  resourceId        String    @unique @map("resource_id")
-  config            String    @map("config")
-  type              String    @map("type")
-  enable            Boolean?  @map("enable")
-  createdTime       DateTime  @default(now()) @map("created_time")
-  lastModifiedTime  DateTime? @updatedAt @map("last_modified_time")
+  id               String    @id @default(cuid())
+  resourceId       String    @unique @map("resource_id")
+  config           String    @map("config")
+  type             String    @map("type")
+  enable           Boolean?  @map("enable")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
   @@index([resourceId])
   @@map("integration")
@@ -557,7 +560,7 @@ model PluginPanel {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
-  table            TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  table TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("plugin_panel")
 }
@@ -565,24 +568,25 @@ model PluginPanel {
 model PluginContextMenu {
   id               String    @id @default(cuid())
   tableId          String    @map("table_id")
-  pluginInstallId  String    @map("plugin_install_id") @unique
+  pluginInstallId  String    @unique @map("plugin_install_id")
   order            Float     @map("order")
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
-  table            TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  table TableMeta @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("plugin_context_menu")
 }
+
 model UserLastVisit {
-  id               String    @id @default(cuid())
-  userId           String    @map("user_id")
-  resourceType     String    @map("resource_type")
-  resourceId       String    @map("resource_id")
-  parentResourceId String    @map("parent_resource_id")
-  lastVisitTime    DateTime  @default(now()) @map("last_visit_time")
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  resourceType     String   @map("resource_type")
+  resourceId       String   @map("resource_id")
+  parentResourceId String   @map("parent_resource_id")
+  lastVisitTime    DateTime @default(now()) @map("last_visit_time")
 
   @@unique([userId, resourceType, resourceId])
   @@index([userId, resourceType, parentResourceId])
@@ -590,22 +594,22 @@ model UserLastVisit {
 }
 
 model Template {
-  id                      String    @id @default(cuid())
-  baseId                  String?   @map("base_id")
-  cover                   String?
-  name                    String?
-  description             String?
-  markdownDescription     String?   @map("markdown_description")
-  categoryId              String?   @map("category_id")
-  createdTime             DateTime  @default(now()) @map("created_time")
-  createdBy               String    @map("created_by")
-  lastModifiedTime        DateTime? @updatedAt @map("last_modified_time")
-  lastModifiedBy          String?   @map("last_modified_by")
-  isSystem                Boolean?  @map("is_system")
-  isPublished             Boolean?  @map("is_published")
-  snapshot                String?   @map("snapshot")
-  order                   Float     @map("order")
-  usageCount              Int       @default(0) @map("usage_count")
+  id                  String    @id @default(cuid())
+  baseId              String?   @map("base_id")
+  cover               String?
+  name                String?
+  description         String?
+  markdownDescription String?   @map("markdown_description")
+  categoryId          String?   @map("category_id")
+  createdTime         DateTime  @default(now()) @map("created_time")
+  createdBy           String    @map("created_by")
+  lastModifiedTime    DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy      String?   @map("last_modified_by")
+  isSystem            Boolean?  @map("is_system")
+  isPublished         Boolean?  @map("is_published")
+  snapshot            String?   @map("snapshot")
+  order               Float     @map("order")
+  usageCount          Int       @default(0) @map("usage_count")
 
   @@map("template")
 }
@@ -632,7 +636,7 @@ model Task {
   createdBy        String    @map("created_by")
   lastModifiedBy   String?   @map("last_modified_by")
 
-  runs             TaskRun[]
+  runs TaskRun[]
 
   @@index([type, status])
   @@map("task")
@@ -649,17 +653,17 @@ model TaskRun {
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
-  task             Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId, status])
   @@map("task_run")
 }
 
 model TaskReference {
-  id          String    @id @default(cuid())
-  fromFieldId String    @map("from_field_id")
-  toFieldId   String    @map("to_field_id")
-  createdTime DateTime  @default(now()) @map("created_time")
+  id          String   @id @default(cuid())
+  fromFieldId String   @map("from_field_id")
+  toFieldId   String   @map("to_field_id")
+  createdTime DateTime @default(now()) @map("created_time")
 
   @@unique([toFieldId, fromFieldId])
   @@index([fromFieldId])
@@ -668,10 +672,10 @@ model TaskReference {
 }
 
 model Waitlist {
-  email          String    @map("email") @unique
-  invite         Boolean?  @map("invite")
-  inviteTime     DateTime? @map("invite_time")
-  createdTime    DateTime  @default(now()) @map("created_time")
+  email       String    @unique @map("email")
+  invite      Boolean?  @map("invite")
+  inviteTime  DateTime? @map("invite_time")
+  createdTime DateTime  @default(now()) @map("created_time")
 
   @@map("waitlist")
 }
