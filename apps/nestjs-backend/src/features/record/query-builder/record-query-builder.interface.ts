@@ -42,6 +42,8 @@ export interface ICreateRecordAggregateBuilderOptions {
   groupBy?: IGroup;
   /** Optional current user ID */
   currentUserId?: string;
+  /** Optional projection to minimize CTE/select */
+  projection?: string[];
 }
 
 /**
