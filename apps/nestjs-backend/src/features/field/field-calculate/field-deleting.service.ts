@@ -216,12 +216,21 @@ export class FieldDeletingService {
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions = field.options;
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
-      // Foreign key cleanup is now handled in the drop visitor during deleteFieldItem
-      await this.deleteFieldItem(tableId, field);
+      // Foreign key cleanup is handled in the drop visitor during deleteFieldItem
+      // First delete the main field and its FK artifacts
+      await this.deleteFieldItem(tableId, field, DropColumnOperationType.DELETE_FIELD);
 
       if (symmetricFieldId) {
         const symmetricField = await this.getField(foreignTableId, symmetricFieldId);
-        symmetricField && (await this.deleteFieldItem(foreignTableId, symmetricField));
+        // When deleting the symmetric field as part of a bidirectional pair,
+        // preserve FK artifacts that were already dropped when deleting the main field
+        if (symmetricField) {
+          await this.deleteFieldItem(
+            foreignTableId,
+            symmetricField,
+            DropColumnOperationType.DELETE_SYMMETRIC_FIELD
+          );
+        }
         return [
           { tableId, fieldId },
           { tableId: foreignTableId, fieldId: symmetricFieldId },

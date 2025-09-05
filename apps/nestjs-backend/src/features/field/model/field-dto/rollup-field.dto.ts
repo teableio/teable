@@ -20,6 +20,10 @@ export class RollupFieldDto extends RollupFieldCore implements FieldBase {
     if (this.isMultipleCellValue) {
       return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
     }
+    // Normalize BigInt (from some drivers on aggregate functions like COUNT) to number for JSON compatibility
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
     return value;
   }
 }

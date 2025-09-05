@@ -1098,8 +1098,10 @@ export class LinkService {
 
     const maxOrderResult = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ maxOrder: number | null }[]>(maxOrderQuery);
-    return maxOrderResult[0]?.maxOrder || 0;
+      .$queryRawUnsafe<{ maxOrder: unknown }[]>(maxOrderQuery);
+    const raw = maxOrderResult[0]?.maxOrder as unknown;
+    // Coerce SQLite BigInt or string results safely into number; default to 0
+    return raw == null ? 0 : Number(raw);
   }
 
   private async saveForeignKeyForManyOne(
@@ -1303,21 +1305,32 @@ export class LinkService {
               );
             }
           } else {
-            // If no order column, just add new links
-            const toAdd = difference(newKey, oldKey);
-            if (toAdd.length > 0) {
-              const dbFields = [{ dbFieldName: selfKeyName, schemaType: SchemaType.String }];
-              const addData = toAdd.map((foreignRecordId) => ({
-                id: foreignRecordId,
-                values: { [selfKeyName]: recordId },
-              }));
+            // One-many without order column implies one-way using a junction table.
+            // To preserve the explicit order provided by the client (e.g., typecast "id1,id2"),
+            // delete all existing rows for this source record and re-insert in the new order.
+            const oldArr = oldKey ?? [];
+            const newArr = newKey ?? [];
 
-              await this.batchService.batchUpdateDB(
-                fkHostTableName,
-                foreignKeyName,
-                dbFields,
-                addData
-              );
+            const needsReorder =
+              oldArr.length !== newArr.length || !oldArr.every((key, i) => key === newArr[i]);
+
+            if (needsReorder) {
+              // Delete all existing associations for this source record
+              const deleteAllQuery = this.knex(fkHostTableName)
+                .where(selfKeyName, recordId)
+                .delete()
+                .toQuery();
+              await this.prismaService.txClient().$executeRawUnsafe(deleteAllQuery);
+
+              // Re-insert in the specified order
+              if (newArr.length) {
+                const insertValues = newArr.map((foreignRecordId) => ({
+                  [selfKeyName]: recordId,
+                  [foreignKeyName]: foreignRecordId,
+                }));
+                const insertQuery = this.knex(fkHostTableName).insert(insertValues).toQuery();
+                await this.prismaService.txClient().$executeRawUnsafe(insertQuery);
+              }
             }
           }
         }

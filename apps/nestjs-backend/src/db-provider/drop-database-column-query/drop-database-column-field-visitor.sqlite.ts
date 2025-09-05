@@ -56,12 +56,9 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
     if (field.isLookup) {
       return [];
     }
-
-    if (field.getIsPersistedAsGeneratedColumn()) {
-      return this.dropStandardColumn(field);
-    }
-
-    return [];
+    // Align with Postgres: drop the physical column representing the formula
+    // regardless of whether it was persisted as a generated column or not.
+    return this.dropStandardColumn(field);
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -169,13 +166,13 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
       return [];
     }
 
-    // Handle foreign key cleanup for link fields
-    const queries = this.dropForeignKeyForLinkField(field);
-
-    // Also drop the standard column
-    queries.push(...this.dropStandardColumn(field));
-
-    return queries;
+    // Handle foreign key/junction cleanup for link fields only.
+    // In SQLite, we do not create a standard data column for Link fields,
+    // so there is nothing to drop from the host table besides FK-related columns.
+    // Dropping a non-existent "dbFieldName" column causes errors like
+    //   no such column: `link_field`
+    // Therefore, we only drop FK/junction artifacts here.
+    return this.dropForeignKeyForLinkField(field);
   }
 
   visitRollupField(_field: RollupFieldCore): string[] {

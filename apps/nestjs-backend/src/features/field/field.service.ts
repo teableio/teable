@@ -1038,8 +1038,14 @@ export class FieldService implements IReadonlyAdapterService {
         });
       }
 
-      // Check if this is a formula field options update that affects generated columns
-      await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
+      // Only handle formula update here for options-only changes.
+      // When converting type (e.g., Text -> Formula), handleFieldTypeChange above
+      // already reconciles the physical schema. Running it again here would
+      // attempt to drop the old column twice and cause: no such column: `...`.
+      if (oldField.type === FieldType.Formula && newField.type === FieldType.Formula) {
+        // Check if this is a formula field options update that affects generated columns
+        await this.handleFormulaUpdate(tableId, dbTableName, oldField, newField);
+      }
 
       return { options: JSON.stringify(newValue) };
     }

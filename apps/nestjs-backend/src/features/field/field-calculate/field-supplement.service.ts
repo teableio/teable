@@ -1435,11 +1435,9 @@ export class FieldSupplementService {
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
     const dropTable = async (tableName: string) => {
-      const alterTableSchema = this.knex
-        .raw('DROP TABLE IF EXISTS ?? CASCADE', [tableName])
-        .toQuery();
-
-      await this.prismaService.txClient().$executeRawUnsafe(alterTableSchema);
+      // Use provider to generate dialect-correct DROP TABLE SQL
+      const sql = this.dbProvider.dropTable(tableName);
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
@@ -1449,12 +1447,23 @@ export class FieldSupplementService {
         await this.prismaService.txClient().$executeRawUnsafe(sql);
       }
 
-      // TODO: move to db provider
-      const dropOrder = this.knex
-        .raw(`ALTER TABLE ?? DROP COLUMN IF EXISTS ?? CASCADE`, [tableName, columnName + '_order'])
-        .toQuery();
-
-      await this.prismaService.txClient().$executeRawUnsafe(dropOrder);
+      // Drop the associated order column if it exists
+      const orderColumn = `${columnName}_order`;
+      const exists = await this.dbProvider.checkColumnExist(
+        tableName,
+        orderColumn,
+        this.prismaService.txClient()
+      );
+      if (exists) {
+        const dropOrderSqls = this.dbProvider.dropColumnAndIndex(
+          tableName,
+          orderColumn,
+          `index_${orderColumn}`
+        );
+        for (const sql of dropOrderSqls) {
+          await this.prismaService.txClient().$executeRawUnsafe(sql);
+        }
+      }
     };
 
     if (relationship === Relationship.ManyMany && fkHostTableName.includes('junction_')) {

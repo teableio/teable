@@ -370,8 +370,8 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
 
   arrayJoin(array: string, separator?: string): string {
     const sep = separator || ',';
-    // SQLite JSON array join using json_each
-    return `(SELECT GROUP_CONCAT(value, ${sep}) FROM json_each(${array}))`;
+    // SQLite JSON array join using json_each with stable ordering by key
+    return `(SELECT GROUP_CONCAT(value, ${sep}) FROM json_each(${array}) ORDER BY key)`;
   }
 
   arrayUnique(array: string): string {
