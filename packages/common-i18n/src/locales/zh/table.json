@@ -700,6 +700,10 @@
       "buildBaseAgent": "构建数据库工具",
       "buildAutomationAgent": "构建自动化工具"
     },
+    "confirm": {
+      "toBeConfirmed": "待确认",
+      "deleteWarning": "你确定要删除吗？"
+    },
     "action": {
       "createTable": "创建表格",
       "updateTableName": "更新表格名称",
@@ -708,6 +712,11 @@
       "updateViewName": "更新视图名称",
       "deleteView": "删除视图",
       "createField": "创建字段",
+      "createAiField": "创建 AI 字段",
+      "createLinkField": "创建关联字段",
+      "createLookupField": "创建查找字段",
+      "createRollupField": "创建聚合字段",
+      "createFormulaField": "创建公式字段",
       "deleteField": "删除字段",
       "updateField": "更新字段",
       "createRecord": "创建记录",

@@ -700,6 +700,10 @@
       "buildBaseAgent": "Build Base Agent",
       "buildAutomationAgent": "Build Automation Agent"
     },
+    "confirm": {
+      "toBeConfirmed": "To be confirmed",
+      "deleteWarning": "Are you sure you want to delete?"
+    },
     "action": {
       "createTable": "Create table",
       "updateTableName": "Update table name",
@@ -708,6 +712,11 @@
       "updateViewName": "Update view name",
       "deleteView": "Delete view",
       "createField": "Create field",
+      "createAiField": "Create AI field",
+      "createLinkField": "Create link field",
+      "createLookupField": "Create lookup field",
+      "createRollupField": "Create rollup field",
+      "createFormulaField": "Create formula field",
       "deleteField": "Delete field",
       "updateField": "Update field",
       "createRecord": "Create record",
