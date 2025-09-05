@@ -762,7 +762,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
               formattedSelectionExpression,
               rawSelectionExpression,
               linkFilterSubquerySql: linkFilterSub,
-              junctionAlias: JUNCTION_ALIAS,
+              // Pass the actual junction table name here; the dialect will alias it as "j".
+              junctionAlias: opts.fkHostTableName!,
             }) || this.getJsonAggregationFunction(conditionalJsonObject)
           );
         } else {
