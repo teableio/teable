@@ -42,7 +42,7 @@ export function instanceReducer<T, R extends { id: string }>(
         ...state,
         instances: [
           ...state.instances.slice(0, action.index),
-          ...action.docs.map((doc) => factory(doc.data, doc)),
+          ...action.docs.filter((doc) => doc.data).map((doc) => factory(doc.data, doc)),
           ...state.instances.slice(action.index),
         ],
       };
