@@ -58,6 +58,7 @@ export class DeleteRecordsOperation {
           });
           await prisma.recordTrash.deleteMany({
             where: {
+              tableId: params.tableId,
               recordId: { in: recordIds },
             },
           });

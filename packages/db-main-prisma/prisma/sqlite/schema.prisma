@@ -417,6 +417,7 @@ model TableTrash {
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
 
+  @@index([tableId])
   @@map("table_trash")
 }
 
@@ -428,6 +429,7 @@ model RecordTrash {
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
 
+  @@index([tableId, recordId])
   @@map("record_trash")
 }
 
