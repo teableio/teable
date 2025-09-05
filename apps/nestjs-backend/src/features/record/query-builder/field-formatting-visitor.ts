@@ -1,9 +1,5 @@
 import {
   type IFieldVisitor,
-  DriverClient,
-  type INumberFormatting,
-  NumberFormattingType,
-  type ICurrencyFormatting,
   type SingleLineTextFieldCore,
   type LongTextFieldCore,
   type NumberFieldCore,
@@ -24,8 +20,10 @@ import {
   type CreatedByFieldCore,
   type LastModifiedByFieldCore,
   type ButtonFieldCore,
+  type INumberFormatting,
 } from '@teable/core';
 import { match, P } from 'ts-pattern';
+import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 /**
  * Field formatting visitor that converts field cellValue2String logic to SQL expressions
@@ -33,68 +31,21 @@ import { match, P } from 'ts-pattern';
 export class FieldFormattingVisitor implements IFieldVisitor<string> {
   constructor(
     private readonly fieldExpression: string,
-    private readonly driver: DriverClient
+    private readonly dialect: IRecordQueryDialectProvider
   ) {}
-
-  private get isPostgreSQL(): boolean {
-    return this.driver === DriverClient.Pg;
-  }
 
   /**
    * Convert field expression to text/string format for database-specific SQL
    */
   private convertToText(): string {
-    if (this.isPostgreSQL) {
-      return `${this.fieldExpression}::TEXT`;
-    } else {
-      return `CAST(${this.fieldExpression} AS TEXT)`;
-    }
+    return this.dialect.toText(this.fieldExpression);
   }
 
   /**
    * Apply number formatting to field expression
    */
   private applyNumberFormatting(formatting: INumberFormatting): string {
-    const { type, precision } = formatting;
-
-    return match({ type, precision, isPostgreSQL: this.isPostgreSQL })
-      .with(
-        { type: NumberFormattingType.Decimal, precision: P.number },
-        ({ precision, isPostgreSQL }) =>
-          isPostgreSQL
-            ? `ROUND(CAST(${this.fieldExpression} AS NUMERIC), ${precision})::TEXT`
-            : `PRINTF('%.${precision}f', ${this.fieldExpression})`
-      )
-      .with(
-        { type: NumberFormattingType.Percent, precision: P.number },
-        ({ precision, isPostgreSQL }) =>
-          isPostgreSQL
-            ? `ROUND(CAST(${this.fieldExpression} * 100 AS NUMERIC), ${precision})::TEXT || '%'`
-            : `PRINTF('%.${precision}f', ${this.fieldExpression} * 100) || '%'`
-      )
-      .with({ type: NumberFormattingType.Currency }, ({ precision, isPostgreSQL }) => {
-        const symbol = (formatting as ICurrencyFormatting).symbol || '$';
-        return match({ precision, isPostgreSQL })
-          .with(
-            { precision: P.number, isPostgreSQL: true },
-            ({ precision }) =>
-              `'${symbol}' || ROUND(CAST(${this.fieldExpression} AS NUMERIC), ${precision})::TEXT`
-          )
-          .with(
-            { precision: P.number, isPostgreSQL: false },
-            ({ precision }) => `'${symbol}' || PRINTF('%.${precision}f', ${this.fieldExpression})`
-          )
-          .with({ isPostgreSQL: true }, () => `'${symbol}' || ${this.fieldExpression}::TEXT`)
-          .with(
-            { isPostgreSQL: false },
-            () => `'${symbol}' || CAST(${this.fieldExpression} AS TEXT)`
-          )
-          .exhaustive();
-      })
-      .otherwise(({ isPostgreSQL }) =>
-        // Default: convert to string
-        isPostgreSQL ? `${this.fieldExpression}::TEXT` : `CAST(${this.fieldExpression} AS TEXT)`
-      );
+    return this.dialect.formatNumber(this.fieldExpression, formatting);
   }
 
   /**
@@ -102,71 +53,14 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
    * Useful for formatting per-element inside JSON array iteration
    */
   private applyNumberFormattingTo(expression: string, formatting: INumberFormatting): string {
-    const { type, precision } = formatting;
-
-    return match({ type, precision, isPostgreSQL: this.isPostgreSQL })
-      .with(
-        { type: NumberFormattingType.Decimal, precision: P.number },
-        ({ precision, isPostgreSQL }) =>
-          isPostgreSQL
-            ? `ROUND(CAST(${expression} AS NUMERIC), ${precision})::TEXT`
-            : `PRINTF('%.${precision}f', ${expression})`
-      )
-      .with(
-        { type: NumberFormattingType.Percent, precision: P.number },
-        ({ precision, isPostgreSQL }) =>
-          isPostgreSQL
-            ? `ROUND(CAST(${expression} * 100 AS NUMERIC), ${precision})::TEXT || '%'`
-            : `PRINTF('%.${precision}f', ${expression} * 100) || '%'`
-      )
-      .with({ type: NumberFormattingType.Currency }, ({ precision, isPostgreSQL }) => {
-        const symbol = (formatting as ICurrencyFormatting).symbol || '$';
-        return match({ precision, isPostgreSQL })
-          .with(
-            { precision: P.number, isPostgreSQL: true },
-            ({ precision }) =>
-              `'${symbol}' || ROUND(CAST(${expression} AS NUMERIC), ${precision})::TEXT`
-          )
-          .with(
-            { precision: P.number, isPostgreSQL: false },
-            ({ precision }) => `'${symbol}' || PRINTF('%.${precision}f', ${expression})`
-          )
-          .with({ isPostgreSQL: true }, () => `'${symbol}' || (${expression})::TEXT`)
-          .with({ isPostgreSQL: false }, () => `'${symbol}' || CAST(${expression} AS TEXT)`)
-          .exhaustive();
-      })
-      .otherwise(({ isPostgreSQL }) =>
-        isPostgreSQL ? `(${expression})::TEXT` : `CAST(${expression} AS TEXT)`
-      );
+    return this.dialect.formatNumber(expression, formatting);
   }
 
   /**
    * Format multiple numeric values contained in a JSON array to a comma-separated string
    */
   private formatMultipleNumberValues(formatting: INumberFormatting): string {
-    if (this.isPostgreSQL) {
-      const elemNumExpr = `(elem #>> '{}')::numeric`;
-      const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
-      // Preserve original array order using WITH ORDINALITY
-      return `(
-        SELECT string_agg(${formatted}, ', ' ORDER BY ord)
-        FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
-      )`;
-    } else {
-      // SQLite: json_each + per-element formatting via printf
-      // Note: Currency symbol handled in applyNumberFormattingTo
-      const elemNumExpr = `CAST(json_extract(value, '$') AS NUMERIC)`;
-      const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
-      // Preserve original array order using json_each key
-      // Guard against non-JSON values by validating before iterating
-      // If the expression is NULL or not a valid JSON array/object, fallback to empty array
-      const safeArrayExpr = `CASE WHEN json_valid(${this.fieldExpression}) THEN ${this.fieldExpression} ELSE json('[]') END`;
-      return `(
-        SELECT GROUP_CONCAT(${formatted}, ', ')
-        FROM json_each(${safeArrayExpr})
-        ORDER BY key
-      )`;
-    }
+    return this.dialect.formatNumberArray(this.fieldExpression, formatting);
   }
 
   /**
@@ -174,40 +68,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
    * Also handles link field arrays with objects containing id and title
    */
   private formatMultipleStringValues(): string {
-    if (this.isPostgreSQL) {
-      // PostgreSQL: Handle both text arrays and object arrays (like link fields)
-      // The key issue is that we need to avoid double JSON processing
-      // When the expression is already a JSON array from link field references,
-      // we should extract the string values directly without re-serializing
-      return `(
-        SELECT string_agg(
-          CASE
-            WHEN jsonb_typeof(elem) = 'string' THEN elem #>> '{}'
-            WHEN jsonb_typeof(elem) = 'object' THEN elem->>'title'
-            ELSE elem::text
-          END,
-          ', '
-          ORDER BY ord
-        )
-        FROM jsonb_array_elements(COALESCE((${this.fieldExpression})::jsonb, '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
-      )`;
-    } else {
-      // SQLite: Use GROUP_CONCAT with json_each to join array elements
-      // Guard against non-JSON values by validating before iterating
-      const safeArrayExpr = `CASE WHEN json_valid(${this.fieldExpression}) THEN ${this.fieldExpression} ELSE json('[]') END`;
-      return `(
-        SELECT GROUP_CONCAT(
-          CASE
-            WHEN json_type(value) = 'text' THEN json_extract(value, '$')
-            WHEN json_type(value) = 'object' THEN json_extract(value, '$.title')
-            ELSE value
-          END,
-          ', '
-        )
-        FROM json_each(${safeArrayExpr})
-        ORDER BY key
-      )`;
-    }
+    return this.dialect.formatStringArray(this.fieldExpression);
   }
 
   visitSingleLineTextField(_field: SingleLineTextFieldCore): string {
@@ -241,18 +102,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
   visitRatingField(_field: RatingFieldCore): string {
     // Rating fields should display without trailing .0
     // If value is an integer, render as integer text; otherwise, fall back to generic number->text
-    if (this.isPostgreSQL) {
-      // Postgres: compare to rounded integer and cast accordingly
-      return `CASE WHEN (${this.fieldExpression} = ROUND(${this.fieldExpression}))
-        THEN ROUND(${this.fieldExpression})::TEXT
-        ELSE (${this.fieldExpression})::TEXT
-      END`;
-    }
-    // SQLite: compare to integer cast; if equal, output integer text else real as text
-    return `CASE WHEN (${this.fieldExpression} = CAST(${this.fieldExpression} AS INTEGER))
-      THEN CAST(CAST(${this.fieldExpression} AS INTEGER) AS TEXT)
-      ELSE CAST(${this.fieldExpression} AS TEXT)
-    END`;
+    return this.dialect.formatRating(this.fieldExpression);
   }
 
   visitAutoNumberField(_field: AutoNumberFieldCore): string {

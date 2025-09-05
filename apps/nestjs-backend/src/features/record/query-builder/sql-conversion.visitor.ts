@@ -39,7 +39,10 @@ import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parse
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import type { IFieldSelectName } from './field-select.type';
+import { PgRecordQueryDialect } from './providers/pg-record-query-dialect';
+import { SqliteRecordQueryDialect } from './providers/sqlite-record-query-dialect';
 import type { IRecordSelectionMap } from './record-query-builder.interface';
+import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 function unescapeString(str: string): string {
   return str.replace(/\\(.)/g, (_, char) => {
@@ -148,9 +151,16 @@ abstract class BaseSqlConversionVisitor<
   constructor(
     protected readonly knex: Knex,
     protected formulaQuery: TFormulaQuery,
-    protected context: IFormulaConversionContext
+    protected context: IFormulaConversionContext,
+    protected dialect?: IRecordQueryDialectProvider
   ) {
     super();
+    // Initialize a dialect provider for use in driver-specific pieces when callers don't inject one
+    if (!this.dialect) {
+      const d = this.context.driverClient;
+      if (d === DriverClient.Pg) this.dialect = new PgRecordQueryDialect(this.knex);
+      else this.dialect = new SqliteRecordQueryDialect(this.knex);
+    }
   }
 
   visitRoot(ctx: RootContext): string {
@@ -466,11 +476,7 @@ abstract class BaseSqlConversionVisitor<
    * For other drivers, fall back to a direct numeric cast.
    */
   private safeCastToNumeric(value: string): string {
-    if (this.context.driverClient === DriverClient.Pg) {
-      // Accept optional sign, integers or decimals; treat empty/invalid as NULL
-      return `CASE WHEN (${value})::text ~ '^[+-]?((\\d+\\.\\d+)|(\\d+)|(\\.\\d+))$' THEN (${value})::numeric ELSE NULL END`;
-    }
-    return this.formulaQuery.castToNumber(value);
+    return this.dialect!.coerceToNumericForCompare(value);
   }
   /**
    * Infer the type of an expression for type-aware operations
@@ -802,39 +808,11 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
       const isBooleanContext = this.isInBooleanContext(ctx);
 
       // Use database driver from context
-      const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
-
       if (isBooleanContext) {
-        // For boolean context, return whether the link field has any values
-        if (isPostgreSQL) {
-          return `(${selectionSql} IS NOT NULL AND ${selectionSql}::text != 'null' AND ${selectionSql}::text != '[]')`;
-        } else {
-          // SQLite
-          return `(${selectionSql} IS NOT NULL AND ${selectionSql} != 'null' AND ${selectionSql} != '[]')`;
-        }
-      } else {
-        // For non-boolean context, extract title values as JSON array
-        if (fieldInfo.isMultipleCellValue) {
-          // For multi-value link fields (OneMany/ManyMany), extract array of titles
-          if (isPostgreSQL) {
-            return `(SELECT json_agg(value->>'title') FROM jsonb_array_elements(${selectionSql}::jsonb) AS value)::jsonb`;
-          } else {
-            // SQLite: guard against NULL/non-JSON by falling back to empty array
-            // Ensure we only iterate over valid JSON arrays and preserve element order by key
-            return `(SELECT json_group_array(json_extract(value, '$.title'))
-                     FROM json_each(CASE WHEN json_valid(${selectionSql}) AND json_type(${selectionSql}) = 'array' THEN ${selectionSql} ELSE json('[]') END) AS value
-                     ORDER BY key)`;
-          }
-        } else {
-          // For single-value link fields (ManyOne/OneOne), extract single title
-          if (isPostgreSQL) {
-            return `(${selectionSql}->>'title')`;
-          } else {
-            // SQLite
-            return `json_extract(${selectionSql}, '$.title')`;
-          }
-        }
+        return this.dialect!.linkHasAny(selectionSql);
       }
+      // For non-boolean context, extract title values as JSON array or single title
+      return this.dialect!.linkExtractTitles(selectionSql, !!fieldInfo.isMultipleCellValue);
     }
 
     // Check if this is a formula field that needs recursive expansion
@@ -862,17 +840,13 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     // Handle user-related fields
     if (fieldInfo.type === FieldType.CreatedBy || fieldInfo.type === FieldType.LastModifiedBy) {
       // For system user fields, derive directly from system columns to avoid JSON dependency
-      const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
       const alias = selectContext.tableAlias;
       const sysCol = fieldInfo.type === FieldType.CreatedBy ? '__created_by' : '__last_modified_by';
       const idRef = alias ? `"${alias}"."${sysCol}"` : `"${sysCol}"`;
-      return isPostgreSQL
-        ? `(SELECT u.name FROM users u WHERE u.id = ${idRef})`
-        : `(SELECT name FROM users WHERE id = ${idRef})`;
+      return this.dialect!.selectUserNameById(idRef);
     }
     if (fieldInfo.type === FieldType.User) {
       // For normal User fields, extract title from the JSON selection when available
-      const isPostgreSQL = this.context.driverClient === DriverClient.Pg;
       if (!selectionSql) {
         if (selectContext.tableAlias) {
           selectionSql = `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
@@ -880,9 +854,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           selectionSql = `"${fieldInfo.dbFieldName}"`;
         }
       }
-      return isPostgreSQL
-        ? `(${selectionSql}->>'title')`
-        : `json_extract(${selectionSql}, '$.title')`;
+      return this.dialect!.jsonTitleFromExpr(selectionSql);
     }
 
     if (selectionSql) {

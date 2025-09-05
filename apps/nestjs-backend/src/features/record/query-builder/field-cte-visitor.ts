@@ -48,6 +48,7 @@ import type {
 } from './record-query-builder.interface';
 import { RecordQueryBuilderManager, ScopedSelectionState } from './record-query-builder.manager';
 import { getLinkUsesJunctionTable, getTableAliasFromTable } from './record-query-builder.util';
+import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 type ICteResult = void;
 
@@ -57,6 +58,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   constructor(
     private readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
+    private readonly dialect: IRecordQueryDialectProvider,
     private readonly table: TableDomain,
     private readonly foreignTable: TableDomain,
     private readonly state: IReadonlyQueryBuilderState,
@@ -72,16 +74,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     return this.foreignAliasOverride || getTableAliasFromTable(this.foreignTable);
   }
   private getJsonAggregationFunction(fieldReference: string): string {
-    const driver = this.dbProvider.driver;
-    if (driver === DriverClient.Pg) {
-      // Filter out null values to prevent null entries in the JSON array
-      return `json_agg(${fieldReference}) FILTER (WHERE ${fieldReference} IS NOT NULL)`;
-    } else if (driver === DriverClient.Sqlite) {
-      // For SQLite, aggregate while filtering nulls via CASE expression
-      // SQLite doesn't support FILTER (...) on aggregates
-      return `json_group_array(CASE WHEN ${fieldReference} IS NOT NULL THEN ${fieldReference} END)`;
-    }
-    throw new Error(`Unsupported database driver: ${driver}`);
+    return this.dialect.jsonAggregateNonNull(fieldReference);
   }
   /**
    * Build a subquery (SELECT 1 WHERE ...) for foreign table filter using provider's filterQuery.
@@ -128,75 +121,11 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       throw new Error(`Invalid rollup expression: ${expression}`);
     }
     const functionName = functionMatch[1].toLowerCase();
-    const castIfPg = (sql: string) =>
-      this.dbProvider.driver === DriverClient.Pg ? `CAST(${sql} AS DOUBLE PRECISION)` : sql;
-    switch (functionName) {
-      case 'sum':
-        return castIfPg(`COALESCE(SUM(${fieldExpression}), 0)`);
-      case 'count':
-        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
-      case 'countall':
-        // For multiple select fields, count individual elements in JSON arrays
-        if (targetField.type === FieldType.MultipleSelect) {
-          if (this.dbProvider.driver === DriverClient.Pg) {
-            // PostgreSQL: Sum the length of each JSON array, ensure 0 when no records
-            return castIfPg(
-              `COALESCE(SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN jsonb_array_length(${fieldExpression}::jsonb) ELSE 0 END), 0)`
-            );
-          } else {
-            // SQLite: Sum the length of each JSON array, ensure 0 when no records
-            return castIfPg(
-              `COALESCE(SUM(CASE WHEN ${fieldExpression} IS NOT NULL THEN json_array_length(${fieldExpression}) ELSE 0 END), 0)`
-            );
-          }
-        }
-        // For other field types, count linked rows rather than non-null target values.
-        // Use a reliable row-presence expression (foreign record id) when available;
-        // fallback to counting the field expression to preserve prior behavior.
-        return castIfPg(`COALESCE(COUNT(${rowPresenceExpr ?? fieldExpression}), 0)`);
-      case 'counta':
-        return castIfPg(`COALESCE(COUNT(${fieldExpression}), 0)`);
-      case 'max':
-        return castIfPg(`MAX(${fieldExpression})`);
-      case 'min':
-        return castIfPg(`MIN(${fieldExpression})`);
-      case 'and':
-        // For boolean AND, all values must be true (non-zero/non-null)
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `BOOL_AND(${fieldExpression}::boolean)`
-          : `MIN(${fieldExpression})`;
-      case 'or':
-        // For boolean OR, at least one value must be true
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `BOOL_OR(${fieldExpression}::boolean)`
-          : `MAX(${fieldExpression})`;
-      case 'xor':
-        // XOR is more complex, we'll use a custom expression
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `(COUNT(CASE WHEN ${fieldExpression}::boolean THEN 1 END) % 2 = 1)`
-          : `(COUNT(CASE WHEN ${fieldExpression} THEN 1 END) % 2 = 1)`;
-      case 'array_join':
-      case 'concatenate':
-        // Join all values into a single string with deterministic ordering
-        if (this.dbProvider.driver === DriverClient.Pg) {
-          return orderByField
-            ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${orderByField})`
-            : `STRING_AGG(${fieldExpression}::text, ', ')`;
-        }
-        return `GROUP_CONCAT(${fieldExpression}, ', ')`;
-      case 'array_unique':
-        // Get unique values as JSON array
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `json_agg(DISTINCT ${fieldExpression})`
-          : `json_group_array(DISTINCT ${fieldExpression})`;
-      case 'array_compact':
-        // Get non-null values as JSON array
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `json_agg(${fieldExpression}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`
-          : `json_group_array(CASE WHEN ${fieldExpression} IS NOT NULL THEN ${fieldExpression} END)`;
-      default:
-        throw new Error(`Unsupported rollup function: ${functionName}`);
-    }
+    return this.dialect.rollupAggregate(functionName, fieldExpression, {
+      targetField,
+      orderByField,
+      rowPresenceExpr,
+    });
   }
 
   /**
@@ -214,44 +143,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const functionName = functionMatch[1].toLowerCase();
 
-    switch (functionName) {
-      case 'sum':
-        // For single-value relationship, sum reduces to the value itself, but should be 0 when null
-        return `COALESCE(${fieldExpression}, 0)`;
-      case 'max':
-      case 'min':
-      case 'array_join':
-      case 'concatenate':
-        // For single-value relationship, these reduce to the value itself
-        return `${fieldExpression}`;
-      case 'count':
-      case 'countall':
-      case 'counta':
-        // Presence check: 1 if not null, else 0
-        return `CASE WHEN ${fieldExpression} IS NULL THEN 0 ELSE 1 END`;
-      case 'and':
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `(COALESCE((${fieldExpression})::boolean, false))`
-          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
-      case 'or':
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `(COALESCE((${fieldExpression})::boolean, false))`
-          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
-      case 'xor':
-        // With a single value, XOR is equivalent to the value itself
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `(COALESCE((${fieldExpression})::boolean, false))`
-          : `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
-      case 'array_unique':
-      case 'array_compact':
-        // Wrap single value into JSON array if present else empty array
-        return this.dbProvider.driver === DriverClient.Pg
-          ? `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::json ELSE json_build_array(${fieldExpression}) END)`
-          : `(CASE WHEN ${fieldExpression} IS NULL THEN json('[]') ELSE json_array(${fieldExpression}) END)`;
-      default:
-        // Fallback to the value to keep behavior sensible
-        return `${fieldExpression}`;
-    }
+    return this.dialect.singleValueRollupAggregate(functionName, fieldExpression);
   }
   private buildSingleValueRollup(field: FieldCore, expression: string): string {
     const rollupOptions = field.options as IRollupFieldOptions;
@@ -329,7 +221,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       qb,
       this.dbProvider,
       this.foreignTable,
-      new ScopedSelectionState(this.state)
+      new ScopedSelectionState(this.state),
+      this.dialect
     );
 
     const foreignAlias = this.getForeignAlias();
@@ -740,6 +633,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       this.dbProvider,
       foreignTable,
       new ScopedSelectionState(this.state),
+      this.dialect,
       foreignTableAlias
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
@@ -747,7 +641,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
 
     // Apply field formatting to build the display expression
-    const formattingVisitor = new FieldFormattingVisitor(rawSelectionExpression, driver);
+    const formattingVisitor = new FieldFormattingVisitor(rawSelectionExpression, this.dialect);
     let formattedSelectionExpression = targetLookupField.accept(formattingVisitor);
     // Self-join: ensure expressions use the foreign alias override
     const defaultForeignAlias = getTableAliasFromTable(foreignTable);
@@ -771,7 +665,11 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     return match(driver)
       .with(DriverClient.Pg, () => {
         // Build JSON object with id and title, then strip null values to remove title key when null
-        const conditionalJsonObject = `jsonb_strip_nulls(jsonb_build_object('id', ${recordIdRef}, 'title', ${formattedSelectionExpression}))::jsonb`;
+        const conditionalJsonObject = this.dialect.buildLinkJsonObject(
+          recordIdRef,
+          formattedSelectionExpression,
+          rawSelectionExpression
+        );
 
         if (isMultiValue) {
           // Filter out null records and return empty array if no valid records exist
@@ -818,10 +716,11 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       })
       .with(DriverClient.Sqlite, () => {
         // Create conditional JSON object that only includes title if it's not null
-        const conditionalJsonObject = `CASE
-          WHEN ${rawSelectionExpression} IS NOT NULL THEN json_object('id', ${recordIdRef}, 'title', ${formattedSelectionExpression})
-          ELSE json_object('id', ${recordIdRef})
-        END`;
+        const conditionalJsonObject = this.dialect.buildLinkJsonObject(
+          recordIdRef,
+          formattedSelectionExpression,
+          rawSelectionExpression
+        );
 
         if (isMultiValue) {
           // For SQLite, build a correlated, ordered subquery to ensure deterministic ordering
@@ -841,54 +740,27 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
             ? `(EXISTS ${linkFilterSub.replaceAll(`"${foreignTableAlias}"`, '"f"')})`
             : '1=1';
 
-          if (usesJunctionTable) {
-            const opts = field.options as ILinkFieldOptions;
-            const fkHost = opts.fkHostTableName!;
-            const selfKey = opts.selfKeyName;
-            const foreignKey = opts.foreignKeyName;
-            const ordCol = hasOrderColumn ? `j."${field.getOrderColumnName()}"` : undefined;
-            // Prefer preserved insertion order via junction __id; add stable tie-breaker on foreign id
-            const order = ordCol
-              ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, j."__id" ASC, f."__id" ASC`
-              : `j."__id" ASC, f."__id" ASC`;
-            return `(
-              SELECT CASE WHEN SUM(CASE WHEN ${innerFilter} THEN 1 ELSE 0 END) > 0
-                THEN (
-                  SELECT json_group_array(json(item)) FROM (
-                    SELECT ${innerJson} AS item
-                    FROM "${fkHost}" AS j
-                    JOIN "${foreignDb}" AS f ON j."${foreignKey}" = f."__id"
-                    WHERE j."${selfKey}" = "${mainAlias}"."__id" AND (${innerFilter})
-                    ORDER BY ${order}
-                  )
-                )
-                ELSE NULL END
-              FROM "${fkHost}" AS j
-              JOIN "${foreignDb}" AS f ON j."${foreignKey}" = f."__id"
-              WHERE j."${selfKey}" = "${mainAlias}"."__id"
-            )`;
-          } else {
-            const opts = field.options as ILinkFieldOptions;
-            const selfKey = opts.selfKeyName;
-            const ordCol = hasOrderColumn ? `f."${opts.selfKeyName}_order"` : undefined;
-            const order = ordCol
-              ? `(CASE WHEN ${ordCol} IS NULL THEN 0 ELSE 1 END) ASC, ${ordCol} ASC, f."__id" ASC`
-              : `f."__id" ASC`;
-            return `(
-              SELECT CASE WHEN SUM(CASE WHEN ${innerFilter} THEN 1 ELSE 0 END) > 0
-                THEN (
-                  SELECT json_group_array(json(item)) FROM (
-                    SELECT ${innerJson} AS item
-                    FROM "${foreignDb}" AS f
-                    WHERE f."${selfKey}" = "${mainAlias}"."__id" AND (${innerFilter})
-                    ORDER BY ${order}
-                  )
-                )
-                ELSE NULL END
-              FROM "${foreignDb}" AS f
-              WHERE f."${selfKey}" = "${mainAlias}"."__id"
-            )`;
-          }
+          const opts = field.options as ILinkFieldOptions;
+          return (
+            this.dialect.buildDeterministicLookupAggregate({
+              tableDbName: this.table.dbTableName,
+              mainAlias: getTableAliasFromTable(this.table),
+              foreignDbName: this.foreignTable.dbTableName,
+              foreignAlias: foreignTableAlias,
+              linkFieldOrderColumn: hasOrderColumn
+                ? `${JUNCTION_ALIAS}."${field.getOrderColumnName()}"`
+                : undefined,
+              linkFieldHasOrderColumn: hasOrderColumn,
+              usesJunctionTable,
+              selfKeyName: opts.selfKeyName,
+              foreignKeyName: opts.foreignKeyName,
+              recordIdRef,
+              formattedSelectionExpression,
+              rawSelectionExpression,
+              linkFilterSubquerySql: linkFilterSub,
+              junctionAlias: JUNCTION_ALIAS,
+            }) || this.getJsonAggregationFunction(conditionalJsonObject)
+          );
         } else {
           // For single value relationships
           // If lookup field is a Formula, keep array-of-one when present, but return NULL when empty
@@ -920,6 +792,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       this.dbProvider,
       this.foreignTable,
       scopedState,
+      this.dialect,
       this.getForeignAlias()
     );
 
@@ -1027,7 +900,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     public readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly tables: Tables,
-    state?: IMutableQueryBuilderState
+    state: IMutableQueryBuilderState | undefined,
+    private readonly dialect: IRecordQueryDialectProvider
   ) {
     this.state = state ?? new RecordQueryBuilderManager('table');
     this._table = tables.mustGetEntryTable();
@@ -1105,6 +979,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const visitor = new FieldCteSelectionVisitor(
           cqb,
           this.dbProvider,
+          this.dialect,
           this.table,
           foreignTable,
           this.state,
@@ -1122,6 +997,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           const visitor = new FieldCteSelectionVisitor(
             cqb,
             this.dbProvider,
+            this.dialect,
             this.table,
             foreignTable,
             this.state,
@@ -1138,6 +1014,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           const visitor = new FieldCteSelectionVisitor(
             cqb,
             this.dbProvider,
+            this.dialect,
             this.table,
             foreignTable,
             this.state,
@@ -1401,6 +1278,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const visitor = new FieldCteSelectionVisitor(
         cqb,
         this.dbProvider,
+        this.dialect,
         table,
         foreignTable,
         this.state,
@@ -1418,6 +1296,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const visitor = new FieldCteSelectionVisitor(
           cqb,
           this.dbProvider,
+          this.dialect,
           table,
           foreignTable,
           this.state,
@@ -1434,6 +1313,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const visitor = new FieldCteSelectionVisitor(
           cqb,
           this.dbProvider,
+          this.dialect,
           table,
           foreignTable,
           this.state,

@@ -22,7 +22,6 @@ import type {
   ButtonFieldCore,
   TableDomain,
 } from '@teable/core';
-import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IFieldSelectName } from './field-select.type';
@@ -31,6 +30,7 @@ import type {
   IMutableQueryBuilderState,
 } from './record-query-builder.interface';
 import { getTableAliasFromTable } from './record-query-builder.util';
+import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 /**
  * Field visitor that returns appropriate database column selectors for knex.select()
@@ -48,6 +48,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly dbProvider: IDbProvider,
     private readonly table: TableDomain,
     private readonly state: IMutableQueryBuilderState,
+    private readonly dialect: IRecordQueryDialectProvider,
     private readonly aliasOverride?: string
   ) {}
 
@@ -120,18 +121,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       const { linkFieldId } = field.lookupOptions;
       if (linkFieldId && fieldCteMap.has(linkFieldId)) {
         const cteName = fieldCteMap.get(linkFieldId)!;
-        // For PostgreSQL multi-value lookup, flatten nested arrays via per-row recursive CTE
-        if (this.dbProvider.driver === DriverClient.Pg && field.isMultipleCellValue) {
-          const flattenedExpr = `(
-            WITH RECURSIVE f(e) AS (
-              SELECT "${cteName}"."lookup_${field.id}"::jsonb
-              UNION ALL
-              SELECT jsonb_array_elements(f.e)
-              FROM f
-              WHERE jsonb_typeof(f.e) = 'array'
-            )
-            SELECT jsonb_agg(e) FILTER (WHERE jsonb_typeof(e) <> 'array') FROM f
-          )`;
+        const flattenedExpr = this.dialect.flattenLookupCteValue(
+          cteName,
+          field.id,
+          !!field.isMultipleCellValue
+        );
+        if (flattenedExpr) {
           this.state.setSelection(field.id, flattenedExpr);
           return this.qb.client.raw(flattenedExpr);
         }
@@ -344,48 +339,17 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     // Build JSON with user info from system column __created_by
     const alias = this.tableAlias;
     const idRef = alias ? `"${alias}"."__created_by"` : `"__created_by"`;
-
-    if (this.dbProvider.driver === DriverClient.Pg) {
-      const expr = `(
-        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email)
-        FROM users u
-        WHERE u.id = ${idRef}
-      )`;
-      this.state.setSelection(field.id, expr);
-      return this.qb.client.raw(expr);
-    } else {
-      // SQLite returns TEXT JSON via json_object
-      const expr = `json_object(
-        'id', ${idRef},
-        'title', (SELECT name FROM users WHERE id = ${idRef}),
-        'email', (SELECT email FROM users WHERE id = ${idRef})
-      )`;
-      this.state.setSelection(field.id, expr);
-      return this.qb.client.raw(expr);
-    }
+    const expr = this.dialect.buildUserJsonObjectById(idRef);
+    this.state.setSelection(field.id, expr);
+    return this.qb.client.raw(expr);
   }
 
   visitLastModifiedByField(field: LastModifiedByFieldCore): IFieldSelectName {
     // Build JSON with user info from system column __last_modified_by
     const alias = this.tableAlias;
     const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
-
-    if (this.dbProvider.driver === DriverClient.Pg) {
-      const expr = `(
-        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email)
-        FROM users u
-        WHERE u.id = ${idRef}
-      )`;
-      this.state.setSelection(field.id, expr);
-      return this.qb.client.raw(expr);
-    } else {
-      const expr = `json_object(
-        'id', ${idRef},
-        'title', (SELECT name FROM users WHERE id = ${idRef}),
-        'email', (SELECT email FROM users WHERE id = ${idRef})
-      )`;
-      this.state.setSelection(field.id, expr);
-      return this.qb.client.raw(expr);
-    }
+    const expr = this.dialect.buildUserJsonObjectById(idRef);
+    this.state.setSelection(field.id, expr);
+    return this.qb.client.raw(expr);
   }
 }
