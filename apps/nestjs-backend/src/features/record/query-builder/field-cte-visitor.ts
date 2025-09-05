@@ -47,7 +47,11 @@ import type {
   IReadonlyQueryBuilderState,
 } from './record-query-builder.interface';
 import { RecordQueryBuilderManager, ScopedSelectionState } from './record-query-builder.manager';
-import { getLinkUsesJunctionTable, getTableAliasFromTable } from './record-query-builder.util';
+import {
+  getLinkUsesJunctionTable,
+  getTableAliasFromTable,
+  getOrderedFieldsByProjection,
+} from './record-query-builder.util';
 import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 type ICteResult = void;
@@ -895,16 +899,20 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
   private readonly _table: TableDomain;
   private readonly state: IMutableQueryBuilderState;
+  private filteredIdSet?: Set<string>;
+  private readonly projection?: string[];
 
   constructor(
     public readonly qb: Knex.QueryBuilder,
     private readonly dbProvider: IDbProvider,
     private readonly tables: Tables,
     state: IMutableQueryBuilderState | undefined,
-    private readonly dialect: IRecordQueryDialectProvider
+    private readonly dialect: IRecordQueryDialectProvider,
+    projection?: string[]
   ) {
     this.state = state ?? new RecordQueryBuilderManager('table');
     this._table = tables.mustGetEntryTable();
+    this.projection = projection;
   }
 
   get table() {
@@ -916,7 +924,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   }
 
   public build() {
-    for (const field of this.table.fields.ordered) {
+    const list = getOrderedFieldsByProjection(this.table, this.projection) as FieldCore[];
+    this.filteredIdSet = new Set(list.map((f) => f.id));
+    for (const field of list) {
       field.accept(this);
     }
   }
@@ -935,13 +945,25 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_f` : foreignAlias;
     const { fkHostTableName, selfKeyName, foreignKeyName, relationship } = options;
 
-    // Pre-generate nested CTEs for foreign-table link dependencies if any lookup/rollup targets are themselves lookup fields.
-    this.generateNestedForeignCtesIfNeeded(this.table, foreignTable, linkField);
+    // Determine which lookup/rollup fields are actually needed from this link
+    let lookupFields = linkField.getLookupFields(this.table);
+    let rollupFields = linkField.getRollupFields(this.table);
+    if (this.filteredIdSet) {
+      lookupFields = lookupFields.filter((f) => this.filteredIdSet!.has(f.id));
+      rollupFields = rollupFields.filter((f) => this.filteredIdSet!.has(f.id));
+    }
+
+    // Pre-generate nested CTEs limited to selected lookup/rollup dependencies
+    this.generateNestedForeignCtesIfNeeded(
+      this.table,
+      foreignTable,
+      linkField,
+      new Set(lookupFields.map((f) => f.id)),
+      new Set(rollupFields.map((f) => f.id))
+    );
 
     // Collect all nested link dependencies that need to be JOINed
     const nestedJoins = new Set<string>();
-    const lookupFields = linkField.getLookupFields(this.table);
-    const rollupFields = linkField.getRollupFields(this.table);
 
     // Helper: add dependent link fields from a target field
     const addDepLinksFromTarget = (field: FieldCore) => {
@@ -1151,12 +1173,17 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   private generateNestedForeignCtesIfNeeded(
     mainTable: TableDomain,
     foreignTable: TableDomain,
-    mainToForeignLinkField: LinkFieldCore
+    mainToForeignLinkField: LinkFieldCore,
+    limitLookupIds?: Set<string>,
+    limitRollupIds?: Set<string>
   ): void {
     const nestedLinkFields = new Map<string, LinkFieldCore>();
 
     // Collect lookup fields on main table that depend on this link
-    const lookupFields = mainToForeignLinkField.getLookupFields(mainTable);
+    let lookupFields = mainToForeignLinkField.getLookupFields(mainTable);
+    if (limitLookupIds) {
+      lookupFields = lookupFields.filter((f) => limitLookupIds.has(f.id));
+    }
     for (const lookupField of lookupFields) {
       const target = lookupField.getForeignLookupField(foreignTable);
       if (target) {
@@ -1179,7 +1206,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
 
     // Collect rollup fields on main table that depend on this link
-    const rollupFields = mainToForeignLinkField.getRollupFields(mainTable);
+    let rollupFields = mainToForeignLinkField.getRollupFields(mainTable);
+    if (limitRollupIds) {
+      rollupFields = rollupFields.filter((f) => limitRollupIds.has(f.id));
+    }
     for (const rollupField of rollupFields) {
       const target = rollupField.getForeignLookupField(foreignTable);
       if (target) {
@@ -1233,6 +1263,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const nestedJoins = new Set<string>();
     const lookupFields = linkField.getLookupFields(table);
     const rollupFields = linkField.getRollupFields(table);
+    if (this.filteredIdSet) {
+      // filteredIdSet belongs to the main table. For nested tables, we cannot filter
+      // by main-table projection IDs; keep all nested lookup/rollup columns to ensure correctness.
+    }
 
     // Check if any lookup/rollup fields depend on nested CTEs
     for (const lookupField of lookupFields) {
