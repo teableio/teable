@@ -819,8 +819,11 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           if (isPostgreSQL) {
             return `(SELECT json_agg(value->>'title') FROM jsonb_array_elements(${selectionSql}::jsonb) AS value)::jsonb`;
           } else {
-            // SQLite
-            return `(SELECT json_group_array(json_extract(value, '$.title')) FROM json_each(${selectionSql}) AS value)`;
+            // SQLite: guard against NULL/non-JSON by falling back to empty array
+            // Ensure we only iterate over valid JSON arrays and preserve element order by key
+            return `(SELECT json_group_array(json_extract(value, '$.title'))
+                     FROM json_each(CASE WHEN json_valid(${selectionSql}) AND json_type(${selectionSql}) = 'array' THEN ${selectionSql} ELSE json('[]') END) AS value
+                     ORDER BY key)`;
           }
         } else {
           // For single-value link fields (ManyOne/OneOne), extract single title

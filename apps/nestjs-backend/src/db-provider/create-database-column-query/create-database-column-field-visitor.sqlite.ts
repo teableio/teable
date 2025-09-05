@@ -24,6 +24,7 @@ import type {
 } from '@teable/core';
 import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
+import type { FormulaFieldDto } from '../../features/field/model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 import { SchemaType } from '../../features/field/util';
 import type { IFormulaConversionContext } from '../../features/record/query-builder/sql-conversion.visitor';
@@ -125,6 +126,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
         const generatedColumnDefinition = `${columnType} GENERATED ALWAYS AS (${conversionResult.sql}) ${storageType}${notNullClause}`;
 
         this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
+        (this.context.field as FormulaFieldDto).setMetadata({ persistedAsGeneratedColumn: true });
       }
     } else {
       this.createStandardColumn(field);

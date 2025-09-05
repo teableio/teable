@@ -158,9 +158,12 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
       const elemNumExpr = `CAST(json_extract(value, '$') AS NUMERIC)`;
       const formatted = this.applyNumberFormattingTo(elemNumExpr, formatting);
       // Preserve original array order using json_each key
+      // Guard against non-JSON values by validating before iterating
+      // If the expression is NULL or not a valid JSON array/object, fallback to empty array
+      const safeArrayExpr = `CASE WHEN json_valid(${this.fieldExpression}) THEN ${this.fieldExpression} ELSE json('[]') END`;
       return `(
         SELECT GROUP_CONCAT(${formatted}, ', ')
-        FROM json_each(COALESCE(${this.fieldExpression}, json('[]')))
+        FROM json_each(${safeArrayExpr})
         ORDER BY key
       )`;
     }
@@ -190,6 +193,8 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
       )`;
     } else {
       // SQLite: Use GROUP_CONCAT with json_each to join array elements
+      // Guard against non-JSON values by validating before iterating
+      const safeArrayExpr = `CASE WHEN json_valid(${this.fieldExpression}) THEN ${this.fieldExpression} ELSE json('[]') END`;
       return `(
         SELECT GROUP_CONCAT(
           CASE
@@ -199,7 +204,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
           END,
           ', '
         )
-        FROM json_each(COALESCE(${this.fieldExpression}, json('[]')))
+        FROM json_each(${safeArrayExpr})
         ORDER BY key
       )`;
     }
@@ -234,8 +239,20 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
   }
 
   visitRatingField(_field: RatingFieldCore): string {
-    // Rating fields are numbers, convert to string
-    return this.convertToText();
+    // Rating fields should display without trailing .0
+    // If value is an integer, render as integer text; otherwise, fall back to generic number->text
+    if (this.isPostgreSQL) {
+      // Postgres: compare to rounded integer and cast accordingly
+      return `CASE WHEN (${this.fieldExpression} = ROUND(${this.fieldExpression}))
+        THEN ROUND(${this.fieldExpression})::TEXT
+        ELSE (${this.fieldExpression})::TEXT
+      END`;
+    }
+    // SQLite: compare to integer cast; if equal, output integer text else real as text
+    return `CASE WHEN (${this.fieldExpression} = CAST(${this.fieldExpression} AS INTEGER))
+      THEN CAST(CAST(${this.fieldExpression} AS INTEGER) AS TEXT)
+      ELSE CAST(${this.fieldExpression} AS TEXT)
+    END`;
   }
 
   visitAutoNumberField(_field: AutoNumberFieldCore): string {
