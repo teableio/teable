@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IColumnMeta } from '@teable/core';
+import type { IColumn, IColumnMeta } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ViewService } from '../../view/view.service';
@@ -19,7 +19,11 @@ export class FieldCreatingService {
     private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
-  async createFieldItem(tableId: string, field: IFieldInstance, columnMeta?: IColumnMeta) {
+  async createFieldItem(
+    tableId: string,
+    field: IFieldInstance,
+    initViewColumnMap?: Record<string, IColumn>
+  ) {
     const fieldId = field.id;
 
     await this.fieldSupplementService.createReference(field);
@@ -32,10 +36,18 @@ export class FieldCreatingService {
 
     await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
 
-    await this.viewService.initViewColumnMeta(tableId, [fieldId], columnMeta && [columnMeta]);
+    await this.viewService.initViewColumnMeta(
+      tableId,
+      [fieldId],
+      initViewColumnMap && [initViewColumnMap]
+    );
   }
 
-  async createFields(tableId: string, fieldInstances: IFieldInstance[], columnMeta?: IColumnMeta) {
+  async createFields(
+    tableId: string,
+    fieldInstances: IFieldInstance[],
+    initViewColumnMap?: Record<string, IColumn>
+  ) {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -49,7 +61,7 @@ export class FieldCreatingService {
     await this.viewService.initViewColumnMeta(
       tableId,
       fieldIds,
-      columnMeta && fieldIds.map(() => columnMeta)
+      initViewColumnMap && fieldIds.map(() => initViewColumnMap)
     );
 
     await this.fieldService.batchCreateFieldsAtOnce(tableId, dbTableName, fieldInstances);

@@ -844,7 +844,11 @@ export class ViewService implements IReadonlyAdapterService {
     }, {});
   }
 
-  async initViewColumnMeta(tableId: string, fieldIds: string[], columnsMeta?: IColumnMeta[]) {
+  async initViewColumnMeta(
+    tableId: string,
+    fieldIds: string[],
+    initViewColumnMapList?: Record<string, IColumn>[]
+  ) {
     // 1. get all views id and column meta by tableId
     const view = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
@@ -864,11 +868,11 @@ export class ViewService implements IReadonlyAdapterService {
         ? -1
         : Math.max(...Object.values(curColumnMeta).map((meta) => meta.order));
       fieldIds.forEach((fieldId, i) => {
-        const columnMeta = columnsMeta?.[i]?.[viewId];
+        const initColumn = initViewColumnMapList?.[i]?.[viewId];
         const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
-          newColumnMeta: columnMeta
-            ? { ...columnMeta, order: columnMeta.order ?? maxOrder + 1 }
+          newColumnMeta: initColumn
+            ? { ...initColumn, order: initColumn.order ?? maxOrder + 1 }
             : { order: maxOrder + 1 },
           oldColumnMeta: undefined,
         });
