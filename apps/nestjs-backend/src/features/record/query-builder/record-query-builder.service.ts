@@ -17,7 +17,9 @@ import type {
   IReadonlyRecordSelectionMap,
 } from './record-query-builder.interface';
 import { RecordQueryBuilderManager } from './record-query-builder.manager';
+import { InjectRecordQueryDialect } from './record-query-builder.provider';
 import { getTableAliasFromTable } from './record-query-builder.util';
+import { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 @Injectable()
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
@@ -27,7 +29,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     @InjectDbProvider()
     private readonly dbProvider: IDbProvider,
     private readonly prismaService: PrismaService,
-    @Inject('CUSTOM_KNEX') private readonly knex: Knex
+    @Inject('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectRecordQueryDialect()
+    private readonly dialect: IRecordQueryDialectProvider
   ) {}
 
   private async getTableMeta(tableIdOrDbTableName: string) {
@@ -53,10 +57,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const qb = this.knex.from({ [mainTableAlias]: from });
 
     const state: IMutableQueryBuilderState = new RecordQueryBuilderManager('table');
-    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state);
+    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state, this.dialect);
     visitor.build();
-
-    // CTE map built for link fields; selections happen later.
 
     return { qb, alias: mainTableAlias, tables, table, state };
   }
@@ -197,7 +199,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     state: IMutableQueryBuilderState,
     selectFieldIds?: string[]
   ): this {
-    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state);
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state, this.dialect);
     const alias = getTableAliasFromTable(table);
 
     for (const field of preservedDbFieldNames) {
@@ -225,7 +227,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     table: TableDomain,
     state: IMutableQueryBuilderState
   ): this {
-    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state);
+    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state, this.dialect);
 
     // Add field-specific selections using visitor pattern
     for (const field of table.fields.ordered) {
