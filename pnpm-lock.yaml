@@ -571,6 +571,9 @@ importers:
       rimraf:
         specifier: 5.0.5
         version: 5.0.5
+      sql-formatter:
+        specifier: ^15.3.1
+        version: 15.6.7
       swc-loader:
         specifier: 0.2.6
         version: 0.2.6(@swc/core@1.13.3(@swc/helpers@0.5.17))(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17))(esbuild@0.23.0))
@@ -16595,6 +16598,10 @@ packages:
 
   sprintf-js@1.1.3:
     resolution: {integrity: sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==}
+
+  sql-formatter@15.6.7:
+    resolution: {integrity: sha512-Gns3cJ5lZO+vaVk9FaIR+aAz3TEqXtE4As1cbibWvHT4WDUbb1uKbU7cxGP54Eppd+yzOGyDfNy8D6hac6jM+w==}
+    hasBin: true
 
   sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
@@ -36272,6 +36279,11 @@ snapshots:
 
   sprintf-js@1.1.3:
     optional: true
+
+  sql-formatter@15.6.7:
+    dependencies:
+      argparse: 2.0.1
+      nearley: 2.20.1
 
   sqlite3@5.1.7:
     dependencies:

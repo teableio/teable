@@ -18,7 +18,7 @@ import type {
 } from './record-query-builder.interface';
 import { RecordQueryBuilderManager } from './record-query-builder.manager';
 import { InjectRecordQueryDialect } from './record-query-builder.provider';
-import { getTableAliasFromTable } from './record-query-builder.util';
+import { getOrderedFieldsByProjection, getTableAliasFromTable } from './record-query-builder.util';
 import { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 @Injectable()
@@ -43,7 +43,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
   private async createQueryBuilderFromTable(
     from: string,
-    tableRaw: { id: string }
+    tableRaw: { id: string },
+    projection?: string[]
   ): Promise<{
     qb: Knex.QueryBuilder;
     alias: string;
@@ -57,7 +58,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const qb = this.knex.from({ [mainTableAlias]: from });
 
     const state: IMutableQueryBuilderState = new RecordQueryBuilderManager('table');
-    const visitor = new FieldCteVisitor(qb, this.dbProvider, tables, state, this.dialect);
+    const visitor = new FieldCteVisitor(
+      qb,
+      this.dbProvider,
+      tables,
+      state,
+      this.dialect,
+      projection
+    );
     visitor.build();
 
     return { qb, alias: mainTableAlias, tables, table, state };
@@ -81,7 +89,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   private async createQueryBuilder(
     from: string,
     tableIdOrDbTableName: string,
-    useViewCache = false
+    useViewCache = false,
+    projection?: string[]
   ): Promise<{
     qb: Knex.QueryBuilder;
     alias: string;
@@ -96,11 +105,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         );
       } catch (error) {
         this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
-        return this.createQueryBuilderFromTable(from, tableRaw);
+        return this.createQueryBuilderFromTable(from, tableRaw, projection);
       }
     }
 
-    return this.createQueryBuilderFromTable(from, tableRaw);
+    return this.createQueryBuilderFromTable(from, tableRaw, projection);
   }
 
   async prepareView(
@@ -124,10 +133,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const { qb, alias, table, state } = await this.createQueryBuilder(
       from,
       tableIdOrDbTableName,
-      options.useViewCache
+      options.useViewCache,
+      options.projection
     );
 
-    this.buildSelect(qb, table, state, options.selectFieldIds);
+    this.buildSelect(qb, table, state, options.projection);
 
     // Selection map collected as fields are visited.
 
@@ -197,7 +207,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     qb: Knex.QueryBuilder,
     table: TableDomain,
     state: IMutableQueryBuilderState,
-    selectFieldIds?: string[]
+    projection?: string[]
   ): this {
     const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state, this.dialect);
     const alias = getTableAliasFromTable(table);
@@ -206,9 +216,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       qb.select(`${alias}.${field}`);
     }
 
-    const allowSet = selectFieldIds ? new Set(selectFieldIds) : undefined;
-    for (const field of table.fields.ordered) {
-      if (allowSet?.size && !allowSet.has(field.id)) continue;
+    const orderedFields = getOrderedFieldsByProjection(table, projection) as FieldCore[];
+    for (const field of orderedFields) {
       const result = field.accept(visitor);
       if (result) {
         if (typeof result === 'string') {

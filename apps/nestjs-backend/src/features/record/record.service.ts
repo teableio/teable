@@ -568,7 +568,7 @@ export class RecordService {
         currentUserId,
         sort: [...(groupBy ?? []), ...(orderBy ?? [])],
         // Only select fields required by filter/order/search to avoid touching unrelated columns
-        selectFieldIds: fieldMap ? Object.values(fieldMap).map((f) => f.id) : [],
+        projection: fieldMap ? Object.values(fieldMap).map((f) => f.id) : [],
       }
     );
 
@@ -1330,7 +1330,7 @@ export class RecordService {
         tableIdOrDbTableName: tableId,
         viewId: undefined,
         useViewCache: query.useViewCache,
-        selectFieldIds: fieldIds,
+        projection: fieldIds,
       }
     );
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();

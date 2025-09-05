@@ -106,6 +106,7 @@
     "pg-mem": "3.0.5",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
+    "sql-formatter": "^15.3.1",
     "swc-loader": "0.2.6",
     "symlink-dir": "5.2.1",
     "sync-directory": "6.0.5",
