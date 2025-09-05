@@ -42,11 +42,15 @@ export class FieldCreatingService {
     });
 
     for (const field of fieldInstances) {
-      const fieldId = field.id;
       await this.fieldSupplementService.createReference(field);
       await this.fieldSupplementService.createFieldTaskReference(tableId, field);
-      await this.viewService.initViewColumnMeta(tableId, [fieldId], columnMeta && [columnMeta]);
     }
+    const fieldIds = fieldInstances.map((field) => field.id);
+    await this.viewService.initViewColumnMeta(
+      tableId,
+      fieldIds,
+      columnMeta && fieldIds.map(() => columnMeta)
+    );
 
     await this.fieldService.batchCreateFieldsAtOnce(tableId, dbTableName, fieldInstances);
   }
