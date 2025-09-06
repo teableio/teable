@@ -6,6 +6,7 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { LinkService } from '../../calculation/link.service';
+import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class RecordDeleteService {
     private readonly recordService: RecordService,
     private readonly linkService: LinkService,
     private readonly eventEmitterService: EventEmitterService,
+    private readonly computedOrchestrator: ComputedOrchestratorService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -33,6 +35,10 @@ export class RecordDeleteService {
       for (const effectedTableId in cellContextsByTableId) {
         const cellContexts = cellContextsByTableId[effectedTableId];
         await this.linkService.getDerivateByLink(effectedTableId, cellContexts);
+        // publish computed updates for related tables (excluding the table being deleted from)
+        if (effectedTableId !== tableId) {
+          await this.computedOrchestrator.run(effectedTableId, cellContexts);
+        }
       }
 
       const orders = windowId

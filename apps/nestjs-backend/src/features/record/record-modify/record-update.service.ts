@@ -10,6 +10,7 @@ import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
+import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { RecordService } from '../record.service';
 import { RecordModifySharedService } from './record-modify.shared.service';
@@ -23,6 +24,7 @@ export class RecordUpdateService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly batchService: BatchService,
     private readonly linkService: LinkService,
+    private readonly computedOrchestrator: ComputedOrchestratorService,
     private readonly shared: RecordModifySharedService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>
@@ -78,6 +80,8 @@ export class RecordUpdateService {
       const changes = await this.shared.compressAndFilterChanges(tableId, ctxs);
       const opsMap = this.shared.formatChangesToOps(changes);
       await this.batchService.updateRecords(opsMap);
+      // Publish computed values without DB/version bump, in the same transaction
+      await this.computedOrchestrator.run(tableId, ctxs);
       return ctxs;
     });
 
@@ -136,6 +140,7 @@ export class RecordUpdateService {
     const changes = await this.shared.compressAndFilterChanges(tableId, cellContexts);
     const opsMap = this.shared.formatChangesToOps(changes);
     await this.batchService.updateRecords(opsMap);
+    await this.computedOrchestrator.run(tableId, cellContexts);
     return cellContexts;
   }
 }

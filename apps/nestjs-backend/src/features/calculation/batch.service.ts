@@ -402,7 +402,7 @@ export class BatchService {
   }
 
   @Timing()
-  async saveRawOps(
+  saveRawOps(
     collectionId: string,
     opType: RawOpType,
     docType: IdPrefix,

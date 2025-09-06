@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AttachmentsStorageModule } from '../../attachments/attachments-storage.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
+import { ComputedModule } from '../../computed/computed.module';
 import { DataLoaderModule } from '../../data-loader/data-loader.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
@@ -24,6 +25,7 @@ import { RecordUpdateService } from './record-update.service';
     AttachmentsStorageModule,
     CollaboratorModule,
     DataLoaderModule,
+    ComputedModule,
   ],
   providers: [
     RecordModifyService,

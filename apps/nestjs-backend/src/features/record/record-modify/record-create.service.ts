@@ -6,6 +6,7 @@ import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
+import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { RecordModifySharedService } from './record-modify.shared.service';
@@ -18,6 +19,7 @@ export class RecordCreateService {
     private readonly shared: RecordModifySharedService,
     private readonly batchService: BatchService,
     private readonly linkService: LinkService,
+    private readonly computedOrchestrator: ComputedOrchestratorService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -83,6 +85,8 @@ export class RecordCreateService {
     const changes = await this.shared.compressAndFilterChanges(tableId, createCtxs);
     const opsMap = this.shared.formatChangesToOps(changes);
     await this.batchService.updateRecords(opsMap);
+    // publish computed values for impacted computed fields in the same transaction
+    await this.computedOrchestrator.run(tableId, createCtxs);
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       tableId,
       recordIds,
