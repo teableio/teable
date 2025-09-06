@@ -217,7 +217,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // If this lookup field is marked as error, don't attempt to resolve, just return NULL
     if (field.hasError) {
-      return 'NULL';
+      return this.dialect.nullJson();
     }
 
     const qb = this.qb.client.queryBuilder();
@@ -263,7 +263,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         }
       }
       // If still not found or field has error, return NULL instead of throwing
-      return 'NULL';
+      return this.dialect.nullJson();
     }
 
     // If the target is a Link field, read its link_value from the JOINed CTE or subquery
@@ -291,7 +291,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         }
       }
       // If self-referencing or missing, return NULL
-      return 'NULL';
+      return this.dialect.nullJson();
     }
 
     // If the target is a Rollup field, read its precomputed rollup value from the link CTE
@@ -322,17 +322,26 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     if (targetLookupField.isLookup && targetLookupField.lookupOptions) {
       const nestedLinkFieldId = targetLookupField.lookupOptions.linkFieldId;
       const fieldCteMap = this.state.getFieldCteMap();
-      if (nestedLinkFieldId && fieldCteMap.has(nestedLinkFieldId)) {
-        const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
-        // Check if this CTE is JOINed in current scope
-        if (this.joinedCtes?.has(nestedLinkFieldId)) {
-          expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
+      // Prefer nested CTE if available; otherwise, derive CTE name and use subquery
+      if (nestedLinkFieldId) {
+        // Derive CTE name deterministically to reference the pre-generated nested CTE
+        const derivedCteName = `CTE_${getTableAliasFromTable(this.foreignTable)}_${nestedLinkFieldId}`;
+        const nestedCteName = fieldCteMap.get(nestedLinkFieldId) ?? derivedCteName;
+        if (nestedCteName) {
+          if (this.joinedCtes?.has(nestedLinkFieldId)) {
+            expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
+          } else {
+            expression = `((SELECT "lookup_${targetLookupField.id}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
+          }
         } else {
-          // Fallback to subquery if CTE not JOINed in current scope
-          expression = `((SELECT "lookup_${targetLookupField.id}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
+          // As a last resort, fallback to direct select using select visitor
+          const targetFieldResult = targetLookupField.accept(selectVisitor);
+          expression =
+            typeof targetFieldResult === 'string'
+              ? targetFieldResult
+              : targetFieldResult.toSQL().sql;
         }
       } else {
-        // Fallback to direct select (should not happen if nested CTEs were generated correctly)
         const targetFieldResult = targetLookupField.accept(selectVisitor);
         expression =
           typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
@@ -787,7 +796,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // If rollup field is marked as error, don't attempt to resolve; just return NULL
     if (field.hasError) {
-      return 'NULL';
+      return this.dialect.nullJson();
     }
 
     const qb = this.qb.client.queryBuilder();
@@ -804,7 +813,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     const foreignAlias = this.getForeignAlias();
     const targetLookupField = field.getForeignLookupField(this.foreignTable);
     if (!targetLookupField) {
-      return 'NULL';
+      return this.dialect.nullJson();
     }
     // If the target of rollup depends on a foreign link CTE, reference the JOINed CTE columns or use subquery
     if (targetLookupField.type === FieldType.Formula) {
@@ -962,6 +971,19 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       new Set(lookupFields.map((f) => f.id)),
       new Set(rollupFields.map((f) => f.id))
     );
+
+    // Hard guarantee: if any main-table lookup targets a foreign-table lookup, ensure the
+    // foreign link CTE used by that target lookup is generated before referencing it.
+    for (const lk of lookupFields) {
+      const target = lk.getForeignLookupField(foreignTable);
+      const nestedLinkId = target?.lookupOptions?.linkFieldId;
+      if (nestedLinkId) {
+        const nestedLink = foreignTable.getField(nestedLinkId) as LinkFieldCore | undefined;
+        if (nestedLink && !this.state.getFieldCteMap().has(nestedLink.id)) {
+          this.generateLinkFieldCteForTable(foreignTable, nestedLink);
+        }
+      }
+    }
 
     // Collect all nested link dependencies that need to be JOINed
     const nestedJoins = new Set<string>();
