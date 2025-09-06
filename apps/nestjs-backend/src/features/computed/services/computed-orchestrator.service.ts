@@ -24,18 +24,24 @@ export class ComputedOrchestratorService {
    *
    * Returns: { publishedOps } — total number of field set ops enqueued.
    */
-  async run(tableId: string, cellContexts: ICellContext[]) {
-    if (!cellContexts?.length) return { publishedOps: 0 };
+  async run(
+    tableId: string,
+    cellContexts: ICellContext[]
+  ): Promise<{
+    publishedOps: number;
+    impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
+  }> {
+    if (!cellContexts?.length) return { publishedOps: 0, impact: {} };
     const basicCtx = cellContexts.map((c) => ({ recordId: c.recordId, fieldId: c.fieldId }));
     const impact = await this.collector.collect(tableId, basicCtx);
     const impactedTables = Object.keys(impact);
-    if (!impactedTables.length) return { publishedOps: 0 };
+    if (!impactedTables.length) return { publishedOps: 0, impact: {} };
 
     for (const tid of impactedTables) {
       const group = impact[tid];
       if (!group.fieldIds.size || !group.recordIds.size) delete impact[tid];
     }
-    if (!Object.keys(impact).length) return { publishedOps: 0 };
+    if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
 
     const evaluated = await this.evaluator.evaluate(impact);
 
@@ -60,7 +66,7 @@ export class ComputedOrchestratorService {
 
       if (!opDataList.length) return 0;
 
-      await this.batchService.saveRawOps(
+      this.batchService.saveRawOps(
         tid,
         RawOpType.Edit,
         IdPrefix.Record,
@@ -72,6 +78,17 @@ export class ComputedOrchestratorService {
 
     const counts = await Promise.all(tasks);
     const total = counts.reduce((a, b) => a + b, 0);
-    return { publishedOps: total };
+
+    const resultImpact = Object.entries(impact).reduce<
+      Record<string, { fieldIds: string[]; recordIds: string[] }>
+    >((acc, [tid, group]) => {
+      acc[tid] = {
+        fieldIds: Array.from(group.fieldIds),
+        recordIds: Array.from(group.recordIds),
+      };
+      return acc;
+    }, {});
+
+    return { publishedOps: total, impact: resultImpact };
   }
 }
