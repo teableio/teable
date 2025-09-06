@@ -142,11 +142,39 @@ export class ComputedDependencyCollectorService {
   }
 
   /**
+   * Build table-level adjacency from link fields among a set of tables.
+   * Edge U -> V exists if table V has a link field whose foreignTableId = U.
+   */
+  private async getTableLinkAdjacency(tables: string[]): Promise<Record<string, Set<string>>> {
+    if (!tables.length) return {};
+    const linkFields = await this.prismaService.txClient().field.findMany({
+      where: {
+        tableId: { in: tables },
+        type: FieldType.Link,
+        isLookup: null,
+        deletedTime: null,
+      },
+      select: { id: true, tableId: true, options: true },
+    });
+    const adj: Record<string, Set<string>> = {};
+    for (const lf of linkFields) {
+      const opts = this.parseLinkOptions(lf.options);
+      if (!opts) continue;
+      const from = opts.foreignTableId; // U
+      const to = lf.tableId; // V
+      if (!from || !to) continue;
+      (adj[from] ||= new Set<string>()).add(to);
+    }
+    return adj;
+  }
+
+  /**
    * Collect impacted computed fields grouped by table, and the associated recordIds to re-evaluate.
    * - Same-table computed fields: impacted recordIds are the updated records themselves.
    * - Cross-table computed fields (via link/lookup/rollup): impacted records are those linking to
    *   the changed records through any link field on the target table that points to the changed table.
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async collect(tableId: string, ctxs: ICellBasicContext[]): Promise<IComputedImpactByTable> {
     if (!ctxs.length) return {};
 
@@ -161,20 +189,44 @@ export class ComputedDependencyCollectorService {
     }, {} as IComputedImpactByTable);
     if (!Object.keys(impact).length) return {};
 
-    // 3) Compute impacted recordIds per table
-    const tasks: Promise<void>[] = [];
-    for (const [tid, group] of Object.entries(impact)) {
-      if (tid === tableId) {
-        changedRecordIds.forEach((id) => group.recordIds.add(id));
-        continue;
+    // 3) Compute impacted recordIds per table with multi-hop propagation
+    // Seed with origin changed records
+    const recordSets: Record<string, Set<string>> = { [tableId]: new Set(changedRecordIds) };
+    // Build adjacency restricted to impacted tables + origin
+    const impactedTables = Array.from(new Set([...Object.keys(impact), tableId]));
+    const adj = await this.getTableLinkAdjacency(impactedTables);
+
+    // BFS-like propagation over table graph
+    const queue: string[] = [tableId];
+    while (queue.length) {
+      const src = queue.shift()!;
+      const currentIds = Array.from(recordSets[src] || []);
+      if (!currentIds.length) continue;
+      const outs = Array.from(adj[src] || []);
+      for (const dst of outs) {
+        // Only care about tables we plan to update
+        if (!impact[dst]) continue;
+        const linked = await this.getLinkedRecordIds(dst, src, currentIds);
+        if (!linked.length) continue;
+        const set = (recordSets[dst] ||= new Set<string>());
+        let added = false;
+        for (const id of linked) {
+          if (!set.has(id)) {
+            set.add(id);
+            added = true;
+          }
+        }
+        if (added) queue.push(dst);
       }
-      tasks.push(
-        this.getLinkedRecordIds(tid, tableId, changedRecordIds).then((linked) => {
-          linked.forEach((id) => group.recordIds.add(id));
-        })
-      );
     }
-    if (tasks.length) await Promise.all(tasks);
+
+    // Assign results into impact
+    for (const [tid, group] of Object.entries(impact)) {
+      const ids = recordSets[tid];
+      if (ids && ids.size) {
+        ids.forEach((id) => group.recordIds.add(id));
+      }
+    }
 
     return impact;
   }
