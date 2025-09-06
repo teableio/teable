@@ -83,6 +83,13 @@ export class ComputedDependencyCollectorService {
       .from('dep_graph')
       .join({ f: 'field' }, 'f.id', 'dep_graph.to_field_id')
       .whereNull('f.deleted_time')
+      .andWhere((qb) => {
+        qb.where('f.is_lookup', true)
+          .orWhere('f.is_computed', true)
+          .orWhere('f.type', FieldType.Link)
+          .orWhere('f.type', FieldType.Formula)
+          .orWhere('f.type', FieldType.Rollup);
+      })
       .toQuery();
 
     const rows = await this.prismaService
