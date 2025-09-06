@@ -121,6 +121,10 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     return `jsonb_array_length(${expr}::jsonb)`;
   }
 
+  nullJson(): string {
+    return 'NULL::json';
+  }
+
   private castAgg(sql: string): string {
     // normalize to double precision for numeric rollups
     return `CAST(${sql} AS DOUBLE PRECISION)`;

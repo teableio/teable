@@ -209,6 +209,13 @@ export interface IRecordQueryDialectProvider {
    */
   jsonArrayLength(expr: string): string;
 
+  /**
+   * Dialect-specific typed NULL for JSON contexts
+   * - PG: NULL::json
+   * - SQLite: NULL
+   */
+  nullJson(): string;
+
   // Rollup helpers
 
   /**

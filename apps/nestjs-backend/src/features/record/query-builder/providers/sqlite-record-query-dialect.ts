@@ -116,6 +116,10 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
     return `json_array_length(${expr})`;
   }
 
+  nullJson(): string {
+    return 'NULL';
+  }
+
   rollupAggregate(
     fn: string,
     fieldExpression: string,
