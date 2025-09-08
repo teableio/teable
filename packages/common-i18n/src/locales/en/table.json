@@ -754,7 +754,8 @@
       "getApiJson": "Get API info",
       "generateScriptAndDependencies": "Generate script and dependencies",
 
-      "analyzingAttachment": "Analyzing attachment..."
+      "analyzingAttachment": "Analyzing attachment...",
+      "locateResource": "Locate"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",

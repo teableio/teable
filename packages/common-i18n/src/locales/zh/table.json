@@ -755,7 +755,8 @@
       "generateSummary": "生成总结",
       "previewEnvironment": "准备预览环境",
 
-      "analyzingAttachment": "分析附件中..."
+      "analyzingAttachment": "分析附件中...",
+      "locateResource": "定位"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
