@@ -1,7 +1,10 @@
+/* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { Knex } from 'knex';
 import { ClsService } from 'nestjs-cls';
 import { ComputedOrchestratorService } from '../src/features/computed/services/computed-orchestrator.service';
 import {
@@ -17,6 +20,8 @@ describe('Computed Orchestrator (e2e)', () => {
   let app: INestApplication;
   let orchestrator: ComputedOrchestratorService;
   let cls: ClsService;
+  let prisma: PrismaService;
+  let knex: Knex;
   const baseId = (globalThis as any).testConfig.baseId as string;
 
   beforeAll(async () => {
@@ -24,6 +29,9 @@ describe('Computed Orchestrator (e2e)', () => {
     app = appCtx.app;
     orchestrator = app.get(ComputedOrchestratorService);
     cls = app.get(ClsService);
+    prisma = app.get(PrismaService);
+    // nest-knexjs model token
+    knex = app.get('CUSTOM_KNEX' as any);
   });
 
   afterAll(async () => {
@@ -81,6 +89,29 @@ describe('Computed Orchestrator (e2e)', () => {
     expect(impact.recordIds).toEqual([recId]);
     // publish 2 ops (F1, F2)
     expect(res.publishedOps).toBe(2);
+
+    // Verify underlying DB columns updated (or generated) with expected values
+    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const row = (
+      await prisma.$queryRawUnsafe<any[]>(
+        knex(dbTableName).select('*').where('__id', recId).limit(1).toQuery()
+      )
+    )[0];
+    const parseMaybe = (v: unknown) => {
+      if (typeof v === 'string') {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      }
+      return v;
+    };
+    expect(parseMaybe(row[f1.dbFieldName])).toBe(1);
+    expect(parseMaybe(row[f2.dbFieldName])).toBe(1);
 
     await permanentDeleteTable(baseId, table.id);
   });
@@ -155,6 +186,144 @@ describe('Computed Orchestrator (e2e)', () => {
     // Validate snapshot returns updated projections
     const t3Records = await getRecords(t3.id, { fieldKeyType: FieldKeyType.Id });
     expect(t3Records.records[0].fields[lkp3.id]).toEqual([10]);
+
+    // Verify underlying DB columns updated for lookups on T2 and T3
+    const t2Meta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: t2.id },
+      select: { dbTableName: true },
+    });
+    const t3Meta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: t3.id },
+      select: { dbTableName: true },
+    });
+    const t2Row = (
+      await prisma.$queryRawUnsafe<any[]>(
+        knex(t2Meta.dbTableName).select('*').where('__id', t2.records[0].id).toQuery()
+      )
+    )[0];
+    const t3Row = (
+      await prisma.$queryRawUnsafe<any[]>(
+        knex(t3Meta.dbTableName).select('*').where('__id', t3.records[0].id).toQuery()
+      )
+    )[0];
+    const parseMaybe = (v: unknown) => {
+      if (typeof v === 'string') {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      }
+      return v;
+    };
+    expect(parseMaybe(t2Row[lkp2.dbFieldName])).toEqual([10]);
+    expect(parseMaybe(t3Row[lkp3.dbFieldName])).toEqual([10]);
+
+    await permanentDeleteTable(baseId, t3.id);
+    await permanentDeleteTable(baseId, t2.id);
+    await permanentDeleteTable(baseId, t1.id);
+  });
+
+  it('persists rollup and lookup-of-rollup across tables', async () => {
+    // T1 with numbers
+    const t1 = await createTable(baseId, {
+      name: 'T1_roll',
+      fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
+      records: [{ fields: { A: 3 } }, { fields: { A: 7 } }],
+    });
+    const t1A = t1.fields.find((f) => f.name === 'A')!.id;
+
+    // T2 links to both T1 rows and has rollup sum(A)
+    const t2 = await createTable(baseId, {
+      name: 'T2_roll',
+      fields: [],
+      records: [{ fields: {} }],
+    });
+    const link2 = await createField(t2.id, {
+      name: 'L2',
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyMany, foreignTableId: t1.id },
+    } as IFieldRo);
+    const roll2 = await createField(t2.id, {
+      name: 'R2',
+      type: FieldType.Rollup,
+      lookupOptions: { foreignTableId: t1.id, linkFieldId: link2.id, lookupFieldId: t1A } as any,
+      // rollup uses expression string form
+      options: { expression: 'sum({values})' } as any,
+    } as any);
+
+    // T3 links to T2 and looks up R2
+    const t3 = await createTable(baseId, {
+      name: 'T3_roll',
+      fields: [],
+      records: [{ fields: {} }],
+    });
+    const link3 = await createField(t3.id, {
+      name: 'L3',
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyMany, foreignTableId: t2.id },
+    } as IFieldRo);
+    const lkp3 = await createField(t3.id, {
+      name: 'LK_R',
+      // Lookup-of-rollup must use type Rollup to match target field type
+      type: FieldType.Rollup,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: t2.id,
+        linkFieldId: link3.id,
+        lookupFieldId: roll2.id,
+      } as any,
+    } as any);
+
+    // Establish links: T2 -> both rows in T1; T3 -> T2
+    await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [
+      { id: t1.records[0].id },
+      { id: t1.records[1].id },
+    ]);
+    await updateRecordByApi(t3.id, t3.records[0].id, link3.id, [{ id: t2.records[0].id }]);
+
+    // Trigger orchestrator on change of T1.A (first row)
+    const res = await cls.run(() =>
+      orchestrator.run(t1.id, [{ recordId: t1.records[0].id, fieldId: t1A }])
+    );
+    // Expect impacted tables include T2 (rollup) and T3 (lookup of rollup)
+    const tables = new Set(Object.keys(res.impact));
+    expect(tables.has(t2.id)).toBe(true);
+    expect(tables.has(t3.id)).toBe(true);
+
+    // Underlying DB checks
+    const t2Meta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: t2.id },
+      select: { dbTableName: true },
+    });
+    const t3Meta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: t3.id },
+      select: { dbTableName: true },
+    });
+    const t2Row = (
+      await prisma.$queryRawUnsafe<any[]>(
+        knex(t2Meta.dbTableName).select('*').where('__id', t2.records[0].id).toQuery()
+      )
+    )[0];
+    const t3Row = (
+      await prisma.$queryRawUnsafe<any[]>(
+        knex(t3Meta.dbTableName).select('*').where('__id', t3.records[0].id).toQuery()
+      )
+    )[0];
+    const parseMaybe = (v: unknown) => {
+      if (typeof v === 'string') {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      }
+      return v;
+    };
+    // rollup sum should be 3 + 7 = 10
+    expect(parseMaybe(t2Row[roll2.dbFieldName])).toBe(10);
+    // lookup of rollup is multi-value -> [10]
+    expect(parseMaybe(t3Row[lkp3.dbFieldName])).toEqual([10]);
 
     await permanentDeleteTable(baseId, t3.id);
     await permanentDeleteTable(baseId, t2.id);

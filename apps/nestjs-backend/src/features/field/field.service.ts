@@ -1121,10 +1121,10 @@ export class FieldService implements IReadonlyAdapterService {
     const fieldId = oldField.id;
     const newField = applyFieldPropertyOpsAndCreateInstance(oldField, opContexts);
     const userId = this.cls.get('user.id');
+    // Build result incrementally; set meta after applying update strategies
     const result: Prisma.FieldUpdateInput = {
       version,
       lastModifiedBy: userId,
-      meta: newField.meta ? JSON.stringify(newField.meta) : undefined,
     };
     for (const opContext of opContexts) {
       const updatedResult = await this.updateStrategies(
@@ -1136,6 +1136,11 @@ export class FieldService implements IReadonlyAdapterService {
         opContext
       );
       Object.assign(result, updatedResult);
+    }
+
+    // Persist meta after potential schema modifications that may set it (e.g., formula generated columns)
+    if (newField.meta !== undefined) {
+      result.meta = JSON.stringify(newField.meta);
     }
 
     await this.prismaService.txClient().field.update({

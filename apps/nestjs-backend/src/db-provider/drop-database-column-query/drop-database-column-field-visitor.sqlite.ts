@@ -33,10 +33,6 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
   constructor(private readonly context: IDropDatabaseColumnContext) {}
 
   private dropStandardColumn(field: FieldCore): string[] {
-    if (field.isLookup) {
-      return [];
-    }
-
     // Get all column names for this field
     const columnNames = field.dbFieldNames;
     const queries: string[] = [];
@@ -53,9 +49,6 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
   }
 
   private dropFormulaColumns(field: FormulaFieldCore): string[] {
-    if (field.isLookup) {
-      return [];
-    }
     // Align with Postgres: drop the physical column representing the formula
     // regardless of whether it was persisted as a generated column or not.
     return this.dropStandardColumn(field);
@@ -162,22 +155,29 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
   }
 
   visitLinkField(field: LinkFieldCore): string[] {
-    if (field.isLookup) {
-      return [];
-    }
+    const opts = field.options as ILinkFieldOptions;
+    const rel = opts?.relationship;
+    const inferredFkName =
+      opts?.foreignKeyName ??
+      (rel === Relationship.ManyOne || rel === Relationship.OneOne ? field.dbFieldName : undefined);
+    const inferredSelfName =
+      opts?.selfKeyName ??
+      (rel === Relationship.OneMany && opts?.isOneWay === false ? field.dbFieldName : undefined);
+    const conflictNames = new Set<string>();
+    if (inferredFkName) conflictNames.add(inferredFkName);
+    if (inferredSelfName) conflictNames.add(inferredSelfName);
 
-    // Handle foreign key/junction cleanup for link fields only.
-    // In SQLite, we do not create a standard data column for Link fields,
-    // so there is nothing to drop from the host table besides FK-related columns.
-    // Dropping a non-existent "dbFieldName" column causes errors like
-    //   no such column: `link_field`
-    // Therefore, we only drop FK/junction artifacts here.
-    return this.dropForeignKeyForLinkField(field);
+    const queries: string[] = [];
+    if (!conflictNames.has(field.dbFieldName)) {
+      queries.push(...this.dropStandardColumn(field));
+    }
+    queries.push(...this.dropForeignKeyForLinkField(field));
+    return queries;
   }
 
-  visitRollupField(_field: RollupFieldCore): string[] {
-    // Rollup fields don't create database columns
-    return [];
+  visitRollupField(field: RollupFieldCore): string[] {
+    // Drop underlying base column for rollup fields
+    return this.dropStandardColumn(field);
   }
 
   // Select field types

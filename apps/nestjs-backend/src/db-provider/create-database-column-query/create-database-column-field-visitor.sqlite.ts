@@ -67,9 +67,6 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
   }
 
   private createStandardColumn(field: FieldCore): void {
-    if (field.isLookup) {
-      return;
-    }
     const schemaType = this.getSchemaType(field.dbFieldType);
     const column = this.context.table[schemaType](this.context.dbFieldName);
 
@@ -83,11 +80,6 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
-    if (field.isLookup) {
-      return;
-    }
-    // Create the standard formula column
-
     if (this.context.dbProvider) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getSqliteColumnType(field.dbFieldType);
@@ -96,6 +88,8 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
       const expressionToConvert = field.options.expression;
       // Skip if no expression
       if (!expressionToConvert) {
+        // Fallback to a standard column if no expression
+        this.createStandardColumn(field);
         return;
       }
 
@@ -127,10 +121,11 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
 
         this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
         (this.context.field as FormulaFieldDto).setMetadata({ persistedAsGeneratedColumn: true });
+        return;
       }
-    } else {
-      this.createStandardColumn(field);
     }
+    // Fallback: create a standard column when not supported as generated
+    this.createStandardColumn(field);
   }
 
   private getSqliteColumnType(dbFieldType: DbFieldType): string {
@@ -194,15 +189,29 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
   }
 
   visitLinkField(field: LinkFieldCore): void {
-    if (field.isLookup) {
-      return;
+    // Ensure underlying column representation for link fields unless conflicts with FK column names
+    const opts = field.options as ILinkFieldOptions;
+    const conflictNames = new Set<string>();
+    const rel = opts?.relationship;
+    const inferredFkName =
+      opts?.foreignKeyName ??
+      (rel === Relationship.ManyOne || rel === Relationship.OneOne
+        ? this.context.dbFieldName
+        : undefined);
+    const inferredSelfName =
+      opts?.selfKeyName ??
+      (rel === Relationship.OneMany && opts?.isOneWay === false
+        ? this.context.dbFieldName
+        : undefined);
+    if (inferredFkName) conflictNames.add(inferredFkName);
+    if (inferredSelfName) conflictNames.add(inferredSelfName);
+
+    if (!conflictNames.has(this.context.dbFieldName)) {
+      this.createStandardColumn(field);
     }
 
-    // Do not create a standard column for Link fields.
-    // Only create FK/junction structures for the non-symmetric side.
-    if (this.context.isSymmetricField || this.isSymmetricField(field)) {
-      return;
-    }
+    if (field.isLookup) return;
+    if (this.context.isSymmetricField || this.isSymmetricField(field)) return;
     this.createForeignKeyForLinkField(field);
   }
 
@@ -332,9 +341,9 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     }
   }
 
-  visitRollupField(_field: RollupFieldCore): void {
-    // Rollup fields are computed; do not create a physical column.
-    return;
+  visitRollupField(field: RollupFieldCore): void {
+    // Always create an underlying base column for rollup fields
+    this.createStandardColumn(field);
   }
 
   // Select field types

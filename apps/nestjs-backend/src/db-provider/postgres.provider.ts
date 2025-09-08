@@ -1,14 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type {
-  FieldType,
-  IFilter,
-  ILookupOptionsVo,
-  ISortItem,
-  TableDomain,
-  FieldCore,
-} from '@teable/core';
-import { DriverClient, parseFormulaToSQL } from '@teable/core';
+import type { IFilter, ILookupOptionsVo, ISortItem, TableDomain, FieldCore } from '@teable/core';
+import { DriverClient, parseFormulaToSQL, FieldType } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -268,6 +261,12 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     // First, drop ALL columns associated with the field (including generated columns)
     queries.push(...this.dropColumn(tableName, oldFieldInstance, linkContext));
 
+    // For Link fields, creation of FK/junction and any host-column should be delegated
+    // to FieldConvertingLinkService via createColumnSchema(). Avoid double creation here.
+    if (fieldInstance.type === FieldType.Link && !fieldInstance.isLookup) {
+      return queries;
+    }
+
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
       const createContext: ICreateDatabaseColumnContext = {
         table,
@@ -417,6 +416,34 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       .toQuery();
 
     return { insertTempTableSql, updateRecordSql };
+  }
+
+  updateFromSelectSql(params: {
+    dbTableName: string;
+    idFieldName: string;
+    subQuery: Knex.QueryBuilder;
+    dbFieldNames: string[];
+    returningDbFieldNames?: string[];
+  }): string {
+    const { dbTableName, idFieldName, subQuery, dbFieldNames, returningDbFieldNames } = params;
+    const alias = '__s';
+    const updateColumns = dbFieldNames.reduce<{ [key: string]: unknown }>((acc, name) => {
+      acc[name] = this.knex.ref(`${alias}.${name}`);
+      return acc;
+    }, {});
+
+    const fromRaw = this.knex.raw('(?) as ??', [subQuery, alias]);
+    const returningCols = [idFieldName, '__version', ...(returningDbFieldNames || dbFieldNames)];
+    const qualifiedReturning = returningCols.map((c) => this.knex.ref(`${dbTableName}.${c}`));
+    return (
+      this.knex(dbTableName)
+        .update(updateColumns)
+        .updateFrom(fromRaw)
+        .where(`${dbTableName}.${idFieldName}`, this.knex.ref(`${alias}.${idFieldName}`))
+        // Returning is supported on Postgres; qualify to avoid ambiguity with FROM subquery
+        .returning(qualifiedReturning)
+        .toQuery()
+    );
   }
 
   aggregationQuery(

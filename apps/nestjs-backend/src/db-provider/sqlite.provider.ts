@@ -143,6 +143,11 @@ export class SqliteProvider implements IDbProvider {
     // First, drop ALL columns associated with the field (including generated columns)
     queries.push(...this.dropColumn(tableName, oldFieldInstance, linkContext));
 
+    // For Link fields, delegate creation to link service to avoid double creation
+    if (fieldInstance.type === FieldType.Link && !fieldInstance.isLookup) {
+      return queries;
+    }
+
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
       const createContext: ICreateDatabaseColumnContext = {
         table,
@@ -360,6 +365,32 @@ export class SqliteProvider implements IDbProvider {
     updateRecordSql += ` FROM \`${tempTableName}\` WHERE ${dbTableName}.${idFieldName} = ${tempTableName}.${idFieldName}`;
 
     return { insertTempTableSql, updateRecordSql };
+  }
+
+  updateFromSelectSql(params: {
+    dbTableName: string;
+    idFieldName: string;
+    subQuery: Knex.QueryBuilder;
+    dbFieldNames: string[];
+    returningDbFieldNames?: string[];
+  }): string {
+    const { dbTableName, idFieldName, subQuery, dbFieldNames, returningDbFieldNames } = params;
+    const subQuerySql = subQuery.toQuery();
+    const wrap = (id: string) => this.knex.client.wrapIdentifier(id);
+    const setClause = dbFieldNames
+      .map(
+        (c) =>
+          `${wrap(c)} = (SELECT s.${wrap(c)} FROM (${subQuerySql}) AS s WHERE s.${wrap(
+            idFieldName
+          )} = ${dbTableName}.${wrap(idFieldName)})`
+      )
+      .join(', ');
+    const returning = [idFieldName, '__version', ...(returningDbFieldNames || dbFieldNames)]
+      .map((c) => wrap(c))
+      .join(', ');
+    return `UPDATE ${dbTableName} SET ${setClause} WHERE EXISTS (SELECT 1 FROM (${subQuerySql}) AS s WHERE s.${wrap(
+      idFieldName
+    )} = ${dbTableName}.${wrap(idFieldName)}) RETURNING ${returning}`;
   }
 
   aggregationQuery(
