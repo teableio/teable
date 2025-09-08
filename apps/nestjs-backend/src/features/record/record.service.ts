@@ -497,6 +497,9 @@ export class RecordService {
   }
 
   async getBasicOrderIndexField(dbTableName: string, viewId: string | undefined) {
+    if (!viewId) {
+      return '__auto_number';
+    }
     const columnName = `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
     const exists = await this.dbProvider.checkColumnExist(
       dbTableName,
