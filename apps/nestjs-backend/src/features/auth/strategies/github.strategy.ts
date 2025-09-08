@@ -23,6 +23,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
       state: true,
       store: oauthStoreService,
       callbackURL,
+      scope: ['user:email'],
     });
   }
 
