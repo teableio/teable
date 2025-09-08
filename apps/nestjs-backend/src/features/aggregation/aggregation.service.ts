@@ -42,6 +42,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
+import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
@@ -76,7 +77,8 @@ export class AggregationService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly cls: ClsService<IClsStore>,
-    private readonly recordPermissionService: RecordPermissionService
+    private readonly recordPermissionService: RecordPermissionService,
+    private readonly dataLoaderService: DataLoaderService
   ) {}
 
   async performAggregation(params: {
@@ -367,9 +369,10 @@ export class AggregationService {
   }
 
   async getFieldsData(tableId: string, fieldIds?: string[], withName?: boolean) {
-    const fieldsRaw = await this.prisma.field.findMany({
-      where: { tableId, ...(fieldIds ? { id: { in: fieldIds } } : {}), deletedTime: null },
-    });
+    const fieldsRaw = await this.dataLoaderService.field.load(
+      tableId,
+      fieldIds ? { id: fieldIds } : undefined
+    );
 
     const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
     const fieldInstanceMap = fieldInstances.reduce(
