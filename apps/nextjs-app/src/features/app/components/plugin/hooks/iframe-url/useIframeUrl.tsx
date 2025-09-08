@@ -2,6 +2,7 @@ import { useTheme } from '@teable/next-themes';
 import { PluginPosition } from '@teable/openapi';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef } from 'react';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import type { IPluginParams } from '../../types';
 import {
   getContextMenuIframeUrl,
@@ -17,12 +18,13 @@ export const useIframeUrl = (params: IPluginParams) => {
   const {
     i18n: { resolvedLanguage },
   } = useTranslation(['common']);
+  const { publicOrigin } = useEnv();
 
   return useMemo(() => {
     if (!pluginUrl) {
       return;
     }
-    const urlObj = new URL(pluginUrl, location.href);
+    const urlObj = new URL(pluginUrl, publicOrigin);
     defaultTheme.current && urlObj.searchParams.set('theme', defaultTheme.current);
     resolvedLanguage && urlObj.searchParams.set('lang', resolvedLanguage);
     const urlStr = urlObj.toString();
@@ -38,5 +40,5 @@ export const useIframeUrl = (params: IPluginParams) => {
       default:
         throw new Error(`Invalid position type`);
     }
-  }, [pluginUrl, resolvedLanguage, params]);
+  }, [pluginUrl, publicOrigin, resolvedLanguage, params]);
 };

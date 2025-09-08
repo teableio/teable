@@ -44,6 +44,7 @@ export default function withEnv<P extends { [key: string]: any }>(
           isNaN(envMaxSearchFieldCount) || envMaxSearchFieldCount === Infinity
             ? undefined
             : envMaxSearchFieldCount,
+        publicOrigin: process.env.PUBLIC_ORIGIN,
       },
       isUndefined
     );
