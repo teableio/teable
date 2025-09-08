@@ -58,6 +58,19 @@ export class ComputedDependencyCollectorService {
     return null;
   }
 
+  private parseOptionsLoose<T = unknown>(raw: unknown): T | null {
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return null;
+      }
+    }
+    if (typeof raw === 'object') return raw as T;
+    return null;
+  }
+
   /**
    * Same as collectDependentFieldIds but groups by table id directly in SQL.
    * Returns a map: tableId -> Set<fieldId>
@@ -77,7 +90,7 @@ export class ComputedDependencyCollectorService {
       .from({ r: 'reference' })
       .join({ d: 'dep_graph' }, 'r.from_field_id', 'd.to_field_id');
 
-    const finalQuery = this.knex
+    const depBuilder = this.knex
       .withRecursive('dep_graph', ['from_field_id', 'to_field_id'], nonRecursive.union(recursive))
       .distinct({ to_field_id: 'dep_graph.to_field_id', table_id: 'f.table_id' })
       .from('dep_graph')
@@ -89,12 +102,26 @@ export class ComputedDependencyCollectorService {
           .orWhere('f.type', FieldType.Link)
           .orWhere('f.type', FieldType.Formula)
           .orWhere('f.type', FieldType.Rollup);
-      })
-      .toQuery();
+      });
+
+    // Also consider the changed Link fields themselves as impacted via UNION at SQL level.
+    const linkSelf = this.knex
+      .select({ to_field_id: 'f.id', table_id: 'f.table_id' })
+      .from({ f: 'field' })
+      .whereIn('f.id', startFieldIds)
+      .andWhere('f.type', FieldType.Link)
+      .whereNull('f.deleted_time');
+
+    const unionBuilder = this.knex
+      .select('*')
+      .from(depBuilder.as('dep'))
+      .union(function () {
+        this.select('*').from(linkSelf.as('link_self'));
+      });
 
     const rows = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ to_field_id: string; table_id: string }[]>(finalQuery);
+      .$queryRawUnsafe<{ to_field_id: string; table_id: string }[]>(unionBuilder.toQuery());
 
     const result: Record<string, Set<string>> = {};
     for (const r of rows) {
@@ -194,6 +221,35 @@ export class ComputedDependencyCollectorService {
       acc[tid] = { fieldIds: new Set(fset), recordIds: new Set<string>() };
       return acc;
     }, {} as IComputedImpactByTable);
+
+    // Include symmetric link fields (if any) on the foreign table so their values
+    // are refreshed as well. The link fields themselves are already included by
+    // SQL union in collectDependentFieldsByTable.
+    const linkFields = await this.prismaService.txClient().field.findMany({
+      where: {
+        id: { in: changedFieldIds },
+        type: FieldType.Link,
+        isLookup: null,
+        deletedTime: null,
+      },
+      select: { id: true, tableId: true, options: true },
+    });
+
+    for (const lf of linkFields) {
+      type ILinkOptionsWithSymmetric = ILinkFieldOptions & { symmetricFieldId?: string };
+      const optsLoose = this.parseOptionsLoose<ILinkOptionsWithSymmetric>(lf.options);
+      const foreignTableId = optsLoose?.foreignTableId;
+      const symmetricFieldId = optsLoose?.symmetricFieldId;
+
+      // If symmetric, ensure foreign table symmetric field is included; recordIds
+      // for foreign table will be determined by BFS propagation below.
+      if (foreignTableId && symmetricFieldId) {
+        (impact[foreignTableId] ||= {
+          fieldIds: new Set<string>(),
+          recordIds: new Set<string>(),
+        }).fieldIds.add(symmetricFieldId);
+      }
+    }
     if (!Object.keys(impact).length) return {};
 
     // 3) Compute impacted recordIds per table with multi-hop propagation

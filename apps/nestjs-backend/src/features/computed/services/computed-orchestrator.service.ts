@@ -45,6 +45,7 @@ export class ComputedOrchestratorService {
 
     const evaluated = await this.evaluator.evaluate(impact);
 
+    // Build and publish ops based on evaluated values (reflect changes)
     const tasks = Object.entries(evaluated).map(async ([tid, recs]) => {
       const recordIds = Object.keys(recs);
       if (!recordIds.length) return 0;

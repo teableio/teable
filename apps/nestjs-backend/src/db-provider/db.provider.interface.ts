@@ -151,6 +151,14 @@ export interface IDbProvider {
     data: { id: string; values: { [key: string]: unknown } }[];
   }): { insertTempTableSql: string; updateRecordSql: string };
 
+  updateFromSelectSql(params: {
+    dbTableName: string;
+    idFieldName: string;
+    subQuery: Knex.QueryBuilder;
+    dbFieldNames: string[];
+    returningDbFieldNames?: string[];
+  }): string;
+
   aggregationQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fields?: { [fieldId: string]: FieldCore },

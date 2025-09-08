@@ -34,10 +34,6 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
   constructor(private readonly context: IDropDatabaseColumnContext) {}
 
   private dropStandardColumn(field: FieldCore): string[] {
-    if (field.isLookup) {
-      return [];
-    }
-
     // Get all column names for this field
     const columnNames = field.dbFieldNames;
     const queries: string[] = [];
@@ -59,10 +55,6 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
   }
 
   private dropFormulaColumns(field: FormulaFieldCore): string[] {
-    if (field.isLookup) {
-      return [];
-    }
-
     return this.dropStandardColumn(field);
   }
 
@@ -177,22 +169,32 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
   }
 
   visitLinkField(field: LinkFieldCore): string[] {
-    if (field.isLookup) {
-      return [];
+    const opts = field.options as ILinkFieldOptions;
+    const rel = opts?.relationship;
+    const inferredFkName =
+      opts?.foreignKeyName ??
+      (rel === Relationship.ManyOne || rel === Relationship.OneOne ? field.dbFieldName : undefined);
+    const inferredSelfName =
+      opts?.selfKeyName ??
+      (rel === Relationship.OneMany && opts?.isOneWay === false ? field.dbFieldName : undefined);
+    const conflictNames = new Set<string>();
+    if (inferredFkName) conflictNames.add(inferredFkName);
+    if (inferredSelfName) conflictNames.add(inferredSelfName);
+
+    const queries: string[] = [];
+    // Drop the separate base column only if it does not conflict with FK columns
+    if (!conflictNames.has(field.dbFieldName)) {
+      queries.push(...this.dropStandardColumn(field));
     }
 
-    // Handle foreign key cleanup for link fields
-    const queries = this.dropForeignKeyForLinkField(field);
-
-    // Also drop the standard column
-    queries.push(...this.dropStandardColumn(field));
-
+    // Always drop FK/junction artifacts for link fields
+    queries.push(...this.dropForeignKeyForLinkField(field));
     return queries;
   }
 
-  visitRollupField(_field: RollupFieldCore): string[] {
-    // Rollup fields don't create database columns
-    return [];
+  visitRollupField(field: RollupFieldCore): string[] {
+    // Drop underlying base column for rollup fields
+    return this.dropStandardColumn(field);
   }
 
   // Select field types

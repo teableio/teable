@@ -67,11 +67,6 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   private createStandardColumn(field: FieldCore): void {
-    // Lookup fields: do NOT create a persisted column.
-    // They are computed at query time via CTEs/views.
-    if (field.isLookup) {
-      return;
-    }
     const schemaType = this.getSchemaType(field.dbFieldType);
     const column = this.context.table[schemaType](this.context.dbFieldName);
 
@@ -85,10 +80,6 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
-    if (field.isLookup) {
-      return;
-    }
-
     if (this.context.dbProvider) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getPostgresColumnType(field.dbFieldType);
@@ -97,6 +88,8 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
 
       // Skip if no expression
       if (!expression) {
+        // Fallback to a standard column if no expression
+        this.createStandardColumn(field);
         return;
       }
 
@@ -125,11 +118,11 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
 
         this.context.table.specificType(generatedColumnName, generatedColumnDefinition);
         (this.context.field as FormulaFieldDto).setMetadata({ persistedAsGeneratedColumn: true });
+        return;
       }
-    } else {
-      // Create the standard formula column
-      this.createStandardColumn(field);
     }
+    // Fallback: create a standard column when not supported as generated
+    this.createStandardColumn(field);
   }
 
   private getPostgresColumnType(dbFieldType: DbFieldType): string {
@@ -190,15 +183,31 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   visitLinkField(field: LinkFieldCore): void {
-    if (field.isLookup) {
-      return;
+    // Determine potential conflicts with FK column names (including inferred defaults)
+    const opts = field.options as ILinkFieldOptions;
+    const conflictNames = new Set<string>();
+    const rel = opts?.relationship;
+    const inferredFkName =
+      opts?.foreignKeyName ??
+      (rel === Relationship.ManyOne || rel === Relationship.OneOne
+        ? this.context.dbFieldName
+        : undefined);
+    const inferredSelfName =
+      opts?.selfKeyName ??
+      (rel === Relationship.OneMany && opts?.isOneWay === false
+        ? this.context.dbFieldName
+        : undefined);
+    if (inferredFkName) conflictNames.add(inferredFkName);
+    if (inferredSelfName) conflictNames.add(inferredSelfName);
+
+    // Create underlying base column only if no conflict with FK/self columns
+    if (!conflictNames.has(this.context.dbFieldName)) {
+      this.createStandardColumn(field);
     }
 
-    // Do not create a standard column for Link fields.
-    // Only create FK/junction structures for the non-symmetric side.
-    if (this.context.isSymmetricField || this.isSymmetricField(field)) {
-      return;
-    }
+    // For real link structures, create FK/junction artifacts on non-symmetric side
+    if (field.isLookup) return;
+    if (this.context.isSymmetricField || this.isSymmetricField(field)) return;
     this.createForeignKeyForLinkField(field);
   }
 
@@ -328,9 +337,9 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
     }
   }
 
-  visitRollupField(_field: RollupFieldCore): void {
-    // Rollup fields are computed in query time via CTEs; no physical column.
-    return;
+  visitRollupField(field: RollupFieldCore): void {
+    // Always create an underlying base column for rollup fields
+    this.createStandardColumn(field);
   }
 
   // Select field types

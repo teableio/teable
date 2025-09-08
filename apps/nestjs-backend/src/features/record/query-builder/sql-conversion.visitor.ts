@@ -437,6 +437,18 @@ abstract class BaseSqlConversionVisitor<
       }
     }
 
+    // For arithmetic operators (except '+'), coerce string operands to numeric
+    // so expressions like "text * 3" or "'10' / '2'" work without errors in generated columns.
+    const needsArithmeticNumericCoercion = (op: string) => ['*', '/', '-', '%'].includes(op);
+    if (operator.text && needsArithmeticNumericCoercion(operator.text)) {
+      if (leftType === 'string') {
+        left = this.safeCastToNumeric(left);
+      }
+      if (rightType === 'string') {
+        right = this.safeCastToNumeric(right);
+      }
+    }
+
     return match(operator.text)
       .with('+', () => {
         // Check if either operand is a string type for concatenation
