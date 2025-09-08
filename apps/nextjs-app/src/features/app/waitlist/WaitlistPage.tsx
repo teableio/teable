@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { IJoinWaitlistRo } from '@teable/openapi';
-import { joinWaitlist, joinWaitlistSchemaRo } from '@teable/openapi';
+import { getPublicSetting, joinWaitlist, joinWaitlistSchemaRo } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import {
   Button,
   Input,
@@ -23,6 +24,8 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { TeableLogo } from '@/components/TeableLogo';
 import { useBrand } from '@/features/app/hooks/useBrand';
+import { NotFoundPage } from '@/features/system/pages/NotFoundPage';
+import { useIsCloud } from '../hooks/useIsCloud';
 
 const WaitlistPageInner = () => {
   const { t } = useTranslation('common');
@@ -141,6 +144,17 @@ const WaitlistPageInner = () => {
 
 export const WaitlistPage = () => {
   const { brandName } = useBrand();
+  const isCloud = useIsCloud();
+  const { data: setting } = useQuery({
+    queryKey: ReactQueryKeys.getPublicSetting(),
+    queryFn: () => getPublicSetting().then(({ data }) => data),
+  });
+  const { enableWaitlist = false } = setting ?? {};
+
+  if (!isCloud || !enableWaitlist) {
+    return <NotFoundPage />;
+  }
+
   return (
     <div className=" h-screen w-screen">
       <div className="fixed left-5 top-5 flex flex-none items-center gap-2">

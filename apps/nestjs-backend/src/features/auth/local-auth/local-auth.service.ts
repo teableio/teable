@@ -368,6 +368,10 @@ export class LocalAuthService {
   }
 
   async joinWaitlist(email: string) {
+    const setting = await this.settingService.getSetting();
+    if (!setting?.enableWaitlist) {
+      throw new BadRequestException('Waitlist is not enabled');
+    }
     const user = await this.userService.getUserByEmail(email);
     if (user) {
       throw new ConflictException('Email already registered');

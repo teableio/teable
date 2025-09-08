@@ -9,6 +9,7 @@ import {
 } from '@teable/openapi';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { AIConfigForm } from './components/ai-config/AiForm';
@@ -39,6 +40,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   });
 
   const isEE = useIsEE();
+  const isCloud = useIsCloud();
 
   const { data: instanceUsage } = useQuery({
     queryKey: ['instance-usage'],
@@ -131,41 +133,43 @@ export const SettingPage = (props: ISettingPageProps) => {
         </div>
       </div>
 
-      <div className="py-4">
-        <h2 className="mb-4 text-lg font-medium">{t('waitlist.title')}</h2>
-        <div className="flex flex-col gap-4 rounded-lg border p-4 shadow-sm">
-          <div className="flex items-center justify-between ">
-            <div className="space-y-1">
-              <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
-              <div className="text-[13px] text-gray-500">
-                {t('admin.setting.enableWaitlistDescription')}
+      {isCloud && (
+        <div className="py-4">
+          <h2 className="mb-4 text-lg font-medium">{t('waitlist.title')}</h2>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 shadow-sm">
+            <div className="flex items-center justify-between ">
+              <div className="space-y-1">
+                <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
+                <div className="text-[13px] text-gray-500">
+                  {t('admin.setting.enableWaitlistDescription')}
+                </div>
               </div>
+              <Switch
+                id="enable-waitlist"
+                checked={Boolean(enableWaitlist)}
+                onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
+              />
             </div>
-            <Switch
-              id="enable-waitlist"
-              checked={Boolean(enableWaitlist)}
-              onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
-            />
-          </div>
-          {enableWaitlist && (
-            <>
-              <div className="flex items-center justify-between ">
-                <div className="space-y-1">
-                  <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
+            {enableWaitlist && (
+              <>
+                <div className="flex items-center justify-between ">
+                  <div className="space-y-1">
+                    <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
+                  </div>
+                  <WaitlistManage />
                 </div>
-                <WaitlistManage />
-              </div>
 
-              <div className="flex items-center justify-between ">
-                <div className="space-y-1">
-                  <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
+                <div className="flex items-center justify-between ">
+                  <div className="space-y-1">
+                    <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
+                  </div>
+                  <InviteCodeManage />
                 </div>
-                <InviteCodeManage />
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* AI Configuration Section */}
       <div className="py-4">

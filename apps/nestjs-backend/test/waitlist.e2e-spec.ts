@@ -8,7 +8,6 @@ import {
   signup,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
-import { LocalAuthService } from '../src/features/auth/local-auth/local-auth.service';
 import { SettingService } from '../src/features/setting/setting.service';
 import type { IClsStore } from '../src/types/cls';
 import { initApp, runWithTestUser } from './utils/init-app';
@@ -18,7 +17,6 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
   let prismaService: PrismaService;
   let settingService: SettingService;
   let clsService: ClsService<IClsStore>;
-  let authService: LocalAuthService;
   let enableWaitlist: boolean | null | undefined;
 
   beforeAll(async () => {
@@ -27,12 +25,11 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
     clsService = app.get(ClsService);
     prismaService = app.get(PrismaService);
     settingService = app.get(SettingService);
-    authService = app.get(LocalAuthService);
     const setting = await settingService.getSetting();
     enableWaitlist = setting.enableWaitlist;
     await runWithTestUser(clsService, async () => {
       await settingService.updateSetting({
-        enableWaitlist: null,
+        enableWaitlist: true,
       });
     });
   });
@@ -108,12 +105,6 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
     const fackCode = getRandomString(10);
     const demoEmail = getRandomString(10).toLowerCase() + '@local.com';
     const password = '12345678a';
-
-    await runWithTestUser(clsService, async () => {
-      await settingService.updateSetting({
-        enableWaitlist: true,
-      });
-    });
 
     // no invite code
     await expect(
