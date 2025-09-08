@@ -3807,6 +3807,78 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
     });
 
+    it('should lookupField link work when convert many-many to many-one link', async () => {
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'A1');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+
+      const table2LinkTable1Field = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          isOneWay: true,
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      });
+      await updateRecordByApi(table2.id, table2.records[0].id, table2LinkTable1Field.id, {
+        id: table1.records[0].id,
+      });
+      const table2LinkTable1Record = await getRecord(table2.id, table2.records[0].id);
+      expect(table2LinkTable1Record.fields[table2LinkTable1Field.id]).toEqual({
+        id: table1.records[0].id,
+        title: 'A1',
+      });
+
+      const table3linkTable2Field = await createField(table3.id, {
+        type: FieldType.Link,
+        options: {
+          isOneWay: false,
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+        },
+      });
+      const table3lookupTable2Field = await createField(table3.id, {
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2LinkTable1Field.id,
+          linkFieldId: table3linkTable2Field.id,
+        },
+      });
+      await updateRecordByApi(table3.id, table3.records[0].id, table3linkTable2Field.id, [
+        {
+          id: table2.records[0].id,
+        },
+      ]);
+      const table3lookupTable2Record = await getRecord(table3.id, table3.records[0].id);
+      expect(table3lookupTable2Record.fields[table3linkTable2Field.id]).toEqual([
+        {
+          id: table2.records[0].id,
+          title: 'B1',
+        },
+      ]);
+      expect(table3lookupTable2Record.fields[table3lookupTable2Field.id]).toEqual([
+        {
+          id: table1.records[0].id,
+          title: 'A1',
+        },
+      ]);
+
+      await convertField(table3.id, table3linkTable2Field.id, {
+        type: FieldType.Link,
+        options: {
+          isOneWay: false,
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+      const table3lookupTable2RecordAfter = await getRecord(table3.id, table3.records[0].id);
+      expect(table3lookupTable2RecordAfter.fields[table3lookupTable2Field.id]).toEqual({
+        id: table1.records[0].id,
+        title: 'A1',
+      });
+    });
+
     it('should reset show as for lookup', async () => {
       const linkFieldRo: IFieldRo = {
         type: FieldType.Link,

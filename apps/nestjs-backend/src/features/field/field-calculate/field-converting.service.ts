@@ -399,18 +399,16 @@ export class FieldConvertingService {
           newField.isMultipleCellValue || lookupToFieldRaw.isMultipleCellValue || false;
 
         if (isMultipleCellValue !== field.isMultipleCellValue) {
-          ops.push(
-            this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue)!,
-            this.buildOpAndMutateField(
-              field,
-              'dbFieldType',
-              this.fieldSupplementService.getDbFieldType(
-                field.type,
-                field.cellValueType,
-                isMultipleCellValue
-              )
-            )!
-          );
+          ops.push(this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue)!);
+        }
+
+        const dbFieldType = this.fieldSupplementService.getDbFieldType(
+          field.type,
+          field.cellValueType,
+          isMultipleCellValue
+        );
+        if (dbFieldType !== field.dbFieldType) {
+          ops.push(this.buildOpAndMutateField(field, 'dbFieldType', dbFieldType)!);
         }
 
         const newOptions = this.fieldSupplementService.prepareFormattingShowAs(
