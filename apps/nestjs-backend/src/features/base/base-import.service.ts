@@ -242,6 +242,17 @@ export class BaseImportService {
       : await this.createBase(spaceId, name, icon || undefined);
     this.logger.log(`base-duplicate-service: Duplicate base successfully`);
 
+    // update base icon and name
+    if (baseId) {
+      await this.prismaService.txClient().base.update({
+        where: { id: baseId },
+        data: {
+          name,
+          icon,
+        },
+      });
+    }
+
     // create table
     const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
       newBase.id,

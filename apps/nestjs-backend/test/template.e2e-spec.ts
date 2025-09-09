@@ -13,6 +13,7 @@ import {
   deleteBase,
   deleteTemplate,
   deleteTemplateCategory,
+  getBaseById,
   getFields,
   getPublishedTemplateList,
   getTableList,
@@ -232,6 +233,7 @@ describe('Template Open API Controller (e2e)', () => {
       // create a template in a base
       const templateBase = await createBase({
         name: 'Template Base',
+        icon: '🚀',
         spaceId,
       });
       templateBaseId = templateBase.data.id;
@@ -326,6 +328,11 @@ describe('Template Open API Controller (e2e)', () => {
       const originalTable2Fields = table2.fields.map((f) => omit(f, ['id']));
       expect(table1Fields).toEqual(originalTable1Fields);
       expect(table2Fields).toEqual(originalTable2Fields);
+
+      // base icon and name
+      const applyBaseInfo = (await getBaseById(applyBase.data.id)).data;
+      expect(applyBaseInfo.icon).toBe('🚀');
+      expect(applyBaseInfo.name).toBe('test Template');
     });
   });
 });
