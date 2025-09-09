@@ -301,7 +301,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
-    isSymmetricField?: boolean
+    isSymmetricField?: boolean,
+    skipBaseColumnCreation?: boolean
   ): string[] {
     let visitor: CreatePostgresDatabaseColumnFieldVisitor | undefined = undefined;
 
@@ -321,6 +322,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         knex: this.knex,
         tableNameMap,
         isSymmetricField,
+        skipBaseColumnCreation,
       };
       visitor = new CreatePostgresDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);

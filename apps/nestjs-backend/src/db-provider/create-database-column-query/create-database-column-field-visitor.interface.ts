@@ -34,4 +34,6 @@ export interface ICreateDatabaseColumnContext {
   tableNameMap: Map<string, string>;
   /** Whether this is a symmetric field (should not create foreign key structures) */
   isSymmetricField?: boolean;
+  /** When true, do not create the base column for Link fields (FK/junction only). */
+  skipBaseColumnCreation?: boolean;
 }

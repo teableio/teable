@@ -292,7 +292,8 @@ export class FieldService implements IReadonlyAdapterService {
         isNewTable,
         tableMeta.id,
         tableNameMap,
-        isSymmetricField
+        isSymmetricField,
+        false
       );
 
       // Execute all queries (main table alteration + any additional queries like junction tables)

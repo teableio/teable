@@ -16,7 +16,6 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
 import type { IFieldInstance } from '../model/factory';
@@ -193,10 +192,10 @@ export class FieldConvertingLinkService {
       false,
       tableId,
       tableNameMap,
-      false // This is not a symmetric field in converting context
+      false, // This is not a symmetric field in converting context
+      true // Skip base column creation during conversion; only create FK/junction
     );
-
-    // Execute all queries (main table alteration + foreign key creation)
+    // Execute all queries (FK/junction creation, order columns, etc.)
     for (const query of createColumnQueries) {
       await this.prismaService.txClient().$executeRawUnsafe(query);
     }
