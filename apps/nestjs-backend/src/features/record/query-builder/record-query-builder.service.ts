@@ -86,10 +86,25 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     return { qb, table, state, alias: mainTableAlias };
   }
 
+  private async createQueryBuilderFromTableCache(tableRaw: { id: string }): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableRaw.id);
+    const mainTableAlias = getTableAliasFromTable(table);
+    const qb = this.knex.from({ [mainTableAlias]: table.dbTableName });
+
+    const state = new RecordQueryBuilderManager('table');
+
+    return { qb, table, state, alias: mainTableAlias };
+  }
+
   private async createQueryBuilder(
     from: string,
     tableIdOrDbTableName: string,
-    useViewCache = false,
+    useQueryModel = false,
     projection?: string[]
   ): Promise<{
     qb: Knex.QueryBuilder;
@@ -98,11 +113,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     state: IMutableQueryBuilderState;
   }> {
     const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
-    if (tableRaw.dbViewName && useViewCache) {
+    if (useQueryModel) {
       try {
-        return await this.createQueryBuilderFromView(
-          tableRaw as { id: string; dbViewName: string }
-        );
+        return await this.createQueryBuilderFromTableCache(tableRaw as { id: string });
       } catch (error) {
         this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
         return this.createQueryBuilderFromTable(from, tableRaw, projection);
@@ -133,7 +146,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const { qb, alias, table, state } = await this.createQueryBuilder(
       from,
       tableIdOrDbTableName,
-      options.useViewCache,
+      options.useQueryModel,
       options.projection
     );
 

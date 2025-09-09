@@ -60,6 +60,17 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     return this.state.getContext() === 'view';
   }
 
+  private isTableCacheContext(): boolean {
+    return this.state.getContext() === 'tableCache';
+  }
+
+  /**
+   * Whether we should select from the materialized view or table directly
+   */
+  private shouldSelectRaw() {
+    return this.isViewContext() || this.isTableCacheContext();
+  }
+
   /**
    * Returns the selection map containing field ID to selector name mappings
    * @returns Map where key is field ID and value is the selector name/expression
@@ -104,7 +115,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       const fieldCteMap = this.state.getFieldCteMap();
       // Lookup has no standard column in base table.
       // When building from a materialized view, fallback to the view's column.
-      if (this.isViewContext()) {
+      if (this.shouldSelectRaw()) {
         const columnSelector = this.getColumnSelector(field);
         this.state.setSelection(field.id, columnSelector);
         return columnSelector;
@@ -238,7 +249,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     if (!fieldCteMap?.has(field.id)) {
       // If we are selecting from a materialized view, the view already exposes
       // the projected column for this field, so select the physical column.
-      if (this.isViewContext()) {
+      if (this.shouldSelectRaw()) {
         return this.getColumnSelector(field);
       }
       // When building directly from base table and no CTE is available
@@ -257,7 +268,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
-    if (this.isViewContext()) {
+    if (this.shouldSelectRaw()) {
       // In view context, select the view column directly
       return this.getColumnSelector(field);
     }

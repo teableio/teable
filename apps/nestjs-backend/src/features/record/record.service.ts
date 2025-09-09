@@ -706,7 +706,7 @@ export class RecordService {
   async getRecords(
     tableId: string,
     query: IGetRecordsRo,
-    useViewCache = false
+    useQueryModel = false
   ): Promise<IRecordsVo> {
     const queryResult = await this.getDocIdsByQuery(tableId, {
       ignoreViewQuery: query.ignoreViewQuery ?? false,
@@ -732,7 +732,7 @@ export class RecordService {
       projection,
       query.fieldKeyType || FieldKeyType.Name,
       query.cellFormat,
-      useViewCache
+      useQueryModel
     );
 
     return {
@@ -1318,7 +1318,7 @@ export class RecordService {
       projection?: { [fieldNameOrId: string]: boolean };
       fieldKeyType: FieldKeyType;
       cellFormat: CellFormat;
-      useViewCache: boolean;
+      useQueryModel: boolean;
     }
   ): Promise<ISnapshotBase<IRecord>[]> {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
@@ -1329,7 +1329,7 @@ export class RecordService {
       {
         tableIdOrDbTableName: tableId,
         viewId: undefined,
-        useViewCache: query.useViewCache,
+        useQueryModel: query.useQueryModel,
         projection: fieldIds,
       }
     );
@@ -1394,7 +1394,7 @@ export class RecordService {
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
     cellFormat = CellFormat.Json,
-    useViewCache = false
+    useQueryModel = false
   ) {
     const dbTableName = await this.getDbTableName(tableId);
     const { viewCte, builder } = await this.recordPermissionService.wrapView(
@@ -1411,7 +1411,7 @@ export class RecordService {
       projection,
       fieldKeyType,
       cellFormat,
-      useViewCache,
+      useQueryModel,
     });
   }
 
@@ -1421,7 +1421,7 @@ export class RecordService {
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
     cellFormat = CellFormat.Json,
-    useViewCache = false
+    useQueryModel = false
   ): Promise<ISnapshotBase<IRecord>[]> {
     const dbTableName = await this.getDbTableName(tableId);
     return this.getSnapshotBulkInner(this.knex.queryBuilder(), dbTableName, {
@@ -1430,7 +1430,7 @@ export class RecordService {
       projection,
       fieldKeyType,
       cellFormat,
-      useViewCache,
+      useQueryModel,
     });
   }
 

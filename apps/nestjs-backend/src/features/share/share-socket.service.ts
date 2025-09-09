@@ -102,7 +102,7 @@ export class ShareSocketService {
     return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId, filter, projection });
   }
 
-  async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[], useViewCache: boolean) {
+  async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[], useQueryModel: boolean) {
     const { tableId, view, shareMeta } = shareInfo;
     if (!shareMeta?.includeRecords) {
       throw new ForbiddenException(`Record(${ids.join(',')}) permission not allowed: read`);
@@ -117,7 +117,7 @@ export class ShareSocketService {
       undefined,
       undefined,
       undefined,
-      useViewCache
+      useQueryModel
     );
   }
 }
