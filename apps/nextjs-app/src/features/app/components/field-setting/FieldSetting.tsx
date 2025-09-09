@@ -24,6 +24,7 @@ import { DynamicFieldEditor } from './DynamicFieldEditor';
 import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
 import { FieldOperator } from './type';
+import { formatAiConfigError } from './utils/zod-error';
 
 export const FieldSetting = (props: IFieldSetting) => {
   const { operator, order } = props;
@@ -236,8 +237,17 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
 
     console.error('fieldConFirm', field);
     console.error('fieldConFirmResult', fromZodError(result.error).message);
-    toast.error(`Options Error`, {
-      description: fromZodError(result.error).message,
+
+    const isAiConfigError = result.error.errors.some(
+      (error) => error.path.includes('aiConfig') || error.path[0] === 'aiConfig'
+    );
+
+    const errorMessage = isAiConfigError
+      ? formatAiConfigError(result.error)
+      : fromZodError(result.error).message;
+
+    toast.error(`Validation Error`, {
+      description: errorMessage,
     });
   };
 
