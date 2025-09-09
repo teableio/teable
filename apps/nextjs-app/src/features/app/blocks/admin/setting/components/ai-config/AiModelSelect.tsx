@@ -29,7 +29,7 @@ import type { ReactNode } from 'react';
 import { Fragment, useMemo, useState } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { LLM_PROVIDER_ICONS } from './constant';
-import { parseModelKey, processModelDefinition } from './utils';
+import { parseModelKey, processModelDefinition, isImageOutputModel } from './utils';
 
 export interface IModelOption {
   isInstance?: boolean;
@@ -46,6 +46,7 @@ interface IAIModelSelectProps {
   needGroup?: boolean;
   modelDefinationMap?: IModelDefinationMap;
   children?: ReactNode;
+  onlyImageOutput?: boolean; // if true, only show image output models
 }
 
 export function AIModelSelect({
@@ -58,6 +59,7 @@ export function AIModelSelect({
   modelDefinationMap,
   needGroup,
   children,
+  onlyImageOutput = false,
 }: IAIModelSelectProps) {
   const base = useBase();
   const router = useRouter();
@@ -72,14 +74,20 @@ export function AIModelSelect({
   const Icon = LLM_PROVIDER_ICONS[type as keyof typeof LLM_PROVIDER_ICONS];
 
   const { spaceOptions, instanceOptions } = useMemo(() => {
+    const filterImageOutput = (model: string) => {
+      if (!onlyImageOutput) return true;
+      const modelDefination = modelDefinationMap?.[model];
+      return isImageOutputModel(modelDefination);
+    };
+
     return {
       spaceOptions: options.filter(({ isInstance }) => !isInstance),
       instanceOptions: options.filter(({ isInstance, modelKey }) => {
         const { model = '' } = parseModelKey(modelKey);
-        return isInstance && !model.toLowerCase().includes('embedding');
+        return isInstance && !model.toLowerCase().includes('embedding') && filterImageOutput(model);
       }),
     };
-  }, [options]);
+  }, [options, onlyImageOutput, modelDefinationMap]);
 
   const onLinkIntegration = () => {
     router.push({

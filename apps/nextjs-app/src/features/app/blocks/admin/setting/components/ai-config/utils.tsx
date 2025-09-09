@@ -36,6 +36,12 @@ export const decimalToRatio = (decimal: number): string => {
   return `${numerator}:${denominator}`;
 };
 
+export const isImageOutputModel = (
+  modelDefination: IImageModelDefination | ITextModelDefination | undefined
+): boolean => {
+  return !!(modelDefination && 'outputType' in modelDefination);
+};
+
 export const processModelDefinition = (
   modelDefination: IImageModelDefination | ITextModelDefination | undefined,
   t: TFunction

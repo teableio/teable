@@ -61,7 +61,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   const { type } = aiConfig ?? {};
   const { fieldAIEnable = false } = usage?.limit ?? {};
   const isExpanded = _isExpanded && fieldAIEnable;
-  const { llmProviders = [], modelDefinationMap = {} } = baseAiConfig ?? {};
+  const { llmProviders = [], modelDefinationMap } = baseAiConfig ?? {};
   const models = generateModelKeyList(llmProviders);
 
   const onConfigChange = (key: keyof IFieldAIConfig, value: unknown) => {
@@ -178,6 +178,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                     className="w-full px-2"
                     modelDefinationMap={modelDefinationMap}
                     needGroup
+                    onlyImageOutput={fieldType === FieldType.Attachment}
                   />
                 </div>
                 <div className="flex items-center">
