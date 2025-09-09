@@ -1,14 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type {
-  FieldType,
-  IFilter,
-  ILookupOptionsVo,
-  ISortItem,
-  FieldCore,
-  TableDomain,
-} from '@teable/core';
-import { DriverClient, parseFormulaToSQL } from '@teable/core';
+import type { IFilter, ILookupOptionsVo, ISortItem, FieldCore, TableDomain } from '@teable/core';
+import { DriverClient, parseFormulaToSQL, FieldType } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
