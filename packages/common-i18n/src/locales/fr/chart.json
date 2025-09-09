@@ -1,0 +1,95 @@
+{
+  "notBaseId": "BaseId manquant",
+  "notPositionId": "PositionId manquant",
+  "notPluginInstallId": "PluginInstallId manquant",
+  "initBridge": "Initialisation du pont...",
+  "actions": {
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  },
+  "queryTitle": "Configuration de requête de données",
+  "notSupport": "Non pris en charge",
+  "chart": {
+    "bar": "Barres",
+    "line": "Ligne",
+    "pie": "Secteurs",
+    "area": "Zone",
+    "table": "Tableau"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Sélectionner le type de graphique",
+      "label": "Type de graphique"
+    },
+    "pie": {
+      "dimension": "Dimension",
+      "measure": "Mesure",
+      "showTotal": "Afficher le total"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "Axe X",
+        "placeholder": "Sélectionner l'axe X"
+      },
+      "yAxis": {
+        "label": "Axe Y",
+        "placeholder": "Sélectionner l'axe Y",
+        "position": "Position de l'axe Y"
+      },
+      "xDisplay": {
+        "label": "Affichage X"
+      },
+      "yDisplay": {
+        "label": "Affichage Y"
+      },
+      "addXAxis": "Ajouter une répartition de série",
+      "addYAxis": "Ajouter une autre série",
+      "stack": "Empiler",
+      "position": {
+        "label": "Position",
+        "auto": "Automatique",
+        "left": "Gauche",
+        "right": "Droite"
+      },
+      "goalLine": {
+        "label": "Ligne d'objectif"
+      },
+      "range": {
+        "label": "Plage",
+        "min": "Minimum",
+        "max": "Maximum"
+      },
+      "lineStyle": {
+        "label": "Style de ligne",
+        "normal": "Normal",
+        "linear": "Linéaire",
+        "step": "Palier"
+      },
+      "displayType": "Type d'affichage"
+    },
+    "typeError": "Formulaire : Type de graphique non pris en charge",
+    "updateQuery": "Mettre à jour la requête",
+    "queryError": "Erreur de requête",
+    "querySuccess": "Requête configurée",
+    "decimal": "Décimal",
+    "prefix": "Préfixe",
+    "suffix": "Suffixe",
+    "showLabel": "Afficher les étiquettes de valeurs sur le graphique",
+    "showLegend": "Afficher la légende",
+    "value": "Valeur",
+    "label": "Étiquette",
+    "padding": {
+      "label": "Espacement",
+      "top": "Haut",
+      "right": "Droite",
+      "bottom": "Bas",
+      "left": "Gauche"
+    },
+    "tableConfig": "Configuration du tableau",
+    "width": "Largeur"
+  },
+  "reloadQuery": "Recharger la requête",
+  "noStorage": "Veuillez d'abord configurer le plugin de graphiques",
+  "noPermission": "Aucune autorisation d'accès",
+  "goConfig": "Aller à la configuration"
+}

@@ -1,0 +1,95 @@
+{
+  "notBaseId": "baseIdがありません",
+  "notPositionId": "positionIdがありません",
+  "notPluginInstallId": "pluginInstallIdがありません",
+  "initBridge": "ブリッジを初期化中...",
+  "actions": {
+    "cancel": "キャンセル",
+    "save": "保存"
+  },
+  "queryTitle": "データクエリ設定",
+  "notSupport": "サポートされていません",
+  "chart": {
+    "bar": "棒グラフ",
+    "line": "折れ線グラフ",
+    "pie": "円グラフ",
+    "area": "エリアグラフ",
+    "table": "テーブル"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "チャートタイプを選択",
+      "label": "チャートタイプ"
+    },
+    "pie": {
+      "dimension": "ディメンション",
+      "measure": "メジャー",
+      "showTotal": "合計を表示"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "X軸",
+        "placeholder": "X軸を選択"
+      },
+      "yAxis": {
+        "label": "Y軸",
+        "placeholder": "Y軸を選択",
+        "position": "Y軸の位置"
+      },
+      "xDisplay": {
+        "label": "X表示"
+      },
+      "yDisplay": {
+        "label": "Y表示"
+      },
+      "addXAxis": "系列分解を追加",
+      "addYAxis": "別の系列を追加",
+      "stack": "スタック",
+      "position": {
+        "label": "位置",
+        "auto": "自動",
+        "left": "左",
+        "right": "右"
+      },
+      "goalLine": {
+        "label": "目標線"
+      },
+      "range": {
+        "label": "範囲",
+        "min": "最小値",
+        "max": "最大値"
+      },
+      "lineStyle": {
+        "label": "線のスタイル",
+        "normal": "通常",
+        "linear": "線形",
+        "step": "ステップ"
+      },
+      "displayType": "表示タイプ"
+    },
+    "typeError": "フォーム：サポートされていないチャートタイプ",
+    "updateQuery": "クエリを更新",
+    "queryError": "クエリエラー",
+    "querySuccess": "クエリが設定されました",
+    "decimal": "小数点",
+    "prefix": "接頭辞",
+    "suffix": "接尾辞",
+    "showLabel": "チャートに値ラベルを表示",
+    "showLegend": "凡例を表示",
+    "value": "値",
+    "label": "ラベル",
+    "padding": {
+      "label": "パディング",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左"
+    },
+    "tableConfig": "テーブル設定",
+    "width": "幅"
+  },
+  "reloadQuery": "クエリを再読み込み",
+  "noStorage": "まずチャートプラグインを設定してください",
+  "noPermission": "アクセス権限がありません",
+  "goConfig": "設定に移動"
+}

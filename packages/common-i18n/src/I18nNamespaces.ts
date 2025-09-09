@@ -1,4 +1,5 @@
 import type auth from './locales/en/auth.json';
+import type chart from './locales/en/chart.json';
 import type common from './locales/en/common.json';
 import type dashboard from './locales/en/dashboard.json';
 import type developer from './locales/en/developer.json';
@@ -28,4 +29,5 @@ export interface I18nNamespaces {
   developer: typeof developer;
   plugin: typeof plugin;
   dashboard: typeof dashboard;
+  chart: typeof chart;
 }

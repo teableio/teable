@@ -1,0 +1,95 @@
+{
+  "notBaseId": "Falta baseId",
+  "notPositionId": "Falta positionId",
+  "notPluginInstallId": "Falta pluginInstallId",
+  "initBridge": "Inicializando puente...",
+  "actions": {
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "queryTitle": "Configuración de consulta de datos",
+  "notSupport": "No compatible",
+  "chart": {
+    "bar": "Barras",
+    "line": "Líneas",
+    "pie": "Circular",
+    "area": "Área",
+    "table": "Tabla"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Seleccionar tipo de gráfico",
+      "label": "Tipo de gráfico"
+    },
+    "pie": {
+      "dimension": "Dimensión",
+      "measure": "Medida",
+      "showTotal": "Mostrar total"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "Eje X",
+        "placeholder": "Seleccionar eje X"
+      },
+      "yAxis": {
+        "label": "Eje Y",
+        "placeholder": "Seleccionar eje Y",
+        "position": "Posición del eje Y"
+      },
+      "xDisplay": {
+        "label": "Mostrar X"
+      },
+      "yDisplay": {
+        "label": "Mostrar Y"
+      },
+      "addXAxis": "Añadir desglose de series",
+      "addYAxis": "Añadir otra serie",
+      "stack": "Apilar",
+      "position": {
+        "label": "Posición",
+        "auto": "Automático",
+        "left": "Izquierda",
+        "right": "Derecha"
+      },
+      "goalLine": {
+        "label": "Línea objetivo"
+      },
+      "range": {
+        "label": "Rango",
+        "min": "Mínimo",
+        "max": "Máximo"
+      },
+      "lineStyle": {
+        "label": "Estilo de línea",
+        "normal": "Normal",
+        "linear": "Lineal",
+        "step": "Escalón"
+      },
+      "displayType": "Tipo de visualización"
+    },
+    "typeError": "Formulario: Tipo de gráfico no compatible",
+    "updateQuery": "Actualizar consulta",
+    "queryError": "Error de consulta",
+    "querySuccess": "Consulta configurada",
+    "decimal": "Decimal",
+    "prefix": "Prefijo",
+    "suffix": "Sufijo",
+    "showLabel": "Mostrar etiquetas de valores en el gráfico",
+    "showLegend": "Mostrar leyenda",
+    "value": "Valor",
+    "label": "Etiqueta",
+    "padding": {
+      "label": "Relleno",
+      "top": "Arriba",
+      "right": "Derecha",
+      "bottom": "Abajo",
+      "left": "Izquierda"
+    },
+    "tableConfig": "Configuración de tabla",
+    "width": "Ancho"
+  },
+  "reloadQuery": "Recargar consulta",
+  "noStorage": "Por favor configure primero el plugin de gráficos",
+  "noPermission": "Sin permisos de acceso",
+  "goConfig": "Ir a configuración"
+}

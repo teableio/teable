@@ -1,0 +1,95 @@
+{
+  "notBaseId": "Відсутній baseId",
+  "notPositionId": "Відсутній positionId",
+  "notPluginInstallId": "Відсутній pluginInstallId",
+  "initBridge": "Ініціалізація мосту...",
+  "actions": {
+    "cancel": "Скасувати",
+    "save": "Зберегти"
+  },
+  "queryTitle": "Конфігурація запиту даних",
+  "notSupport": "Не підтримується",
+  "chart": {
+    "bar": "Стовпчикова",
+    "line": "Лінійна",
+    "pie": "Кругова",
+    "area": "Область",
+    "table": "Таблиця"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Оберіть тип діаграми",
+      "label": "Тип діаграми"
+    },
+    "pie": {
+      "dimension": "Вимір",
+      "measure": "Міра",
+      "showTotal": "Показати загальну суму"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "Вісь X",
+        "placeholder": "Оберіть вісь X"
+      },
+      "yAxis": {
+        "label": "Вісь Y",
+        "placeholder": "Оберіть вісь Y",
+        "position": "Позиція осі Y"
+      },
+      "xDisplay": {
+        "label": "Відображення X"
+      },
+      "yDisplay": {
+        "label": "Відображення Y"
+      },
+      "addXAxis": "Додати розбивку серій",
+      "addYAxis": "Додати іншу серію",
+      "stack": "Накладення",
+      "position": {
+        "label": "Позиція",
+        "auto": "Автоматично",
+        "left": "Ліворуч",
+        "right": "Праворуч"
+      },
+      "goalLine": {
+        "label": "Цільова лінія"
+      },
+      "range": {
+        "label": "Діапазон",
+        "min": "Мінімум",
+        "max": "Максимум"
+      },
+      "lineStyle": {
+        "label": "Стиль лінії",
+        "normal": "Звичайний",
+        "linear": "Лінійний",
+        "step": "Ступінчастий"
+      },
+      "displayType": "Тип відображення"
+    },
+    "typeError": "Форма: Непідтримуваний тип діаграми",
+    "updateQuery": "Оновити запит",
+    "queryError": "Помилка запиту",
+    "querySuccess": "Запит налаштовано",
+    "decimal": "Десяткові",
+    "prefix": "Префікс",
+    "suffix": "Суфікс",
+    "showLabel": "Показати мітки значень на діаграмі",
+    "showLegend": "Показати легенду",
+    "value": "Значення",
+    "label": "Мітка",
+    "padding": {
+      "label": "Відступ",
+      "top": "Зверху",
+      "right": "Праворуч",
+      "bottom": "Знизу",
+      "left": "Ліворуч"
+    },
+    "tableConfig": "Конфігурація таблиці",
+    "width": "Ширина"
+  },
+  "reloadQuery": "Перезавантажити запит",
+  "noStorage": "Будь ласка, спочатку налаштуйте плагін діаграм",
+  "noPermission": "Немає дозволу на доступ",
+  "goConfig": "Перейти до налаштування"
+}

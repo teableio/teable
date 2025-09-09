@@ -1,0 +1,95 @@
+{
+  "notBaseId": "BaseId mancante",
+  "notPositionId": "PositionId mancante",
+  "notPluginInstallId": "PluginInstallId mancante",
+  "initBridge": "Inizializzazione bridge...",
+  "actions": {
+    "cancel": "Annulla",
+    "save": "Salva"
+  },
+  "queryTitle": "Configurazione query dati",
+  "notSupport": "Non supportato",
+  "chart": {
+    "bar": "Barre",
+    "line": "Linee",
+    "pie": "Torta",
+    "area": "Area",
+    "table": "Tabella"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Seleziona tipo di grafico",
+      "label": "Tipo di grafico"
+    },
+    "pie": {
+      "dimension": "Dimensione",
+      "measure": "Misura",
+      "showTotal": "Mostra totale"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "Asse X",
+        "placeholder": "Seleziona asse X"
+      },
+      "yAxis": {
+        "label": "Asse Y",
+        "placeholder": "Seleziona asse Y",
+        "position": "Posizione asse Y"
+      },
+      "xDisplay": {
+        "label": "Visualizzazione X"
+      },
+      "yDisplay": {
+        "label": "Visualizzazione Y"
+      },
+      "addXAxis": "Aggiungi suddivisione serie",
+      "addYAxis": "Aggiungi un'altra serie",
+      "stack": "Sovrapponi",
+      "position": {
+        "label": "Posizione",
+        "auto": "Automatico",
+        "left": "Sinistra",
+        "right": "Destra"
+      },
+      "goalLine": {
+        "label": "Linea obiettivo"
+      },
+      "range": {
+        "label": "Intervallo",
+        "min": "Minimo",
+        "max": "Massimo"
+      },
+      "lineStyle": {
+        "label": "Stile linea",
+        "normal": "Normale",
+        "linear": "Lineare",
+        "step": "A gradini"
+      },
+      "displayType": "Tipo di visualizzazione"
+    },
+    "typeError": "Modulo: Tipo di grafico non supportato",
+    "updateQuery": "Aggiorna query",
+    "queryError": "Errore query",
+    "querySuccess": "Query configurata",
+    "decimal": "Decimale",
+    "prefix": "Prefisso",
+    "suffix": "Suffisso",
+    "showLabel": "Mostra etichette valori sul grafico",
+    "showLegend": "Mostra leggenda",
+    "value": "Valore",
+    "label": "Etichetta",
+    "padding": {
+      "label": "Spaziatura",
+      "top": "Alto",
+      "right": "Destra",
+      "bottom": "Basso",
+      "left": "Sinistra"
+    },
+    "tableConfig": "Configurazione tabella",
+    "width": "Larghezza"
+  },
+  "reloadQuery": "Ricarica query",
+  "noStorage": "Si prega di configurare prima il plugin grafico",
+  "noPermission": "Nessuna autorizzazione di accesso",
+  "goConfig": "Vai alla configurazione"
+}

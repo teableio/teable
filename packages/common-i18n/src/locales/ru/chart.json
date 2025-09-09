@@ -1,0 +1,95 @@
+{
+  "notBaseId": "Отсутствует baseId",
+  "notPositionId": "Отсутствует positionId",
+  "notPluginInstallId": "Отсутствует pluginInstallId",
+  "initBridge": "Инициализация моста...",
+  "actions": {
+    "cancel": "Отмена",
+    "save": "Сохранить"
+  },
+  "queryTitle": "Конфигурация запроса данных",
+  "notSupport": "Не поддерживается",
+  "chart": {
+    "bar": "Столбчатая",
+    "line": "Линейная",
+    "pie": "Круговая",
+    "area": "Область",
+    "table": "Таблица"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Выберите тип диаграммы",
+      "label": "Тип диаграммы"
+    },
+    "pie": {
+      "dimension": "Измерение",
+      "measure": "Мера",
+      "showTotal": "Показать общую сумму"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "Ось X",
+        "placeholder": "Выберите ось X"
+      },
+      "yAxis": {
+        "label": "Ось Y",
+        "placeholder": "Выберите ось Y",
+        "position": "Положение оси Y"
+      },
+      "xDisplay": {
+        "label": "Отображение X"
+      },
+      "yDisplay": {
+        "label": "Отображение Y"
+      },
+      "addXAxis": "Добавить разбивку серий",
+      "addYAxis": "Добавить другую серию",
+      "stack": "Наложение",
+      "position": {
+        "label": "Положение",
+        "auto": "Автоматически",
+        "left": "Слева",
+        "right": "Справа"
+      },
+      "goalLine": {
+        "label": "Целевая линия"
+      },
+      "range": {
+        "label": "Диапазон",
+        "min": "Минимум",
+        "max": "Максимум"
+      },
+      "lineStyle": {
+        "label": "Стиль линии",
+        "normal": "Обычный",
+        "linear": "Линейный",
+        "step": "Ступенчатый"
+      },
+      "displayType": "Тип отображения"
+    },
+    "typeError": "Форма: Неподдерживаемый тип диаграммы",
+    "updateQuery": "Обновить запрос",
+    "queryError": "Ошибка запроса",
+    "querySuccess": "Запрос настроен",
+    "decimal": "Десятичные",
+    "prefix": "Префикс",
+    "suffix": "Суффикс",
+    "showLabel": "Показать метки значений на диаграмме",
+    "showLegend": "Показать легенду",
+    "value": "Значение",
+    "label": "Метка",
+    "padding": {
+      "label": "Отступ",
+      "top": "Сверху",
+      "right": "Справа",
+      "bottom": "Снизу",
+      "left": "Слева"
+    },
+    "tableConfig": "Конфигурация таблицы",
+    "width": "Ширина"
+  },
+  "reloadQuery": "Перезагрузить запрос",
+  "noStorage": "Пожалуйста, сначала настройте плагин диаграмм",
+  "noPermission": "Нет разрешения на доступ",
+  "goConfig": "Перейти к настройке"
+}

@@ -1,0 +1,95 @@
+{
+  "notBaseId": "缺少 baseId",
+  "notPositionId": "缺少 positionId",
+  "notPluginInstallId": "缺少 pluginInstallId",
+  "initBridge": "桥初始化中...",
+  "actions": {
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "queryTitle": "数据查询配置",
+  "notSupport": "不支持",
+  "chart": {
+    "bar": "柱状图",
+    "line": "折线图",
+    "pie": "饼图",
+    "area": "区域图",
+    "table": "表格"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "选择图表类型",
+      "label": "图表类型"
+    },
+    "pie": {
+      "dimension": "维度",
+      "measure": "度量",
+      "showTotal": "显示总数"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "X轴",
+        "placeholder": "选择X轴"
+      },
+      "yAxis": {
+        "label": "Y轴",
+        "placeholder": "选择Y轴",
+        "position": "Y轴位置"
+      },
+      "xDisplay": {
+        "label": "X轴显示"
+      },
+      "yDisplay": {
+        "label": "Y轴显示"
+      },
+      "addXAxis": "添加系列分解",
+      "addYAxis": "添加另一个系列",
+      "stack": "堆叠",
+      "position": {
+        "label": "位置",
+        "auto": "自动",
+        "left": "左侧",
+        "right": "右侧"
+      },
+      "goalLine": {
+        "label": "目标线"
+      },
+      "range": {
+        "label": "范围",
+        "min": "最小值",
+        "max": "最大值"
+      },
+      "lineStyle": {
+        "label": "线条样式",
+        "normal": "普通",
+        "linear": "线性",
+        "step": "阶梯"
+      },
+      "displayType": "显示类型"
+    },
+    "typeError": "表单：不支持的图表类型",
+    "updateQuery": "更新查询",
+    "queryError": "查询错误",
+    "querySuccess": "查询已配置",
+    "decimal": "小数",
+    "prefix": "前缀",
+    "suffix": "后缀",
+    "showLabel": "在图表上显示数值标签",
+    "showLegend": "显示图例",
+    "value": "数值",
+    "label": "标签",
+    "padding": {
+      "label": "内边距",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左"
+    },
+    "tableConfig": "表格配置",
+    "width": "宽度"
+  },
+  "reloadQuery": "重新加载查询",
+  "noStorage": "请先配置图表插件",
+  "noPermission": "无权限访问",
+  "goConfig": "前往配置"
+}

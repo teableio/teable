@@ -1,0 +1,95 @@
+{
+  "notBaseId": "BaseId eksik",
+  "notPositionId": "PositionId eksik",
+  "notPluginInstallId": "PluginInstallId eksik",
+  "initBridge": "Köprü başlatılıyor...",
+  "actions": {
+    "cancel": "İptal",
+    "save": "Kaydet"
+  },
+  "queryTitle": "Veri Sorgu Yapılandırması",
+  "notSupport": "Desteklenmiyor",
+  "chart": {
+    "bar": "Çubuk",
+    "line": "Çizgi",
+    "pie": "Pasta",
+    "area": "Alan",
+    "table": "Tablo"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Grafik Türünü Seçin",
+      "label": "Grafik Türü"
+    },
+    "pie": {
+      "dimension": "Boyut",
+      "measure": "Ölçü",
+      "showTotal": "Toplamı Göster"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "X Ekseni",
+        "placeholder": "X Ekseni Seçin"
+      },
+      "yAxis": {
+        "label": "Y Ekseni",
+        "placeholder": "Y Ekseni Seçin",
+        "position": "Y ekseni konumu"
+      },
+      "xDisplay": {
+        "label": "X Görünümü"
+      },
+      "yDisplay": {
+        "label": "Y Görünümü"
+      },
+      "addXAxis": "Seri dökümü ekle",
+      "addYAxis": "Başka bir seri ekle",
+      "stack": "Yığın",
+      "position": {
+        "label": "Konum",
+        "auto": "Otomatik",
+        "left": "Sol",
+        "right": "Sağ"
+      },
+      "goalLine": {
+        "label": "Hedef Çizgisi"
+      },
+      "range": {
+        "label": "Aralık",
+        "min": "Minimum",
+        "max": "Maksimum"
+      },
+      "lineStyle": {
+        "label": "Çizgi Stili",
+        "normal": "Normal",
+        "linear": "Doğrusal",
+        "step": "Adım"
+      },
+      "displayType": "Görünüm türü"
+    },
+    "typeError": "Form: Desteklenmeyen grafik türü",
+    "updateQuery": "Sorguyu Güncelle",
+    "queryError": "Sorgu Hatası",
+    "querySuccess": "Sorgu yapılandırıldı",
+    "decimal": "Ondalık",
+    "prefix": "Önek",
+    "suffix": "Sonek",
+    "showLabel": "Grafikte değer etiketlerini göster",
+    "showLegend": "Açıklamayı göster",
+    "value": "Değer",
+    "label": "Etiket",
+    "padding": {
+      "label": "Dolgu",
+      "top": "Üst",
+      "right": "Sağ",
+      "bottom": "Alt",
+      "left": "Sol"
+    },
+    "tableConfig": "Tablo Yapılandırması",
+    "width": "Genişlik"
+  },
+  "reloadQuery": "Sorguyu Yeniden Yükle",
+  "noStorage": "Lütfen önce grafik eklentisini yapılandırın",
+  "noPermission": "Erişim izni yok",
+  "goConfig": "Yapılandırmaya git"
+}

@@ -1,0 +1,95 @@
+{
+  "notBaseId": "BaseId fehlt",
+  "notPositionId": "PositionId fehlt",
+  "notPluginInstallId": "PluginInstallId fehlt",
+  "initBridge": "Bridge wird initialisiert...",
+  "actions": {
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "queryTitle": "Datenabfrage-Konfiguration",
+  "notSupport": "Nicht unterstützt",
+  "chart": {
+    "bar": "Balkendiagramm",
+    "line": "Liniendiagramm",
+    "pie": "Kreisdiagramm",
+    "area": "Flächendiagramm",
+    "table": "Tabelle"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "Diagrammtyp auswählen",
+      "label": "Diagrammtyp"
+    },
+    "pie": {
+      "dimension": "Dimension",
+      "measure": "Messung",
+      "showTotal": "Gesamtsumme anzeigen"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "X-Achse",
+        "placeholder": "X-Achse auswählen"
+      },
+      "yAxis": {
+        "label": "Y-Achse",
+        "placeholder": "Y-Achse auswählen",
+        "position": "Y-Achse Position"
+      },
+      "xDisplay": {
+        "label": "X-Anzeige"
+      },
+      "yDisplay": {
+        "label": "Y-Anzeige"
+      },
+      "addXAxis": "Serienaufschlüsselung hinzufügen",
+      "addYAxis": "Weitere Serie hinzufügen",
+      "stack": "Stapeln",
+      "position": {
+        "label": "Position",
+        "auto": "Automatisch",
+        "left": "Links",
+        "right": "Rechts"
+      },
+      "goalLine": {
+        "label": "Ziellinie"
+      },
+      "range": {
+        "label": "Bereich",
+        "min": "Minimum",
+        "max": "Maximum"
+      },
+      "lineStyle": {
+        "label": "Linienstil",
+        "normal": "Normal",
+        "linear": "Linear",
+        "step": "Stufe"
+      },
+      "displayType": "Anzeigetyp"
+    },
+    "typeError": "Formular: Nicht unterstützter Diagrammtyp",
+    "updateQuery": "Abfrage aktualisieren",
+    "queryError": "Abfragefehler",
+    "querySuccess": "Abfrage wurde konfiguriert",
+    "decimal": "Dezimal",
+    "prefix": "Präfix",
+    "suffix": "Suffix",
+    "showLabel": "Wertebeschriftungen im Diagramm anzeigen",
+    "showLegend": "Legende anzeigen",
+    "value": "Wert",
+    "label": "Beschriftung",
+    "padding": {
+      "label": "Innenabstand",
+      "top": "Oben",
+      "right": "Rechts",
+      "bottom": "Unten",
+      "left": "Links"
+    },
+    "tableConfig": "Tabellenkonfiguration",
+    "width": "Breite"
+  },
+  "reloadQuery": "Abfrage neu laden",
+  "noStorage": "Bitte konfigurieren Sie zuerst das Diagramm-Plugin",
+  "noPermission": "Keine Zugriffsberechtigung",
+  "goConfig": "Zur Konfiguration gehen"
+}
