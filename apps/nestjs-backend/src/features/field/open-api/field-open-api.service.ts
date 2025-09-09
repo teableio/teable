@@ -34,7 +34,6 @@ import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
-import { RealtimeOpService } from '../../realtime/realtime-op.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../../record/query-builder';
 import { RecordService } from '../../record/record.service';
@@ -73,7 +72,6 @@ export class FieldOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly tableIndexService: TableIndexService,
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly realtimeOpService: RealtimeOpService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder

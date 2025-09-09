@@ -51,6 +51,7 @@ import {
   getLinkUsesJunctionTable,
   getTableAliasFromTable,
   getOrderedFieldsByProjection,
+  isDateLikeField,
 } from './record-query-builder.util';
 import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
@@ -356,6 +357,19 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       const defaultForeignAlias = getTableAliasFromTable(this.foreignTable);
       if (defaultForeignAlias !== foreignAlias) {
         expression = expression.replaceAll(`"${defaultForeignAlias}"`, `"${foreignAlias}"`);
+      }
+
+      // For Postgres multi-value lookups targeting datetime-like fields, normalize the
+      // element expression to an ISO8601 UTC string so downstream JSON comparisons using
+      // lexicographical ranges (jsonpath @ >= "..." && @ <= "...") behave correctly.
+      // Do NOT alter single-value lookups to preserve native type comparisons in filters.
+      if (
+        this.dbProvider.driver === DriverClient.Pg &&
+        field.isMultipleCellValue &&
+        isDateLikeField(targetLookupField)
+      ) {
+        // Format: 2020-01-10T16:00:00.000Z
+        expression = `to_char(${expression} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
       }
     }
     // Build deterministic order-by for multi-value lookups using the link field configuration
