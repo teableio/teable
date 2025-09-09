@@ -79,9 +79,10 @@ export class RecordUpdateService {
       await this.linkService.getDerivateByLink(tableId, ctxs);
       const changes = await this.shared.compressAndFilterChanges(tableId, ctxs);
       const opsMap = this.shared.formatChangesToOps(changes);
-      await this.batchService.updateRecords(opsMap);
-      // Publish computed values without DB/version bump, in the same transaction
-      await this.computedOrchestrator.run(tableId, ctxs);
+      // Publish computed/link/lookup changes with old/new by wrapping the base update
+      await this.computedOrchestrator.run(tableId, ctxs, async () => {
+        await this.batchService.updateRecords(opsMap);
+      });
       return ctxs;
     });
 
@@ -139,8 +140,9 @@ export class RecordUpdateService {
     await this.linkService.getDerivateByLink(tableId, cellContexts);
     const changes = await this.shared.compressAndFilterChanges(tableId, cellContexts);
     const opsMap = this.shared.formatChangesToOps(changes);
-    await this.batchService.updateRecords(opsMap);
-    await this.computedOrchestrator.run(tableId, cellContexts);
+    await this.computedOrchestrator.run(tableId, cellContexts, async () => {
+      await this.batchService.updateRecords(opsMap);
+    });
     return cellContexts;
   }
 }

@@ -32,19 +32,35 @@ export class RecordDeleteService {
         tableId,
         records.records
       );
+
+      // Prepare sources for multi-orchestrator run
+      const sources: {
+        tableId: string;
+        cellContexts: {
+          recordId: string;
+          fieldId: string;
+          newValue?: unknown;
+          oldValue?: unknown;
+        }[];
+      }[] = [];
       for (const effectedTableId in cellContextsByTableId) {
         const cellContexts = cellContextsByTableId[effectedTableId];
         await this.linkService.getDerivateByLink(effectedTableId, cellContexts);
-        // publish computed updates for related tables (excluding the table being deleted from)
+        // Exclude the table being deleted from (we only publish to related tables)
         if (effectedTableId !== tableId) {
-          await this.computedOrchestrator.run(effectedTableId, cellContexts);
+          sources.push({ tableId: effectedTableId, cellContexts });
         }
       }
 
       const orders = windowId
         ? await this.recordService.getRecordIndexes(tableId, recordIds)
         : undefined;
-      await this.recordService.batchDeleteRecords(tableId, recordIds);
+
+      // Publish computed/link changes with old/new around the actual delete
+      await this.computedOrchestrator.runMulti(sources, async () => {
+        await this.recordService.batchDeleteRecords(tableId, recordIds);
+      });
+
       return { records, orders };
     });
 

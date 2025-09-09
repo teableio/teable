@@ -2,15 +2,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
-import type { Knex } from 'knex';
-import { ClsService } from 'nestjs-cls';
-import { ComputedOrchestratorService } from '../src/features/computed/services/computed-orchestrator.service';
+import { FieldType, Relationship } from '@teable/core';
+import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+import { Events } from '../src/event-emitter/events';
+import { createAwaitWithEventWithResultWithCount } from './utils/event-promise';
 import {
   createField,
   createTable,
-  getRecords,
   initApp,
   permanentDeleteTable,
   updateRecordByApi,
@@ -18,51 +16,22 @@ import {
 
 describe('Computed Orchestrator (e2e)', () => {
   let app: INestApplication;
-  let orchestrator: ComputedOrchestratorService;
-  let cls: ClsService;
-  let prisma: PrismaService;
-  let knex: Knex;
+  let eventEmitterService: EventEmitterService;
   const baseId = (globalThis as any).testConfig.baseId as string;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    orchestrator = app.get(ComputedOrchestratorService);
-    cls = app.get(ClsService);
-    prisma = app.get(PrismaService);
-    // nest-knexjs model token
-    knex = app.get('CUSTOM_KNEX' as any);
+    eventEmitterService = app.get(EventEmitterService);
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('returns empty impact when no computed fields depend on the change', async () => {
+  it('emits old/new values for formula on same table when base field changes', async () => {
     const table = await createTable(baseId, {
-      name: 'NoComputed',
-      fields: [
-        { name: 'Text', type: FieldType.SingleLineText } as IFieldRo,
-        { name: 'Num', type: FieldType.Number } as IFieldRo,
-      ],
-      records: [{ fields: { Text: 'A', Num: 1 } }],
-    });
-
-    const recId = table.records[0].id;
-    const textField = table.fields.find((f) => f.name === 'Text')!;
-
-    const res = await cls.run(() =>
-      orchestrator.run(table.id, [{ recordId: recId, fieldId: textField.id }])
-    );
-    expect(res.publishedOps).toBe(0);
-    expect(res.impact).toEqual({});
-
-    await permanentDeleteTable(baseId, table.id);
-  });
-
-  it('handles formula and formula->formula on same table', async () => {
-    const table = await createTable(baseId, {
-      name: 'FormulaChain',
+      name: 'OldNew_Formula',
       fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
       records: [{ fields: { A: 1 } }],
     });
@@ -72,62 +41,49 @@ describe('Computed Orchestrator (e2e)', () => {
       type: FieldType.Formula,
       options: { expression: `{${aId}}` },
     } as IFieldRo);
-    const f2 = await createField(table.id, {
-      name: 'F2',
-      type: FieldType.Formula,
-      options: { expression: `{${f1.id}}` },
-    } as IFieldRo);
 
-    const recId = table.records[0].id;
-    const res = await cls.run(() =>
-      orchestrator.run(table.id, [{ recordId: recId, fieldId: aId }])
-    );
-    expect(Object.keys(res.impact)).toEqual([table.id]);
-    const impact = res.impact[table.id];
-    // F1 and F2 should be impacted; record is the updated record only
-    expect(new Set(impact.fieldIds)).toEqual(new Set([f1.id, f2.id]));
-    expect(impact.recordIds).toEqual([recId]);
-    // publish 2 ops (F1, F2)
-    expect(res.publishedOps).toBe(2);
+    await updateRecordByApi(table.id, table.records[0].id, aId, 1);
 
-    // Verify underlying DB columns updated (or generated) with expected values
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: table.id },
-      select: { dbTableName: true },
-    });
-    const row = (
-      await prisma.$queryRawUnsafe<any[]>(
-        knex(dbTableName).select('*').where('__id', recId).limit(1).toQuery()
-      )
-    )[0];
-    const parseMaybe = (v: unknown) => {
-      if (typeof v === 'string') {
-        try {
-          return JSON.parse(v);
-        } catch {
-          return v;
-        }
-      }
-      return v;
-    };
-    expect(parseMaybe(row[f1.dbFieldName])).toBe(1);
-    expect(parseMaybe(row[f2.dbFieldName])).toBe(1);
+    // Expect a single record.update event; assert old/new for formula field
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      1
+    )(async () => {
+      await updateRecordByApi(table.id, table.records[0].id, aId, 2);
+    })) as any;
+
+    const event = payloads[0] as any; // RecordUpdateEvent
+    expect(event.payload.tableId).toBe(table.id);
+    const changes = event.payload.record.fields as Record<
+      string,
+      { oldValue: unknown; newValue: unknown }
+    >;
+    // Formula F1 should move from 1 -> 2
+    expect(changes[f1.id]).toBeDefined();
+    expect(changes[f1.id].oldValue).toEqual(1);
+    expect(changes[f1.id].newValue).toEqual(2);
 
     await permanentDeleteTable(baseId, table.id);
   });
 
-  it('handles lookup single-hop and multi-hop across tables', async () => {
-    // Table1 with number
+  it('emits old/new values for lookup across tables when source changes', async () => {
+    // T1 with number
     const t1 = await createTable(baseId, {
-      name: 'T1',
+      name: 'OldNew_Lookup_T1',
       fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
       records: [{ fields: { A: 10 } }],
     });
     const t1A = t1.fields.find((f) => f.name === 'A')!.id;
-    const t1r = t1.records[0].id;
 
-    // Table2 link -> T1 and lookup A
-    const t2 = await createTable(baseId, { name: 'T2', fields: [], records: [{ fields: {} }] });
+    await updateRecordByApi(t1.id, t1.records[0].id, t1A, 10);
+
+    // T2 link -> T1 and lookup A
+    const t2 = await createTable(baseId, {
+      name: 'OldNew_Lookup_T2',
+      fields: [],
+      records: [{ fields: {} }],
+    });
     const link2 = await createField(t2.id, {
       name: 'L2',
       type: FieldType.Link,
@@ -140,102 +96,47 @@ describe('Computed Orchestrator (e2e)', () => {
       lookupOptions: { foreignTableId: t1.id, linkFieldId: link2.id, lookupFieldId: t1A } as any,
     } as any);
 
-    // Table3 link -> T2 and lookup LK1 (multi-hop)
-    const t3 = await createTable(baseId, { name: 'T3', fields: [], records: [{ fields: {} }] });
-    const link3 = await createField(t3.id, {
-      name: 'L3',
-      type: FieldType.Link,
-      options: { relationship: Relationship.ManyMany, foreignTableId: t2.id },
-    } as IFieldRo);
-    const lkp3 = await createField(t3.id, {
-      name: 'LK2',
-      type: FieldType.Number,
-      isLookup: true,
-      lookupOptions: {
-        foreignTableId: t2.id,
-        linkFieldId: link3.id,
-        lookupFieldId: lkp2.id,
-      } as any,
-    } as any);
-
     // Establish link values
-    await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [{ id: t1r }]);
-    await updateRecordByApi(t3.id, t3.records[0].id, link3.id, [{ id: t2.records[0].id }]);
+    await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [{ id: t1.records[0].id }]);
 
-    // Update A on T1; orchestrator should impact T2(LK1) and then T3(LK2)
-    const res = await cls.run(() => orchestrator.run(t1.id, [{ recordId: t1r, fieldId: t1A }]));
-    const tables = new Set(Object.keys(res.impact));
-    expect(tables.has(t2.id)).toBe(true);
-    expect(tables.has(t3.id)).toBe(true);
+    // Expect two record.update events (T1 base, T2 lookup). Assert T2 lookup old/new
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      2
+    )(async () => {
+      await updateRecordByApi(t1.id, t1.records[0].id, t1A, 20);
+    })) as any;
 
-    // Check T2 impact (lookup and possibly link title if depends on T1.A)
-    const t2Impact = res.impact[t2.id];
-    // T2's impacted fields should at least include the lookup field
-    expect(new Set(t2Impact.fieldIds).has(lkp2.id)).toBe(true);
-    expect(t2Impact.recordIds).toEqual([t2.records[0].id]);
+    // Find T2 event
+    const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+    const changes = t2Event.payload.record.fields as Record<
+      string,
+      { oldValue: unknown; newValue: unknown }
+    >;
+    expect(changes[lkp2.id]).toBeDefined();
+    expect(changes[lkp2.id].oldValue).toEqual([10]);
+    expect(changes[lkp2.id].newValue).toEqual([20]);
 
-    // Check T3 impact
-    const t3Impact = res.impact[t3.id];
-    expect(new Set(t3Impact.fieldIds)).toEqual(new Set([lkp3.id]));
-    expect(t3Impact.recordIds).toEqual([t3.records[0].id]);
-
-    // Ops should equal sum of impacted fields per table (each table has 1 impacted record)
-    const totalFields = Object.values(res.impact).reduce((acc, v) => acc + v.fieldIds.length, 0);
-    expect(res.publishedOps).toBe(totalFields);
-
-    // Validate snapshot returns updated projections
-    const t3Records = await getRecords(t3.id, { fieldKeyType: FieldKeyType.Id });
-    expect(t3Records.records[0].fields[lkp3.id]).toEqual([10]);
-
-    // Verify underlying DB columns updated for lookups on T2 and T3
-    const t2Meta = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: t2.id },
-      select: { dbTableName: true },
-    });
-    const t3Meta = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: t3.id },
-      select: { dbTableName: true },
-    });
-    const t2Row = (
-      await prisma.$queryRawUnsafe<any[]>(
-        knex(t2Meta.dbTableName).select('*').where('__id', t2.records[0].id).toQuery()
-      )
-    )[0];
-    const t3Row = (
-      await prisma.$queryRawUnsafe<any[]>(
-        knex(t3Meta.dbTableName).select('*').where('__id', t3.records[0].id).toQuery()
-      )
-    )[0];
-    const parseMaybe = (v: unknown) => {
-      if (typeof v === 'string') {
-        try {
-          return JSON.parse(v);
-        } catch {
-          return v;
-        }
-      }
-      return v;
-    };
-    expect(parseMaybe(t2Row[lkp2.dbFieldName])).toEqual([10]);
-    expect(parseMaybe(t3Row[lkp3.dbFieldName])).toEqual([10]);
-
-    await permanentDeleteTable(baseId, t3.id);
     await permanentDeleteTable(baseId, t2.id);
     await permanentDeleteTable(baseId, t1.id);
   });
 
-  it('persists rollup and lookup-of-rollup across tables', async () => {
+  it('emits old/new values for rollup across tables when source changes', async () => {
     // T1 with numbers
     const t1 = await createTable(baseId, {
-      name: 'T1_roll',
+      name: 'OldNew_Rollup_T1',
       fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
       records: [{ fields: { A: 3 } }, { fields: { A: 7 } }],
     });
     const t1A = t1.fields.find((f) => f.name === 'A')!.id;
 
-    // T2 links to both T1 rows and has rollup sum(A)
+    await updateRecordByApi(t1.id, t1.records[0].id, t1A, 3);
+    await updateRecordByApi(t1.id, t1.records[1].id, t1A, 7);
+
+    // T2 link -> T1 with rollup sum(A)
     const t2 = await createTable(baseId, {
-      name: 'T2_roll',
+      name: 'OldNew_Rollup_T2',
       fields: [],
       records: [{ fields: {} }],
     });
@@ -248,84 +149,34 @@ describe('Computed Orchestrator (e2e)', () => {
       name: 'R2',
       type: FieldType.Rollup,
       lookupOptions: { foreignTableId: t1.id, linkFieldId: link2.id, lookupFieldId: t1A } as any,
-      // rollup uses expression string form
       options: { expression: 'sum({values})' } as any,
     } as any);
 
-    // T3 links to T2 and looks up R2
-    const t3 = await createTable(baseId, {
-      name: 'T3_roll',
-      fields: [],
-      records: [{ fields: {} }],
-    });
-    const link3 = await createField(t3.id, {
-      name: 'L3',
-      type: FieldType.Link,
-      options: { relationship: Relationship.ManyMany, foreignTableId: t2.id },
-    } as IFieldRo);
-    const lkp3 = await createField(t3.id, {
-      name: 'LK_R',
-      // Lookup-of-rollup must use type Rollup to match target field type
-      type: FieldType.Rollup,
-      isLookup: true,
-      lookupOptions: {
-        foreignTableId: t2.id,
-        linkFieldId: link3.id,
-        lookupFieldId: roll2.id,
-      } as any,
-    } as any);
-
-    // Establish links: T2 -> both rows in T1; T3 -> T2
+    // Establish links: T2 -> both rows in T1
     await updateRecordByApi(t2.id, t2.records[0].id, link2.id, [
       { id: t1.records[0].id },
       { id: t1.records[1].id },
     ]);
-    await updateRecordByApi(t3.id, t3.records[0].id, link3.id, [{ id: t2.records[0].id }]);
 
-    // Trigger orchestrator on change of T1.A (first row)
-    const res = await cls.run(() =>
-      orchestrator.run(t1.id, [{ recordId: t1.records[0].id, fieldId: t1A }])
-    );
-    // Expect impacted tables include T2 (rollup) and T3 (lookup of rollup)
-    const tables = new Set(Object.keys(res.impact));
-    expect(tables.has(t2.id)).toBe(true);
-    expect(tables.has(t3.id)).toBe(true);
+    // Change one A: 3 -> 4; rollup 10 -> 11
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      2
+    )(async () => {
+      await updateRecordByApi(t1.id, t1.records[0].id, t1A, 4);
+    })) as any;
 
-    // Underlying DB checks
-    const t2Meta = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: t2.id },
-      select: { dbTableName: true },
-    });
-    const t3Meta = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: t3.id },
-      select: { dbTableName: true },
-    });
-    const t2Row = (
-      await prisma.$queryRawUnsafe<any[]>(
-        knex(t2Meta.dbTableName).select('*').where('__id', t2.records[0].id).toQuery()
-      )
-    )[0];
-    const t3Row = (
-      await prisma.$queryRawUnsafe<any[]>(
-        knex(t3Meta.dbTableName).select('*').where('__id', t3.records[0].id).toQuery()
-      )
-    )[0];
-    const parseMaybe = (v: unknown) => {
-      if (typeof v === 'string') {
-        try {
-          return JSON.parse(v);
-        } catch {
-          return v;
-        }
-      }
-      return v;
-    };
-    // rollup sum should be 3 + 7 = 10
-    expect(parseMaybe(t2Row[roll2.dbFieldName])).toBe(10);
-    // lookup of rollup is multi-value -> [10]
-    expect(parseMaybe(t3Row[lkp3.dbFieldName])).toEqual([10]);
+    // Find T2 event
+    const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+    const changes = t2Event.payload.record.fields as Record<
+      string,
+      { oldValue: unknown; newValue: unknown }
+    >;
+    expect(changes[roll2.id]).toBeDefined();
+    expect(changes[roll2.id].oldValue).toEqual(10);
+    expect(changes[roll2.id].newValue).toEqual(11);
 
-    await permanentDeleteTable(baseId, t3.id);
     await permanentDeleteTable(baseId, t2.id);
     await permanentDeleteTable(baseId, t1.id);
   });

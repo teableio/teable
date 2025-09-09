@@ -433,19 +433,27 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       acc[name] = this.knex.ref(`${alias}.${name}`);
       return acc;
     }, {});
+    // bump version on target table; qualify to avoid ambiguity with FROM subquery columns
+    updateColumns['__version'] = this.knex.raw('?? + 1', [`${dbTableName}.__version`]);
 
     const fromRaw = this.knex.raw('(?) as ??', [subQuery, alias]);
     const returningCols = [idFieldName, '__version', ...(returningDbFieldNames || dbFieldNames)];
     const qualifiedReturning = returningCols.map((c) => this.knex.ref(`${dbTableName}.${c}`));
-    return (
-      this.knex(dbTableName)
-        .update(updateColumns)
-        .updateFrom(fromRaw)
-        .where(`${dbTableName}.${idFieldName}`, this.knex.ref(`${alias}.${idFieldName}`))
-        // Returning is supported on Postgres; qualify to avoid ambiguity with FROM subquery
-        .returning(qualifiedReturning)
-        .toQuery()
-    );
+    // also return previous version for ShareDB op version alignment
+    const returningAll = [
+      ...qualifiedReturning,
+      // Unqualified reference to target table column to avoid FROM-clause issues
+      this.knex.raw('?? - 1 as __prev_version', [`${dbTableName}.__version`]),
+    ];
+    const query = this.knex(dbTableName)
+      .update(updateColumns)
+      .updateFrom(fromRaw)
+      .where(`${dbTableName}.${idFieldName}`, this.knex.ref(`${alias}.${idFieldName}`))
+      // Returning is supported on Postgres; qualify to avoid ambiguity with FROM subquery
+      .returning(returningAll as unknown as [])
+      .toQuery();
+    this.logger.debug('updateFromSelectSql: ' + query);
+    return query;
   }
 
   aggregationQuery(
