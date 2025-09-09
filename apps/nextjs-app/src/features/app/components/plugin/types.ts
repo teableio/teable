@@ -42,3 +42,8 @@ export type IPluginParams =
   | IViewPluginParams
   | IContextMenuPluginParams
   | IPanelPluginParams;
+
+export enum RenderType {
+  Iframe = 'iframe',
+  Component = 'component',
+}

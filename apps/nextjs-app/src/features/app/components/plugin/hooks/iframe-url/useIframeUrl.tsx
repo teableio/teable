@@ -3,6 +3,7 @@ import { PluginPosition } from '@teable/openapi';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { RenderType } from '../../types';
 import type { IPluginParams } from '../../types';
 import {
   getContextMenuIframeUrl,
@@ -10,6 +11,8 @@ import {
   getPanelIframeUrl,
   getViewIframeUrl,
 } from './utils';
+
+const componentPluginIds = ['plgchart'];
 
 export const useIframeUrl = (params: IPluginParams) => {
   const { pluginUrl } = params;
@@ -20,10 +23,11 @@ export const useIframeUrl = (params: IPluginParams) => {
   } = useTranslation(['common']);
   const { publicOrigin } = useEnv();
 
-  return useMemo(() => {
+  const iframeUrl = useMemo(() => {
     if (!pluginUrl) {
       return;
     }
+
     const urlObj = new URL(pluginUrl, publicOrigin);
     defaultTheme.current && urlObj.searchParams.set('theme', defaultTheme.current);
     resolvedLanguage && urlObj.searchParams.set('lang', resolvedLanguage);
@@ -41,4 +45,16 @@ export const useIframeUrl = (params: IPluginParams) => {
         throw new Error(`Invalid position type`);
     }
   }, [pluginUrl, publicOrigin, resolvedLanguage, params]);
+
+  const renderType = useMemo(() => {
+    if (componentPluginIds.includes(params.pluginId)) {
+      return RenderType.Component;
+    }
+    return RenderType.Iframe;
+  }, [params.pluginId]);
+
+  return {
+    iframeUrl,
+    renderType,
+  };
 };

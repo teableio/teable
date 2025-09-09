@@ -1,30 +1,15 @@
-import { useTheme } from '@teable/next-themes';
-import { useBasePermission } from '@teable/sdk/hooks';
-import type { IChildBridgeMethods, IUIConfig } from '@teable/sdk/plugin-bridge';
-import { useRouter } from 'next/router';
+import type { IChildBridgeMethods } from '@teable/sdk/plugin-bridge';
 import { useEffect } from 'react';
 import type { IPluginParams } from '../types';
+import { useUIConfig } from './useUIConfig';
 
 export const useSyncUIConfig = (
   bridge: IChildBridgeMethods | undefined,
   pluginParams: IPluginParams
 ) => {
-  const basePermissions = useBasePermission();
-  const { resolvedTheme } = useTheme();
-  const router = useRouter();
-  const expandPluginId = router.query.expandPluginId as string;
-  const canSetting = basePermissions?.['base|update'];
-  const pluginInstallId =
-    'pluginInstallId' in pluginParams ? pluginParams.pluginInstallId : undefined;
+  const uiConfig = useUIConfig(pluginParams);
 
   useEffect(() => {
-    const uiConfig: IUIConfig = {
-      theme: resolvedTheme,
-    };
-    if (pluginInstallId) {
-      uiConfig.isShowingSettings = expandPluginId === pluginInstallId && canSetting;
-      uiConfig.isExpand = expandPluginId === pluginInstallId;
-    }
     bridge?.syncUIConfig(uiConfig);
-  }, [bridge, expandPluginId, pluginInstallId, resolvedTheme, canSetting]);
+  }, [bridge, uiConfig]);
 };

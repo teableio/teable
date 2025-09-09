@@ -9,14 +9,15 @@ import type { Methods } from 'penpal';
 import { connectToChild } from 'penpal';
 import { useEffect, useRef } from 'react';
 
-interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElement> {
+interface IIframePluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElement> {
   src: string;
   utilsEvent: IParentBridgeUtilsMethods;
   uiEvent: IParentBridgeUIMethods;
+  bridge?: IChildBridgeMethods;
   onBridge: (bridge?: IChildBridgeMethods) => void;
 }
-export const PluginRender = (props: IPluginRenderProps) => {
-  const { onBridge, utilsEvent, uiEvent, className, ...rest } = props;
+export const IframePluginRender = (props: IIframePluginRenderProps) => {
+  const { onBridge, utilsEvent, uiEvent, className, bridge, ...rest } = props;
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   useEffect(() => {

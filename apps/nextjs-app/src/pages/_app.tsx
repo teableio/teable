@@ -20,6 +20,8 @@ import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
 import '@glideapps/glide-data-grid/dist/index.css';
+import '../features/app/blocks/chart/globals.css';
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 extendZodWithOpenApi(z);

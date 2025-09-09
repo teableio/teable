@@ -1,18 +1,11 @@
 import type { IChildBridgeMethods } from '@teable/sdk/plugin-bridge';
-import { useRouter } from 'next/router';
 import { useEffect } from 'react';
+import { useUrlParams } from './useUrlParams';
 
-export const useSyncUrlParams = (bridge: IChildBridgeMethods | undefined) => {
-  const router = useRouter();
-  const { baseId, tableId, viewId, dashboardId, recordId, shareId } = router.query;
+export const useSyncUrlParams = (bridge?: IChildBridgeMethods) => {
+  const urlParams = useUrlParams();
+
   useEffect(() => {
-    bridge?.syncUrlParams({
-      baseId: baseId as string,
-      tableId: tableId as string,
-      viewId: viewId as string,
-      dashboardId: dashboardId as string,
-      recordId: recordId as string,
-      shareId: shareId as string,
-    });
-  }, [baseId, tableId, viewId, dashboardId, recordId, shareId, bridge]);
+    bridge?.syncUrlParams(urlParams);
+  }, [urlParams, bridge]);
 };
