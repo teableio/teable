@@ -52,7 +52,7 @@
     "nanoid": "3.3.7",
     "papaparse": "5.4.1",
     "reflect-metadata": "0.2.1",
-    "zod": "3.23.8"
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@size-limit/file": "11.1.2",
