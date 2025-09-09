@@ -15,7 +15,14 @@ export class DateFieldDto extends DateFieldCore implements FieldBase {
 
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+      if (value == null) return value;
+      const arr: unknown[] =
+        typeof value === 'object' ? (value as unknown[]) : JSON.parse(value as string);
+      return arr.map((v) => {
+        if (v instanceof Date) return v.toISOString();
+        if (typeof v === 'string' || typeof v === 'number') return new Date(v).toISOString();
+        return v as unknown;
+      });
     }
     if (value instanceof Date) {
       return value.toISOString();

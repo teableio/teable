@@ -80,6 +80,12 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
+    // Never persist lookup formulas as generated columns; they may be multi-valued (JSON)
+    // and/or depend on link/lookup resolution logic not suitable for generated columns.
+    if (field.isLookup || field.isMultipleCellValue) {
+      this.createStandardColumn(field);
+      return;
+    }
     if (this.context.dbProvider) {
       const generatedColumnName = field.getGeneratedColumnName();
       const columnType = this.getPostgresColumnType(field.dbFieldType);

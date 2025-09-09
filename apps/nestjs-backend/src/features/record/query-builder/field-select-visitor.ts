@@ -49,7 +49,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     private readonly table: TableDomain,
     private readonly state: IMutableQueryBuilderState,
     private readonly dialect: IRecordQueryDialectProvider,
-    private readonly aliasOverride?: string
+    private readonly aliasOverride?: string,
+    /**
+     * When true, select raw scalar values for lookup/rollup CTEs instead of formatted display values.
+     * This avoids type mismatches when propagating values back into physical columns (e.g. timestamptz).
+     */
+    private readonly selectRawForLookupContext: boolean = false
   ) {}
 
   private get tableAlias() {
@@ -223,6 +228,13 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.checkAndSelectLookupField(field);
     }
     const name = this.getColumnSelector(field);
+
+    // In lookup/rollup CTE context, return the raw column (timestamptz) to preserve type
+    // so UPDATE ... FROM (SELECT ...) can assign into timestamp columns without casting issues.
+    if (this.selectRawForLookupContext) {
+      this.state.setSelection(field.id, name);
+      return name;
+    }
 
     const raw = `to_char(${name} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
     const selection = this.qb.client.raw(raw);

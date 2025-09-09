@@ -226,7 +226,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       this.dbProvider,
       this.foreignTable,
       new ScopedSelectionState(this.state),
-      this.dialect
+      this.dialect,
+      undefined,
+      true
     );
 
     const foreignAlias = this.getForeignAlias();
@@ -647,7 +649,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       foreignTable,
       new ScopedSelectionState(this.state),
       this.dialect,
-      foreignTableAlias
+      foreignTableAlias,
+      true
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
     let rawSelectionExpression =
@@ -807,7 +810,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       this.foreignTable,
       scopedState,
       this.dialect,
-      this.getForeignAlias()
+      this.getForeignAlias(),
+      true
     );
 
     const foreignAlias = this.getForeignAlias();
