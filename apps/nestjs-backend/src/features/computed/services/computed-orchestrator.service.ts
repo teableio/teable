@@ -4,7 +4,10 @@ import { RawOpType } from '../../../share-db/interface';
 import { BatchService } from '../../calculation/batch.service';
 import type { ICellContext } from '../../calculation/utils/changes';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
-import { ComputedEvaluatorService } from './computed-evaluator.service';
+import {
+  ComputedEvaluatorService,
+  type IEvaluatedComputedValues,
+} from './computed-evaluator.service';
 
 @Injectable()
 export class ComputedOrchestratorService {
@@ -26,38 +29,117 @@ export class ComputedOrchestratorService {
    */
   async run(
     tableId: string,
-    cellContexts: ICellContext[]
+    cellContexts: ICellContext[],
+    update: () => Promise<void>
   ): Promise<{
     publishedOps: number;
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
   }> {
-    if (!cellContexts?.length) return { publishedOps: 0, impact: {} };
-    const basicCtx = cellContexts.map((c) => ({ recordId: c.recordId, fieldId: c.fieldId }));
-    const impact = await this.collector.collect(tableId, basicCtx);
-    const impactedTables = Object.keys(impact);
-    if (!impactedTables.length) return { publishedOps: 0, impact: {} };
+    // With update callback, switch to the new dual-select (old/new) mode
+    return this.runMulti([{ tableId, cellContexts }], update);
+  }
+
+  /**
+   * Multi-source variant: accepts changes originating from multiple tables.
+   * Computes a unified impact once, optionally executes an update callback
+   * between selecting old values and computing new values, and publishes ops
+   * with both old and new cell values.
+   */
+  async runMulti(
+    sources: Array<{ tableId: string; cellContexts: ICellContext[] }>,
+    update: () => Promise<void>
+  ): Promise<{
+    publishedOps: number;
+    impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
+  }> {
+    const filtered = sources.filter((s) => s.cellContexts?.length);
+    if (!filtered.length) {
+      await update();
+      return { publishedOps: 0, impact: {} };
+    }
+
+    // 1) Collect impact per source and merge once
+    const impacts = await Promise.all(
+      filtered.map(async ({ tableId, cellContexts }) => {
+        const basicCtx = cellContexts.map((c) => ({ recordId: c.recordId, fieldId: c.fieldId }));
+        return this.collector.collect(tableId, basicCtx);
+      })
+    );
+
+    const impactMerged = impacts.reduce(
+      (acc, cur) => {
+        for (const [tid, group] of Object.entries(cur)) {
+          const target = (acc[tid] ||= {
+            fieldIds: new Set<string>(),
+            recordIds: new Set<string>(),
+          });
+          group.fieldIds.forEach((f) => target.fieldIds.add(f));
+          group.recordIds.forEach((r) => target.recordIds.add(r));
+        }
+        return acc;
+      },
+      {} as Awaited<ReturnType<typeof this.collector.collect>>
+    );
+
+    const impactedTables = Object.keys(impactMerged);
+    if (!impactedTables.length) {
+      await update();
+      return { publishedOps: 0, impact: {} };
+    }
 
     for (const tid of impactedTables) {
-      const group = impact[tid];
-      if (!group.fieldIds.size || !group.recordIds.size) delete impact[tid];
+      const group = impactMerged[tid];
+      if (!group.fieldIds.size || !group.recordIds.size) delete impactMerged[tid];
     }
-    if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
+    if (!Object.keys(impactMerged).length) {
+      await update();
+      return { publishedOps: 0, impact: {} };
+    }
 
-    const evaluated = await this.evaluator.evaluate(impact);
+    // 2) Read old values once
+    const oldValues = await this.evaluator.selectValues(impactMerged);
 
-    // Build and publish ops based on evaluated values (reflect changes)
-    const tasks = Object.entries(evaluated).map(async ([tid, recs]) => {
-      const recordIds = Object.keys(recs);
+    // 3) Perform the actual base update(s) if provided
+    await update();
+
+    // 4) Evaluate new values + persist computed values where applicable
+    const newValues = await this.evaluator.evaluate(impactMerged);
+
+    // 5) Publish ops with old/new values
+    const total = this.publishOpsWithOldNew(impactMerged, oldValues, newValues);
+
+    const resultImpact = Object.entries(impactMerged).reduce<
+      Record<string, { fieldIds: string[]; recordIds: string[] }>
+    >((acc, [tid, group]) => {
+      acc[tid] = {
+        fieldIds: Array.from(group.fieldIds),
+        recordIds: Array.from(group.recordIds),
+      };
+      return acc;
+    }, {});
+
+    return { publishedOps: total, impact: resultImpact };
+  }
+
+  private publishOpsWithOldNew(
+    impact: Awaited<ReturnType<typeof this.collector.collect>>,
+    oldVals: IEvaluatedComputedValues,
+    newVals: IEvaluatedComputedValues
+  ) {
+    const tasks = Object.keys(impact).map((tid) => {
+      const recordsNew = newVals[tid] || {};
+      const recordIds = Object.keys(recordsNew);
       if (!recordIds.length) return 0;
 
       const opDataList = recordIds
         .map((rid) => {
-          const { version, fields } = recs[rid];
-          const ops = Object.entries(fields).map(([fid, value]) =>
+          const { version, fields } = recordsNew[rid];
+          const fieldsOld = oldVals[tid]?.[rid]?.fields || {};
+          const ops = Object.keys(fields).map((fid) =>
             RecordOpBuilder.editor.setRecord.build({
               fieldId: fid,
-              newCellValue: value,
-              oldCellValue: undefined,
+              oldCellValue: fieldsOld[fid],
+              newCellValue: fields[fid],
             })
           );
           if (version == null) return null;
@@ -77,19 +159,6 @@ export class ComputedOrchestratorService {
       return opDataList.reduce((sum, x) => sum + x.count, 0);
     });
 
-    const counts = await Promise.all(tasks);
-    const total = counts.reduce((a, b) => a + b, 0);
-
-    const resultImpact = Object.entries(impact).reduce<
-      Record<string, { fieldIds: string[]; recordIds: string[] }>
-    >((acc, [tid, group]) => {
-      acc[tid] = {
-        fieldIds: Array.from(group.fieldIds),
-        recordIds: Array.from(group.recordIds),
-      };
-      return acc;
-    }, {});
-
-    return { publishedOps: total, impact: resultImpact };
+    return tasks.reduce((a, b) => a + b, 0);
   }
 }

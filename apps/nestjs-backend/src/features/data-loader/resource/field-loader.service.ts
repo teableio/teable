@@ -70,7 +70,7 @@ export class FieldLoaderService extends TableCommonLoader<IFieldLoaderItem> {
   }
 
   private logStat() {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') {
       return;
     }
     console.log(`cacheSet: ${this.cacheSet}, loadCount: ${this.loadCount}`);

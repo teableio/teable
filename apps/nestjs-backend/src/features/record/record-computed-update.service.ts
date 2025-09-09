@@ -37,6 +37,19 @@ export class RecordComputedUpdateService {
       .map((f) => f.dbFieldName);
   }
 
+  private getReturningColumns(fields: IFieldInstance[]): string[] {
+    const isFormulaField = (f: IFieldInstance): f is FormulaFieldDto =>
+      f.type === FieldType.Formula;
+    const cols = fields.map((f) => {
+      if (isFormulaField(f) && f.getIsPersistedAsGeneratedColumn()) {
+        return f.getGeneratedColumnName();
+      }
+      return f.dbFieldName;
+    });
+    // de-dup
+    return Array.from(new Set(cols));
+  }
+
   async updateFromSelect(
     tableId: string,
     qb: Knex.QueryBuilder,
@@ -44,6 +57,7 @@ export class RecordComputedUpdateService {
   ): Promise<Array<{ __id: string; __version: number } & Record<string, unknown>>> {
     const dbTableName = await this.getDbTableName(tableId);
     const columnNames = this.getUpdatableColumns(fields);
+    const returningNames = this.getReturningColumns(fields);
     if (!columnNames.length) {
       // No updatable columns (e.g., all are generated formulas). Return current values via SELECT.
       return await this.prismaService
@@ -58,7 +72,7 @@ export class RecordComputedUpdateService {
       idFieldName: '__id',
       subQuery: qb,
       dbFieldNames: columnNames,
-      returningDbFieldNames: columnNames,
+      returningDbFieldNames: returningNames,
     });
 
     return await this.prismaService
