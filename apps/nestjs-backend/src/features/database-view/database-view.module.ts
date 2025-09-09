@@ -3,11 +3,10 @@ import { DbProvider } from '../../db-provider/db.provider';
 import { CalculationModule } from '../calculation/calculation.module';
 import { RecordQueryBuilderModule } from '../record/query-builder';
 import { TableDomainQueryModule } from '../table-domain';
-import { DatabaseViewListener } from './database-view.listener';
 import { DatabaseViewService } from './database-view.service';
 
 @Module({
   imports: [RecordQueryBuilderModule, TableDomainQueryModule, CalculationModule],
-  providers: [DbProvider, DatabaseViewService, DatabaseViewListener],
+  providers: [DbProvider, DatabaseViewService],
 })
 export class DatabaseViewModule {}

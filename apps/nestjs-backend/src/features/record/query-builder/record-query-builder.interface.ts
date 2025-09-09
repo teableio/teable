@@ -21,7 +21,7 @@ export interface ICreateRecordQueryBuilderOptions {
   sort?: ISortItem[];
   /** Optional current user ID */
   currentUserId?: string;
-  useViewCache?: boolean;
+  useQueryModel?: boolean;
   /** Limit SELECT to these field IDs (plus system columns) */
   projection?: string[];
 }
@@ -87,7 +87,7 @@ export type IRecordSelectionMap = Map<string, IFieldSelectName>;
 export type IReadonlyRecordSelectionMap = ReadonlyMap<string, IFieldSelectName>;
 
 // Query context: whether we build directly from base table or from materialized view
-export type IRecordQueryContext = 'table' | 'view';
+export type IRecordQueryContext = 'table' | 'tableCache' | 'view';
 
 export interface IRecordQueryFilterContext {
   selectionMap: IReadonlyRecordSelectionMap;
