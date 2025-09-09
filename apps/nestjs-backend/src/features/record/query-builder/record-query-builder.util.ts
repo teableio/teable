@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-collapsible-if */
-import { FieldType, Relationship } from '@teable/core';
+import { CellValueType, FieldType, Relationship } from '@teable/core';
 import type {
   FieldCore,
   ILinkFieldOptions,
@@ -83,4 +83,24 @@ export function getOrderedFieldsByProjection(
 
   // Return in ordered order
   return ordered.filter((f) => wanted.has(f.id));
+}
+
+/**
+ * Determine whether a field is date-like (i.e., represents a datetime value).
+ * - True for Date, CreatedTime, LastModifiedTime
+ * - True for Formula fields whose result cellValueType is DateTime
+ */
+export function isDateLikeField(field: FieldCore): boolean {
+  if (
+    field.type === FieldType.Date ||
+    field.type === FieldType.CreatedTime ||
+    field.type === FieldType.LastModifiedTime
+  ) {
+    return true;
+  }
+  if (field.type === FieldType.Formula) {
+    const f = field as FormulaFieldCore;
+    return f.cellValueType === CellValueType.DateTime;
+  }
+  return false;
 }
