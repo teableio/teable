@@ -7,6 +7,12 @@ import { pluginInstallStorageSchema } from './types';
 export const GET_DASHBOARD_INSTALL_PLUGIN =
   '/base/{baseId}/dashboard/{dashboardId}/plugin/{installPluginId}';
 
+export const getDashboardInstallPluginRoSchema = z.object({
+  baseId: z.string(),
+  dashboardId: z.string(),
+  installPluginId: z.string(),
+});
+
 export const getDashboardInstallPluginVoSchema = z.object({
   pluginId: z.string(),
   pluginInstallId: z.string(),
@@ -22,11 +28,7 @@ export const GetDashboardInstallPluginRoute: RouteConfig = registerRoute({
   path: GET_DASHBOARD_INSTALL_PLUGIN,
   description: 'Get a dashboard install plugin by id',
   request: {
-    params: z.object({
-      baseId: z.string(),
-      dashboardId: z.string(),
-      installPluginId: z.string(),
-    }),
+    params: getDashboardInstallPluginRoSchema,
   },
   responses: {
     200: {

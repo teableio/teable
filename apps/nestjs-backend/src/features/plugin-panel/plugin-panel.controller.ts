@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import type {
+  IBaseQueryVo,
   IPluginPanelCreateVo,
   IPluginPanelGetVo,
   IPluginPanelInstallVo,
@@ -161,6 +162,20 @@ export class PluginPanelController {
     @Param('pluginInstallId') pluginInstallId: string
   ): Promise<IPluginPanelPluginGetVo> {
     return this.pluginPanelService.getPluginPanelPlugin(tableId, pluginPanelId, pluginInstallId);
+  }
+
+  @Permissions('table|read')
+  @Get(':pluginPanelId/plugin/:pluginInstallId/query')
+  getPluginPanelPluginQuery(
+    @Param('tableId') tableId: string,
+    @Param('pluginPanelId') pluginPanelId: string,
+    @Param('pluginInstallId') pluginInstallId: string
+  ): Promise<IBaseQueryVo> {
+    return this.pluginPanelService.getPluginPanelPluginQuery(
+      tableId,
+      pluginPanelId,
+      pluginInstallId
+    );
   }
 
   @Post(':pluginPanelId/duplicate')

@@ -57,6 +57,7 @@ import { DbConnectionService } from './db-connection.service';
     BaseDuplicateService,
     BaseExportService,
     BaseImportService,
+    BaseQueryService,
   ],
 })
 export class BaseModule {}

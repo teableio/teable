@@ -62,7 +62,7 @@ export const baseQueryRoute = registerRoute({
       description: 'The sql query result',
       content: {
         'application/json': {
-          schema: z.array(z.record(z.string(), z.unknown())),
+          schema: baseQuerySchemaVo,
         },
       },
     },

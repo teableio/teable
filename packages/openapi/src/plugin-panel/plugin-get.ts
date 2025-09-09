@@ -7,7 +7,14 @@ import { z } from '../zod';
 export const PLUGIN_PANEL_PLUGIN_GET =
   '/table/{tableId}/plugin-panel/{pluginPanelId}/plugin/{pluginInstallId}';
 
+export const pluginPanelPluginGetRoSchema = z.object({
+  tableId: z.string(),
+  pluginPanelId: z.string(),
+  pluginId: z.string(),
+});
+
 export const pluginPanelPluginGetVoSchema = z.object({
+  baseId: z.string(),
   name: z.string(),
   tableId: z.string(),
   pluginId: z.string(),
@@ -22,11 +29,7 @@ export const pluginPanelPluginGetRoute: RouteConfig = registerRoute({
   path: PLUGIN_PANEL_PLUGIN_GET,
   description: 'Get a plugin in plugin panel',
   request: {
-    params: z.object({
-      tableId: z.string(),
-      pluginPanelId: z.string(),
-      pluginId: z.string(),
-    }),
+    params: pluginPanelPluginGetRoSchema,
   },
   responses: {
     200: {

@@ -9,5 +9,6 @@ export * from './plugin-rename';
 export * from './plugin-update-storage';
 export * from './list';
 export * from './plugin-get';
+export * from './plugin-query';
 export * from './duplicate';
 export * from './duplicate-panel-installed';

@@ -21,10 +21,12 @@ import type {
   IDuplicatePluginPanelRo,
   IBaseJson,
   IDuplicatePluginPanelInstalledPluginRo,
+  IBaseQuery,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
+import { BaseQueryService } from '../base/base-query/base-query.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -33,7 +35,8 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly baseQueryService: BaseQueryService
   ) {}
 
   createPluginPanel(tableId: string, createPluginPanelRo: IPluginPanelCreateRo) {
@@ -361,12 +364,26 @@ export class PluginPanelService {
       throw new NotFoundException('Plugin install not found');
     }
     return {
+      baseId,
       name: pluginInstall.name,
       tableId,
       pluginId: pluginInstall.pluginId,
       pluginInstallId: pluginInstall.id,
       storage: pluginInstall.storage ? JSON.parse(pluginInstall.storage) : undefined,
     };
+  }
+
+  async getPluginPanelPluginQuery(tableId: string, pluginPanelId: string, pluginInstallId: string) {
+    const { baseId, storage } = await this.getPluginPanelPlugin(
+      tableId,
+      pluginPanelId,
+      pluginInstallId
+    );
+    const query = storage?.query as IBaseQuery;
+    if (!query) {
+      throw new NotFoundException('Plugin Panel Plugin Storage Query not found');
+    }
+    return this.baseQueryService.baseQuery(baseId, query);
   }
 
   async duplicatePluginPanel(

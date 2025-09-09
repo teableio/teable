@@ -25,6 +25,7 @@ import type {
   IDashboardInstallPluginVo,
   IDashboardPluginUpdateStorageVo,
   IGetDashboardInstallPluginVo,
+  IBaseQueryVo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -163,5 +164,15 @@ export class DashboardController {
     @Param('pluginInstallId') pluginInstallId: string
   ): Promise<IGetDashboardInstallPluginVo> {
     return this.dashboardService.getPluginInstall(baseId, id, pluginInstallId);
+  }
+
+  @Get(':id/plugin/:pluginInstallId/query')
+  @Permissions('base|read')
+  getPluginInstallQuery(
+    @Param('baseId') baseId: string,
+    @Param('id') id: string,
+    @Param('pluginInstallId') pluginInstallId: string
+  ): Promise<IBaseQueryVo> {
+    return this.dashboardService.getPluginInstallQuery(baseId, id, pluginInstallId);
   }
 }

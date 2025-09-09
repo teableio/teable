@@ -6,6 +6,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
 import type {
   IBaseJson,
+  IBaseQuery,
   ICreateDashboardRo,
   IDashboardInstallPluginRo,
   IDuplicateDashboardInstalledPluginRo,
@@ -19,6 +20,7 @@ import type { IDashboardLayout, IDashboardPluginItem } from '@teable/openapi/src
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
+import { BaseQueryService } from '../base/base-query/base-query.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -27,7 +29,8 @@ export class DashboardService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly baseQueryService: BaseQueryService
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
@@ -425,6 +428,15 @@ export class DashboardService {
       pluginInstallId: plugin.id,
       storage: plugin.storage ? JSON.parse(plugin.storage) : undefined,
     };
+  }
+
+  async getPluginInstallQuery(baseId: string, dashboardId: string, pluginInstallId: string) {
+    const { storage } = await this.getPluginInstall(baseId, dashboardId, pluginInstallId);
+    const query = storage?.query as IBaseQuery;
+    if (!query) {
+      throw new NotFoundException('Dashboard Plugin Storage Query not found');
+    }
+    return this.baseQueryService.baseQuery(baseId, query);
   }
 
   async duplicateDashboard(
