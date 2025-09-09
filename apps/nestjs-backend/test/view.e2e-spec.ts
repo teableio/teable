@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+
 import type { IColumn, IFieldRo, IFieldVo, IViewRo } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, generateViewId, Relationship, ViewType } from '@teable/core';
+import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import type { ICreateTableRo, ITableFullVo } from '@teable/openapi';
 import {
   updateViewDescription,
@@ -14,6 +16,8 @@ import {
   getRecords,
   updateViewLocked,
 } from '@teable/openapi';
+import { sample } from 'lodash';
+import { ViewService } from '../src/features/view/view.service';
 import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
 import {
   createField,
@@ -38,10 +42,13 @@ describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
   const baseId = globalThis.testConfig.baseId;
-
+  let prismaService: PrismaService;
+  let viewService: ViewService;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    prismaService = app.get(PrismaService);
+    viewService = app.get(ViewService);
   });
 
   afterAll(async () => {
@@ -152,6 +159,36 @@ describe('OpenAPI ViewController (e2e)', () => {
     const order = columnMetaResponse?.[testFieldId]?.order;
     expect(order).toEqual(assertOrder);
     expect(fields.length).toEqual(Object.keys(columnMetaResponse).length);
+  });
+
+  it('should batch update view when create field', async () => {
+    const initialColumnMeta = await viewService.generateViewOrderColumnMeta(table.id);
+    const createData: Prisma.ViewCreateManyInput[] = [];
+    const num = 100;
+    for (let i = 0; i < num; i++) {
+      const data: Prisma.ViewCreateManyInput = {
+        id: generateViewId(),
+        tableId: table.id,
+        name: `New view ${i}`,
+        type: ViewType.Grid,
+        version: 1,
+        order: i + 1,
+        createdBy: globalThis.testConfig.userId,
+        columnMeta: JSON.stringify(initialColumnMeta ?? {}),
+      };
+
+      createData.push(data);
+    }
+    const result = await prismaService.txClient().view.createMany({ data: createData });
+    expect(result.count).toEqual(num);
+
+    await createField(table.id, { type: FieldType.SingleLineText });
+    const fields = await getFields(table.id);
+    const assertFieldIds = fields.map((field) => field.id).sort();
+    const randomViewId = sample(createData.map((data) => data.id));
+    const view = await getView(table.id, randomViewId!);
+    const columnMetaFieldIds = Object.keys(view.columnMeta).sort();
+    expect(columnMetaFieldIds).toEqual(assertFieldIds);
   });
 
   it('fields in new view should sort by created time and primary field is always first', async () => {
