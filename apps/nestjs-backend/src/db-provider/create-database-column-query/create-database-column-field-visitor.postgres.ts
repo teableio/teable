@@ -201,7 +201,7 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
     if (inferredSelfName) conflictNames.add(inferredSelfName);
 
     // Create underlying base column only if no conflict with FK/self columns
-    if (!conflictNames.has(this.context.dbFieldName)) {
+    if (!this.context.skipBaseColumnCreation && !conflictNames.has(this.context.dbFieldName)) {
       this.createStandardColumn(field);
     }
 

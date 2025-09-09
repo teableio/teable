@@ -125,7 +125,8 @@ export interface IDbProvider {
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
-    isSymmetricField?: boolean
+    isSymmetricField?: boolean,
+    skipBaseColumnCreation?: boolean
   ): string[];
 
   duplicateTable(

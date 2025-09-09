@@ -175,7 +175,8 @@ export class SqliteProvider implements IDbProvider {
     isNewTable: boolean,
     tableId: string,
     tableNameMap: Map<string, string>,
-    isSymmetricField?: boolean
+    isSymmetricField?: boolean,
+    skipBaseColumnCreation?: boolean
   ): string[] {
     let visitor: CreateSqliteDatabaseColumnFieldVisitor | undefined = undefined;
     const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
@@ -194,6 +195,7 @@ export class SqliteProvider implements IDbProvider {
         knex: this.knex,
         tableNameMap,
         isSymmetricField,
+        skipBaseColumnCreation,
       };
       visitor = new CreateSqliteDatabaseColumnFieldVisitor(context);
       fieldInstance.accept(visitor);

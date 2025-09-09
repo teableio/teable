@@ -206,7 +206,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     if (inferredFkName) conflictNames.add(inferredFkName);
     if (inferredSelfName) conflictNames.add(inferredSelfName);
 
-    if (!conflictNames.has(this.context.dbFieldName)) {
+    if (!this.context.skipBaseColumnCreation && !conflictNames.has(this.context.dbFieldName)) {
       this.createStandardColumn(field);
     }
 
