@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IBaseRole } from '@teable/core';
+import type { CellFormat, IBaseRole } from '@teable/core';
 import {
   generatePluginInstallId,
   generatePluginPanelId,
@@ -373,7 +373,12 @@ export class PluginPanelService {
     };
   }
 
-  async getPluginPanelPluginQuery(tableId: string, pluginPanelId: string, pluginInstallId: string) {
+  async getPluginPanelPluginQuery(
+    tableId: string,
+    pluginPanelId: string,
+    pluginInstallId: string,
+    cellFormat?: CellFormat
+  ) {
     const { baseId, storage } = await this.getPluginPanelPlugin(
       tableId,
       pluginPanelId,
@@ -383,7 +388,7 @@ export class PluginPanelService {
     if (!query) {
       throw new NotFoundException('Plugin Panel Plugin Storage Query not found');
     }
-    return this.baseQueryService.baseQuery(baseId, query);
+    return this.baseQueryService.baseQuery(baseId, query, cellFormat);
   }
 
   async duplicatePluginPanel(

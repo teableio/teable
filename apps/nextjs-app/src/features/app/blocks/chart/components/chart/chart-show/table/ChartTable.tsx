@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { CellFormat } from '@teable/core';
 import { CellValue } from '@teable/sdk';
 import { TableBody, TableCell, TableHead, TableHeader, TableRow, Table } from '@teable/ui-lib';
 import { useMemo } from 'react';
@@ -7,7 +8,7 @@ import type { ITableConfig } from '../../../../types';
 import { sortTableColumns, tableConfigColumnsToMap } from '../../utils';
 
 export const ChartTable = (props: { config?: ITableConfig }) => {
-  const queryData = useBaseQueryData();
+  const queryData = useBaseQueryData(CellFormat.Json);
   const { config } = props;
   const { columns: configColumns } = config ?? {};
   const columns = queryData?.columns;

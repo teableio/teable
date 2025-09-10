@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IBaseRole } from '@teable/core';
+import type { IBaseRole, CellFormat } from '@teable/core';
 import { generateDashboardId, generatePluginInstallId, getUniqName, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
@@ -430,13 +430,18 @@ export class DashboardService {
     };
   }
 
-  async getPluginInstallQuery(baseId: string, dashboardId: string, pluginInstallId: string) {
+  async getPluginInstallQuery(
+    baseId: string,
+    dashboardId: string,
+    pluginInstallId: string,
+    cellFormat?: CellFormat
+  ) {
     const { storage } = await this.getPluginInstall(baseId, dashboardId, pluginInstallId);
     const query = storage?.query as IBaseQuery;
     if (!query) {
       throw new NotFoundException('Dashboard Plugin Storage Query not found');
     }
-    return this.baseQueryService.baseQuery(baseId, query);
+    return this.baseQueryService.baseQuery(baseId, query, cellFormat);
   }
 
   async duplicateDashboard(

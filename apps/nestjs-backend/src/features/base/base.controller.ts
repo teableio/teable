@@ -12,8 +12,6 @@ import {
   ICreateBaseFromTemplateRo,
   updateOrderRoSchema,
   IUpdateOrderRo,
-  baseQuerySchemaRo,
-  IBaseQuerySchemaRo,
   createBaseInvitationLinkRoSchema,
   CreateBaseInvitationLinkRo,
   updateBaseInvitationLinkRoSchema,

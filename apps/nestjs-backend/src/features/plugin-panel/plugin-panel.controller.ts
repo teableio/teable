@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { CellFormat } from '@teable/core';
 import type {
   IBaseQueryVo,
   IPluginPanelCreateVo,
@@ -169,12 +170,14 @@ export class PluginPanelController {
   getPluginPanelPluginQuery(
     @Param('tableId') tableId: string,
     @Param('pluginPanelId') pluginPanelId: string,
-    @Param('pluginInstallId') pluginInstallId: string
+    @Param('pluginInstallId') pluginInstallId: string,
+    @Query('cellFormat') cellFormat: CellFormat = CellFormat.Text
   ): Promise<IBaseQueryVo> {
     return this.pluginPanelService.getPluginPanelPluginQuery(
       tableId,
       pluginPanelId,
-      pluginInstallId
+      pluginInstallId,
+      cellFormat
     );
   }
 

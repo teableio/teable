@@ -1,7 +1,9 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { CellFormat } from '@teable/core';
 import { axios } from '../axios';
 import { baseQuerySchemaVo, type IBaseQueryVo } from '../base';
 import { registerRoute, urlBuilder } from '../utils';
+import { z } from '../zod';
 import { getDashboardInstallPluginRoSchema } from './plugin-get';
 
 export const GET_DASHBOARD_INSTALL_PLUGIN_QUERY =
@@ -13,6 +15,13 @@ export const GetDashboardInstallPluginQueryRoute: RouteConfig = registerRoute({
   description: 'Get a dashboard install plugin query by id',
   request: {
     params: getDashboardInstallPluginRoSchema,
+    query: z.object({
+      cellFormat: z
+        .nativeEnum(CellFormat, {
+          errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
+        })
+        .default(CellFormat.Text),
+    }),
   },
   responses: {
     200: {
@@ -30,9 +39,15 @@ export const GetDashboardInstallPluginQueryRoute: RouteConfig = registerRoute({
 export const getDashboardInstallPluginQuery = async (
   baseId: string,
   dashboardId: string,
-  installPluginId: string
+  installPluginId: string,
+  cellFormat?: CellFormat
 ) => {
   return axios.get<IBaseQueryVo>(
-    urlBuilder(GET_DASHBOARD_INSTALL_PLUGIN_QUERY, { baseId, dashboardId, installPluginId })
+    urlBuilder(GET_DASHBOARD_INSTALL_PLUGIN_QUERY, { baseId, dashboardId, installPluginId }),
+    {
+      params: {
+        cellFormat,
+      },
+    }
   );
 };

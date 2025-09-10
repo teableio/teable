@@ -2,6 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import {
+  CellFormat,
   Colors,
   FieldType,
   isGreater,
@@ -9,7 +10,7 @@ import {
   StatisticsFunc,
   TimeFormatting,
 } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import type { IBaseQuery, ITableFullVo } from '@teable/openapi';
 import { createTable, BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import { BaseQueryService } from '../src/features/base/base-query/base-query.service';
 import { initApp } from './utils/init-app';
@@ -27,6 +28,14 @@ describe('BaseSqlQuery e2e', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  const baseQuery = async (
+    baseId: string,
+    baseQuery: IBaseQuery,
+    cellFormat: CellFormat = CellFormat.Text
+  ) => {
+    return await baseQueryService.baseQuery(baseId, baseQuery, cellFormat);
+  };
 
   describe('Iterate through each query capability', () => {
     let table: ITableFullVo;
@@ -85,7 +94,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('aggregation', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         aggregation: [
           {
@@ -102,7 +111,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('filter', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         where: {
           conjunction: 'and',
@@ -127,7 +136,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('orderBy', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         orderBy: [
           {
@@ -158,7 +167,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('groupBy', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         select: [
           {
@@ -237,7 +246,7 @@ describe('BaseSqlQuery e2e', () => {
           },
         ],
       }).then((res) => res.data);
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         groupBy: [{ column: table.fields[1].id, type: BaseQueryColumnType.Field }],
       });
@@ -273,7 +282,7 @@ describe('BaseSqlQuery e2e', () => {
           },
         ],
       }).then((res) => res.data);
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         groupBy: [{ column: table.fields[0].id, type: BaseQueryColumnType.Field }],
       });
@@ -282,7 +291,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('limit and offset', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table.id,
         limit: 1,
         offset: 1,
@@ -293,7 +302,7 @@ describe('BaseSqlQuery e2e', () => {
 
     describe('from', () => {
       it('from query', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           from: {
             from: table.id,
             where: {
@@ -320,7 +329,7 @@ describe('BaseSqlQuery e2e', () => {
       });
 
       it('from query with aggregation', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           select: [
             {
               column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
@@ -354,7 +363,7 @@ describe('BaseSqlQuery e2e', () => {
       });
 
       it('from query include aggregation', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           select: [
             {
               column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
@@ -377,7 +386,7 @@ describe('BaseSqlQuery e2e', () => {
       });
 
       it('from query include aggregation and filter', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           select: [
             {
               column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
@@ -411,7 +420,7 @@ describe('BaseSqlQuery e2e', () => {
       });
 
       it('from query include aggregation and filter and orderBy and groupBy', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           select: [
             {
               column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
@@ -458,7 +467,7 @@ describe('BaseSqlQuery e2e', () => {
       });
 
       it('from query include aggregation, filter query aggregation field', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           select: [
             {
               column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
@@ -518,7 +527,7 @@ describe('BaseSqlQuery e2e', () => {
       });
 
       it('from query include aggregation, filter and group query aggregation field - query include select', async () => {
-        const res = await baseQueryService.baseQuery(baseId, {
+        const res = await baseQuery(baseId, {
           select: [
             {
               column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
@@ -671,7 +680,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('join', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table1.id,
         join: [
           {
@@ -703,7 +712,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('join inner', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table1.id,
         join: [
           {
@@ -731,7 +740,7 @@ describe('BaseSqlQuery e2e', () => {
     });
 
     it('join filter and select', async () => {
-      const res = await baseQueryService.baseQuery(baseId, {
+      const res = await baseQuery(baseId, {
         from: table1.id,
         join: [
           {

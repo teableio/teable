@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { CellFormat } from '@teable/core';
 import {
   getDashboardInstallPluginQuery,
   getPluginPanelPluginQuery,
@@ -7,12 +8,14 @@ import {
 import { formatRes } from '../query';
 import { useEnv } from './useEnv';
 
-export const useBaseQueryData = () => {
+export const useBaseQueryData = (cellFormat?: CellFormat) => {
   const { baseId, positionId, positionType, tableId, pluginInstallId } = useEnv();
   const { data: dashboardQueryData } = useQuery({
     queryKey: ['dashboard-plugin-query', baseId, positionId, pluginInstallId],
     queryFn: () =>
-      getDashboardInstallPluginQuery(baseId, positionId, pluginInstallId).then((res) => res.data),
+      getDashboardInstallPluginQuery(baseId, positionId, pluginInstallId, cellFormat).then(
+        (res) => res.data
+      ),
     enabled: Boolean(
       positionType === PluginPosition.Dashboard && baseId && positionId && pluginInstallId
     ),
@@ -21,7 +24,9 @@ export const useBaseQueryData = () => {
   const { data: pluginPanelQueryData } = useQuery({
     queryKey: ['plugin-panel-plugin-query', tableId, positionId, pluginInstallId],
     queryFn: () =>
-      getPluginPanelPluginQuery(tableId!, positionId, pluginInstallId).then((res) => res.data),
+      getPluginPanelPluginQuery(tableId!, positionId, pluginInstallId, cellFormat).then(
+        (res) => res.data
+      ),
     enabled: Boolean(
       positionType === PluginPosition.Panel && tableId && positionId && pluginInstallId
     ),

@@ -1,30 +1,6 @@
-import { CellFormat, fieldVoSchema } from '@teable/core';
+import { fieldVoSchema } from '@teable/core';
 import { z } from '../../zod';
-import { baseQueryColumnTypeSchema, baseQuerySchema } from './types';
-
-export const baseQuerySchemaRo = z.object({
-  query: z.string().transform((value, ctx) => {
-    if (value == null) {
-      return value;
-    }
-
-    const parsingResult = baseQuerySchema.safeParse(JSON.parse(value));
-    if (!parsingResult.success) {
-      parsingResult.error.issues.forEach((issue) => {
-        ctx.addIssue(issue);
-      });
-      return z.NEVER;
-    }
-    return parsingResult.data;
-  }),
-  cellFormat: z
-    .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
-    })
-    .default(CellFormat.Text),
-});
-
-export type IBaseQuerySchemaRo = z.infer<typeof baseQuerySchemaRo>;
+import { baseQueryColumnTypeSchema } from './types';
 
 export const baseQueryColumnSchema = z.object({
   name: z.string(),

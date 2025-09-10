@@ -1,7 +1,9 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { CellFormat } from '@teable/core';
 import { axios } from '../axios';
 import { baseQuerySchemaVo, type IBaseQueryVo } from '../base';
 import { registerRoute, urlBuilder } from '../utils';
+import { z } from '../zod';
 import { pluginPanelPluginGetRoSchema } from './plugin-get';
 
 export const PLUGIN_PANEL_PLUGIN_QUERY =
@@ -13,6 +15,13 @@ export const pluginPanelPluginQueryRoute: RouteConfig = registerRoute({
   description: 'Get a plugin query in plugin panel',
   request: {
     params: pluginPanelPluginGetRoSchema,
+    query: z.object({
+      cellFormat: z
+        .nativeEnum(CellFormat, {
+          errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
+        })
+        .default(CellFormat.Text),
+    }),
   },
   responses: {
     200: {
@@ -30,9 +39,15 @@ export const pluginPanelPluginQueryRoute: RouteConfig = registerRoute({
 export const getPluginPanelPluginQuery = (
   tableId: string,
   pluginPanelId: string,
-  pluginInstallId: string
+  pluginInstallId: string,
+  cellFormat?: CellFormat
 ) => {
   return axios.get<IBaseQueryVo>(
-    urlBuilder(PLUGIN_PANEL_PLUGIN_QUERY, { tableId, pluginPanelId, pluginInstallId })
+    urlBuilder(PLUGIN_PANEL_PLUGIN_QUERY, { tableId, pluginPanelId, pluginInstallId }),
+    {
+      params: {
+        cellFormat,
+      },
+    }
   );
 };

@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { CellFormat } from '@teable/core';
 import {
   createDashboardRoSchema,
   dashboardInstallPluginRoSchema,
@@ -171,8 +172,9 @@ export class DashboardController {
   getPluginInstallQuery(
     @Param('baseId') baseId: string,
     @Param('id') id: string,
-    @Param('pluginInstallId') pluginInstallId: string
+    @Param('pluginInstallId') pluginInstallId: string,
+    @Query('cellFormat') cellFormat: CellFormat = CellFormat.Text
   ): Promise<IBaseQueryVo> {
-    return this.dashboardService.getPluginInstallQuery(baseId, id, pluginInstallId);
+    return this.dashboardService.getPluginInstallQuery(baseId, id, pluginInstallId, cellFormat);
   }
 }
