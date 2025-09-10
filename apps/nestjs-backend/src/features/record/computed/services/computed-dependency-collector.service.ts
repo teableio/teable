@@ -260,14 +260,8 @@ export class ComputedDependencyCollectorService {
       return acc;
     }, {} as IComputedImpactByTable);
 
-    // Ensure starting computed fields themselves are included
+    // Ensure starting fields themselves are included so conversions can compare old/new values
     for (const f of startFields) {
-      const isComputedLike =
-        f.isComputed === true ||
-        f.isLookup === true ||
-        f.type === FieldType.Formula ||
-        f.type === FieldType.Rollup;
-      if (!isComputedLike) continue;
       (impact[f.tableId] ||= {
         fieldIds: new Set<string>(),
         recordIds: new Set<string>(),

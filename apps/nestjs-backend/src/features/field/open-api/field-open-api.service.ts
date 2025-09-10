@@ -48,8 +48,8 @@ import { FieldSupplementService } from '../field-calculate/field-supplement.serv
 import { FieldViewSyncService } from '../field-calculate/field-view-sync.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
-import { convertFieldInstanceToFieldVo } from '../model/factory';
 import {
+  convertFieldInstanceToFieldVo,
   createFieldInstanceByRaw,
   createFieldInstanceByVo,
   rawField2FieldObj,
@@ -469,19 +469,7 @@ export class FieldOpenApiService {
     // 1. stage close constraint
     await this.fieldConvertingService.closeConstraint(tableId, newField, oldField);
 
-    // 2. stage alter field
-    await this.prismaService.$tx(async () => {
-      await this.fieldViewSyncService.convertDependenciesByFieldIds(tableId, newField, oldField);
-      await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
-      await this.fieldConvertingService.deleteOrCreateSupplementLink(tableId, newField, oldField);
-      // for modify supplement link
-      if (supplementChange) {
-        const { tableId, newField, oldField } = supplementChange;
-        await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
-      }
-    });
-
-    // 3. stage apply record changes and calculate field with computed publishing
+    // 2. stage alter + apply record changes and calculate field with computed publishing (atomic)
     await this.prismaService.$tx(
       async () => {
         const sources = [{ tableId, fieldIds: [newField.id] }];
@@ -492,6 +480,24 @@ export class FieldOpenApiService {
           });
 
         await this.computedOrchestrator.computeCellChangesForFields(sources, async () => {
+          // Update dependencies and schema first so evaluate() sees new schema
+          await this.fieldViewSyncService.convertDependenciesByFieldIds(
+            tableId,
+            newField,
+            oldField
+          );
+          await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
+          await this.fieldConvertingService.deleteOrCreateSupplementLink(
+            tableId,
+            newField,
+            oldField
+          );
+          if (supplementChange) {
+            const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
+            await this.fieldConvertingService.stageAlter(sTid, sNew, sOld);
+          }
+
+          // Then apply record changes (base ops) prior to computed publishing
           await this.fieldConvertingService.stageCalculate(
             tableId,
             newField,
