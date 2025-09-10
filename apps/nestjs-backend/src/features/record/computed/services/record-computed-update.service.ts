@@ -32,6 +32,17 @@ export class RecordComputedUpdateService {
       .filter((f) => {
         // Skip formula persisted as generated columns
         if (isFormulaField(f) && f.getIsPersistedAsGeneratedColumn()) return false;
+        // Skip fields persisted as generated columns (cannot be updated directly)
+        switch (f.type) {
+          case FieldType.AutoNumber:
+          case FieldType.CreatedTime:
+          case FieldType.LastModifiedTime:
+          case FieldType.CreatedBy:
+          case FieldType.LastModifiedBy:
+            return false;
+          default:
+            break;
+        }
         return true;
       })
       .map((f) => f.dbFieldName);

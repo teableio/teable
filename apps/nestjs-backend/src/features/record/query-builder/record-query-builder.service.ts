@@ -150,7 +150,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       options.projection
     );
 
-    this.buildSelect(qb, table, state, options.projection);
+    this.buildSelect(qb, table, state, options.projection, options.rawProjection);
 
     // Selection map collected as fields are visited.
 
@@ -225,9 +225,18 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     qb: Knex.QueryBuilder,
     table: TableDomain,
     state: IMutableQueryBuilderState,
-    projection?: string[]
+    projection?: string[],
+    rawProjection: boolean = false
   ): this {
-    const visitor = new FieldSelectVisitor(qb, this.dbProvider, table, state, this.dialect);
+    const visitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      table,
+      state,
+      this.dialect,
+      undefined,
+      rawProjection
+    );
     const alias = getTableAliasFromTable(table);
 
     for (const field of preservedDbFieldNames) {

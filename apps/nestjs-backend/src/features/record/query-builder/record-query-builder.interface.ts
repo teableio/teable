@@ -24,6 +24,11 @@ export interface ICreateRecordQueryBuilderOptions {
   useQueryModel?: boolean;
   /** Limit SELECT to these field IDs (plus system columns) */
   projection?: string[];
+  /**
+   * When true, select raw DB values for fields instead of formatted display values.
+   * Useful for UPDATE ... FROM (SELECT ...) operations to avoid type mismatches (e.g., timestamptz vs text).
+   */
+  rawProjection?: boolean;
 }
 
 /**

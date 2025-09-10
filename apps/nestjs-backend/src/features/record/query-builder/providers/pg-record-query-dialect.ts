@@ -138,6 +138,10 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     const { targetField, orderByField, rowPresenceExpr } = opts;
     switch (fn) {
       case 'sum':
+        // For non-numeric targets, return 0 to avoid SUM(text) errors during field creation/update
+        if (targetField?.type !== FieldType.Number) {
+          return this.castAgg('0');
+        }
         return this.castAgg(`COALESCE(SUM(${fieldExpression}), 0)`);
       case 'count':
         return this.castAgg(`COALESCE(COUNT(${fieldExpression}), 0)`);
@@ -179,7 +183,8 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
   singleValueRollupAggregate(fn: string, fieldExpression: string): string {
     switch (fn) {
       case 'sum':
-        return `COALESCE(${fieldExpression}, 0)`;
+        // Return 0 for single-value sum to avoid casting issues on non-numeric targets
+        return `0`;
       case 'max':
       case 'min':
       case 'array_join':
