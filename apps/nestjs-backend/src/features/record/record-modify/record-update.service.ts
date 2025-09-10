@@ -11,8 +11,8 @@ import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-maps';
-import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
@@ -86,7 +86,7 @@ export class RecordUpdateService {
       // Compose base ops with link-derived ops so symmetric link updates are also published
       const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
       // Publish computed/link/lookup changes with old/new by wrapping the base update
-      await this.computedOrchestrator.run(tableId, ctxs, async () => {
+      await this.computedOrchestrator.computeCellChangesForRecords(tableId, ctxs, async () => {
         await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
         await this.batchService.updateRecords(composedOpsMap);
       });
@@ -151,10 +151,14 @@ export class RecordUpdateService {
       ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
       : undefined;
     const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
-    await this.computedOrchestrator.run(tableId, cellContexts, async () => {
-      await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
-      await this.batchService.updateRecords(composedOpsMap);
-    });
+    await this.computedOrchestrator.computeCellChangesForRecords(
+      tableId,
+      cellContexts,
+      async () => {
+        await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
+        await this.batchService.updateRecords(composedOpsMap);
+      }
+    );
     return cellContexts;
   }
 }
