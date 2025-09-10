@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
@@ -20,12 +21,31 @@ export interface IComputedImpactByTable {
   };
 }
 
+export interface IFieldChangeSource {
+  tableId: string;
+  fieldIds: string[];
+}
+
 @Injectable()
 export class ComputedDependencyCollectorService {
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
+
+  private async getDbTableName(tableId: string): Promise<string> {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    return dbTableName;
+  }
+
+  private splitDbTableName(qualified: string): { schema?: string; table: string } {
+    const parts = qualified.split('.');
+    if (parts.length === 2) return { schema: parts[0], table: parts[1] };
+    return { table: qualified };
+  }
 
   // Minimal link options needed for join table lookups
   private parseLinkOptions(
@@ -208,6 +228,107 @@ export class ComputedDependencyCollectorService {
       (adj[from] ||= new Set<string>()).add(to);
     }
     return adj;
+  }
+
+  /**
+   * Collect impacted fields and records by starting from changed field definitions.
+   * - Includes the starting fields themselves when they are computed/lookup/rollup/formula.
+   * - Expands to dependent computed/lookup/link/rollup fields via reference graph (SQL CTE).
+   * - Seeds recordIds with ALL records from tables owning the changed fields.
+   * - Propagates recordIds across link relationships via junction tables.
+   */
+  async collectForFieldChanges(sources: IFieldChangeSource[]): Promise<IComputedImpactByTable> {
+    const startFieldIds = Array.from(new Set(sources.flatMap((s) => s.fieldIds || [])));
+    if (!startFieldIds.length) return {};
+
+    // Group starting fields by table and fetch minimal metadata
+    const startFields = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: startFieldIds }, deletedTime: null },
+      select: { id: true, tableId: true, isComputed: true, isLookup: true, type: true },
+    });
+    const byTable = startFields.reduce<Record<string, string[]>>((acc, f) => {
+      (acc[f.tableId] ||= []).push(f.id);
+      return acc;
+    }, {});
+
+    // 1) Dependent fields grouped by table
+    const depByTable = await this.collectDependentFieldsByTable(startFieldIds);
+
+    // Initialize impact with dependent fields
+    const impact: IComputedImpactByTable = Object.entries(depByTable).reduce((acc, [tid, fset]) => {
+      acc[tid] = { fieldIds: new Set(fset), recordIds: new Set<string>() };
+      return acc;
+    }, {} as IComputedImpactByTable);
+
+    // Ensure starting computed fields themselves are included
+    for (const f of startFields) {
+      const isComputedLike =
+        f.isComputed === true ||
+        f.isLookup === true ||
+        f.type === FieldType.Formula ||
+        f.type === FieldType.Rollup;
+      if (!isComputedLike) continue;
+      (impact[f.tableId] ||= {
+        fieldIds: new Set<string>(),
+        recordIds: new Set<string>(),
+      }).fieldIds.add(f.id);
+    }
+
+    if (!Object.keys(impact).length) return {};
+
+    // 2) Seed recordIds for origin tables with ALL record ids
+    const originTableIds = Object.keys(byTable);
+    const recordSets: Record<string, Set<string>> = {};
+    for (const tid of originTableIds) {
+      const dbTable = await this.getDbTableName(tid);
+      const { schema, table } = this.splitDbTableName(dbTable);
+      const qb = (schema ? this.knex.withSchema(schema) : this.knex).select('__id').from(table);
+      const rows = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<Array<{ __id: string }>>(qb.toQuery());
+      const set = (recordSets[tid] ||= new Set<string>());
+      for (const r of rows) if (r.__id) set.add(r.__id);
+    }
+
+    // 3) Build adjacency among impacted + origin tables and propagate via links
+    const tablesForAdjacency = Array.from(new Set([...Object.keys(impact), ...originTableIds]));
+    const adj = await this.getTableLinkAdjacency(tablesForAdjacency);
+
+    const queue: string[] = [...originTableIds];
+    while (queue.length) {
+      const src = queue.shift()!;
+      const currentIds = Array.from(recordSets[src] || []);
+      if (!currentIds.length) continue;
+      const outs = Array.from(adj[src] || []);
+      for (const dst of outs) {
+        if (!impact[dst]) continue; // only propagate to impacted tables
+        const linked = await this.getLinkedRecordIds(dst, src, currentIds);
+        if (!linked.length) continue;
+        const set = (recordSets[dst] ||= new Set<string>());
+        let added = false;
+        for (const id of linked) {
+          if (!set.has(id)) {
+            set.add(id);
+            added = true;
+          }
+        }
+        if (added) queue.push(dst);
+      }
+    }
+
+    // 4) Assign recordIds into impact
+    for (const [tid, group] of Object.entries(impact)) {
+      const ids = recordSets[tid];
+      if (ids && ids.size) ids.forEach((id) => group.recordIds.add(id));
+    }
+
+    // Remove tables with no records or fields after filtering
+    for (const tid of Object.keys(impact)) {
+      const g = impact[tid];
+      if (!g.fieldIds.size || !g.recordIds.size) delete impact[tid];
+    }
+
+    return impact;
   }
 
   /**
