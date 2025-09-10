@@ -64,11 +64,6 @@
   --chart-30: 110 85% 70%;
 }
 
-html,
-body {
-  height: 100%;
-}
-
 .chart-pie .recharts-legend-wrapper {
   margin-top: 0;
 }

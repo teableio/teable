@@ -1,6 +1,7 @@
 @import url('@teable/ui-lib/shadcn/global.shadcn.css');
 @import url('nprogress/nprogress.css');
 @import url('@/styles/github-markdown.css');
+@import url('@/features/app/blocks/chart/globals.css');
 
 :root {
   --btn-text-case: none;
