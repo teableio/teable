@@ -136,9 +136,11 @@ export class ComputedDependencyCollectorService {
       .whereIn('f.id', startFieldIds)
       .andWhere('f.type', FieldType.Link)
       .whereNull('f.deleted_time');
-    if (excludeFieldIds?.length) {
-      linkSelf.whereNotIn('f.id', excludeFieldIds);
-    }
+    // Note: we intentionally do NOT exclude starting link fields even if they
+    // are part of the changedFieldIds. We still want to include them in the
+    // impacted set so that their display columns are persisted via
+    // updateFromSelect. The computed orchestrator will independently avoid
+    // publishing ops for base-changed fields (including links).
 
     const unionBuilder = this.knex
       .select('*')
