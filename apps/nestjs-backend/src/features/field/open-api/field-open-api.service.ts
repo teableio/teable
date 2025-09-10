@@ -333,13 +333,16 @@ export class FieldOpenApiService {
     const referenceMap = await this.getFieldReferenceMap(fieldIds);
 
     await this.prismaService.$tx(async () => {
-      await this.fieldViewSyncService.deleteDependenciesByFieldIds(
-        tableId,
-        fields.map((f) => f.id)
-      );
-      for (const field of fields) {
-        await this.fieldDeletingService.alterDeleteField(tableId, field);
-      }
+      const sources = [{ tableId, fieldIds: fields.map((f) => f.id) }];
+      await this.computedOrchestrator.computeCellChangesForFieldsBeforeDelete(sources, async () => {
+        await this.fieldViewSyncService.deleteDependenciesByFieldIds(
+          tableId,
+          fields.map((f) => f.id)
+        );
+        for (const field of fields) {
+          await this.fieldDeletingService.alterDeleteField(tableId, field);
+        }
+      });
     });
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_DELETE, {

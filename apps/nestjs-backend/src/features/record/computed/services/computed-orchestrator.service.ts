@@ -1,5 +1,7 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
 import { IdPrefix, RecordOpBuilder } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual } from 'lodash';
 import { RawOpType } from '../../../../share-db/interface';
 import { BatchService } from '../../../calculation/batch.service';
@@ -10,13 +12,15 @@ import {
   ComputedEvaluatorService,
   type IEvaluatedComputedValues,
 } from './computed-evaluator.service';
+import { buildResultImpact } from './computed-utils';
 
 @Injectable()
 export class ComputedOrchestratorService {
   constructor(
     private readonly collector: ComputedDependencyCollectorService,
     private readonly evaluator: ComputedEvaluatorService,
-    private readonly batchService: BatchService
+    private readonly batchService: BatchService,
+    private readonly prismaService: PrismaService
   ) {}
 
   /**
@@ -116,17 +120,7 @@ export class ComputedOrchestratorService {
     // 5) Publish ops with old/new values
     const total = this.publishOpsWithOldNew(impactMerged, oldValues, newValues, changedFieldIds);
 
-    const resultImpact = Object.entries(impactMerged).reduce<
-      Record<string, { fieldIds: string[]; recordIds: string[] }>
-    >((acc, [tid, group]) => {
-      acc[tid] = {
-        fieldIds: Array.from(group.fieldIds),
-        recordIds: Array.from(group.recordIds),
-      };
-      return acc;
-    }, {});
-
-    return { publishedOps: total, impact: resultImpact };
+    return { publishedOps: total, impact: buildResultImpact(impactMerged) };
   }
 
   /**
@@ -158,17 +152,59 @@ export class ComputedOrchestratorService {
     // For field changes, there are no base cell ops to exclude
     const total = this.publishOpsWithOldNew(impactPre, oldValues, newValues, new Set());
 
-    const resultImpact = Object.entries(impactPre).reduce<
-      Record<string, { fieldIds: string[]; recordIds: string[] }>
-    >((acc, [tid, group]) => {
-      acc[tid] = {
-        fieldIds: Array.from(group.fieldIds),
-        recordIds: Array.from(group.recordIds),
-      };
-      return acc;
-    }, {});
+    return { publishedOps: total, impact: buildResultImpact(impactPre) };
+  }
 
-    return { publishedOps: total, impact: resultImpact };
+  /**
+   * Compute and publish cell changes when fields are being DELETED.
+   * - Collects impacted fields and records based on the fields-to-delete (pre-delete)
+   * - Selects old values
+   * - Executes the provided update callback within the same tx to delete fields and dependencies
+   * - Evaluates new values and publishes ops for impacted fields EXCEPT the deleted ones
+   *   (and any fields that no longer exist after the update, e.g., symmetric link fields).
+   */
+  async computeCellChangesForFieldsBeforeDelete(
+    sources: IFieldChangeSource[],
+    update: () => Promise<void>
+  ): Promise<{
+    publishedOps: number;
+    impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
+  }> {
+    const impactPre = await this.collector.collectForFieldChanges(sources);
+
+    if (!Object.keys(impactPre).length) {
+      await update();
+      return { publishedOps: 0, impact: {} };
+    }
+
+    const oldValues = await this.evaluator.selectValues(impactPre);
+
+    await update();
+
+    // After update, some fields may be deleted; exclude them from publishing.
+    // Also exclude the source (deleted) field ids as they no longer exist.
+    const startFieldIds = new Set<string>(sources.flatMap((s) => s.fieldIds || []));
+
+    const newValues = await this.evaluator.evaluate(impactPre, { versionBaseline: 'current' });
+
+    // Determine which impacted fieldIds were actually deleted (no longer exist post-update)
+    const actuallyDeleted = new Set<string>();
+    for (const [tid, group] of Object.entries(impactPre)) {
+      const ids = Array.from(group.fieldIds);
+      if (!ids.length) continue;
+      const rows = await this.prismaService.txClient().field.findMany({
+        where: { tableId: tid, id: { in: ids }, deletedTime: null },
+        select: { id: true },
+      });
+      const existing = new Set(rows.map((r) => r.id));
+      for (const fid of ids) if (!existing.has(fid)) actuallyDeleted.add(fid);
+    }
+
+    const exclude = new Set<string>([...startFieldIds, ...actuallyDeleted]);
+
+    const total = this.publishOpsWithOldNew(impactPre, oldValues, newValues, exclude);
+
+    return { publishedOps: total, impact: buildResultImpact(impactPre) };
   }
 
   /**
@@ -195,17 +231,7 @@ export class ComputedOrchestratorService {
     const emptyOld: IEvaluatedComputedValues = {};
     const total = this.publishOpsWithOldNew(impact, emptyOld, newValues, new Set());
 
-    const resultImpact = Object.entries(impact).reduce<
-      Record<string, { fieldIds: string[]; recordIds: string[] }>
-    >((acc, [tid, group]) => {
-      acc[tid] = {
-        fieldIds: Array.from(group.fieldIds),
-        recordIds: Array.from(group.recordIds),
-      };
-      return acc;
-    }, {});
-
-    return { publishedOps: total, impact: resultImpact };
+    return { publishedOps: total, impact: buildResultImpact(impact) };
   }
 
   private publishOpsWithOldNew(
