@@ -135,7 +135,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
 
       // For regular lookup fields, use the corresponding link field CTE
-      const { linkFieldId } = field.lookupOptions;
+      const { linkFieldId } = field.lookupOptions as { linkFieldId: string };
       if (linkFieldId && fieldCteMap.has(linkFieldId)) {
         const cteName = fieldCteMap.get(linkFieldId)!;
         const flattenedExpr = this.dialect.flattenLookupCteValue(
@@ -179,15 +179,17 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
       const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
       if (!isPersistedAsGeneratedColumn) {
+        const expression = field.getExpression();
+        const timezone = field.options.timeZone;
         // Return just the expression without alias for use in jsonb_build_object
-        return this.dbProvider.convertFormulaToSelectQuery(field.options.expression, {
+        return this.dbProvider.convertFormulaToSelectQuery(expression, {
           table: this.table,
           tableAlias: this.tableAlias, // Pass table alias to the conversion context
           selectionMap: this.getSelectionMap(),
           // Provide CTE map so formula references can resolve link/lookup/rollup via CTEs directly
           fieldCteMap: this.state.getFieldCteMap(),
           // Pass timezone for date/time function evaluation in SELECT context
-          timeZone: field.options?.timeZone,
+          timeZone: timezone,
         });
       }
       // For generated columns, use table alias if provided

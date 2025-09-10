@@ -5,8 +5,8 @@ import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../../../field/model/factory';
 import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
-import { RecordComputedUpdateService } from './record-computed-update.service';
 import type { IComputedImpactByTable } from './computed-dependency-collector.service';
+import { RecordComputedUpdateService } from './record-computed-update.service';
 
 export interface IEvaluatedComputedValues {
   [tableId: string]: {
@@ -65,13 +65,18 @@ export class ComputedEvaluatorService {
         const { qb, alias } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
           tableIdOrDbTableName: tableId,
           projection: validFieldIds,
+          // Use raw DB projection to avoid formatting (e.g., to_char on timestamptz)
+          rawProjection: true,
         });
 
         const idCol = alias ? `${alias}.__id` : '__id';
         // Use single UPDATE ... FROM ... RETURNING to both persist and fetch values
+        const subQb = qb.whereIn(idCol, recordIds);
+        // Debug hook available if needed:
+        // console.debug('Computed subquery SQL:', subQb.toQuery());
         const rows = await this.recordComputedUpdateService.updateFromSelect(
           tableId,
-          qb.whereIn(idCol, recordIds),
+          subQb,
           fieldInstances
         );
 

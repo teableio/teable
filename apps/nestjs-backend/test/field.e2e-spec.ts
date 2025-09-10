@@ -104,6 +104,27 @@ describe('OpenAPI FieldController (e2e)', () => {
       const fields: IFieldVo[] = await getFields(table1.id);
       expect(fields).toHaveLength(4);
     });
+
+    it('creates Date field with custom formatting and timezone without cast errors', async () => {
+      // Create a few records to ensure computed orchestrator runs updateFromSelect
+      await createRecords(table1.id, { records: [{ fields: {} }, { fields: {} }, { fields: {} }] });
+
+      const fieldRo: IFieldRo = {
+        name: '日期',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'None',
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      };
+
+      const field = await createField(table1.id, fieldRo, 201);
+      expect(field).toBeDefined();
+      expect(field.type).toBe(FieldType.Date);
+    });
   });
 
   describe('should generate default name and options for field', () => {
