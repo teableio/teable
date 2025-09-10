@@ -1,6 +1,6 @@
 import { Label, RadioGroup, RadioGroupItem } from '@teable/ui-lib';
+import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { IChartBaseAxisDisplay } from '../../../../types';
 
 export const YAxisPositionEditor = (props: {
@@ -8,7 +8,7 @@ export const YAxisPositionEditor = (props: {
   onChange: (value: IChartBaseAxisDisplay['position']) => void;
 }) => {
   const { value: position, onChange } = props;
-  const { t } = useTranslation();
+  const { t } = useTranslation(['chart']);
   const positions = useMemo(() => {
     return [
       {
