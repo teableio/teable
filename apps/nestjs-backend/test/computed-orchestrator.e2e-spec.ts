@@ -646,4 +646,270 @@ describe('Computed Orchestrator (e2e)', () => {
     await permanentDeleteTable(baseId, t2.id);
     await permanentDeleteTable(baseId, t1.id);
   });
+
+  it('ManyMany: removing unrelated item should not emit event for unchanged counterpart', async () => {
+    // T1 with two records: 1-1, 1-2
+    const t1 = await createTable(baseId, {
+      name: 'MM_NoChange_T1',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: '1-1' } }, { fields: { Title: '1-2' } }],
+    });
+    // T2 with one record: 2-1
+    const t2 = await createTable(baseId, {
+      name: 'MM_NoChange_T2',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: '2-1' } }],
+    });
+
+    // Create ManyMany link on T1 -> T2; symmetric generated on T2
+    const linkOnT1 = await createField(t1.id, {
+      name: 'L_T2_MM',
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyMany, foreignTableId: t2.id },
+    } as IFieldRo);
+    const t2Fields = await getFields(t2.id);
+    const linkOnT2 = t2Fields.find(
+      (ff) => ff.type === FieldType.Link && (ff as any).options?.foreignTableId === t1.id
+    )!;
+
+    const r1_1 = t1.records[0].id;
+    const r1_2 = t1.records[1].id;
+    const r2_1 = t2.records[0].id;
+
+    // 1) Establish mutual link 1-1 <-> 2-1
+    await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      2
+    )(async () => {
+      await updateRecordByApi(t1.id, r1_1, linkOnT1.id, [{ id: r2_1 }]);
+    });
+
+    // 2) Add 1-2 to 2-1, now 2-1 links [1-1, 1-2]
+    await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      2
+    )(async () => {
+      await updateRecordByApi(t2.id, r2_1, linkOnT2.id, [{ id: r1_1 }, { id: r1_2 }]);
+    });
+
+    // 3) Remove 1-2, keep only 1-1; expect:
+    //    - T2[2-1] changed
+    //    - T1[1-2] changed (removed)
+    //    - T1[1-1] unchanged => SHOULD NOT have a change entry
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      2
+    )(async () => {
+      await updateRecordByApi(t2.id, r2_1, linkOnT2.id, [{ id: r1_1 }]);
+    })) as any;
+
+    const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
+    const recs = Array.isArray(t1Event.payload.record)
+      ? t1Event.payload.record
+      : [t1Event.payload.record];
+
+    const changeOn11 = recs.find((r: any) => r.id === r1_1)?.fields?.[linkOnT1.id];
+    const changeOn12 = recs.find((r: any) => r.id === r1_2)?.fields?.[linkOnT1.id];
+
+    expect(changeOn12).toBeDefined(); // 1-2 removed 2-1
+    expect(changeOn11).toBeUndefined(); // 1-1 unchanged should not have event
+
+    await permanentDeleteTable(baseId, t2.id);
+    await permanentDeleteTable(baseId, t1.id);
+  });
+
+  it('Formula unchanged should not emit computed change', async () => {
+    // T with A and F = {A}*{A}; change A: 1 -> -1, F stays 1
+    const table = await createTable(baseId, {
+      name: 'NoEvent_Formula_NoChange',
+      fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
+      records: [{ fields: { A: 1 } }],
+    });
+    const aId = table.fields.find((f) => f.name === 'A')!.id;
+    const f = await createField(table.id, {
+      name: 'F',
+      type: FieldType.Formula,
+      // F = A*A, so 1 -> -1 leaves F = 1 unchanged
+      options: { expression: `{${aId}} * {${aId}}` },
+    } as IFieldRo);
+
+    // Prime value
+    await updateRecordByApi(table.id, table.records[0].id, aId, 1);
+
+    // Expect a single update event, and it should NOT include a change entry for F
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      1
+    )(async () => {
+      await updateRecordByApi(table.id, table.records[0].id, aId, -1);
+    })) as any;
+
+    const event = payloads[0] as any;
+    const recs = Array.isArray(event.payload.record)
+      ? event.payload.record
+      : [event.payload.record];
+    const change = recs[0]?.fields?.[f.id];
+    expect(change).toBeUndefined();
+
+    await permanentDeleteTable(baseId, table.id);
+  });
+
+  it('Formula referencing formula: base change cascades old/new for all computed', async () => {
+    // T with base A and chained formulas: B={A}+1, C={B}*2, D={C}-{A}
+    const table = await createTable(baseId, {
+      name: 'Formula_Chain',
+      fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
+      records: [{ fields: { A: 2 } }],
+    });
+    const aId = table.fields.find((f) => f.name === 'A')!.id;
+
+    const b = await createField(table.id, {
+      name: 'B',
+      type: FieldType.Formula,
+      options: { expression: `{${aId}} + 1` },
+    } as IFieldRo);
+    const c = await createField(table.id, {
+      name: 'C',
+      type: FieldType.Formula,
+      options: { expression: `{${b.id}} * 2` },
+    } as IFieldRo);
+    const d = await createField(table.id, {
+      name: 'D',
+      type: FieldType.Formula,
+      options: { expression: `{${c.id}} - {${aId}}` },
+    } as IFieldRo);
+
+    // Prime value to 2
+    await updateRecordByApi(table.id, table.records[0].id, aId, 2);
+
+    // Expect a single update event on this table; verify B,C,D old/new
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      1
+    )(async () => {
+      await updateRecordByApi(table.id, table.records[0].id, aId, 3);
+    })) as any;
+
+    const event = payloads[0] as any;
+    expect(event.payload.tableId).toBe(table.id);
+    const rec = Array.isArray(event.payload.record)
+      ? event.payload.record[0]
+      : event.payload.record;
+    const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+
+    // A: 2 -> 3, so B: 3 -> 4, C: 6 -> 8, D: 4 -> 5
+    expect(changes[b.id]).toBeDefined();
+    expect(changes[b.id].oldValue).toEqual(3);
+    expect(changes[b.id].newValue).toEqual(4);
+
+    expect(changes[c.id]).toBeDefined();
+    expect(changes[c.id].oldValue).toEqual(6);
+    expect(changes[c.id].newValue).toEqual(8);
+
+    expect(changes[d.id]).toBeDefined();
+    expect(changes[d.id].oldValue).toEqual(4);
+    expect(changes[d.id].newValue).toEqual(5);
+
+    await permanentDeleteTable(baseId, table.id);
+  });
+
+  it('Cross-table chain: T3.lookup(T2.lookup(T1.formula(A))) updates when A changes', async () => {
+    // T1: A (number), F = A*3
+    const t1 = await createTable(baseId, {
+      name: 'Chain3_T1',
+      fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
+      records: [{ fields: { A: 4 } }],
+    });
+    const aId = t1.fields.find((f) => f.name === 'A')!.id;
+    const f1 = await createField(t1.id, {
+      name: 'F',
+      type: FieldType.Formula,
+      options: { expression: `{${aId}} * 3` },
+    } as IFieldRo);
+    // Prime A
+    await updateRecordByApi(t1.id, t1.records[0].id, aId, 4);
+
+    // T2: link -> T1, LKP2 = lookup(F)
+    const t2 = await createTable(baseId, {
+      name: 'Chain3_T2',
+      fields: [],
+      records: [{ fields: {} }],
+    });
+    const l12 = await createField(t2.id, {
+      name: 'L_T1',
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyMany, foreignTableId: t1.id },
+    } as IFieldRo);
+    const lkp2 = await createField(t2.id, {
+      name: 'LKP2',
+      type: FieldType.Formula,
+      isLookup: true,
+      lookupOptions: { foreignTableId: t1.id, linkFieldId: l12.id, lookupFieldId: f1.id } as any,
+    } as any);
+    await updateRecordByApi(t2.id, t2.records[0].id, l12.id, [{ id: t1.records[0].id }]);
+
+    // T3: link -> T2, LKP3 = lookup(LKP2)
+    const t3 = await createTable(baseId, {
+      name: 'Chain3_T3',
+      fields: [],
+      records: [{ fields: {} }],
+    });
+    const l23 = await createField(t3.id, {
+      name: 'L_T2',
+      type: FieldType.Link,
+      options: { relationship: Relationship.ManyMany, foreignTableId: t2.id },
+    } as IFieldRo);
+    const lkp3 = await createField(t3.id, {
+      name: 'LKP3',
+      type: FieldType.Formula,
+      isLookup: true,
+      lookupOptions: { foreignTableId: t2.id, linkFieldId: l23.id, lookupFieldId: lkp2.id } as any,
+    } as any);
+    await updateRecordByApi(t3.id, t3.records[0].id, l23.id, [{ id: t2.records[0].id }]);
+
+    // Change A: 4 -> 5; then F: 12 -> 15; LKP2: [12] -> [15]; LKP3: [12] -> [15]
+    const { payloads } = (await createAwaitWithEventWithResultWithCount(
+      eventEmitterService,
+      Events.TABLE_RECORD_UPDATE,
+      3
+    )(async () => {
+      await updateRecordByApi(t1.id, t1.records[0].id, aId, 5);
+    })) as any;
+
+    // T1
+    const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
+    const t1Changes = (
+      Array.isArray(t1Event.payload.record) ? t1Event.payload.record[0] : t1Event.payload.record
+    ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+    expect(t1Changes[f1.id]).toBeDefined();
+    expect(t1Changes[f1.id].oldValue).toEqual(12);
+    expect(t1Changes[f1.id].newValue).toEqual(15);
+
+    // T2
+    const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
+    const t2Changes = (
+      Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
+    ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+    expect(t2Changes[lkp2.id]).toBeDefined();
+    expect(t2Changes[lkp2.id].oldValue).toEqual([12]);
+    expect(t2Changes[lkp2.id].newValue).toEqual([15]);
+
+    // T3
+    const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
+    const t3Changes = (
+      Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
+    ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+    expect(t3Changes[lkp3.id]).toBeDefined();
+    expect(t3Changes[lkp3.id].oldValue).toEqual([12]);
+    expect(t3Changes[lkp3.id].newValue).toEqual([15]);
+
+    await permanentDeleteTable(baseId, t3.id);
+    await permanentDeleteTable(baseId, t2.id);
+    await permanentDeleteTable(baseId, t1.id);
+  });
 });
