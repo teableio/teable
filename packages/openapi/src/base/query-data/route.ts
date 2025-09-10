@@ -1,11 +1,6 @@
 import { CellFormat, fieldVoSchema } from '@teable/core';
-import { axios } from '../../axios';
-import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
-import type { IBaseQuery } from './types';
 import { baseQueryColumnTypeSchema, baseQuerySchema } from './types';
-
-export const BASE_QUERY = '/base/{baseId}/query';
 
 export const baseQuerySchemaRo = z.object({
   query: z.string().transform((value, ctx) => {
@@ -46,32 +41,3 @@ export const baseQuerySchemaVo = z.object({
 });
 
 export type IBaseQueryVo = z.infer<typeof baseQuerySchemaVo>;
-
-export const baseQueryRoute = registerRoute({
-  path: BASE_QUERY,
-  method: 'get',
-  description: 'Get base query result',
-  request: {
-    params: z.object({
-      baseId: z.string(),
-    }),
-    query: baseQuerySchemaRo,
-  },
-  responses: {
-    200: {
-      description: 'The sql query result',
-      content: {
-        'application/json': {
-          schema: baseQuerySchemaVo,
-        },
-      },
-    },
-  },
-  tags: ['base'],
-});
-
-export const baseQuery = (baseId: string, query: IBaseQuery, cellFormat?: CellFormat) => {
-  return axios.get<IBaseQueryVo>(urlBuilder(BASE_QUERY, { baseId }), {
-    params: { query: JSON.stringify(query), cellFormat },
-  });
-};
