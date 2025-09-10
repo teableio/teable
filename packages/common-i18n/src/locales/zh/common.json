@@ -687,11 +687,11 @@
         "chatModelDescription": "要使用的聊天模型，提示：中型编码模型默认用于 AI 公式生成和相关功能",
         "chatModels": {
           "sm": "小型聊天模型",
-          "smDescription": "快速高效处理基础任务",
+          "smDescription": "用于场景推荐和简单快速操作等任务",
           "md": "中型聊天模型",
-          "mdDescription": "均衡能力满足常见需求",
+          "mdDescription": "对于需要速度和质量的场景，如创建数据库，建议使用 GPT-4o",
           "lg": "大型聊天模型",
-          "lgDescription": "全面解决方案应对复杂场景"
+          "lgDescription": "对于规划、编码和其他复杂任务场景，建议使用 clade-sonnet-4"
         },
         "chatModelTest": {
           "text": "测试大型模型的能力",
@@ -737,6 +737,48 @@
         "noValidModel": "未找到有效模型",
         "addCustomModel": "添加自定义模型",
         "isOpenRouter": "OpenRouter"
+      }
+    },
+    "action": {
+      "goToConfiguration": "前往配置"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "感谢您使用 teable",
+      "pleaseGoToConfiguration": "请前往设置页面完成一些初始配置，以享受 teable 的完整功能和更好的用户体验"
+    },
+    "configuration": {
+      "title": "待配置项",
+      "description": "完成这些配置以获得完整功能",
+      "copyInstance": "复制 ID",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN 环境变量",
+          "description": "您的 <strong>PUBLIC_ORIGIN</strong> 环境变量配置与当前访问地址 <underline>https://example.com</underline> 不匹配，导入 xlsx、csv 和附件字段功能可能无法正常工作，建议设置为 <underline>https://example.com</underline>"
+        },
+        "https": {
+          "title": "启用 HTTPS",
+          "description": "您尚未启用 HTTPS，大规模复制（300行或更多）功能将不可用，建议启用。"
+        },
+        "databaseProxy": {
+          "title": "PUBLIC_DATABASE_PROXY 环境变量",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> 未配置，外部数据库连接功能将不可用，请参考<a>帮助文档</a>",
+          "href": "https://help.teable.ai/zh/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "您尚未配置 AI LLM API，AI 聊天/AI 自动化将无法使用，<anchor>前往设置</anchor>",
+          "errorTips": "您尚未配置 AI LLM API，AI 聊天/AI 自动化将无法使用"
+        },
+        "v0": {
+          "title": "V0 API",
+          "description": "V0 API 未配置，AI 聊天/AI 自动化将无法使用，<anchor>前往设置</anchor>",
+          "errorTips": "V0 API 未配置，AI 聊天/AI 自动化将无法使用"
+        },
+        "email": {
+          "title": "邮箱",
+          "description": "未配置邮箱，自助密码恢复和邮件通知功能将不可用，<anchor>前往设置</anchor>",
+          "errorTips": "未配置邮箱，自助密码恢复、邮箱验证/通知功能将不可用"
+        }
       }
     }
   },

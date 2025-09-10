@@ -39,6 +39,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storage: omitBy(storage, isUndefined),
         passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true' ? true : undefined,
+        publicDatabaseProxy: process.env.PUBLIC_DATABASE_PROXY,
         // default to Infinity, return undefined causing the value will be transformed to null when json-stringify
         maxSearchFieldCount:
           isNaN(envMaxSearchFieldCount) || envMaxSearchFieldCount === Infinity

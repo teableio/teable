@@ -1,4 +1,4 @@
-import { Loader2 } from '@teable/icons';
+import { Loader2, Image, File } from '@teable/icons';
 import {
   chatModelAbilityType,
   type IAIIntegrationConfig,
@@ -6,17 +6,9 @@ import {
 } from '@teable/openapi';
 import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import {
-  TooltipContent,
-  TooltipPortal,
-  TooltipProvider,
-  TooltipTrigger,
-  Tooltip as ShadTooltip,
-  Button,
-  cn,
-} from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Cpu, Code, Zap } from 'lucide-react';
+import { Cpu, Code, Zap, Globe } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
@@ -43,6 +35,14 @@ export const CodingModels = ({
   const [showEnableAIModal, setShowEnableAIModal] = useState(false);
   const [pendingModel, setPendingModel] = useState<string>('');
   const [isTestingModel, setIsTestingModel] = useState(false);
+
+  const iconMap = useMemo(() => {
+    return {
+      image: <Image className="size-4" />,
+      pdf: <File className="size-4" />,
+      webSearch: <Globe className="size-4" />,
+    };
+  }, []);
 
   const handleLgModelChange = async (model: string) => {
     // Show test modal when lg model is selected
@@ -152,13 +152,14 @@ export const CodingModels = ({
   return (
     <div className="flex flex-1 flex-col gap-2">
       {(['lg', 'md', 'sm'] as const).map((key) => (
-        <div key={key} className="relative flex items-center gap-2">
+        <div key={key} className="relative flex flex-col gap-2">
           <div className="flex shrink-0 items-center gap-2 truncate text-sm">
             {icons[key]}
-            <Tooltip content={t(`admin.setting.ai.chatModels.${key}Description`)}>
-              <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
-            </Tooltip>
+            <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
             {key === 'lg' && <div className="h-4 text-red-500">*</div>}
+          </div>
+          <div className="text-left text-xs text-zinc-500">
+            {t(`admin.setting.ai.chatModels.${key}Description`)}
           </div>
 
           <AIModelSelect
@@ -200,79 +201,71 @@ export const CodingModels = ({
         onCancel={handleEnableAICancel}
       />
       <div className="flex items-center gap-2">
-        <div className="flex w-32 shrink-0 items-center gap-2 truncate text-sm">
-          <span>{t('admin.setting.ai.chatModelAbility.lgModelAbility')}</span>
-        </div>
-        <div className="flex flex-1 items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            {Object.values(chatModelAbilityType.Values).map((type) => (
-              <div
-                key={type}
-                className="flex items-center gap-1 rounded-md border px-1 py-0.5 text-xs"
+        <div className="flex flex-1 flex-col items-center justify-between gap-4 pt-2">
+          <div className="flex w-full shrink-0 items-center justify-between gap-2 truncate text-sm">
+            <span>{t('admin.setting.ai.chatModelAbility.lgModelAbility')}</span>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="xs"
+                className="relative ml-2"
+                variant="outline"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (testChatModelAbilityLoading) {
+                    return;
+                  }
+                  const res = await testChatModelAbility(value);
+                  onChange({ ...value, ability: res || {} });
+                }}
               >
-                <span>{value?.ability?.[type] ? '✅' : '❌'}</span>
-                <span>{t(`admin.setting.ai.chatModelAbility.${type}`)}</span>
-              </div>
-            ))}
+                {testChatModelAbilityLoading && (
+                  <Loader2 className="absolute size-4 animate-spin" />
+                )}
+                <span
+                  className={cn({
+                    'opacity-40': testChatModelAbilityLoading,
+                  })}
+                >
+                  {t(`admin.setting.ai.chatModelTest.text`)}
+                </span>
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={!value?.ability?.webSearch}
+                onClick={() => {
+                  onChange({
+                    ...value,
+                    ability: {
+                      ...value?.ability,
+                      webSearch: false,
+                    },
+                  });
+                }}
+              >
+                {t('admin.setting.ai.chatModelAbility.disabledWebSearch')}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="xs"
-              className="relative ml-2"
-              variant="outline"
-              onClick={async (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                if (testChatModelAbilityLoading) {
-                  return;
-                }
-                const res = await testChatModelAbility(value);
-                onChange({ ...value, ability: res || {} });
-              }}
-            >
-              {testChatModelAbilityLoading && <Loader2 className="absolute size-4 animate-spin" />}
-              <span
-                className={cn({
-                  'opacity-40': testChatModelAbilityLoading,
-                })}
+
+          <div className="flex w-full items-center gap-2">
+            {Object.values(chatModelAbilityType.Values).map((type) => (
+              <Button
+                key={type}
+                variant="outline"
+                size="sm"
+                className="flex w-full items-center gap-1 rounded-md border px-1 py-0.5 text-xs"
+                disabled={!value?.ability?.[type]}
               >
-                {t(`admin.setting.ai.chatModelTest.text`)}
-              </span>
-            </Button>
-            <Button
-              size="xs"
-              variant="ghost"
-              disabled={!value?.ability?.webSearch}
-              onClick={() => {
-                onChange({
-                  ...value,
-                  ability: {
-                    ...value?.ability,
-                    webSearch: false,
-                  },
-                });
-              }}
-            >
-              {t('admin.setting.ai.chatModelAbility.disabledWebSearch')}
-            </Button>
+                {iconMap[type]}
+                <span>{t(`admin.setting.ai.chatModelAbility.${type}`)}</span>
+              </Button>
+            ))}
           </div>
         </div>
       </div>
     </div>
-  );
-};
-
-const Tooltip = ({ children, content }: { children: React.ReactNode; content: string }) => {
-  return (
-    <TooltipProvider>
-      <ShadTooltip>
-        <TooltipTrigger asChild>
-          <div>{children}</div>
-        </TooltipTrigger>
-        <TooltipPortal>
-          <TooltipContent>{content}</TooltipContent>
-        </TooltipPortal>
-      </ShadTooltip>
-    </TooltipProvider>
   );
 };

@@ -48,13 +48,8 @@ export const AIModelPreferencesCard = ({
           name={'chatModel'}
           render={({ field }) => (
             <FormItem>
-              <div className="flex justify-between">
-                <FormLabel className="w-1/3">
-                  {t(`admin.setting.ai.chatModel`)}
-                  <FormDescription className="mt-2">
-                    {t(`admin.setting.ai.chatModelDescription`)}
-                  </FormDescription>
-                </FormLabel>
+              <div className="flex w-full flex-col justify-between">
+                <FormLabel className="pb-2">{t(`admin.setting.ai.chatModel`)}</FormLabel>
 
                 <div className="flex flex-1 space-x-2">
                   <FormControl className="grow">
@@ -81,14 +76,14 @@ export const AIModelPreferencesCard = ({
           name="embeddingModel"
           render={({ field }) => (
             <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel className="w-1/3">
-                  {t('admin.setting.ai.embeddingModel')}
-                  <FormDescription className="mt-2">
+              <div className="flex flex-col items-center justify-between">
+                <FormLabel className="flex w-full flex-col items-start justify-start gap-2">
+                  <span>{t('admin.setting.ai.embeddingModel')}</span>
+                  <FormDescription className="text-left text-xs text-zinc-500">
                     {t('admin.setting.ai.embeddingModelDescription')}
                   </FormDescription>
                 </FormLabel>
-                <div className="flex w-2/3 space-x-2">
+                <div className="flex w-full space-x-2 pt-2">
                   <FormControl className="grow">
                     <AIModelSelect
                       value={field.value ?? ''}

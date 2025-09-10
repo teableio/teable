@@ -692,11 +692,11 @@
         "chatModelDescription": "The chat model to use, Tips: md model default used for AI formula generation and related features",
         "chatModels": {
           "sm": "Small chat model",
-          "smDescription": "Fast and efficient for basic tasks.",
+          "smDescription": "Used for tasks such as scene recommendation and simple quick operations",
           "md": "Medium chat model",
-          "mdDescription": "Balanced capability for common needs.",
+          "mdDescription": "For scenarios that require speed and quality, such as creating Base, it is recommended to use GPT-4o",
           "lg": "Large chat model",
-          "lgDescription": "Comprehensive solutions for complex scenarios."
+          "lgDescription": "For planning, coding, and other complex task scenarios, it is recommended to use clade-sonnet-4"
         },
         "chatModelTest": {
           "text": "Test Model ability of lg model",
@@ -742,6 +742,48 @@
         "noValidModel": "No valid model found",
         "addCustomModel": "Add custom model",
         "isOpenRouter": "OpenRouter"
+      }
+    },
+    "action": {
+      "goToConfiguration": "Go to configuration"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Thank you for using teable",
+      "pleaseGoToConfiguration": "Please go to the settings page to complete some initial configurations to enjoy the full functionality and a better user experience of teable"
+    },
+    "configuration": {
+      "title": "Pending configuration",
+      "description": "Complete those configuration to get full features",
+      "copyInstance": "Copy ID",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN environment variable",
+          "description": "Your <strong>PUBLIC_ORIGIN</strong> environment variable configuration does not match the current access address <underline>https://example.com</underline>, import xlsx, csv, and attachment field functions may not work normally, it is recommended to set it to <underline>https://example.com</underline>"
+        },
+        "https": {
+          "title": "Enable https",
+          "description": "You have not enabled HTTPS, the large-scale copy (300 lines or more) feature will not be available, and it is recommended to enable it."
+        },
+        "databaseProxy": {
+          "title": "PUBLIC_DATABASE_PROXY environment variable",
+          "description": "The <strong>PUBLIC_DATABASE_PROXY</strong> is not configured, the external database connection feature will not be available, please refer to the <a>help document</a>",
+          "href": "https://help.teable.ai/en/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
+          "errorTips": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable"
+        },
+        "v0": {
+          "title": "V0 API",
+          "description": "The V0 API is not configured, the AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
+          "errorTips": "The V0 API is not configured, the AI Chat/ AI automation will not be usable"
+        },
+        "email": {
+          "title": "Email",
+          "description": "No email configured, self-service password recovery, and email notification function will not be available, <anchor>go to setting</anchor>",
+          "errorTips": "No email configured, self-service password recovery, and email validation / notification function will not be available"
+        }
       }
     }
   },

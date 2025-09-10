@@ -32,6 +32,7 @@ export interface IServerEnv {
   maxSearchFieldCount?: number;
   chatContextAttachmentSize?: number;
   publicOrigin?: string;
+  publicDatabaseProxy?: string;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

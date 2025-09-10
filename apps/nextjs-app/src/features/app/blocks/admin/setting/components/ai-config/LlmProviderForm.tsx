@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from '@teable/icons';
+import { Loader2, Plus } from '@teable/icons';
 import type { ITestLLMVo, LLMProvider } from '@teable/openapi/src/admin/setting';
 import { llmProviderSchema, LLMProviderType } from '@teable/openapi/src/admin/setting';
 import {
@@ -79,7 +79,8 @@ export const NewLLMProviderForm = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children ?? (
-          <Button size="sm" variant="secondary">
+          <Button size="sm" variant="outline" className="gap-2">
+            <Plus className="size-4" />
             {t('admin.setting.ai.addProvider')}
           </Button>
         )}

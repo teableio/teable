@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useMutation } from '@tanstack/react-query';
+import { Plus } from '@teable/icons';
 import { uploadLogo } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { useToast } from '@teable/ui-lib/shadcn';
@@ -62,7 +63,7 @@ export const BrandingLogo = (props: { value?: string }) => {
             </div>
           ) : (
             <div className="flex size-14 items-center justify-center rounded-md border border-border">
-              {isLoading ? <Spin /> : t('common:admin.setting.brandingSettings.logoUpload')}
+              {isLoading ? <Spin /> : <Plus className="size-8 text-foreground" />}
             </div>
           )}
           <div className="absolute left-0 top-0 size-full rounded-md bg-transparent group-hover:bg-muted-foreground/20" />

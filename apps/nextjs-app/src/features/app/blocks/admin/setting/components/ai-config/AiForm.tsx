@@ -46,6 +46,7 @@ export function AIConfigForm({
     defaultValues: defaultValues,
   });
   const llmProviders = form.watch('llmProviders') ?? [];
+  const enable = form.watch('enable');
   const models = generateModelKeyList(llmProviders);
   const { reset } = form;
   const { t } = useTranslation(['common', 'space']);
@@ -74,13 +75,6 @@ export function AIConfigForm({
 
   const switchEnable =
     !aiConfig?.chatModel?.lg || !models.some((model) => model.modelKey === aiConfig?.chatModel?.lg);
-
-  // useEffect(() => {
-  //   if (switchEnable && form.getValues('enable')) {
-  //     form.setValue('enable', false);
-  //     onSubmit(form.getValues());
-  //   }
-  // }, [form, onSubmit, switchEnable]);
 
   const onTestChatModelAbility = async (chatModel: IAIIntegrationConfig['chatModel']) => {
     const testModelKey = chatModel?.lg;
@@ -148,6 +142,12 @@ export function AIConfigForm({
           )}
         />
         <AIProviderCard control={form.control} onChange={updateProviders} onTest={onTest} />
+        {!enable && (
+          <div className="!mt-2 text-xs text-red-500">
+            {t('admin.configuration.list.llmApi.errorTips')}
+          </div>
+        )}
+
         <AIModelPreferencesCard
           control={form.control}
           models={models}
@@ -158,6 +158,11 @@ export function AIConfigForm({
             onSubmit(form.getValues());
           }}
         />
+        {!llmProviders?.length && (
+          <div className="!mt-2 text-xs text-red-500">
+            {t('admin.configuration.list.llmApi.errorTips')}
+          </div>
+        )}
       </form>
     </Form>
   );

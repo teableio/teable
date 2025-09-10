@@ -17,7 +17,7 @@ export const Branding = ({
   const [name, setName] = useState(brandName || '');
 
   return (
-    <div className="py-4">
+    <div className="pb-6">
       <h2 className="mb-4 text-lg font-medium">{t('admin.setting.brandingSettings.title')}</h2>
       <div className="flex w-full flex-col space-y-4">
         <div className="space-y-2 rounded-lg border p-4 shadow-sm">

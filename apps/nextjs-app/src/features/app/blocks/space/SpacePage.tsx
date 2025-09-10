@@ -10,6 +10,7 @@ import { useSetting } from '../../hooks/useSetting';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { useSpaceSubscriptionMonitor } from '../billing/useSpaceSubscriptionMonitor';
 import { EmptySpacePlaceholder } from './EmptySpacePlaceholder';
+import { FreshSettingGuideDialog } from './FreshSettingGuideDialog';
 import { RecentlyBase } from './RecentlyBase';
 import { SpaceCard } from './SpaceCard';
 import { useBaseList } from './useBaseList';
@@ -83,6 +84,7 @@ export const SpacePage: FC = () => {
           />
         ))}
       </div>
+      <FreshSettingGuideDialog />
     </div>
   );
 };
