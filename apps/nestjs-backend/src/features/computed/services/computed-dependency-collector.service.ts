@@ -6,6 +6,7 @@ import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import type { ICellContext } from '../../calculation/utils/changes';
 
 export interface ICellBasicContext {
   recordId: string;
@@ -76,7 +77,8 @@ export class ComputedDependencyCollectorService {
    * Returns a map: tableId -> Set<fieldId>
    */
   private async collectDependentFieldsByTable(
-    startFieldIds: string[]
+    startFieldIds: string[],
+    excludeFieldIds?: string[]
   ): Promise<Record<string, Set<string>>> {
     if (!startFieldIds.length) return {};
 
@@ -103,6 +105,9 @@ export class ComputedDependencyCollectorService {
           .orWhere('f.type', FieldType.Formula)
           .orWhere('f.type', FieldType.Rollup);
       });
+    if (excludeFieldIds?.length) {
+      depBuilder.whereNotIn('dep_graph.to_field_id', excludeFieldIds);
+    }
 
     // Also consider the changed Link fields themselves as impacted via UNION at SQL level.
     const linkSelf = this.knex
@@ -111,6 +116,9 @@ export class ComputedDependencyCollectorService {
       .whereIn('f.id', startFieldIds)
       .andWhere('f.type', FieldType.Link)
       .whereNull('f.deleted_time');
+    if (excludeFieldIds?.length) {
+      linkSelf.whereNotIn('f.id', excludeFieldIds);
+    }
 
     const unionBuilder = this.knex
       .select('*')
@@ -209,14 +217,18 @@ export class ComputedDependencyCollectorService {
    *   the changed records through any link field on the target table that points to the changed table.
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async collect(tableId: string, ctxs: ICellBasicContext[]): Promise<IComputedImpactByTable> {
+  async collect(
+    tableId: string,
+    ctxs: ICellContext[],
+    excludeFieldIds?: string[]
+  ): Promise<IComputedImpactByTable> {
     if (!ctxs.length) return {};
 
     const changedFieldIds = Array.from(new Set(ctxs.map((c) => c.fieldId)));
     const changedRecordIds = Array.from(new Set(ctxs.map((c) => c.recordId)));
 
     // 1) Transitive dependents grouped by table (SQL CTE + join field)
-    const depByTable = await this.collectDependentFieldsByTable(changedFieldIds);
+    const depByTable = await this.collectDependentFieldsByTable(changedFieldIds, excludeFieldIds);
     const impact: IComputedImpactByTable = Object.entries(depByTable).reduce((acc, [tid, fset]) => {
       acc[tid] = { fieldIds: new Set(fset), recordIds: new Set<string>() };
       return acc;
@@ -235,6 +247,9 @@ export class ComputedDependencyCollectorService {
       select: { id: true, tableId: true, options: true },
     });
 
+    // Record planned foreign recordIds per foreign table based on incoming link cell new/old values
+    const plannedForeignRecordIds: Record<string, Set<string>> = {};
+
     for (const lf of linkFields) {
       type ILinkOptionsWithSymmetric = ILinkFieldOptions & { symmetricFieldId?: string };
       const optsLoose = this.parseOptionsLoose<ILinkOptionsWithSymmetric>(lf.options);
@@ -248,6 +263,26 @@ export class ComputedDependencyCollectorService {
           fieldIds: new Set<string>(),
           recordIds: new Set<string>(),
         }).fieldIds.add(symmetricFieldId);
+
+        // Also pre-seed foreign impacted recordIds using planned link targets
+        // Extract ids from both oldValue and newValue to cover add/remove
+        const targetIds = new Set<string>();
+        for (const ctx of ctxs) {
+          if (ctx.fieldId !== lf.id) continue;
+          const toIds = (v: unknown) => {
+            if (!v) return [] as string[];
+            const arr = Array.isArray(v) ? v : [v];
+            return arr
+              .map((x) => (x && typeof x === 'object' ? (x as { id?: string }).id : undefined))
+              .filter((id): id is string => !!id);
+          };
+          toIds(ctx.oldValue).forEach((id) => targetIds.add(id));
+          toIds(ctx.newValue).forEach((id) => targetIds.add(id));
+        }
+        if (targetIds.size) {
+          const set = (plannedForeignRecordIds[foreignTableId] ||= new Set<string>());
+          targetIds.forEach((id) => set.add(id));
+        }
       }
     }
     if (!Object.keys(impact).length) return {};
@@ -255,6 +290,12 @@ export class ComputedDependencyCollectorService {
     // 3) Compute impacted recordIds per table with multi-hop propagation
     // Seed with origin changed records
     const recordSets: Record<string, Set<string>> = { [tableId]: new Set(changedRecordIds) };
+    // Seed foreign tables with planned link targets so impact includes them even before DB write
+    for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
+      if (!ids.size) continue;
+      const set = (recordSets[tid] ||= new Set<string>());
+      ids.forEach((id) => set.add(id));
+    }
     // Build adjacency restricted to impacted tables + origin
     const impactedTables = Array.from(new Set([...Object.keys(impact), tableId]));
     const adj = await this.getTableLinkAdjacency(impactedTables);

@@ -922,7 +922,8 @@ export class LinkService {
     fieldMapByTableId: { [tableId: string]: IFieldMap },
     linkContexts: ILinkCellContext[],
     cellContexts: ICellContext[],
-    fromReset?: boolean
+    fromReset?: boolean,
+    persistFk: boolean = true
   ): Promise<{
     cellChanges: ICellChange[];
     fkRecordMap: IFkRecordMap;
@@ -952,7 +953,9 @@ export class LinkService {
       originRecordMapByTableId,
       updatedRecordMapByTableId
     );
-    await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
+    if (persistFk) {
+      await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
+    }
     return {
       cellChanges,
       fkRecordMap,
@@ -1453,8 +1456,64 @@ export class LinkService {
       fieldMapByTableId,
       linkContexts,
       cellContexts,
-      fromReset
+      fromReset,
+      true
     );
+  }
+
+  /**
+   * Plan link derivations without persisting foreign keys.
+   * Returns the same derivation structure as getDerivateByLink but does NOT
+   * call saveForeignKeyToDb. Useful when consumers need to capture old values
+   * for computed events before the FK writes are visible in the same tx.
+   */
+  async planDerivateByLink(
+    tableId: string,
+    cellContexts: ICellContext[],
+    fromReset?: boolean
+  ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkRecordMap } | undefined> {
+    const linkLikeContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
+    if (!linkLikeContexts.length) {
+      return undefined;
+    }
+    const fieldIds = linkLikeContexts.map((ctx) => ctx.fieldId);
+    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMap = fieldMapByTableId[tableId];
+    const linkContexts = linkLikeContexts.filter((ctx) => {
+      if (!fieldMap[ctx.fieldId]) {
+        return false;
+      }
+      if (fieldMap[ctx.fieldId].type !== FieldType.Link || fieldMap[ctx.fieldId].isLookup) {
+        return false;
+      }
+      return true;
+    });
+
+    const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
+
+    const derivate = await this.getDerivateByCellContexts(
+      tableId,
+      tableId2DbTableName,
+      fieldMapByTableId,
+      linkContexts,
+      cellContexts,
+      fromReset,
+      false
+    );
+
+    return derivate as { cellChanges: ICellChange[]; fkRecordMap: IFkRecordMap };
+  }
+
+  /**
+   * Persist foreign key changes previously planned via planDerivateByLink.
+   * Rebuilds the necessary field map and writes junction table updates.
+   */
+  async commitForeignKeyChanges(tableId: string, fkRecordMap?: IFkRecordMap): Promise<void> {
+    if (!fkRecordMap || !Object.keys(fkRecordMap).length) return;
+    const fieldIds = Object.keys(fkRecordMap);
+    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMap = fieldMapByTableId[tableId];
+    await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
   }
 
   private parseFkRecordItemToDelete(

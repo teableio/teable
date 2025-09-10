@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IdPrefix, RecordOpBuilder } from '@teable/core';
+import { isEqual } from 'lodash';
 import { RawOpType } from '../../../share-db/interface';
 import { BatchService } from '../../calculation/batch.service';
 import type { ICellContext } from '../../calculation/utils/changes';
@@ -58,11 +59,17 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
+    // Collect base changed field ids to avoid re-publishing base ops via computed
+    const changedFieldIds = new Set<string>();
+    for (const s of filtered) {
+      for (const ctx of s.cellContexts) changedFieldIds.add(ctx.fieldId);
+    }
+
     // 1) Collect impact per source and merge once
+    const exclude = Array.from(changedFieldIds);
     const impacts = await Promise.all(
       filtered.map(async ({ tableId, cellContexts }) => {
-        const basicCtx = cellContexts.map((c) => ({ recordId: c.recordId, fieldId: c.fieldId }));
-        return this.collector.collect(tableId, basicCtx);
+        return this.collector.collect(tableId, cellContexts, exclude);
       })
     );
 
@@ -106,7 +113,7 @@ export class ComputedOrchestratorService {
     const newValues = await this.evaluator.evaluate(impactMerged);
 
     // 5) Publish ops with old/new values
-    const total = this.publishOpsWithOldNew(impactMerged, oldValues, newValues);
+    const total = this.publishOpsWithOldNew(impactMerged, oldValues, newValues, changedFieldIds);
 
     const resultImpact = Object.entries(impactMerged).reduce<
       Record<string, { fieldIds: string[]; recordIds: string[] }>
@@ -124,25 +131,48 @@ export class ComputedOrchestratorService {
   private publishOpsWithOldNew(
     impact: Awaited<ReturnType<typeof this.collector.collect>>,
     oldVals: IEvaluatedComputedValues,
-    newVals: IEvaluatedComputedValues
+    newVals: IEvaluatedComputedValues,
+    changedFieldIds: Set<string>
   ) {
     const tasks = Object.keys(impact).map((tid) => {
       const recordsNew = newVals[tid] || {};
-      const recordIds = Object.keys(recordsNew);
-      if (!recordIds.length) return 0;
+      const recordsOld = oldVals[tid] || {};
+      const recordIdSet = new Set<string>([...Object.keys(recordsNew), ...Object.keys(recordsOld)]);
+      if (!recordIdSet.size) return 0;
 
-      const opDataList = recordIds
+      const impactedFieldIds = impact[tid]?.fieldIds || new Set<string>();
+
+      const opDataList = Array.from(recordIdSet)
         .map((rid) => {
-          const { version, fields } = recordsNew[rid];
-          const fieldsOld = oldVals[tid]?.[rid]?.fields || {};
-          const ops = Object.keys(fields).map((fid) =>
-            RecordOpBuilder.editor.setRecord.build({
-              fieldId: fid,
-              oldCellValue: fieldsOld[fid],
-              newCellValue: fields[fid],
+          const version = recordsNew[rid]?.version ?? recordsOld[rid]?.version;
+          const fieldsNew = recordsNew[rid]?.fields || {};
+          const fieldsOld = recordsOld[rid]?.fields || {};
+          // candidate fields: union of new/old keys, further limited to impacted set
+          const unionKeys = new Set<string>([...Object.keys(fieldsNew), ...Object.keys(fieldsOld)]);
+          const fieldIds = Array.from(unionKeys).filter((fid) => impactedFieldIds.has(fid));
+
+          const ops = fieldIds
+            .filter((fid) => !changedFieldIds.has(fid))
+            .map((fid) => {
+              const oldCellValue = fieldsOld[fid];
+              // When new map is missing a field that existed before, treat as null (deletion)
+              const hasNew = Object.prototype.hasOwnProperty.call(fieldsNew, fid);
+              const newCellValue = hasNew
+                ? fieldsNew[fid]
+                : oldCellValue !== undefined
+                  ? null
+                  : undefined;
+              if (newCellValue === undefined && oldCellValue === undefined) return undefined;
+              if (isEqual(newCellValue, oldCellValue)) return undefined;
+              return RecordOpBuilder.editor.setRecord.build({
+                fieldId: fid,
+                oldCellValue,
+                newCellValue,
+              });
             })
-          );
-          if (version == null) return null;
+            .filter(Boolean) as ReturnType<typeof RecordOpBuilder.editor.setRecord.build>[];
+
+          if (version == null || ops.length === 0) return null;
           return { docId: rid, version, data: ops, count: ops.length } as const;
         })
         .filter(Boolean) as { docId: string; version: number; data: unknown; count: number }[];

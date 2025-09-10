@@ -10,6 +10,7 @@ import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
+import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-maps';
 import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { RecordService } from '../record.service';
@@ -76,12 +77,18 @@ export class RecordUpdateService {
       );
 
       const ctxs = await this.shared.generateCellContexts(tableId, fieldKeyType, preparedRecords);
-      await this.linkService.getDerivateByLink(tableId, ctxs);
+      const linkDerivate = await this.linkService.planDerivateByLink(tableId, ctxs);
       const changes = await this.shared.compressAndFilterChanges(tableId, ctxs);
-      const opsMap = this.shared.formatChangesToOps(changes);
+      const opsMap: IOpsMap = this.shared.formatChangesToOps(changes);
+      const linkOpsMap: IOpsMap | undefined = linkDerivate?.cellChanges?.length
+        ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
+        : undefined;
+      // Compose base ops with link-derived ops so symmetric link updates are also published
+      const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
       // Publish computed/link/lookup changes with old/new by wrapping the base update
       await this.computedOrchestrator.run(tableId, ctxs, async () => {
-        await this.batchService.updateRecords(opsMap);
+        await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
+        await this.batchService.updateRecords(composedOpsMap);
       });
       return ctxs;
     });
@@ -137,11 +144,16 @@ export class RecordUpdateService {
       fieldKeyType,
       preparedRecords
     );
-    await this.linkService.getDerivateByLink(tableId, cellContexts);
+    const linkDerivate = await this.linkService.planDerivateByLink(tableId, cellContexts);
     const changes = await this.shared.compressAndFilterChanges(tableId, cellContexts);
-    const opsMap = this.shared.formatChangesToOps(changes);
+    const opsMap: IOpsMap = this.shared.formatChangesToOps(changes);
+    const linkOpsMap: IOpsMap | undefined = linkDerivate?.cellChanges?.length
+      ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
+      : undefined;
+    const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
     await this.computedOrchestrator.run(tableId, cellContexts, async () => {
-      await this.batchService.updateRecords(opsMap);
+      await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
+      await this.batchService.updateRecords(composedOpsMap);
     });
     return cellContexts;
   }
