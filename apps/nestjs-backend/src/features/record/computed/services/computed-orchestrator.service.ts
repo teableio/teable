@@ -5,6 +5,7 @@ import { RawOpType } from '../../../../share-db/interface';
 import { BatchService } from '../../../calculation/batch.service';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
+import type { IFieldChangeSource } from './computed-dependency-collector.service';
 import {
   ComputedEvaluatorService,
   type IEvaluatedComputedValues,
@@ -116,6 +117,85 @@ export class ComputedOrchestratorService {
     const total = this.publishOpsWithOldNew(impactMerged, oldValues, newValues, changedFieldIds);
 
     const resultImpact = Object.entries(impactMerged).reduce<
+      Record<string, { fieldIds: string[]; recordIds: string[] }>
+    >((acc, [tid, group]) => {
+      acc[tid] = {
+        fieldIds: Array.from(group.fieldIds),
+        recordIds: Array.from(group.recordIds),
+      };
+      return acc;
+    }, {});
+
+    return { publishedOps: total, impact: resultImpact };
+  }
+
+  /**
+   * Compute and publish cell changes when field definitions are UPDATED.
+   * - Collects impacted fields and records based on changed field ids (pre-update)
+   * - Selects old values
+   * - Executes the provided update callback within the same tx (schema/meta update)
+   * - Evaluates new values via updateFromSelect and publishes ops
+   */
+  async computeCellChangesForFields(
+    sources: IFieldChangeSource[],
+    update: () => Promise<void>
+  ): Promise<{
+    publishedOps: number;
+    impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
+  }> {
+    const impactPre = await this.collector.collectForFieldChanges(sources);
+
+    // If nothing impacted, still run update
+    if (!Object.keys(impactPre).length) {
+      await update();
+      return { publishedOps: 0, impact: {} };
+    }
+
+    const oldValues = await this.evaluator.selectValues(impactPre);
+    await update();
+    const newValues = await this.evaluator.evaluate(impactPre, { versionBaseline: 'current' });
+
+    // For field changes, there are no base cell ops to exclude
+    const total = this.publishOpsWithOldNew(impactPre, oldValues, newValues, new Set());
+
+    const resultImpact = Object.entries(impactPre).reduce<
+      Record<string, { fieldIds: string[]; recordIds: string[] }>
+    >((acc, [tid, group]) => {
+      acc[tid] = {
+        fieldIds: Array.from(group.fieldIds),
+        recordIds: Array.from(group.recordIds),
+      };
+      return acc;
+    }, {});
+
+    return { publishedOps: total, impact: resultImpact };
+  }
+
+  /**
+   * Compute and publish cell changes when new fields are CREATED within the same tx.
+   * - Executes the provided update callback first to persist new field definitions.
+   * - Collects impacted fields/records post-update (includes the new fields themselves).
+   * - Evaluates new values via updateFromSelect and publishes ops (old values are empty).
+   */
+  async computeCellChangesForFieldsAfterCreate(
+    sources: IFieldChangeSource[],
+    update: () => Promise<void>
+  ): Promise<{
+    publishedOps: number;
+    impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
+  }> {
+    await update();
+
+    const impact = await this.collector.collectForFieldChanges(sources);
+    if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
+
+    const newValues = await this.evaluator.evaluate(impact, { versionBaseline: 'current' });
+
+    // Publish ops comparing against empty old-values map
+    const emptyOld: IEvaluatedComputedValues = {};
+    const total = this.publishOpsWithOldNew(impact, emptyOld, newValues, new Set());
+
+    const resultImpact = Object.entries(impact).reduce<
       Record<string, { fieldIds: string[]; recordIds: string[] }>
     >((acc, [tid, group]) => {
       acc[tid] = {

@@ -34,6 +34,7 @@ import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { GraphService } from '../../graph/graph.service';
+import { ComputedOrchestratorService } from '../../record/computed/services/computed-orchestrator.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../../record/query-builder';
 import { RecordService } from '../../record/record.service';
@@ -47,6 +48,7 @@ import { FieldSupplementService } from '../field-calculate/field-supplement.serv
 import { FieldViewSyncService } from '../field-calculate/field-view-sync.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
+import { convertFieldInstanceToFieldVo } from '../model/factory';
 import {
   createFieldInstanceByRaw,
   createFieldInstanceByVo,
@@ -74,7 +76,8 @@ export class FieldOpenApiService {
     private readonly recordOpenApiService: RecordOpenApiService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
+    private readonly computedOrchestrator: ComputedOrchestratorService
   ) {}
 
   async planField(tableId: string, fieldId: string) {
@@ -187,45 +190,45 @@ export class FieldOpenApiService {
     tableId: string,
     fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[]
   ) {
-    const newFields = await this.prismaService.$tx(async () => {
-      const newFields: { tableId: string; field: IFieldInstance }[] = [];
-      for (let i = 0; i < fields.length; i++) {
-        const field = fields[i];
-        const { columnMeta, references, ...fieldVo } = field;
-
-        const fieldInstance = createFieldInstanceByVo(fieldVo);
-
-        const createResult = await this.fieldCreatingService.alterCreateField(
-          tableId,
-          fieldInstance,
-          columnMeta
-        );
-
-        if (references) {
-          await this.restoreReference(references);
-        }
-
-        newFields.push(...createResult);
-      }
-
-      return newFields;
-    });
-
-    await this.prismaService.$tx(
+    // Create fields and compute/publish record changes within the same transaction
+    const newFields = await this.prismaService.$tx(
       async () => {
-        for (const { tableId, field } of newFields) {
-          if (field.isComputed) {
-            await this.fieldService.resolvePending(tableId, [field.id]);
-          }
+        const created: { tableId: string; field: IFieldInstance }[] = [];
+        for (let i = 0; i < fields.length; i++) {
+          const field = fields[i];
+          const { columnMeta, references, ...fieldVo } = field;
+          const fieldInstance = createFieldInstanceByVo(fieldVo);
+
+          await this.computedOrchestrator.computeCellChangesForFieldsAfterCreate(
+            [{ tableId, fieldIds: [fieldInstance.id] }],
+            async () => {
+              const createResult = await this.fieldCreatingService.alterCreateField(
+                tableId,
+                fieldInstance,
+                columnMeta
+              );
+              if (references) {
+                await this.restoreReference(references);
+              }
+              created.push(...createResult);
+              for (const { tableId: tid, field } of createResult) {
+                if (field.isComputed) {
+                  await this.fieldService.resolvePending(tid, [field.id]);
+                }
+              }
+            }
+          );
         }
 
         // Repair dependent formula generated columns for fields restored in this table
-        const createdFieldIds = newFields
+        const createdFieldIds = created
           .filter((nf) => nf.tableId === tableId)
           .map((nf) => nf.field.id);
         if (createdFieldIds.length) {
           await this.fieldService.recreateDependentFormulaColumns(tableId, createdFieldIds);
         }
+
+        return created;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
@@ -251,28 +254,42 @@ export class FieldOpenApiService {
     const columnMeta = fieldRo.order && {
       [fieldRo.order.viewId]: { order: fieldRo.order.orderIndex },
     };
-    const newFields = await this.prismaService.$tx(async () => {
-      return await this.fieldCreatingService.alterCreateField(tableId, fieldInstance, columnMeta);
-    });
-
-    await this.prismaService.$tx(
+    // Create field and compute/publish record changes within the same transaction
+    const newFields = await this.prismaService.$tx(
       async () => {
-        for (const { tableId, field } of newFields) {
-          if (field.isComputed) {
-            await this.fieldService.resolvePending(tableId, [field.id]);
+        let created: { tableId: string; field: IFieldInstance }[] = [];
+        await this.computedOrchestrator.computeCellChangesForFieldsAfterCreate(
+          [{ tableId, fieldIds: [fieldInstance.id] }],
+          async () => {
+            created = await this.fieldCreatingService.alterCreateField(
+              tableId,
+              fieldInstance,
+              columnMeta
+            );
+            for (const { tableId: tid, field } of created) {
+              if (field.isComputed) {
+                await this.fieldService.resolvePending(tid, [field.id]);
+              }
+            }
           }
-        }
+        );
+        return created;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
-    // Realtime ops are handled by OPERATION_FIELDS_CREATE listener after calc
-
-    for (const { tableId, field } of newFields) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tableId, field);
+    for (const { tableId: tid, field } of newFields) {
+      await this.tableIndexService.createSearchFieldSingleIndex(tid, field);
     }
 
     const referenceMap = await this.getFieldReferenceMap([fieldVo.id]);
+
+    // Prefer emitting a VO converted from the created instance so computed props (e.g. recordRead)
+    // are included consistently with snapshots.
+    const createdMain = newFields.find(
+      (nf) => nf.tableId === tableId && nf.field.id === fieldVo.id
+    );
+    const emitFieldVo = createdMain ? convertFieldInstanceToFieldVo(createdMain.field) : fieldVo;
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {
       windowId,
@@ -280,7 +297,7 @@ export class FieldOpenApiService {
       userId: this.cls.get('user.id'),
       fields: [
         {
-          ...fieldVo,
+          ...emitFieldVo,
           columnMeta,
           references: referenceMap[fieldVo.id]?.map((ref) => ref.toFieldId),
         },
@@ -464,15 +481,28 @@ export class FieldOpenApiService {
       }
     });
 
-    // 3. stage apply record changes and calculate field
+    // 3. stage apply record changes and calculate field with computed publishing
     await this.prismaService.$tx(
       async () => {
-        await this.fieldConvertingService.stageCalculate(tableId, newField, oldField, modifiedOps);
+        const sources = [{ tableId, fieldIds: [newField.id] }];
+        if (supplementChange)
+          sources.push({
+            tableId: supplementChange.tableId,
+            fieldIds: [supplementChange.newField.id],
+          });
 
-        if (supplementChange) {
-          const { tableId, newField, oldField } = supplementChange;
-          await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
-        }
+        await this.computedOrchestrator.computeCellChangesForFields(sources, async () => {
+          await this.fieldConvertingService.stageCalculate(
+            tableId,
+            newField,
+            oldField,
+            modifiedOps
+          );
+          if (supplementChange) {
+            const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
+            await this.fieldConvertingService.stageCalculate(sTid, sNew, sOld);
+          }
+        });
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );

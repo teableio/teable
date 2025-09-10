@@ -42,7 +42,10 @@ export class ComputedEvaluatorService {
    * For each table, query only the impacted records and dependent fields.
    * Builds a RecordQueryBuilder with projection and converts DB values to cell values.
    */
-  async evaluate(impact: IComputedImpactByTable): Promise<IEvaluatedComputedValues> {
+  async evaluate(
+    impact: IComputedImpactByTable,
+    opts?: { versionBaseline?: 'previous' | 'current' }
+  ): Promise<IEvaluatedComputedValues> {
     const entries = Object.entries(impact).filter(
       ([, group]) => group.recordIds.size && group.fieldIds.size
     );
@@ -79,9 +82,11 @@ export class ComputedEvaluatorService {
 
         for (const row of rows) {
           const recordId = row.__id;
-          // updateFromSelect now bumps __version in DB; use previous version for publishing ops
+          // Determine version baseline for publishing ops
           const version =
-            (row.__prev_version as number | undefined) ?? (row.__version as number) - 1;
+            opts?.versionBaseline === 'current'
+              ? (row.__version as number)
+              : (row.__prev_version as number | undefined) ?? (row.__version as number) - 1;
           const fieldsMap: Record<string, unknown> = {};
           for (const field of fieldInstances) {
             // For persisted formulas, the returned column is the generated column name
