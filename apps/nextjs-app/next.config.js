@@ -47,7 +47,6 @@ const NEXT_BUILD_ENV_SENTRY_TRACING = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_TRACING ?? 'false'
 );
 
-const PORT = process.env.PORT || '3000';
 const NEXTJS_SOCKET_PORT = process.env.SOCKET_PORT || '3001';
 
 if (!NEXT_BUILD_ENV_SOURCEMAPS) {
@@ -222,12 +221,7 @@ const nextConfig = {
       destination: `http://localhost:${NEXTJS_SOCKET_PORT}/socket/:path*`,
     };
 
-    const pluginProxy = {
-      source: '/plugin/:path*',
-      destination: `http://localhost:${PORT}/plugin/:path*`,
-    };
-
-    return isProd ? [] : [socketProxy, pluginProxy];
+    return isProd ? [] : [socketProxy];
   },
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/headers
