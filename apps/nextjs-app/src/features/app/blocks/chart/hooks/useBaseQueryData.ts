@@ -5,6 +5,7 @@ import {
   getPluginPanelPluginQuery,
   PluginPosition,
 } from '@teable/openapi';
+import { useMemo } from 'react';
 import { formatRes } from '../query';
 import { useEnv } from './useEnv';
 
@@ -32,9 +33,10 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
     ),
   });
 
-  if (positionType === PluginPosition.Dashboard) {
-    return formatRes(dashboardQueryData);
-  }
-
-  return formatRes(pluginPanelQueryData);
+  return useMemo(() => {
+    if (positionType === PluginPosition.Dashboard) {
+      return formatRes(dashboardQueryData);
+    }
+    return formatRes(pluginPanelQueryData);
+  }, [positionType, pluginPanelQueryData, dashboardQueryData]);
 };
