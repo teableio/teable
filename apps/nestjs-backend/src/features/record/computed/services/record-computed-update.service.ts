@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -10,6 +10,8 @@ import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-fie
 
 @Injectable()
 export class RecordComputedUpdateService {
+  private logger = new Logger(RecordComputedUpdateService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -85,6 +87,8 @@ export class RecordComputedUpdateService {
       dbFieldNames: columnNames,
       returningDbFieldNames: returningNames,
     });
+
+    this.logger.debug('updateFromSelect SQL:', sql);
 
     return await this.prismaService
       .txClient()
