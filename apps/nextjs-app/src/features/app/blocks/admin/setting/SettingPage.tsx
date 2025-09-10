@@ -130,7 +130,7 @@ export const SettingPage = (props: ISettingPageProps) => {
     <div className="flex h-screen flex-1 flex-col overflow-y-auto overflow-x-hidden p-8">
       <div className="pb-6">
         <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
-        <div className="mt-2 text-sm text-slate-500">{t('admin.setting.description')}</div>
+        <div className="mt-2 text-sm text-zinc-500">{t('admin.setting.description')}</div>
       </div>
 
       <div className="relative flex flex-1 overflow-y-auto overflow-x-hidden">
@@ -142,7 +142,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label htmlFor="allow-sign-up">{t('admin.setting.allowSignUp')}</Label>
-                  <div className="text-[13px] text-gray-500">
+                  <div className="text-xs text-zinc-500">
                     {t('admin.setting.allowSignUpDescription')}
                   </div>
                 </div>
@@ -155,7 +155,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label htmlFor="allow-sign-up">{t('admin.setting.allowSpaceInvitation')}</Label>
-                  <div className="text-[13px] text-gray-500">
+                  <div className="text-xs text-zinc-500">
                     {t('admin.setting.allowSpaceInvitationDescription')}
                   </div>
                 </div>
@@ -170,7 +170,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <Label htmlFor="allow-space-creation">
                     {t('admin.setting.allowSpaceCreation')}
                   </Label>
-                  <div className="text-[13px] text-gray-500">
+                  <div className="text-xs text-zinc-500">
                     {t('admin.setting.allowSpaceCreationDescription')}
                   </div>
                 </div>
@@ -185,7 +185,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <Label htmlFor="enable-email-verification">
                     {t('admin.setting.enableEmailVerification')}
                   </Label>
-                  <div className="text-[13px] text-gray-500">
+                  <div className="text-xs text-zinc-500">
                     {t('admin.setting.enableEmailVerificationDescription')}
                   </div>
                 </div>
@@ -205,7 +205,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                 <div className="flex items-center justify-between ">
                   <div className="space-y-1">
                     <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
-                    <div className="text-[13px] text-gray-500">
+                    <div className="text-xs text-zinc-500">
                       {t('admin.setting.enableWaitlistDescription')}
                     </div>
                   </div>

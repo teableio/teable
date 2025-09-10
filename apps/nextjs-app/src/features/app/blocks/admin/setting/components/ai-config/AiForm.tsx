@@ -113,7 +113,9 @@ export function AIConfigForm({
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
               <div className="space-y-0.5">
                 <FormLabel className="text-base">{t('admin.setting.ai.enable')}</FormLabel>
-                <FormDescription>{t('admin.setting.ai.enableDescription')}</FormDescription>
+                <FormDescription className="text-left text-xs text-zinc-500">
+                  {t('admin.setting.ai.enableDescription')}
+                </FormDescription>
               </div>
               <FormControl>
                 <TooltipProvider>
