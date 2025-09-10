@@ -181,7 +181,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     return new Promise((resolve, reject) => {
       Papa.parse(stream, {
         download: false,
-        dynamicTyping: true,
+        dynamicTyping: false,
         complete: (result) => {
           resolve(result.data as unknown[][]);
         },

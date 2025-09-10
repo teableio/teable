@@ -218,7 +218,7 @@ export abstract class Importer {
 }
 
 export class CsvImporter extends Importer {
-  public static readonly CHECK_LINES = 5000;
+  public static readonly CHECK_LINES = 500;
   public static readonly DEFAULT_SHEETKEY = 'Import Table';
 
   parse(): Promise<IParseResult>;
@@ -249,7 +249,7 @@ export class CsvImporter extends Importer {
 
         Papa.parse(toLineDelimitedStream(stream), {
           download: false,
-          dynamicTyping: true,
+          dynamicTyping: false,
           chunk: (chunk, parser) => {
             (async () => {
               const newChunk = [...chunk.data] as unknown[][];
@@ -332,7 +332,7 @@ export class CsvImporter extends Importer {
     return new Promise<IParseResult>((resolve, reject) => {
       Papa.parse(stream, {
         download: false,
-        dynamicTyping: true,
+        dynamicTyping: false,
         preview: limit,
         complete: (result) => {
           resolve({
