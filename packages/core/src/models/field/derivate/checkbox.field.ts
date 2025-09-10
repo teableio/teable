@@ -49,6 +49,16 @@ export class CheckboxFieldCore extends FieldCore {
       return null;
     }
 
+    if (typeof value === 'string') {
+      const lowercase = value.toLowerCase();
+      if (lowercase === 'true') {
+        return true;
+      }
+      if (lowercase === 'false') {
+        return null;
+      }
+    }
+
     return value ? true : null;
   }
 

@@ -55,6 +55,9 @@ describe('CheckboxFieldCore', () => {
   it('should repair invalid value', () => {
     expect(field.repair('1.234')).toBe(true);
     expect(field.repair(false)).toBeNull();
+    expect(field.repair('false')).toBeNull();
+    expect(field.repair('true')).toBe(true);
+    expect(field.repair('True')).toBe(true);
   });
 
   it('should validate value', () => {
