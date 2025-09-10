@@ -59,7 +59,7 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
       rowHeight={80}
       margin={[16, 16]}
       containerPadding={[16, 16]}
-      cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+      cols={{ lg: 12, md: 12, sm: 12, xs: 1, xxs: 1 }}
       draggableHandle=".dashboard-draggable-handle"
       onResize={() => setIsDragging(true)}
       onResizeStop={(layout) => {
