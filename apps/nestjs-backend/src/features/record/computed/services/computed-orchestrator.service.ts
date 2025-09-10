@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { IdPrefix, RecordOpBuilder } from '@teable/core';
 import { isEqual } from 'lodash';
-import { RawOpType } from '../../../share-db/interface';
-import { BatchService } from '../../calculation/batch.service';
-import type { ICellContext } from '../../calculation/utils/changes';
+import { RawOpType } from '../../../../share-db/interface';
+import { BatchService } from '../../../calculation/batch.service';
+import type { ICellContext } from '../../../calculation/utils/changes';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
 import {
   ComputedEvaluatorService,
@@ -28,7 +28,7 @@ export class ComputedOrchestratorService {
    *
    * Returns: { publishedOps } — total number of field set ops enqueued.
    */
-  async run(
+  async computeCellChangesForRecords(
     tableId: string,
     cellContexts: ICellContext[],
     update: () => Promise<void>
@@ -37,7 +37,7 @@ export class ComputedOrchestratorService {
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
   }> {
     // With update callback, switch to the new dual-select (old/new) mode
-    return this.runMulti([{ tableId, cellContexts }], update);
+    return this.computeCellChangesForRecordsMulti([{ tableId, cellContexts }], update);
   }
 
   /**
@@ -46,7 +46,7 @@ export class ComputedOrchestratorService {
    * between selecting old values and computing new values, and publishes ops
    * with both old and new cell values.
    */
-  async runMulti(
+  async computeCellChangesForRecordsMulti(
     sources: Array<{ tableId: string; cellContexts: ICellContext[] }>,
     update: () => Promise<void>
   ): Promise<{

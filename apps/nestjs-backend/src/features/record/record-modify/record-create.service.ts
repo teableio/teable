@@ -6,7 +6,7 @@ import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
-import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
+import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { RecordModifySharedService } from './record-modify.shared.service';
@@ -85,7 +85,7 @@ export class RecordCreateService {
     const changes = await this.shared.compressAndFilterChanges(tableId, createCtxs);
     const opsMap = this.shared.formatChangesToOps(changes);
     // Publish computed values (with old/new) around base updates
-    await this.computedOrchestrator.run(tableId, createCtxs, async () => {
+    await this.computedOrchestrator.computeCellChangesForRecords(tableId, createCtxs, async () => {
       await this.batchService.updateRecords(opsMap);
     });
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(

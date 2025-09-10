@@ -3,9 +3,9 @@ import { Injectable } from '@nestjs/common';
 import type { FormulaFieldCore } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { createFieldInstanceByRaw, type IFieldInstance } from '../../field/model/factory';
-import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../record/query-builder';
-import { RecordComputedUpdateService } from '../../record/record-computed-update.service';
+import { createFieldInstanceByRaw, type IFieldInstance } from '../../../field/model/factory';
+import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
+import { RecordComputedUpdateService } from './record-computed-update.service';
 import type { IComputedImpactByTable } from './computed-dependency-collector.service';
 
 export interface IEvaluatedComputedValues {

@@ -3,10 +3,10 @@ import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
-import { InjectDbProvider } from '../../db-provider/db.provider';
-import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IFieldInstance } from '../field/model/factory';
-import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import { InjectDbProvider } from '../../../../db-provider/db.provider';
+import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import type { IFieldInstance } from '../../../field/model/factory';
+import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
 
 @Injectable()
 export class RecordComputedUpdateService {

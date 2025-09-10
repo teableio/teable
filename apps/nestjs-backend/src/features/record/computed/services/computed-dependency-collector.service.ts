@@ -6,7 +6,7 @@ import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
-import type { ICellContext } from '../../calculation/utils/changes';
+import type { ICellContext } from '../../../calculation/utils/changes';
 
 export interface ICellBasicContext {
   recordId: string;

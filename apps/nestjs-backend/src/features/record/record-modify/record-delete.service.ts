@@ -6,7 +6,7 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { LinkService } from '../../calculation/link.service';
-import { ComputedOrchestratorService } from '../../computed/services/computed-orchestrator.service';
+import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
 
 @Injectable()
@@ -57,7 +57,7 @@ export class RecordDeleteService {
         : undefined;
 
       // Publish computed/link changes with old/new around the actual delete
-      await this.computedOrchestrator.runMulti(sources, async () => {
+      await this.computedOrchestrator.computeCellChangesForRecordsMulti(sources, async () => {
         await this.recordService.batchDeleteRecords(tableId, recordIds);
       });
 
