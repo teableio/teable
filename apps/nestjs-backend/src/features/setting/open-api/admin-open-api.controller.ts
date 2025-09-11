@@ -30,6 +30,6 @@ export class AdminOpenApiController {
 
   @Get('performance-cache-stats')
   async getPerformanceCache() {
-    await this.adminService.getPerformanceCache();
+    return await this.adminService.getPerformanceCache();
   }
 }

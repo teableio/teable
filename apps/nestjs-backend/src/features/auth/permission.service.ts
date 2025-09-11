@@ -24,16 +24,6 @@ export class PermissionService {
 
   private async getSpaceRole(spaceId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(spaceId);
-    console.log(
-      'collaborators',
-      principalId,
-      collaborators,
-      await this.prismaService.collaborator.findMany({
-        where: {
-          resourceId: spaceId,
-        },
-      })
-    );
     return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
   }
 

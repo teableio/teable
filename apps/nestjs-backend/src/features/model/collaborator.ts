@@ -29,14 +29,12 @@ export class CollaboratorModel {
       if (params.model === 'Collaborator' && params.action.includes('create')) {
         const createData = params.args?.data;
         if (Array.isArray(createData)) {
-          console.log('clear collaborator batch cache');
           await Promise.all(
             createData.map((data) =>
               this.performanceCacheService.del(generateCollaboratorCacheKey(data.resourceId))
             )
           );
         } else {
-          console.log('clear collaborator cache');
           await this.performanceCacheService.del(
             generateCollaboratorCacheKey(createData.resourceId)
           );
