@@ -1,4 +1,4 @@
-import { DriverClient, FieldType } from '@teable/core';
+import { DriverClient, FieldType, CellValueType } from '@teable/core';
 import type { INumberFormatting, ICurrencyFormatting, Relationship, FieldCore } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IRecordQueryDialectProvider } from '../record-query-dialect.interface';
@@ -138,11 +138,18 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     const { targetField, orderByField, rowPresenceExpr } = opts;
     switch (fn) {
       case 'sum':
-        // For non-numeric targets, return 0 to avoid SUM(text) errors during field creation/update
-        if (targetField?.type !== FieldType.Number) {
-          return this.castAgg('0');
+        // Prefer numeric targets: number field or formula resolving to number
+        if (
+          targetField?.type === FieldType.Number ||
+          // Some computed/lookup/rollup/ formula fields expose numeric cellValueType
+          // Use optional chaining to avoid issues on core field types without this prop
+          (targetField as unknown as { cellValueType?: CellValueType })?.cellValueType ===
+            CellValueType.Number
+        ) {
+          return this.castAgg(`COALESCE(SUM(${fieldExpression}), 0)`);
         }
-        return this.castAgg(`COALESCE(SUM(${fieldExpression}), 0)`);
+        // Non-numeric target: avoid SUM() casting errors
+        return this.castAgg('0');
       case 'count':
         return this.castAgg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'countall': {
@@ -183,8 +190,10 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
   singleValueRollupAggregate(fn: string, fieldExpression: string): string {
     switch (fn) {
       case 'sum':
-        // Return 0 for single-value sum to avoid casting issues on non-numeric targets
-        return `0`;
+        // For single-value relationships, SUM reduces to the value itself.
+        // Coalesce to 0 and cast to double precision for numeric stability.
+        // If the expression is non-numeric, upstream rollup setup should avoid SUM on such targets.
+        return `COALESCE(CAST(${fieldExpression} AS DOUBLE PRECISION), 0)`;
       case 'max':
       case 'min':
       case 'array_join':
