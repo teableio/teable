@@ -35,7 +35,6 @@ export const PluginPanelContainer = ({ tableId }: { tableId: string }) => {
         left: {
           width: '4px',
           left: '0',
-          zIndex: 50,
         },
       }}
       handleComponent={{
