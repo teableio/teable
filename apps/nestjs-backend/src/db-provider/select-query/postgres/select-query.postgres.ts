@@ -8,11 +8,11 @@ import { SelectQueryAbstract } from '../select-query.abstract';
  */
 export class SelectQueryPostgres extends SelectQueryAbstract {
   private toNumericSafe(expr: string): string {
-    // Safely coerce any scalar to numeric:
+    // Safely coerce any scalar to a floating-point number:
     // - Strip everything except digits, sign, decimal point
     // - Map empty string to NULL to avoid casting errors
-    // This avoids constant-cast failures like `'x'::numeric` at plan time.
-    return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::numeric`;
+    // Cast to DOUBLE PRECISION so pg driver returns JS numbers (not strings as with NUMERIC)
+    return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
   }
   private tzWrap(date: string): string {
     const tz = this.context?.timeZone as string | undefined;
