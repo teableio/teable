@@ -90,7 +90,8 @@ export class RecordComputedUpdateService {
       dbFieldNames: columnNames,
       returningDbFieldNames: returningNames,
     });
-
+    // eslint-disable-next-line no-console
+    console.debug('updateFromSelect SQL:', sql);
     this.logger.debug('updateFromSelect SQL:', sql);
 
     return await this.prismaService

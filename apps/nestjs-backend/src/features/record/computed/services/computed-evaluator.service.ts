@@ -72,8 +72,6 @@ export class ComputedEvaluatorService {
         const idCol = alias ? `${alias}.__id` : '__id';
         // Use single UPDATE ... FROM ... RETURNING to both persist and fetch values
         const subQb = qb.whereIn(idCol, recordIds);
-        // Debug hook available if needed:
-        // console.debug('Computed subquery SQL:', subQb.toQuery());
         const rows = await this.recordComputedUpdateService.updateFromSelect(
           tableId,
           subQb,

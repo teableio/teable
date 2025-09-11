@@ -63,7 +63,8 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
   }
 
   coerceToNumericForCompare(expr: string): string {
-    return `CASE WHEN (${expr})::text ~ '^[+-]?((\\d+\\.\\d+)|(\\d+)|(\\.\\d+))$' THEN (${expr})::numeric ELSE NULL END`;
+    // Same safe numeric coercion used for arithmetic
+    return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::numeric`;
   }
 
   linkHasAny(selectionSql: string): string {

@@ -7,6 +7,13 @@ import { SelectQueryAbstract } from '../select-query.abstract';
  * mutable functions and have different optimization strategies.
  */
 export class SelectQueryPostgres extends SelectQueryAbstract {
+  private toNumericSafe(expr: string): string {
+    // Safely coerce any scalar to numeric:
+    // - Strip everything except digits, sign, decimal point
+    // - Map empty string to NULL to avoid casting errors
+    // This avoids constant-cast failures like `'x'::numeric` at plan time.
+    return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::numeric`;
+  }
   private tzWrap(date: string): string {
     const tz = this.context?.timeZone as string | undefined;
     if (!tz) {
@@ -454,11 +461,15 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   multiply(left: string, right: string): string {
-    return `(${left} * ${right})`;
+    const l = this.toNumericSafe(left);
+    const r = this.toNumericSafe(right);
+    return `(${l} * ${r})`;
   }
 
   divide(left: string, right: string): string {
-    return `(${left} / ${right})`;
+    const l = this.toNumericSafe(left);
+    const r = this.toNumericSafe(right);
+    return `(${l} / ${r})`;
   }
 
   modulo(left: string, right: string): string {
