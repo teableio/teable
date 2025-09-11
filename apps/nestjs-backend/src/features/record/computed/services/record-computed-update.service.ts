@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
+import type { Knex } from 'knex';
+import { match, P } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../../../field/model/factory';
@@ -14,8 +14,7 @@ export class RecordComputedUpdateService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   private async getDbTableName(tableId: string): Promise<string> {
@@ -33,19 +32,17 @@ export class RecordComputedUpdateService {
     return fields
       .filter((f) => {
         // Skip formula persisted as generated columns
-        if (isFormulaField(f) && f.getIsPersistedAsGeneratedColumn()) return false;
-        // Skip fields persisted as generated columns (cannot be updated directly)
-        switch (f.type) {
-          case FieldType.AutoNumber:
-          case FieldType.CreatedTime:
-          case FieldType.LastModifiedTime:
-          case FieldType.CreatedBy:
-          case FieldType.LastModifiedBy:
-            return false;
-          default:
-            break;
-        }
-        return true;
+        return match(f)
+          .when(isFormulaField, (f) => !f.getIsPersistedAsGeneratedColumn())
+          .with(
+            { type: FieldType.AutoNumber },
+            { type: FieldType.CreatedTime },
+            { type: FieldType.LastModifiedTime },
+            { type: FieldType.CreatedBy },
+            { type: FieldType.LastModifiedBy },
+            () => false
+          )
+          .otherwise(() => true);
       })
       .map((f) => f.dbFieldName);
   }
@@ -69,6 +66,7 @@ export class RecordComputedUpdateService {
     fields: IFieldInstance[]
   ): Promise<Array<{ __id: string; __version: number } & Record<string, unknown>>> {
     const dbTableName = await this.getDbTableName(tableId);
+
     const columnNames = this.getUpdatableColumns(fields);
     const returningNames = this.getReturningColumns(fields);
     if (!columnNames.length) {
