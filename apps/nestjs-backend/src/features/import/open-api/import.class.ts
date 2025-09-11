@@ -160,50 +160,52 @@ export abstract class Importer {
     for (const [sheetName, cols] of Object.entries(parseResult)) {
       const zipColumnInfo = zip(...cols);
       const existNames: string[] = [];
-      const calculatedColumnHeaders = zipColumnInfo.map((column, index) => {
-        let isColumnEmpty = true;
-        let validatingFieldTypes = [...supportTypes];
-        for (let i = 0; i < column.length; i++) {
-          if (validatingFieldTypes.length <= 1) {
-            break;
+      const calculatedColumnHeaders = zipColumnInfo
+        .map((column, index) => {
+          let isColumnEmpty = true;
+          let validatingFieldTypes = [...supportTypes];
+          for (let i = 0; i < column.length; i++) {
+            if (validatingFieldTypes.length <= 1) {
+              break;
+            }
+
+            // ignore empty value and first row causing first row as header
+            if (column[i] === '' || column[i] == null || i === 0) {
+              continue;
+            }
+
+            // when the whole columns aren't empty should flag
+            isColumnEmpty = false;
+
+            // when one of column's value validates long text, then break;
+            if (validateZodSchemaMap[FieldType.LongText].safeParse(column[i]).success) {
+              validatingFieldTypes = [FieldType.LongText];
+              break;
+            }
+
+            const matchTypes = validatingFieldTypes.filter((type) => {
+              const schema = validateZodSchemaMap[type];
+              return schema.safeParse(column[i]).success;
+            });
+
+            validatingFieldTypes = matchTypes;
           }
 
-          // ignore empty value and first row causing first row as header
-          if (column[i] === '' || column[i] == null || i === 0) {
-            continue;
-          }
+          // empty columns should be default type
+          validatingFieldTypes = !isColumnEmpty
+            ? validatingFieldTypes
+            : [Importer.DEFAULT_COLUMN_TYPE];
 
-          // when the whole columns aren't empty should flag
-          isColumnEmpty = false;
+          const name = getUniqName(toString(column?.[0]).trim() || `Field ${index}`, existNames);
 
-          // when one of column's value validates long text, then break;
-          if (validateZodSchemaMap[FieldType.LongText].safeParse(column[i]).success) {
-            validatingFieldTypes = [FieldType.LongText];
-            break;
-          }
+          existNames.push(name);
 
-          const matchTypes = validatingFieldTypes.filter((type) => {
-            const schema = validateZodSchemaMap[type];
-            return schema.safeParse(column[i]).success;
-          });
-
-          validatingFieldTypes = matchTypes;
-        }
-
-        // empty columns should be default type
-        validatingFieldTypes = !isColumnEmpty
-          ? validatingFieldTypes
-          : [Importer.DEFAULT_COLUMN_TYPE];
-
-        const name = getUniqName(toString(column?.[0]).trim() || `Field ${index}`, existNames);
-
-        existNames.push(name);
-
-        return {
-          type: validatingFieldTypes[0] || Importer.DEFAULT_COLUMN_TYPE,
-          name: name.toString(),
-        };
-      });
+          return {
+            type: validatingFieldTypes[0] || Importer.DEFAULT_COLUMN_TYPE,
+            name: name.toString(),
+          };
+        })
+        ?.filter((column) => Boolean(column));
 
       result[sheetName] = {
         name: type === SUPPORTEDTYPE.EXCEL ? sheetName : fileName ? fileName : sheetName,
