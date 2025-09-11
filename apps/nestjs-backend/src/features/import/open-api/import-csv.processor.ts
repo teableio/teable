@@ -9,6 +9,7 @@ import {
   getRandomString,
   getTableImportChannel,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType, type IImportColumn } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
 import { toString } from 'lodash';
@@ -57,6 +58,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(TABLE_IMPORT_CSV_QUEUE) public readonly queue: Queue<ITableImportCsvJob>
   ) {
@@ -213,6 +215,14 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     this.shareDbService.publishRecordChannel(tableId, updateEmptyOps);
   }
 
+  // this is for cache refresh
+  private updateTableLastModified(tableId: string) {
+    this.prismaService.txClient().tableMeta.update({
+      where: { id: tableId },
+      data: { lastModifiedTime: new Date().toISOString() },
+    });
+  }
+
   setImportStatus(presence: LocalPresence<unknown>, loading: boolean) {
     presence.submit(
       {
@@ -269,8 +279,12 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   async onCompleted(job: Job) {
-    const { table, range } = job.data;
+    const { table, range, columnInfo } = job.data;
     this.logger.log(`import data to ${table.id} job completed, range: [${range}]`);
-    this.updateRowCount(table.id);
+    // create new table need update row count and table last modified
+    if (columnInfo) {
+      this.updateRowCount(table.id);
+      this.updateTableLastModified(table.id);
+    }
   }
 }
