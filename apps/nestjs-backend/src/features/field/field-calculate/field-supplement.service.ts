@@ -16,7 +16,6 @@ import type {
   ITextFieldSummarizeAIConfig,
 } from '@teable/core';
 import {
-  assertNever,
   AttachmentFieldCore,
   AutoNumberFieldCore,
   ButtonFieldCore,

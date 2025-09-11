@@ -7,7 +7,10 @@ import { RawOpType } from '../../../../share-db/interface';
 import { BatchService } from '../../../calculation/batch.service';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
-import type { IFieldChangeSource } from './computed-dependency-collector.service';
+import type {
+  IComputedImpactByTable,
+  IFieldChangeSource,
+} from './computed-dependency-collector.service';
 import {
   ComputedEvaluatorService,
   type IEvaluatedComputedValues,
@@ -181,11 +184,27 @@ export class ComputedOrchestratorService {
 
     await update();
 
-    // After update, some fields may be deleted; exclude them from publishing.
-    // Also exclude the source (deleted) field ids as they no longer exist.
+    // After update, some fields may be deleted; build a post-update impact that only
+    // includes fields still present to avoid selecting/updating non-existent columns.
+    const impactPost: IComputedImpactByTable = {};
+    for (const [tid, group] of Object.entries(impactPre)) {
+      const ids = Array.from(group.fieldIds);
+      if (!ids.length) continue;
+      const rows = await this.prismaService.txClient().field.findMany({
+        where: { tableId: tid, id: { in: ids }, deletedTime: null },
+        select: { id: true },
+      });
+      const existing = new Set(rows.map((r) => r.id));
+      const kept = new Set(Array.from(group.fieldIds).filter((fid) => existing.has(fid)));
+      if (kept.size && group.recordIds.size) {
+        impactPost[tid] = { fieldIds: kept, recordIds: new Set(group.recordIds) };
+      }
+    }
+
+    // Also exclude the source (deleted) field ids when publishing
     const startFieldIds = new Set<string>(sources.flatMap((s) => s.fieldIds || []));
 
-    const newValues = await this.evaluator.evaluate(impactPre, { versionBaseline: 'current' });
+    const newValues = await this.evaluator.evaluate(impactPost, { versionBaseline: 'current' });
 
     // Determine which impacted fieldIds were actually deleted (no longer exist post-update)
     const actuallyDeleted = new Set<string>();
@@ -202,9 +221,9 @@ export class ComputedOrchestratorService {
 
     const exclude = new Set<string>([...startFieldIds, ...actuallyDeleted]);
 
-    const total = this.publishOpsWithOldNew(impactPre, oldValues, newValues, exclude);
+    const total = this.publishOpsWithOldNew(impactPost, oldValues, newValues, exclude);
 
-    return { publishedOps: total, impact: buildResultImpact(impactPre) };
+    return { publishedOps: total, impact: buildResultImpact(impactPost) };
   }
 
   /**
