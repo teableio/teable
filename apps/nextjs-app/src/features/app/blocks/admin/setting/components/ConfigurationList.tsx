@@ -15,6 +15,24 @@ export interface IConfigurationListProps {
 export const ConfigurationList = (props: IConfigurationListProps) => {
   const { list } = props;
   const { t } = useTranslation('common');
+
+  const scrollToTarget = (targetElement: HTMLElement) => {
+    const leftScrollContainer = document.querySelector(
+      '.setting-page-left-container'
+    ) as HTMLElement;
+    if (leftScrollContainer) {
+      const containerRect = leftScrollContainer.getBoundingClientRect();
+      const targetRect = targetElement.getBoundingClientRect();
+      const scrollTop = leftScrollContainer.scrollTop + (targetRect.top - containerRect.top);
+
+      leftScrollContainer.scrollTo({
+        top: scrollTop,
+        behavior: 'smooth',
+      });
+    } else {
+      targetElement?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
   return (
     <div>
       <div className="sticky top-0 flex h-auto w-[360px] min-w-[360px] flex-col space-y-4 rounded-lg border bg-secondary p-4">
@@ -40,12 +58,14 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                   anchor: (
                     <span
                       className="cursor-pointer text-blue-500"
-                      onClick={() => item.anchor?.current?.scrollIntoView({ behavior: 'smooth' })}
+                      onClick={() => {
+                        item.anchor?.current && scrollToTarget(item.anchor.current);
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
-                          item.anchor?.current?.scrollIntoView({ behavior: 'smooth' });
+                          item.anchor?.current && scrollToTarget(item.anchor.current);
                         }
                       }}
                     />

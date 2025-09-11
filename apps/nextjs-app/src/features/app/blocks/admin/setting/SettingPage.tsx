@@ -133,8 +133,8 @@ export const SettingPage = (props: ISettingPageProps) => {
         <div className="mt-2 text-sm text-zinc-500">{t('admin.setting.description')}</div>
       </div>
 
-      <div className="relative flex flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="mr-10 flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="relative flex flex-1 overflow-hidden">
+        <div className="setting-page-left-container flex-1 overflow-y-auto overflow-x-hidden pr-10">
           {/* General Settings Section */}
           <div className="pb-6">
             <h2 className="mb-4 text-lg font-medium">{t('admin.setting.generalSettings')}</h2>
