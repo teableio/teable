@@ -24,7 +24,7 @@ interface ITextFieldAiConfigProps {
 
 export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
   const { field, onChange } = props;
-  const { aiConfig } = field;
+  const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -135,6 +135,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         <div className="flex flex-col gap-y-2">
           <span>{t('table:field.aiConfig.label.sourceField')}</span>
           <FieldSelect
+            excludedIds={id ? [id] : []}
             selectedId={(aiConfig as ISingleSelectFieldClassifyAIConfig)?.sourceFieldId}
             onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
           />
@@ -174,6 +175,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
         <Fragment>
           <div className="flex flex-col gap-y-2">
             <PromptEditorContainer
+              excludedFieldId={id}
               value={(aiConfig as ITextFieldCustomizeAIConfig)?.prompt || ''}
               onChange={(value) => onConfigChange('prompt', value)}
               label={t('table:field.aiConfig.label.prompt')}

@@ -19,10 +19,11 @@ import { PromptEditor, type EditorViewRef, type IPromptEditorProps } from './Pro
 
 interface IPromptEditorContainerProps extends IPromptEditorProps {
   label?: string;
+  excludedFieldId?: string;
 }
 
 export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
-  const { label, className } = props;
+  const { label, className, excludedFieldId } = props;
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation('common');
   const [isDialogVisible, setDialogVisible] = useState(false);
@@ -44,8 +45,10 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
   };
 
   const excludedFieldIds = useMemo(() => {
-    return fields.filter((field) => field.type === FieldType.Attachment).map((field) => field.id);
-  }, [fields]);
+    return fields
+      .filter((field) => field.type === FieldType.Attachment || field.id === excludedFieldId)
+      .map((field) => field.id);
+  }, [fields, excludedFieldId]);
 
   const fieldSelector = (
     <FieldSelector excludedIds={excludedFieldIds} onSelect={onFieldSelect} modal>

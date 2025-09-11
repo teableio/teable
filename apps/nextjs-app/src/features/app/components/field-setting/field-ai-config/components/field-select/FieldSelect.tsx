@@ -6,12 +6,13 @@ import { tableConfig } from '@/features/i18n/table.config';
 
 interface IFieldSelectProps {
   selectedId?: string;
+  excludedIds?: string[];
   excludeTypes?: FieldType[];
   onChange: (fieldId: string) => void;
 }
 
 export const FieldSelect: React.FC<IFieldSelectProps> = (props) => {
-  const { selectedId, excludeTypes = [], onChange } = props;
+  const { selectedId, excludeTypes = [], excludedIds = [], onChange } = props;
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const getFieldStatic = useFieldStaticGetter();
@@ -23,7 +24,7 @@ export const FieldSelect: React.FC<IFieldSelectProps> = (props) => {
       selectedId={selectedId}
       onChange={onChange}
       candidates={fields
-        .filter((f) => !excludeTypes.includes(f.type))
+        .filter((f) => !excludeTypes.includes(f.type) && !excludedIds.includes(f.id))
         .map((f) => {
           const Icon = getFieldStatic(f.type, {
             isLookup: f.isLookup,

@@ -16,7 +16,7 @@ interface IRatingFieldAiConfigProps {
 
 export const RatingFieldAiConfig = (props: IRatingFieldAiConfigProps) => {
   const { field, onChange } = props;
-  const { aiConfig } = field;
+  const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -90,6 +90,7 @@ export const RatingFieldAiConfig = (props: IRatingFieldAiConfigProps) => {
           <div className="flex flex-col gap-y-2">
             <span>{t('table:field.aiConfig.label.sourceField')}</span>
             <FieldSelect
+              excludedIds={id ? [id] : []}
               selectedId={(aiConfig as IRatingFieldRatingAIConfig)?.sourceFieldId}
               onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
             />
@@ -111,6 +112,7 @@ export const RatingFieldAiConfig = (props: IRatingFieldAiConfigProps) => {
         <Fragment>
           <div className="flex flex-col gap-y-2">
             <PromptEditorContainer
+              excludedFieldId={id}
               value={(aiConfig as IRatingFieldCustomizeAIConfig)?.prompt || ''}
               onChange={(value) => onConfigChange('prompt', value)}
               label={t('table:field.aiConfig.label.prompt')}

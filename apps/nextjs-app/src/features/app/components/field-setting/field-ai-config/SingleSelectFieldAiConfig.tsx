@@ -21,7 +21,7 @@ interface ISingleSelectFieldAiConfigProps {
 
 export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps) => {
   const { field, onChange } = props;
-  const { aiConfig } = field;
+  const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -95,6 +95,7 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
           <div className="flex flex-col gap-y-2">
             <span>{t('table:field.aiConfig.label.sourceFieldForClassify')}</span>
             <FieldSelect
+              excludedIds={id ? [id] : []}
               selectedId={(aiConfig as ISingleSelectFieldClassifyAIConfig)?.sourceFieldId}
               onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
             />
@@ -117,6 +118,7 @@ export const SingleSelectFieldAiConfig = (props: ISingleSelectFieldAiConfigProps
         <Fragment>
           <div className="flex flex-col gap-y-2">
             <PromptEditorContainer
+              excludedFieldId={id}
               value={(aiConfig as ISingleSelectFieldCustomizeAIConfig)?.prompt || ''}
               onChange={(value) => onConfigChange('prompt', value)}
               label={t('table:field.aiConfig.label.prompt')}

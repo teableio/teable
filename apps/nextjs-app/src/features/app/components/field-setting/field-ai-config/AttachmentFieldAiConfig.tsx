@@ -20,7 +20,7 @@ interface IAttachmentFieldAiConfigProps {
 
 export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) => {
   const { field, onChange } = props;
-  const { aiConfig } = field;
+  const { id, aiConfig } = field;
   const { type } = aiConfig ?? {};
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -122,6 +122,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
           {type === FieldAIActionType.Customization ? (
             <div className="flex flex-col gap-y-2">
               <PromptEditorContainer
+                excludedFieldId={id}
                 value={(aiConfig as IAttachmentFieldCustomizeAIConfig)?.prompt || ''}
                 onChange={(value) => onConfigChange('prompt', value)}
                 label={t('table:field.aiConfig.label.prompt')}
@@ -132,6 +133,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             <div className="flex flex-col gap-y-2">
               <span>{t('table:field.aiConfig.label.sourceFieldForAttachment')}</span>
               <FieldSelect
+                excludedIds={id ? [id] : []}
                 excludeTypes={[FieldType.Attachment]}
                 selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.sourceFieldId}
                 onChange={(fieldId) => onConfigChange('sourceFieldId', fieldId)}
