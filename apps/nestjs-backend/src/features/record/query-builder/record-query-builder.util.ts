@@ -9,7 +9,12 @@ import type {
 } from '@teable/core';
 
 export function getTableAliasFromTable(table: TableDomain): string {
-  return table.getTableNameAndId().replaceAll(/\s+/g, '').replaceAll('.', '_');
+  // Use a short, deterministic alias derived from table id to avoid
+  // collisions with the physical table name (especially when names are
+  // truncated to 63 chars by Postgres). This guarantees the alias never
+  // equals the underlying relation name and stays well within length limits.
+  const safeId = table.id.replace(/\W/g, '_');
+  return `t_${safeId}`;
 }
 
 export function getLinkUsesJunctionTable(field: LinkFieldCore): boolean {

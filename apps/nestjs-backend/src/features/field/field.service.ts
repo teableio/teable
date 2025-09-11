@@ -378,17 +378,15 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   private async alterTableModifyFieldName(fieldId: string, newDbFieldName: string) {
-    const { dbFieldName, table, type, isLookup } = await this.prismaService
-      .txClient()
-      .field.findFirstOrThrow({
-        where: { id: fieldId, deletedTime: null },
-        select: {
-          dbFieldName: true,
-          type: true,
-          isLookup: true,
-          table: { select: { id: true, dbTableName: true } },
-        },
-      });
+    const { dbFieldName, table } = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: fieldId, deletedTime: null },
+      select: {
+        dbFieldName: true,
+        type: true,
+        isLookup: true,
+        table: { select: { id: true, dbTableName: true } },
+      },
+    });
 
     const existingField = await this.prismaService.txClient().field.findFirst({
       where: { tableId: table.id, dbFieldName: newDbFieldName, deletedTime: null },
@@ -408,17 +406,17 @@ export class FieldService implements IReadonlyAdapterService {
       );
     }
 
-    // Link fields do not create standard columns; skip physical rename for non-lookup links
-    if (!(type === FieldType.Link && !isLookup)) {
-      const alterTableSql = this.dbProvider.renameColumn(
-        table.dbTableName,
-        dbFieldName,
-        newDbFieldName
-      );
+    // Physically rename the underlying column for all field types, including non-lookup Link fields.
+    // Link fields in Teable maintain a persisted display column on the host table; skipping
+    // the physical rename causes mismatches during computed updates (e.g., UPDATE ... FROM ...).
+    const alterTableSql = this.dbProvider.renameColumn(
+      table.dbTableName,
+      dbFieldName,
+      newDbFieldName
+    );
 
-      for (const alterTableQuery of alterTableSql) {
-        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
-      }
+    for (const alterTableQuery of alterTableSql) {
+      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
     }
   }
 
@@ -1177,27 +1175,6 @@ export class FieldService implements IReadonlyAdapterService {
     return {
       ids: result.map((field) => field.id),
     };
-  }
-
-  /**
-   * Build field map for formula conversion
-   * Returns a Map of field instances for formula conversion
-   */
-  private async buildFieldMapForTableWithExpansion(
-    tableId: string
-  ): Promise<Map<string, IFieldInstance>> {
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-    });
-
-    const fieldMap = new Map<string, IFieldInstance>();
-
-    for (const fieldRaw of fieldRaws) {
-      const fieldInstance = createFieldInstanceByRaw(fieldRaw);
-      fieldMap.set(fieldInstance.id, fieldInstance);
-    }
-
-    return fieldMap;
   }
 
   getFieldUniqueKeyName(dbTableName: string, dbFieldName: string, fieldId: string) {
