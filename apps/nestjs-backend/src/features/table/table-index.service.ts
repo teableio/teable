@@ -129,7 +129,8 @@ export class TableIndexService {
     const index = await this.getActivatedTableIndexes(tableId);
     if (index.includes(TableIndex.search)) {
       const sql = this.dbProvider.searchIndex().getDeleteSingleIndexSql(dbTableName, field);
-      await this.prismaService.$executeRawUnsafe(sql);
+      // Execute within current transaction if present to keep boundaries consistent
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
   }
 
