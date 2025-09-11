@@ -53,12 +53,20 @@ export class RecordComputedUpdateService {
     const cols: string[] = [];
     for (const f of fields) {
       if (isFormulaField(f)) {
-        // Only include formulas that are persisted as generated columns and not errored
+        // Lookup-formula fields are persisted as regular columns on the host table
+        // and must be included in the RETURNING list by their dbFieldName.
+        if (f.isLookup) {
+          cols.push(f.dbFieldName);
+          continue;
+        }
+        // Non-lookup formulas: include generated column when persisted and not errored
         if (f.getIsPersistedAsGeneratedColumn() && !f.hasError) {
           cols.push(f.getGeneratedColumnName());
         }
-        continue; // Non-persisted formulas have no physical column to return
+        // For non-persisted formula expressions, there is no physical column to return
+        continue;
       }
+      // Non-formula fields (including lookup/rollup) return by their physical column name
       cols.push(f.dbFieldName);
     }
     // de-dup
