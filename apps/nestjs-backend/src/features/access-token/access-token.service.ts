@@ -8,14 +8,19 @@ import type {
   UpdateAccessTokenRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { PerformanceCacheService } from '../../performance-cache';
+import { generateAccessTokenCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { AccessTokenModel } from '../model/access-token';
 import { getAccessToken } from './access-token.encryptor';
 
 @Injectable()
 export class AccessTokenService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly accessTokenModel: AccessTokenModel,
+    private readonly performanceCacheService: PerformanceCacheService
   ) {}
 
   private transformAccessTokenEntity<
@@ -55,19 +60,10 @@ export class AccessTokenService {
 
   async validate(splitAccessTokenObj: { accessTokenId: string; sign: string }) {
     const { accessTokenId, sign } = splitAccessTokenObj;
-    const accessTokenEntity = await this.prismaService.accessToken
-      .findUniqueOrThrow({
-        where: { id: accessTokenId },
-        select: {
-          userId: true,
-          id: true,
-          sign: true,
-          expiredTime: true,
-        },
-      })
-      .catch(() => {
-        throw new UnauthorizedException('token not found');
-      });
+    const accessTokenEntity = await this.accessTokenModel.getAccessTokenRawById(accessTokenId);
+    if (!accessTokenEntity) {
+      throw new UnauthorizedException('token not found');
+    }
     if (sign !== accessTokenEntity.sign) {
       throw new UnauthorizedException('sign error');
     }
@@ -177,6 +173,7 @@ export class AccessTokenService {
         lastUsedTime: true,
       },
     });
+    await this.performanceCacheService.del(generateAccessTokenCacheKey(id));
     return {
       ...this.transformAccessTokenEntity(accessTokenEntity),
       token: getAccessToken(id, sign),
@@ -206,6 +203,7 @@ export class AccessTokenService {
         hasFullAccess: true,
       },
     });
+    await this.performanceCacheService.del(generateAccessTokenCacheKey(id));
     return this.transformAccessTokenEntity(accessTokenEntity);
   }
 

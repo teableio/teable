@@ -84,22 +84,17 @@ export class CollaboratorService {
       },
     });
 
-    const query = this.knex
-      .insert(
-        collaborators.map((collaborator) => ({
-          id: getRandomString(16),
-          resource_id: spaceId,
-          resource_type: CollaboratorType.Space,
-          role_name: role,
-          principal_id: collaborator.principalId,
-          principal_type: collaborator.principalType,
-          created_by: currentUserId!,
-        }))
-      )
-      .into('collaborator')
-      .toQuery();
-
-    await this.prismaService.txClient().$executeRawUnsafe(query);
+    await this.prismaService.txClient().collaborator.createMany({
+      data: collaborators.map((collaborator) => ({
+        id: getRandomString(16),
+        resourceId: spaceId,
+        resourceType: CollaboratorType.Space,
+        roleName: role,
+        principalId: collaborator.principalId,
+        principalType: collaborator.principalType,
+        createdBy: currentUserId!,
+      })),
+    });
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_CREATE,
       new CollaboratorCreateEvent(spaceId)

@@ -22,6 +22,7 @@ import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { UserModel } from '../model/user';
 import { SettingService } from '../setting/setting.service';
 
 @Injectable()
@@ -32,13 +33,12 @@ export class UserService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly settingService: SettingService,
     private readonly cacheService: CacheService,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
+    private readonly userModel: UserModel
   ) {}
 
   async getUserById(id: string) {
-    const userRaw = await this.prismaService
-      .txClient()
-      .user.findUnique({ where: { id, deletedTime: null } });
+    const userRaw = await this.userModel.getUserRawById(id);
 
     return (
       userRaw && {

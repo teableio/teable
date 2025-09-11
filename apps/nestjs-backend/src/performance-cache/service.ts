@@ -11,6 +11,8 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
   private keyv!: Keyv;
   private redlock?: Redlock;
   private enabled = false;
+  private typeStats: Partial<Record<string, { hits: number; misses: number }>> = {};
+
   private stats: ICacheStats = {
     hits: 0,
     misses: 0,
@@ -69,6 +71,16 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     }
   }
 
+  private recordTypeStats(type: 'hits' | 'misses', cacheType?: string) {
+    if (!cacheType) {
+      return;
+    }
+    const stats = this.typeStats[cacheType] || { hits: 0, misses: 0 };
+    if (type === 'hits') stats.hits++;
+    else stats.misses++;
+    this.typeStats[cacheType] = stats;
+  }
+
   /**
    * Check if cache is available
    */
@@ -94,10 +106,12 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       const value = await this.keyv.get(key as string);
       if (value === undefined) {
         this.stats.misses++;
+        this.recordTypeStats('misses', options.statsType);
         return null;
       }
 
       this.stats.hits++;
+      this.recordTypeStats('hits', options.statsType);
       return value as T[TKey];
     } catch (error) {
       this.logger.error('Error getting cache value:', error);
@@ -166,9 +180,11 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
         return keys.map(() => {
           if (singleValue === undefined) {
             this.stats.misses++;
+            this.recordTypeStats('misses', options.statsType);
             return null;
           }
           this.stats.hits++;
+          this.recordTypeStats('hits', options.statsType);
           return singleValue as T[TKey];
         });
       }
@@ -176,9 +192,11 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       return values.map((value) => {
         if (value === undefined) {
           this.stats.misses++;
+          this.recordTypeStats('misses', options.statsType);
           return null;
         }
         this.stats.hits++;
+        this.recordTypeStats('hits', options.statsType);
         return value as T[TKey];
       });
     } catch (error) {
@@ -251,6 +269,13 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     };
   }
 
+  getTypeStats() {
+    return this.typeStats;
+  }
+
+  resetTypeStats(): void {
+    this.typeStats = {};
+  }
   /**
    * Generic cache wrapper method
    * Returns cached value if exists, otherwise executes function and caches result

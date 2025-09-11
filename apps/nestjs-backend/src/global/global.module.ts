@@ -15,7 +15,9 @@ import { AuthGuard } from '../features/auth/guard/auth.guard';
 import { PermissionGuard } from '../features/auth/guard/permission.guard';
 import { PermissionModule } from '../features/auth/permission.module';
 import { DataLoaderModule } from '../features/data-loader/data-loader.module';
+import { ModelModule } from '../features/model/model.module';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
+import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
 import { KnexModule } from './knex';
 
@@ -42,9 +44,11 @@ const globalModules = {
     CacheModule.register({ global: true }),
     EventEmitterModule.register({ global: true }),
     KnexModule.register(),
+    ModelModule,
     PrismaModule,
     PermissionModule,
     DataLoaderModule,
+    PerformanceCacheModule,
   ],
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [

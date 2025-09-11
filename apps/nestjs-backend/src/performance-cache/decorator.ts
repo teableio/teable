@@ -11,7 +11,7 @@ const DEFAULT_OPTIONS: Partial<ICacheDecoratorOptions> = {
   ttl: 300, // 5 minutes
   skipGet: false,
   skipSet: false,
-  preventConcurrent: true, // Enable concurrent prevention by default
+  preventConcurrent: false, // disable concurrent prevention by default
 };
 
 /**
@@ -82,6 +82,7 @@ export function PerformanceCache(options: ICacheDecoratorOptions = {}) {
         skipGet: finalOptions.skipGet,
         skipSet: finalOptions.skipSet,
         preventConcurrent: finalOptions.preventConcurrent,
+        statsType: finalOptions.statsType,
       });
     };
 

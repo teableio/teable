@@ -6,6 +6,7 @@ import { PluginStatus, UploadType } from '@teable/openapi';
 import { Response } from 'express';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { PerformanceCacheService } from '../../../performance-cache';
 import { Timing } from '../../../utils/timing';
 import { AttachmentsCropQueueProcessor } from '../../attachments/attachments-crop.processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
@@ -16,7 +17,8 @@ export class AdminOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor
+    private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
+    private readonly performanceCacheService: PerformanceCacheService
   ) {}
 
   async publishPlugin(pluginId: string) {
@@ -137,5 +139,12 @@ export class AdminOpenApiService {
       session.disconnect();
       this.logger.log(`Session disconnected for pod ${podName}`);
     }
+  }
+
+  async getPerformanceCache() {
+    return {
+      stats: this.performanceCacheService.getStats(),
+      typeStats: this.performanceCacheService.getTypeStats(),
+    };
   }
 }

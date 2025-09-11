@@ -27,4 +27,9 @@ export class AdminOpenApiController {
   async getHeapSnapshot(@Res() res: Response): Promise<void> {
     await this.adminService.getHeapSnapshot(res);
   }
+
+  @Get('performance-cache-stats')
+  async getPerformanceCache() {
+    await this.adminService.getPerformanceCache();
+  }
 }

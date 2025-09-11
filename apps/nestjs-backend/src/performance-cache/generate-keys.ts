@@ -21,3 +21,15 @@ export function generateAggCacheKey(
 export function generateServiceCacheKey(className: string, methodName: string, args: unknown) {
   return `service:${className}:${methodName}:${generateHash(args)}` as const;
 }
+
+export function generateUserCacheKey(userId: string) {
+  return `user:${userId}` as const;
+}
+
+export function generateCollaboratorCacheKey(resourceId: string) {
+  return `collaborator:${resourceId}` as const;
+}
+
+export function generateAccessTokenCacheKey(id: string) {
+  return `access-token:${id}` as const;
+}

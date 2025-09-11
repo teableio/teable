@@ -5,7 +5,6 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { GlobalModule } from '../global/global.module';
 import { PerformanceCache } from './decorator';
-import { PerformanceCacheModule } from './module';
 import { PerformanceCacheService } from './service';
 
 // Test service with decorated methods
@@ -113,7 +112,7 @@ describe.runIf(process.env.BACKEND_PERFORMANCE_CACHE)('Performance Cache Decorat
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      imports: [GlobalModule, PerformanceCacheModule],
+      imports: [GlobalModule],
       providers: [
         TestService,
         {
