@@ -62,7 +62,7 @@ export const MailConfigDialog = (props: {
           {props.emailConfig ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="h-4/5 overflow-y-auto overflow-x-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('email.config')}</DialogTitle>
         </DialogHeader>

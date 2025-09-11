@@ -138,10 +138,8 @@ export const MailConfigForm = (props: {
         control={form.control}
         name="secure"
         render={({ field }) => (
-          <FormItem className=" space-y-2">
-            <div>
-              <FormLabel className="text-sm font-medium">{t('email.secure')}</FormLabel>
-            </div>
+          <FormItem className="flex items-center justify-between space-y-2">
+            <FormLabel className="text-sm font-medium">{t('email.secure')}</FormLabel>
             <FormControl>
               <Switch
                 checked={field.value}
