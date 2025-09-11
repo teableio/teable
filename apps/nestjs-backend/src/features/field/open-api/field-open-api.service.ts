@@ -332,18 +332,34 @@ export class FieldOpenApiService {
     const columnsMeta = await this.viewService.getColumnsMetaMap(tableId, fieldIds);
     const referenceMap = await this.getFieldReferenceMap(fieldIds);
 
-    await this.prismaService.$tx(async () => {
-      const sources = [{ tableId, fieldIds: fields.map((f) => f.id) }];
-      await this.computedOrchestrator.computeCellChangesForFieldsBeforeDelete(sources, async () => {
-        await this.fieldViewSyncService.deleteDependenciesByFieldIds(
-          tableId,
-          fields.map((f) => f.id)
+    // Drop per-field search indexes before entering long-running transaction
+    // to avoid prolonging the interactive transaction and hitting its timeout.
+    for (const field of fields) {
+      try {
+        await this.tableIndexService.deleteSearchFieldIndex(tableId, field);
+      } catch (e) {
+        this.logger.warn(`deleteFields: pre-drop search index failed for ${field.id}: ${e}`);
+      }
+    }
+
+    await this.prismaService.$tx(
+      async () => {
+        const sources = [{ tableId, fieldIds: fields.map((f) => f.id) }];
+        await this.computedOrchestrator.computeCellChangesForFieldsBeforeDelete(
+          sources,
+          async () => {
+            await this.fieldViewSyncService.deleteDependenciesByFieldIds(
+              tableId,
+              fields.map((f) => f.id)
+            );
+            for (const field of fields) {
+              await this.fieldDeletingService.alterDeleteField(tableId, field);
+            }
+          }
         );
-        for (const field of fields) {
-          await this.fieldDeletingService.alterDeleteField(tableId, field);
-        }
-      });
-    });
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_DELETE, {
       operationId: generateOperationId(),
