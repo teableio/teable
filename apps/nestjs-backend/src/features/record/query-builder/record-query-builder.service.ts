@@ -246,13 +246,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const orderedFields = getOrderedFieldsByProjection(table, projection) as FieldCore[];
     for (const field of orderedFields) {
       const result = field.accept(visitor);
-      if (result) {
-        if (typeof result === 'string') {
-          // Wrap string SQL into a Raw and alias via object syntax to avoid extra bindings
-          qb.select({ [field.dbFieldName]: this.knex.raw(result) });
-        } else {
-          qb.select({ [field.dbFieldName]: result });
-        }
+      if (!result) continue;
+      if (typeof result === 'string') {
+        // Ensure stable keyword casing in formatted SQL snapshots by emitting an explicit
+        // uppercase AS for simple column selectors. Use a raw with identifier binding.
+        qb.select(this.knex.raw(`${result} AS ??`, [field.dbFieldName]));
+      } else {
+        qb.select({ [field.dbFieldName]: result });
       }
     }
 
