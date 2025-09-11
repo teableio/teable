@@ -50,12 +50,17 @@ export class RecordComputedUpdateService {
   private getReturningColumns(fields: IFieldInstance[]): string[] {
     const isFormulaField = (f: IFieldInstance): f is FormulaFieldDto =>
       f.type === FieldType.Formula;
-    const cols = fields.map((f) => {
-      if (isFormulaField(f) && f.getIsPersistedAsGeneratedColumn()) {
-        return f.getGeneratedColumnName();
+    const cols: string[] = [];
+    for (const f of fields) {
+      if (isFormulaField(f)) {
+        // Only include formulas that are persisted as generated columns and not errored
+        if (f.getIsPersistedAsGeneratedColumn() && !f.hasError) {
+          cols.push(f.getGeneratedColumnName());
+        }
+        continue; // Non-persisted formulas have no physical column to return
       }
-      return f.dbFieldName;
-    });
+      cols.push(f.dbFieldName);
+    }
     // de-dup
     return Array.from(new Set(cols));
   }
