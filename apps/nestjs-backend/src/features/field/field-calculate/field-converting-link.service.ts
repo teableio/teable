@@ -193,7 +193,7 @@ export class FieldConvertingLinkService {
       tableId,
       tableNameMap,
       false, // This is not a symmetric field in converting context
-      false // Create host base column along with FK/junction during conversion
+      true // Base column is already ensured during modify; create only FK/junction here
     );
     // Execute all queries (FK/junction creation, order columns, etc.)
     for (const query of createColumnQueries) {

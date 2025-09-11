@@ -261,9 +261,33 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     // First, drop ALL columns associated with the field (including generated columns)
     queries.push(...this.dropColumn(tableName, oldFieldInstance, linkContext));
 
-    // For Link fields, creation of FK/junction and any host-column should be delegated
-    // to FieldConvertingLinkService via createColumnSchema(). Avoid double creation here.
+    // For Link fields, ensure the host base column exists immediately during modify
+    // to guarantee subsequent update-from-select can persist values. Defer FK/junction
+    // creation to FieldConvertingLinkService (we mark as symmetric here to skip FK creation).
     if (fieldInstance.type === FieldType.Link && !fieldInstance.isLookup) {
+      const alterTableBuilder = this.knex.schema.alterTable(tableName, (table) => {
+        const createContext: ICreateDatabaseColumnContext = {
+          table,
+          field: fieldInstance,
+          fieldId: fieldInstance.id,
+          dbFieldName: fieldInstance.dbFieldName,
+          unique: fieldInstance.unique,
+          notNull: fieldInstance.notNull,
+          dbProvider: this,
+          tableDomain,
+          tableId: linkContext?.tableId || '',
+          tableName,
+          knex: this.knex,
+          tableNameMap: linkContext?.tableNameMap || new Map(),
+          // Create base column only; skip FK/junction here
+          isSymmetricField: true,
+          skipBaseColumnCreation: false,
+        };
+        const visitor = new CreatePostgresDatabaseColumnFieldVisitor(createContext);
+        fieldInstance.accept(visitor);
+      });
+      const alterTableQueries = alterTableBuilder.toSQL().map((item) => item.sql);
+      queries.push(...alterTableQueries);
       return queries;
     }
 
