@@ -68,9 +68,15 @@ export class AggregationOpenApiController {
       table.lastModifiedTime?.getTime().toString() ?? '0',
       cacheQuery
     );
-    return this.performanceCacheService.wrap(cacheKey, () => {
-      return fn();
-    });
+    return this.performanceCacheService.wrap(
+      cacheKey,
+      () => {
+        return fn();
+      },
+      {
+        ttl: 60 * 60, // 1 hour
+      }
+    );
   }
 
   @Get()

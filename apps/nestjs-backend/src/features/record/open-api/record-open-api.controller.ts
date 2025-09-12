@@ -228,9 +228,15 @@ export class RecordOpenApiController {
       table.lastModifiedTime?.getTime().toString() ?? '0',
       cacheQuery
     );
-    return this.performanceCacheService.wrap(cacheKey, () => {
-      return this.recordService.getDocIdsByQuery(tableId, cacheQuery);
-    });
+    return this.performanceCacheService.wrap(
+      cacheKey,
+      () => {
+        return this.recordService.getDocIdsByQuery(tableId, cacheQuery);
+      },
+      {
+        ttl: 60 * 60, // 1 hour
+      }
+    );
   }
 
   @Permissions('table|read')
