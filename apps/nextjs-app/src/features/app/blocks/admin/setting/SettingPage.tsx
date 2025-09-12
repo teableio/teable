@@ -251,8 +251,9 @@ export const SettingPage = (props: ISettingPageProps) => {
                   </div>
                   <div className="flex flex-col gap-2">
                     <Input
-                      placeholder={t('admin.action.enterApiKey')}
+                      type="password"
                       value={appConfig?.apiKey}
+                      placeholder={t('admin.action.enterApiKey')}
                       onChange={(e) => {
                         const value = e.target.value?.trim();
                         onValueChange('appConfig', { ...appConfig, apiKey: value });
@@ -300,8 +301,9 @@ export const SettingPage = (props: ISettingPageProps) => {
                   </div>
                   <div className="flex flex-col gap-2">
                     <Input
-                      placeholder={t('admin.action.enterApiKey')}
+                      type="password"
                       value={webSearchConfig?.apiKey}
+                      placeholder={t('admin.action.enterApiKey')}
                       onChange={(e) => {
                         const value = e.target.value?.trim();
                         onValueChange('webSearchConfig', { apiKey: value });
