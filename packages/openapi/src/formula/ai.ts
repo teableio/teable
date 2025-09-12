@@ -1,11 +1,21 @@
 import { funcDefine } from './func-define';
 
-export const getFormulaPrompt = (prompt: string, fields: { name: string }[]) => {
+export const getFormulaPrompt = (
+  prompt: string,
+  fields: { name: string }[],
+  includeReturnTypes?: boolean
+) => {
   const context = fields.map((field) => field.name).join('\n');
 
   // Convert function definitions to a readable format
   const functionDocs = funcDefine
     .map(([_name, schema]) => {
+      if (includeReturnTypes) {
+        return `
+         - Definition:${schema.definition}
+         - ReturnsType: ${schema.returnType}
+         `;
+      }
       return schema.definition;
     })
     .join('\n');
