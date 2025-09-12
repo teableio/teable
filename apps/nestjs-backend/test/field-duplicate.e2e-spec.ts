@@ -304,6 +304,100 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     });
   });
 
+  describe('duplicate common fields should copy cell data', () => {
+    let table: ITableFullVo;
+    let textFieldId: string;
+    let numberFieldId: string;
+    let checkboxFieldId: string;
+
+    beforeAll(async () => {
+      // create base table
+      table = await createTable(baseId, { name: 'dup_common_main' });
+
+      // add three common fields
+      textFieldId = (
+        await createField(table.id, {
+          type: FieldType.SingleLineText,
+          name: 'text_col',
+        })
+      ).data.id;
+
+      numberFieldId = (
+        await createField(table.id, {
+          type: FieldType.Number,
+          name: 'num_col',
+        })
+      ).data.id;
+
+      checkboxFieldId = (
+        await createField(table.id, {
+          type: FieldType.Checkbox,
+          name: 'bool_col',
+        })
+      ).data.id;
+
+      // seed a few records with mixed values (including nulls/false)
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [textFieldId]: 'hello',
+              [numberFieldId]: 42,
+              [checkboxFieldId]: true,
+            },
+          },
+          {
+            fields: {
+              [textFieldId]: 'world',
+              [numberFieldId]: null,
+              [checkboxFieldId]: false,
+            },
+          },
+          {
+            fields: {
+              [textFieldId]: null,
+              [numberFieldId]: 0,
+              [checkboxFieldId]: true,
+            },
+          },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should duplicate text/number/checkbox fields and preserve all cell values', async () => {
+      const copiedText = (
+        await duplicateField(table.id, textFieldId, {
+          name: 'text_col_copy',
+        })
+      ).data;
+
+      const copiedNumber = (
+        await duplicateField(table.id, numberFieldId, {
+          name: 'num_col_copy',
+        })
+      ).data;
+
+      const copiedCheckbox = (
+        await duplicateField(table.id, checkboxFieldId, {
+          name: 'bool_col_copy',
+        })
+      ).data;
+
+      const { records } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+
+      for (const r of records) {
+        expect(r.fields[copiedText.id]).toEqual(r.fields[textFieldId]);
+        expect(r.fields[copiedNumber.id]).toEqual(r.fields[numberFieldId]);
+        expect(r.fields[copiedCheckbox.id]).toEqual(r.fields[checkboxFieldId]);
+      }
+    });
+  });
+
   describe('duplicate lookup fields', () => {
     let table: ITableFullVo;
     let subTable: ITableFullVo;

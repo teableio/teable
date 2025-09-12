@@ -708,7 +708,8 @@ export class FieldOpenApiService {
         sourceTableId,
         newField.id,
         fieldRaw.dbFieldName,
-        omit(newFieldInstance, 'order') as IFieldInstance
+        omit(newFieldInstance, 'order') as IFieldInstance,
+        { sourceFieldId: fieldRaw.id }
       );
     }
 
@@ -727,13 +728,19 @@ export class FieldOpenApiService {
     sourceTableId: string,
     targetFieldId: string,
     sourceDbFieldName: string,
-    fieldInstance: IFieldInstance
+    fieldInstance: IFieldInstance,
+    opts: { sourceFieldId: string }
   ) {
     const chunkSize = 1000;
 
     const dbTableName = await this.fieldService.getDbTableName(sourceTableId);
 
-    const count = await this.getFieldRecordsCount(dbTableName, fieldInstance);
+    // Use the SOURCE field for filtering/counting so we only fetch rows where
+    // the original field has a value. The new field is empty at this point.
+    const sourceFieldId = opts.sourceFieldId;
+    const sourceFieldForFilter = { ...fieldInstance, id: sourceFieldId } as IFieldInstance;
+
+    const count = await this.getFieldRecordsCount(dbTableName, sourceFieldForFilter);
 
     if (!count) {
       if (fieldInstance.notNull || fieldInstance.unique) {
@@ -751,7 +758,7 @@ export class FieldOpenApiService {
     for (let i = 0; i < page; i++) {
       const sourceRecords = await this.getFieldRecords(
         dbTableName,
-        fieldInstance,
+        sourceFieldForFilter,
         sourceDbFieldName,
         i,
         chunkSize
