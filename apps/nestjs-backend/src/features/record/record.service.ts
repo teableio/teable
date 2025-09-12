@@ -551,7 +551,8 @@ export class RecordService {
       | 'filterLinkCellSelected'
       | 'collapsedGroupIds'
       | 'selectedRecordIds'
-    >
+    >,
+    useQueryModel = false
   ) {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
     const { dbTableName, viewCte, filter, search, orderBy, groupBy, fieldMap } =
@@ -569,6 +570,7 @@ export class RecordService {
         sort: [...(groupBy ?? []), ...(orderBy ?? [])],
         // Only select fields required by filter/order/search to avoid touching unrelated columns
         projection: fieldMap ? Object.values(fieldMap).map((f) => f.id) : [],
+        useQueryModel,
       }
     );
 
@@ -708,19 +710,23 @@ export class RecordService {
     query: IGetRecordsRo,
     useQueryModel = false
   ): Promise<IRecordsVo> {
-    const queryResult = await this.getDocIdsByQuery(tableId, {
-      ignoreViewQuery: query.ignoreViewQuery ?? false,
-      viewId: query.viewId,
-      skip: query.skip,
-      take: query.take,
-      filter: query.filter,
-      orderBy: query.orderBy,
-      search: query.search,
-      groupBy: query.groupBy,
-      filterLinkCellCandidate: query.filterLinkCellCandidate,
-      filterLinkCellSelected: query.filterLinkCellSelected,
-      selectedRecordIds: query.selectedRecordIds,
-    });
+    const queryResult = await this.getDocIdsByQuery(
+      tableId,
+      {
+        ignoreViewQuery: query.ignoreViewQuery ?? false,
+        viewId: query.viewId,
+        skip: query.skip,
+        take: query.take,
+        filter: query.filter,
+        orderBy: query.orderBy,
+        search: query.search,
+        groupBy: query.groupBy,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        selectedRecordIds: query.selectedRecordIds,
+      },
+      useQueryModel
+    );
 
     const projection = query.projection
       ? this.convertProjection(query.projection)
@@ -1436,7 +1442,8 @@ export class RecordService {
 
   async getDocIdsByQuery(
     tableId: string,
-    query: IGetRecordsRo
+    query: IGetRecordsRo,
+    useQueryModel = false
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const { skip, take = 100, ignoreViewQuery } = query;
 

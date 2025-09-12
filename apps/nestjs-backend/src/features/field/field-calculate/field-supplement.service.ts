@@ -1548,7 +1548,17 @@ export class FieldSupplementService {
 
   getFieldReferenceIds(field: IFieldInstance): string[] {
     if (field.lookupOptions) {
-      return [field.lookupOptions.lookupFieldId];
+      // Lookup/Rollup fields depend on BOTH the target lookup field and the link field.
+      // This ensures when a link cell changes, the dependent lookup/rollup fields are
+      // included in the computed impact and persisted via updateFromSelect.
+      const refs: string[] = [];
+      const { lookupFieldId, linkFieldId } = field.lookupOptions as {
+        lookupFieldId?: string;
+        linkFieldId?: string;
+      };
+      if (lookupFieldId) refs.push(lookupFieldId);
+      if (linkFieldId) refs.push(linkFieldId);
+      return refs;
     }
 
     if (field.type === FieldType.Link) {

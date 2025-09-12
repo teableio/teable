@@ -96,7 +96,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const mainTableAlias = getTableAliasFromTable(table);
     const qb = this.knex.from({ [mainTableAlias]: table.dbTableName });
 
-    const state = new RecordQueryBuilderManager('table');
+    const state = new RecordQueryBuilderManager('tableCache');
 
     return { qb, table, state, alias: mainTableAlias };
   }
@@ -113,14 +113,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     state: IMutableQueryBuilderState;
   }> {
     const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
-    // if (useQueryModel) {
-    //   try {
-    //     return await this.createQueryBuilderFromTableCache(tableRaw as { id: string });
-    //   } catch (error) {
-    //     this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
-    //     return this.createQueryBuilderFromTable(from, tableRaw, projection);
-    //   }
-    // }
+    if (useQueryModel) {
+      try {
+        return await this.createQueryBuilderFromTableCache(tableRaw as { id: string });
+      } catch (error) {
+        this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
+        return this.createQueryBuilderFromTable(from, tableRaw, projection);
+      }
+    }
 
     return this.createQueryBuilderFromTable(from, tableRaw, projection);
   }
