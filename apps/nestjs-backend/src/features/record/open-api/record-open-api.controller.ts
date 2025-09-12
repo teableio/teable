@@ -100,7 +100,7 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Query(new ZodValidationPipe(getRecordQuerySchema)) query: IGetRecordQuery
   ): Promise<IRecord> {
-    return await this.recordService.getRecord(tableId, recordId, query);
+    return await this.recordService.getRecord(tableId, recordId, query, true, true);
   }
 
   @Permissions('record|update')
@@ -197,7 +197,14 @@ export class RecordOpenApiController {
     @Query('ids') ids: string[],
     @Query('projection') projection?: { [fieldNameOrId: string]: boolean }
   ) {
-    return this.recordService.getSnapshotBulkWithPermission(tableId, ids, projection);
+    return this.recordService.getSnapshotBulkWithPermission(
+      tableId,
+      ids,
+      projection,
+      undefined,
+      undefined,
+      true
+    );
   }
 
   @Permissions('record|read')
@@ -245,7 +252,7 @@ export class RecordOpenApiController {
     return this.performanceCacheService.wrap(
       cacheKey,
       () => {
-        return this.recordService.getDocIdsByQuery(tableId, cacheQuery);
+        return this.recordService.getDocIdsByQuery(tableId, cacheQuery, true);
       },
       {
         ttl: 60 * 60, // 1 hour

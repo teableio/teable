@@ -751,12 +751,20 @@ export class RecordService {
     tableId: string,
     recordId: string,
     query: IGetRecordQuery,
-    withPermission = true
+    withPermission = true,
+    useQueryModel = false
   ): Promise<IRecord> {
     const { projection, fieldKeyType = FieldKeyType.Name, cellFormat } = query;
     const recordSnapshot = await this[
       withPermission ? 'getSnapshotBulkWithPermission' : 'getSnapshotBulk'
-    ](tableId, [recordId], this.convertProjection(projection), fieldKeyType, cellFormat);
+    ](
+      tableId,
+      [recordId],
+      this.convertProjection(projection),
+      fieldKeyType,
+      cellFormat,
+      useQueryModel
+    );
 
     if (!recordSnapshot.length) {
       throw new NotFoundException('Can not get record');
@@ -1340,6 +1348,9 @@ export class RecordService {
       }
     );
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
+
+    this.logger.debug('getSnapshotBulkInner query %s', nativeQuery);
+
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<
@@ -1464,10 +1475,14 @@ export class RecordService {
       ...query,
       viewId,
     });
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
-      ...query,
-      filter: filterWithGroup,
-    });
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(
+      tableId,
+      {
+        ...query,
+        filter: filterWithGroup,
+      },
+      useQueryModel
+    );
 
     // queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
 

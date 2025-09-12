@@ -35,6 +35,8 @@ export class RecordComputedUpdateService {
         // (e.g., lookup/rollup targets deleted). Their values should resolve to NULL
         // at read time and persisted columns, if any, will be handled on future edits.
         if ((f as unknown as { hasError?: boolean }).hasError) return false;
+        // Persist lookup-of-link as well (computed link columns should be stored).
+        // We rely on query builder to ensure subquery column types match target columns (e.g., jsonb).
         // Skip formula persisted as generated columns
         return match(f)
           .when(isFormulaField, (f) => !f.getIsPersistedAsGeneratedColumn())
