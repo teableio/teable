@@ -210,6 +210,21 @@ export class FieldOpenApiService {
               if (references) {
                 await this.restoreReference(references);
               }
+              // Ensure dependent formula generated columns are recreated BEFORE
+              // evaluating and returning values in the computed pipeline.
+              // This avoids UPDATE ... RETURNING selecting non-existent generated columns
+              // right after restoring a base field.
+              try {
+                await this.fieldService.recreateDependentFormulaColumns(tableId, [
+                  fieldInstance.id,
+                ]);
+              } catch (e) {
+                this.logger.warn(
+                  `createFields: failed to recreate dependent formulas for ${fieldInstance.id}: ${String(
+                    e
+                  )}`
+                );
+              }
               created.push(...createResult);
               for (const { tableId: tid, field } of createResult) {
                 if (field.isComputed) {
