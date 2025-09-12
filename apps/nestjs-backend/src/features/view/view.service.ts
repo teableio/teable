@@ -217,7 +217,18 @@ export class ViewService implements IReadonlyAdapterService {
     const userId = this.cls.get('user.id');
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
 
-    const { description, type, options, sort, filter, group, columnMeta } = createViewRo;
+    const {
+      description,
+      type,
+      options,
+      sort,
+      filter,
+      group,
+      columnMeta,
+      shareId,
+      shareMeta,
+      enableShare,
+    } = createViewRo;
 
     const { name, order } = await this.polishOrderAndName(tableId, createViewRo);
 
@@ -246,6 +257,9 @@ export class ViewService implements IReadonlyAdapterService {
       order,
       createdBy: userId,
       columnMeta: mergedColumnMeta ? JSON.stringify(mergedColumnMeta) : JSON.stringify({}),
+      shareId,
+      shareMeta: shareMeta ? JSON.stringify(shareMeta) : undefined,
+      enableShare,
     };
 
     return await prisma.view.create({ data });
