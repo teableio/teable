@@ -8,7 +8,7 @@ import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Cpu, Code, Zap } from 'lucide-react';
+import { Cpu, Code, Zap, Globe } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
@@ -40,6 +40,7 @@ export const CodingModels = ({
     return {
       image: <Image className="size-4" />,
       pdf: <File className="size-4" />,
+      webSearch: <Globe className="size-4" />,
     };
   }, []);
 
