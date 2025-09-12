@@ -178,21 +178,25 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
 
       const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
-      if (!isPersistedAsGeneratedColumn) {
-        const expression = field.getExpression();
-        const timezone = field.options.timeZone;
-        // Return just the expression without alias for use in jsonb_build_object
+      const expression = field.getExpression();
+      const timezone = field.options.timeZone;
+
+      // In raw/propagation context (used by UPDATE ... FROM SELECT), avoid referencing
+      // the physical generated column directly, since it may have been dropped by
+      // cascading schema changes (e.g., deleting a referenced base column). Instead,
+      // always emit the computed expression which degrades to NULL when references
+      // are unresolved.
+      if (!isPersistedAsGeneratedColumn || this.selectRawForLookupContext) {
         return this.dbProvider.convertFormulaToSelectQuery(expression, {
           table: this.table,
-          tableAlias: this.tableAlias, // Pass table alias to the conversion context
+          tableAlias: this.tableAlias,
           selectionMap: this.getSelectionMap(),
-          // Provide CTE map so formula references can resolve link/lookup/rollup via CTEs directly
           fieldCteMap: this.state.getFieldCteMap(),
-          // Pass timezone for date/time function evaluation in SELECT context
           timeZone: timezone,
         });
       }
-      // For generated columns, use table alias if provided
+
+      // For non-raw contexts where the generated column exists, select it directly
       const columnName = field.getGeneratedColumnName();
       const columnSelector = this.generateColumnSelect(columnName);
       this.state.setSelection(field.id, columnSelector);
