@@ -22,12 +22,12 @@ export class PermissionService {
     return departments?.map((department) => department.id) || [];
   }
 
-  private async getSpaceRole(spaceId: string, principalId: string[]) {
+  async getSpaceCollaborators(spaceId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(spaceId);
     return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
   }
 
-  private async getBaseRole(baseId: string, principalId: string[]) {
+  async getBaseCollaborators(baseId: string, principalId: string[]) {
     const collaborators = await this.collaboratorModel.getCollaboratorRawByResourceId(baseId);
     return collaborators.filter((collaborator) => principalId.includes(collaborator.principalId));
   }
@@ -35,7 +35,7 @@ export class PermissionService {
   async getRoleBySpaceId(spaceId: string, includeInactiveResource?: boolean) {
     const userId = this.cls.get('user.id');
     const departmentIds = this.getDepartmentIds();
-    const collaborators = await this.getSpaceRole(spaceId, [...departmentIds, userId]);
+    const collaborators = await this.getSpaceCollaborators(spaceId, [...departmentIds, userId]);
     const space = await this.prismaService.space.findFirst({
       where: {
         id: spaceId,
@@ -57,7 +57,7 @@ export class PermissionService {
     const departmentIds = this.getDepartmentIds();
     const userId = this.cls.get('user.id');
 
-    const collaborators = await this.getBaseRole(baseId, [...departmentIds, userId]);
+    const collaborators = await this.getBaseCollaborators(baseId, [...departmentIds, userId]);
     if (!collaborators.length) {
       return null;
     }
