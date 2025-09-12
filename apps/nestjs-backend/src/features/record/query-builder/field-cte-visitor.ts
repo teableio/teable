@@ -216,9 +216,10 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       throw new Error('Not a lookup field');
     }
 
-    // If this lookup field is marked as error, don't attempt to resolve, just return NULL
+    // If this lookup field is marked as error, don't attempt to resolve.
+    // Use untyped NULL to safely fit any target column type.
     if (field.hasError) {
-      return this.dialect.nullJson();
+      return 'NULL';
     }
 
     const qb = this.qb.client.queryBuilder();
@@ -266,7 +267,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         }
       }
       // If still not found or field has error, return NULL instead of throwing
-      return this.dialect.nullJson();
+      return 'NULL';
     }
 
     // If the target is a Link field, read its link_value from the JOINed CTE or subquery
@@ -294,7 +295,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         }
       }
       // If self-referencing or missing, return NULL
-      return this.dialect.nullJson();
+      return 'NULL';
     }
 
     // If the target is a Rollup field, read its precomputed rollup value from the link CTE
@@ -813,7 +814,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // If rollup field is marked as error, don't attempt to resolve; just return NULL
     if (field.hasError) {
-      return this.dialect.nullJson();
+      return 'NULL';
     }
 
     const qb = this.qb.client.queryBuilder();
@@ -831,7 +832,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     const foreignAlias = this.getForeignAlias();
     const targetLookupField = field.getForeignLookupField(this.foreignTable);
     if (!targetLookupField) {
-      return this.dialect.nullJson();
+      return 'NULL';
     }
     // If the target of rollup depends on a foreign link CTE, reference the JOINed CTE columns or use subquery
     if (targetLookupField.type === FieldType.Formula) {

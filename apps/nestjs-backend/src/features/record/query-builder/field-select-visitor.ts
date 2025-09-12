@@ -127,8 +127,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
       // Check if the field has error (e.g., target field deleted)
       if (field.hasError || !field.lookupOptions) {
-        // Base-table context: return NULL to avoid missing-column errors.
-        const nullExpr = this.dialect.nullJson();
+        // Base-table context: return untyped NULL to safely fit any target column type.
+        const nullExpr = 'NULL';
         const raw = this.qb.client.raw(nullExpr);
         this.state.setSelection(field.id, nullExpr);
         return raw;
@@ -153,7 +153,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return rawExpression;
       }
 
-      const nullExpr = this.dialect.nullJson();
+      const nullExpr = 'NULL';
       const raw = this.qb.client.raw(nullExpr);
       this.state.setSelection(field.id, nullExpr);
       return raw;
