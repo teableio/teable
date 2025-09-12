@@ -447,6 +447,7 @@ export class AggregationServiceV2 implements IAggregationService {
             alias: 'count',
           },
         ],
+        useQueryModel: true,
       }
     );
 

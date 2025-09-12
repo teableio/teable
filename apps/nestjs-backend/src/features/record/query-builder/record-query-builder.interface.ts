@@ -49,6 +49,7 @@ export interface ICreateRecordAggregateBuilderOptions {
   currentUserId?: string;
   /** Optional projection to minimize CTE/select */
   projection?: string[];
+  useQueryModel?: boolean;
 }
 
 /**

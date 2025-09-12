@@ -170,11 +170,18 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     from: string,
     options: ICreateRecordAggregateBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
-    const { tableIdOrDbTableName, filter, aggregationFields, groupBy, currentUserId } = options;
+    const {
+      tableIdOrDbTableName,
+      filter,
+      aggregationFields,
+      groupBy,
+      currentUserId,
+      useQueryModel,
+    } = options;
     const { qb, table, alias, state } = await this.createQueryBuilder(
       from,
       tableIdOrDbTableName,
-      false,
+      useQueryModel,
       options.projection
     );
 
