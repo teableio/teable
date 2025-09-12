@@ -4,7 +4,7 @@ import type { RefObject } from 'react';
 
 interface IList {
   title: string;
-  key: 'publicOrigin' | 'https' | 'databaseProxy' | 'llmApi' | 'v0' | 'email';
+  key: 'publicOrigin' | 'https' | 'databaseProxy' | 'llmApi' | 'app' | 'webSearch' | 'email';
   anchor?: RefObject<HTMLDivElement>;
 }
 
@@ -33,9 +33,10 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
       targetElement?.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
   return (
     <div>
-      <div className="sticky top-0 flex h-auto w-[360px] min-w-[360px] flex-col space-y-4 rounded-lg border bg-secondary p-4">
+      <div className="sticky top-0 mt-4 flex h-44 w-full min-w-full flex-col space-y-4 overflow-y-auto rounded-lg border bg-secondary p-4 sm:h-auto sm:w-[360px] sm:min-w-[360px] sm:overflow-hidden">
         <div className="flex flex-col">
           <span className="justify-start self-stretch text-sm font-semibold text-foreground">
             {t('admin.configuration.title')}

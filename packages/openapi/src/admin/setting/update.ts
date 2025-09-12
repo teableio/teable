@@ -67,10 +67,17 @@ export const aiConfigVoSchema = aiConfigSchema.merge(
 );
 
 export const appConfigSchema = z.object({
+  apiKey: z.string().optional(),
   creditCount: z.number().min(0).optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;
+
+export const webSearchConfigSchema = z.object({
+  apiKey: z.string().optional(),
+});
+
+export type IWebSearchConfig = z.infer<typeof webSearchConfigSchema>;
 
 export const updateSettingRoSchema = z.object({
   disallowSignUp: z.boolean().optional(),
@@ -80,6 +87,7 @@ export const updateSettingRoSchema = z.object({
   aiConfig: aiConfigVoSchema.optional(),
   enableWaitlist: z.boolean().optional(),
   appConfig: appConfigSchema.optional(),
+  webSearchConfig: webSearchConfigSchema.optional(),
   brandName: z.string().optional(),
 });
 

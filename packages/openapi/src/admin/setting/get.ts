@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
-import { aiConfigVoSchema, appConfigSchema } from './update';
+import { aiConfigVoSchema, appConfigSchema, webSearchConfigSchema } from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
@@ -18,6 +18,7 @@ export const settingVoSchema = z.object({
   notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),
+  webSearchConfig: webSearchConfigSchema.nullable().optional(),
 });
 
 export type ISettingVo = z.infer<typeof settingVoSchema>;

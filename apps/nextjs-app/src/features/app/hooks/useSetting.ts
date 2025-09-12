@@ -14,11 +14,15 @@ export const useSetting = () => {
     disallowSignUp = false,
     disallowSpaceCreation = false,
     disallowSpaceInvitation = false,
+    webSearchEnabled = false,
+    appGenerationEnabled = false,
   } = setting ?? {};
 
   return {
     disallowSignUp,
     disallowSpaceCreation: !user.isAdmin && (isLoading || disallowSpaceCreation),
     disallowSpaceInvitation: !user.isAdmin && (isLoading || disallowSpaceInvitation),
+    webSearchEnabled,
+    appGenerationEnabled,
   };
 };

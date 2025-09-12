@@ -699,7 +699,7 @@
           "lgDescription": "For planning, coding, and other complex task scenarios, it is recommended to use clade-sonnet-4"
         },
         "chatModelTest": {
-          "text": "Test Model ability of lg model",
+          "text": "Test model",
           "description": "Test the ability of the model to handle image, pdf.",
           "notConfigLgModel": "Please configure the lg model first",
           "confirmTitle": "Test Model Ability",
@@ -717,7 +717,7 @@
           "pdf": "PDF",
           "webSearch": "Web Search",
           "disabledWebSearch": "Disabled Web Search",
-          "lgModelAbility": "Lg model ability"
+          "lgModelAbility": "Large model ability"
         },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",
@@ -742,9 +742,13 @@
         "noValidModel": "No valid model found",
         "addCustomModel": "Add custom model",
         "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Configure Firecrawl API key to enable web search feature, access <a>Firecrawl settings</a> to get API key"
       }
     },
     "action": {
+      "enterApiKey": "Enter API key",
       "goToConfiguration": "Go to configuration"
     },
     "tips": {
@@ -774,10 +778,15 @@
           "description": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
           "errorTips": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable"
         },
-        "v0": {
-          "title": "V0 API",
-          "description": "The V0 API is not configured, the AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
-          "errorTips": "The V0 API is not configured, the AI Chat/ AI automation will not be usable"
+        "app": {
+          "title": "App Generation",
+          "description": "You have not configured the v0 API key, the App Generation feature will not be available, <anchor>go to setting</anchor>",
+          "errorTips": "You have not configured the v0 API key, the App Generation feature will not be available"
+        },
+        "webSearch": {
+          "title": "Web Search",
+          "description": "You have not configured the web search API, the web search feature will not be available, <anchor>go to setting</anchor>",
+          "errorTips": "You have not configured the web search API, the web search feature will not be available"
         },
         "email": {
           "title": "Email",
@@ -895,6 +904,8 @@
     "deleteTip": "Are you sure you want to delete \"{{name}}\" base?"
   },
   "app": {
+    "title": "App Generation",
+    "description": "Configure the v0 API Key to enable APP Generation capabilities. Access <a>v0 setting</a> to obtain your API Key",
     "previewAppError": "App running error",
     "sendErrorToAI": "Send error to AI"
   }

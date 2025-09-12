@@ -61,8 +61,10 @@ export class SettingOpenApiController {
       SettingKey.ENABLE_EMAIL_VERIFICATION,
       SettingKey.ENABLE_WAITLIST,
       SettingKey.AI_CONFIG,
+      SettingKey.APP_CONFIG,
+      SettingKey.WEB_SEARCH_CONFIG,
     ]);
-    const { aiConfig, ...rest } = setting;
+    const { aiConfig, appConfig, webSearchConfig, ...rest } = setting;
     return {
       ...rest,
       aiConfig: {
@@ -75,6 +77,8 @@ export class SettingOpenApiController {
           })) ?? [],
         chatModel: aiConfig?.chatModel,
       },
+      appGenerationEnabled: Boolean(appConfig?.apiKey),
+      webSearchEnabled: Boolean(webSearchConfig?.apiKey),
     };
   }
 

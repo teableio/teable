@@ -694,7 +694,7 @@
           "lgDescription": "对于规划、编码和其他复杂任务场景，建议使用 clade-sonnet-4"
         },
         "chatModelTest": {
-          "text": "测试大型模型的能力",
+          "text": "测试模型",
           "description": "测试模型处理图片、PDF 的能力",
           "notConfigLgModel": "请先配置大型模型",
           "confirmTitle": "测试模型能力",
@@ -737,9 +737,13 @@
         "noValidModel": "未找到有效模型",
         "addCustomModel": "添加自定义模型",
         "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "配置 Firecrawl API 密钥以启用网络搜索功能，访问 <a>Firecrawl 设置</a> 获取 API 密钥"
       }
     },
     "action": {
+      "enterApiKey": "输入 API 密钥",
       "goToConfiguration": "前往配置"
     },
     "tips": {
@@ -769,10 +773,15 @@
           "description": "您尚未配置 AI LLM API，AI 聊天/AI 自动化将无法使用，<anchor>前往设置</anchor>",
           "errorTips": "您尚未配置 AI LLM API，AI 聊天/AI 自动化将无法使用"
         },
-        "v0": {
-          "title": "V0 API",
-          "description": "V0 API 未配置，AI 聊天/AI 自动化将无法使用，<anchor>前往设置</anchor>",
-          "errorTips": "V0 API 未配置，AI 聊天/AI 自动化将无法使用"
+        "app": {
+          "title": "应用生成",
+          "description": "您尚未配置 v0 API，应用生成功能将无法使用，<anchor>前往设置</anchor>",
+          "errorTips": "您尚未配置 v0 API，应用生成功能将无法使用"
+        },
+        "webSearch": {
+          "title": "网络搜索",
+          "description": "您尚未配置网络搜索 API，网络搜索功能将无法使用，<anchor>前往设置</anchor>",
+          "errorTips": "您尚未配置网络搜索 API，网络搜索功能将无法使用"
         },
         "email": {
           "title": "邮箱",
@@ -890,6 +899,8 @@
     "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？"
   },
   "app": {
+    "title": "应用生成",
+    "description": "配置 v0 API 密钥以启用应用生成功能，访问 <a>v0 设置</a> 获取 API 密钥",
     "previewAppError": "应用运行报错",
     "sendErrorToAI": "将错误发送给 AI"
   }

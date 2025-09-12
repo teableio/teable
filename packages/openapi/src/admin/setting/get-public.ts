@@ -34,6 +34,8 @@ export const publicSettingVoSchema = settingVoSchema
   .merge(
     z.object({
       aiConfig: publicAiConfigSchema.nullable(),
+      webSearchEnabled: z.boolean().optional(),
+      appGenerationEnabled: z.boolean().optional(),
     })
   );
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;

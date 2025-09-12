@@ -122,10 +122,6 @@ export class SettingOpenApiService {
     }
   }
 
-  private testWebSearch() {
-    return Boolean(process.env.FIRECRAWL_API_KEY);
-  }
-
   private async testChatModelAbility(
     modelInstance: LanguageModel,
     ability: ITestLLMRo['ability']
@@ -159,13 +155,6 @@ export class SettingOpenApiService {
       ]);
       if (supportPDF) {
         supportAbilities.push(chatModelAbilityType.Enum.pdf);
-      }
-    }
-
-    if (testAbilities.includes(chatModelAbilityType.Enum.webSearch)) {
-      const supportWebSearch = this.testWebSearch();
-      if (supportWebSearch) {
-        supportAbilities.push(chatModelAbilityType.Enum.webSearch);
       }
     }
 
