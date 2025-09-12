@@ -5,7 +5,11 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { duplicateField, convertField } from '@teable/openapi';
+import type { Knex } from 'knex';
+import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
+import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEventWithResultWithCount } from './utils/event-promise';
@@ -22,12 +26,18 @@ import {
 describe('Computed Orchestrator (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
+  let prisma: PrismaService;
+  let knex: Knex;
+  let db: IDbProvider;
   const baseId = (globalThis as any).testConfig.baseId as string;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     eventEmitterService = app.get(EventEmitterService);
+    prisma = app.get(PrismaService);
+    knex = app.get('CUSTOM_KNEX' as any);
+    db = app.get<IDbProvider>(DB_PROVIDER_SYMBOL as any);
   });
 
   afterAll(async () => {
@@ -50,6 +60,32 @@ describe('Computed Orchestrator (e2e)', () => {
       eventEmitterService.eventEmitter.off(Events.TABLE_RECORD_UPDATE, handler);
     }
   }
+
+  // ---- DB helpers for asserting physical columns ----
+  const getDbTableName = async (tableId: string) => {
+    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    return dbTableName as string;
+  };
+
+  const getRow = async (dbTableName: string, id: string) => {
+    return (
+      await prisma.$queryRawUnsafe<any[]>(knex(dbTableName).select('*').where('__id', id).toQuery())
+    )[0];
+  };
+
+  const parseMaybe = (v: unknown) => {
+    if (typeof v === 'string') {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return v;
+      }
+    }
+    return v;
+  };
 
   // ===== Formula related =====
   describe('Formula', () => {
@@ -88,6 +124,12 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[f1.id].oldValue).toEqual(1);
       expect(changes[f1.id].newValue).toEqual(2);
 
+      // Assert physical column for formula (non-generated) reflects new value
+      const tblName = await getDbTableName(table.id);
+      const row = await getRow(tblName, table.records[0].id);
+      const f1Full = (await getFields(table.id)).find((f) => f.id === (f1 as any).id)! as any;
+      expect(parseMaybe((row as any)[f1Full.dbFieldName])).toEqual(2);
+
       await permanentDeleteTable(baseId, table.id);
     });
 
@@ -124,6 +166,12 @@ describe('Computed Orchestrator (e2e)', () => {
         : [event.payload.record];
       const change = recs[0]?.fields?.[f.id];
       expect(change).toBeUndefined();
+
+      // DB: F should remain 1
+      const tblName = await getDbTableName(table.id);
+      const row = await getRow(tblName, table.records[0].id);
+      const fFull = (await getFields(table.id)).find((x) => x.id === (f as any).id)! as any;
+      expect(parseMaybe((row as any)[fFull.dbFieldName])).toEqual(1);
 
       await permanentDeleteTable(baseId, table.id);
     });
@@ -185,6 +233,17 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[d.id].oldValue).toEqual(4);
       expect(changes[d.id].newValue).toEqual(5);
 
+      // DB: B=4, C=8, D=5
+      const dbName = await getDbTableName(table.id);
+      const row = await getRow(dbName, table.records[0].id);
+      const fields = await getFields(table.id);
+      const bFull = fields.find((x) => x.id === (b as any).id)! as any;
+      const cFull = fields.find((x) => x.id === (c as any).id)! as any;
+      const dFull = fields.find((x) => x.id === (d as any).id)! as any;
+      expect(parseMaybe((row as any)[bFull.dbFieldName])).toEqual(4);
+      expect(parseMaybe((row as any)[cFull.dbFieldName])).toEqual(8);
+      expect(parseMaybe((row as any)[dFull.dbFieldName])).toEqual(5);
+
       await permanentDeleteTable(baseId, table.id);
     });
   });
@@ -241,6 +300,12 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[lkp2.id]).toBeDefined();
       expect(changes[lkp2.id].oldValue).toEqual([10]);
       expect(changes[lkp2.id].newValue).toEqual([20]);
+
+      // DB: lookup column should be [20]
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const lkp2Full = (await getFields(t2.id)).find((f) => f.id === (lkp2 as any).id)! as any;
+      expect(parseMaybe((t2Row as any)[lkp2Full.dbFieldName])).toEqual([20]);
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -300,6 +365,12 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[roll2.id]).toBeDefined();
       expect(changes[roll2.id].oldValue).toEqual(10);
       expect(changes[roll2.id].newValue).toEqual(11);
+
+      // DB: rollup column should be 11
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const roll2Full = (await getFields(t2.id)).find((f) => f.id === (roll2 as any).id)! as any;
+      expect(parseMaybe((t2Row as any)[roll2Full.dbFieldName])).toEqual(11);
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -399,6 +470,20 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(t3Changes[lkp3.id].oldValue).toEqual([12]);
       expect(t3Changes[lkp3.id].newValue).toEqual([15]);
 
+      // DB: T1.F=15, T2.LKP2=[15], T3.LKP3=[15]
+      const t1Db = await getDbTableName(t1.id);
+      const t2Db = await getDbTableName(t2.id);
+      const t3Db = await getDbTableName(t3.id);
+      const t1Row = await getRow(t1Db, t1.records[0].id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const t3Row = await getRow(t3Db, t3.records[0].id);
+      const [f1Full] = (await getFields(t1.id)).filter((x) => x.id === (f1 as any).id) as any[];
+      const [lkp2Full] = (await getFields(t2.id)).filter((x) => x.id === (lkp2 as any).id) as any[];
+      const [lkp3Full] = (await getFields(t3.id)).filter((x) => x.id === (lkp3 as any).id) as any[];
+      expect(parseMaybe((t1Row as any)[f1Full.dbFieldName])).toEqual(15);
+      expect(parseMaybe((t2Row as any)[lkp2Full.dbFieldName])).toEqual([15]);
+      expect(parseMaybe((t3Row as any)[lkp3Full.dbFieldName])).toEqual([15]);
+
       await permanentDeleteTable(baseId, t3.id);
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -443,6 +528,12 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[f.id]).toBeDefined();
       expect(changes[f.id].oldValue).toEqual(6);
       expect(changes[f.id].newValue).toBeNull();
+
+      // DB: F should be null after delete of dependency
+      const dbName = await getDbTableName(table.id);
+      const row = await getRow(dbName, table.records[0].id);
+      const fFull = (await getFields(table.id)).find((x) => x.id === (f as any).id)! as any;
+      expect((row as any)[fFull.dbFieldName]).toBeUndefined();
 
       await permanentDeleteTable(baseId, table.id);
     });
@@ -491,6 +582,15 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[c.id]).toBeDefined();
       expect(changes[c.id].oldValue).toEqual(6);
       expect(changes[c.id].newValue).toBeNull();
+
+      // DB: B and C should be null
+      const dbName = await getDbTableName(table.id);
+      const row = await getRow(dbName, table.records[0].id);
+      const fields = await getFields(table.id);
+      const bFull = fields.find((x) => x.id === (b as any).id)! as any;
+      const cFull = fields.find((x) => x.id === (c as any).id)! as any;
+      expect((row as any)[bFull.dbFieldName]).toBeUndefined();
+      expect((row as any)[cFull.dbFieldName]).toBeUndefined();
 
       await permanentDeleteTable(baseId, table.id);
     });
@@ -572,6 +672,16 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(t3Changes[l3.id].oldValue).toEqual([10]);
       expect(t3Changes[l3.id].newValue).toBeNull();
 
+      // DB: L2 and L3 should be null
+      const t2Db = await getDbTableName(t2.id);
+      const t3Db = await getDbTableName(t3.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const t3Row = await getRow(t3Db, t3.records[0].id);
+      const l2Full = (await getFields(t2.id)).find((x) => x.id === (l2 as any).id)! as any;
+      const l3Full = (await getFields(t3.id)).find((x) => x.id === (l3 as any).id)! as any;
+      expect((t2Row as any)[l2Full.dbFieldName]).toBeNull();
+      expect((t3Row as any)[l3Full.dbFieldName]).toBeNull();
+
       await permanentDeleteTable(baseId, t3.id);
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -625,6 +735,12 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[lkp.id]).toBeDefined();
       expect(changes[lkp.id].oldValue).toEqual([10]);
       expect(changes[lkp.id].newValue).toBeNull();
+
+      // DB: LKP should be null
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const lkpFull = (await getFields(t2.id)).find((x) => x.id === (lkp as any).id)! as any;
+      expect((t2Row as any)[lkpFull.dbFieldName]).toBeNull();
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -726,6 +842,12 @@ describe('Computed Orchestrator (e2e)', () => {
         expect(changeMap[fId]).toBeDefined();
         expect(changeMap[fId].oldValue).toBeUndefined();
         expect(changeMap[fId].newValue).toEqual(2);
+
+        // DB: F should equal 2
+        const tbl = await getDbTableName(table.id);
+        const row = await getRow(tbl, table.records[0].id);
+        const fFull = (await getFields(table.id)).find((x) => x.id === fId)! as any;
+        expect(parseMaybe((row as any)[fFull.dbFieldName])).toEqual(2);
       }
 
       await permanentDeleteTable(baseId, table.id);
@@ -768,6 +890,12 @@ describe('Computed Orchestrator (e2e)', () => {
           } as any);
         });
         expect(events.length).toBe(0);
+
+        // DB: LK should be null when there is no link
+        const t2Db = await getDbTableName(t2.id);
+        const t2Row = await getRow(t2Db, t2.records[0].id);
+        const lkpField = (await getFields(t2.id)).find((f) => f.name === 'LK') as any;
+        expect((t2Row as any)[lkpField.dbFieldName]).toBeNull();
       }
 
       // Establish link and then create rollup -> expect 1 update
@@ -795,6 +923,12 @@ describe('Computed Orchestrator (e2e)', () => {
         expect(changeMap[rId]).toBeDefined();
         expect(changeMap[rId].oldValue).toBeUndefined();
         expect(changeMap[rId].newValue).toEqual(10);
+
+        // DB: R should equal 10
+        const t2Db = await getDbTableName(t2.id);
+        const t2Row = await getRow(t2Db, t2.records[0].id);
+        const rFull = (await getFields(t2.id)).find((f) => f.id === rId)! as any;
+        expect(parseMaybe((t2Row as any)[rFull.dbFieldName])).toEqual(10);
       }
 
       await permanentDeleteTable(baseId, t2.id);
@@ -833,6 +967,12 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changeMap[f.id]).toBeDefined();
       expect(changeMap[f.id].oldValue).toEqual(2);
       expect(changeMap[f.id].newValue).toEqual(7);
+
+      // DB: F should be 7 after convert
+      const tbl = await getDbTableName(table.id);
+      const row = await getRow(tbl, table.records[0].id);
+      const fFull = (await getFields(table.id)).find((x) => x.id === (f as any).id)! as any;
+      expect(parseMaybe((row as any)[fFull.dbFieldName])).toEqual(7);
 
       await permanentDeleteTable(baseId, table.id);
     });
@@ -878,6 +1018,12 @@ describe('Computed Orchestrator (e2e)', () => {
         expect(changeMap[fCopyId]).toBeDefined();
         expect(changeMap[fCopyId].oldValue).toBeUndefined();
         expect(changeMap[fCopyId].newValue).toEqual(4);
+
+        // DB: F_copy should equal 4
+        const tbl = await getDbTableName(table.id);
+        const row = await getRow(tbl, table.records[0].id);
+        const fCopyFull = (await getFields(table.id)).find((x) => x.id === fCopyId)! as any;
+        expect(parseMaybe((row as any)[fCopyFull.dbFieldName])).toEqual(4);
       }
 
       await permanentDeleteTable(baseId, table.id);
@@ -928,6 +1074,13 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(changes[link2.id]).toBeDefined();
       expect([changes[link2.id].oldValue]?.flat()?.[0]?.title).toEqual('Foo');
       expect([changes[link2.id].newValue]?.flat()?.[0]?.title).toEqual('Bar');
+
+      // DB: link cell title should be updated to 'Bar'
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const link2Full = (await getFields(t2.id)).find((f) => f.id === (link2 as any).id)! as any;
+      const linkCell = parseMaybe((t2Row as any)[link2Full.dbFieldName]) as any[] | undefined;
+      expect([linkCell]?.flat()?.[0]?.title).toEqual('Bar');
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -987,6 +1140,26 @@ describe('Computed Orchestrator (e2e)', () => {
 
       // After removal, r1 should not link back; r2 should link back to T2r
       // Use events already asserted for presence; here we could also fetch records if needed.
+
+      // DB: verify physical link columns
+      const t2Db = await getDbTableName(t2.id);
+      const t1Db = await getDbTableName(t1.id);
+      const t2Row = await getRow(t2Db, t2r);
+      const link2Full = (await getFields(t2.id)).find((f) => f.id === (link2 as any).id)! as any;
+      const t2LinkIds = ((parseMaybe((t2Row as any)[link2Full.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      expect(t2LinkIds).toEqual([r2]);
+
+      const r1Row = await getRow(t1Db, r1);
+      const r2Row = await getRow(t1Db, r2);
+      const symFull = symOnT1 as any;
+      const r1Sym = (parseMaybe((r1Row as any)[symFull.dbFieldName]) as any[]) || [];
+      const r2SymIds = ((parseMaybe((r2Row as any)[symFull.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      expect(r1Sym.length).toBe(0);
+      expect(r2SymIds).toEqual([t2r]);
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -1068,6 +1241,26 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(t2Changes[linkOnT2.id]).toBeDefined();
       expect(norm(t2Changes[linkOnT2.id].oldValue).length).toBe(0);
       expect(new Set(idsOf(t2Changes[linkOnT2.id].newValue))).toEqual(new Set([r1_1]));
+
+      // DB: verify both sides persisted
+      const t1Db = await getDbTableName(t1.id);
+      const t2Db = await getDbTableName(t2.id);
+      const t1Row = await getRow(t1Db, r1_1);
+      const t2Row = await getRow(t2Db, r2_1);
+      const linkOnT1Full = (await getFields(t1.id)).find(
+        (f) => f.id === (linkOnT1 as any).id
+      )! as any;
+      const linkOnT2Full = (await getFields(t2.id)).find(
+        (f) => f.id === (linkOnT2 as any).id
+      )! as any;
+      const t1Ids = ((parseMaybe((t1Row as any)[linkOnT1Full.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      const t2Ids = ((parseMaybe((t2Row as any)[linkOnT2Full.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      expect(t1Ids).toEqual([r2_1]);
+      expect(t2Ids).toEqual([r1_1]);
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -1171,6 +1364,26 @@ describe('Computed Orchestrator (e2e)', () => {
         expect(norm(change!.newValue).length).toBe(0);
       }
 
+      // DB: final state T1[A1] -> [B2] and symmetric T2[B2] -> [A1]
+      const t1Db = await getDbTableName(t1.id);
+      const t2Db = await getDbTableName(t2.id);
+      const t1Row = await getRow(t1Db, rA1);
+      const t2RowB2 = await getRow(t2Db, rB2);
+      const linkOnT1Full = (await getFields(t1.id)).find(
+        (f) => f.id === (linkOnT1 as any).id
+      )! as any;
+      const linkOnT2Full = (await getFields(t2.id)).find(
+        (f) => f.id === (linkOnT2 as any).id
+      )! as any;
+      const t1Ids = ((parseMaybe((t1Row as any)[linkOnT1Full.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      const t2Ids = ((parseMaybe((t2RowB2 as any)[linkOnT2Full.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      expect(t1Ids).toEqual([rB2]);
+      expect(t2Ids).toEqual([rA1]);
+
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
     });
@@ -1250,6 +1463,26 @@ describe('Computed Orchestrator (e2e)', () => {
         expect(new Set(idsOf(changeB1!.oldValue))).toEqual(new Set([rA1]));
         expect(norm(changeB1!.newValue).length).toBe(0);
       }
+
+      // DB: final state T1[A1] -> {id: B2} and symmetric on T2
+      const t1Db = await getDbTableName(t1.id);
+      const t2Db = await getDbTableName(t2.id);
+      const t1Row = await getRow(t1Db, rA1);
+      const t2RowB1 = await getRow(t2Db, rB1);
+      const t2RowB2 = await getRow(t2Db, rB2);
+      const linkOnT1Full = (await getFields(t1.id)).find(
+        (f) => f.id === (linkOnT1 as any).id
+      )! as any;
+      const linkOnT2Full = (await getFields(t2.id)).find(
+        (f) => f.id === (linkOnT2 as any).id
+      )! as any;
+      const t1Val = parseMaybe((t1Row as any)[linkOnT1Full.dbFieldName]) as any[] | any | null;
+      const b1Val = parseMaybe((t2RowB1 as any)[linkOnT2Full.dbFieldName]) as any[] | any | null;
+      const b2Val = parseMaybe((t2RowB2 as any)[linkOnT2Full.dbFieldName]) as any[] | any | null;
+      const asArr = (v: any) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+      expect(asArr(t1Val).map((x) => x?.id)).toEqual([rB2]);
+      expect(asArr(b1Val).length).toBe(0);
+      expect(asArr(b2Val).map((x) => x?.id)).toEqual([rA1]);
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -1345,6 +1578,28 @@ describe('Computed Orchestrator (e2e)', () => {
         expect(change!.oldValue?.id).toBe(rA1);
         expect(change!.newValue).toBeNull();
       }
+
+      // DB: final state T1[A1] -> [B2] and symmetric T2[B2] -> {id: A1}
+      const t1Db = await getDbTableName(t1.id);
+      const t2Db = await getDbTableName(t2.id);
+      const t1Row = await getRow(t1Db, rA1);
+      const t2RowB1 = await getRow(t2Db, rB1);
+      const t2RowB2 = await getRow(t2Db, rB2);
+      const linkOnT1Full = (await getFields(t1.id)).find(
+        (f) => f.id === (linkOnT1 as any).id
+      )! as any;
+      const linkOnT2Full = (await getFields(t2.id)).find(
+        (f) => f.id === (linkOnT2 as any).id
+      )! as any;
+      const t1Ids = ((parseMaybe((t1Row as any)[linkOnT1Full.dbFieldName]) as any[]) || []).map(
+        (x: any) => x?.id
+      );
+      const b1Val = parseMaybe((t2RowB1 as any)[linkOnT2Full.dbFieldName]) as any[] | any | null;
+      const b2Val = parseMaybe((t2RowB2 as any)[linkOnT2Full.dbFieldName]) as any[] | any | null;
+      const asArr = (v: any) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+      expect(t1Ids).toEqual([rB2]);
+      expect(asArr(b1Val).length).toBe(0);
+      expect(asArr(b2Val).map((x) => x?.id)).toEqual([rA1]);
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
