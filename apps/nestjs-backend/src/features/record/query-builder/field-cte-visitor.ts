@@ -985,12 +985,30 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   public build() {
     const list = getOrderedFieldsByProjection(this.table, this.projection) as FieldCore[];
     this.filteredIdSet = new Set(list.map((f) => f.id));
+
+    // Ensure CTEs for any link fields that are dependencies of the projected fields.
+    // This allows selecting lookup/rollup values even when the link fields themselves
+    // are not part of the projection.
+    for (const field of list) {
+      const linkFields = field.getLinkFields(this.table);
+      for (const lf of linkFields) {
+        if (!lf) continue;
+        if (!this.state.getFieldCteMap().has(lf.id)) {
+          this.generateLinkFieldCte(lf);
+        }
+      }
+    }
+
     for (const field of list) {
       field.accept(this);
     }
   }
 
   private generateLinkFieldCte(linkField: LinkFieldCore): void {
+    // Avoid defining the same CTE multiple times in a single WITH clause
+    if (this.state.getFieldCteMap().has(linkField.id)) {
+      return;
+    }
     const foreignTable = this.tables.getLinkForeignTable(linkField);
     // Skip CTE generation if foreign table is missing (e.g., deleted)
     if (!foreignTable) {
@@ -1550,6 +1568,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   visitLinkField(field: LinkFieldCore): void {
     // Skip errored link fields
     if (field.hasError) return;
+    // If CTE already exists for this link, do not re-define it
+    if (this.state.getFieldCteMap().has(field.id)) return;
     return this.generateLinkFieldCte(field);
   }
   visitRollupField(_field: RollupFieldCore): void {}
