@@ -1,5 +1,5 @@
 import { DriverClient, FieldType, Relationship } from '@teable/core';
-import type { INumberFormatting, ICurrencyFormatting, FieldCore } from '@teable/core';
+import type { INumberFormatting, ICurrencyFormatting, FieldCore, DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IRecordQueryDialectProvider } from '../record-query-dialect.interface';
 
@@ -117,6 +117,11 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
   }
 
   nullJson(): string {
+    return 'NULL';
+  }
+
+  typedNullFor(_dbFieldType: DbFieldType): string {
+    // SQLite does not require type-specific NULL casts
     return 'NULL';
   }
 

@@ -1,4 +1,10 @@
-import type { DriverClient, FieldCore, INumberFormatting, Relationship } from '@teable/core';
+import type {
+  DriverClient,
+  FieldCore,
+  INumberFormatting,
+  Relationship,
+  DbFieldType,
+} from '@teable/core';
 import type { Knex } from 'knex';
 
 /**
@@ -215,6 +221,13 @@ export interface IRecordQueryDialectProvider {
    * - SQLite: NULL
    */
   nullJson(): string;
+
+  /**
+   * Produce a typed NULL literal appropriate for the provided database field type.
+   * - PG: returns casts like NULL::jsonb, NULL::timestamptz, etc.
+   * - SQLite: plain NULL (no strong typing).
+   */
+  typedNullFor(dbFieldType: DbFieldType): string;
 
   // Rollup helpers
 

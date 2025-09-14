@@ -1,4 +1,4 @@
-import { DriverClient, FieldType, CellValueType } from '@teable/core';
+import { DriverClient, FieldType, CellValueType, DbFieldType } from '@teable/core';
 import type { INumberFormatting, ICurrencyFormatting, Relationship, FieldCore } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IRecordQueryDialectProvider } from '../record-query-dialect.interface';
@@ -110,7 +110,9 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
 
   jsonAggregateNonNull(expression: string, orderByClause?: string): string {
     const order = orderByClause ? ` ORDER BY ${orderByClause}` : '';
-    return `json_agg(${expression}${order}) FILTER (WHERE ${expression} IS NOT NULL)`;
+    // Use jsonb_agg so downstream consumers (persisted link/lookup columns) expecting jsonb
+    // do not hit implicit cast issues during UPDATE ... FROM assignments.
+    return `jsonb_agg(${expression}${order}) FILTER (WHERE ${expression} IS NOT NULL)`;
   }
 
   stringAggregate(expression: string, delimiter: string, orderByClause?: string): string {
@@ -124,6 +126,26 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
 
   nullJson(): string {
     return 'NULL::json';
+  }
+
+  typedNullFor(dbFieldType: DbFieldType): string {
+    switch (dbFieldType) {
+      case DbFieldType.Json:
+        return 'NULL::jsonb';
+      case DbFieldType.Integer:
+        return 'NULL::integer';
+      case DbFieldType.Real:
+        return 'NULL::double precision';
+      case DbFieldType.DateTime:
+        return 'NULL::timestamptz';
+      case DbFieldType.Boolean:
+        return 'NULL::boolean';
+      case DbFieldType.Blob:
+        return 'NULL::bytea';
+      case DbFieldType.Text:
+      default:
+        return 'NULL::text';
+    }
   }
 
   private castAgg(sql: string): string {

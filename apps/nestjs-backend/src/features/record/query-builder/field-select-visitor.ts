@@ -22,6 +22,7 @@ import type {
   ButtonFieldCore,
   TableDomain,
 } from '@teable/core';
+// no driver-specific logic here; use dialect for differences
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IFieldSelectName } from './field-select.type';
@@ -110,6 +111,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     return this.generateColumnSelect(field.dbFieldName);
   }
 
+  // Typed NULL generation is delegated to the dialect implementation
+
   /**
    * Check if field is a Lookup field and return appropriate selector
    */
@@ -127,8 +130,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
       // Check if the field has error (e.g., target field deleted)
       if (field.hasError || !field.lookupOptions) {
-        // Base-table context: return untyped NULL to safely fit any target column type.
-        const nullExpr = 'NULL';
+        // Base-table context: return typed NULL to match the physical column type
+        const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
         const raw = this.qb.client.raw(nullExpr);
         this.state.setSelection(field.id, nullExpr);
         return raw;
@@ -153,7 +156,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return rawExpression;
       }
 
-      const nullExpr = 'NULL';
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
       const raw = this.qb.client.raw(nullExpr);
       this.state.setSelection(field.id, nullExpr);
       return raw;
@@ -271,8 +274,9 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return this.getColumnSelector(field);
       }
       // When building directly from base table and no CTE is available
-      // (e.g., foreign table deleted), return NULL instead of a physical column.
-      const raw = this.qb.client.raw('NULL');
+      // (e.g., foreign table deleted or errored), return a dialect-typed NULL
+      // to avoid type mismatch when assigning into persisted columns.
+      const raw = this.qb.client.raw(this.dialect.typedNullFor(field.dbFieldType));
       this.state.setSelection(field.id, 'NULL');
       return raw;
     }

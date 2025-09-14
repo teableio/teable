@@ -1055,7 +1055,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         const linkValue = linkField.accept(visitor);
 
         cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
-        cqb.select(cqb.client.raw(`${linkValue} as link_value`));
+        // Ensure jsonb type on Postgres to avoid type mismatch (e.g., NULL defaults)
+        const linkValueExpr =
+          this.dbProvider.driver === DriverClient.Pg ? `${linkValue}::jsonb` : `${linkValue}`;
+        cqb.select(cqb.client.raw(`${linkValueExpr} as link_value`));
 
         for (const lookupField of lookupFields) {
           const visitor = new FieldCteSelectionVisitor(
@@ -1366,7 +1369,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const linkValue = linkField.accept(visitor);
 
       cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
-      cqb.select(cqb.client.raw(`${linkValue} as link_value`));
+      // Ensure jsonb type on Postgres to avoid type mismatch (e.g., NULL defaults)
+      const linkValueExpr =
+        this.dbProvider.driver === DriverClient.Pg ? `${linkValue}::jsonb` : `${linkValue}`;
+      cqb.select(cqb.client.raw(`${linkValueExpr} as link_value`));
 
       for (const lookupField of lookupFields) {
         const visitor = new FieldCteSelectionVisitor(
