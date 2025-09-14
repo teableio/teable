@@ -34,6 +34,7 @@ import {
   type ILinkFieldOptions,
   type FieldCore,
   type IRollupFieldOptions,
+  DbFieldType,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -952,6 +953,35 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return this.state.getFieldCteMap();
   }
 
+  /**
+   * Apply an explicit cast to align the SQL expression type with the target field's DB column type.
+   * This prevents Postgres from rejecting UPDATE ... FROM assignments due to type mismatches
+   * (e.g., assigning a text expression to a double precision column).
+   */
+  private castExpressionForDbType(expression: string, field: FieldCore): string {
+    if (this.dbProvider.driver !== DriverClient.Pg) return expression;
+    const castSuffix = (() => {
+      switch (field.dbFieldType) {
+        case DbFieldType.Json:
+          return '::jsonb';
+        case DbFieldType.Integer:
+          return '::integer';
+        case DbFieldType.Real:
+          return '::double precision';
+        case DbFieldType.DateTime:
+          return '::timestamptz';
+        case DbFieldType.Boolean:
+          return '::boolean';
+        case DbFieldType.Blob:
+          return '::bytea';
+        case DbFieldType.Text:
+        default:
+          return '::text';
+      }
+    })();
+    return `(${expression})${castSuffix}`;
+  }
+
   public build() {
     const list = getOrderedFieldsByProjection(this.table, this.projection) as FieldCore[];
     this.filteredIdSet = new Set(list.map((f) => f.id));
@@ -1405,7 +1435,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           linkField.id
         );
         const rollupValue = rollupField.accept(visitor);
-        cqb.select(cqb.client.raw(`${rollupValue} as "rollup_${rollupField.id}"`));
+        // Ensure the rollup CTE column has a type that matches the physical column
+        // to avoid Postgres UPDATE ... FROM assignment type mismatches (e.g., text vs numeric).
+        const value = typeof rollupValue === 'string' ? rollupValue : rollupValue.toQuery();
+        const castedRollupValue = this.castExpressionForDbType(value, rollupField);
+        cqb.select(cqb.client.raw(`${castedRollupValue} as "rollup_${rollupField.id}"`));
       }
 
       if (usesJunctionTable) {

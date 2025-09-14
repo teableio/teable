@@ -297,18 +297,20 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
-      // From base table context, without CTE, return NULL fallback
-      const raw = this.qb.client.raw('NULL');
-      this.state.setSelection(field.id, 'NULL');
+      // From base table context, without CTE, return dialect-typed NULL to match column type
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
+      const raw = this.qb.client.raw(nullExpr);
+      this.state.setSelection(field.id, nullExpr);
       return raw;
     }
 
     // Rollup fields use the link field's CTE with pre-computed rollup values
     // Check if the field has error (e.g., target field deleted)
     if (field.hasError) {
-      // Field has error, return NULL to indicate this field should be null
-      const rawExpression = this.qb.client.raw(`NULL`);
-      this.state.setSelection(field.id, 'NULL');
+      // Field has error, return dialect-typed NULL to indicate this field should be null
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
+      const rawExpression = this.qb.client.raw(nullExpr);
+      this.state.setSelection(field.id, nullExpr);
       return rawExpression;
     }
 
