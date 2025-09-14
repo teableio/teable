@@ -31,10 +31,14 @@ export class RecordComputedUpdateService {
 
     return fields
       .filter((f) => {
-        // Skip fields currently in error state to avoid type/cast issues
-        // (e.g., lookup/rollup targets deleted). Their values should resolve to NULL
-        // at read time and persisted columns, if any, will be handled on future edits.
-        if ((f as unknown as { hasError?: boolean }).hasError) return false;
+        // Skip fields currently in error state to avoid type/cast issues — except for
+        // lookup/rollup (and lookup-of-link) which we still want to persist so they
+        // get nulled out after their source is deleted. Query builder emits a typed
+        // NULL for errored lookups/rollups ensuring safe assignment.
+        const hasError = (f as unknown as { hasError?: boolean }).hasError;
+        const isLookupStyle = (f as unknown as { isLookup?: boolean }).isLookup === true;
+        const isRollup = f.type === FieldType.Rollup;
+        if (hasError && !isLookupStyle && !isRollup) return false;
         // Persist lookup-of-link as well (computed link columns should be stored).
         // We rely on query builder to ensure subquery column types match target columns (e.g., jsonb).
         // Skip formula persisted as generated columns
