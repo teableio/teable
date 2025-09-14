@@ -1516,9 +1516,6 @@ export class LinkService {
 
     for (const fieldRaws of linkFieldRaws) {
       const options = JSON.parse(fieldRaws.options as string) as ILinkFieldOptions;
-      if (!options.isOneWay) {
-        continue;
-      }
       const tableId = fieldRaws.tableId;
       const foreignKeys = await this.getJoinedForeignKeys(recordIds, options);
       const fieldItems = this.parseFkRecordItemToDelete(options, recordIds, foreignKeys);
