@@ -64,7 +64,8 @@ export class GraphService {
   private getFieldNodesAndCombos(
     fieldId: string,
     fieldRawsMap: Record<string, ITinyField[]>,
-    tableRaws: ITinyTable[]
+    tableRaws: ITinyTable[],
+    allowedNodeIds?: Set<string>
   ) {
     const nodes: IGraphNode[] = [];
     const combos: IGraphCombo[] = [];
@@ -74,14 +75,16 @@ export class GraphService {
         label: tableName,
       });
       fieldRawsMap[tableId].forEach((field) => {
-        nodes.push({
-          id: field.id,
-          label: field.name,
-          comboId: tableId,
-          fieldType: field.type,
-          isLookup: field.isLookup,
-          isSelected: field.id === fieldId,
-        });
+        if (!allowedNodeIds || allowedNodeIds.has(field.id)) {
+          nodes.push({
+            id: field.id,
+            label: field.name,
+            comboId: tableId,
+            fieldType: field.type,
+            isLookup: field.isLookup,
+            isSelected: field.id === fieldId,
+          });
+        }
       });
     });
     return {
@@ -131,16 +134,44 @@ export class GraphService {
 
     const fieldRawsMap = groupBy(fieldRaws, 'tableId');
 
-    const edges = directedGraph.map<IGraphEdge>((node) => {
-      const field = fieldMap[node.toFieldId];
+    // Normalize edges for display: dedupe and hide link -> lookup edge
+    const seen = new Set<string>();
+    const filteredGraph = directedGraph.filter(({ fromFieldId, toFieldId }) => {
+      // Hide the link -> lookup edge for readability in graph
+      if (
+        toFieldId === field.id &&
+        field.lookupOptions &&
+        fromFieldId === field.lookupOptions.linkFieldId
+      ) {
+        return false;
+      }
+      const key = `${fromFieldId}->${toFieldId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const edges = filteredGraph.map<IGraphEdge>((node) => {
+      const f = fieldMap[node.toFieldId];
       return {
         source: node.fromFieldId,
         target: node.toFieldId,
-        label: field.isLookup ? 'lookup' : field.type,
+        label: f.isLookup ? 'lookup' : f.type,
       };
     }, []);
 
-    const { nodes, combos } = this.getFieldNodesAndCombos(field.id, fieldRawsMap, tableRaws);
+    // Only include nodes that appear in edges, plus the host field
+    const nodeIds = new Set<string>([field.id]);
+    for (const e of filteredGraph) {
+      nodeIds.add(e.fromFieldId);
+      nodeIds.add(e.toFieldId);
+    }
+    const { nodes, combos } = this.getFieldNodesAndCombos(
+      field.id,
+      fieldRawsMap,
+      tableRaws,
+      nodeIds
+    );
     const updateCellCount = await this.affectedCellCount(
       field.id,
       [field.id],
@@ -269,7 +300,21 @@ export class GraphService {
     const { fieldId, directedGraph, allFieldIds, fieldMap, tableId2DbTableName, fieldId2TableId } =
       params;
 
-    const edges = directedGraph.map<IGraphEdge>((node) => {
+    // 1) Dedupe edges and hide link -> lookup edge for display
+    const edgeSeen = new Set<string>();
+    const filtered = directedGraph.filter(({ fromFieldId, toFieldId }) => {
+      const to = fieldMap[toFieldId];
+      if (to?.lookupOptions && fromFieldId === to.lookupOptions.linkFieldId) {
+        // Hide the link field as a dependency in the display graph
+        return false;
+      }
+      const key = `${fromFieldId}->${toFieldId}`;
+      if (edgeSeen.has(key)) return false;
+      edgeSeen.add(key);
+      return true;
+    });
+
+    const edges = filtered.map<IGraphEdge>((node) => {
       const field = fieldMap[node.toFieldId];
       return {
         source: node.fromFieldId,
@@ -289,7 +334,13 @@ export class GraphService {
       label: table.name,
     }));
 
-    const nodes = allFieldIds.map<IGraphNode>((id) => {
+    // Nodes: from filtered edges plus ensure host field is present
+    const nodeIdSet = new Set<string>([fieldId]);
+    for (const e of filtered) {
+      nodeIdSet.add(e.fromFieldId);
+      nodeIdSet.add(e.toFieldId);
+    }
+    const nodes = Array.from(nodeIdSet).map<IGraphNode>((id) => {
       const tableId = fieldId2TableId[id];
       const field = fieldMap[id];
       return {
