@@ -271,7 +271,9 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // If we are selecting from a materialized view, the view already exposes
       // the projected column for this field, so select the physical column.
       if (this.shouldSelectRaw()) {
-        return this.getColumnSelector(field);
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
       }
       // When building directly from base table and no CTE is available
       // (e.g., foreign table deleted or errored), return a dialect-typed NULL
@@ -292,7 +294,9 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   visitRollupField(field: RollupFieldCore): IFieldSelectName {
     if (this.shouldSelectRaw()) {
       // In view context, select the view column directly
-      return this.getColumnSelector(field);
+      const columnSelector = this.getColumnSelector(field);
+      this.state.setSelection(field.id, columnSelector);
+      return columnSelector;
     }
 
     const fieldCteMap = this.state.getFieldCteMap();
