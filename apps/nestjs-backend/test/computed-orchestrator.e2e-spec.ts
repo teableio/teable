@@ -250,6 +250,215 @@ describe('Computed Orchestrator (e2e)', () => {
 
   // ===== Lookup & Rollup related =====
   describe('Lookup & Rollup', () => {
+    it('updates lookup when link changes (ManyOne, single value)', async () => {
+      // T1 with numeric source
+      const t1 = await createTable(baseId, {
+        name: 'LinkChange_M1_T1',
+        fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
+        records: [{ fields: { A: 123 } }, { fields: { A: 456 } }],
+      });
+      const aId = t1.fields.find((f) => f.name === 'A')!.id;
+
+      // T2 with ManyOne link -> T1 and a lookup of A
+      const t2 = await createTable(baseId, {
+        name: 'LinkChange_M1_T2',
+        fields: [],
+        records: [{ fields: {} }],
+      });
+      const link = await createField(t2.id, {
+        name: 'L_T1_M1',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: t1.id },
+      } as IFieldRo);
+      const lkp = await createField(t2.id, {
+        name: 'LKP_A',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: { foreignTableId: t1.id, linkFieldId: link.id, lookupFieldId: aId } as any,
+      } as any);
+
+      // Set link to first record (A=123)
+      await updateRecordByApi(t2.id, t2.records[0].id, link.id, { id: t1.records[0].id });
+
+      // Switch link to second record (A=456). Capture updates; assert T2 lookup old/new and DB persisted
+      const { events } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(t2.id, t2.records[0].id, link.id, { id: t1.records[1].id });
+      });
+
+      const evt = events.find((e) => e.payload.tableId === t2.id)!;
+      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+      expect(changes[lkp.id]).toBeDefined();
+      expect(changes[lkp.id].oldValue).toEqual(123);
+      expect(changes[lkp.id].newValue).toEqual(456);
+
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const lkpFull = (await getFields(t2.id)).find((f) => f.id === (lkp as any).id)! as any;
+      expect(parseMaybe((t2Row as any)[lkpFull.dbFieldName])).toEqual(456);
+
+      await permanentDeleteTable(baseId, t2.id);
+      await permanentDeleteTable(baseId, t1.id);
+    });
+
+    it('updates lookup when link array shrinks (OneMany, multi value)', async () => {
+      // T2 with numeric values
+      const t2 = await createTable(baseId, {
+        name: 'LinkChange_OM_T2',
+        fields: [{ name: 'V', type: FieldType.Number } as IFieldRo],
+        records: [{ fields: { V: 123 } }, { fields: { V: 456 } }],
+      });
+      const vId = t2.fields.find((f) => f.name === 'V')!.id;
+
+      // T1 with OneMany link -> T2 and lookup of V
+      const t1 = await createTable(baseId, {
+        name: 'LinkChange_OM_T1',
+        fields: [],
+        records: [{ fields: {} }],
+      });
+      const link = await createField(t1.id, {
+        name: 'L_T2_OM',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: t2.id },
+      } as IFieldRo);
+      const lkp = await createField(t1.id, {
+        name: 'LKP_V',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: { foreignTableId: t2.id, linkFieldId: link.id, lookupFieldId: vId } as any,
+      } as any);
+
+      // Set link to two records [123, 456]
+      await updateRecordByApi(t1.id, t1.records[0].id, link.id, [
+        { id: t2.records[0].id },
+        { id: t2.records[1].id },
+      ]);
+
+      // Shrink to single record [123]; assert T1 lookup old/new and DB persisted
+      const { events } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(t1.id, t1.records[0].id, link.id, [{ id: t2.records[0].id }]);
+      });
+
+      const evt = events.find((e) => e.payload.tableId === t1.id)!;
+      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+      expect(changes[lkp.id]).toBeDefined();
+      expect(changes[lkp.id].oldValue).toEqual([123, 456]);
+      expect(changes[lkp.id].newValue).toEqual([123]);
+
+      const t1Db = await getDbTableName(t1.id);
+      const t1Row = await getRow(t1Db, t1.records[0].id);
+      const lkpFull = (await getFields(t1.id)).find((f) => f.id === (lkp as any).id)! as any;
+      expect(parseMaybe((t1Row as any)[lkpFull.dbFieldName])).toEqual([123]);
+
+      await permanentDeleteTable(baseId, t1.id);
+      await permanentDeleteTable(baseId, t2.id);
+    });
+
+    it('updates lookup to null when link cleared (OneMany, multi value)', async () => {
+      // T2 with numeric values
+      const t2 = await createTable(baseId, {
+        name: 'LinkClear_OM_T2',
+        fields: [{ name: 'V', type: FieldType.Number } as IFieldRo],
+        records: [{ fields: { V: 11 } }, { fields: { V: 22 } }],
+      });
+      const vId = t2.fields.find((f) => f.name === 'V')!.id;
+
+      // T1 with OneMany link -> T2 and lookup of V
+      const t1 = await createTable(baseId, {
+        name: 'LinkClear_OM_T1',
+        fields: [],
+        records: [{ fields: {} }],
+      });
+      const link = await createField(t1.id, {
+        name: 'L_T2_OM_Clear',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: t2.id },
+      } as IFieldRo);
+      const lkp = await createField(t1.id, {
+        name: 'LKP_V_Clear',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: { foreignTableId: t2.id, linkFieldId: link.id, lookupFieldId: vId } as any,
+      } as any);
+
+      // Set link to two records [11, 22]
+      await updateRecordByApi(t1.id, t1.records[0].id, link.id, [
+        { id: t2.records[0].id },
+        { id: t2.records[1].id },
+      ]);
+
+      // Clear link to null; assert old/new and DB persisted NULL
+      const { events } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(t1.id, t1.records[0].id, link.id, null);
+      });
+
+      const evt = events.find((e) => e.payload.tableId === t1.id)!;
+      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+      expect(changes[lkp.id]).toBeDefined();
+      expect(changes[lkp.id].oldValue).toEqual([11, 22]);
+      expect(changes[lkp.id].newValue).toBeNull();
+
+      const t1Db = await getDbTableName(t1.id);
+      const t1Row = await getRow(t1Db, t1.records[0].id);
+      const lkpFull = (await getFields(t1.id)).find((f) => f.id === (lkp as any).id)! as any;
+      expect((t1Row as any)[lkpFull.dbFieldName]).toBeNull();
+
+      await permanentDeleteTable(baseId, t1.id);
+      await permanentDeleteTable(baseId, t2.id);
+    });
+
+    it('updates lookup when link is replaced (ManyMany, multi value -> multi value)', async () => {
+      // T1 with numeric values
+      const t1 = await createTable(baseId, {
+        name: 'LinkReplace_MM_T1',
+        fields: [{ name: 'A', type: FieldType.Number } as IFieldRo],
+        records: [{ fields: { A: 5 } }, { fields: { A: 7 } }],
+      });
+      const aId = t1.fields.find((f) => f.name === 'A')!.id;
+
+      // T2 with ManyMany link -> T1 and lookup of A
+      const t2 = await createTable(baseId, {
+        name: 'LinkReplace_MM_T2',
+        fields: [],
+        records: [{ fields: {} }],
+      });
+      const link = await createField(t2.id, {
+        name: 'L_T1_MM',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: t1.id },
+      } as IFieldRo);
+      const lkp = await createField(t2.id, {
+        name: 'LKP_A_MM',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: { foreignTableId: t1.id, linkFieldId: link.id, lookupFieldId: aId } as any,
+      } as any);
+
+      // Set link to [r1] -> lookup [5]
+      await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[0].id }]);
+
+      // Replace with [r2] -> lookup [7]
+      const { events } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[1].id }]);
+      });
+
+      const evt = events.find((e) => e.payload.tableId === t2.id)!;
+      const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
+      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+      expect(changes[lkp.id]).toBeDefined();
+      expect(changes[lkp.id].oldValue).toEqual([5]);
+      expect(changes[lkp.id].newValue).toEqual([7]);
+
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const lkpFull = (await getFields(t2.id)).find((f) => f.id === (lkp as any).id)! as any;
+      expect(parseMaybe((t2Row as any)[lkpFull.dbFieldName])).toEqual([7]);
+
+      await permanentDeleteTable(baseId, t2.id);
+      await permanentDeleteTable(baseId, t1.id);
+    });
     it('emits old/new values for lookup across tables when source changes', async () => {
       // T1 with number
       const t1 = await createTable(baseId, {

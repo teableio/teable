@@ -7,6 +7,8 @@ import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { InjectDbProvider } from '../../../../db-provider/db.provider';
+import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { ICellContext } from '../../../calculation/utils/changes';
 
 export interface ICellBasicContext {
@@ -30,7 +32,8 @@ export interface IFieldChangeSource {
 export class ComputedDependencyCollectorService {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   private async getDbTableName(tableId: string): Promise<string> {
@@ -90,6 +93,44 @@ export class ComputedDependencyCollectorService {
     }
     if (typeof raw === 'object') return raw as T;
     return null;
+  }
+
+  /**
+   * Resolve link field IDs among the provided field IDs and include their symmetric counterparts.
+   */
+  private async resolveRelatedLinkFieldIds(fieldIds: string[]): Promise<string[]> {
+    if (!fieldIds.length) return [];
+    const rows = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: fieldIds }, type: FieldType.Link, isLookup: null, deletedTime: null },
+      select: { id: true, options: true },
+    });
+    const result = new Set<string>();
+    for (const r of rows) {
+      result.add(r.id);
+      const opts = this.parseOptionsLoose<{ symmetricFieldId?: string }>(r.options);
+      if (opts?.symmetricFieldId) result.add(opts.symmetricFieldId);
+    }
+    return Array.from(result);
+  }
+
+  /**
+   * Find lookup/rollup fields whose lookupOptions.linkFieldId equals any of the provided link IDs.
+   * Returns a map: tableId -> Set<fieldId>
+   */
+  private async findLookupsByLinkIds(linkFieldIds: string[]): Promise<Record<string, Set<string>>> {
+    const acc: Record<string, Set<string>> = {};
+    if (!linkFieldIds.length) return acc;
+    for (const linkId of linkFieldIds) {
+      const sql = this.dbProvider.lookupOptionsQuery('linkFieldId', linkId);
+      const rows = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(sql);
+      for (const r of rows) {
+        if (!r.tableId || !r.id) continue;
+        (acc[r.tableId] ||= new Set<string>()).add(r.id);
+      }
+    }
+    return acc;
   }
 
   /**
@@ -350,6 +391,20 @@ export class ComputedDependencyCollectorService {
       acc[tid] = { fieldIds: new Set(fset), recordIds: new Set<string>() };
       return acc;
     }, {} as IComputedImpactByTable);
+
+    // Additionally: include lookup/rollup fields that directly reference any changed link fields
+    // (or their symmetric counterparts). This ensures cross-table lookups update when links change.
+    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(changedFieldIds);
+    if (relatedLinkIds.length) {
+      const byTable = await this.findLookupsByLinkIds(relatedLinkIds);
+      for (const [tid, fset] of Object.entries(byTable)) {
+        const group = (impact[tid] ||= {
+          fieldIds: new Set<string>(),
+          recordIds: new Set<string>(),
+        });
+        fset.forEach((fid) => group.fieldIds.add(fid));
+      }
+    }
 
     // Include symmetric link fields (if any) on the foreign table so their values
     // are refreshed as well. The link fields themselves are already included by
