@@ -121,16 +121,23 @@ export class FieldConvertingService {
       ops.push(this.buildOpAndMutateField(field, 'type', lookupField.type));
     }
 
-    if (lookupOptions.relationship !== linkField.options.relationship) {
-      ops.push(
-        this.buildOpAndMutateField(field, 'lookupOptions', {
-          ...lookupOptions,
-          relationship: linkField.options.relationship,
-          fkHostTableName: linkField.options.fkHostTableName,
-          selfKeyName: linkField.options.selfKeyName,
-          foreignKeyName: linkField.options.foreignKeyName,
-        } as ILookupOptionsVo)
-      );
+    // Only sync link-related lookupOptions when the linked field is still a Link.
+    // If the linked field has been converted to a non-link type, keep the existing
+    // relationship and linkage metadata so clients can still introspect prior config
+    // while the lookup is marked as errored.
+    // eslint-disable-next-line sonarjs/no-collapsible-if
+    if (linkField.type === FieldType.Link) {
+      if (lookupOptions.relationship !== linkField.options.relationship) {
+        ops.push(
+          this.buildOpAndMutateField(field, 'lookupOptions', {
+            ...lookupOptions,
+            relationship: linkField.options.relationship,
+            fkHostTableName: linkField.options.fkHostTableName,
+            selfKeyName: linkField.options.selfKeyName,
+            foreignKeyName: linkField.options.foreignKeyName,
+          } as ILookupOptionsVo)
+        );
+      }
     }
 
     if (!isEqual(inheritOptions, inheritableOptions)) {
@@ -150,7 +157,10 @@ export class FieldConvertingService {
       }
     }
 
-    const isMultipleCellValue = lookupField.isMultipleCellValue || linkField.isMultipleCellValue;
+    const isMultipleCellValue =
+      lookupField.isMultipleCellValue ||
+      (linkField.type === FieldType.Link && linkField.isMultipleCellValue) ||
+      false;
     if (field.isMultipleCellValue !== isMultipleCellValue) {
       ops.push(this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue));
       // clean showAs
