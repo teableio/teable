@@ -228,6 +228,15 @@ export class AggregationServiceV2 implements IAggregationService {
     const searchFields = await this.recordService.getSearchFields(fieldInstanceMap, search, viewId);
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
+    // Probe permission to get enabled field IDs for CTE projection
+    const permissionProbe = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      { viewId }
+    );
+    const projection = permissionProbe.enabledFieldIds;
+
+    // Build aggregate query first, then attach permission CTE on the same builder
     const { qb, alias } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
       tableIdOrDbTableName: tableId,
       viewId,
@@ -235,9 +244,11 @@ export class AggregationServiceV2 implements IAggregationService {
       aggregationFields: statisticFields,
       groupBy,
       currentUserId: withUserId,
+      // Limit link/lookup CTEs to enabled fields so denied fields resolve to NULL
+      projection,
     });
 
-    // Attach the permission CTE to the same query builder and ensure FROM references the CTE alias
+    // Attach permission CTE and switch FROM to the CTE alias
     const wrap = await this.recordPermissionService.wrapView(tableId, qb, { viewId });
     if (wrap.viewCte) {
       qb.from({ [alias]: wrap.viewCte });
