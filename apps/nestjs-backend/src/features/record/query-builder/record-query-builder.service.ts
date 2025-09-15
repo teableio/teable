@@ -290,10 +290,15 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     selectionMap: IReadonlyRecordSelectionMap,
     currentUserId?: string
   ): this {
+    // Build field map only from currently selected fields to respect field-level permissions
+    // and support both id and name lookups in filters.
+    const allowedIds = new Set<string>(Array.from(selectionMap.keys()));
     const map = table.fieldList.reduce(
-      (map, field) => {
-        map[field.id] = field;
-        return map;
+      (acc, field) => {
+        if (!allowedIds.has(field.id)) return acc;
+        acc[field.id] = field;
+        acc[field.name] = field;
+        return acc;
       },
       {} as Record<string, FieldCore>
     );
@@ -309,10 +314,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     sort: ISortItem[],
     selectionMap: IReadonlyRecordSelectionMap
   ): this {
+    // Restrict sortable fields to those present in the current selection (permission-respected)
+    const allowedIds = new Set<string>(Array.from(selectionMap.keys()));
     const map = table.fieldList.reduce(
-      (map, field) => {
-        map[field.id] = field;
-        return map;
+      (acc, field) => {
+        if (!allowedIds.has(field.id)) return acc;
+        acc[field.id] = field;
+        acc[field.name] = field;
+        return acc;
       },
       {} as Record<string, FieldCore>
     );

@@ -578,10 +578,13 @@ export class RecordService {
     // The initial wrapView done in prepareQuery computed viewCte and enabledFieldIds for fieldMap,
     // but the actual builder used below is created anew by recordQueryBuilder. Attach the CTE here
     // so that `FROM view_cte_tmp` resolves correctly in the generated SQL.
-    await this.recordPermissionService.wrapView(tableId, qb, {
+    const docIdWrap = await this.recordPermissionService.wrapView(tableId, qb, {
       viewId: query.viewId,
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
     });
+    if (docIdWrap.viewCte) {
+      qb.from({ [alias]: docIdWrap.viewCte });
+    }
 
     if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
       throw new BadRequestException(
@@ -1347,7 +1350,7 @@ export class RecordService {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldIds = fields.map((f) => f.id);
-    const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
+    const { qb: queryBuilder, alias } = await this.recordQueryBuilder.createRecordQueryBuilder(
       viewQueryDbTableName,
       {
         tableIdOrDbTableName: tableId,
@@ -1357,13 +1360,24 @@ export class RecordService {
       }
     );
 
-    // Attach permission CTE when viewQueryDbTableName points to the permission view.
-    await this.recordPermissionService.wrapView(tableId, queryBuilder, {
+    // Attach permission CTE and switch FROM to the CTE if available so masking applies.
+    const wrap = await this.recordPermissionService.wrapView(tableId, queryBuilder, {
       keepPrimaryKey: true,
     });
+    if (wrap.viewCte) {
+      // Preserve the alias used by the query builder to keep selected columns valid.
+      queryBuilder.from({ [alias]: wrap.viewCte });
+    }
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
+    // eslint-disable-next-line no-console
+    console.log(
+      wrap.viewCte
+        ? `getSnapshotBulkInner query USING CTE ${wrap.viewCte}: ${nativeQuery}`
+        : `getSnapshotBulkInner query: ${nativeQuery}`
+    );
 
     this.logger.debug('getSnapshotBulkInner query %s', nativeQuery);
+    console.log('getSnapshotBulkInner query %s', nativeQuery);
 
     const result = await this.prismaService
       .txClient()
