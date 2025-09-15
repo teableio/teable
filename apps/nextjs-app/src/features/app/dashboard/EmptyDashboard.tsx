@@ -5,20 +5,29 @@ import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { CreateDashboardDialog } from './components/CreateDashboardDialog';
+import { useEffect, useState } from "react";
 
 export const EmptyDashboard = () => {
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
+  const [isDark, setIsDark] = useState(false);
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 px-20">
       <Image
-        src="/images/layout/dashboard-notes-black.png"
+              src={isDark
+        ? "/images/layout/empty-dashboard-dark.png"
+        : "/images/layout/empty-dashboard-light.png"
+      }
         alt="Empty dashboard"
-        width={320}
-        height={320}
-        className="mb-6 opacity-80 dark:invert"
+        width={240}
+        height={240}
+        className="mb-6"
       />
       <div className="text-center">
         <h3 className="mb-3 text-xl font-semibold text-foreground">{t('dashboard:empty.title')}</h3>

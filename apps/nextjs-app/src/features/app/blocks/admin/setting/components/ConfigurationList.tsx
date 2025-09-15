@@ -38,7 +38,7 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
     <div>
       <div className="sticky top-0 mt-4 flex h-44 w-full min-w-full flex-col space-y-4 overflow-y-auto rounded-lg border bg-secondary p-4 sm:h-auto sm:w-[360px] sm:min-w-[360px] sm:overflow-hidden">
         <div className="flex flex-col">
-          <span className="justify-start self-stretch text-sm font-semibold text-foreground">
+          <span className="justify-start self-stretch text-base font-semibold text-foreground mb-1">
             {t('admin.configuration.title')}
           </span>
           <span className="justify-start self-stretch text-xs text-muted-foreground">
@@ -48,7 +48,7 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
 
         {list.map((item) => (
           <div key={item.title} className="flex flex-col">
-            <span className="justify-start self-stretch text-sm font-medium text-foreground">
+            <span className="justify-start self-stretch text-sm font-medium text-foreground mb-1">
               {item.title}
             </span>
             <span className="justify-start self-stretch text-xs text-muted-foreground">

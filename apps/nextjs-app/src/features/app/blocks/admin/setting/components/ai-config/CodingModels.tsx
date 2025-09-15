@@ -150,7 +150,7 @@ export const CodingModels = ({
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-2">
+    <div className="flex flex-1 flex-col gap-4">
       {(['lg', 'md', 'sm'] as const).map((key) => (
         <div key={key} className="relative flex flex-col gap-2">
           <div className="flex shrink-0 items-center gap-2 truncate text-sm">

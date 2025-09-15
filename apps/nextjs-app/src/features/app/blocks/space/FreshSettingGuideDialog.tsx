@@ -4,11 +4,12 @@ import dayjs from 'dayjs';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useEffect, useState } from "react";
 import { useLocalStorage } from 'react-use';
 import { useBrand } from '../../hooks/useBrand';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
+
 
 export const FreshSettingGuideDialog = () => {
   const isCloud = useIsCloud();
@@ -24,8 +25,13 @@ export const FreshSettingGuideDialog = () => {
   );
   const [isModalOpen, setIsModalOpen] = useState(showGuideModal);
   const { t } = useTranslation('common');
+    const [isDark, setIsDark] = useState(false);
   const router = useRouter();
   const { brandName } = useBrand();
+
+    useEffect(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    }, []);
 
   if (!showGuideModal) return null;
 
@@ -47,11 +53,12 @@ export const FreshSettingGuideDialog = () => {
         >
           <div className="flex flex-col items-center">
             <Image
-              src="/images/layout/init-setting-guide.png"
+            src={isDark
+        ? "/images/layout/welcome-dark.png"
+        : "/images/layout/welcome-light.png"}
               alt="Init setting guide"
               width={240}
               height={240}
-              className="dark:invert"
             />
             <h1 className="text-base-foreground justify-start self-stretch pt-4 text-center font-['Inter'] text-xl font-semibold leading-7">
               {t('admin.tips.thankYouForUsingTeable', { brandName })}

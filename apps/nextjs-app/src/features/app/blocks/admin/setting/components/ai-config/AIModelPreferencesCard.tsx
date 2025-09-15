@@ -49,10 +49,10 @@ export const AIModelPreferencesCard = ({
           render={({ field }) => (
             <FormItem>
               <div className="flex w-full flex-col justify-between">
-                <FormLabel className="pb-2">{t(`admin.setting.ai.chatModel`)}</FormLabel>
+                <FormLabel className="mb-4 text-base">{t(`admin.setting.ai.chatModel`)}</FormLabel>
 
                 <div className="flex flex-1 space-x-2">
-                  <FormControl className="grow">
+                  <FormControl className="grow ">
                     <CodingModels
                       value={field.value}
                       onChange={(value) => {

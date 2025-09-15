@@ -11,7 +11,7 @@ export const CopyInstance = (props: ICopyInstanceProps) => {
 
   return (
     <div className="flex w-full shrink-0 items-center justify-between gap-x-2 overflow-hidden rounded-md bg-secondary p-4">
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-y-1">
         <span>
           <span className="text-sm font-semibold">{t('noun.instanceId')} </span>
           <span className="flex-1 truncate text-sm text-muted-foreground">{instanceId}</span>
