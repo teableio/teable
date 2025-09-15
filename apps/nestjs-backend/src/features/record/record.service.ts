@@ -574,6 +574,15 @@ export class RecordService {
       }
     );
 
+    // Ensure permission CTE is attached to the final query builder when referencing it via FROM.
+    // The initial wrapView done in prepareQuery computed viewCte and enabledFieldIds for fieldMap,
+    // but the actual builder used below is created anew by recordQueryBuilder. Attach the CTE here
+    // so that `FROM view_cte_tmp` resolves correctly in the generated SQL.
+    await this.recordPermissionService.wrapView(tableId, qb, {
+      viewId: query.viewId,
+      keepPrimaryKey: Boolean(query.filterLinkCellSelected),
+    });
+
     if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
       throw new BadRequestException(
         'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time'
@@ -1347,6 +1356,11 @@ export class RecordService {
         projection: fieldIds,
       }
     );
+
+    // Attach permission CTE when viewQueryDbTableName points to the permission view.
+    await this.recordPermissionService.wrapView(tableId, queryBuilder, {
+      keepPrimaryKey: true,
+    });
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
 
     this.logger.debug('getSnapshotBulkInner query %s', nativeQuery);
@@ -2103,6 +2117,12 @@ export class RecordService {
         groupBy,
         currentUserId: withUserId,
       });
+
+    // Attach permission CTE to the aggregate query when using the permission view.
+    await this.recordPermissionService.wrapView(tableId, queryBuilder, {
+      viewId,
+      keepPrimaryKey: Boolean(query?.filterLinkCellSelected),
+    });
 
     if (search && search[2]) {
       // selectionMap is available, so allow computed fields
