@@ -10,6 +10,7 @@ import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { DeepMockProxy } from 'vitest-mock-extended';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
+import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from './permission.service';
 
@@ -23,6 +24,7 @@ describe('PermissionService', () => {
     clsServiceMock = mockDeep<ClsService<IClsStore>>();
 
     const module: TestingModule = await Test.createTestingModule({
+      imports: [GlobalModule],
       providers: [PermissionService, PrismaService, ClsService],
     })
       .overrideProvider(PrismaService)
