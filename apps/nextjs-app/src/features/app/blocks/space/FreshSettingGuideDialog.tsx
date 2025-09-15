@@ -4,11 +4,13 @@ import dayjs from 'dayjs';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useState } from "react";
+import {  useState } from "react";
 import { useLocalStorage } from 'react-use';
 import { useBrand } from '../../hooks/useBrand';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
+import { useTheme } from '@teable/next-themes';
+
 
 
 export const FreshSettingGuideDialog = () => {
@@ -25,13 +27,13 @@ export const FreshSettingGuideDialog = () => {
   );
   const [isModalOpen, setIsModalOpen] = useState(showGuideModal);
   const { t } = useTranslation('common');
-    const [isDark, setIsDark] = useState(false);
+
   const router = useRouter();
   const { brandName } = useBrand();
 
-    useEffect(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    }, []);
+const {resolvedTheme} = useTheme();
+const isDark = resolvedTheme === 'dark';
+
 
   if (!showGuideModal) return null;
 
