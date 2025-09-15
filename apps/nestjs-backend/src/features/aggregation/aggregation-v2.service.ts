@@ -228,25 +228,20 @@ export class AggregationServiceV2 implements IAggregationService {
     const searchFields = await this.recordService.getSearchFields(fieldInstanceMap, search, viewId);
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
-    const { viewCte, builder } = await this.recordPermissionService.wrapView(
-      tableId,
-      this.knex.queryBuilder(),
-      {
-        viewId,
-      }
-    );
+    const { qb, alias } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
+      tableIdOrDbTableName: tableId,
+      viewId,
+      filter,
+      aggregationFields: statisticFields,
+      groupBy,
+      currentUserId: withUserId,
+    });
 
-    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(
-      viewCte ?? dbTableName,
-      {
-        tableIdOrDbTableName: tableId,
-        viewId,
-        filter,
-        aggregationFields: statisticFields,
-        groupBy,
-        currentUserId: withUserId,
-      }
-    );
+    // Attach the permission CTE to the same query builder and ensure FROM references the CTE alias
+    const wrap = await this.recordPermissionService.wrapView(tableId, qb, { viewId });
+    if (wrap.viewCte) {
+      qb.from({ [alias]: wrap.viewCte });
+    }
 
     const aggSql = qb.toQuery();
     this.logger.debug('handleAggregation aggSql: %s', aggSql);
@@ -424,17 +419,9 @@ export class AggregationServiceV2 implements IAggregationService {
       withUserId,
       viewId,
     } = params;
-    const { viewCte } = await this.recordPermissionService.wrapView(
-      tableId,
-      this.knex.queryBuilder(),
-      {
-        keepPrimaryKey: Boolean(filterLinkCellSelected),
-        viewId,
-      }
-    );
 
     const { qb, alias, selectionMap } = await this.recordQueryBuilder.createRecordAggregateBuilder(
-      viewCte ?? dbTableName,
+      dbTableName,
       {
         tableIdOrDbTableName: tableId,
         viewId,
@@ -450,6 +437,15 @@ export class AggregationServiceV2 implements IAggregationService {
         useQueryModel: true,
       }
     );
+
+    // Ensure the CTE is attached to this builder and FROM references the CTE alias
+    const wrap = await this.recordPermissionService.wrapView(tableId, qb, {
+      viewId,
+      keepPrimaryKey: Boolean(filterLinkCellSelected),
+    });
+    if (wrap.viewCte) {
+      qb.from({ [alias]: wrap.viewCte });
+    }
 
     if (search && search[2]) {
       const searchFields = await this.recordService.getSearchFields(
@@ -669,24 +665,55 @@ export class AggregationServiceV2 implements IAggregationService {
    * @returns Promise with search count result
    * @throws NotImplementedException - This method is not yet implemented
    */
-  async getSearchCount(
-    tableId: string,
-    queryRo: ISearchCountRo,
-    projection?: string[]
-  ): Promise<{ count: number }> {
-    throw new NotImplementedException(
-      `AggregationServiceV2.getSearchCount is not implemented yet. TableId: ${tableId}, Query: ${JSON.stringify(queryRo)}, Projection: ${projection?.join(',')}`
-    );
-  }
 
-  /**
-   * Get record index by search order
-   * @param tableId - The table ID
-   * @param queryRo - Search index query parameters
-   * @param projection - Optional field projection
-   * @returns Promise with search index results
-   * @throws NotImplementedException - This method is not yet implemented
-   */
+  public async getSearchCount(tableId: string, queryRo: ISearchCountRo, projection?: string[]) {
+    const { search, viewId, ignoreViewQuery } = queryRo;
+    const dbFieldName = await this.getDbTableName(this.prisma, tableId);
+    const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
+
+    if (!search) {
+      throw new BadRequestException('Search query is required');
+    }
+
+    const searchFields = await this.recordService.getSearchFields(
+      fieldInstanceMap,
+      search,
+      ignoreViewQuery ? undefined : viewId,
+      projection
+    );
+
+    if (searchFields?.length === 0) {
+      return { count: 0 };
+    }
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
+    const queryBuilder = this.knex(dbFieldName);
+
+    const selectionMap = new Map(
+      Object.values(fieldInstanceMap).map((f) => [f.id, `"${f.dbFieldName}"`])
+    );
+    this.dbProvider.searchCountQuery(queryBuilder, searchFields, search, tableIndex, {
+      selectionMap,
+    });
+    this.dbProvider
+      .filterQuery(
+        queryBuilder,
+        fieldInstanceMap,
+        queryRo?.filter,
+        {
+          withUserId: this.cls.get('user.id'),
+        },
+        { selectionMap }
+      )
+      .appendQueryBuilder();
+
+    const sql = queryBuilder.toQuery();
+
+    const result = await this.prisma.$queryRawUnsafe<{ count: number }[] | null>(sql);
+
+    return {
+      count: result ? Number(result[0]?.count) : 0,
+    };
+  }
 
   public async getRecordIndexBySearchOrder(
     tableId: string,
