@@ -301,6 +301,77 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, t1.id);
     });
 
+    it('post-convert (one-way -> two-way) persists symmetric link values on foreign table', async () => {
+      // T1 with title and one record
+      const t1 = await createTable(baseId, {
+        name: 'Conv_OW_TO_TW_T1',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Title: 'A1' } }],
+      });
+
+      // T2 with title and one record
+      const t2 = await createTable(baseId, {
+        name: 'Conv_OW_TO_TW_T2',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Title: 'B1' } }],
+      });
+
+      // Create a one-way OneMany link on T1 -> T2
+      const linkOnT1 = await createField(t1.id, {
+        name: 'L_T2_OM_OW',
+        type: FieldType.Link,
+        options: { relationship: Relationship.OneMany, foreignTableId: t2.id, isOneWay: true },
+      } as IFieldRo);
+
+      // Set T1[A1].L_T2_OM_OW = [T2[B1]]
+      await updateRecordByApi(t1.id, t1.records[0].id, linkOnT1.id, [{ id: t2.records[0].id }]);
+
+      // Convert link to two-way (still OneMany) and capture record.update events
+      const { events, result: newFieldVo } = await runAndCaptureRecordUpdates(async () => {
+        return await convertField(t1.id, linkOnT1.id, {
+          id: linkOnT1.id,
+          type: FieldType.Link,
+          name: 'L_T2_OM_TW',
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: t2.id,
+            isOneWay: false,
+          },
+        } as any);
+      });
+
+      // Should have created a symmetric field on T2; resolve it by discovery
+      const t2FieldsAfter = await getFields(t2.id);
+      const symmetric = t2FieldsAfter.find(
+        (ff) => ff.type === FieldType.Link && (ff as any).options?.foreignTableId === t1.id
+      )!;
+      const symmetricFieldId = symmetric.id;
+
+      const evtOnT2 = events.find((e) => e.payload?.tableId === t2.id);
+      expect(evtOnT2).toBeDefined();
+      const recT2 = Array.isArray(evtOnT2!.payload.record)
+        ? evtOnT2!.payload.record.find((r: any) => r.id === t2.records[0].id)
+        : evtOnT2!.payload.record;
+      const changeOnT2 = recT2.fields?.[symmetricFieldId!];
+      expect(changeOnT2).toBeDefined();
+      expect(
+        changeOnT2.newValue?.id ||
+          (Array.isArray(changeOnT2.newValue) ? changeOnT2.newValue[0]?.id : undefined)
+      ).toBe(t1.records[0].id);
+
+      // DB: the symmetric physical column on T2[B1] should be populated with {id: A1}
+      const t2Db = await getDbTableName(t2.id);
+      const t2Row = await getRow(t2Db, t2.records[0].id);
+      const symField = (await getFields(t2.id)).find((f) => f.id === symmetricFieldId)! as any;
+      const rawVal = (t2Row as any)[symField.dbFieldName];
+      const parsed = parseMaybe(rawVal);
+      const asObj = Array.isArray(parsed) ? parsed[0] : parsed;
+      expect(asObj?.id).toBe(t1.records[0].id);
+
+      await permanentDeleteTable(baseId, t2.id);
+      await permanentDeleteTable(baseId, t1.id);
+    });
+
     it('updates lookup when link array shrinks (OneMany, multi value)', async () => {
       // T2 with numeric values
       const t2 = await createTable(baseId, {
