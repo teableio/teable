@@ -551,6 +551,33 @@ export class FieldOpenApiService {
     await this.prismaService.$tx(async () => {
       await this.fieldConvertingService.alterFieldConstraint(tableId, newField, oldField);
     });
+
+    // Persist values for a newly created symmetric link field (if any).
+    // When using tableCache for reads, link values must be materialized in the physical column.
+    try {
+      const newOpts = (newField.options || {}) as {
+        symmetricFieldId?: string;
+        foreignTableId?: string;
+      };
+      const oldOpts = (oldField.options || {}) as { symmetricFieldId?: string };
+      const createdSymmetricId =
+        newOpts.symmetricFieldId && newOpts.symmetricFieldId !== oldOpts.symmetricFieldId;
+      if (newField.type === FieldType.Link && createdSymmetricId && newOpts.foreignTableId) {
+        await this.computedOrchestrator.computeCellChangesForFieldsAfterCreate(
+          [
+            {
+              tableId: newOpts.foreignTableId,
+              fieldIds: [newOpts.symmetricFieldId!],
+            },
+          ],
+          async () => {
+            // no-op; field already created
+          }
+        );
+      }
+    } catch (e) {
+      this.logger.warn(`post-convert symmetric persist failed: ${String(e)}`);
+    }
   }
 
   async convertField(
