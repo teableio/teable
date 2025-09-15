@@ -18,7 +18,12 @@ export const EmptyDashboard = () => {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 px-20">
-      <Image src={isDark ? "/images/layout/empty-dashboard-dark.png" : "/images/layout/empty-dashboard-light.png"}
+      <Image
+        src={
+          isDark
+            ? '/images/layout/empty-dashboard-dark.png'
+            : '/images/layout/empty-dashboard-light.png'
+        }
         alt="Empty dashboard"
         width={240}
         height={240}
