@@ -1,17 +1,15 @@
+import { useTheme } from '@teable/next-themes';
 import { useSession } from '@teable/sdk/hooks';
 import { Button, Dialog, DialogContent } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import {  useState } from 'react';
+import { useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { useBrand } from '../../hooks/useBrand';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
-import { useTheme } from '@teable/next-themes';
-
-
 
 export const FreshSettingGuideDialog = () => {
   const isCloud = useIsCloud();
@@ -31,9 +29,8 @@ export const FreshSettingGuideDialog = () => {
   const router = useRouter();
   const { brandName } = useBrand();
 
-const {resolvedTheme} = useTheme();
-const isDark = resolvedTheme === 'dark';
-
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   if (!showGuideModal) return null;
 
@@ -54,12 +51,8 @@ const isDark = resolvedTheme === 'dark';
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <div className="flex flex-col items-center">
-            <Image 
-              src={
-                isDark
-                  ? '/images/layout/eelcome-dark.png'
-                  : '/images/layout/welcome-light.png'
-              }
+            <Image
+              src={isDark ? '/images/layout/eelcome-dark.png' : '/images/layout/welcome-light.png'}
               alt="Init setting guide"
               width={240}
               height={240}

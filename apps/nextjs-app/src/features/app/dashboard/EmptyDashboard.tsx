@@ -1,19 +1,18 @@
 import { Plus } from '@teable/icons';
+import { useTheme } from '@teable/next-themes';
 import { useBasePermission } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { CreateDashboardDialog } from './components/CreateDashboardDialog';
-import { useTheme } from '@teable/next-themes';
-
 
 export const EmptyDashboard = () => {
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
 
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
-  const {resolvedTheme} = useTheme();
+  const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
   return (
