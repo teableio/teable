@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateUserCacheKey } from '../../performance-cache/generate-keys';
+import { dateToIso } from '../../utils/date-to-iso';
 
 @Injectable()
 export class UserModel {
@@ -28,8 +29,12 @@ export class UserModel {
     statsType: 'user',
   })
   async getUserRawById(id: string) {
-    return await this.prismaService.txClient().user.findUnique({
+    const res = await this.prismaService.txClient().user.findUnique({
       where: { id, deletedTime: null },
     });
+    if (!res) {
+      return null;
+    }
+    return dateToIso(res);
   }
 }

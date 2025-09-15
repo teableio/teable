@@ -96,15 +96,14 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     return this.enabled && this.redlock != null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private setValueToKeyv(key: string, value: any, ttlMs: number | undefined) {
+  private setValueToKeyv(key: string, value: T[keyof T], ttlMs: number | undefined) {
     return this.keyv.set(key as string, { data: value }, ttlMs);
   }
 
-  private async getInternal<TKey extends keyof T>(
-    key: TKey,
-    options: ICacheOptions = {}
-  ): Promise<T[TKey] | null> {
+  /**
+   * Get cache value
+   */
+  async get<TKey extends keyof T>(key: TKey, options: ICacheOptions = {}) {
     if (!this.isAvailable() || options.skipGet) {
       return null;
     }
@@ -118,23 +117,12 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
       this.stats.hits++;
       this.recordTypeStats('hits', options.statsType);
-      return value as T[TKey];
+      return value as { data: T[TKey] };
     } catch (error) {
       this.logger.error('Error getting cache value:', error);
       this.stats.errors++;
       return null;
     }
-  }
-
-  /**
-   * Get cache value
-   */
-  async get<TKey extends keyof T>(key: TKey, options: ICacheOptions = {}): Promise<T[TKey] | null> {
-    const res = await this.getInternal(key, options);
-    if (res == null) {
-      return null;
-    }
-    return (res as any)?.data as T[TKey];
   }
 
   /**
@@ -294,10 +282,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     }
 
     // Try to get from cache first
-    const cached = await this.getInternal(key, options);
+    const cached = await this.get(key, options);
     if (cached !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (cached as any)?.data as TResult;
+      return cached?.data as TResult;
     }
 
     // If concurrent prevention is disabled or redlock unavailable, execute directly
@@ -317,10 +304,10 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
         }
 
         // Check cache again in case another instance already populated it
-        const cachedAfterLock = await this.getInternal(key, options);
+        const cachedAfterLock = await this.get(key, options);
         if (cachedAfterLock !== null) {
           this.logger.debug(`Cache populated by another instance: ${cacheKeyStr}`);
-          return (cachedAfterLock as any)?.data as TResult;
+          return cachedAfterLock?.data as TResult;
         }
 
         // Check again before executing (in case of long operations)
@@ -335,9 +322,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       if (error instanceof ResourceLockedError || error instanceof ExecutionError) {
         this.logger.error(`Redlock error for ${cacheKeyStr}: ${error}`);
         await new Promise((resolve) => setTimeout(resolve, 50));
-        const cachedAfterLock = await this.getInternal(key, options);
+        const cachedAfterLock = await this.get(key, options);
         if (cachedAfterLock !== null) {
-          return (cachedAfterLock as any)?.data as TResult;
+          return cachedAfterLock?.data as TResult;
         }
         return this.executeAndCache(key, fn, options);
       }

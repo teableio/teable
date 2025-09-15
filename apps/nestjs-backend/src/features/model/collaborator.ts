@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateCollaboratorCacheKey } from '../../performance-cache/generate-keys';
+import { dateToIso } from '../../utils/date-to-iso';
 
 @Injectable()
 export class CollaboratorModel {
@@ -50,10 +51,11 @@ export class CollaboratorModel {
     keyGenerator: generateCollaboratorCacheKey,
   })
   async getCollaboratorRawByResourceId(resourceId: string) {
-    return await this.prismaService.collaborator.findMany({
+    const res = await this.prismaService.collaborator.findMany({
       where: {
         resourceId: resourceId,
       },
     });
+    return res.map((item) => dateToIso(item));
   }
 }

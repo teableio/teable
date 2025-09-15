@@ -68,7 +68,10 @@ export class AccessTokenService {
       throw new UnauthorizedException('sign error');
     }
     // expiredTime 1ms tolerance
-    if (accessTokenEntity.expiredTime.getTime() < Date.now() + 1000) {
+    if (
+      accessTokenEntity.expiredTime &&
+      new Date(accessTokenEntity.expiredTime).getTime() < Date.now() + 1000
+    ) {
       throw new UnauthorizedException('token expired');
     }
     await this.prismaService.accessToken.update({
