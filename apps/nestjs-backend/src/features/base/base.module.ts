@@ -8,6 +8,7 @@ import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { GraphModule } from '../graph/graph.module';
 import { InvitationModule } from '../invitation/invitation.module';
 import { NotificationModule } from '../notification/notification.module';
+import { ComputedModule } from '../record/computed/computed.module';
 import { RecordModule } from '../record/record.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { TableDuplicateService } from '../table/table-duplicate.service';
@@ -36,6 +37,7 @@ import { DbConnectionService } from './db-connection.service';
     InvitationModule,
     TableOpenApiModule,
     RecordModule,
+    ComputedModule,
     StorageModule,
     NotificationModule,
     BaseImportAttachmentsModule,
