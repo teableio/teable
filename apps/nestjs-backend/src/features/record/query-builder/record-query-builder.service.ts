@@ -35,7 +35,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   ) {}
 
   private async getTableMeta(tableIdOrDbTableName: string) {
-    return this.prismaService.tableMeta.findFirstOrThrow({
+    // Use transactional client so callers running inside $tx (e.g., base duplication)
+    // can resolve freshly-created tables within the same transaction.
+    return this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { OR: [{ id: tableIdOrDbTableName }, { dbTableName: tableIdOrDbTableName }] },
       select: { id: true, dbViewName: true },
     });
