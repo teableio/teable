@@ -1442,7 +1442,7 @@ export class RecordService {
     useQueryModel = false
   ) {
     const dbTableName = await this.getDbTableName(tableId);
-    const { viewCte, builder } = await this.recordPermissionService.wrapView(
+    const { viewCte, builder, enabledFieldIds } = await this.recordPermissionService.wrapView(
       tableId,
       this.knex.queryBuilder(),
       {
@@ -1450,10 +1450,12 @@ export class RecordService {
       }
     );
     const viewQueryDbTableName = viewCte ?? dbTableName;
+    const finalProjection =
+      projection ?? (enabledFieldIds ? this.convertProjection(enabledFieldIds) : undefined);
     return this.getSnapshotBulkInner(builder, viewQueryDbTableName, {
       tableId,
       recordIds,
-      projection,
+      projection: finalProjection,
       fieldKeyType,
       cellFormat,
       useQueryModel,
