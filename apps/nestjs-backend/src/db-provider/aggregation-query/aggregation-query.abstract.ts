@@ -52,11 +52,30 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
 
       this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc, alias);
     });
-    // Grouping and selecting group keys is handled by GroupQueryXXX implementations.
-    // Historically, aggregation also attempted to apply GROUP BY here based on extra.groupBy,
-    // which caused duplicate or malformed GROUP BY clauses when used together with GroupQuery.
-    // To avoid generating invalid SQL (e.g., mixing different grouping expressions),
-    // rely solely on GroupQuery to build grouping and project grouped columns.
+    if (this.extra?.groupBy) {
+      const groupByFields = this.extra.groupBy
+        .map((fieldId) => {
+          return (
+            (this.context?.selectionMap.get(fieldId) as string | undefined) ??
+            this.fields?.[fieldId]?.dbFieldName ??
+            null
+          );
+        })
+        .filter(Boolean) as string[];
+      if (!groupByFields.length) {
+        return queryBuilder;
+      }
+      for (const fieldId of groupByFields) {
+        queryBuilder.groupByRaw(fieldId);
+      }
+      for (const fieldId of groupByFields) {
+        const field = this.fields && this.fields[fieldId];
+        if (!field) {
+          continue;
+        }
+        queryBuilder.select(this.knex.raw(`${fieldId} AS ??`, [field.dbFieldName]));
+      }
+    }
     return queryBuilder;
   }
 
