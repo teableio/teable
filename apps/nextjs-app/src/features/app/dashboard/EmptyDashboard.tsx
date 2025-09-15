@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { CreateDashboardDialog } from './components/CreateDashboardDialog';
-import { useState } from 'react';
 import { useTheme } from '@teable/next-themes';
 
 
