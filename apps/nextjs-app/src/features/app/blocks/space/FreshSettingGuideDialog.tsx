@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import {  useState } from "react";
+import {  useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { useBrand } from '../../hooks/useBrand';
 import { useIsCloud } from '../../hooks/useIsCloud';
@@ -54,10 +54,7 @@ const isDark = resolvedTheme === 'dark';
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <div className="flex flex-col items-center">
-            <Image
-            src={isDark
-        ? "/images/layout/welcome-dark.png"
-        : "/images/layout/welcome-light.png"}
+            <Image src={isDark ? "/images/layout/welcome-dark.png" : "/images/layout/welcome-light.png"}
               alt="Init setting guide"
               width={240}
               height={240}
