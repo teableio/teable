@@ -17,7 +17,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ISettingVo } from '@teable/openapi';
+import { SettingKey, type ISettingVo } from '@teable/openapi';
 import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -59,6 +59,14 @@ export class SettingService {
         res[setting.name] = value;
       }
     }
+
+    const instanceData = await this.prismaService.setting.findFirst({
+      where: { name: SettingKey.INSTANCE_ID },
+      select: {
+        createdTime: true,
+      },
+    });
+    res.createdTime = instanceData?.createdTime;
 
     return res as ISettingVo;
   }

@@ -16,6 +16,7 @@ export const useSetting = () => {
     disallowSpaceInvitation = false,
     webSearchEnabled = false,
     appGenerationEnabled = false,
+    createdTime,
   } = setting ?? {};
 
   return {
@@ -24,5 +25,6 @@ export const useSetting = () => {
     disallowSpaceInvitation: !user.isAdmin && (isLoading || disallowSpaceInvitation),
     webSearchEnabled,
     appGenerationEnabled,
+    createdTime,
   };
 };

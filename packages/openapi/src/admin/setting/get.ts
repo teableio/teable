@@ -19,6 +19,7 @@ export const settingVoSchema = z.object({
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),
   webSearchConfig: webSearchConfigSchema.nullable().optional(),
+  createdTime: z.string().optional(),
 });
 
 export type ISettingVo = z.infer<typeof settingVoSchema>;

@@ -1,5 +1,6 @@
 import { useSession } from '@teable/sdk/hooks';
 import { Button, Dialog, DialogContent } from '@teable/ui-lib/shadcn';
+import dayjs from 'dayjs';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -7,14 +8,20 @@ import { useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { useBrand } from '../../hooks/useBrand';
 import { useIsCloud } from '../../hooks/useIsCloud';
+import { useSetting } from '../../hooks/useSetting';
 
 export const FreshSettingGuideDialog = () => {
   const isCloud = useIsCloud();
   const {
     user: { isAdmin },
   } = useSession();
+
+  const { createdTime } = useSetting();
+
   const [freshAdmin, setFreshAdmin] = useLocalStorage('freshAdmin', true);
-  const showGuideModal = Boolean(freshAdmin && isAdmin && !isCloud);
+  const showGuideModal = Boolean(
+    freshAdmin && isAdmin && !isCloud && dayjs().isAfter(dayjs(createdTime).add(4, 'hour'))
+  );
   const [isModalOpen, setIsModalOpen] = useState(showGuideModal);
   const { t } = useTranslation('common');
   const router = useRouter();
@@ -54,7 +61,10 @@ export const FreshSettingGuideDialog = () => {
             </p>
           </div>
           <Button
-            onClick={() => router.push('/admin/setting')}
+            onClick={() => {
+              router.push('/admin/setting');
+              setFreshAdmin(false);
+            }}
             className="h-[44px] w-[194px] self-center"
           >
             {t('admin.action.goToConfiguration')}
