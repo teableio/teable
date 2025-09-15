@@ -737,7 +737,9 @@ export class FieldDuplicateService {
           checkedField.push(curField);
           countMap[curField.id] = (countMap[curField.id] || 0) + 1;
         } else {
-          throw new BadGatewayException('Create circular field');
+          throw new BadGatewayException(
+            `Create circular field when create field: ${curField.name}`
+          );
         }
       } else {
         dependFields.push(curField);
