@@ -644,6 +644,33 @@ export class RecordService {
     }, {});
   }
 
+  private async convertEnabledFieldIdsToProjection(
+    tableId: string,
+    enabledFieldIds?: string[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Id
+  ) {
+    if (!enabledFieldIds?.length) {
+      return undefined;
+    }
+
+    if (fieldKeyType === FieldKeyType.Id) {
+      return this.convertProjection(enabledFieldIds);
+    }
+
+    const fields = await this.dataLoaderService.field.load(tableId, {
+      id: enabledFieldIds,
+    });
+    if (!fields.length) {
+      return undefined;
+    }
+
+    const fieldKeys = fields
+      .map((field) => field[fieldKeyType] as string | undefined)
+      .filter((key): key is string => Boolean(key));
+
+    return fieldKeys.length ? this.convertProjection(fieldKeys) : undefined;
+  }
+
   async getRecordsById(
     tableId: string,
     recordIds: string[],
@@ -1451,7 +1478,8 @@ export class RecordService {
     );
     const viewQueryDbTableName = viewCte ?? dbTableName;
     const finalProjection =
-      projection ?? (enabledFieldIds ? this.convertProjection(enabledFieldIds) : undefined);
+      projection ??
+      (await this.convertEnabledFieldIdsToProjection(tableId, enabledFieldIds, fieldKeyType));
     return this.getSnapshotBulkInner(builder, viewQueryDbTableName, {
       tableId,
       recordIds,
