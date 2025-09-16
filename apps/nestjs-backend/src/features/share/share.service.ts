@@ -515,4 +515,8 @@ export class ShareService {
       viewId: shareInfo.view?.id,
     });
   }
+
+  async buttonClick(shareInfo: IShareViewInfo, recordId: string, fieldId: string) {
+    return this.recordOpenApiService.buttonClick(shareInfo.tableId, recordId, fieldId);
+  }
 }
