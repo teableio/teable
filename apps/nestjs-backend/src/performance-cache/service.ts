@@ -137,6 +137,10 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       return;
     }
 
+    if (options.ttl == undefined) {
+      throw new Error('ttl is required');
+    }
+
     try {
       const ttlMs = options.ttl ? options.ttl * 1000 : undefined;
 
