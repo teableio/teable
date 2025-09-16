@@ -5,12 +5,14 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable/db-main-prisma';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
+import { AccessTokenModel } from '../model/access-token';
 import { AccessTokenModule } from './access-token.module';
 import { AccessTokenService } from './access-token.service';
 
 describe('AccessTokenService', () => {
   let accessTokenService: AccessTokenService;
   const prismaService = mockDeep<PrismaService>();
+  const accessTokenModel = mockDeep<AccessTokenModel>();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -18,6 +20,8 @@ describe('AccessTokenService', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaService)
+      .overrideProvider(AccessTokenModel)
+      .useValue(accessTokenModel)
       .compile();
 
     accessTokenService = module.get<AccessTokenService>(AccessTokenService);
@@ -47,7 +51,7 @@ describe('AccessTokenService', () => {
       const sign = 'SIGN';
       const expiredTime = new Date(Date.now() + 2000); // Expires in 2 seconds
       // Mock PrismaService response
-      prismaService.accessToken.findUniqueOrThrow.mockResolvedValue({
+      accessTokenModel.getAccessTokenRawById.mockResolvedValue({
         userId: 'user123',
         id: accessTokenId,
         sign,
@@ -74,7 +78,7 @@ describe('AccessTokenService', () => {
       const sign = 'INVALID_SIGN';
 
       // Mock PrismaService response
-      prismaService.accessToken.findUniqueOrThrow.mockResolvedValue({
+      accessTokenModel.getAccessTokenRawById.mockResolvedValue({
         userId: 'user123',
         id: accessTokenId,
         sign: 'VALID_SIGN',
@@ -97,7 +101,7 @@ describe('AccessTokenService', () => {
       const expiredTime = new Date(Date.now() - 1500); // Expired 1 second ago
 
       // Mock PrismaService response
-      prismaService.accessToken.findUniqueOrThrow.mockResolvedValue({
+      accessTokenModel.getAccessTokenRawById.mockResolvedValue({
         userId: 'user123',
         id: accessTokenId,
         sign,
