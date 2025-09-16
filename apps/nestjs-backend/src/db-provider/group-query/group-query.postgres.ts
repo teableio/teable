@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type {
   INumberFieldOptions,
   IDateFieldOptions,
@@ -36,7 +37,8 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     }
     return this.originQueryBuilder
       .select({ [field.dbFieldName]: this.knex.raw(columnName) })
-      .groupByRaw(columnName);
+      .groupByRaw(columnName)
+      .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
   }
 
   number(field: FieldCore): Knex.QueryBuilder {
@@ -52,7 +54,10 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
     }
-    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+    return this.originQueryBuilder
+      .select(column)
+      .groupBy(groupByColumn)
+      .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
   }
 
   date(field: FieldCore): Knex.QueryBuilder {
@@ -73,7 +78,10 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
     }
-    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+    return this.originQueryBuilder
+      .select(column)
+      .groupBy(groupByColumn)
+      .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
   }
 
   json(field: FieldCore): Knex.QueryBuilder {
@@ -109,7 +117,10 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
           `${columnName}::jsonb ->> 'id', ${columnName}::jsonb ->> 'title'`
         );
 
-        return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+        return this.originQueryBuilder
+          .select(column)
+          .groupBy(groupByColumn)
+          .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
       }
 
       const column = this.knex.raw(
@@ -119,11 +130,17 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
         `jsonb_path_query_array(${columnName}::jsonb, '$[*].id')::text, jsonb_path_query_array(${columnName}::jsonb, '$[*].title')::text`
       );
 
-      return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+      return this.originQueryBuilder
+        .select(column)
+        .groupBy(groupByColumn)
+        .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
     }
 
     const column = this.knex.raw(`CAST(${columnName} as text)`);
-    return this.originQueryBuilder.select(column).groupByRaw(columnName);
+    return this.originQueryBuilder
+      .select(column)
+      .groupByRaw(columnName)
+      .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
   }
 
   multipleDate(field: FieldCore): Knex.QueryBuilder {
@@ -150,7 +167,10 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
     }
-    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+    return this.originQueryBuilder
+      .select(column)
+      .groupBy(groupByColumn)
+      .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
   }
 
   multipleNumber(field: FieldCore): Knex.QueryBuilder {
@@ -175,6 +195,9 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
     }
-    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+    return this.originQueryBuilder
+      .select(column)
+      .groupBy(groupByColumn)
+      .orderByRaw('?? ASC NULLS FIRST', [field.dbFieldName]);
   }
 }

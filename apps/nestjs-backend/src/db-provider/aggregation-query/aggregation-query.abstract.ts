@@ -52,30 +52,38 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
 
       this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc, alias);
     });
-    if (this.extra?.groupBy) {
-      const groupByFields = this.extra.groupBy
+
+    // Emit GROUP BY and grouped select columns when requested via extra.groupBy
+    if (this.extra?.groupBy && this.extra.groupBy.length > 0) {
+      const groupByExprs = this.extra.groupBy
         .map((fieldId) => {
-          return (
-            (this.context?.selectionMap.get(fieldId) as string | undefined) ??
-            this.fields?.[fieldId]?.dbFieldName ??
-            null
-          );
+          const mapped = this.context?.selectionMap.get(fieldId) as string | undefined;
+          if (mapped) return mapped;
+          const dbFieldName = this.fields?.[fieldId]?.dbFieldName;
+          if (!dbFieldName) return null;
+          return this.tableAlias ? `"${this.tableAlias}"."${dbFieldName}"` : `"${dbFieldName}"`;
         })
         .filter(Boolean) as string[];
-      if (!groupByFields.length) {
-        return queryBuilder;
+
+      for (const expr of groupByExprs) {
+        queryBuilder.groupByRaw(expr);
       }
-      for (const fieldId of groupByFields) {
-        queryBuilder.groupByRaw(fieldId);
+
+      for (const fieldId of this.extra.groupBy) {
+        const field = this.fields?.[fieldId];
+        if (!field) continue;
+        const mapped =
+          (this.context?.selectionMap.get(fieldId) as string | undefined) ??
+          (this.tableAlias
+            ? `"${this.tableAlias}"."${field.dbFieldName}"`
+            : `"${field.dbFieldName}"`);
+        queryBuilder.select(this.knex.raw(`${mapped} AS ??`, [field.dbFieldName]));
       }
-      for (const fieldId of groupByFields) {
-        const field = this.fields && this.fields[fieldId];
-        if (!field) {
-          continue;
-        }
-        queryBuilder.select(this.knex.raw(`${fieldId} AS ??`, [field.dbFieldName]));
-      }
+
+      // Ensure no stray ORDER BY (e.g., inherited from view default sort) remains after grouping
+      queryBuilder.clearOrder();
     }
+
     return queryBuilder;
   }
 
