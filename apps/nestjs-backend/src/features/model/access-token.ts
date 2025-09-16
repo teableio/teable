@@ -12,7 +12,7 @@ export class AccessTokenModel {
   ) {}
 
   @PerformanceCache({
-    ttl: 60 * 5,
+    ttl: 30,
     keyGenerator: generateAccessTokenCacheKey,
     statsType: 'access-token',
   })

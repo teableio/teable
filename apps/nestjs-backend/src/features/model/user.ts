@@ -23,7 +23,7 @@ export class UserModel {
   }
 
   @PerformanceCache({
-    ttl: 60 * 5,
+    ttl: 30,
     keyGenerator: generateUserCacheKey,
     preventConcurrent: false,
     statsType: 'user',
