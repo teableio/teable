@@ -82,7 +82,7 @@ describe('CollaboratorService', () => {
           resourceType: CollaboratorType.Base,
         },
       });
-      expect(prismaService.$executeRawUnsafe).toBeCalled();
+      expect(prismaService.collaborator.createMany).toBeCalled();
     });
 
     it('should throw error if exists', async () => {
