@@ -2767,6 +2767,74 @@ describe('OpenAPI link (e2e)', () => {
         await deleteRecord(table1.id, table1.records[1].id);
       }
     );
+
+    it('should clean one-many link record when delete a record', async () => {
+      const table1TitleField = table1.fields[0];
+      const table2TitleField = table2.fields[0];
+
+      const table1RecordId1 = table1.records[0].id;
+      const table1RecordId2 = table1.records[1].id;
+      const table2RecordId1 = table2.records[0].id;
+      const table2RecordId2 = table2.records[1].id;
+
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { id: table1RecordId1, fields: { [table1TitleField.id]: 'table1:A1' } },
+          { id: table1RecordId2, fields: { [table1TitleField.id]: 'table1:A2' } },
+        ],
+      });
+      await updateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { id: table2RecordId1, fields: { [table2TitleField.id]: 'table2:A1' } },
+          { id: table2RecordId2, fields: { [table2TitleField.id]: 'table2:A2' } },
+        ],
+      });
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      };
+      const table1LinkField = await createField(table1.id, linkFieldRo);
+      const symmetricLinkFieldId = (table1LinkField.options as ILinkFieldOptions).symmetricFieldId!;
+
+      await updateRecordByApi(table1.id, table1RecordId1, table1LinkField.id, [
+        {
+          id: table2RecordId1,
+        },
+        {
+          id: table2RecordId2,
+        },
+      ]);
+
+      const table1Record1Res = await getRecord(table1.id, table1RecordId1);
+      expect(table1Record1Res.fields[table1LinkField.id]).toEqual([
+        { id: table2RecordId1, title: 'table2:A1' },
+        { id: table2RecordId2, title: 'table2:A2' },
+      ]);
+
+      await convertField(table2.id, table2TitleField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${symmetricLinkFieldId}}`,
+        },
+      });
+
+      const table2Record1Res1 = await getRecord(table2.id, table2RecordId1);
+      expect(table2Record1Res1.fields[symmetricLinkFieldId]).toEqual({
+        id: table1RecordId1,
+        title: 'table1:A1',
+      });
+      expect(table2Record1Res1.fields[table2TitleField.id]).toEqual('table1:A1');
+
+      await deleteRecord(table1.id, table1RecordId1);
+      const table2Record1Res2 = await getRecord(table2.id, table2RecordId1);
+      expect(table2Record1Res2.fields[symmetricLinkFieldId]).toBeUndefined();
+    });
   });
 
   describe('Create two bi-link for two tables', () => {

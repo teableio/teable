@@ -109,8 +109,12 @@ export class RecordCalculateService {
     const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
     // ops in current table should not be apply or calculated for delete
     if (recordIdsForDelete) {
+      const fieldIds = Object.keys(derivate?.fkRecordMap ?? {});
       for (const recordId of recordIdsForDelete) {
         delete manualOpsMap?.[tableId]?.[recordId];
+        for (const fieldId of fieldIds) {
+          delete derivate?.fkRecordMap?.[fieldId]?.[recordId];
+        }
       }
     }
 
