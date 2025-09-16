@@ -160,12 +160,16 @@ export class BaseQueryService {
     return this.parseBaseQueryFromTable(baseQuery, {
       fieldMap: Object.keys(fieldMap).reduce(
         (acc, key) => {
+          const original = fieldMap[key];
+          const lastSegment = (original.dbFieldName ?? '').split('.').pop() as string;
+          const isAggregation =
+            getQueryColumnTypeByFieldInstance(original) === BaseQueryColumnType.Aggregation;
           acc[key] = createFieldInstanceByVo({
-            ...fieldMap[key],
-            // When wrapping as a subquery alias, quote alias and column name
-            dbFieldName: `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(
-              (fieldMap[key].dbFieldName ?? '').split('.').pop() as string
-            )}`,
+            ...original,
+            // 对于聚合字段，外层应按聚合别名排序/筛选，因此只保留别名本身，避免再加表别名导致歧义
+            dbFieldName: isAggregation
+              ? this.quoteIdentifier(lastSegment)
+              : `${this.quoteIdentifier(alias)}.${this.quoteIdentifier(lastSegment)}`,
           });
           return acc;
         },
