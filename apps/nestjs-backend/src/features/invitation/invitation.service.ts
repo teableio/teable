@@ -84,6 +84,9 @@ export class InvitationService {
     resourceType: CollaboratorType;
   }) {
     const user = this.cls.get('user');
+
+    await this.checkInvitationLimits();
+
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     await this.collaboratorService.validateUserAddRole({
       departmentIds,
@@ -445,5 +448,29 @@ export class InvitationService {
       });
     }
     return { baseId, spaceId };
+  }
+
+  private async checkInvitationLimits(): Promise<void> {
+    if (!process.env.MAX_INVITATIONS_PER_HOUR) return;
+
+    const user = this.cls.get('user');
+    const maxInvitationsPerHour = Number(process.env.MAX_INVITATIONS_PER_HOUR);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentInvitations = await this.prismaService.invitationRecord.count({
+      where: {
+        inviter: user.id,
+        createdTime: { gte: oneHourAgo.toISOString() },
+      },
+    });
+
+    if (Number(recentInvitations) >= maxInvitationsPerHour) {
+      await this.prismaService.user.update({
+        where: { id: user.id },
+        data: {
+          deactivatedTime: new Date().toISOString(),
+        },
+      });
+      throw new ForbiddenException('You have reached the maximum number of invitations per hour');
+    }
   }
 }
