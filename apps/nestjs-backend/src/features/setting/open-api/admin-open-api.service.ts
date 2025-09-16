@@ -1,6 +1,11 @@
 import { Session } from 'node:inspector';
 import { Readable } from 'node:stream';
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginStatus, UploadType } from '@teable/openapi';
 import { Response } from 'express';
@@ -146,5 +151,13 @@ export class AdminOpenApiService {
       stats: this.performanceCacheService.getStats(),
       typeStats: this.performanceCacheService.getTypeStats(),
     };
+  }
+
+  async deletePerformanceCache(key?: string) {
+    if (!key) {
+      throw new BadRequestException('key is required');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.performanceCacheService.del(key as any);
   }
 }

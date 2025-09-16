@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { AdminOpenApiService } from './admin-open-api.service';
@@ -31,5 +31,10 @@ export class AdminOpenApiController {
   @Get('performance-cache-stats')
   async getPerformanceCache() {
     return await this.adminService.getPerformanceCache();
+  }
+
+  @Delete('performance-cache')
+  async deletePerformanceCache(@Query('key') key?: string) {
+    return await this.adminService.deletePerformanceCache(key);
   }
 }
