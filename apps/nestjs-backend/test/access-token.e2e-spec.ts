@@ -343,5 +343,24 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         expect.arrayContaining([spaceId, space.id])
       );
     });
+
+    it('access token with expiredTime in expired', async () => {
+      const expiredTime = dayjs(Date.now() - 10000).format('YYYY-MM-DD');
+      const { data } = await createAccessToken({
+        ...defaultCreateRo,
+        name: 'expired access token',
+        scopes: ['space|read'],
+        expiredTime,
+      });
+
+      const error = await getError(() =>
+        axios.get(urlBuilder(GET_SPACE_LIST), {
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+        })
+      );
+      expect(error?.status).toEqual(401);
+    });
   });
 });
