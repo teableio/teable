@@ -96,7 +96,7 @@ export class TableService implements IReadonlyAdapterService {
     }
 
     const createTableSchema = this.knex.schema.createTable(dbTableName, (table) => {
-      table.string('__id').unique().notNullable();
+      table.string('__id').unique(`${baseId}_${tableMeta.id}__id_unique`).notNullable();
       table.increments('__auto_number').primary();
       table.dateTime('__created_time').defaultTo(this.knex.fn.now()).notNullable();
       table.dateTime('__last_modified_time');

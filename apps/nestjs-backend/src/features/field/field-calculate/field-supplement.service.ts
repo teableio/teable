@@ -1341,7 +1341,11 @@ export class FieldSupplementService {
             .references('__id')
             .inTable(dbTableName)
             .withKeyName(`fk_${selfKeyName}`);
-          table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+          table
+            .string(foreignKeyName)
+            .references('__id')
+            .inTable(foreignDbTableName)
+            .withKeyName(`fk_${foreignKeyName}`);
           table.unique([selfKeyName, foreignKeyName], {
             indexName: `index_${selfKeyName}_${foreignKeyName}`,
           });
@@ -1363,7 +1367,11 @@ export class FieldSupplementService {
         if (foreignKeyName === '__id') {
           throw new Error('can not use __id for foreignKeyName');
         }
-        table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
         table.unique([foreignKeyName], {
           indexName: `index_${foreignKeyName}`,
         });
@@ -1379,6 +1387,7 @@ export class FieldSupplementService {
       if (sql.sql.startsWith('PRAGMA')) {
         continue;
       }
+
       await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
     }
   }
