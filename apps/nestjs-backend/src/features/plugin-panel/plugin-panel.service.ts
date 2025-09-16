@@ -26,7 +26,6 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { CollaboratorModel } from '../model/collaborator';
 
 @Injectable()
 export class PluginPanelService {
@@ -34,8 +33,7 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService,
-    private readonly collaboratorModel: CollaboratorModel
+    private readonly baseImportService: BaseImportService
   ) {}
 
   createPluginPanel(tableId: string, createPluginPanelRo: IPluginPanelCreateRo) {
@@ -185,96 +183,90 @@ export class PluginPanelService {
     const { pluginId, name } = installPluginPanelRo;
     const currentUser = this.cls.get('user.id');
     const baseId = await this.getBaseId(tableId);
-    return this.prismaService
-      .$tx(async (prisma) => {
-        const plugin = await prisma.plugin.findUnique({
-          where: {
-            id: pluginId,
-          },
-        });
-        if (!plugin) {
-          throw new NotFoundException('Plugin not found');
-        }
-        const pluginInstall = await prisma.pluginInstall.create({
-          data: {
-            id: generatePluginInstallId(),
-            pluginId,
-            baseId,
-            name: name ?? plugin.name,
-            position: PluginPosition.Panel,
-            positionId: pluginPanelId,
-            createdBy: currentUser,
-          },
-          select: {
-            id: true,
-            name: true,
-            pluginId: true,
-            plugin: {
-              select: {
-                pluginUser: true,
-              },
-            },
-          },
-        });
-        if (pluginInstall.plugin.pluginUser) {
-          // invite pluginUser to base
-          const exist = await this.prismaService.txClient().collaborator.count({
-            where: {
-              principalId: pluginInstall.plugin.pluginUser,
-              principalType: PrincipalType.User,
-              resourceId: baseId,
-              resourceType: CollaboratorType.Base,
-            },
-          });
-
-          if (!exist) {
-            await this.collaboratorService.createBaseCollaborator({
-              collaborators: [
-                {
-                  principalId: pluginInstall.plugin.pluginUser,
-                  principalType: PrincipalType.User,
-                },
-              ],
-              baseId,
-              role: Role.Owner as IBaseRole,
-            });
-          }
-        }
-        const pluginPanel = await prisma.pluginPanel.findUnique({
-          where: {
-            id: pluginPanelId,
-            tableId,
-          },
-          select: {
-            layout: true,
-          },
-        });
-        if (!pluginPanel) {
-          throw new NotFoundException('Plugin panel not found');
-        }
-        const layout = pluginPanel.layout
-          ? (JSON.parse(pluginPanel.layout) as IDashboardLayout)
-          : [];
-        layout.push({
-          pluginInstallId: pluginInstall.id,
-          x: 0,
-          y: Number.MAX_SAFE_INTEGER, // puts it at the bottom
-          w: 1,
-          h: 3,
-        });
-        await prisma.pluginPanel.update({
-          where: { id: pluginPanelId, tableId },
-          data: { layout: JSON.stringify(layout) },
-        });
-        return {
-          pluginId: pluginInstall.pluginId,
-          name: pluginInstall.name,
-          pluginInstallId: pluginInstall.id,
-        };
-      })
-      .finally(async () => {
-        await this.collaboratorModel.clearCollaboratorCache(baseId);
+    return this.prismaService.$tx(async (prisma) => {
+      const plugin = await prisma.plugin.findUnique({
+        where: {
+          id: pluginId,
+        },
       });
+      if (!plugin) {
+        throw new NotFoundException('Plugin not found');
+      }
+      const pluginInstall = await prisma.pluginInstall.create({
+        data: {
+          id: generatePluginInstallId(),
+          pluginId,
+          baseId,
+          name: name ?? plugin.name,
+          position: PluginPosition.Panel,
+          positionId: pluginPanelId,
+          createdBy: currentUser,
+        },
+        select: {
+          id: true,
+          name: true,
+          pluginId: true,
+          plugin: {
+            select: {
+              pluginUser: true,
+            },
+          },
+        },
+      });
+      if (pluginInstall.plugin.pluginUser) {
+        // invite pluginUser to base
+        const exist = await this.prismaService.txClient().collaborator.count({
+          where: {
+            principalId: pluginInstall.plugin.pluginUser,
+            principalType: PrincipalType.User,
+            resourceId: baseId,
+            resourceType: CollaboratorType.Base,
+          },
+        });
+
+        if (!exist) {
+          await this.collaboratorService.createBaseCollaborator({
+            collaborators: [
+              {
+                principalId: pluginInstall.plugin.pluginUser,
+                principalType: PrincipalType.User,
+              },
+            ],
+            baseId,
+            role: Role.Owner as IBaseRole,
+          });
+        }
+      }
+      const pluginPanel = await prisma.pluginPanel.findUnique({
+        where: {
+          id: pluginPanelId,
+          tableId,
+        },
+        select: {
+          layout: true,
+        },
+      });
+      if (!pluginPanel) {
+        throw new NotFoundException('Plugin panel not found');
+      }
+      const layout = pluginPanel.layout ? (JSON.parse(pluginPanel.layout) as IDashboardLayout) : [];
+      layout.push({
+        pluginInstallId: pluginInstall.id,
+        x: 0,
+        y: Number.MAX_SAFE_INTEGER, // puts it at the bottom
+        w: 1,
+        h: 3,
+      });
+      await prisma.pluginPanel.update({
+        where: { id: pluginPanelId, tableId },
+        data: { layout: JSON.stringify(layout) },
+      });
+      return {
+        pluginId: pluginInstall.pluginId,
+        name: pluginInstall.name,
+        pluginInstallId: pluginInstall.id,
+      };
+    });
   }
 
   async removePluginPanelPlugin(tableId: string, pluginPanelId: string, pluginInstallId: string) {

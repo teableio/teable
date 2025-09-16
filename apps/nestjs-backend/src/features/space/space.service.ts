@@ -25,7 +25,6 @@ import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { CollaboratorModel } from '../model/collaborator';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 
@@ -39,36 +38,30 @@ export class SpaceService {
     private readonly permissionService: PermissionService,
     private readonly settingService: SettingService,
     private readonly settingOpenApiService: SettingOpenApiService,
-    private readonly collaboratorModel: CollaboratorModel,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
-    return await this.prismaService
-      .$tx(async () => {
-        const result = await this.prismaService.txClient().space.create({
-          select: {
-            id: true,
-            name: true,
-          },
-          data: spaceCreateInput,
-        });
-        await this.collaboratorService.createSpaceCollaborator({
-          collaborators: [
-            {
-              principalId: spaceCreateInput.createdBy,
-              principalType: PrincipalType.User,
-            },
-          ],
-          role: Role.Owner,
-          spaceId: result.id,
-        });
-        return result;
-      })
-      .then(async (data) => {
-        await this.collaboratorModel.clearCollaboratorCache(data.id);
-        return data;
+    return await this.prismaService.$tx(async () => {
+      const result = await this.prismaService.txClient().space.create({
+        select: {
+          id: true,
+          name: true,
+        },
+        data: spaceCreateInput,
       });
+      await this.collaboratorService.createSpaceCollaborator({
+        collaborators: [
+          {
+            principalId: spaceCreateInput.createdBy,
+            principalType: PrincipalType.User,
+          },
+        ],
+        role: Role.Owner,
+        spaceId: result.id,
+      });
+      return result;
+    });
   }
 
   async getSpaceById(spaceId: string) {

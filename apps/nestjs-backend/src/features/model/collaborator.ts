@@ -1,42 +1,59 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
+import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateCollaboratorCacheKey } from '../../performance-cache/generate-keys';
+import type { IClsStore } from '../../types/cls';
 import { dateToIso } from '../../utils/date-to-iso';
 
 @Injectable()
 export class CollaboratorModel {
   constructor(
     private readonly prismaService: PrismaService,
-    protected readonly performanceCacheService: PerformanceCacheService
+    protected readonly performanceCacheService: PerformanceCacheService,
+    private readonly cls: ClsService<IClsStore>
   ) {
     this.prismaService.$use(async (params, next) => {
+      const clearCacheKeys: (keyof IPerformanceCacheStore)[] = [];
       if (
         params.model === 'Collaborator' &&
         (params.action.includes('update') || params.action.includes('delete'))
       ) {
         const resourceId = params.args?.where?.resourceId;
         if (typeof resourceId === 'string') {
-          await this.performanceCacheService.del(generateCollaboratorCacheKey(resourceId));
+          clearCacheKeys.push(generateCollaboratorCacheKey(resourceId));
         } else if (typeof resourceId === 'object' && 'in' in resourceId) {
           const resourceIds = resourceId.in as string[];
-          await Promise.all(
-            resourceIds.map((id) =>
-              this.performanceCacheService.del(generateCollaboratorCacheKey(id))
-            )
-          );
+          clearCacheKeys.push(...resourceIds.map(generateCollaboratorCacheKey));
         }
+      }
+      if (params.model === 'Collaborator' && params.action.includes('create')) {
+        const createData = params.args?.data;
+        if (Array.isArray(createData)) {
+          clearCacheKeys.push(...createData.map(generateCollaboratorCacheKey));
+        } else {
+          clearCacheKeys.push(generateCollaboratorCacheKey(createData.resourceId));
+        }
+      }
+      if (clearCacheKeys.length) {
+        return next(params);
+      }
+      if (params.runInTransaction) {
+        await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
+        return next(params);
+      }
+
+      if (this.cls.isActive()) {
+        const currentClearCacheKeys = this.cls.get('clearCacheKeys') || [];
+        this.cls.set('clearCacheKeys', [...currentClearCacheKeys, ...clearCacheKeys]);
       }
       return next(params);
     });
   }
 
-  async clearCollaboratorCache(resourceId: string) {
-    await this.performanceCacheService.del(generateCollaboratorCacheKey(resourceId));
-  }
-
   @PerformanceCache({
-    ttl: 30,
+    ttl: 60 * 5,
     statsType: 'collaborator',
     keyGenerator: generateCollaboratorCacheKey,
   })

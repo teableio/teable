@@ -8,6 +8,7 @@ import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
+import { PerformanceCacheService } from '../performance-cache';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
@@ -26,7 +27,8 @@ export class ShareDbService extends ShareDBClass {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly repairAttachmentOpService: RepairAttachmentOpService,
-    @CacheConfig() private readonly cacheConfig: ICacheConfig
+    @CacheConfig() private readonly cacheConfig: ICacheConfig,
+    private readonly performanceCacheService: PerformanceCacheService
   ) {
     super({
       presence: true,
@@ -63,6 +65,13 @@ export class ShareDbService extends ShareDBClass {
         await this.updateTableMetaByRawOpMap(rawOpMaps);
         await this.publishOpsMap(rawOpMaps);
         this.eventEmitterService.ops2Event(ops);
+      }
+
+      // clear cache keys
+      const clearCacheKeys = this.cls.get('clearCacheKeys');
+      if (clearCacheKeys?.length) {
+        await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
+        this.cls.set('clearCacheKeys', undefined);
       }
     });
   }
