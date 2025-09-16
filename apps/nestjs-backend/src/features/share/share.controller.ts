@@ -9,6 +9,7 @@ import {
   Get,
   Body,
   Query,
+  Param,
 } from '@nestjs/common';
 import { IGetFieldsQuery, getFieldsQuerySchema } from '@teable/core';
 import {
@@ -47,6 +48,7 @@ import type {
   ICalendarDailyCollectionVo,
   ISearchCountVo,
   ISearchIndexVo,
+  IButtonClickVo,
 } from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -200,6 +202,20 @@ export class ShareController {
   ): Promise<ISearchIndexVo> {
     const { tableId, view } = req.shareInfo as IShareViewInfo;
     return this.shareService.getShareSearchIndex(tableId, { ...queryRo, viewId: view?.id });
+  }
+
+  @UseGuards(ShareAuthGuard)
+  @Post('/:shareId/view/record/:recordId/:fieldId/button-click')
+  async buttonClick(
+    @Request() req: any,
+    @Param('recordId') recordId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<IButtonClickVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    await this.shareSocketService.getFieldSnapshotBulk(shareInfo, [fieldId]);
+    await this.shareSocketService.getRecordSnapshotBulk(shareInfo, [recordId]);
+    const result = await this.shareService.buttonClick(shareInfo, recordId, fieldId);
+    return { ...result, runId: '' };
   }
 
   @ShareLinkView()

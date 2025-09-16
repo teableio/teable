@@ -1,12 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
 import { getTableButtonClickChannel } from '@teable/core';
 import { buttonClick as buttonClickApi } from '@teable/openapi/src/record/button-click';
+import { shareViewButtonClick as shareViewButtonClickApi } from '@teable/openapi/src/share/view-button-click';
 import { sonner } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import { useConnection } from './use-connection';
-
 export interface IButtonClickStatus {
   runId: string;
   recordId: string;
@@ -19,7 +19,7 @@ export interface IButtonClickStatus {
 
 const { toast } = sonner;
 
-export const useButtonClickStatus = (tableId: string) => {
+export const useButtonClickStatus = (tableId: string, shareId?: string) => {
   const { connection } = useConnection();
   const channel = getTableButtonClickChannel(tableId);
   const presence = connection?.getPresence(channel);
@@ -30,7 +30,9 @@ export const useButtonClickStatus = (tableId: string) => {
 
   const { mutateAsync: buttonClick } = useMutation({
     mutationFn: (ro: { tableId: string; recordId: string; fieldId: string; name: string }) =>
-      buttonClickApi(ro.tableId, ro.recordId, ro.fieldId),
+      shareId
+        ? shareViewButtonClickApi(shareId, ro.recordId, ro.fieldId)
+        : buttonClickApi(ro.tableId, ro.recordId, ro.fieldId),
     onSuccess: (res, ro) => {
       setStatus({
         runId: res.data.runId,

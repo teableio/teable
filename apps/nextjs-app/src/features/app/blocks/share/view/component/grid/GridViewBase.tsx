@@ -93,7 +93,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { setGridRef, searchCursor } = useGridSearchStore();
-  const buttonClickStatusHook = useButtonClickStatus(tableId);
+  const buttonClickStatusHook = useButtonClickStatus(tableId, router.query.shareId as string);
 
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
