@@ -717,22 +717,17 @@ export class CollaboratorService {
       throw new BadRequestException('has already existed in base');
     }
 
-    const query = this.knex
-      .insert(
-        collaborators.map((collaborator) => ({
-          id: getRandomString(16),
-          resource_id: baseId,
-          resource_type: CollaboratorType.Base,
-          role_name: role,
-          principal_id: collaborator.principalId,
-          principal_type: collaborator.principalType,
-          created_by: currentUserId!,
-        }))
-      )
-      .into('collaborator')
-      .toQuery();
-
-    const res = await this.prismaService.txClient().$executeRawUnsafe(query);
+    const res = await this.prismaService.txClient().collaborator.createMany({
+      data: collaborators.map((collaborator) => ({
+        id: getRandomString(16),
+        resourceId: baseId,
+        resourceType: CollaboratorType.Base,
+        roleName: role,
+        principalId: collaborator.principalId,
+        principalType: collaborator.principalType,
+        createdBy: currentUserId!,
+      })),
+    });
     this.eventEmitterService.emitAsync(
       Events.COLLABORATOR_CREATE,
       new CollaboratorCreateEvent(base.spaceId)
