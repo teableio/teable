@@ -83,7 +83,7 @@ export class InvitationService {
     resourceName: string;
     resourceType: CollaboratorType;
   }) {
-    const user = this.cls.get('user');
+    const user = { ...this.cls.get('user') };
 
     await this.checkInvitationLimits();
 
