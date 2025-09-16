@@ -729,7 +729,9 @@ export class BaseExportService {
           order: fieldRaws[index].order,
         };
 
-        return allowCrossBase ? res : omit(res, ['options', 'lookupOptions']);
+        return allowCrossBase
+          ? res
+          : omit(res, ['options', 'lookupOptions', 'isLookup', 'isMultipleCellValue']);
       });
 
     // fields which rely on the cross base link fields
@@ -740,12 +742,20 @@ export class BaseExportService {
           .map(({ id }) => id)
           .includes((lookupOptions as ILookupOptionsVo)?.linkFieldId)
       )
-      .map((field, index) => ({
-        ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
-        type: allowCrossBase ? field.type : FieldType.SingleLineText,
-        createdTime: createdTimeMap[field.id],
-        order: fieldRaws[index].order,
-      }));
+      .map((field, index) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: allowCrossBase ? field.type : FieldType.SingleLineText,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+          dbFieldType: allowCrossBase ? field.dbFieldType : 'TEXT',
+          cellValueType: allowCrossBase ? field.cellValueType : 'string',
+        };
+
+        return allowCrossBase
+          ? res
+          : omit(res, ['options', 'lookupOptions', 'isLookup', 'isMultipleCellValue']);
+      });
 
     return [...crossBaseLinkFields, ...relativeFields] as IBaseJson['tables'][number]['fields'];
   }
