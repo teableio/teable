@@ -690,8 +690,8 @@
           "smDescription": "用于场景推荐和简单快速操作等任务",
           "md": "中型聊天模型",
           "mdDescription": "对于需要速度和质量的场景，如创建数据库，建议使用 GPT-4o",
-          "lg": "大型聊天模型",
-          "lgDescription": "对于规划、编码和其他复杂任务场景，建议使用 clade-sonnet-4"
+          "lg": "高级聊天模型",
+          "lgDescription": "对于规划、编码和其他复杂任务场景，建议使用 claude-sonnet-4"
         },
         "chatModelTest": {
           "text": "测试模型",

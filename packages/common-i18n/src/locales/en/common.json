@@ -695,8 +695,8 @@
           "smDescription": "Used for tasks such as scene recommendation and simple quick operations",
           "md": "Medium chat model",
           "mdDescription": "For scenarios that require speed and quality, such as creating Base, it is recommended to use GPT-4o",
-          "lg": "Large chat model",
-          "lgDescription": "For planning, coding, and other complex task scenarios, it is recommended to use clade-sonnet-4"
+          "lg": "Advanced chat model",
+          "lgDescription": "For planning, coding, and other complex task scenarios, it is recommended to use claude-sonnet-4"
         },
         "chatModelTest": {
           "text": "Test model",
