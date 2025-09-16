@@ -26,6 +26,7 @@ import {
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { CollaboratorModel } from '../model/collaborator';
 
 @Injectable()
 export class CollaboratorService {
@@ -34,7 +35,8 @@ export class CollaboratorService {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly collaboratorModel: CollaboratorModel
   ) {}
 
   async createSpaceCollaborator({
@@ -586,6 +588,7 @@ export class CollaboratorService {
         },
       },
     });
+    await this.collaboratorModel.clearCollaboratorCache(resourceId);
     let spaceId: string = resourceId;
     if (resourceType === CollaboratorType.Base) {
       const space = await this.prismaService
@@ -637,18 +640,23 @@ export class CollaboratorService {
       throw new ForbiddenException(`You do not have permission to operator this role: ${role}`);
     }
 
-    return this.prismaService.txClient().collaborator.updateMany({
-      where: {
-        resourceId: resourceId,
-        resourceType: resourceType,
-        principalId: principalId,
-        principalType: principalType,
-      },
-      data: {
-        roleName: role,
-        lastModifiedBy: currentUserId,
-      },
-    });
+    return this.prismaService
+      .txClient()
+      .collaborator.updateMany({
+        where: {
+          resourceId: resourceId,
+          resourceType: resourceType,
+          principalId: principalId,
+          principalType: principalType,
+        },
+        data: {
+          roleName: role,
+          lastModifiedBy: currentUserId,
+        },
+      })
+      .finally(async () => {
+        await this.collaboratorModel.clearCollaboratorCache(resourceId);
+      });
   }
 
   async getCurrentUserCollaboratorsBaseAndSpaceArray(searchRoles?: IRole[]) {
@@ -822,6 +830,8 @@ export class CollaboratorService {
       spaceId,
       role: collaborator.role,
       createdBy: this.cls.get('user.id'),
+    }).finally(async () => {
+      await this.collaboratorModel.clearCollaboratorCache(spaceId);
     });
   }
 
@@ -844,6 +854,8 @@ export class CollaboratorService {
       baseId,
       role: collaborator.role,
       createdBy: this.cls.get('user.id'),
+    }).finally(async () => {
+      await this.collaboratorModel.clearCollaboratorCache(baseId);
     });
   }
 

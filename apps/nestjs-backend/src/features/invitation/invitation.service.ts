@@ -27,6 +27,7 @@ import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
+import { CollaboratorModel } from '../model/collaborator';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { UserService } from '../user/user.service';
 
@@ -39,7 +40,8 @@ export class InvitationService {
     private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly collaboratorModel: CollaboratorModel
   ) {}
 
   private generateInviteUrl(invitationId: string, invitationCode: string) {
@@ -102,81 +104,85 @@ export class InvitationService {
       (email) => !sendUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())
     );
 
-    return this.prismaService.$tx(async () => {
-      // create user if not exist
-      const newUsers = await this.createNotExistedUser(noExistEmails);
-      sendUsers.push(...newUsers);
+    return this.prismaService
+      .$tx(async () => {
+        // create user if not exist
+        const newUsers = await this.createNotExistedUser(noExistEmails);
+        sendUsers.push(...newUsers);
 
-      const result: EmailInvitationVo = {};
-      for (const sendUser of sendUsers) {
-        // create collaborator link
-        if (resourceType === CollaboratorType.Space) {
-          await this.collaboratorService.createSpaceCollaborator({
-            collaborators: [
-              {
-                principalId: sendUser.id,
-                principalType: PrincipalType.User,
-              },
-            ],
-            spaceId: resourceId,
-            role: role as IRole,
-          });
-        } else {
-          await this.collaboratorService.createBaseCollaborator({
-            collaborators: [
-              {
-                principalId: sendUser.id,
-                principalType: PrincipalType.User,
-              },
-            ],
-            baseId: resourceId,
-            role: role as IBaseRole,
-          });
-        }
-        // generate invitation record
-        const { id, invitationCode } = await this.generateInvitation({
-          type: 'email',
-          role,
-          resourceId,
-          resourceType,
-        });
-
-        // save invitation record for audit
-        await this.prismaService.txClient().invitationRecord.create({
-          data: {
-            inviter: user.id,
-            accepter: sendUser.id,
-            type: 'email',
-            spaceId: resourceType === CollaboratorType.Space ? resourceId : null,
-            baseId: resourceType === CollaboratorType.Base ? resourceId : null,
-            invitationId: id,
-          },
-        });
-        const { brandName } = await this.settingOpenApiService.getServerBrand();
-
-        // get email info
-        const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
-          brandName,
-          name: user.name,
-          email: user.email,
-          resourceName,
-          resourceType,
-          inviteUrl: this.generateInviteUrl(id, invitationCode),
-        });
-        this.mailSenderService.sendMail(
-          {
-            to: sendUser.email,
-            ...inviteEmailOptions,
-          },
-          {
-            type: MailType.Invite,
-            transporterName: MailTransporterType.Notify,
+        const result: EmailInvitationVo = {};
+        for (const sendUser of sendUsers) {
+          // create collaborator link
+          if (resourceType === CollaboratorType.Space) {
+            await this.collaboratorService.createSpaceCollaborator({
+              collaborators: [
+                {
+                  principalId: sendUser.id,
+                  principalType: PrincipalType.User,
+                },
+              ],
+              spaceId: resourceId,
+              role: role as IRole,
+            });
+          } else {
+            await this.collaboratorService.createBaseCollaborator({
+              collaborators: [
+                {
+                  principalId: sendUser.id,
+                  principalType: PrincipalType.User,
+                },
+              ],
+              baseId: resourceId,
+              role: role as IBaseRole,
+            });
           }
-        );
-        result[sendUser.email] = { invitationId: id };
-      }
-      return result;
-    });
+          // generate invitation record
+          const { id, invitationCode } = await this.generateInvitation({
+            type: 'email',
+            role,
+            resourceId,
+            resourceType,
+          });
+
+          // save invitation record for audit
+          await this.prismaService.txClient().invitationRecord.create({
+            data: {
+              inviter: user.id,
+              accepter: sendUser.id,
+              type: 'email',
+              spaceId: resourceType === CollaboratorType.Space ? resourceId : null,
+              baseId: resourceType === CollaboratorType.Base ? resourceId : null,
+              invitationId: id,
+            },
+          });
+          const { brandName } = await this.settingOpenApiService.getServerBrand();
+
+          // get email info
+          const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
+            brandName,
+            name: user.name,
+            email: user.email,
+            resourceName,
+            resourceType,
+            inviteUrl: this.generateInviteUrl(id, invitationCode),
+          });
+          this.mailSenderService.sendMail(
+            {
+              to: sendUser.email,
+              ...inviteEmailOptions,
+            },
+            {
+              type: MailType.Invite,
+              transporterName: MailTransporterType.Notify,
+            }
+          );
+          result[sendUser.email] = { invitationId: id };
+        }
+        return result;
+      })
+      .finally(async () => {
+        await this.collaboratorModel.clearCollaboratorCache(resourceId);
+      });
   }
 
   async emailInvitationBySpace(spaceId: string, data: EmailSpaceInvitationRo) {
@@ -405,44 +411,48 @@ export class InvitationService {
       },
     });
     if (!exist) {
-      await this.prismaService.$tx(async () => {
-        if (resourceType === CollaboratorType.Space) {
-          await this.collaboratorService.createSpaceCollaborator({
-            collaborators: [
-              {
-                principalId: currentUserId,
-                principalType: PrincipalType.User,
-              },
-            ],
-            spaceId: spaceId!,
-            role: role as IRole,
-            createdBy,
+      await this.prismaService
+        .$tx(async () => {
+          if (resourceType === CollaboratorType.Space) {
+            await this.collaboratorService.createSpaceCollaborator({
+              collaborators: [
+                {
+                  principalId: currentUserId,
+                  principalType: PrincipalType.User,
+                },
+              ],
+              spaceId: spaceId!,
+              role: role as IRole,
+              createdBy,
+            });
+          } else {
+            await this.collaboratorService.createBaseCollaborator({
+              collaborators: [
+                {
+                  principalId: currentUserId,
+                  principalType: PrincipalType.User,
+                },
+              ],
+              baseId: baseId!,
+              role: role as IBaseRole,
+              createdBy,
+            });
+          }
+          // save invitation record for audit
+          await this.prismaService.txClient().invitationRecord.create({
+            data: {
+              invitationId: linkInvitation.id,
+              inviter: createdBy,
+              accepter: currentUserId,
+              type: 'link',
+              spaceId,
+              baseId,
+            },
           });
-        } else {
-          await this.collaboratorService.createBaseCollaborator({
-            collaborators: [
-              {
-                principalId: currentUserId,
-                principalType: PrincipalType.User,
-              },
-            ],
-            baseId: baseId!,
-            role: role as IBaseRole,
-            createdBy,
-          });
-        }
-        // save invitation record for audit
-        await this.prismaService.txClient().invitationRecord.create({
-          data: {
-            invitationId: linkInvitation.id,
-            inviter: createdBy,
-            accepter: currentUserId,
-            type: 'link',
-            spaceId,
-            baseId,
-          },
+        })
+        .finally(async () => {
+          await this.collaboratorModel.clearCollaboratorCache(resourceId);
         });
-      });
     }
     return { baseId, spaceId };
   }

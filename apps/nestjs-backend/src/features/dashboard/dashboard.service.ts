@@ -20,6 +20,7 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { CollaboratorModel } from '../model/collaborator';
 
 @Injectable()
 export class DashboardService {
@@ -27,7 +28,8 @@ export class DashboardService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly collaboratorModel: CollaboratorModel
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
@@ -196,85 +198,89 @@ export class DashboardService {
     const userId = this.cls.get('user.id');
     await this.validatePluginPublished(baseId, ro.pluginId);
 
-    return this.prismaService.$tx(async () => {
-      const newInstallPlugin = await this.prismaService.txClient().pluginInstall.create({
-        data: {
-          id: generatePluginInstallId(),
-          baseId,
-          positionId: id,
-          position: PluginPosition.Dashboard,
-          name: ro.name,
-          pluginId: ro.pluginId,
-          createdBy: userId,
-        },
-        select: {
-          id: true,
-          name: true,
-          pluginId: true,
-          plugin: {
-            select: {
-              pluginUser: true,
+    return this.prismaService
+      .$tx(async () => {
+        const newInstallPlugin = await this.prismaService.txClient().pluginInstall.create({
+          data: {
+            id: generatePluginInstallId(),
+            baseId,
+            positionId: id,
+            position: PluginPosition.Dashboard,
+            name: ro.name,
+            pluginId: ro.pluginId,
+            createdBy: userId,
+          },
+          select: {
+            id: true,
+            name: true,
+            pluginId: true,
+            plugin: {
+              select: {
+                pluginUser: true,
+              },
             },
           },
-        },
-      });
-      if (newInstallPlugin.plugin.pluginUser) {
-        // invite pluginUser to base
-        const exist = await this.prismaService.txClient().collaborator.count({
+        });
+        if (newInstallPlugin.plugin.pluginUser) {
+          // invite pluginUser to base
+          const exist = await this.prismaService.txClient().collaborator.count({
+            where: {
+              principalId: newInstallPlugin.plugin.pluginUser,
+              principalType: PrincipalType.User,
+              resourceId: baseId,
+              resourceType: CollaboratorType.Base,
+            },
+          });
+
+          if (!exist) {
+            await this.collaboratorService.createBaseCollaborator({
+              collaborators: [
+                {
+                  principalId: newInstallPlugin.plugin.pluginUser,
+                  principalType: PrincipalType.User,
+                },
+              ],
+              baseId,
+              role: Role.Owner as IBaseRole,
+            });
+          }
+        }
+
+        const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
           where: {
-            principalId: newInstallPlugin.plugin.pluginUser,
-            principalType: PrincipalType.User,
-            resourceId: baseId,
-            resourceType: CollaboratorType.Base,
+            id,
+            baseId,
+          },
+          select: {
+            layout: true,
           },
         });
-
-        if (!exist) {
-          await this.collaboratorService.createBaseCollaborator({
-            collaborators: [
-              {
-                principalId: newInstallPlugin.plugin.pluginUser,
-                principalType: PrincipalType.User,
-              },
-            ],
-            baseId,
-            role: Role.Owner as IBaseRole,
-          });
-        }
-      }
-
-      const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
-        where: {
+        const layout = dashboard.layout ? (JSON.parse(dashboard.layout) as IDashboardLayout) : [];
+        layout.push({
+          pluginInstallId: newInstallPlugin.id,
+          x: (layout.length * 2) % 12,
+          y: Number.MAX_SAFE_INTEGER, // puts it at the bottom
+          w: 2,
+          h: 2,
+        });
+        await this.prismaService.txClient().dashboard.update({
+          where: {
+            id,
+          },
+          data: {
+            layout: JSON.stringify(layout),
+          },
+        });
+        return {
           id,
-          baseId,
-        },
-        select: {
-          layout: true,
-        },
+          pluginId: newInstallPlugin.pluginId,
+          pluginInstallId: newInstallPlugin.id,
+          name: ro.name,
+        };
+      })
+      .finally(async () => {
+        await this.collaboratorModel.clearCollaboratorCache(baseId);
       });
-      const layout = dashboard.layout ? (JSON.parse(dashboard.layout) as IDashboardLayout) : [];
-      layout.push({
-        pluginInstallId: newInstallPlugin.id,
-        x: (layout.length * 2) % 12,
-        y: Number.MAX_SAFE_INTEGER, // puts it at the bottom
-        w: 2,
-        h: 2,
-      });
-      await this.prismaService.txClient().dashboard.update({
-        where: {
-          id,
-        },
-        data: {
-          layout: JSON.stringify(layout),
-        },
-      });
-      return {
-        id,
-        pluginId: newInstallPlugin.pluginId,
-        pluginInstallId: newInstallPlugin.id,
-        name: ro.name,
-      };
-    });
   }
 
   private async validateDashboard(baseId: string, dashboardId: string) {

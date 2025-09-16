@@ -27,26 +27,16 @@ export class CollaboratorModel {
           );
         }
       }
-      if (params.model === 'Collaborator' && params.action.includes('create')) {
-        const createData = params.args?.data;
-        if (Array.isArray(createData)) {
-          await Promise.all(
-            createData.map((data) =>
-              this.performanceCacheService.del(generateCollaboratorCacheKey(data.resourceId))
-            )
-          );
-        } else {
-          await this.performanceCacheService.del(
-            generateCollaboratorCacheKey(createData.resourceId)
-          );
-        }
-      }
       return next(params);
     });
   }
 
+  async clearCollaboratorCache(resourceId: string) {
+    await this.performanceCacheService.del(generateCollaboratorCacheKey(resourceId));
+  }
+
   @PerformanceCache({
-    ttl: 60 * 5,
+    ttl: 30,
     statsType: 'collaborator',
     keyGenerator: generateCollaboratorCacheKey,
   })
