@@ -23,10 +23,10 @@ export class UserModel {
         const whereId = params.args?.where?.id;
         whereId && clearCacheKeys.push(generateUserCacheKey(whereId));
       }
-      if (clearCacheKeys.length) {
+      if (!clearCacheKeys.length) {
         return next(params);
       }
-      if (params.runInTransaction) {
+      if (!params.runInTransaction) {
         await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
         return next(params);
       }

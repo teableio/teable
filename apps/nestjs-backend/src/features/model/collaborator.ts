@@ -28,18 +28,21 @@ export class CollaboratorModel {
           clearCacheKeys.push(...resourceIds.map(generateCollaboratorCacheKey));
         }
       }
+
       if (params.model === 'Collaborator' && params.action.includes('create')) {
         const createData = params.args?.data;
         if (Array.isArray(createData)) {
-          clearCacheKeys.push(...createData.map(generateCollaboratorCacheKey));
+          clearCacheKeys.push(
+            ...createData.map(({ resourceId }) => generateCollaboratorCacheKey(resourceId))
+          );
         } else {
           clearCacheKeys.push(generateCollaboratorCacheKey(createData.resourceId));
         }
       }
-      if (clearCacheKeys.length) {
+      if (!clearCacheKeys.length) {
         return next(params);
       }
-      if (params.runInTransaction) {
+      if (!params.runInTransaction) {
         await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
         return next(params);
       }
