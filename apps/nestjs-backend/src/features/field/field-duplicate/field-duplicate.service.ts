@@ -738,7 +738,7 @@ export class FieldDuplicateService {
           countMap[curField.id] = (countMap[curField.id] || 0) + 1;
         } else {
           throw new BadGatewayException(
-            `Create circular field when create field: ${curField.name}`
+            `Create circular field when create field: ${curField?.name || curField?.id || 'unknown field'}`
           );
         }
       } else {
