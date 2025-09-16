@@ -203,19 +203,13 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     );
 
     const groupByFieldIds = groupBy?.map((item) => item.fieldId);
-    // Apply aggregation
+    // Apply aggregation (do NOT pass groupBy here; grouping is handled by GroupQuery below)
     this.dbProvider
-      .aggregationQuery(
-        qb,
-        fieldMap,
-        aggregationFields,
-        { groupBy: groupByFieldIds },
-        {
-          selectionMap,
-          tableDbName: table.dbTableName,
-          tableAlias: alias,
-        }
-      )
+      .aggregationQuery(qb, fieldMap, aggregationFields, undefined, {
+        selectionMap,
+        tableDbName: table.dbTableName,
+        tableAlias: alias,
+      })
       .appendBuilder();
 
     // Apply grouping if specified
@@ -223,8 +217,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       this.dbProvider
         .groupQuery(qb, fieldMap, groupByFieldIds, undefined, { selectionMap })
         .appendGroupBuilder();
-
-      this.buildSort(qb, table, groupBy, selectionMap);
+      // Do not sort by original columns here to avoid ORDER BY columns not present in GROUP BY
     }
 
     return { qb, alias, selectionMap };
