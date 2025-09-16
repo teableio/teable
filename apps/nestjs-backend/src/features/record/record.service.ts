@@ -36,6 +36,7 @@ import {
   or,
   parseGroup,
   Relationship,
+  SortFunc,
   StatisticsFunc,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -1899,11 +1900,109 @@ export class RecordService {
     return difference(recordIds, ids);
   }
 
+  private sortGroupRawResult(
+    groupResult: { [key: string]: unknown; __c: number }[],
+    groupFields: IFieldInstance[],
+    groupBy?: IGroup
+  ) {
+    if (!groupResult.length || !groupBy?.length) {
+      return groupResult;
+    }
+
+    const comparators = groupBy
+      .map((groupItem, index) => {
+        const field = groupFields[index];
+
+        if (!field) {
+          return undefined;
+        }
+
+        const { dbFieldName } = field;
+        const order = groupItem.order ?? SortFunc.Asc;
+
+        return (
+          left: { [key: string]: unknown; __c: number },
+          right: { [key: string]: unknown; __c: number }
+        ) => {
+          const leftValue = convertValueToStringify(left[dbFieldName]);
+          const rightValue = convertValueToStringify(right[dbFieldName]);
+          return this.compareGroupValues(leftValue, rightValue, order);
+        };
+      })
+      .filter(Boolean) as ((
+      left: { [key: string]: unknown; __c: number },
+      right: { [key: string]: unknown; __c: number }
+    ) => number)[];
+
+    if (!comparators.length) {
+      return groupResult;
+    }
+
+    return [...groupResult].sort((left, right) => {
+      for (const comparator of comparators) {
+        const result = comparator(left, right);
+        if (result !== 0) {
+          return result;
+        }
+      }
+      return 0;
+    });
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private compareGroupValues(
+    left: number | string | null,
+    right: number | string | null,
+    order: SortFunc
+  ): number {
+    if (left === right) {
+      return 0;
+    }
+
+    const isDesc = order === SortFunc.Desc;
+    const leftIsNull = left == null;
+    const rightIsNull = right == null;
+
+    if (leftIsNull || rightIsNull) {
+      if (leftIsNull && rightIsNull) {
+        return 0;
+      }
+
+      if (leftIsNull) {
+        return isDesc ? 1 : -1;
+      }
+
+      return isDesc ? -1 : 1;
+    }
+
+    if (typeof left === 'number' && typeof right === 'number') {
+      const diff = left - right;
+      if (diff === 0) {
+        return 0;
+      }
+      return isDesc ? -diff : diff;
+    }
+
+    const leftString = String(left);
+    const rightString = String(right);
+
+    if (leftString === rightString) {
+      return 0;
+    }
+
+    if (leftString < rightString) {
+      return isDesc ? 1 : -1;
+    }
+
+    return isDesc ? -1 : 1;
+  }
+
   @Timing()
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async groupDbCollection2GroupPoints(
     groupResult: { [key: string]: unknown; __c: number }[],
     groupFields: IFieldInstance[],
+    groupBy: IGroup | undefined,
     collapsedGroupIds: string[] | undefined,
     rowCount: number
   ) {
@@ -1914,8 +2013,10 @@ export class RecordService {
     let curRowCount = 0;
     let collapsedDepth = Number.MAX_SAFE_INTEGER;
 
-    for (let i = 0; i < groupResult.length; i++) {
-      const item = groupResult[i];
+    const sortedGroupResult = this.sortGroupRawResult(groupResult, groupFields, groupBy);
+
+    for (let i = 0; i < sortedGroupResult.length; i++) {
+      const item = sortedGroupResult[i];
       const { __c: count } = item;
 
       for (let index = 0; index < groupFields.length; index++) {
@@ -2201,6 +2302,7 @@ export class RecordService {
       const pointsResult = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
+        groupBy,
         collapsedGroupIds,
         rowCount
       );
