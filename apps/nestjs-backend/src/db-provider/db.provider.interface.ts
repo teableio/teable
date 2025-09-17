@@ -214,7 +214,6 @@ export interface IDbProvider {
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
     tableIndex: TableIndex[],

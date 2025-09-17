@@ -30,7 +30,6 @@ export abstract class SearchQueryAbstract {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     SearchQuery: ISearchQueryConstructor,
     queryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
     tableIndex: TableIndex[],
