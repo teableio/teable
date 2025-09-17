@@ -80,7 +80,11 @@ export class ShareSocketService {
     }
   }
 
-  async getRecordDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetRecordsRo) {
+  async getRecordDocIdsByQuery(
+    shareInfo: IShareViewInfo,
+    query: IGetRecordsRo,
+    useQueryModel = false
+  ) {
     const { tableId, view, linkOptions, shareMeta } = shareInfo;
 
     if (!shareMeta?.includeRecords) {
@@ -99,7 +103,11 @@ export class ShareSocketService {
       projection = (await this.getFieldDocIdsByQuery(shareInfo, query)).ids;
     }
 
-    return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId, filter, projection });
+    return this.recordService.getDocIdsByQuery(
+      tableId,
+      { ...query, viewId, filter, projection },
+      useQueryModel
+    );
   }
 
   async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[], useQueryModel: boolean) {
