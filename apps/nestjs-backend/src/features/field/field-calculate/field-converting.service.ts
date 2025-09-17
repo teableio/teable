@@ -1254,7 +1254,7 @@ export class FieldConvertingService {
   }
 
   async closeConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
