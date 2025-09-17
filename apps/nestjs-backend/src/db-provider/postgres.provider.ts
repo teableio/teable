@@ -536,7 +536,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     searchFields: IFieldInstance[],
     tableIndex: TableIndex[],
     search: [string, string?, boolean?],
@@ -545,7 +544,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     return SearchQueryAbstract.appendQueryBuilder(
       SearchQueryPostgres,
       originQueryBuilder,
-      dbTableName,
       searchFields,
       tableIndex,
       search,
@@ -555,7 +553,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
     tableIndex: TableIndex[],
@@ -564,7 +561,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQueryPostgres,
       originQueryBuilder,
-      dbTableName,
       searchField,
       search,
       tableIndex,
