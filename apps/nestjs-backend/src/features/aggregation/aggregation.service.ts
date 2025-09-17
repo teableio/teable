@@ -468,7 +468,8 @@ export class AggregationService {
 
     const queryBuilder = builder
       .with(tableAlias, (qb) => {
-        qb.select('*').from(viewCte ?? dbTableName);
+        const viewQueryDbTableName = viewCte ?? dbTableName;
+        qb.select('*').from(viewQueryDbTableName);
         if (filter) {
           this.dbProvider
             .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
@@ -476,7 +477,13 @@ export class AggregationService {
         }
         if (search && search[2]) {
           qb.where((builder) => {
-            this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
+            this.dbProvider.searchQuery(
+              builder,
+              viewQueryDbTableName,
+              searchFields,
+              tableIndex,
+              search
+            );
           });
         }
       })
@@ -531,7 +538,8 @@ export class AggregationService {
         viewId,
       }
     );
-    queryBuilder.from(viewCte ?? dbTableName);
+    const viewQueryDbTableName = viewCte ?? dbTableName;
+    queryBuilder.from(viewQueryDbTableName);
 
     if (filter) {
       this.dbProvider
@@ -547,7 +555,13 @@ export class AggregationService {
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(
+          builder,
+          viewQueryDbTableName,
+          searchFields,
+          tableIndex,
+          search
+        );
       });
     }
 
@@ -569,7 +583,7 @@ export class AggregationService {
       await this.recordService.buildLinkSelectedQuery(
         queryBuilder,
         tableId,
-        dbTableName,
+        viewQueryDbTableName,
         filterLinkCellSelected
       );
     }
@@ -893,7 +907,8 @@ export class AggregationService {
         viewId,
       }
     );
-    queryBuilder.from(viewCte || dbTableName);
+    const viewQueryDbTableName = viewCte ?? dbTableName;
+    queryBuilder.from(viewQueryDbTableName);
     const viewRaw = await this.findView(tableId, { viewId });
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
@@ -913,7 +928,13 @@ export class AggregationService {
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(
+          builder,
+          viewQueryDbTableName,
+          searchFields,
+          tableIndex,
+          search
+        );
       });
     }
     this.dbProvider.calendarDailyCollectionQuery(queryBuilder, {
@@ -921,7 +942,7 @@ export class AggregationService {
       endDate,
       startField: startField as DateFieldDto,
       endField: endField as DateFieldDto,
-      dbTableName: viewCte || dbTableName,
+      dbTableName: viewQueryDbTableName,
     });
     const result = await this.prisma
       .txClient()
