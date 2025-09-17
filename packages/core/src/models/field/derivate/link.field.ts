@@ -38,6 +38,9 @@ export class LinkFieldCore extends FieldCore {
   declare isMultipleCellValue?: boolean | undefined;
 
   getHasOrderColumn(): boolean {
+    if (!this.meta?.hasOrderColumn) {
+      return false;
+    }
     // One-way OneMany: explicitly no order column in junction
     if (this.options.relationship === Relationship.OneMany && this.options.isOneWay) {
       return false;
