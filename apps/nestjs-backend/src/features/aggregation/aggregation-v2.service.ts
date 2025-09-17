@@ -663,8 +663,16 @@ export class AggregationServiceV2 implements IAggregationService {
    * @returns Promise with group points data
    * @throws NotImplementedException - This method is not yet implemented
    */
-  async getGroupPoints(tableId: string, query?: IGroupPointsRo): Promise<IGroupPoint[]> {
-    const { groupPoints } = await this.recordService.getGroupRelatedData(tableId, query);
+  async getGroupPoints(
+    tableId: string,
+    query?: IGroupPointsRo,
+    useQueryModel = false
+  ): Promise<IGroupPoint[]> {
+    const { groupPoints } = await this.recordService.getGroupRelatedData(
+      tableId,
+      query,
+      useQueryModel
+    );
     return groupPoints;
   }
 

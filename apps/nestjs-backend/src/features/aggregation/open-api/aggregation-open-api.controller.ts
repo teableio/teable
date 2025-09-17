@@ -144,7 +144,7 @@ export class AggregationOpenApiController {
     @Query(new ZodValidationPipe(groupPointsRoSchema), TqlPipe) query?: IGroupPointsRo
   ): Promise<IGroupPointsVo> {
     return await this.getAggregationWithCache('group_points', tableId, query, () =>
-      this.aggregationOpenApiService.getGroupPoints(tableId, query)
+      this.aggregationOpenApiService.getGroupPoints(tableId, query, true)
     );
   }
 
