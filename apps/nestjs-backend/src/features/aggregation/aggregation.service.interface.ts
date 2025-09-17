@@ -78,7 +78,11 @@ export interface IAggregationService {
    * @param query - Optional query parameters
    * @returns Promise with group points data
    */
-  getGroupPoints(tableId: string, query?: IGroupPointsRo): Promise<IGroupPoint[]>;
+  getGroupPoints(
+    tableId: string,
+    query?: IGroupPointsRo,
+    useQueryModel?: boolean
+  ): Promise<IGroupPoint[]>;
 
   /**
    * Get search count for a table

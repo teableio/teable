@@ -70,8 +70,12 @@ export class AggregationOpenApiService {
     };
   }
 
-  async getGroupPoints(tableId: string, query?: IGroupPointsRo): Promise<IGroupPointsVo> {
-    return await this.aggregationService.getGroupPoints(tableId, query);
+  async getGroupPoints(
+    tableId: string,
+    query?: IGroupPointsRo,
+    useQueryModel = false
+  ): Promise<IGroupPointsVo> {
+    return await this.aggregationService.getGroupPoints(tableId, query, useQueryModel);
   }
 
   async getCalendarDailyCollection(

@@ -659,8 +659,12 @@ export class AggregationService implements IAggregationService {
     return prisma.$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
   }
 
-  public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
-    const { groupPoints } = await this.recordService.getGroupRelatedData(tableId, query);
+  public async getGroupPoints(tableId: string, query?: IGroupPointsRo, useQueryModel = false) {
+    const { groupPoints } = await this.recordService.getGroupRelatedData(
+      tableId,
+      query,
+      useQueryModel
+    );
     return groupPoints;
   }
 

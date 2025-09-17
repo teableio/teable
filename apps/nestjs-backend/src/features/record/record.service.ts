@@ -1520,10 +1520,14 @@ export class RecordService {
       groupPoints,
       allGroupHeaderRefs,
       filter: filterWithGroup,
-    } = await this.getGroupRelatedData(tableId, {
-      ...query,
-      viewId,
-    });
+    } = await this.getGroupRelatedData(
+      tableId,
+      {
+        ...query,
+        viewId,
+      },
+      useQueryModel
+    );
     const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(
       tableId,
       {
@@ -2147,7 +2151,8 @@ export class RecordService {
     tableId: string,
     filter?: IFilter,
     search?: [string, string?, boolean?],
-    viewId?: string
+    viewId?: string,
+    useQueryModel = false
   ) {
     const withUserId = this.cls.get('user.id');
 
@@ -2159,6 +2164,7 @@ export class RecordService {
         viewId,
         filter,
         currentUserId: withUserId,
+        useQueryModel,
       }
     );
 
@@ -2180,7 +2186,7 @@ export class RecordService {
     return Number(result[0].count);
   }
 
-  public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo) {
+  public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo, useQueryModel = false) {
     const { groupBy: extraGroupBy, filter, search, ignoreViewQuery, queryId } = query || {};
     let groupPoints: IGroupPoint[] = [];
     let allGroupHeaderRefs: IGroupHeaderRef[] = [];
@@ -2251,6 +2257,7 @@ export class RecordService {
         ],
         groupBy,
         currentUserId: withUserId,
+        useQueryModel,
       });
 
     // Attach permission CTE to the aggregate query when using the permission view.
@@ -2281,7 +2288,8 @@ export class RecordService {
       tableId,
       mergedFilter,
       search,
-      viewId
+      viewId,
+      useQueryModel
     );
 
     try {
