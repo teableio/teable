@@ -780,7 +780,7 @@
       "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer."
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à un processus d'automatisation, veuillez sélectionner un autre champ de bouton"
+      "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton"
     }
   }
 }

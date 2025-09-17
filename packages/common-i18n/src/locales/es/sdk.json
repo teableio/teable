@@ -792,7 +792,7 @@
       "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo."
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a otro proceso de automatización, por favor seleccione otro campo de botón"
+      "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a {{name}}[{{id}}] este proceso de automatización, por favor seleccione otro campo de botón"
     }
   }
 }

@@ -810,7 +810,7 @@
       "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "该按钮字段已经和其他自动化流程绑定，请选择其他按钮字段"
+      "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段"
     }
   }
 }

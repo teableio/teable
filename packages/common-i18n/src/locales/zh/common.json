@@ -47,7 +47,9 @@
     "more": "更多",
     "expand": "展开",
     "deleteTip": "确定要删除 \"{{name}}\" 吗？",
-    "move": "移动至"
+    "move": "移动至",
+    "turnOn": "开启",
+    "exit": "退出"
   },
   "quickAction": {
     "title": "快捷搜索...",

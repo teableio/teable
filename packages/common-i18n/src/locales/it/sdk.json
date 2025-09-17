@@ -810,7 +810,7 @@
       "dependencyNodeRequire": "Il nodo dipendente non è stato testato, per favore controlla se tutti i nodi precedenti sono stati testati"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a un processo di automazione, per favore seleziona un altro campo di pulsante"
+      "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante"
     }
   }
 }

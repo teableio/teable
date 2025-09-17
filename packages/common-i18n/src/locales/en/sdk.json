@@ -810,7 +810,7 @@
       "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "This button field is already bound to another automation process, please select another button field"
+      "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field"
     }
   }
 }

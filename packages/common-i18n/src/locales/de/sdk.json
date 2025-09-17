@@ -810,7 +810,7 @@
       "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit einem anderen Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld"
+      "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld"
     }
   }
 }

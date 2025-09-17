@@ -769,7 +769,7 @@
       "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "このボタンフィールドはすでに他の自動化プロセスにバインドされています。別のボタンフィールドを選択してください"
+      "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください"
     }
   }
 }

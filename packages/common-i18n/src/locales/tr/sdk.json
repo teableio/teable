@@ -784,7 +784,7 @@
       "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Bu buton alanı zaten bir otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin"
+      "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin"
     }
   }
 }
