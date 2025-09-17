@@ -294,6 +294,7 @@ export class SqliteProvider implements IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     searchFields: IFieldInstance[],
     tableIndex: TableIndex[],
     search: [string, string?, boolean?]
@@ -301,6 +302,7 @@ export class SqliteProvider implements IDbProvider {
     return SearchQueryAbstract.appendQueryBuilder(
       SearchQuerySqlite,
       originQueryBuilder,
+      dbTableName,
       searchFields,
       tableIndex,
       search
@@ -309,6 +311,7 @@ export class SqliteProvider implements IDbProvider {
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
     tableIndex: TableIndex[]
@@ -316,6 +319,7 @@ export class SqliteProvider implements IDbProvider {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQuerySqlite,
       originQueryBuilder,
+      dbTableName,
       searchField,
       search,
       tableIndex

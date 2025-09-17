@@ -8,6 +8,7 @@ export abstract class SearchQueryAbstract {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     SearchQuery: ISearchQueryConstructor,
     originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     searchFields: IFieldInstance[],
     tableIndex: TableIndex[],
     search: [string, string?, boolean?]
@@ -17,7 +18,7 @@ export abstract class SearchQueryAbstract {
     }
 
     searchFields.forEach((fIns) => {
-      const builder = new SearchQuery(originQueryBuilder, fIns, search, tableIndex);
+      const builder = new SearchQuery(originQueryBuilder, dbTableName, fIns, search, tableIndex);
       builder.appendBuilder();
     });
 
@@ -28,12 +29,19 @@ export abstract class SearchQueryAbstract {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     SearchQuery: ISearchQueryConstructor,
     queryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     searchField: IFieldInstance[],
     search: [string, string?, boolean?],
     tableIndex: TableIndex[]
   ) {
     const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex);
+      const searchQueryBuilder = new SearchQuery(
+        queryBuilder,
+        dbTableName,
+        field,
+        search,
+        tableIndex
+      );
       return searchQueryBuilder.getSql();
     });
 
@@ -52,6 +60,7 @@ export abstract class SearchQueryAbstract {
 
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
+    protected readonly dbTableName: string,
     protected readonly field: IFieldInstance,
     protected readonly search: [string, string?, boolean?],
     protected readonly tableIndex: TableIndex[]

@@ -587,7 +587,7 @@ export class RecordService {
       const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
       });
     }
 
@@ -1945,7 +1945,7 @@ export class RecordService {
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
       });
     }
 
@@ -2025,7 +2025,7 @@ export class RecordService {
       const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
       });
     }
 

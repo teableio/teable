@@ -476,7 +476,7 @@ export class AggregationService {
         }
         if (search && search[2]) {
           qb.where((builder) => {
-            this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+            this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
           });
         }
       })
@@ -547,7 +547,7 @@ export class AggregationService {
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
       });
     }
 
@@ -664,7 +664,7 @@ export class AggregationService {
     }
     const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
     const queryBuilder = this.knex(dbFieldName);
-    this.dbProvider.searchCountQuery(queryBuilder, searchFields, search, tableIndex);
+    this.dbProvider.searchCountQuery(queryBuilder, dbFieldName, searchFields, search, tableIndex);
     this.dbProvider
       .filterQuery(queryBuilder, fieldInstanceMap, queryRo?.filter, {
         withUserId: this.cls.get('user.id'),
@@ -913,7 +913,7 @@ export class AggregationService {
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
+        this.dbProvider.searchQuery(builder, dbTableName, searchFields, tableIndex, search);
       });
     }
     this.dbProvider.calendarDailyCollectionQuery(queryBuilder, {

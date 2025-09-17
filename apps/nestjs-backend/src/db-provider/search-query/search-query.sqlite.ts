@@ -11,11 +11,12 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   protected knex: Knex.Client;
   constructor(
     protected originQueryBuilder: Knex.QueryBuilder,
+    protected dbTableName: string,
     protected field: IFieldInstance,
     protected search: [string, string?, boolean?],
     protected tableIndex: TableIndex[]
   ) {
-    super(originQueryBuilder, field, search, tableIndex);
+    super(originQueryBuilder, dbTableName, field, search, tableIndex);
     this.knex = originQueryBuilder.client;
   }
 
@@ -211,7 +212,7 @@ export class SearchQuerySqliteBuilder {
   }
 
   getSearchQuery() {
-    const { queryBuilder, searchIndexRo, searchField, tableIndex } = this;
+    const { queryBuilder, searchIndexRo, searchField, tableIndex, dbTableName } = this;
     const { search } = searchIndexRo;
 
     if (!search || !searchField?.length) {
@@ -219,7 +220,13 @@ export class SearchQuerySqliteBuilder {
     }
 
     return searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuerySqlite(queryBuilder, field, search, tableIndex);
+      const searchQueryBuilder = new SearchQuerySqlite(
+        queryBuilder,
+        dbTableName,
+        field,
+        search,
+        tableIndex
+      );
       return searchQueryBuilder.getSql();
     });
   }

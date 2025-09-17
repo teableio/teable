@@ -36,6 +36,7 @@ import {
   deleteView,
   PrincipalType,
   createBase,
+  getShareViewRowCount,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -571,6 +572,22 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(
         user2Request.get(urlBuilder(SHARE_VIEW_GET, { shareId: shareResult.data.shareId }))
       ).rejects.toThrow();
+    });
+
+    it('search and filterLinkCellSelected', async () => {
+      const linkField = await createField(table1.id, {
+        name: 'link field1',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+      const rowCountRes = await getShareViewRowCount(linkField.data.id, {
+        search: ['1', table2.fields[0].id, true],
+        filterLinkCellSelected: linkField.data.id,
+      });
+      expect(rowCountRes.data.rowCount).toEqual(0);
     });
   });
 

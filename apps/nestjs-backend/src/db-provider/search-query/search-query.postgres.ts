@@ -13,11 +13,12 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected knex: Knex.Client;
   constructor(
     protected originQueryBuilder: Knex.QueryBuilder,
+    protected dbTableName: string,
     protected field: IFieldInstance,
     protected search: [string, string?, boolean?],
     protected tableIndex: TableIndex[]
   ) {
-    super(originQueryBuilder, field, search, tableIndex);
+    super(originQueryBuilder, dbTableName, field, search, tableIndex);
     this.knex = originQueryBuilder.client;
   }
 
@@ -104,7 +105,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const dbFieldName = this.field.dbFieldName;
     const { search, knex } = this;
     const searchValue = search[0];
-    return knex.raw(`?? ILIKE ?`, [dbFieldName, `%${searchValue}%`]);
+    return knex.raw(`?? ILIKE ?`, [`${this.dbTableName}.${dbFieldName}`, `%${searchValue}%`]);
   }
 
   protected number() {
@@ -233,7 +234,7 @@ export class SearchQueryPostgresBuilder {
   }
 
   getSearchQuery() {
-    const { queryBuilder, searchIndexRo, searchFields, tableIndex } = this;
+    const { queryBuilder, searchIndexRo, searchFields, tableIndex, dbTableName } = this;
     const { search } = searchIndexRo;
 
     if (!search || !searchFields?.length) {
@@ -242,7 +243,13 @@ export class SearchQueryPostgresBuilder {
 
     return searchFields
       .map((field) => {
-        const searchQueryBuilder = new SearchQueryPostgres(queryBuilder, field, search, tableIndex);
+        const searchQueryBuilder = new SearchQueryPostgres(
+          queryBuilder,
+          dbTableName,
+          field,
+          search,
+          tableIndex
+        );
         return searchQueryBuilder.getSql();
       })
       .filter((sql) => sql);

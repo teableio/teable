@@ -9,6 +9,7 @@ export type ISearchCellValueType = Exclude<CellValueType, CellValueType.Boolean>
 export type ISearchQueryConstructor = {
   new (
     originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
     field: IFieldInstance,
     search: [string, string?, boolean?],
     tableIndex: TableIndex[]
