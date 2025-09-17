@@ -28,6 +28,4 @@ export const chartConfig: IOfficialPluginConfig = {
     },
   },
   logoPath: 'static/plugin/chart.png',
-  pluginUserId: 'pluchartuser',
-  avatarPath: 'static/plugin/chart.png',
 };
