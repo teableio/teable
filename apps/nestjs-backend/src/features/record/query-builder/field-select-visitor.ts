@@ -55,7 +55,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
      * When true, select raw scalar values for lookup/rollup CTEs instead of formatted display values.
      * This avoids type mismatches when propagating values back into physical columns (e.g. timestamptz).
      */
-    private readonly selectRawForLookupContext: boolean = false
+    private readonly rawProjection: boolean = false
   ) {}
 
   private get tableAlias() {
@@ -180,7 +180,6 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return raw;
       }
 
-      const isPersistedAsGeneratedColumn = field.getIsPersistedAsGeneratedColumn();
       const expression = field.getExpression();
       const timezone = field.options.timeZone;
 
@@ -189,7 +188,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // cascading schema changes (e.g., deleting a referenced base column). Instead,
       // always emit the computed expression which degrades to NULL when references
       // are unresolved.
-      if (!isPersistedAsGeneratedColumn || this.selectRawForLookupContext) {
+      if (this.rawProjection) {
         return this.dbProvider.convertFormulaToSelectQuery(expression, {
           table: this.table,
           tableAlias: this.tableAlias,
@@ -240,7 +239,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // In lookup/rollup CTE context, return the raw column (timestamptz) to preserve type
     // so UPDATE ... FROM (SELECT ...) can assign into timestamp columns without casting issues.
-    if (this.selectRawForLookupContext) {
+    if (this.rawProjection) {
       this.state.setSelection(field.id, name);
       return name;
     }
