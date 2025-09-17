@@ -344,7 +344,7 @@ export class BaseController {
     await this.baseService.moveBase(baseId, moveBaseRo);
   }
 
-  @Permissions('base|read')
+  @Permissions('base|update')
   @Get(':baseId/erd')
   async generateBaseErd(@Param('baseId') baseId: string): Promise<IBaseErdVo> {
     return await this.baseService.generateBaseErd(baseId);
