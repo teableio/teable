@@ -28,6 +28,7 @@ import { NotificationModule } from './features/notification/notification.module'
 import { OAuthModule } from './features/oauth/oauth.module';
 import { OrganizationModule } from './features/organization/organization.module';
 import { PinModule } from './features/pin/pin.module';
+import { PluginChartModule } from './features/plugin/official/chart/plugin-chart.module';
 import { PluginModule } from './features/plugin/plugin.module';
 import { PluginContextMenuModule } from './features/plugin-context-menu/plugin-context-menu.module';
 import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
@@ -77,13 +78,14 @@ export const appModules = {
     SettingOpenApiModule,
     OAuthModule,
     TrashModule,
-    PluginModule,
     DashboardModule,
     CommentOpenApiModule,
     OrganizationModule,
     AiModule,
+    PluginModule,
     PluginPanelModule,
     PluginContextMenuModule,
+    PluginChartModule,
   ],
   providers: [InitBootstrapProvider],
 };

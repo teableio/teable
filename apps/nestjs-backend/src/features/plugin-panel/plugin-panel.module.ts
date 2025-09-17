@@ -7,6 +7,7 @@ import { PluginPanelService } from './plugin-panel.service';
 @Module({
   imports: [CollaboratorModule, BaseModule],
   controllers: [PluginPanelController],
+  exports: [PluginPanelService],
   providers: [PluginPanelService],
 })
 export class PluginPanelModule {}

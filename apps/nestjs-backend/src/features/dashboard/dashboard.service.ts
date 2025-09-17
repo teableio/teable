@@ -430,20 +430,6 @@ export class DashboardService {
     };
   }
 
-  async getPluginInstallQuery(
-    baseId: string,
-    dashboardId: string,
-    pluginInstallId: string,
-    cellFormat?: CellFormat
-  ) {
-    const { storage } = await this.getPluginInstall(baseId, dashboardId, pluginInstallId);
-    const query = storage?.query as IBaseQuery;
-    if (!query) {
-      throw new NotFoundException('Dashboard Plugin Storage Query not found');
-    }
-    return this.baseQueryService.baseQuery(baseId, query, cellFormat);
-  }
-
   async duplicateDashboard(
     baseId: string,
     dashboardId: string,

@@ -166,15 +166,4 @@ export class DashboardController {
   ): Promise<IGetDashboardInstallPluginVo> {
     return this.dashboardService.getPluginInstall(baseId, id, pluginInstallId);
   }
-
-  @Get(':id/plugin/:pluginInstallId/query')
-  @Permissions('base|read')
-  getPluginInstallQuery(
-    @Param('baseId') baseId: string,
-    @Param('id') id: string,
-    @Param('pluginInstallId') pluginInstallId: string,
-    @Query('cellFormat') cellFormat: CellFormat = CellFormat.Text
-  ): Promise<IBaseQueryVo> {
-    return this.dashboardService.getPluginInstallQuery(baseId, id, pluginInstallId, cellFormat);
-  }
 }

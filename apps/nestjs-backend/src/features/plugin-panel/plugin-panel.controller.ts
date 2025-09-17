@@ -165,22 +165,6 @@ export class PluginPanelController {
     return this.pluginPanelService.getPluginPanelPlugin(tableId, pluginPanelId, pluginInstallId);
   }
 
-  @Permissions('table|read')
-  @Get(':pluginPanelId/plugin/:pluginInstallId/query')
-  getPluginPanelPluginQuery(
-    @Param('tableId') tableId: string,
-    @Param('pluginPanelId') pluginPanelId: string,
-    @Param('pluginInstallId') pluginInstallId: string,
-    @Query('cellFormat') cellFormat: CellFormat = CellFormat.Text
-  ): Promise<IBaseQueryVo> {
-    return this.pluginPanelService.getPluginPanelPluginQuery(
-      tableId,
-      pluginPanelId,
-      pluginInstallId,
-      cellFormat
-    );
-  }
-
   @Post(':pluginPanelId/duplicate')
   @Permissions('table|update')
   duplicatePluginPanel(

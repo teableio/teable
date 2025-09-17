@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { CellFormat } from '@teable/core';
 import {
   getDashboardInstallPluginQuery,
-  getPluginPanelPluginQuery,
+  getPluginPanelInstallPluginQuery,
   PluginPosition,
 } from '@teable/openapi';
 import { useMemo } from 'react';
@@ -14,9 +14,10 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
   const { data: dashboardQueryData } = useQuery({
     queryKey: ['dashboard-plugin-query', baseId, positionId, pluginInstallId],
     queryFn: () =>
-      getDashboardInstallPluginQuery(baseId, positionId, pluginInstallId, cellFormat).then(
-        (res) => res.data
-      ),
+      getDashboardInstallPluginQuery(pluginInstallId, positionId, {
+        baseId,
+        cellFormat,
+      }).then((res) => res.data),
     enabled: Boolean(
       positionType === PluginPosition.Dashboard && baseId && positionId && pluginInstallId
     ),
@@ -25,9 +26,10 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
   const { data: pluginPanelQueryData } = useQuery({
     queryKey: ['plugin-panel-plugin-query', tableId, positionId, pluginInstallId],
     queryFn: () =>
-      getPluginPanelPluginQuery(tableId!, positionId, pluginInstallId, cellFormat).then(
-        (res) => res.data
-      ),
+      getPluginPanelInstallPluginQuery(pluginInstallId, positionId, {
+        tableId: tableId!,
+        cellFormat,
+      }).then((res) => res.data),
     enabled: Boolean(
       positionType === PluginPosition.Panel && tableId && positionId && pluginInstallId
     ),

@@ -373,24 +373,6 @@ export class PluginPanelService {
     };
   }
 
-  async getPluginPanelPluginQuery(
-    tableId: string,
-    pluginPanelId: string,
-    pluginInstallId: string,
-    cellFormat?: CellFormat
-  ) {
-    const { baseId, storage } = await this.getPluginPanelPlugin(
-      tableId,
-      pluginPanelId,
-      pluginInstallId
-    );
-    const query = storage?.query as IBaseQuery;
-    if (!query) {
-      throw new NotFoundException('Plugin Panel Plugin Storage Query not found');
-    }
-    return this.baseQueryService.baseQuery(baseId, query, cellFormat);
-  }
-
   async duplicatePluginPanel(
     tableId: string,
     pluginPanelId: string,
