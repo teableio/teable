@@ -239,7 +239,7 @@ export class SearchQueryPostgresBuilder {
     this.tableIndex = tableIndex;
   }
 
-  getSearchQuery() {
+  getSearchQuery(_dbTableName?: string) {
     const { queryBuilder, searchIndexRo, searchFields, tableIndex, dbTableName } = this;
     const { search } = searchIndexRo;
 
@@ -251,7 +251,7 @@ export class SearchQueryPostgresBuilder {
       .map((field) => {
         const searchQueryBuilder = new SearchQueryPostgres(
           queryBuilder,
-          dbTableName,
+          _dbTableName ?? dbTableName,
           field,
           search,
           tableIndex
@@ -261,11 +261,11 @@ export class SearchQueryPostgresBuilder {
       .filter((sql) => sql);
   }
 
-  getCaseWhenSqlBy() {
-    const { searchFields, queryBuilder, searchIndexRo } = this;
+  getCaseWhenSqlBy(_dbTableName?: string) {
+    const { searchFields, queryBuilder, searchIndexRo, dbTableName } = this;
     const { search } = searchIndexRo;
     const isSearchAllFields = !search?.[1];
-    const searchQuerySql = this.getSearchQuery() as string[];
+    const searchQuerySql = this.getSearchQuery(_dbTableName ?? dbTableName) as string[];
     return searchFields
       .filter(({ cellValueType }) => {
         // global search does not support date time and checkbox
@@ -309,7 +309,7 @@ export class SearchQueryPostgresBuilder {
 
     const searchQuerySql = this.getSearchQuery() as string[];
 
-    const caseWhenQueryDbSql = this.getCaseWhenSqlBy() as string[];
+    const caseWhenQueryDbSql = this.getCaseWhenSqlBy('search_hit_row') as string[];
 
     queryBuilder.with('search_hit_row', (qb) => {
       qb.select('*');

@@ -218,7 +218,7 @@ export class SearchQuerySqliteBuilder {
     this.setSortQuery = setSortQuery;
   }
 
-  getSearchQuery() {
+  getSearchQuery(_dbTableName?: string) {
     const { queryBuilder, searchIndexRo, searchField, tableIndex, dbTableName } = this;
     const { search } = searchIndexRo;
 
@@ -229,7 +229,7 @@ export class SearchQuerySqliteBuilder {
     return searchField.map((field) => {
       const searchQueryBuilder = new SearchQuerySqlite(
         queryBuilder,
-        dbTableName,
+        _dbTableName ?? dbTableName,
         field,
         search,
         tableIndex
@@ -286,9 +286,11 @@ export class SearchQuerySqliteBuilder {
       baseSortIndex && qb.orderBy(baseSortIndex, 'asc');
     });
 
+    const searchQuerySql2 = this.getSearchQuery('search_hit_row') as string[];
+
     queryBuilder.with('search_field_union_table', (qb) => {
       for (let index = 0; index < searchField.length; index++) {
-        const currentWhereRaw = searchQuerySql[index];
+        const currentWhereRaw = searchQuerySql2[index];
         const dbFieldName = searchField[index].dbFieldName;
 
         // boolean field or new field which does not support search should be skipped
