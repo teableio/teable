@@ -92,8 +92,8 @@ export const PluginHeader = (props: {
         />
       </div>
       <div
-        className={cn('flex gap-1 transition-opacity group-hover:opacity-100', {
-          'opacity-0 ': !menuOpen,
+        className={cn('flex gap-1 group-hover:w-auto', {
+          'w-0': !menuOpen,
         })}
       >
         <Button
