@@ -252,7 +252,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       if (typeof result === 'string') {
         // Ensure stable keyword casing in formatted SQL snapshots by emitting an explicit
         // uppercase AS for simple column selectors. Use a raw with identifier binding.
-        qb.select(this.knex.raw(`${result} AS ??`, [field.dbFieldName]));
+        const aliasBinding = field.dbFieldName;
+        qb.select(this.knex.raw(`${result} AS ??`, [aliasBinding]));
       } else {
         qb.select({ [field.dbFieldName]: result });
       }

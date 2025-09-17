@@ -148,6 +148,13 @@ abstract class BaseSqlConversionVisitor<
     throw new Error('Method not implemented.');
   }
 
+  protected getQuestionMarkExpression(): string {
+    if (this.context.driverClient === DriverClient.Sqlite) {
+      return 'CHAR(63)';
+    }
+    return 'CHR(63)';
+  }
+
   constructor(
     protected readonly knex: Knex,
     protected formulaQuery: TFormulaQuery,
@@ -168,12 +175,36 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitStringLiteral(ctx: StringLiteralContext): string {
-    // Extract and return the string value without quotes
     const quotedString = ctx.text;
     const rawString = quotedString.slice(1, -1);
-    // Handle escape characters
     const unescapedString = unescapeString(rawString);
-    return this.formulaQuery.stringLiteral(unescapedString);
+
+    if (!unescapedString.includes('?')) {
+      return this.formulaQuery.stringLiteral(unescapedString);
+    }
+
+    const charExpr = this.getQuestionMarkExpression();
+    const parts = unescapedString.split('?');
+    const segments: string[] = [];
+
+    parts.forEach((part, index) => {
+      if (part.length) {
+        segments.push(this.formulaQuery.stringLiteral(part));
+      }
+      if (index < parts.length - 1) {
+        segments.push(charExpr);
+      }
+    });
+
+    if (segments.length === 0) {
+      return charExpr;
+    }
+
+    if (segments.length === 1) {
+      return segments[0];
+    }
+
+    return this.formulaQuery.concatenate(segments);
   }
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): string {

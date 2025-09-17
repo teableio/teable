@@ -147,6 +147,29 @@ describe('OpenAPI formula (e2e)', () => {
     expect(record2.fields[formulaFieldRo.name]).toEqual('1x');
   });
 
+  it('should calculate formula containing question mark literal', async () => {
+    const urlFormulaField = await createField(table1Id, {
+      name: 'url formula',
+      type: FieldType.Formula,
+      options: {
+        expression: `'https://example.com/?id=' & {${textFieldRo.id}}`,
+      },
+    });
+
+    const { records } = await createRecords(table1Id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          fields: {
+            [textFieldRo.name]: 'abc',
+          },
+        },
+      ],
+    });
+
+    expect(records[0].fields[urlFormulaField.name]).toEqual('https://example.com/?id=abc');
+  });
+
   it('should calculate primary field when have link relationship', async () => {
     const table2: ITableFullVo = await createTable(baseId, { name: 'table2' });
     const linkFieldRo: IFieldRo = {
