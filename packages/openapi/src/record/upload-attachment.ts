@@ -52,14 +52,15 @@ export const uploadAttachment = async (
   tableId: string,
   recordId: string,
   fieldId: string,
-  file?: Buffer | ReadStream | string
+  file?: Buffer | ReadStream | string,
+  options?: FormData.AppendOptions | string
 ) => {
   const formData = new FormData();
 
   if (typeof file === 'string') {
     formData.append('fileUrl', file);
   } else if (file) {
-    formData.append('file', file);
+    formData.append('file', file, options);
   }
 
   return axios.post<IRecord>(

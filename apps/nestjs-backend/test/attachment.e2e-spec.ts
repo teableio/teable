@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue, IAttachmentItem } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, getRandomString } from '@teable/core';
 import type { CreateAccessTokenRo, ITableFullVo } from '@teable/openapi';
 import {
@@ -64,10 +64,14 @@ describe('OpenAPI AttachmentController (e2e)', () => {
 
     const fileContent = fs.createReadStream(filePath);
 
-    const record1 = await uploadAttachment(table.id, table.records[0].id, field.id, fileContent);
+    const record1 = await uploadAttachment(table.id, table.records[0].id, field.id, fileContent, {
+      filename: '😀1 2.txt',
+    });
 
     expect(record1.status).toBe(201);
     expect((record1.data.fields[field.id] as Array<object>).length).toEqual(1);
+    console.log('record1.data.fields[field.id]', record1.data.fields[field.id]);
+    expect((record1.data.fields[field.id] as Array<IAttachmentItem>)[0]!.name).toEqual('😀1 2.txt');
 
     const record2 = await uploadAttachment(
       table.id,

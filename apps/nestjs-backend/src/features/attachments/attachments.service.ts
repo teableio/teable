@@ -229,14 +229,14 @@ export class AttachmentsService {
       internal: true,
     });
     const fileStream = Readable.from(file.buffer);
-
+    const filename = Buffer.from(file.originalname, 'latin1').toString('utf-8');
     this.logger.log(
-      `Uploading file: ${file.originalname}, size: ${contentLength} bytes, mimetype: ${contentType}`
+      `Uploading file: ${filename}, size: ${contentLength} bytes, mimetype: ${contentType}`
     );
 
     await this.uploadStreamToStorage(url, fileStream, contentType, contentLength);
 
-    return await this.notifyToAttachmentItem(token, file.originalname);
+    return await this.notifyToAttachmentItem(token, filename);
   }
 
   async uploadFromUrl(
