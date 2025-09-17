@@ -6,6 +6,7 @@ import { PerformanceCache, PerformanceCacheService } from '../../performance-cac
 import { generateCollaboratorCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { dateToIso } from '../../utils/date-to-iso';
+import { clearCache } from './helper';
 
 @Injectable()
 export class CollaboratorModel {
@@ -39,18 +40,7 @@ export class CollaboratorModel {
           clearCacheKeys.push(generateCollaboratorCacheKey(createData.resourceId));
         }
       }
-      if (!clearCacheKeys.length) {
-        return next(params);
-      }
-      if (!params.runInTransaction) {
-        await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
-        return next(params);
-      }
-
-      if (this.cls.isActive()) {
-        const currentClearCacheKeys = this.cls.get('clearCacheKeys') || [];
-        this.cls.set('clearCacheKeys', [...currentClearCacheKeys, ...clearCacheKeys]);
-      }
+      clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
       return next(params);
     });
   }

@@ -19,8 +19,6 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { SettingKey, type ISettingVo } from '@teable/openapi';
 import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-import { PerformanceCacheService } from '../../performance-cache';
-import { generateSettingCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { SettingModel } from '../model/setting';
@@ -30,7 +28,6 @@ export class SettingService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly performanceCacheService: PerformanceCacheService,
     private readonly settingModel: SettingModel
   ) {}
 
@@ -85,7 +82,6 @@ export class SettingService {
       res[setting.name] = value;
     }
 
-    this.performanceCacheService.del(generateSettingCacheKey());
     return res as ISettingVo;
   }
 

@@ -6,6 +6,7 @@ import { PerformanceCache, PerformanceCacheService } from '../../performance-cac
 import { generateUserCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { dateToIso } from '../../utils/date-to-iso';
+import { clearCache } from './helper';
 
 @Injectable()
 export class UserModel {
@@ -23,17 +24,7 @@ export class UserModel {
         const whereId = params.args?.where?.id;
         whereId && clearCacheKeys.push(generateUserCacheKey(whereId));
       }
-      if (!clearCacheKeys.length) {
-        return next(params);
-      }
-      if (!params.runInTransaction) {
-        await Promise.all(clearCacheKeys.map((key) => this.performanceCacheService.del(key)));
-        return next(params);
-      }
-      if (this.cls.isActive()) {
-        const currentClearCacheKeys = this.cls.get('clearCacheKeys') || [];
-        this.cls.set('clearCacheKeys', [...currentClearCacheKeys, ...clearCacheKeys]);
-      }
+      clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
       return next(params);
     });
   }
