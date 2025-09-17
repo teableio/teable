@@ -460,9 +460,6 @@ export class RecordService {
       | 'ignoreViewQuery'
     >
   ) {
-    // console.log('=== prepareQuery called ===');
-    // console.log('Table ID:', tableId);
-    // console.log('Query:', JSON.stringify(query, null, 2));
     const viewId = query.ignoreViewQuery ? undefined : query.viewId;
     const {
       orderBy: extraOrderBy,
@@ -1397,15 +1394,8 @@ export class RecordService {
       queryBuilder.from({ [alias]: wrap.viewCte });
     }
     const nativeQuery = queryBuilder.whereIn('__id', recordIds).toQuery();
-    // eslint-disable-next-line no-console
-    console.log(
-      wrap.viewCte
-        ? `getSnapshotBulkInner query USING CTE ${wrap.viewCte}: ${nativeQuery}`
-        : `getSnapshotBulkInner query: ${nativeQuery}`
-    );
 
     this.logger.debug('getSnapshotBulkInner query %s', nativeQuery);
-    console.log('getSnapshotBulkInner query %s', nativeQuery);
 
     const result = await this.prismaService
       .txClient()
@@ -2309,7 +2299,7 @@ export class RecordService {
       groupPoints = pointsResult.groupPoints;
       allGroupHeaderRefs = pointsResult.allGroupHeaderRefs;
     } catch (error) {
-      console.log(`Get group points error in table ${tableId}: `, error);
+      this.logger.error(`Get group points error in table ${tableId}: `, error);
     }
 
     const filterWithCollapsed = this.getFilterByCollapsedGroup({
