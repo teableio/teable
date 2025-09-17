@@ -23,6 +23,9 @@ export interface IPerformanceCacheStore {
 
   // access token cache, format: access-token:id
   [key: `access-token:${string}`]: unknown;
+
+  // instance setting cache, format: instance:setting
+  'instance:setting': unknown;
 }
 
 /**

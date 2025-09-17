@@ -15,35 +15,27 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { SettingKey, type ISettingVo } from '@teable/openapi';
 import { isArray } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { PerformanceCacheService } from '../../performance-cache';
+import { generateSettingCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { SettingModel } from '../model/setting';
 
 @Injectable()
 export class SettingService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly settingModel: SettingModel
   ) {}
 
   async getSetting(names?: string[]): Promise<ISettingVo> {
-    const where: Prisma.SettingWhereInput = {};
-    if (names) {
-      where.name = {
-        in: names,
-      };
-    }
-    const settings = await this.prismaService.setting.findMany({
-      select: {
-        name: true,
-        content: true,
-      },
-      where,
-    });
+    const settings = await this.settingModel.getSetting();
     const res: Record<string, unknown> = {
       instanceId: '',
     };
@@ -51,22 +43,22 @@ export class SettingService {
       return res as ISettingVo;
     }
 
+    const nameSet = names ? new Set(names) : new Set(settings.map((setting) => setting.name));
     for (const setting of settings) {
+      if (!nameSet.has(setting.name)) {
+        continue;
+      }
       const value = this.parseSettingContent(setting.content);
-      if (setting.name === 'brandLogo') {
+      if (setting.name === SettingKey.BRAND_LOGO) {
         res[setting.name] = value ? getPublicFullStorageUrl(value as string) : value;
       } else {
         res[setting.name] = value;
       }
-    }
 
-    const instanceData = await this.prismaService.setting.findFirst({
-      where: { name: SettingKey.INSTANCE_ID },
-      select: {
-        createdTime: true,
-      },
-    });
-    res.createdTime = instanceData?.createdTime;
+      if (setting.name === SettingKey.INSTANCE_ID) {
+        res.createdTime = setting.createdTime;
+      }
+    }
 
     return res as ISettingVo;
   }
@@ -84,7 +76,7 @@ export class SettingService {
     }));
 
     const results = await Promise.all(
-      updates.map((update) => this.prismaService.setting.upsert(update))
+      updates.map((update) => this.prismaService.txClient().setting.upsert(update))
     );
 
     const res: Record<string, unknown> = {};
@@ -93,6 +85,7 @@ export class SettingService {
       res[setting.name] = value;
     }
 
+    this.performanceCacheService.del(generateSettingCacheKey());
     return res as ISettingVo;
   }
 

@@ -33,3 +33,7 @@ export function generateCollaboratorCacheKey(resourceId: string) {
 export function generateAccessTokenCacheKey(id: string) {
   return `access-token:${id}` as const;
 }
+
+export function generateSettingCacheKey() {
+  return `instance:setting` as const;
+}
