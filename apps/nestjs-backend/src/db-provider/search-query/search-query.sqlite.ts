@@ -89,13 +89,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   protected text() {
     const { search, knex } = this;
     const [searchValue] = search;
-    return knex.raw(`?? LIKE ?`, [this.field.dbFieldName, `%${searchValue}%`]);
+    return knex.raw(`??.?? LIKE ?`, [this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]);
   }
 
   protected json() {
     const { search, knex } = this;
     const [searchValue] = search;
-    return knex.raw("json_extract(??, '$.title') LIKE ?", [
+    return knex.raw("json_extract(??.??, '$.title') LIKE ?", [
+      this.dbTableName,
       this.field.dbFieldName,
       `%${searchValue}%`,
     ]);
@@ -105,7 +106,8 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     const { search, knex } = this;
     const [searchValue] = search;
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return knex.raw('DATETIME(??, ?) LIKE ?', [
+    return knex.raw('DATETIME(??.??, ?) LIKE ?', [
+      this.dbTableName,
       this.field.dbFieldName,
       `${getOffset(timeZone)} hour`,
       `%${searchValue}%`,
@@ -116,7 +118,12 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     const { search, knex } = this;
     const [searchValue] = search;
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knex.raw('ROUND(??, ?) LIKE ?', [this.field.dbFieldName, precision, `%${searchValue}%`]);
+    return knex.raw('ROUND(??.??, ?) LIKE ?', [
+      this.dbTableName,
+      this.field.dbFieldName,
+      precision,
+      `%${searchValue}%`,
+    ]);
   }
 
   protected multipleText() {
@@ -127,13 +134,13 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT group_concat(je.value, ', ') as aggregated
-          FROM json_each(??) as je
+          FROM json_each(??.??) as je
           WHERE je.key != 'title'
         )
         WHERE aggregated LIKE ?
       )
       `,
-      [this.field.dbFieldName, `%${searchValue}%`]
+      [this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
@@ -145,12 +152,12 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
-          FROM json_each(??) as je
+          FROM json_each(??.??) as je
         )
         WHERE aggregated LIKE ?
       )
       `,
-      [this.field.dbFieldName, `%${searchValue}%`]
+      [this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
@@ -163,12 +170,12 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
-          FROM json_each(??) as je
+          FROM json_each(??.??) as je
         )
         WHERE aggregated LIKE ?
       )
       `,
-      [precision, this.field.dbFieldName, `%${searchValue}%`]
+      [precision, this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
@@ -181,12 +188,12 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
-          FROM json_each(??) as je
+          FROM json_each(??.??) as je
         )
         WHERE aggregated LIKE ?
       )
       `,
-      [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${searchValue}%`]
+      [`${getOffset(timeZone)} hour`, this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 }

@@ -105,14 +105,15 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const dbFieldName = this.field.dbFieldName;
     const { search, knex } = this;
     const searchValue = search[0];
-    return knex.raw(`?? ILIKE ?`, [`${this.dbTableName}.${dbFieldName}`, `%${searchValue}%`]);
+    return knex.raw(`??.?? ILIKE ?`, [this.dbTableName, dbFieldName, `%${searchValue}%`]);
   }
 
   protected number() {
     const { search, knex } = this;
     const searchValue = search[0];
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knex.raw('ROUND(??::numeric, ?)::text ILIKE ?', [
+    return knex.raw('ROUND(??.??::numeric, ?)::text ILIKE ?', [
+      this.dbTableName,
       this.field.dbFieldName,
       precision,
       `%${searchValue}%`,
@@ -127,8 +128,9 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     } = this;
     const searchValue = search[0];
     const timeZone = (options as IDateFieldOptions).formatting.timeZone;
-    return knex.raw("TO_CHAR(TIMEZONE(?, ??), 'YYYY-MM-DD HH24:MI') ILIKE ?", [
+    return knex.raw("TO_CHAR(TIMEZONE(?, ??.??), 'YYYY-MM-DD HH24:MI') ILIKE ?", [
       timeZone,
+      this.dbTableName,
       dbFieldName,
       `%${searchValue}%`,
     ]);
@@ -137,7 +139,11 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected json() {
     const { search, knex } = this;
     const searchValue = search[0];
-    return knex.raw("??->>'title' ILIKE ?", [this.field.dbFieldName, `%${searchValue}%`]);
+    return knex.raw("??.??->>'title' ILIKE ?", [
+      this.dbTableName,
+      this.field.dbFieldName,
+      `%${searchValue}%`,
+    ]);
   }
 
   protected multipleText() {
@@ -149,12 +155,12 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
         SELECT 1
         FROM (
           SELECT string_agg(elem::text, ', ') as aggregated
-          FROM jsonb_array_elements_text(??::jsonb) as elem
+          FROM jsonb_array_elements_text(??.??::jsonb) as elem
         ) as sub
         WHERE sub.aggregated ~* ?
       )
     `,
-      [this.field.dbFieldName, searchValue]
+      [this.dbTableName, this.field.dbFieldName, searchValue]
     );
   }
 
@@ -167,12 +173,12 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT string_agg(ROUND(elem::numeric, ?)::text, ', ') as aggregated
-          FROM jsonb_array_elements_text(??::jsonb) as elem
+          FROM jsonb_array_elements_text(??.??::jsonb) as elem
         ) as sub
         WHERE sub.aggregated ILIKE ?
       )
       `,
-      [precision, this.field.dbFieldName, `%${searchValue}%`]
+      [precision, this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
@@ -185,12 +191,12 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT string_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), 'YYYY-MM-DD HH24:MI'), ', ') as aggregated
-          FROM jsonb_array_elements_text(??::jsonb) as elem
+          FROM jsonb_array_elements_text(??.??::jsonb) as elem
         ) as sub
         WHERE sub.aggregated ILIKE ?
       )
       `,
-      [timeZone, this.field.dbFieldName, `%${searchValue}%`]
+      [timeZone, this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
     );
   }
 
@@ -202,12 +208,12 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       EXISTS (
         SELECT 1 FROM (
           SELECT string_agg(elem->>'title', ', ') as aggregated
-          FROM jsonb_array_elements(??::jsonb) as elem
+          FROM jsonb_array_elements(??.??::jsonb) as elem
         ) as sub
         WHERE sub.aggregated ~* ?
       )
       `,
-      [this.field.dbFieldName, searchValue]
+      [this.dbTableName, this.field.dbFieldName, searchValue]
     );
   }
 }
