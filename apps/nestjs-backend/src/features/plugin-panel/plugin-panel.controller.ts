@@ -1,8 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { CellFormat } from '@teable/core';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import type {
-  IBaseQueryVo,
   IPluginPanelCreateVo,
   IPluginPanelGetVo,
   IPluginPanelInstallVo,

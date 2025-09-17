@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { CellFormat, IBaseRole } from '@teable/core';
+import type { IBaseRole } from '@teable/core';
 import {
   generatePluginInstallId,
   generatePluginPanelId,
@@ -21,12 +21,10 @@ import type {
   IDuplicatePluginPanelRo,
   IBaseJson,
   IDuplicatePluginPanelInstalledPluginRo,
-  IBaseQuery,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
-import { BaseQueryService } from '../base/base-query/base-query.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -35,8 +33,7 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService,
-    private readonly baseQueryService: BaseQueryService
+    private readonly baseImportService: BaseImportService
   ) {}
 
   createPluginPanel(tableId: string, createPluginPanelRo: IPluginPanelCreateRo) {

@@ -1,12 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IBaseRole, CellFormat } from '@teable/core';
+import type { IBaseRole } from '@teable/core';
 import { generateDashboardId, generatePluginInstallId, getUniqName, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
 import type {
   IBaseJson,
-  IBaseQuery,
   ICreateDashboardRo,
   IDashboardInstallPluginRo,
   IDuplicateDashboardInstalledPluginRo,
@@ -20,7 +19,6 @@ import type { IDashboardLayout, IDashboardPluginItem } from '@teable/openapi/src
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
-import { BaseQueryService } from '../base/base-query/base-query.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -29,8 +27,7 @@ export class DashboardService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService,
-    private readonly baseQueryService: BaseQueryService
+    private readonly baseImportService: BaseImportService
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {

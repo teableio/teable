@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { CellFormat } from '@teable/core';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   createDashboardRoSchema,
   dashboardInstallPluginRoSchema,
@@ -26,7 +25,6 @@ import type {
   IDashboardInstallPluginVo,
   IDashboardPluginUpdateStorageVo,
   IGetDashboardInstallPluginVo,
-  IBaseQueryVo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
