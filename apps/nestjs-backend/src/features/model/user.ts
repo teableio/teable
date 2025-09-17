@@ -24,7 +24,7 @@ export class UserModel {
         const whereId = params.args?.where?.id;
         whereId && clearCacheKeys.push(generateUserCacheKey(whereId));
       }
-      clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
+      await clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
       return next(params);
     });
   }

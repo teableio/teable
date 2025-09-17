@@ -26,7 +26,7 @@ export class SettingModel {
         clearCacheKeys.push(generateSettingCacheKey());
       }
 
-      clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
+      await clearCache(params, clearCacheKeys, this.performanceCacheService, this.cls);
       return next(params);
     });
   }
