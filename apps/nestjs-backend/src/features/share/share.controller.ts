@@ -212,8 +212,6 @@ export class ShareController {
     @Param('fieldId') fieldId: string
   ): Promise<IButtonClickVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    await this.shareSocketService.getFieldSnapshotBulk(shareInfo, [fieldId]);
-    await this.shareSocketService.getRecordSnapshotBulk(shareInfo, [recordId]);
     const result = await this.shareService.buttonClick(shareInfo, recordId, fieldId);
     return { ...result, runId: '' };
   }

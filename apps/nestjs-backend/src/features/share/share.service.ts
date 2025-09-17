@@ -46,6 +46,7 @@ import { RecordOpenApiService } from '../record/open-api/record-open-api.service
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
 import type { IShareViewInfo } from './share-auth.service';
+import { ShareSocketService } from './share-socket.service';
 
 export interface IJwtShareInfo {
   shareId: string;
@@ -62,6 +63,7 @@ export class ShareService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,
+    private readonly shareSocketService: ShareSocketService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -517,6 +519,8 @@ export class ShareService {
   }
 
   async buttonClick(shareInfo: IShareViewInfo, recordId: string, fieldId: string) {
+    await this.shareSocketService.validFieldSnapshotPermission(shareInfo, [fieldId]);
+    await this.shareSocketService.validRecordSnapshotPermission(shareInfo, [recordId]);
     return this.recordOpenApiService.buttonClick(shareInfo.tableId, recordId, fieldId);
   }
 }
