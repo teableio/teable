@@ -6,6 +6,7 @@ import type {
   IFormulaFieldOptions,
   ILinkFieldOptions,
   ILinkFieldOptionsRo,
+  ILinkFieldMeta,
   ILookupOptionsRo,
   ILookupOptionsVo,
   IRollupFieldOptions,
@@ -354,6 +355,7 @@ export class FieldSupplementService {
       isMultipleCellValue: isMultiValueLink(relationship) || undefined,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
+      meta: this.buildLinkFieldMeta(optionsVo),
     };
   }
 
@@ -393,6 +395,7 @@ export class FieldSupplementService {
         isMultipleCellValue: isMultiValueLink(optionsVo.relationship) || undefined,
         dbFieldType: DbFieldType.Json,
         cellValueType: CellValueType.String,
+        meta: this.buildLinkFieldMeta(optionsVo),
       };
     }
 
@@ -412,7 +415,19 @@ export class FieldSupplementService {
       isMultipleCellValue: isMultiValueLink(optionsVo.relationship) || undefined,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
+      meta: this.buildLinkFieldMeta(optionsVo),
     };
+  }
+
+  private buildLinkFieldMeta(options: ILinkFieldOptions): ILinkFieldMeta {
+    const { relationship, isOneWay } = options;
+    const hasOrderColumn =
+      relationship === Relationship.ManyMany ||
+      relationship === Relationship.ManyOne ||
+      relationship === Relationship.OneOne ||
+      (relationship === Relationship.OneMany && !isOneWay);
+
+    return { hasOrderColumn: Boolean(hasOrderColumn) };
   }
 
   private async prepareLookupOptions(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
