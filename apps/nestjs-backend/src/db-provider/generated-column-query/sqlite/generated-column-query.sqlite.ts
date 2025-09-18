@@ -345,7 +345,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `STRFTIME('${sqliteFormat}', ${date})`;
   }
 
-  datetimeParse(dateString: string, _format: string): string {
+  datetimeParse(dateString: string, _format?: string): string {
     // SQLite doesn't have direct parsing with custom format
     return `DATETIME(${dateString})`;
   }

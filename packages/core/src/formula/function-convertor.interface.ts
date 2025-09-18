@@ -62,7 +62,7 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   datestr(date: string): TReturn;
   datetimeDiff(startDate: string, endDate: string, unit: string): TReturn;
   datetimeFormat(date: string, format: string): TReturn;
-  datetimeParse(dateString: string, format: string): TReturn;
+  datetimeParse(dateString: string, format?: string): TReturn;
   day(date: string): TReturn;
   fromNow(date: string): TReturn;
   hour(date: string): TReturn;

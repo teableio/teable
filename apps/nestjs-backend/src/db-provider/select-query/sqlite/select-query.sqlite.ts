@@ -207,7 +207,7 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `STRFTIME(${format}, ${date})`;
   }
 
-  datetimeParse(dateString: string, format: string): string {
+  datetimeParse(dateString: string, _format?: string): string {
     // SQLite doesn't have direct parsing with custom formats
     return `DATETIME(${dateString})`;
   }
@@ -302,7 +302,8 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
     // Handle JSON values in conditions by checking if they are not null and not 'null'
     // This is needed for link fields that return JSON objects
-    const booleanCondition = `(${condition} IS NOT NULL AND ${condition} != 'null')`;
+    const wrappedCondition = `(${condition})`;
+    const booleanCondition = `(${wrappedCondition} IS NOT NULL AND ${wrappedCondition} != 'null')`;
     return `CASE WHEN ${booleanCondition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 

@@ -205,7 +205,7 @@ export class GeneratedColumnQuerySupportValidatorPostgres
     return false;
   }
 
-  datetimeParse(_dateString: string, _format: string): boolean {
+  datetimeParse(_dateString: string, _format?: string): boolean {
     // DATETIME_PARSE is not immutable in PostgreSQL
     return false;
   }

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptionsRo } from '@teable/core';
 import {
@@ -245,6 +246,56 @@ describe('OpenAPI formula (e2e)', () => {
 
       const record2 = await getRecord(table.id, table.records[0].id);
       expect(record2.data.fields[field2.name]).toEqual(27);
+    });
+
+    it('should evaluate boolean formulas with timezone aware date arguments', async () => {
+      const dateField = await createField(table.id, {
+        name: 'Boolean date',
+        type: FieldType.Date,
+      });
+
+      const recordId = table.records[0].id;
+      await updateRecord(table.id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [dateField.name]: '2024-03-01T00:00:00+08:00',
+          },
+        },
+      });
+
+      const andField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `AND(IS_AFTER({${dateField.id}}, '2024-02-28T23:00:00+08:00'), IS_BEFORE({${dateField.id}}, '2024-03-01T12:00:00+08:00'))`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      const recordAfterAnd = await getRecord(table.id, recordId);
+      expect(recordAfterAnd.data.fields[andField.name]).toEqual(true);
+
+      const orField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `OR(IS_AFTER({${dateField.id}}, '2024-03-01T12:00:00+08:00'), IS_SAME(DATETIME_PARSE('2024-03-01T00:00:00+08:00'), {${dateField.id}}, 'minute'))`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      const recordAfterOr = await getRecord(table.id, recordId);
+      expect(recordAfterOr.data.fields[orField.name]).toEqual(true);
+
+      const ifField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `IF(IS_AFTER({${dateField.id}}, '2024-02-29T00:00:00+09:00'), 'after', 'before')`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      const recordAfterIf = await getRecord(table.id, recordId);
+      expect(recordAfterIf.data.fields[ifField.name]).toEqual('after');
     });
 
     it('should calculate auto number and number field', async () => {

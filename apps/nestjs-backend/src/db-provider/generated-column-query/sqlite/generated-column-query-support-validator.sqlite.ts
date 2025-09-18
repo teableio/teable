@@ -208,7 +208,7 @@ export class GeneratedColumnQuerySupportValidatorSqlite
     return true;
   }
 
-  datetimeParse(_dateString: string, _format: string): boolean {
+  datetimeParse(_dateString: string, _format?: string): boolean {
     // SQLite has limited date parsing capabilities
     return false;
   }
