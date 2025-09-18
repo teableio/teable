@@ -6,7 +6,7 @@ import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
 
 export const GET_DASHBOARD_INSTALL_PLUGIN_QUERY =
-  '/plugin/chart/{installPluginId}/dashboard/{positionId}/query';
+  '/plugin/chart/{pluginInstallId}/dashboard/{positionId}/query';
 
 export const getDashboardInstallPluginQueryRoSchema = z.object({
   baseId: z.string(),
@@ -28,7 +28,7 @@ export const GetDashboardInstallPluginQueryRoute: RouteConfig = registerRoute({
   description: 'Get a dashboard install plugin query by id',
   request: {
     params: z.object({
-      installPluginId: z.string(),
+      pluginInstallId: z.string(),
       positionId: z.string(),
     }),
     query: getDashboardInstallPluginQueryRoSchema,
@@ -47,12 +47,12 @@ export const GetDashboardInstallPluginQueryRoute: RouteConfig = registerRoute({
 });
 
 export const getDashboardInstallPluginQuery = async (
-  installPluginId: string,
+  pluginInstallId: string,
   positionId: string,
   query: IGetDashboardInstallPluginQueryRo
 ) => {
   return axios.get<IBaseQueryVo>(
-    urlBuilder(GET_DASHBOARD_INSTALL_PLUGIN_QUERY, { installPluginId, positionId }),
+    urlBuilder(GET_DASHBOARD_INSTALL_PLUGIN_QUERY, { pluginInstallId, positionId }),
     {
       params: query,
     }

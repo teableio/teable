@@ -20,7 +20,13 @@ export class PermissionGuard {
     private readonly permissionService: PermissionService
   ) {}
 
-  private getResourceId(context: ExecutionContext): string | undefined {
+  protected defaultResourceId(context: ExecutionContext): string | undefined {
+    const req = context.switchToHttp().getRequest();
+    // before check baseId, as users can be individually invited into the base.
+    return req.params.baseId || req.params.spaceId || req.params.tableId;
+  }
+
+  protected getResourceId(context: ExecutionContext): string | undefined {
     const resourceMeta = this.reflector.getAllAndOverride<IResourceMeta | undefined>(
       RESOURCE_META,
       [context.getHandler(), context.getClass()]
@@ -31,8 +37,6 @@ export class PermissionGuard {
       const { type, position } = resourceMeta;
       return req?.[position]?.[type];
     }
-    // before check baseId, as users can be individually invited into the base.
-    return req.params.baseId || req.params.spaceId || req.params.tableId;
   }
 
   /**
@@ -130,7 +134,7 @@ export class PermissionGuard {
     if (permissions?.includes('base|read_all')) {
       return await this.permissionBaseReadAll();
     }
-    const resourceId = this.getResourceId(context);
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     if (!resourceId && permissions?.includes('space|read')) {
       return await this.permissionSpaceRead();
     }

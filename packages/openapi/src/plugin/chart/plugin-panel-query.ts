@@ -6,7 +6,7 @@ import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
 
 export const GET_PLUGIN_PANEL_INSTALL_PLUGIN_QUERY =
-  '/plugin/chart/{installPluginId}/plugin-panel/{positionId}/query';
+  '/plugin/chart/{pluginInstallId}/plugin-panel/{positionId}/query';
 
 export const getPluginPanelInstallPluginQueryRoSchema = z.object({
   tableId: z.string(),
@@ -28,7 +28,7 @@ export const GetPluginPanelInstallPluginQueryRoute: RouteConfig = registerRoute(
   description: 'Get a plugin panel install plugin query by id',
   request: {
     params: z.object({
-      installPluginId: z.string(),
+      pluginInstallId: z.string(),
       positionId: z.string(),
     }),
     query: getPluginPanelInstallPluginQueryRoSchema,
@@ -47,12 +47,12 @@ export const GetPluginPanelInstallPluginQueryRoute: RouteConfig = registerRoute(
 });
 
 export const getPluginPanelInstallPluginQuery = async (
-  installPluginId: string,
+  pluginInstallId: string,
   positionId: string,
   query: IGetPluginPanelInstallPluginQueryRo
 ) => {
   return axios.get<IBaseQueryVo>(
-    urlBuilder(GET_PLUGIN_PANEL_INSTALL_PLUGIN_QUERY, { installPluginId, positionId }),
+    urlBuilder(GET_PLUGIN_PANEL_INSTALL_PLUGIN_QUERY, { pluginInstallId, positionId }),
     {
       params: query,
     }
