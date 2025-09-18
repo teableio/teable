@@ -254,7 +254,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `TO_CHAR(${date}::timestamp, ${format})`;
   }
 
-  datetimeParse(dateString: string, format: string): string {
+  datetimeParse(dateString: string, format?: string): string {
+    if (format == null) {
+      return dateString;
+    }
+    const normalized = format.trim();
+    if (!normalized || normalized === 'undefined' || normalized.toLowerCase() === 'null') {
+      return dateString;
+    }
     return `TO_TIMESTAMP(${dateString}, ${format})`;
   }
 

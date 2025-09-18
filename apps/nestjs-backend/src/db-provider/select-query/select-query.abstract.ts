@@ -90,7 +90,7 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract datestr(date: string): string;
   abstract datetimeDiff(startDate: string, endDate: string, unit: string): string;
   abstract datetimeFormat(date: string, format: string): string;
-  abstract datetimeParse(dateString: string, format: string): string;
+  abstract datetimeParse(dateString: string, format?: string): string;
   abstract day(date: string): string;
   abstract fromNow(date: string): string;
   abstract hour(date: string): string;

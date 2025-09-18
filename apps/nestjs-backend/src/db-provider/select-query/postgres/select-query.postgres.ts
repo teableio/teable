@@ -233,7 +233,14 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `TO_CHAR(${this.tzWrap(date)}, ${format})`;
   }
 
-  datetimeParse(dateString: string, format: string): string {
+  datetimeParse(dateString: string, format?: string): string {
+    if (format == null) {
+      return dateString;
+    }
+    const normalized = format.trim();
+    if (!normalized || normalized === 'undefined' || normalized.toLowerCase() === 'null') {
+      return dateString;
+    }
     return `TO_TIMESTAMP(${dateString}, ${format})`;
   }
 
@@ -263,7 +270,12 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   isSame(date1: string, date2: string, unit?: string): string {
     if (unit) {
-      return `DATE_TRUNC('${unit}', ${this.tzWrap(date1)}) = DATE_TRUNC('${unit}', ${this.tzWrap(date2)})`;
+      const trimmed = unit.trim();
+      if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+        const cleanUnit = trimmed.slice(1, -1).replace(/'/g, "''");
+        return `DATE_TRUNC('${cleanUnit}', ${this.tzWrap(date1)}) = DATE_TRUNC('${cleanUnit}', ${this.tzWrap(date2)})`;
+      }
+      return `DATE_TRUNC(${unit}, ${this.tzWrap(date1)}) = DATE_TRUNC(${unit}, ${this.tzWrap(date2)})`;
     }
     return `${this.tzWrap(date1)} = ${this.tzWrap(date2)}`;
   }
@@ -328,7 +340,8 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
     // Handle JSON values in conditions by checking if they are not null and not JSON null
     // This is needed for link fields that return JSON objects
-    const booleanCondition = `(${condition} IS NOT NULL AND ${condition}::text != 'null')`;
+    const wrappedCondition = `(${condition})`;
+    const booleanCondition = `(${wrappedCondition} IS NOT NULL AND ${wrappedCondition}::text != 'null')`;
     return `CASE WHEN ${booleanCondition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
