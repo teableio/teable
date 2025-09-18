@@ -4,7 +4,7 @@ import type {
   IParentBridgeMethods,
   IUIConfig,
 } from '@teable/sdk/plugin-bridge';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Chart } from '../../blocks/chart/components/Chart';
 import type { IPageParams } from '../../blocks/chart/types';
 import type { IPluginParams } from './types';
@@ -34,15 +34,20 @@ export const ComponentPluginRender = (props: IComponentPluginRenderProps) => {
     [baseId, pluginId, pluginInstallId, positionId, tableId, positionType]
   );
 
-  const parentBridgeMethods: IParentBridgeMethods = useMemo(
-    () => ({
-      ...utilsEvent,
-      ...uiEvent,
-    }),
-    [utilsEvent, uiEvent]
-  );
+  const parentBridgeMethods = useRef<IParentBridgeMethods>({
+    ...utilsEvent,
+    ...uiEvent,
+  });
+  parentBridgeMethods.current = {
+    ...utilsEvent,
+    ...uiEvent,
+  };
 
   return (
-    <Chart pageParams={pageParams} parentBridgeMethods={parentBridgeMethods} uiConfig={uiConfig} />
+    <Chart
+      pageParams={pageParams}
+      parentBridgeMethods={parentBridgeMethods.current}
+      uiConfig={uiConfig}
+    />
   );
 };
