@@ -520,12 +520,12 @@ export class FieldOpenApiService {
             newField,
             oldField
           );
-          await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
           await this.fieldConvertingService.deleteOrCreateSupplementLink(
             tableId,
             newField,
             oldField
           );
+          await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
           if (supplementChange) {
             const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
             await this.fieldConvertingService.stageAlter(sTid, sNew, sOld);

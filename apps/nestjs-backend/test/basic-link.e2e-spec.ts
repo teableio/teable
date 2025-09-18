@@ -3,6 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptions } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -18,6 +19,15 @@ import {
 describe('Basic Link Field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const expectHasOrderColumn = async (fieldId: string, expected: boolean) => {
+    const prisma = app.get(PrismaService);
+    const fieldRaw = await prisma.field.findUniqueOrThrow({
+      where: { id: fieldId },
+      select: { meta: true },
+    });
+    const meta = fieldRaw.meta ? (JSON.parse(fieldRaw.meta) as { hasOrderColumn?: boolean }) : null;
+    expect(meta?.hasOrderColumn ?? false).toBe(expected);
+  };
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -1333,6 +1343,8 @@ describe('Basic Link Field (e2e)', () => {
       });
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
+      await expectHasOrderColumn(linkField.id, false);
+
       // Verify data integrity
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       const alice = records.records.find((r) => r.name === 'Alice');
@@ -1378,6 +1390,8 @@ describe('Basic Link Field (e2e)', () => {
         isOneWay: true,
       });
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+      await expectHasOrderColumn(linkField.id, true);
 
       // Verify data integrity
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
@@ -1425,6 +1439,8 @@ describe('Basic Link Field (e2e)', () => {
       });
       expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeDefined();
 
+      await expectHasOrderColumn(linkField.id, true);
+
       // 验证数据完整性
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       const alice = records.records.find((r) => r.name === 'Alice');
@@ -1434,6 +1450,7 @@ describe('Basic Link Field (e2e)', () => {
       const symmetricFieldId = (convertedField.options as ILinkFieldOptions).symmetricFieldId;
       const symmetricField = await getField(table2.id, symmetricFieldId!);
       expect(symmetricField).toBeDefined();
+      await expectHasOrderColumn(symmetricFieldId!, true);
     });
 
     it('should convert OneMany to ManyMany without errors', async () => {
@@ -1679,12 +1696,15 @@ describe('Basic Link Field (e2e)', () => {
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(false);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeDefined();
 
+          await expectHasOrderColumn(linkField.id, true);
+
           // Verify symmetric field was created in target table
           const symmetricFieldId = (convertedField.options as ILinkFieldOptions).symmetricFieldId;
           const symmetricField = await getField(targetTable.id, symmetricFieldId!);
           expect((symmetricField.options as ILinkFieldOptions).relationship).toBe(
             Relationship.ManyOne
           );
+          await expectHasOrderColumn(symmetricFieldId!, true);
 
           // Verify record data integrity after conversion
           const updatedSourceRecords = await getRecords(sourceTable.id, {
@@ -1840,6 +1860,8 @@ describe('Basic Link Field (e2e)', () => {
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
+          await expectHasOrderColumn(linkField.id, false);
+
           // Verify record data integrity after conversion
           const finalSourceRecords = await getRecords(sourceTable.id, {
             fieldKeyType: FieldKeyType.Id,
@@ -1907,6 +1929,8 @@ describe('Basic Link Field (e2e)', () => {
           );
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+          await expectHasOrderColumn(symmetricFieldId!, true);
         });
 
         it('should convert ManyMany TwoWay to OneWay (convert from source table)', async () => {
@@ -2016,6 +2040,8 @@ describe('Basic Link Field (e2e)', () => {
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
 
+          await expectHasOrderColumn(linkField.id, true);
+
           // Verify record data after conversion (ManyOne should keep only one link)
           const afterSourceRecords = await getRecords(sourceTable.id, {
             fieldKeyType: FieldKeyType.Id,
@@ -2063,6 +2089,8 @@ describe('Basic Link Field (e2e)', () => {
           );
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+          await expectHasOrderColumn(linkField.id, true);
         });
 
         it('should convert ManyOne OneWay to OneMany OneWay (source table)', async () => {
@@ -2094,6 +2122,8 @@ describe('Basic Link Field (e2e)', () => {
           );
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+          await expectHasOrderColumn(linkField.id, false);
         });
 
         it('should convert ManyOne OneWay to ManyMany OneWay (source table)', async () => {
@@ -2125,6 +2155,8 @@ describe('Basic Link Field (e2e)', () => {
           );
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+          await expectHasOrderColumn(linkField.id, true);
         });
 
         it('should convert ManyMany OneWay to OneMany OneWay (source table)', async () => {
@@ -2156,6 +2188,8 @@ describe('Basic Link Field (e2e)', () => {
           );
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+          await expectHasOrderColumn(linkField.id, false);
         });
 
         it('should convert ManyMany OneWay to ManyOne OneWay (source table)', async () => {
@@ -2187,6 +2221,8 @@ describe('Basic Link Field (e2e)', () => {
           );
           expect((convertedField.options as ILinkFieldOptions).isOneWay).toBe(true);
           expect((convertedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+          await expectHasOrderColumn(linkField.id, true);
         });
       });
 
