@@ -72,8 +72,10 @@ export class RecordComputedUpdateService {
         // Non-lookup formulas: include generated column when persisted and not errored
         if (f.getIsPersistedAsGeneratedColumn() && !f.hasError) {
           cols.push(f.getGeneratedColumnName());
+          continue;
         }
-        // For non-persisted formula expressions, there is no physical column to return
+        // Formulas persisted as regular columns still need to be returned via dbFieldName
+        cols.push(f.dbFieldName);
         continue;
       }
       // Non-formula fields (including lookup/rollup) return by their physical column name
