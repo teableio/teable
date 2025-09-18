@@ -386,7 +386,10 @@ export class ComputedDependencyCollectorService {
     const changedRecordIds = Array.from(new Set(ctxs.map((c) => c.recordId)));
 
     // 1) Transitive dependents grouped by table (SQL CTE + join field)
-    const depByTable = await this.collectDependentFieldsByTable(changedFieldIds, excludeFieldIds);
+    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(changedFieldIds);
+    const traversalFieldIds = Array.from(new Set([...changedFieldIds, ...relatedLinkIds]));
+
+    const depByTable = await this.collectDependentFieldsByTable(traversalFieldIds, excludeFieldIds);
     const impact: IComputedImpactByTable = Object.entries(depByTable).reduce((acc, [tid, fset]) => {
       acc[tid] = { fieldIds: new Set(fset), recordIds: new Set<string>() };
       return acc;
@@ -394,7 +397,6 @@ export class ComputedDependencyCollectorService {
 
     // Additionally: include lookup/rollup fields that directly reference any changed link fields
     // (or their symmetric counterparts). This ensures cross-table lookups update when links change.
-    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(changedFieldIds);
     if (relatedLinkIds.length) {
       const byTable = await this.findLookupsByLinkIds(relatedLinkIds);
       for (const [tid, fset] of Object.entries(byTable)) {
