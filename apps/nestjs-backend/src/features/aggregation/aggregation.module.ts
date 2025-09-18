@@ -4,7 +4,6 @@ import { RecordQueryBuilderModule } from '../record/query-builder';
 import { RecordPermissionService } from '../record/record-permission.service';
 import { RecordModule } from '../record/record.module';
 import { TableIndexService } from '../table/table-index.service';
-import { AggregationServiceV2 } from './aggregation-v2.service';
 import { AggregationService } from './aggregation.service';
 import { AGGREGATION_SERVICE_SYMBOL } from './aggregation.service.symbol';
 
@@ -17,7 +16,7 @@ import { AGGREGATION_SERVICE_SYMBOL } from './aggregation.service.symbol';
     AggregationService,
     {
       provide: AGGREGATION_SERVICE_SYMBOL,
-      useClass: AggregationServiceV2,
+      useClass: AggregationService,
       // useClass: AggregationService,
     },
   ],
