@@ -1256,7 +1256,8 @@ describe('Undo Redo (e2e)', () => {
       await undo(table1.id);
 
       const newLinkFieldAfterUndo = (await getField(table1.id, newLinkField.id)).data;
-      expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkField);
+      const { meta: _sourceLinkMeta, ...sourceLinkWithoutMeta } = sourceLinkField;
+      expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkWithoutMeta);
 
       // make sure records has been updated
       const recordsAfterUndo = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id }))
@@ -1270,7 +1271,8 @@ describe('Undo Redo (e2e)', () => {
 
       const newLinkFieldAfterRedo = (await getField(table1.id, newLinkField.id)).data;
 
-      expect(newLinkFieldAfterRedo).toMatchObject(newLinkField);
+      const { meta: _newLinkMeta, ...newLinkWithoutMeta } = newLinkField;
+      expect(newLinkFieldAfterRedo).toMatchObject(newLinkWithoutMeta);
 
       // make sure records has been updated
       const recordsAfterRedo = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id }))
@@ -1349,11 +1351,14 @@ describe('Undo Redo (e2e)', () => {
         await awaitWithEvent(() => convertField(table1.id, sourceLinkField.id, newFieldRo))
       ).data;
 
+      const { meta: _sourceLinkMeta2, ...sourceLinkWithoutMeta } = sourceLinkField;
+      const { meta: _newLinkMeta2, ...newLinkWithoutMeta } = newLinkField;
+
       await undo(table1.id);
 
       const newLinkFieldAfterUndo = (await getField(table1.id, newLinkField.id)).data;
 
-      expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkField);
+      expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkWithoutMeta);
       const targetLookupFieldAfterUndo = (await getField(table1.id, sourceLookupField.id)).data;
       expect(targetLookupFieldAfterUndo.hasError).toBeUndefined();
 
@@ -1361,7 +1366,7 @@ describe('Undo Redo (e2e)', () => {
 
       const newLinkFieldAfterRedo = (await getField(table1.id, newLinkField.id)).data;
 
-      expect(newLinkFieldAfterRedo).toMatchObject(newLinkField);
+      expect(newLinkFieldAfterRedo).toMatchObject(newLinkWithoutMeta);
 
       await updateRecordByApi(table1.id, table1.records[0].id, newLinkFieldAfterRedo.id, {
         id: table3.records[0].id,

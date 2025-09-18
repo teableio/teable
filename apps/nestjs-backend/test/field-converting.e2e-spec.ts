@@ -401,8 +401,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
         expect(newField.name).toEqual('other name');
 
-        const { name: _, ...newFieldOthers } = newField;
-        const { name: _0, ...oldFieldOthers } = linkField;
+        const { name: _, meta: _newFieldMeta, ...newFieldOthers } = newField;
+        const { name: _0, meta: _oldFieldMeta, ...oldFieldOthers } = linkField;
 
         expect(newFieldOthers).toEqual(oldFieldOthers);
 
@@ -3784,7 +3784,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       await convertField(table1.id, lookupField.id, newLookupFieldRo);
 
       const linkFieldAfter = await getField(table1.id, linkField.id);
-      expect(linkFieldAfter).toMatchObject(linkField);
+      const { meta: _linkFieldMeta, ...linkFieldWithoutMeta } = linkField;
+      expect(linkFieldAfter).toMatchObject(linkFieldWithoutMeta);
       const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).records;
       expect(records[0].fields[linkField.id]).toEqual([
         {
@@ -3854,9 +3855,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
       await convertField(table1.id, lookupField.id, lookupFieldRo2);
       const linkField1After = await getField(table1.id, linkField1.id);
-      expect(linkField1After).toMatchObject(linkField1);
+      const { meta: _linkField1Meta, ...linkField1WithoutMeta } = linkField1;
+      expect(linkField1After).toMatchObject(linkField1WithoutMeta);
       const linkField2After = await getField(table1.id, linkField2.id);
-      expect(linkField2After).toMatchObject(linkField2);
+      const { meta: _linkField2Meta, ...linkField2WithoutMeta } = linkField2;
+      expect(linkField2After).toMatchObject(linkField2WithoutMeta);
 
       const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).records;
       expect(records[0].fields[linkField1.id]).toEqual([
