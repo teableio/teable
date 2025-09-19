@@ -40,7 +40,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   } = props;
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
 
-  const { setExpanded, close } = useChatPanelStore();
+  const { open: openChatPanel, close, expand } = useChatPanelStore();
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
@@ -54,7 +54,11 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   const { mutate: getBaseUsageFn } = useMutation({
     mutationFn: getBaseUsage,
     onSuccess: ({ data }) => {
-      setExpanded(data?.limit?.chatAIEnable);
+      if (data?.limit?.chatAIEnable) {
+        expand();
+      } else {
+        openChatPanel();
+      }
     },
   });
   const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({

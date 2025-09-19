@@ -147,6 +147,29 @@ export class AiService {
     } as IAIConfig;
   }
 
+  async getAIDisableAIActions(baseId: string) {
+    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    // get space ai setting
+    const aiIntegration = await this.prismaService.integration.findUnique({
+      where: { resourceId: spaceId, type: IntegrationType.AI },
+    });
+
+    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
+    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.disableAIActions;
+
+    // get instance ai setting
+    const { aiConfig } = await this.settingService.getSetting();
+    const disableAIActionsFromInstanceAiSetting = aiConfig?.disableAIActions;
+
+    return {
+      disableAIActions:
+        disableAIActionsFromSpaceIntegration || disableAIActionsFromInstanceAiSetting || [],
+    };
+  }
+
   async getSimplifiedAIConfig(baseId: string) {
     try {
       const config = await this.getAIConfig(baseId);

@@ -21,6 +21,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { AIControlCard } from './AIControlCard';
 import { AIModelPreferencesCard } from './AIModelPreferencesCard';
 import { AIProviderCard } from './AIProviderCard';
 import { generateModelKeyList, parseModelKey } from './utils';
@@ -103,6 +104,8 @@ export function AIConfigForm({
     });
   };
 
+  const disableAIActions = aiConfig?.disableAIActions || [];
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -149,7 +152,6 @@ export function AIConfigForm({
             {t('admin.configuration.list.llmApi.errorTips')}
           </div>
         )}
-
         <AIModelPreferencesCard
           control={form.control}
           models={models}
@@ -157,6 +159,13 @@ export function AIConfigForm({
           onTestChatModelAbility={onTestChatModelAbility}
           onEnableAI={() => {
             form.setValue('enable', true);
+            onSubmit(form.getValues());
+          }}
+        />
+        <AIControlCard
+          disableAIActions={disableAIActions}
+          onChange={(value: string[]) => {
+            form.setValue('disableAIActions', value);
             onSubmit(form.getValues());
           }}
         />

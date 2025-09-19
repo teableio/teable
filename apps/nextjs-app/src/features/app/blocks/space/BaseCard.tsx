@@ -29,7 +29,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const [renaming, setRenaming] = useState<boolean>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [baseName, setBaseName] = useState<string>(base.name);
-  const { setExpanded } = useChatPanelStore();
+  const { open: openChatPanel } = useChatPanelStore();
 
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
@@ -76,7 +76,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   };
 
   const intoBase = () => {
-    setExpanded(false);
+    openChatPanel();
     if (renaming) {
       return;
     }

@@ -26,4 +26,10 @@ export class AiController {
   async getAIConfig(@Param('baseId') baseId: string) {
     return await this.aiService.getSimplifiedAIConfig(baseId);
   }
+
+  @Get('/disable-ai-actions')
+  @Permissions('base|read')
+  async getAIDisableAIActions(@Param('baseId') baseId: string) {
+    return await this.aiService.getAIDisableAIActions(baseId);
+  }
 }

@@ -15,6 +15,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { UpgradeWrapper } from '@/features/app/components/billing/UpgradeWrapper';
+import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableList } from '../../table-list/TableList';
@@ -26,6 +27,7 @@ export const BaseSideBar = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
   const isEE = useIsEE();
+  const { buildApp: buildAppEnabled } = useDisableAIAction();
 
   const pageRoutes: {
     href: string;
@@ -39,7 +41,7 @@ export const BaseSideBar = () => {
           href: `/base/${baseId}/app`,
           label: t('common:noun.app'),
           Icon: AppWindowMac,
-          hidden: !basePermission?.['base|create'],
+          hidden: !basePermission?.['base|create'] || !buildAppEnabled,
           billingLevel: BillingProductLevel.Pro,
         },
         {
@@ -63,7 +65,7 @@ export const BaseSideBar = () => {
           billingLevel: BillingProductLevel.Pro,
         },
       ].filter((item) => !item.hidden),
-    [baseId, basePermission, isEE, t]
+    [baseId, basePermission, buildAppEnabled, isEE, t]
   );
 
   return (

@@ -24,7 +24,9 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
 
   const { setVisible } = useSidebarStore();
 
-  const { isExpanded } = useChatPanelStore();
+  const { status } = useChatPanelStore();
+
+  const isExpanded = status === 'expanded';
 
   const { building } = useBuildBaseAgentStore();
 
