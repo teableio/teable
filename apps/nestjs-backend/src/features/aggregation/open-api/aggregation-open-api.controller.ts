@@ -82,8 +82,6 @@ export class AggregationOpenApiController {
       table.lastModifiedTime?.getTime().toString() ?? '0',
       cacheQuery
     );
-    console.log('cacheKey', cacheKey);
-    console.log('cacheQuery', cacheQuery);
     return this.performanceCacheService.wrap(
       cacheKey,
       () => {
