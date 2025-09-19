@@ -1,9 +1,11 @@
 import { HttpError, HttpErrorCode } from '@teable/core';
 import { toast } from '@teable/ui-lib';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { debounce } from 'lodash';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
+import { isConnected, useConnectionAutoManage } from './useConnectionAutoManage';
 
 export function getWsPath() {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -30,18 +32,46 @@ const shareDbErrorHandler = (error: unknown) => {
 
 export const useConnection = (path?: string) => {
   const [connected, setConnected] = useState(false);
-  const connectionRef = useRef<Connection | null>(null);
+  const [connection, setConnection] = useState<Connection>();
+  const [socket, setSocket] = useState<ReconnectingWebSocket | null>(null);
+  const [refreshTime, setRefreshTime] = useState(Date.now());
 
   useEffect(() => {
-    if (!connectionRef.current && typeof window === 'object') {
-      const socket = new ReconnectingWebSocket(path || getWsPath());
-      connectionRef.current = new Connection(socket as Socket);
-    }
+    setSocket((prev) => {
+      if (prev) {
+        return prev;
+      }
+      return new ReconnectingWebSocket(path || getWsPath());
+    });
+  }, [path]);
 
-    const connection = connectionRef.current;
-    if (!connection) {
+  const updateRefreshTime = useMemo(() => {
+    return debounce(() => setRefreshTime(Date.now()), 1000);
+  }, []);
+
+  const updateShareDb = useCallback(() => {
+    if (socket && isConnected(socket)) {
+      socket.close();
+    }
+    updateRefreshTime();
+  }, [socket, updateRefreshTime]);
+
+  useConnectionAutoManage(socket, updateShareDb, {
+    // 10 minutes, it will be closed when the user is leave the page for 10 minutes
+    inactiveTimeout: 1000 * 60 * 10,
+    // reconnect when the browser is back for 2 seconds
+    reconnectDelay: 2000,
+  });
+
+  useEffect(() => {
+    if (!socket) {
       return;
     }
+    if (socket && !isConnected(socket)) {
+      socket.reconnect();
+    }
+    const connection = new Connection(socket as Socket);
+    setConnection(connection);
 
     let pingInterval: ReturnType<typeof setInterval>;
     const onConnected = () => {
@@ -49,6 +79,7 @@ export const useConnection = (path?: string) => {
       pingInterval = setInterval(() => connection.ping(), 1000 * 10);
     };
     const onDisconnected = () => {
+      setConnection(undefined);
       setConnected(false);
       pingInterval && clearInterval(pingInterval);
     };
@@ -71,12 +102,15 @@ export const useConnection = (path?: string) => {
       connection.removeListener('closed', onDisconnected);
       connection.removeListener('error', shareDbErrorHandler);
       connection.removeListener('receive', onReceive);
-      connection.close();
-      connectionRef.current = null;
+      if (connection) {
+        isConnected(socket) && connection.close();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (connection as any).bindToSocket({});
+      }
     };
-  }, [path]);
+  }, [path, socket, refreshTime]);
 
   return useMemo(() => {
-    return { connection: connectionRef.current || undefined, connected };
-  }, [connected]);
+    return { connection: connected ? connection : undefined, connected };
+  }, [connected, connection]);
 };
