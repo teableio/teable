@@ -15,7 +15,6 @@ export const useConnectionAutoManage = (
   }: {
     inactiveTimeout?: number;
     reconnectDelay?: number;
-    reconnect?: () => void;
   } = {
     inactiveTimeout: 10 * 60 * 1000,
     reconnectDelay: 1000,

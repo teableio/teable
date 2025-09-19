@@ -61,7 +61,6 @@ describe('useInstances hook', () => {
 
   const initData = [
     createMockDoc({
-      data: { id: '1', name: 'Instance 1' },
       collection: mockProps.collection,
       id: '1',
     }),
@@ -97,12 +96,16 @@ describe('useInstances hook', () => {
   });
 
   it('should initialize with initData when connected is false', () => {
-    const { result } = renderHook(() => useInstances({ ...mockProps, initData }), {
-      wrapper: createUseInstancesWrap({ ...mockAppContext, connected: false }),
-    });
-    expect(result.current.instances.map((i) => i.doc)).toEqual(
-      initData.map((doc) => createTestInstance(doc))
+    const { result } = renderHook(
+      () => useInstances({ ...mockProps, initData: initData.map((doc) => doc.data) }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connected: false }),
+      }
     );
+    expect(result.current.instances.map((i) => i)).toEqual(
+      initData.map((doc) => createTestInstance(doc.data))
+    );
+    expect(result.current.instances.map((i) => i.doc).filter(Boolean)).toHaveLength(0);
   });
 
   it('should create a subscribe query with correct parameters', () => {

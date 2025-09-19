@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 
+const isBrowser = () => typeof window !== 'undefined' && window.document;
+
 const getVisible = () => {
-  if (typeof window !== 'undefined' && window.document) {
+  if (isBrowser()) {
     return document.visibilityState;
   }
   return 'visible';
@@ -11,6 +13,9 @@ export const useDocumentVisible = () => {
   const [visible, setVisible] = useState(getVisible());
 
   useEffect(() => {
+    if (!isBrowser()) {
+      return;
+    }
     const handler = () => {
       setVisible(getVisible());
     };
