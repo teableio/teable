@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { CellFormat } from '@teable/core';
+import { CellFormat } from '@teable/core';
 import type { IBaseQuery } from '@teable/openapi';
 import { BaseQueryService } from '../../../base/base-query/base-query.service';
 import { DashboardService } from '../../../dashboard/dashboard.service';
@@ -17,7 +17,7 @@ export class PluginChartService {
     pluginInstallId: string,
     positionId: string,
     baseId: string,
-    cellFormat?: CellFormat
+    cellFormat: CellFormat = CellFormat.Text
   ) {
     const { storage } = await this.dashboardService.getPluginInstall(
       baseId,
@@ -35,7 +35,7 @@ export class PluginChartService {
     pluginInstallId: string,
     positionId: string,
     tableId: string,
-    cellFormat?: CellFormat
+    cellFormat: CellFormat = CellFormat.Text
   ) {
     const { baseId, storage } = await this.pluginPanelService.getPluginPanelPlugin(
       tableId,

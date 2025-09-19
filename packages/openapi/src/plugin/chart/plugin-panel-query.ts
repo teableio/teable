@@ -14,7 +14,6 @@ export const getPluginPanelInstallPluginQueryRoSchema = z.object({
     .nativeEnum(CellFormat, {
       errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
     })
-    .default(CellFormat.Text)
     .optional(),
 });
 
