@@ -70,6 +70,10 @@ export const SettingPage = (props: ISettingPageProps) => {
       {
         title: t('admin.configuration.list.publicOrigin.title'),
         key: 'publicOrigin' as const,
+        values: {
+          envPublicOrigin: publicOrigin,
+          currentPublicOrigin: isHydrated ? location?.origin : '',
+        },
         shouldShow: isHydrated ? location?.origin !== publicOrigin : false,
       },
       {

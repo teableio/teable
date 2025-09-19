@@ -787,7 +787,7 @@
       "list": {
         "publicOrigin": {
           "title": "PUBLIC_ORIGIN environment variable",
-          "description": "Your <strong>PUBLIC_ORIGIN</strong> environment variable configuration does not match the current access address <underline>https://example.com</underline>, import xlsx, csv, and attachment field functions may not work normally, it is recommended to set it to <underline>https://example.com</underline>"
+          "description": "Your <strong>{{envPublicOrigin}}</strong> environment variable configuration does not match the current access address <underline>{{currentPublicOrigin}}</underline>, import xlsx, csv, and attachment field functions may not work normally, it is recommended to set it to <underline>{{envPublicOrigin}}</underline>"
         },
         "https": {
           "title": "Enable https",

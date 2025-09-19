@@ -6,6 +6,7 @@ interface IList {
   title: string;
   key: 'publicOrigin' | 'https' | 'databaseProxy' | 'llmApi' | 'app' | 'webSearch' | 'email';
   anchor?: RefObject<HTMLDivElement>;
+  values: Record<string, string> | undefined;
 }
 
 export interface IConfigurationListProps {
@@ -38,7 +39,7 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
     <div>
       <div className="sticky top-0 mt-4 flex h-44 w-full min-w-full flex-col space-y-4 overflow-y-auto rounded-lg border bg-secondary p-4 sm:h-auto sm:w-[360px] sm:min-w-[360px] sm:overflow-hidden">
         <div className="flex flex-col">
-          <span className="justify-start self-stretch text-base font-semibold text-foreground mb-1">
+          <span className="mb-1 justify-start self-stretch text-base font-semibold text-foreground">
             {t('admin.configuration.title')}
           </span>
           <span className="justify-start self-stretch text-xs text-muted-foreground">
@@ -48,13 +49,14 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
 
         {list.map((item) => (
           <div key={item.title} className="flex flex-col">
-            <span className="justify-start self-stretch text-sm font-medium text-foreground mb-1">
+            <span className="mb-1 justify-start self-stretch text-sm font-medium text-foreground">
               {item.title}
             </span>
             <span className="justify-start self-stretch text-xs text-muted-foreground">
               <Trans
                 ns="common"
                 i18nKey={`admin.configuration.list.${item.key}.description`}
+                values={item.values ?? undefined}
                 components={{
                   anchor: (
                     <span

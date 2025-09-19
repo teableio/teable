@@ -784,7 +784,7 @@
       "list": {
         "publicOrigin": {
           "title": "PUBLIC_ORIGIN 环境变量",
-          "description": "您的 <strong>PUBLIC_ORIGIN</strong> 环境变量配置与当前访问地址 <underline>https://example.com</underline> 不匹配，导入 xlsx、csv 和附件字段功能可能无法正常工作，建议设置为 <underline>https://example.com</underline>"
+          "description": "您的 <strong>{{envPublicOrigin}}</strong> 环境变量配置与当前访问地址 <underline>{{currentPublicOrigin}}</underline> 不匹配，导入 xlsx、csv 和附件字段功能可能无法正常工作，建议设置为 <underline>{{currentPublicOrigin}}</underline>"
         },
         "https": {
           "title": "启用 HTTPS",
