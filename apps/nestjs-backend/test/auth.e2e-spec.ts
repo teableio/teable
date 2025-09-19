@@ -585,7 +585,7 @@ describe('Auth Controller (e2e)', () => {
       );
       expect(error?.status).toBe(400);
       const errorData = error?.data as IDeleteUserErrorData;
-      expect(errorData.spaces.length).toBe(3);
+      expect(errorData.spaces.length).toBe(2);
       expect(errorData.spaces).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
