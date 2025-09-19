@@ -43,14 +43,13 @@ export function useInstances<T, R extends { id: string }>({
 }: IUseInstancesProps<T, R>): IInstanceState<R> {
   const { connection, connected } = useConnection();
   const [query, setQuery] = useState<Query<T>>();
-  const initInstances = useRef({
-    instances: initData && !connected ? initData.map((data) => factory(data)) : [],
-    extra: undefined,
-  });
   const [instances, dispatch] = useReducer(
     (state: IInstanceState<R>, action: IInstanceAction<T>) =>
       instanceReducer(state, action, factory),
-    initInstances.current
+    {
+      instances: initData && !connected ? initData.map((data) => factory(data)) : [],
+      extra: undefined,
+    }
   );
 
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
@@ -188,5 +187,5 @@ export function useInstances<T, R extends { id: string }>({
     };
   }, [query, handleInsert, handleRemove, handleMove, handleReady, handleExtra]);
 
-  return connected ? instances : initInstances.current;
+  return instances;
 }

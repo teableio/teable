@@ -53,12 +53,13 @@ export const useConnection = (path?: string) => {
     if (socket && isConnected(socket)) {
       socket.close();
     }
+    setConnection(undefined);
     updateRefreshTime();
   }, [socket, updateRefreshTime]);
 
   useConnectionAutoManage(socket, updateShareDb, {
     // 10 minutes, it will be closed when the user is leave the page for 10 minutes
-    inactiveTimeout: 1000 * 60 * 10,
+    inactiveTimeout: 1000 * 10,
     // reconnect when the browser is back for 2 seconds
     reconnectDelay: 2000,
   });
@@ -79,7 +80,7 @@ export const useConnection = (path?: string) => {
       pingInterval = setInterval(() => connection.ping(), 1000 * 10);
     };
     const onDisconnected = () => {
-      setConnection(undefined);
+      // setConnection(undefined);
       setConnected(false);
       pingInterval && clearInterval(pingInterval);
     };
@@ -111,6 +112,6 @@ export const useConnection = (path?: string) => {
   }, [path, socket, refreshTime]);
 
   return useMemo(() => {
-    return { connection: connected ? connection : undefined, connected };
+    return { connection, connected };
   }, [connected, connection]);
 };
