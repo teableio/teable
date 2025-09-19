@@ -3,10 +3,12 @@ import type { IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teabl
 import { SortFunc, ViewType } from '@teable/core';
 import type { IGroupPointsRo } from '@teable/openapi';
 import { getGroupPoints } from '@teable/openapi';
+import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { useIsHydrated, useSearch, useTableListener, useView, useViewListener } from '../../hooks';
+import { useDocumentVisible } from '../../hooks/use-document-visible';
 import { AnchorContext } from '../anchor';
 import { GroupPointContext } from './GroupPointContext';
 
@@ -15,6 +17,8 @@ interface GroupPointProviderProps {
   query?: IGroupPointsRo;
 }
 
+const THROTTLE_TIME = 2000;
+
 export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, query }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
@@ -22,6 +26,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
   const view = useView(viewId);
   const { searchQuery } = useSearch();
   const { type, group, options } = view || {};
+  const visible = useDocumentVisible();
 
   const groupBy = useMemo(() => {
     if (type === ViewType.Kanban) {
@@ -47,8 +52,9 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
   const { data: resGroupPoints } = useQuery({
     queryKey: ReactQueryKeys.groupPoints(tableId as string, groupPointQuery),
     queryFn: ({ queryKey }) => getGroupPoints(queryKey[1], queryKey[2]).then((data) => data.data),
-    enabled: Boolean(tableId && isHydrated && groupBy?.length),
+    enabled: Boolean(tableId && isHydrated && groupBy?.length) && visible,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
     retry: 1,
   });
 
@@ -60,6 +66,10 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
     [groupPointQuery, queryClient, tableId]
   );
 
+  const throttleUpdateGroupPoints = useMemo(() => {
+    return throttle(updateGroupPoints, THROTTLE_TIME);
+  }, [updateGroupPoints]);
+
   const updateGroupPointsForTable = useCallback(
     () =>
       queryClient.invalidateQueries(
@@ -68,17 +78,21 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
     [groupPointQuery, queryClient, tableId]
   );
 
+  const throttleUpdateGroupPointsForTable = useMemo(() => {
+    return throttle(updateGroupPointsForTable, THROTTLE_TIME);
+  }, [updateGroupPointsForTable]);
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],
     []
   );
-  useTableListener(tableId, tableMatches, updateGroupPointsForTable);
+  useTableListener(tableId, tableMatches, throttleUpdateGroupPointsForTable);
 
   const viewMatches = useMemo<IViewActionKey[]>(
     () => (ignoreViewQuery ? [] : ['applyViewFilter']),
     [ignoreViewQuery]
   );
-  useViewListener(viewId, viewMatches, updateGroupPoints);
+  useViewListener(viewId, viewMatches, throttleUpdateGroupPoints);
 
   const groupPoints = useMemo(() => resGroupPoints || null, [resGroupPoints]);
 

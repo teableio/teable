@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import type { IQueryBaseRo } from '@teable/openapi';
 import { getRowCount, getShareViewRowCount } from '@teable/openapi';
+import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo, useRef } from 'react';
 import { ReactQueryKeys } from '../../config';
@@ -13,6 +14,7 @@ import {
   useView,
   useViewListener,
 } from '../../hooks';
+import { useDocumentVisible } from '../../hooks/use-document-visible';
 import { AnchorContext } from '../anchor';
 import { ShareViewContext } from '../table/ShareViewContext';
 import { RowCountContext } from './RowCountContext';
@@ -22,6 +24,8 @@ interface RowCountProviderProps {
   query?: IQueryBaseRo;
 }
 
+const THROTTLE_TIME = 2000;
+
 export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
@@ -29,7 +33,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   const { searchQuery } = useSearch();
   const { shareId } = useContext(ShareViewContext);
   const { selectedRecordIds, filterLinkCellCandidate, filterLinkCellSelected } = useLinkFilter();
-
+  const visible = useDocumentVisible();
   const view = useView();
 
   const rowCountQuery = useMemo(
@@ -65,7 +69,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
   const { data: commonRowCount } = useQuery({
     queryKey: rowCountQueryKey,
     queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
-    enabled: Boolean(!shareId && tableId && isHydrated),
+    enabled: Boolean(!shareId && tableId && isHydrated && visible),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     keepPreviousData: true,
@@ -75,7 +79,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
     queryKey: rowCountQueryKey,
     queryFn: ({ queryKey }) =>
       getShareViewRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
-    enabled: Boolean(shareId && tableId && isHydrated),
+    enabled: Boolean(shareId && tableId && isHydrated && visible),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     keepPreviousData: true,
@@ -91,24 +95,31 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children, query })
     [queryClient, rowCountQueryKey]
   );
 
+  const throttleUpdateRowCount = useMemo(() => {
+    return throttle(updateRowCount, THROTTLE_TIME);
+  }, [updateRowCount]);
+
   const updateRowCountForTable = useCallback(() => {
-    console.log('updateRowCountForTable');
     queryClient.invalidateQueries({
       queryKey: rowCountQueryKey.slice(0, 2),
     });
   }, [queryClient, rowCountQueryKey]);
 
+  const throttleUpdateRowCountForTable = useMemo(() => {
+    return throttle(updateRowCountForTable, THROTTLE_TIME);
+  }, [updateRowCountForTable]);
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord'],
     []
   );
-  useTableListener(tableId, tableMatches, updateRowCountForTable);
+  useTableListener(tableId, tableMatches, throttleUpdateRowCountForTable);
 
   const viewMatches = useMemo<IViewActionKey[]>(
     () => (ignoreViewQuery ? [] : ['applyViewFilter']),
     [ignoreViewQuery]
   );
-  useViewListener(viewId, viewMatches, updateRowCount);
+  useViewListener(viewId, viewMatches, throttleUpdateRowCount);
 
   const rowCount = useMemo(() => {
     if (!resRowCount) return null;
