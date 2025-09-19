@@ -95,6 +95,7 @@ const SwitchList = (props: SwitchListProps) => {
   const AIFeatureListWithOptions = useMemo(() => {
     return AIFeatureList.map((item) => ({
       name: AIFeatureListNameMap[item],
+      key: item,
       description: AIFeatureListDescriptionMap[item],
       disabled: !SwitchableActions.includes(item),
     }));
@@ -119,11 +120,11 @@ const SwitchList = (props: SwitchListProps) => {
     [disableActions, onChange]
   );
 
-  return AIFeatureListWithOptions.map(({ name, description, disabled }) => (
-    <div className="flex items-center justify-between" key={name}>
+  return AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
+    <div className="flex items-center justify-between" key={key}>
       <div className="flex items-center gap-x-1">
         <Label
-          htmlFor={name}
+          htmlFor={key}
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
           {name}
@@ -133,11 +134,11 @@ const SwitchList = (props: SwitchListProps) => {
         </TooltipWrap>
       </div>
       <Switch
-        id={name}
+        id={key}
         onCheckedChange={(open) => {
-          onCheckItemHandler(name as AIActions, open);
+          onCheckItemHandler(key, open);
         }}
-        checked={!disableActions?.includes(name)}
+        checked={!disableActions?.includes(key)}
         disabled={disabled}
       />
     </div>

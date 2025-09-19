@@ -6,7 +6,7 @@ export interface IList {
   title: string;
   key: 'publicOrigin' | 'https' | 'databaseProxy' | 'llmApi' | 'app' | 'webSearch' | 'email';
   anchor?: RefObject<HTMLDivElement>;
-  values: Record<string, string> | undefined;
+  values?: Record<string, string>;
 }
 
 export interface IConfigurationListProps {
