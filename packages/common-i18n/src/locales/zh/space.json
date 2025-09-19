@@ -68,7 +68,7 @@
     "title": "AI 配置",
     "description": "管理空间 AI 配置",
     "enableTips": "启用空间 AI 配置后, 将会优先使用空间 AI 配置",
-    "enable": "启用 AI",
+    "enable": "初始化 AI 配置",
     "enableSwitchTips": "开启前，请配置好大型编码模型"
   },
   "import": {

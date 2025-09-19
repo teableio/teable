@@ -56,6 +56,7 @@ export const aiConfigSchema = z.object({
   embeddingModel: z.string().optional(),
   translationModel: z.string().optional(),
   chatModel: chatModelSchema.optional(),
+  disableAIActions: z.array(z.string()).optional(),
 });
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;

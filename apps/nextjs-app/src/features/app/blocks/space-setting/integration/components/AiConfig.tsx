@@ -8,6 +8,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIModelPreferencesCard } from '../../../admin/setting/components/ai-config/AIModelPreferencesCard';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { generateModelKeyList } from '../../../admin/setting/components/ai-config/utils';
@@ -92,6 +93,13 @@ export const AIConfig = (props: IAIConfigProps) => {
           models={models}
           onChange={() => onSubmit(form.getValues())}
           onTestChatModelAbility={onTestChatModelAbility}
+        />
+        <AIControlCard
+          disableAIActions={config?.disableAIActions || []}
+          onChange={(value: string[]) => {
+            form.setValue('disableAIActions', value);
+            onSubmit(form.getValues());
+          }}
         />
       </form>
     </Form>

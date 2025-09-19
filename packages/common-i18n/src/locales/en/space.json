@@ -68,7 +68,7 @@
     "title": "AI Settings",
     "description": "Manage AI settings of your space",
     "enableTips": "Enable AI to use AI features in your space instead of using the system AI",
-    "enable": "Enable AI",
+    "enable": "Initialize AI settings",
     "enableSwitchTips": "Please configure the large coding model before enabling"
   },
   "import": {

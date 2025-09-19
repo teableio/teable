@@ -678,6 +678,8 @@
         "baseUrlRequired": "基础 URL 是必需的",
         "fetchModelListError": "无法获取模型列表",
         "provider": "模型提供商",
+        "aiAbilitySettings": "AI 能力设置",
+        "aiAbilitySettingsDescription": "配置 AI 能力",
         "providerDescription": "要使用的模型提供商",
         "modelPreferences": "模型偏好",
         "modelPreferencesDescription": "模型提供商的模型偏好",
@@ -694,6 +696,28 @@
           "mdDescription": "对于需要速度和质量的场景，如创建数据库，建议使用 GPT-4o",
           "lg": "高级聊天模型",
           "lgDescription": "对于规划、编码和其他复杂任务场景，建议使用 claude-sonnet-4"
+        },
+        "actions": {
+          "buildBase": {
+            "title": "创建数据库",
+            "description": "从0开始创建整个数据库"
+          },
+          "buildApp": {
+            "title": "创建应用",
+            "description": "基于数据库创建应用"
+          },
+          "buildAutomation": {
+            "title": "创建自动化",
+            "description": "从0开始创建整个自动化"
+          },
+          "baseResource": {
+            "title": "表格资源操作",
+            "description": "通过 ai 对表格资源操作，可以创建、修改、删除表格、视图、字段、记录"
+          },
+          "suggestion": {
+            "title": "建议",
+            "description": "根据当前数据库数据的以及对话内容，给予建议"
+          }
         },
         "chatModelTest": {
           "text": "测试模型",

@@ -681,6 +681,8 @@
         "baseUrlRequired": "Base URL is required",
         "fetchModelListError": "Failed to fetch model list",
         "provider": "LLM provider",
+        "aiAbilitySettings": "AI ability settings",
+        "aiAbilitySettingsDescription": "Configure the AI abilities",
         "providerDescription": "The LLM provider to use",
         "modelPreferences": "Model preferences",
         "modelPreferencesDescription": "The model preferences for the LLM provider",
@@ -697,6 +699,28 @@
           "mdDescription": "For scenarios that require speed and quality, such as creating Base, it is recommended to use GPT-4o",
           "lg": "Advanced chat model",
           "lgDescription": "For planning, coding, and other complex task scenarios, it is recommended to use claude-sonnet-4"
+        },
+        "actions": {
+          "buildBase": {
+            "title": "Create Base",
+            "description": "Create Base from scratch"
+          },
+          "buildApp": {
+            "title": "Create App",
+            "description": "Create App based on Base"
+          },
+          "buildAutomation": {
+            "title": "Create Automation",
+            "description": "Create Automation from scratch"
+          },
+          "baseResource": {
+            "title": "Base Resource Operation",
+            "description": "Create, modify, and delete tables, views, fields, and records through ai"
+          },
+          "suggestion": {
+            "title": "Suggestion",
+            "description": "Give suggestions based on the current database data and conversation content"
+          }
         },
         "chatModelTest": {
           "text": "Test model",
