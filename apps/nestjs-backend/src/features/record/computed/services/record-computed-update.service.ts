@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
-import { match, P } from 'ts-pattern';
+import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../../../field/model/factory';
@@ -110,8 +110,6 @@ export class RecordComputedUpdateService {
       dbFieldNames: columnNames,
       returningDbFieldNames: returningNames,
     });
-    // eslint-disable-next-line no-console
-    console.debug('updateFromSelect SQL:', sql);
     this.logger.debug('updateFromSelect SQL:', sql);
 
     return await this.prismaService
