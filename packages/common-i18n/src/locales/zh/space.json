@@ -84,8 +84,12 @@
   "recentlyBase": {
     "title": "最近访问"
   },
-  "emptySpace": {
+  "noBases": {
     "title": "Hi {{userName}}！",
     "description": "创建您的第一个数据库，开始让数据变简单"
+  },
+  "noSpaces": {
+    "title": "Hi {{userName}}！",
+    "description": "创建您的第一个空间，开始您的数据协作之旅"
   }
 }

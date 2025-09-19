@@ -12,11 +12,11 @@ import type { FC } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from './useBaseList';
 
-interface IEmptySpacePlaceholderProps {
+interface INoBasesPlaceholderProps {
   space: IGetSpaceVo;
 }
 
-export const EmptySpacePlaceholder: FC<IEmptySpacePlaceholderProps> = ({ space }) => {
+export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { user } = useSession();
   const router = useRouter();
@@ -44,11 +44,11 @@ export const EmptySpacePlaceholder: FC<IEmptySpacePlaceholderProps> = ({ space }
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-8">
       <div className="flex max-w-md flex-col items-center text-center">
         <h3 className="mb-2 text-2xl font-semibold">
-          {t('space:emptySpace.title', { userName: user.name })}
+          {t('space:noBases.title', { userName: user.name })}
         </h3>
 
         <p className="mb-8 leading-relaxed text-muted-foreground">
-          {t('space:emptySpace.description')}
+          {t('space:noBases.description')}
         </p>
 
         {canCreateBase && (
@@ -65,7 +65,7 @@ export const EmptySpacePlaceholder: FC<IEmptySpacePlaceholderProps> = ({ space }
         <div className="relative">
           <Image
             src="/images/layout/pointer.png"
-            alt="Empty workspace"
+            alt="no bases"
             width={120}
             height={120}
             className="opacity-80 dark:invert"

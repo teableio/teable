@@ -84,8 +84,12 @@
   "recentlyBase": {
     "title": "Recently Visited"
   },
-  "emptySpace": {
+  "noBases": {
     "title": "Hi {{userName}}!",
     "description": "Let's start managing your work with your first base."
+  },
+  "noSpaces": {
+    "title": "Hi {{userName}}!",
+    "description": "Create your first space to start your data collaboration journey."
   }
 }

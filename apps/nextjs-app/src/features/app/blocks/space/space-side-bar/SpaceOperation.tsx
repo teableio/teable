@@ -20,6 +20,7 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
   const { space, className, onRename, open, setOpen, onImportBase } = props;
   const queryClient = useQueryClient();
   const router = useRouter();
+  const currentSpaceId = router.query.spaceId as string;
   const menuPermission = useMemo(() => {
     return {
       spaceUpdate: hasPermission(space.role, 'space|update'),
@@ -31,6 +32,11 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
     mutationFn: deleteSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      if (currentSpaceId === space.id) {
+        router.push({
+          pathname: '/space',
+        });
+      }
     },
   });
 
