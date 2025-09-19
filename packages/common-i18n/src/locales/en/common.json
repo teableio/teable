@@ -701,6 +701,10 @@
           "lgDescription": "For planning, coding, and other complex task scenarios, it is recommended to use claude-sonnet-4"
         },
         "actions": {
+          "aiBasicCapability": {
+            "title": "AI Basic Capability",
+            "description": "AI Basic Capability, include AI table query tool, execute SQL query tool, generate script tool, table data visualization tool, update database information tool"
+          },
           "buildBase": {
             "title": "Create Base",
             "description": "Create Base from scratch"

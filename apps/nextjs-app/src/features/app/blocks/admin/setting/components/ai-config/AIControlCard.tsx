@@ -27,9 +27,19 @@ export enum AIActions {
   BaseResource = 'base-resource-crud-agent',
   Suggestion = 'suggestion',
   BaseApp = 'build-app-agent',
+  AIBasicCapability = 'ai-basic-capability',
 }
 
 const AIFeatureList = [
+  AIActions.AIBasicCapability,
+  AIActions.BuildBase,
+  AIActions.BaseApp,
+  AIActions.BuildAutomation,
+  AIActions.BaseResource,
+  AIActions.Suggestion,
+];
+
+const SwitchableActions = [
   AIActions.BuildBase,
   AIActions.BaseApp,
   AIActions.BuildAutomation,
@@ -60,6 +70,36 @@ const SwitchList = (props: SwitchListProps) => {
   const { onChange, disableActions } = props;
   const { t } = useTranslation('common');
 
+  const AIFeatureListNameMap = useMemo(() => {
+    return {
+      [AIActions.BuildBase]: t('admin.setting.ai.actions.buildBase.title'),
+      [AIActions.BuildAutomation]: t('admin.setting.ai.actions.buildAutomation.title'),
+      [AIActions.BaseResource]: t('admin.setting.ai.actions.baseResource.title'),
+      [AIActions.Suggestion]: t('admin.setting.ai.actions.suggestion.title'),
+      [AIActions.BaseApp]: t('admin.setting.ai.actions.buildApp.title'),
+      [AIActions.AIBasicCapability]: t('admin.setting.ai.actions.aiBasicCapability.title'),
+    };
+  }, [t]);
+
+  const AIFeatureListDescriptionMap = useMemo(() => {
+    return {
+      [AIActions.BuildBase]: t('admin.setting.ai.actions.buildBase.description'),
+      [AIActions.BuildAutomation]: t('admin.setting.ai.actions.buildAutomation.description'),
+      [AIActions.BaseResource]: t('admin.setting.ai.actions.baseResource.description'),
+      [AIActions.Suggestion]: t('admin.setting.ai.actions.suggestion.description'),
+      [AIActions.BaseApp]: t('admin.setting.ai.actions.buildApp.description'),
+      [AIActions.AIBasicCapability]: t('admin.setting.ai.actions.aiBasicCapability.description'),
+    };
+  }, [t]);
+
+  const AIFeatureListWithOptions = useMemo(() => {
+    return AIFeatureList.map((item) => ({
+      name: AIFeatureListNameMap[item],
+      description: AIFeatureListDescriptionMap[item],
+      disabled: !SwitchableActions.includes(item),
+    }));
+  }, [AIFeatureListDescriptionMap, AIFeatureListNameMap]);
+
   const onCheckItemHandler = useCallback(
     (actionName: AIActions, open: boolean) => {
       if (open && disableActions.find((action) => action === actionName)) {
@@ -79,45 +119,26 @@ const SwitchList = (props: SwitchListProps) => {
     [disableActions, onChange]
   );
 
-  const AIFeatureListNameMap = useMemo(() => {
-    return {
-      [AIActions.BuildBase]: t('admin.setting.ai.actions.buildBase.title'),
-      [AIActions.BuildAutomation]: t('admin.setting.ai.actions.buildAutomation.title'),
-      [AIActions.BaseResource]: t('admin.setting.ai.actions.baseResource.title'),
-      [AIActions.Suggestion]: t('admin.setting.ai.actions.suggestion.title'),
-      [AIActions.BaseApp]: t('admin.setting.ai.actions.buildApp.title'),
-    };
-  }, [t]);
-
-  const AIFeatureListDescriptionMap = useMemo(() => {
-    return {
-      [AIActions.BuildBase]: t('admin.setting.ai.actions.buildBase.description'),
-      [AIActions.BuildAutomation]: t('admin.setting.ai.actions.buildAutomation.description'),
-      [AIActions.BaseResource]: t('admin.setting.ai.actions.baseResource.description'),
-      [AIActions.Suggestion]: t('admin.setting.ai.actions.suggestion.description'),
-      [AIActions.BaseApp]: t('admin.setting.ai.actions.buildApp.description'),
-    };
-  }, [t]);
-
-  return AIFeatureList.map((item) => (
-    <div className="flex items-center justify-between" key={item}>
+  return AIFeatureListWithOptions.map(({ name, description, disabled }) => (
+    <div className="flex items-center justify-between" key={name}>
       <div className="flex items-center gap-x-1">
         <Label
-          htmlFor={item}
+          htmlFor={name}
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
-          {AIFeatureListNameMap[item]}
+          {name}
         </Label>
-        <TooltipWrap description={AIFeatureListDescriptionMap[item]}>
+        <TooltipWrap description={description}>
           <CircleHelp className="size-4 cursor-pointer text-gray-400" />
         </TooltipWrap>
       </div>
       <Switch
-        id={item}
+        id={name}
         onCheckedChange={(open) => {
-          onCheckItemHandler(item, open);
+          onCheckItemHandler(name as AIActions, open);
         }}
-        checked={!disableActions?.includes(item)}
+        checked={!disableActions?.includes(name)}
+        disabled={disabled}
       />
     </div>
   ));
