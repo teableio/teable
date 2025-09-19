@@ -218,9 +218,23 @@ export class RecordOpenApiController {
         lastModifiedTime: true,
       },
     });
-    const cacheQuery = filterHasMe(query.filter)
-      ? { ...query, currentUserId: this.cls.get('user.id') }
-      : query;
+    const viewId = query.viewId;
+    let viewFilter: string | null = null;
+    if (viewId) {
+      const view = await this.prismaService.view.findUniqueOrThrow({
+        where: {
+          id: viewId,
+        },
+        select: {
+          filter: true,
+        },
+      });
+      viewFilter = view.filter;
+    }
+    const cacheQuery =
+      filterHasMe(query.filter) || filterHasMe(viewFilter)
+        ? { ...query, currentUserId: this.cls.get('user.id') }
+        : query;
 
     const cacheKey = generateRecordCacheKey(
       'doc_ids',

@@ -47,7 +47,7 @@ export class AggregationOpenApiController {
   private async getAggregationWithCache<T>(
     cacheKeyPrefix: string,
     tableId: string,
-    query: { filter?: IFilter } | undefined,
+    query: { filter?: IFilter; viewId?: string } | undefined,
     fn: () => Promise<T>
   ) {
     const table = await this.prismaService.tableMeta.findUniqueOrThrow({
@@ -58,9 +58,23 @@ export class AggregationOpenApiController {
         lastModifiedTime: true,
       },
     });
-    const cacheQuery = filterHasMe(query?.filter)
-      ? { ...query, currentUserId: this.cls.get('user.id') }
-      : query;
+    const viewId = query?.viewId;
+    let viewFilter: string | null = null;
+    if (viewId) {
+      const view = await this.prismaService.view.findUniqueOrThrow({
+        where: {
+          id: viewId,
+        },
+        select: {
+          filter: true,
+        },
+      });
+      viewFilter = view.filter;
+    }
+    const cacheQuery =
+      filterHasMe(query?.filter) || filterHasMe(viewFilter)
+        ? { ...query, currentUserId: this.cls.get('user.id') }
+        : query;
 
     const cacheKey = generateAggCacheKey(
       cacheKeyPrefix,
