@@ -18,6 +18,7 @@ import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
 import { AIConfigForm } from './components/ai-config/AiForm';
 import { Branding } from './components/Branding';
+import type { IList } from './components/ConfigurationList';
 import { ConfigurationList } from './components/ConfigurationList';
 import { MailConfigDialog } from './components/mail-config/MailConfig';
 import { InviteCodeManage } from './components/waitlist/InviteCodeManage';
@@ -414,7 +415,7 @@ export const SettingPage = (props: ISettingPageProps) => {
 
           <CopyInstance instanceId={instanceId} />
         </div>
-        {finalList.length > 0 && <ConfigurationList list={finalList} />}
+        {finalList.length > 0 && <ConfigurationList list={finalList as IList[]} />}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Trans, useTranslation } from 'next-i18next';
 import type { RefObject } from 'react';
 
-interface IList {
+export interface IList {
   title: string;
   key: 'publicOrigin' | 'https' | 'databaseProxy' | 'llmApi' | 'app' | 'webSearch' | 'email';
   anchor?: RefObject<HTMLDivElement>;
