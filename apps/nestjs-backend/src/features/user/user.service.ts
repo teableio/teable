@@ -15,6 +15,7 @@ import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/opena
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
 import { CacheService } from '../../cache/cache.service';
+import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
@@ -33,8 +34,9 @@ export class UserService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly settingService: SettingService,
     private readonly cacheService: CacheService,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
-    private readonly userModel: UserModel
+    private readonly userModel: UserModel,
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
   ) {}
 
   async getUserById(id: string) {
@@ -164,10 +166,12 @@ export class UserService {
         data: { id: generateAccountId(), ...account, userId: id },
       });
     }
-    await this.cls.runWith(this.cls.get(), async () => {
-      this.cls.set('user.id', id);
-      await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
-    });
+    if (this.baseConfig.isCloud) {
+      await this.cls.runWith(this.cls.get(), async () => {
+        this.cls.set('user.id', id);
+        await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
+      });
+    }
     return newUser;
   }
 
