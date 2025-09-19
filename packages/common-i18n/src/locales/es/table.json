@@ -594,7 +594,8 @@
     "search": {},
     "locked": {
       "tip": "Esta vista está bloqueada. "
-    }
+    },
+    "noView": "No hay vistas"
   },
   "lastModifiedTime": "Último tiempo modificado",
   "lastModify": "Última modificación:",

@@ -1,6 +1,6 @@
 import { useTablePermission, useViewId, useViews, useIsHydrated } from '@teable/sdk';
 import { horizontalListSortingStrategy } from '@teable/ui-lib/base/dnd-kit';
-import { Skeleton, cn } from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 import { DraggableWrapper } from './DraggableWrapper';
 import { ViewListItem } from './ViewListItem';
 
@@ -32,7 +32,7 @@ export const ViewList = () => {
         )}
       </DraggableWrapper>
     ) : (
-      <Skeleton className="h-6 w-20" />
+      <></>
     )
   ) : (
     <>

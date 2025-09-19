@@ -589,7 +589,8 @@
     },
     "locked": {
       "tip": "Cette vue est verrouillée. Vous pouvez activer le mode personnel pour modifier les options de la vue, et les modifications ne prendront effet que pour vous."
-    }
+    },
+    "noView": "Aucune vue"
   },
   "lastModifiedTime": "Dernière modification",
   "lastModify": "Dernière modification : ",

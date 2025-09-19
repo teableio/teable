@@ -750,7 +750,8 @@
     },
     "tips": {
       "thankYouForUsingTeable": "感谢您使用 teable",
-      "pleaseGoToConfiguration": "请前往设置页面完成一些初始配置，以享受 teable 的完整功能和更好的用户体验"
+      "pleaseGoToConfiguration": "请前往设置页面完成一些初始配置，以享受 teable 的完整功能和更好的用户体验",
+      "pleaseContactAdmin": "请联系管理员"
     },
     "configuration": {
       "title": "待配置项",

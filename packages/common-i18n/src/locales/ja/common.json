@@ -244,6 +244,14 @@
       "enableWaitlistDescription": "このオプションを有効にすると、ユーザーは招待コードを使用して新規アカウントの作成が可能になります。",
       "generalSettings": "一般設定",
       "aiSettings": "AI設定",
+      "brandingSettings": {
+        "title": "ブランディング設定",
+        "description": "エンタープライズエディションでのみ利用可能",
+        "logo": "ロゴ",
+        "logoDescription": "ロゴはTeableでのあなたのブランドアイデンティティです。",
+        "logoUpload": "ロゴをアップロード",
+        "logoUploadDescription": "ロゴ画像をアップロードし、PNG、JPEG形式をサポートし、推奨サイズは100x100pxです。最大アップロードサイズは500KBです。"
+      },
       "ai": {
         "name": "名前",
         "nameDescription": "LLMプロバイダーの名前",
@@ -269,6 +277,37 @@
         "embeddingModelDescription": "オプション、通常モデルIDには\"embedding\"が含まれます",
         "translationModel": "翻訳モデル",
         "translationModelDescription": "使用する翻訳モデル",
+        "chatModel": "チャットモデル",
+        "chatModelDescription": "使用するチャットモデル、ヒント: 中型コーディングモデルはAI数式生成と関連機能にデフォルトで使用されます",
+        "chatModels": {
+          "sm": "小型チャットモデル",
+          "smDescription": "シーン推奨やシンプルなクイック操作などのタスクに使用されます",
+          "md": "中型チャットモデル",
+          "mdDescription": "データベース作成など、スピードと品質が必要なシナリオには、GPT-4oの使用をお勧めします",
+          "lg": "高度なチャットモデル",
+          "lgDescription": "計画、コーディング、その他の複雑なタスクシナリオには、claude-sonnet-4の使用をお勧めします"
+        },
+        "chatModelTest": {
+          "text": "モデルをテスト",
+          "description": "モデルの画像、PDF処理能力をテストします",
+          "notConfigLgModel": "まず大型モデルを設定してください",
+          "confirmTitle": "モデル能力をテスト",
+          "confirmDescription": "大型チャットモデルの能力をテストしますか？",
+          "confirm": "モデルをテスト",
+          "cancel": "キャンセル",
+          "missingCapabilitiesWarning": "このモデルは画像まPDF処理をサポートしておらず、一部の機能が利用できなくなる可能性があります。",
+          "enableAITitle": "AIを有効にする",
+          "enableAIDescription": "モデルテストが完了しました。AIは現在有効になっていません。これらのモデル能力を使用するためにAIを有効にしますか？",
+          "enableAI": "AIを有効にする",
+          "skipTest": "スキップ"
+        },
+        "chatModelAbility": {
+          "image": "画像",
+          "pdf": "PDF",
+          "webSearch": "ウェブ検索",
+          "disabledWebSearch": "ウェブ検索無効",
+          "lgModelAbility": "大型モデル能力"
+        },
         "configUpdated": "AI設定が更新されました",
         "noModelFound": "モデルが見つかりません",
         "searchModel": "モデルを検索...",
@@ -290,7 +329,60 @@
         "fillRequiredFields": "すべての必須フィールドを入力してください",
         "modelsRequired": "少なくとも1つのモデルを入力してください",
         "noValidModel": "有効なモデルが見つかりません",
-        "addCustomModel": "カスタムモデルを追加する"
+        "addCustomModel": "カスタムモデルを追加する",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "ウェブ検索機能を有効にするためにFirecrawl APIキーを設定し、APIキーを取得するために<a>Firecrawl設定</a>にアクセスしてください"
+      }
+    },
+    "action": {
+      "enterApiKey": "APIキーを入力",
+      "goToConfiguration": "設定に移動"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "teableをご利用いただきありがとうございます",
+      "pleaseGoToConfiguration": "teableの完全な機能とより良いユーザーエクスペリエンスを楽しむために、設定ページに移動していくつかの初期設定を完了してください",
+      "pleaseContactAdmin": "管理者にお問い合わせください"
+    },
+    "configuration": {
+      "title": "設定待ち",
+      "description": "完全な機能を取得するためにこれらの設定を完了してください",
+      "copyInstance": "IDをコピー",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN環境変数",
+          "description": "<strong>PUBLIC_ORIGIN</strong>環境変数設定が現在のアクセスアドレス<underline>https://example.com</underline>と一致しません。xlsx、csvインポートおよび添付ファイルフィールド機能が正常に動作しない可能性があります。<underline>https://example.com</underline>に設定することをお勧めします"
+        },
+        "https": {
+          "title": "HTTPSを有効にする",
+          "description": "HTTPSを有効にしていません。大規模コピー（300行以上）機能が利用できなくなります。有効にすることをお勧めします。"
+        },
+        "databaseProxy": {
+          "title": "PUBLIC_DATABASE_PROXY環境変数",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong>が設定されていません。外部データベース接続機能が利用できません。<a>ヘルプドキュメント</a>を参照してください",
+          "href": "https://help.teable.ai/ja/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません。<anchor>設定に移動</anchor>",
+          "errorTips": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません"
+        },
+        "app": {
+          "title": "アプリ生成",
+          "description": "v0 APIをまだ設定していません。アプリ生成機能が利用できません。<anchor>設定に移動</anchor>",
+          "errorTips": "v0 APIをまだ設定していません。アプリ生成機能が利用できません"
+        },
+        "webSearch": {
+          "title": "ウェブ検索",
+          "description": "ウェブ検索APIをまだ設定していません。ウェブ検索機能が利用できません。<anchor>設定に移動</anchor>",
+          "errorTips": "ウェブ検索APIをまだ設定していません。ウェブ検索機能が利用できません"
+        },
+        "email": {
+          "title": "メール",
+          "description": "メールが設定されていません。セルフサービスパスワード復旧とメール通知機能が利用できません。<anchor>設定に移動</anchor>",
+          "errorTips": "メールが設定されていません。セルフサービスパスワード復旧、メール検証/通知機能が利用できません"
+        }
       }
     }
   },

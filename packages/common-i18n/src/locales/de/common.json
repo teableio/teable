@@ -281,6 +281,14 @@
       "enableWaitlistDescription": "Wenn Sie diese Option aktivieren, können Benutzer sich nur mit einem Einladungscode registrieren.",
       "generalSettings": "Allgemeine Einstellungen",
       "aiSettings": "AI Konfiguration",
+      "brandingSettings": {
+        "title": "Branding-Einstellungen",
+        "description": "Nur in der Enterprise Edition verfügbar",
+        "logo": "Logo",
+        "logoDescription": "Das Logo ist Ihre Markenidentität in Teable.",
+        "logoUpload": "Logo hochladen",
+        "logoUploadDescription": "Logo-Bild hochladen, unterstützt PNG, JPEG-Format, empfohlene Größe ist 100x100px. Maximale Upload-Größe ist 500KB."
+      },
       "ai": {
         "name": "Name",
         "nameDescription": "Der Name des LLM-Anbieters",
@@ -306,6 +314,37 @@
         "embeddingModelDescription": "Optional, normalerweise enthält die Modell-ID \"embedding\"",
         "translationModel": "Übersetzungsmodell",
         "translationModelDescription": "Das zu verwendende Übersetzungsmodell",
+        "chatModel": "Chat-Modell",
+        "chatModelDescription": "Das zu verwendende Chat-Modell, Tipp: Das mittlere Kodierungsmodell wird standardmäßig für AI-Formelgenerierung und verwandte Funktionen verwendet",
+        "chatModels": {
+          "sm": "Kleines Chat-Modell",
+          "smDescription": "Wird für Aufgaben wie Szenenempfehlungen und einfache schnelle Operationen verwendet",
+          "md": "Mittleres Chat-Modell",
+          "mdDescription": "Für Szenarien, die Geschwindigkeit und Qualität erfordern, wie z.B. das Erstellen einer Datenbank, wird die Verwendung von GPT-4o empfohlen",
+          "lg": "Erweiteres Chat-Modell",
+          "lgDescription": "Für Planung, Kodierung und andere komplexe Aufgabenszenarien wird die Verwendung von claude-sonnet-4 empfohlen"
+        },
+        "chatModelTest": {
+          "text": "Modell testen",
+          "description": "Testen Sie die Fähigkeit des Modells, Bilder und PDFs zu verarbeiten",
+          "notConfigLgModel": "Bitte konfigurieren Sie zuerst das große Modell",
+          "confirmTitle": "Modellfähigkeiten testen",
+          "confirmDescription": "Möchten Sie die Fähigkeiten des großen Chat-Modells testen?",
+          "confirm": "Modell testen",
+          "cancel": "Abbrechen",
+          "missingCapabilitiesWarning": "Dieses Modell unterstützt keine Bild- oder PDF-Verarbeitung, was dazu führen kann, dass einige Funktionen nicht verfügbar sind.",
+          "enableAITitle": "AI aktivieren",
+          "enableAIDescription": "Modelltest abgeschlossen. AI ist derzeit nicht aktiviert. Möchten Sie AI aktivieren, um diese Modellfähigkeiten zu nutzen?",
+          "enableAI": "AI aktivieren",
+          "skipTest": "Überspringen"
+        },
+        "chatModelAbility": {
+          "image": "Bild",
+          "pdf": "PDF",
+          "webSearch": "Websuche",
+          "disabledWebSearch": "Websuche deaktiviert",
+          "lgModelAbility": "Große Modellfähigkeit"
+        },
         "configUpdated": "AI-Konfiguration aktualisiert",
         "noModelFound": "Kein Modell gefunden.",
         "searchModel": "Suche Modell...",
@@ -327,7 +366,60 @@
         "fillRequiredFields": "Bitte füllen Sie alle erforderlichen Felder aus",
         "modelsRequired": "Bitte füllen Sie mindestens ein Modell aus",
         "noValidModel": "Kein gültiges Modell gefunden",
-        "addCustomModel": "Benutzerdefiniertes Modell hinzufügen"
+        "addCustomModel": "Benutzerdefiniertes Modell hinzufügen",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Konfigurieren Sie den Firecrawl API-Schlüssel, um die Websuchfunktion zu aktivieren. Gehen Sie zu <a>Firecrawl-Einstellungen</a>, um den API-Schlüssel zu erhalten"
+      }
+    },
+    "action": {
+      "enterApiKey": "API-Schlüssel eingeben",
+      "goToConfiguration": "Zur Konfiguration gehen"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Vielen Dank für die Nutzung von teable",
+      "pleaseGoToConfiguration": "Bitte gehen Sie zur Einstellungsseite, um einige anfängliche Konfigurationen abzuschließen, um die volle Funktionalität und bessere Benutzererfahrung von teable zu genießen",
+      "pleaseContactAdmin": "Bitte wenden Sie sich an den Administrator"
+    },
+    "configuration": {
+      "title": "Ausstehende Konfiguration",
+      "description": "Schließen Sie diese Konfigurationen ab, um vollständige Funktionen zu erhalten",
+      "copyInstance": "ID kopieren",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN Umgebungsvariable",
+          "description": "Ihre <strong>PUBLIC_ORIGIN</strong> Umgebungsvariablenkonfiguration stimmt nicht mit der aktuellen Zugriffsadresse <underline>https://example.com</underline> überein. Import von xlsx, csv und Anhangfeldfunktionen funktionieren möglicherweise nicht ordnungsgemäß. Es wird empfohlen, sie auf <underline>https://example.com</underline> zu setzen"
+        },
+        "https": {
+          "title": "HTTPS aktivieren",
+          "description": "Sie haben HTTPS nicht aktiviert. Die großmaßstäbliche Kopierfunktion (300 Zeilen oder mehr) ist nicht verfügbar. Es wird empfohlen, sie zu aktivieren."
+        },
+        "databaseProxy": {
+          "title": "PUBLIC_DATABASE_PROXY Umgebungsvariable",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> ist nicht konfiguriert. Die externe Datenbankverbindungsfunktion ist nicht verfügbar. Bitte beachten Sie das <a>Hilfedokument</a>",
+          "href": "https://help.teable.ai/de/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden, <anchor>zu den Einstellungen gehen</anchor>",
+          "errorTips": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden"
+        },
+        "app": {
+          "title": "App-Generierung",
+          "description": "Sie haben die v0 API noch nicht konfiguriert. Die App-Generierungsfunktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
+          "errorTips": "Sie haben die v0 API noch nicht konfiguriert. Die App-Generierungsfunktion ist nicht verfügbar"
+        },
+        "webSearch": {
+          "title": "Websuche",
+          "description": "Sie haben die Websuche-API noch nicht konfiguriert. Die Websuchfunktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
+          "errorTips": "Sie haben die Websuche-API noch nicht konfiguriert. Die Websuchfunktion ist nicht verfügbar"
+        },
+        "email": {
+          "title": "E-Mail",
+          "description": "E-Mail nicht konfiguriert. Selbstbedienungs-Passwort-Wiederherstellung und E-Mail-Benachrichtigungsfunktion sind nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
+          "errorTips": "E-Mail nicht konfiguriert. Selbstbedienungs-Passwort-Wiederherstellung, E-Mail-Verifizierung/Benachrichtigungsfunktion sind nicht verfügbar"
+        }
       }
     }
   },

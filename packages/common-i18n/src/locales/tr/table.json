@@ -574,7 +574,8 @@
     },
     "locked": {
       "tip": "Bu görünüm kilitlenmiştir. Kişisel modu etkinleştirerek görünüm seçeneklerini düzenleyebilirsiniz ve değişiklikler sadece kendinize etkili olacaktır."
-    }
+    },
+    "noView": "Görünüm yok"
   },
   "lastModifiedTime": "Son değiştirilme zamanı",
   "lastModify": "Son değişiklik: ",

@@ -264,6 +264,14 @@
       "enableWaitlistDescription": "Habilitar esta opción permitirá que los usuarios se registren solo con un código de invitación.",
       "generalSettings": "Configuración general",
       "aiSettings": "Configuración de AI",
+      "brandingSettings": {
+        "title": "Configuración de marca",
+        "description": "Solo disponible en la Edición Enterprise",
+        "logo": "Logo",
+        "logoDescription": "El logo es su identidad de marca en Teable.",
+        "logoUpload": "Subir logo",
+        "logoUploadDescription": "Suba una imagen de logo, admite formato PNG, JPEG, tamaño recomendado 100x100px. Tamaño máximo de carga 500KB."
+      },
       "ai": {
         "name": "Nombre",
         "nameDescription": "El nombre del proveedor de LLM",
@@ -289,7 +297,38 @@
         "embeddingModelDescription": "Opcional, generalmente la ID del modelo contiene \"incrustación\"",
         "translationModel": "Modelo de traducción",
         "translationModelDescription": "El modelo de traducción para usar",
-        "configUpdated": "Configuración de ai actualizada",
+        "chatModel": "Modelo de chat",
+        "chatModelDescription": "El modelo de chat a usar, Consejo: el modelo de codificación mediano se usa por defecto para generación de fórmulas AI y funciones relacionadas",
+        "chatModels": {
+          "sm": "Modelo de chat pequeño",
+          "smDescription": "Usado para tareas como recomendaciones de escena y operaciones rápidas simples",
+          "md": "Modelo de chat mediano",
+          "mdDescription": "Para escenarios que requieren velocidad y calidad, como crear base de datos, se recomienda usar GPT-4o",
+          "lg": "Modelo de chat avanzado",
+          "lgDescription": "Para planificación, codificación y otros escenarios de tareas complejas, se recomienda usar claude-sonnet-4"
+        },
+        "chatModelTest": {
+          "text": "Probar modelo",
+          "description": "Probar la capacidad del modelo para manejar imágenes, PDF",
+          "notConfigLgModel": "Por favor configure primero el modelo grande",
+          "confirmTitle": "Probar capacidades del modelo",
+          "confirmDescription": "¿Desea probar las capacidades del modelo de chat grande?",
+          "confirm": "Probar modelo",
+          "cancel": "Cancelar",
+          "missingCapabilitiesWarning": "Este modelo no admite procesamiento de imágenes o PDF, lo que puede causar que algunas funciones no estén disponibles.",
+          "enableAITitle": "Habilitar AI",
+          "enableAIDescription": "Prueba de modelo completada. AI no está habilitado actualmente. ¿Desea habilitar AI para usar estas capacidades del modelo?",
+          "enableAI": "Habilitar AI",
+          "skipTest": "Omitir"
+        },
+        "chatModelAbility": {
+          "image": "Imagen",
+          "pdf": "PDF",
+          "webSearch": "Búsqueda web",
+          "disabledWebSearch": "Búsqueda web deshabilitada",
+          "lgModelAbility": "Capacidad de modelo grande"
+        },
+        "configUpdated": "Configuración de AI actualizada",
         "noModelFound": "No se encuentra ningún modelo.",
         "searchModel": "Modelo de búsqueda ...",
         "selectModel": "Seleccionar modelo ...",
@@ -310,7 +349,60 @@
         "fillRequiredFields": "Por favor, complete todos los campos requeridos",
         "modelsRequired": "Por favor, complete al menos un modelo",
         "noValidModel": "No se encontró ningún modelo válido",
-        "addCustomModel": "Agregar modelo personalizado"
+        "addCustomModel": "Agregar modelo personalizado",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Configure la clave API de Firecrawl para habilitar la función de búsqueda web, acceda a <a>configuración de Firecrawl</a> para obtener la clave API"
+      }
+    },
+    "action": {
+      "enterApiKey": "Ingrese la clave API",
+      "goToConfiguration": "Ir a configuración"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Gracias por usar teable",
+      "pleaseGoToConfiguration": "Por favor vaya a la página de configuración para completar algunas configuraciones iniciales para disfrutar de la funcionalidad completa y una mejor experiencia de usuario de teable",
+      "pleaseContactAdmin": "Por favor contacte al administrador"
+    },
+    "configuration": {
+      "title": "Configuración pendiente",
+      "description": "Complete estas configuraciones para obtener funciones completas",
+      "copyInstance": "Copiar ID",
+      "list": {
+        "publicOrigin": {
+          "title": "Variable de entorno PUBLIC_ORIGIN",
+          "description": "Su configuración de variable de entorno <strong>PUBLIC_ORIGIN</strong> no coincide con la dirección de acceso actual <underline>https://example.com</underline>, las funciones de importación xlsx, csv y campo de adjunto pueden no funcionar normalmente, se recomienda configurar a <underline>https://example.com</underline>"
+        },
+        "https": {
+          "title": "Habilitar HTTPS",
+          "description": "No ha habilitado HTTPS, la función de copia a gran escala (300 líneas o más) no estará disponible, se recomienda habilitar."
+        },
+        "databaseProxy": {
+          "title": "Variable de entorno PUBLIC_DATABASE_PROXY",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> no está configurado, la función de conexión de base de datos externa no estará disponible, consulte el <a>documento de ayuda</a>",
+          "href": "https://help.teable.ai/es/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "Aún no ha configurado la API LLM de AI, AI Chat/automatización de AI no se podrá usar, <anchor>ir a configuración</anchor>",
+          "errorTips": "Aún no ha configurado la API LLM de AI, AI Chat/automatización de AI no se podrá usar"
+        },
+        "app": {
+          "title": "Generación de aplicaciones",
+          "description": "Aún no ha configurado la API v0, la función de generación de aplicaciones no estará disponible, <anchor>ir a configuración</anchor>",
+          "errorTips": "Aún no ha configurado la API v0, la función de generación de aplicaciones no estará disponible"
+        },
+        "webSearch": {
+          "title": "Búsqueda web",
+          "description": "Aún no ha configurado la API de búsqueda web, la función de búsqueda web no estará disponible, <anchor>ir a configuración</anchor>",
+          "errorTips": "Aún no ha configurado la API de búsqueda web, la función de búsqueda web no estará disponible"
+        },
+        "email": {
+          "title": "Correo electrónico",
+          "description": "Correo electrónico no configurado, la recuperación de contraseña de autoservicio y la función de notificación por correo electrónico no estarán disponibles, <anchor>ir a configuración</anchor>",
+          "errorTips": "Correo electrónico no configurado, la recuperación de contraseña de autoservicio, verificación de correo electrónico/función de notificación no estarán disponibles"
+        }
       }
     }
   },

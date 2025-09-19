@@ -613,7 +613,8 @@
     },
     "locked": {
       "tip": "This view is locked. You can enable personal mode to edit view options, and the changes will only take effect for yourself."
-    }
+    },
+    "noView": "No view"
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: ",

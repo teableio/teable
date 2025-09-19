@@ -239,6 +239,14 @@
       "enableWaitlistDescription": "Activer cette option permettra aux utilisateurs de s'inscrire uniquement avec un code d'invitation.",
       "generalSettings": "Paramètres généraux",
       "aiSettings": "Paramètres AI",
+      "brandingSettings": {
+        "title": "Paramètres de marque",
+        "description": "Disponible uniquement dans l'Édition Enterprise",
+        "logo": "Logo",
+        "logoDescription": "Le logo est votre identité de marque dans Teable.",
+        "logoUpload": "Télécharger le logo",
+        "logoUploadDescription": "Téléchargez une image de logo, prend en charge les formats PNG, JPEG, taille recommandée 100x100px. Taille maximale de téléchargement 500KB."
+      },
       "ai": {
         "name": "Nom",
         "nameDescription": "Le nom du fournisseur LLM",
@@ -264,7 +272,38 @@
         "embeddingModelDescription": "Optionnel, généralement l'ID du modèle contient \"embedding\"",
         "translationModel": "Modèle de traduction",
         "translationModelDescription": "Le modèle de traduction à utiliser",
-        "configUpdated": "Paramètres AI mis à jour",
+        "chatModel": "Modèle de chat",
+        "chatModelDescription": "Le modèle de chat à utiliser, Astuce : le modèle de codage moyen est utilisé par défaut pour la génération de formules AI et les fonctionnalités associées",
+        "chatModels": {
+          "sm": "Petit modèle de chat",
+          "smDescription": "Utilisé pour des tâches telles que les recommandations de scène et les opérations rapides simples",
+          "md": "Modèle de chat moyen",
+          "mdDescription": "Pour les scénarios nécessitant vitesse et qualité, comme créer une base de données, il est recommandé d'utiliser GPT-4o",
+          "lg": "Modèle de chat avancé",
+          "lgDescription": "Pour la planification, le codage et autres scénarios de tâches complexes, il est recommandé d'utiliser claude-sonnet-4"
+        },
+        "chatModelTest": {
+          "text": "Tester le modèle",
+          "description": "Tester la capacité du modèle à traiter les images, PDF",
+          "notConfigLgModel": "Veuillez d'abord configurer le grand modèle",
+          "confirmTitle": "Tester les capacités du modèle",
+          "confirmDescription": "Voulez-vous tester les capacités du grand modèle de chat ?",
+          "confirm": "Tester le modèle",
+          "cancel": "Annuler",
+          "missingCapabilitiesWarning": "Ce modèle ne prend pas en charge le traitement d'images ou de PDF, ce qui peut rendre certaines fonctionnalités indisponibles.",
+          "enableAITitle": "Activer l'AI",
+          "enableAIDescription": "Test du modèle terminé. L'AI n'est pas activée actuellement. Voulez-vous activer l'AI pour utiliser ces capacités de modèle ?",
+          "enableAI": "Activer l'AI",
+          "skipTest": "Ignorer"
+        },
+        "chatModelAbility": {
+          "image": "Image",
+          "pdf": "PDF",
+          "webSearch": "Recherche web",
+          "disabledWebSearch": "Recherche web désactivée",
+          "lgModelAbility": "Capacité du grand modèle"
+        },
+        "configUpdated": "Configuration AI mise à jour",
         "noModelFound": "Aucun modèle trouvé",
         "searchModel": "Rechercher un modèle...",
         "selectModel": "Sélectionner un modèle...",
@@ -285,7 +324,60 @@
         "fillRequiredFields": "Veuillez remplir tous les champs requis",
         "modelsRequired": "Veuillez remplir au moins un modèle",
         "noValidModel": "Aucun modèle valide trouvé",
-        "addCustomModel": "Ajouter un modèle personnalisé"
+        "addCustomModel": "Ajouter un modèle personnalisé",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Configurez la clé API Firecrawl pour activer la fonction de recherche web, accédez aux <a>paramètres Firecrawl</a> pour obtenir la clé API"
+      }
+    },
+    "action": {
+      "enterApiKey": "Entrez la clé API",
+      "goToConfiguration": "Aller à la configuration"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Merci d'utiliser teable",
+      "pleaseGoToConfiguration": "Veuillez vous rendre sur la page des paramètres pour terminer certaines configurations initiales afin de profiter de toutes les fonctionnalités et d'une meilleure expérience utilisateur de teable",
+      "pleaseContactAdmin": "Veuillez contacter l'administrateur"
+    },
+    "configuration": {
+      "title": "Configuration en attente",
+      "description": "Complétez ces configurations pour obtenir toutes les fonctionnalités",
+      "copyInstance": "Copier l'ID",
+      "list": {
+        "publicOrigin": {
+          "title": "Variable d'environnement PUBLIC_ORIGIN",
+          "description": "Votre configuration de variable d'environnement <strong>PUBLIC_ORIGIN</strong> ne correspond pas à l'adresse d'accès actuelle <underline>https://example.com</underline>, les fonctions d'importation xlsx, csv et de champ de pièce jointe peuvent ne pas fonctionner normalement, il est recommandé de la définir sur <underline>https://example.com</underline>"
+        },
+        "https": {
+          "title": "Activer HTTPS",
+          "description": "Vous n'avez pas activé HTTPS, la fonction de copie à grande échelle (300 lignes ou plus) ne sera pas disponible, il est recommandé de l'activer."
+        },
+        "databaseProxy": {
+          "title": "Variable d'environnement PUBLIC_DATABASE_PROXY",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> n'est pas configuré, la fonction de connexion de base de données externe ne sera pas disponible, veuillez consulter le <a>document d'aide</a>",
+          "href": "https://help.teable.ai/fr/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "Vous n'avez pas encore configuré l'API LLM AI, AI Chat/automatisation AI ne pourra pas être utilisé, <anchor>aller aux paramètres</anchor>",
+          "errorTips": "Vous n'avez pas encore configuré l'API LLM AI, AI Chat/automatisation AI ne pourra pas être utilisé"
+        },
+        "app": {
+          "title": "Génération d'application",
+          "description": "Vous n'avez pas encore configuré l'API v0, la fonction de génération d'application ne sera pas disponible, <anchor>aller aux paramètres</anchor>",
+          "errorTips": "Vous n'avez pas encore configuré l'API v0, la fonction de génération d'application ne sera pas disponible"
+        },
+        "webSearch": {
+          "title": "Recherche web",
+          "description": "Vous n'avez pas encore configuré l'API de recherche web, la fonction de recherche web ne sera pas disponible, <anchor>aller aux paramètres</anchor>",
+          "errorTips": "Vous n'avez pas encore configuré l'API de recherche web, la fonction de recherche web ne sera pas disponible"
+        },
+        "email": {
+          "title": "Email",
+          "description": "Email non configuré, la récupération de mot de passe en libre-service et la fonction de notification par email ne seront pas disponibles, <anchor>aller aux paramètres</anchor>",
+          "errorTips": "Email non configuré, la récupération de mot de passe en libre-service, la vérification email/fonction de notification ne seront pas disponibles"
+        }
       }
     }
   },

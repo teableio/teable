@@ -248,7 +248,149 @@
       "enableEmailVerification": "E-posta doğrulamasını etkinleştir",
       "enableEmailVerificationDescription": "Bu seçeneği etkinleştirmek, yeni hesap oluştururken kullanıcıların e-posta adreslerini doğrulamasını gerektirecektir.",
       "enableWaitlist": "Bekleme listesini etkinleştir",
-      "enableWaitlistDescription": "Bu seçeneği etkinleştirmek, kullanıcıların yalnızca davet kodu ile hesap oluşturmasına izin verecektir."
+      "enableWaitlistDescription": "Bu seçeneği etkinleştirmek, kullanıcıların yalnızca davet kodu ile hesap oluşturmasına izin verecektir.",
+      "generalSettings": "Genel ayarlar",
+      "aiSettings": "AI ayarları",
+      "brandingSettings": {
+        "title": "Marka ayarları",
+        "description": "Yalnızca Kurumsal Sürümde kullanılabilir",
+        "logo": "Logo",
+        "logoDescription": "Logo, Teable'daki marka kimliğinizdir.",
+        "logoUpload": "Logo yükle",
+        "logoUploadDescription": "Logo resmi yükleyin, PNG, JPEG formatlarını destekler, önerilen boyut 100x100px. Maksimum yükleme boyutu 500KB."
+      },
+      "ai": {
+        "name": "İsim",
+        "nameDescription": "İsim özelleştirilebilir, farklı model sağlayıcılarını ayırt etmek için kullanılır",
+        "enable": "AI'ı etkinleştir",
+        "enableDescription": "Mevcut örnek için AI özelliklerini etkinleştirin, tüm kullanıcılar AI özelliklerini kullanabilecek",
+        "updateLLMProvider": "Model sağlayıcısını güncelle",
+        "addProvider": "Model sağlayıcı ekle",
+        "addProviderDescription": "Listeye yeni bir model sağlayıcı ekle",
+        "providerType": "Sağlayıcı türü",
+        "baseUrl": "Temel URL",
+        "apiKey": "API anahtarı",
+        "baseUrlDescription": "Model sağlayıcının temel URL'si",
+        "apiKeyDescription": "Model sağlayıcının API anahtarı",
+        "models": "Modeller",
+        "modelsDescription": "Model sağlayıcının desteklediği modeller",
+        "baseUrlRequired": "Temel URL gereklidir",
+        "fetchModelListError": "Model listesi alınamadı",
+        "provider": "Model sağlayıcı",
+        "providerDescription": "Kullanılacak model sağlayıcı",
+        "modelPreferences": "Model tercihleri",
+        "modelPreferencesDescription": "Model sağlayıcının model tercihleri",
+        "embeddingModel": "Gömme modeli",
+        "embeddingModelDescription": "İsteğe bağlı, genellikle model kimliği \"embedding\" içerir",
+        "translationModel": "Çeviri modeli",
+        "translationModelDescription": "Kullanılacak çeviri modeli",
+        "chatModel": "Sohbet modeli",
+        "chatModelDescription": "Kullanılacak sohbet modeli, İpucu: orta kodlama modeli varsayılan olarak AI formül üretimi ve ilgili özellikler için kullanılır",
+        "chatModels": {
+          "sm": "Küçük sohbet modeli",
+          "smDescription": "Sahne önerisi ve basit hızlı işlemler gibi görevler için kullanılır",
+          "md": "Orta sohbet modeli",
+          "mdDescription": "Hız ve kalite gerektiren senaryolar için, veritabanı oluşturma gibi, GPT-4o kullanılması önerilir",
+          "lg": "Gelişmiş sohbet modeli",
+          "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için claude-sonnet-4 kullanılması önerilir"
+        },
+        "chatModelTest": {
+          "text": "Test modeli",
+          "description": "Modelin resim, PDF işleme kabiliyetini test et",
+          "notConfigLgModel": "Lütfen önce büyük modeli yapılandırın",
+          "confirmTitle": "Model Kabiliyetini Test Et",
+          "confirmDescription": "Büyük sohbet modelinin kabiliyetlerini test etmek istiyor musunuz?",
+          "confirm": "Modeli Test Et",
+          "cancel": "İptal",
+          "missingCapabilitiesWarning": "Bu model resim veya PDF işlemeyi desteklemiyor, bu bazı özelliklerin kullanılamaz olmasına neden olabilir.",
+          "enableAITitle": "AI'ı Etkinleştir",
+          "enableAIDescription": "Model testi tamamlandı. AI şu anda etkin değil. Bu model kabiliyetlerini kullanmak için AI'ı etkinleştirmek istiyor musunuz?",
+          "enableAI": "AI'ı Etkinleştir",
+          "skipTest": "Atla"
+        },
+        "chatModelAbility": {
+          "image": "Resim",
+          "pdf": "PDF",
+          "webSearch": "Web Araması",
+          "disabledWebSearch": "Web Araması Devre Dışı",
+          "lgModelAbility": "Büyük model kabiliyeti"
+        },
+        "configUpdated": "AI yapılandırması güncellendi",
+        "noModelFound": "Model bulunamadı",
+        "searchModel": "Model ara...",
+        "selectModel": "Model seç...",
+        "input": "Giriş {{ratio}}",
+        "output": "Çıkış {{ratio}}",
+        "inputOrOutputTip": "Oran, hesaplama gücü ile Token arasındaki dönüşüm ilişkisini temsil eder, örneğin \"1:1000\" 1 hesaplama gücü ≈ 1000 Token anlamına gelir.<br></br>Not: Her kullanımda en az 1 hesaplama gücü kesilir, gerçek tüketim 1 hesaplama gücünden az olsa bile",
+        "imageOutput": "Her resim {{credits}}",
+        "imageOutputTip": "Resim üretimi hesaplama gücü gerektirir, her resim {{credits}} hesaplama gücü tüketir",
+        "supportImageOutputTip": "Bu model resim üretimini destekler",
+        "supportVisionTip": "Bu model resim girişini destekler",
+        "supportAudioTip": "Bu model ses girişini destekler",
+        "supportVideoTip": "Bu model video girişini destekler",
+        "supportDeepThinkTip": "Bu model derin düşünmeyi destekler",
+        "testConnection": "Test",
+        "testing": "Test ediliyor...",
+        "testSuccess": "Test başarılı",
+        "testFailed": "Test başarısız",
+        "fillRequiredFields": "Lütfen tüm gerekli alanları doldurun",
+        "modelsRequired": "Lütfen en az bir model doldurun",
+        "noValidModel": "Geçerli model bulunamadı",
+        "addCustomModel": "Özel model ekle",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Web arama özelliğini etkinleştirmek için Firecrawl API anahtarını yapılandırın, API anahtarını almak için <a>Firecrawl ayarlarına</a> erişin"
+      }
+    },
+    "action": {
+      "enterApiKey": "API anahtarı girin",
+      "goToConfiguration": "Yapılandırmaya git"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Teable kullandığınız için teşekkürler",
+      "pleaseGoToConfiguration": "Teable'ın tam işlevselliğini ve daha iyi kullanıcı deneyimini keyfini çıkarmak için lütfen ayarlar sayfasına giderek bazı başlangıç yapılandırmalarını tamamlayın",
+      "pleaseContactAdmin": "Lütfen yöneticiyle iletişime geçin"
+    },
+    "configuration": {
+      "title": "Yapılandırma bekleyen öğeler",
+      "description": "Tam işlevsellik için bu yapılandırmaları tamamlayın",
+      "copyInstance": "ID'yi kopyala",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN ortam değişkeni",
+          "description": "<strong>PUBLIC_ORIGIN</strong> ortam değişkeni yapılandırmanız mevcut erişim adresi <underline>https://example.com</underline> ile eşleşmiyor, xlsx, csv içe aktarma ve ek alanı işlevleri normal çalışmayabilir, <underline>https://example.com</underline> olarak ayarlanması önerilir"
+        },
+        "https": {
+          "title": "HTTPS'yi etkinleştir",
+          "description": "HTTPS'yi etkinleştirmediniz, büyük ölçekli kopyalama (300 satır veya daha fazla) özelliği kullanılamayacak, etkinleştirmeniz önerilir."
+        },
+        "databaseProxy": {
+          "title": "PUBLIC_DATABASE_PROXY ortam değişkeni",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> yapılandırılmamış, harici veritabanı bağlantı özelliği kullanılamayacak, lütfen <a>yardım belgelerine</a> bakın",
+          "href": "https://help.teable.ai/tr/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak"
+        },
+        "app": {
+          "title": "Uygulama Üretimi",
+          "description": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak"
+        },
+        "webSearch": {
+          "title": "Web Araması",
+          "description": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak"
+        },
+        "email": {
+          "title": "E-posta",
+          "description": "E-posta yapılandırılmamış, self-servis şifre kurtarma ve e-posta bildirim işlevi kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "E-posta yapılandırılmamış, self-servis şifre kurtarma, e-posta doğrulama/bildirim işlevi kullanılamayacak"
+        }
+      }
     }
   },
   "notification": {

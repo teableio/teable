@@ -606,7 +606,8 @@
     },
     "locked": {
       "tip": "Diese Ansicht ist gesperrt. Sie können den persönlichen Modus aktivieren, um die Ansichtsoptionen zu bearbeiten, und die Änderungen wirken sich nur auf Sie aus."
-    }
+    },
+    "noView": "Keine Ansichten"
   },
   "lastModifiedTime": "Letzter Änderungszeitpunkt",
   "lastModify": "Letzte Änderung: ",

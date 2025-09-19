@@ -753,7 +753,8 @@
     },
     "tips": {
       "thankYouForUsingTeable": "Thank you for using teable",
-      "pleaseGoToConfiguration": "Please go to the settings page to complete some initial configurations to enjoy the full functionality and a better user experience of teable"
+      "pleaseGoToConfiguration": "Please go to the settings page to complete some initial configurations to enjoy the full functionality and a better user experience of teable",
+      "pleaseContactAdmin": "Please contact the administrator"
     },
     "configuration": {
       "title": "Pending configuration",

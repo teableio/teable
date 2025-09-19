@@ -606,7 +606,8 @@
     },
     "locked": {
       "tip": "Questa vista è bloccata. Puoi abilitare la modalità personale per modificare le opzioni della vista, e le modifiche avranno effetto solo per te."
-    }
+    },
+    "noView": "Nessuna vista"
   },
   "lastModifiedTime": "Ultima modifica",
   "lastModify": "Ultima modifica: ",

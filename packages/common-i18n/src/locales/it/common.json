@@ -278,6 +278,14 @@
       "enableWaitlistDescription": "Abilitando questa opzione si consentirà agli utenti di registrarsi solo con un codice di invito.",
       "generalSettings": "Impostazioni generali",
       "aiSettings": "Impostazioni AI",
+      "brandingSettings": {
+        "title": "Impostazioni di branding",
+        "description": "Disponibile solo nell'Edizione Enterprise",
+        "logo": "Logo",
+        "logoDescription": "Il logo è la tua identità di marca in Teable.",
+        "logoUpload": "Carica logo",
+        "logoUploadDescription": "Carica immagine del logo, supporta formato PNG, JPEG, dimensioni consigliate 100x100px. Dimensione massima di caricamento 500KB."
+      },
       "ai": {
         "name": "Nome",
         "nameDescription": "Il nome del fornitore LLM",
@@ -303,10 +311,112 @@
         "embeddingModelDescription": "Il modello di embedding da utilizzare",
         "translationModel": "Modello di traduzione",
         "translationModelDescription": "Il modello di traduzione da utilizzare",
+        "chatModel": "Modello di chat",
+        "chatModelDescription": "Il modello di chat da utilizzare, Suggerimento: il modello di codifica medio viene utilizzato per impostazione predefinita per la generazione di formule AI e funzioni correlate",
+        "chatModels": {
+          "sm": "Modello di chat piccolo",
+          "smDescription": "Utilizzato per attività come raccomandazioni di scenario e operazioni rapide semplici",
+          "md": "Modello di chat medio",
+          "mdDescription": "Per scenari che richiedono velocità e qualità, come la creazione di database, si consiglia di utilizzare GPT-4o",
+          "lg": "Modello di chat avanzato",
+          "lgDescription": "Per pianificazione, codifica e altri scenari di compiti complessi, si consiglia di utilizzare claude-sonnet-4"
+        },
+        "chatModelTest": {
+          "text": "Testa modello",
+          "description": "Testa la capacità del modello di gestire immagini, PDF",
+          "notConfigLgModel": "Per favore configura prima il modello grande",
+          "confirmTitle": "Testa capacità del modello",
+          "confirmDescription": "Vuoi testare le capacità del modello di chat grande?",
+          "confirm": "Testa modello",
+          "cancel": "Annulla",
+          "missingCapabilitiesWarning": "Questo modello non supporta l'elaborazione di immagini o PDF, il che potrebbe rendere alcune funzionalità non disponibili.",
+          "enableAITitle": "Abilita AI",
+          "enableAIDescription": "Test del modello completato. AI non è attualmente abilitato. Vuoi abilitare AI per utilizzare queste capacità del modello?",
+          "enableAI": "Abilita AI",
+          "skipTest": "Salta"
+        },
+        "chatModelAbility": {
+          "image": "Immagine",
+          "pdf": "PDF",
+          "webSearch": "Ricerca web",
+          "disabledWebSearch": "Ricerca web disabilitata",
+          "lgModelAbility": "Capacità del modello grande"
+        },
         "configUpdated": "Configurazione AI aggiornata",
         "noModelFound": "Nessun modello trovato.",
         "searchModel": "Cerca modello...",
-        "selectModel": "Seleziona modello..."
+        "selectModel": "Seleziona modello...",
+        "input": "Input {{ratio}}",
+        "output": "Output {{ratio}}",
+        "inputOrOutputTip": "Il rapporto rappresenta il tasso di cambio tra crediti e token, ad esempio \"1:1000\" significa che 1 credito ≈ 1000 token.<br></br>Nota: ogni utilizzo dedurrà almeno 1 credito. Anche se il consumo effettivo è inferiore a 1 credito, verrà comunque addebitato come 1 credito.",
+        "imageOutput": "Per immagine {{credits}}",
+        "imageOutputTip": "La generazione di immagini richiede crediti, ogni immagine consuma {{credits}} crediti",
+        "supportImageOutputTip": "Questo modello supporta la generazione di immagini",
+        "supportVisionTip": "Questo modello supporta l'input di immagini",
+        "supportAudioTip": "Questo modello supporta l'input audio",
+        "supportVideoTip": "Questo modello supporta l'input video",
+        "supportDeepThinkTip": "Questo modello supporta il pensiero profondo",
+        "testConnection": "Test",
+        "testing": "Test in corso...",
+        "testSuccess": "Test riuscito",
+        "testFailed": "Test fallito",
+        "fillRequiredFields": "Per favore compila tutti i campi obbligatori",
+        "modelsRequired": "Per favore compila almeno un modello",
+        "noValidModel": "Nessun modello valido trovato",
+        "addCustomModel": "Aggiungi modello personalizzato",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Configura la chiave API Firecrawl per abilitare la funzione di ricerca web, accedi alle <a>impostazioni Firecrawl</a> per ottenere la chiave API"
+      }
+    },
+    "action": {
+      "enterApiKey": "Inserisci chiave API",
+      "goToConfiguration": "Vai alla configurazione"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Grazie per aver usato teable",
+      "pleaseGoToConfiguration": "Per favore vai alla pagina delle impostazioni per completare alcune configurazioni iniziali per godere della piena funzionalità e di una migliore esperienza utente di teable",
+      "pleaseContactAdmin": "Per favore contatta l'amministratore"
+    },
+    "configuration": {
+      "title": "Configurazione in attesa",
+      "description": "Completa queste configurazioni per ottenere funzionalità complete",
+      "copyInstance": "Copia ID",
+      "list": {
+        "publicOrigin": {
+          "title": "Variabile d'ambiente PUBLIC_ORIGIN",
+          "description": "La configurazione della variabile d'ambiente <strong>PUBLIC_ORIGIN</strong> non corrisponde all'indirizzo di accesso corrente <underline>https://example.com</underline>, le funzioni di importazione xlsx, csv e campo allegato potrebbero non funzionare normalmente, si consiglia di impostarla su <underline>https://example.com</underline>"
+        },
+        "https": {
+          "title": "Abilita HTTPS",
+          "description": "Non hai abilitato HTTPS, la funzione di copia su larga scala (300 righe o più) non sarà disponibile, si consiglia di abilitarla."
+        },
+        "databaseProxy": {
+          "title": "Variabile d'ambiente PUBLIC_DATABASE_PROXY",
+          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> non è configurato, la funzione di connessione database esterno non sarà disponibile, per favore fai riferimento al <a>documento di aiuto</a>",
+          "href": "https://help.teable.ai/it/deploy/database-connection#enable-external-database-connection"
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile, <anchor>vai alle impostazioni</anchor>",
+          "errorTips": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile"
+        },
+        "app": {
+          "title": "Generazione app",
+          "description": "Non hai ancora configurato l'API v0, la funzione di generazione app non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
+          "errorTips": "Non hai ancora configurato l'API v0, la funzione di generazione app non sarà disponibile"
+        },
+        "webSearch": {
+          "title": "Ricerca web",
+          "description": "Non hai ancora configurato l'API di ricerca web, la funzione di ricerca web non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
+          "errorTips": "Non hai ancora configurato l'API di ricerca web, la funzione di ricerca web non sarà disponibile"
+        },
+        "email": {
+          "title": "Email",
+          "description": "Email non configurata, il ripristino password self-service e la funzione di notifica email non saranno disponibili, <anchor>vai alle impostazioni</anchor>",
+          "errorTips": "Email non configurata, il ripristino password self-service, verifica email/funzione di notifica non saranno disponibili"
+        }
       }
     }
   },

@@ -274,9 +274,13 @@ export class ViewService implements IReadonlyAdapterService {
     return convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
   }
 
-  async getViews(tableId: string): Promise<IViewVo[]> {
+  async getViews(tableId: string, ids?: string[]): Promise<IViewVo[]> {
     const viewRaws = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
+      where: {
+        tableId,
+        deletedTime: null,
+        id: { in: ids },
+      },
       orderBy: { order: 'asc' },
     });
 
