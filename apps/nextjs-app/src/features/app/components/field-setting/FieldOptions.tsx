@@ -14,6 +14,7 @@ import type {
   ICheckboxFieldOptions,
   ILongTextFieldOptions,
   IButtonFieldOptions,
+  IReferenceLookupFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { ButtonOptions } from './options/ButtonOptions';
@@ -25,6 +26,7 @@ import { LinkOptions } from './options/LinkOptions';
 import { LongTextOptions } from './options/LongTextOptions';
 import { NumberOptions } from './options/NumberOptions';
 import { RatingOptions } from './options/RatingOptions';
+import { ReferenceLookupOptions } from './options/ReferenceLookupOptions';
 import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions/SelectOptions';
 import { SingleLineTextOptions } from './options/SingleLineTextOptions';
@@ -144,6 +146,14 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
           isLookup={isLookup}
           cellValueType={cellValueType}
           isMultipleCellValue={isMultipleCellValue}
+          onChange={onChange}
+        />
+      );
+    case FieldType.ReferenceLookup:
+      return (
+        <ReferenceLookupOptions
+          fieldId={id}
+          options={options as IReferenceLookupFieldOptions}
           onChange={onChange}
         />
       );

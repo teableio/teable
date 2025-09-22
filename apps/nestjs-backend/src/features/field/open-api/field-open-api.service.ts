@@ -713,7 +713,11 @@ export class FieldOpenApiService {
       };
     }
 
-    if (fieldInstance.isLookup || fieldInstance.type === FieldType.Rollup) {
+    if (
+      fieldInstance.isLookup ||
+      fieldInstance.type === FieldType.Rollup ||
+      fieldInstance.type === FieldType.ReferenceLookup
+    ) {
       newFieldInstance.lookupOptions = {
         ...pick(fieldInstance.lookupOptions, [
           'foreignTableId',

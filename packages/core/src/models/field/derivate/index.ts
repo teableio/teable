@@ -25,6 +25,8 @@ export * from './checkbox.field';
 export * from './checkbox-option.schema';
 export * from './rollup.field';
 export * from './rollup-option.schema';
+export * from './reference-lookup.field';
+export * from './reference-lookup-option.schema';
 export * from './rating.field';
 export * from './rating-option.schema';
 export * from './auto-number.field';

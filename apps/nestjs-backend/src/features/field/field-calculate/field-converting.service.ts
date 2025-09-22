@@ -49,6 +49,7 @@ import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-field.dto';
 import type { RatingFieldDto } from '../model/field-dto/rating-field.dto';
+import { ReferenceLookupFieldDto } from '../model/field-dto/reference-lookup-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 import type { SingleSelectFieldDto } from '../model/field-dto/single-select-field.dto';
 import type { UserFieldDto } from '../model/field-dto/user-field.dto';
@@ -212,6 +213,39 @@ export class FieldConvertingService {
     return ops.filter(Boolean) as IOtOperation[];
   }
 
+  private updateReferenceLookupField(
+    field: ReferenceLookupFieldDto,
+    fieldMap: IFieldMap
+  ): IOtOperation[] {
+    const ops: IOtOperation[] = [];
+    const lookupFieldId = field.options.lookupFieldId;
+    if (!lookupFieldId) {
+      return ops;
+    }
+    const lookupField = fieldMap[lookupFieldId];
+
+    if (!lookupField) {
+      return ops;
+    }
+
+    const { cellValueType, isMultipleCellValue } = ReferenceLookupFieldDto.getParsedValueType(
+      field.options.expression,
+      lookupField.cellValueType,
+      true
+    );
+
+    if (field.cellValueType !== cellValueType) {
+      const op = this.buildOpAndMutateField(field, 'cellValueType', cellValueType);
+      op && ops.push(op);
+    }
+    if (field.isMultipleCellValue !== isMultipleCellValue) {
+      const op = this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue);
+      op && ops.push(op);
+    }
+
+    return ops;
+  }
+
   private updateDbFieldType(field: IFieldInstance) {
     const ops: IOtOperation[] = [];
     const dbFieldType = this.fieldSupplementService.getDbFieldType(
@@ -270,6 +304,8 @@ export class FieldConvertingService {
         pushOpsMap(tableId, curField.id, this.updateFormulaField(curField, fieldMap));
       } else if (curField.type === FieldType.Rollup) {
         pushOpsMap(tableId, curField.id, this.updateRollupField(curField, fieldMap));
+      } else if (curField.type === FieldType.ReferenceLookup) {
+        pushOpsMap(tableId, curField.id, this.updateReferenceLookupField(curField, fieldMap));
       }
       pushOpsMap(tableId, curField.id, this.updateDbFieldType(curField));
     }

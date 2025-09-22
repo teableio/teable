@@ -13,6 +13,7 @@ import type { LongTextFieldCore } from './derivate/long-text.field';
 import type { MultipleSelectFieldCore } from './derivate/multiple-select.field';
 import type { NumberFieldCore } from './derivate/number.field';
 import type { RatingFieldCore } from './derivate/rating.field';
+import type { ReferenceLookupFieldCore } from './derivate/reference-lookup.field';
 import type { RollupFieldCore } from './derivate/rollup.field';
 import type { SingleLineTextFieldCore } from './derivate/single-line-text.field';
 import type { SingleSelectFieldCore } from './derivate/single-select.field';
@@ -36,6 +37,7 @@ export interface IFieldVisitor<T = unknown> {
   visitAutoNumberField(field: AutoNumberFieldCore): T;
   visitLinkField(field: LinkFieldCore): T;
   visitRollupField(field: RollupFieldCore): T;
+  visitReferenceLookupField(field: ReferenceLookupFieldCore): T;
 
   // Select field types (inherit from SelectFieldCore)
   visitSingleSelectField(field: SingleSelectFieldCore): T;

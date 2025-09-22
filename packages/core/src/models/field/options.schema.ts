@@ -15,6 +15,7 @@ import { linkFieldOptionsSchema } from './derivate/link-option.schema';
 import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
 import { numberFieldOptionsSchema } from './derivate/number-option.schema';
 import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
+import { referenceLookupFieldOptionsSchema } from './derivate/reference-lookup-option.schema';
 import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
 import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
 import { userFieldOptionsSchema } from './derivate/user-option.schema';
@@ -57,6 +58,8 @@ export function safeParseOptions(fieldType: FieldType, value: unknown) {
       return lastModifiedByFieldOptionsSchema.safeParse(value);
     case FieldType.Rollup:
       return rollupFieldOptionsSchema.safeParse(value);
+    case FieldType.ReferenceLookup:
+      return referenceLookupFieldOptionsSchema.safeParse(value);
     case FieldType.Button:
       return buttonFieldOptionsSchema.safeParse(value);
     default:

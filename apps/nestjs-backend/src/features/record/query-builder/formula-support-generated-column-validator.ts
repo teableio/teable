@@ -115,6 +115,7 @@ export class FormulaSupportGeneratedColumnValidator {
     if (
       field.type === FieldType.Link ||
       field.type === FieldType.Rollup ||
+      field.type === FieldType.ReferenceLookup ||
       field.isLookup === true ||
       field.type === FieldType.CreatedTime ||
       field.type === FieldType.LastModifiedTime ||

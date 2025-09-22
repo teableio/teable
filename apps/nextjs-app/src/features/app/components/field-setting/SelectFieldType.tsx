@@ -41,6 +41,7 @@ export const FIELD_TYPE_ORDER1 = [
   FieldType.Formula,
   FieldType.Link,
   FieldType.Rollup,
+  FieldType.ReferenceLookup,
   FieldType.Button,
   FieldType.CreatedTime,
   FieldType.LastModifiedTime,
@@ -66,6 +67,7 @@ const ADVANCED_FIELD_TYPE_ORDER = [
   FieldType.Formula,
   FieldType.Link,
   FieldType.Rollup,
+  FieldType.ReferenceLookup,
   FieldType.Button,
   FieldType.AutoNumber,
 ];

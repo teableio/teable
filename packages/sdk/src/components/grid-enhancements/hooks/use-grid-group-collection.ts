@@ -126,7 +126,8 @@ const useGenerateGroupCellFn = () => {
           }
           case FieldType.Number:
           case FieldType.Rollup:
-          case FieldType.Formula: {
+          case FieldType.Formula:
+          case FieldType.ReferenceLookup: {
             if (cellValueType === CellValueType.Boolean) {
               return {
                 type: CellType.Boolean,

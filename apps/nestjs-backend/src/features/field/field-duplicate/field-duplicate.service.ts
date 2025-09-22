@@ -4,6 +4,7 @@ import type {
   IFormulaFieldOptions,
   ILinkFieldOptions,
   ILookupOptionsRo,
+  IReferenceLookupFieldOptions,
 } from '@teable/core';
 import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -680,6 +681,9 @@ export class FieldDuplicateService {
     );
     const lookupFields = targetFields.filter((field) => field.isLookup);
     const rollupFields = targetFields.filter((field) => field.type === FieldType.Rollup);
+    const referenceLookupFields = targetFields.filter(
+      (field) => field.type === FieldType.ReferenceLookup
+    );
 
     for (const field of linkFields) {
       const { options, id } = field;
@@ -709,6 +713,15 @@ export class FieldDuplicateService {
         data: {
           options: JSON.stringify(newOptions),
         },
+      });
+    }
+    for (const field of referenceLookupFields) {
+      const { options, id } = field;
+      const newOptions = replaceStringByMap(options, { tableIdMap, fieldIdMap, viewIdMap }, false);
+
+      await prisma.field.update({
+        where: { id },
+        data: { options: JSON.stringify(newOptions) },
       });
     }
     for (const field of [...lookupFields, ...rollupFields]) {
@@ -824,6 +837,7 @@ export class FieldDuplicateService {
     const isAiConfig = field.aiConfig && !field.isLookup;
     const isLookup = field.isLookup;
     const isRollup = field.type === FieldType.Rollup && !field.isLookup;
+    const isReferenceLookup = field.type === FieldType.ReferenceLookup;
     const isFormula = field.type === FieldType.Formula && !field.isLookup;
 
     switch (true) {
@@ -845,6 +859,15 @@ export class FieldDuplicateService {
         break;
       case isRollup:
         await this.duplicateRollupField(
+          sourceTableId,
+          targetTableId,
+          field,
+          tableIdMap,
+          sourceToTargetFieldMap
+        );
+        break;
+      case isReferenceLookup:
+        await this.duplicateReferenceLookupField(
           sourceTableId,
           targetTableId,
           field,
@@ -996,6 +1019,72 @@ export class FieldDuplicateService {
             ...newField.lookupOptions,
             lookupFieldId: lookupFieldId,
           }),
+          options: JSON.stringify(options),
+        },
+      });
+    }
+  }
+
+  async duplicateReferenceLookupField(
+    _sourceTableId: string,
+    targetTableId: string,
+    fieldInstance: IFieldWithTableIdJson,
+    tableIdMap: Record<string, string>,
+    sourceToTargetFieldMap: Record<string, string>
+  ) {
+    const {
+      dbFieldName,
+      name,
+      id,
+      hasError,
+      options,
+      notNull,
+      unique,
+      description,
+      isPrimary,
+      type,
+    } = fieldInstance;
+
+    const referenceOptions = options as IReferenceLookupFieldOptions;
+    const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
+
+    const remappedOptions = replaceStringByMap(
+      {
+        ...referenceOptions,
+        foreignTableId:
+          tableIdMap[referenceOptions.foreignTableId!] || referenceOptions.foreignTableId,
+        lookupFieldId: hasError
+          ? mockFieldId
+          : sourceToTargetFieldMap[referenceOptions.lookupFieldId!] ||
+            referenceOptions.lookupFieldId,
+      },
+      { tableIdMap, fieldIdMap: sourceToTargetFieldMap },
+      false
+    ) as IReferenceLookupFieldOptions;
+
+    const newField = await this.fieldOpenApiService.createField(targetTableId, {
+      type: FieldType.ReferenceLookup,
+      dbFieldName,
+      description,
+      options: remappedOptions,
+      name,
+    });
+
+    await this.replenishmentConstraint(newField.id, targetTableId, fieldInstance.order, {
+      notNull,
+      unique,
+      dbFieldName,
+      isPrimary,
+    });
+
+    sourceToTargetFieldMap[id] = newField.id;
+
+    if (hasError) {
+      await this.prismaService.txClient().field.update({
+        where: { id: newField.id },
+        data: {
+          hasError,
+          type,
           options: JSON.stringify(options),
         },
       });

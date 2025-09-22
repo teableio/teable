@@ -299,7 +299,8 @@ export const useCreateCellValue2GridDisplay = (
           }
           case FieldType.Number:
           case FieldType.Rollup:
-          case FieldType.Formula: {
+          case FieldType.Formula:
+          case FieldType.ReferenceLookup: {
             if (cellValueType === CellValueType.Boolean) {
               return {
                 ...baseCellProps,

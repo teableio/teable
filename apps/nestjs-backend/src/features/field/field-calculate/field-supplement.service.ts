@@ -9,6 +9,7 @@ import type {
   ILinkFieldMeta,
   ILookupOptionsRo,
   ILookupOptionsVo,
+  IReferenceLookupFieldOptions,
   IRollupFieldOptions,
   ISelectFieldOptionsRo,
   IConvertFieldRo,
@@ -68,6 +69,7 @@ import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
+import { ReferenceLookupFieldDto } from '../model/field-dto/reference-lookup-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
 @Injectable()
@@ -783,6 +785,90 @@ export class FieldSupplementService {
     };
   }
 
+  private async prepareReferenceLookupField(field: IFieldRo) {
+    const options = field.options as IReferenceLookupFieldOptions | undefined;
+    if (!options) {
+      throw new BadRequestException('reference lookup field options is required');
+    }
+
+    const { foreignTableId, lookupFieldId } = options;
+
+    if (!foreignTableId) {
+      throw new BadRequestException('reference lookup field foreignTableId is required');
+    }
+
+    if (!lookupFieldId) {
+      throw new BadRequestException('reference lookup field lookupFieldId is required');
+    }
+
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
+      where: { id: lookupFieldId, deletedTime: null },
+    });
+
+    if (!lookupFieldRaw) {
+      throw new BadRequestException(`Reference lookup field ${lookupFieldId} is not exist`);
+    }
+
+    if (lookupFieldRaw.tableId !== foreignTableId) {
+      throw new BadRequestException(
+        `Reference lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+      );
+    }
+
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
+
+    const expression =
+      options.expression ??
+      ReferenceLookupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
+
+    let valueType;
+    try {
+      valueType = ReferenceLookupFieldDto.getParsedValueType(
+        expression,
+        lookupField.cellValueType,
+        lookupField.isMultipleCellValue ?? false
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      throw new BadRequestException(`Parse reference lookup error: ${e.message}`);
+    }
+
+    const { cellValueType, isMultipleCellValue } = valueType;
+
+    const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
+    const timeZone = options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    const foreignTable = await this.prismaService.txClient().tableMeta.findUnique({
+      where: { id: foreignTableId },
+      select: { name: true },
+    });
+
+    const defaultName = foreignTable?.name
+      ? `${lookupFieldRaw.name} Reference (${foreignTable.name})`
+      : `${lookupFieldRaw.name} Reference`;
+
+    return {
+      ...field,
+      name: field.name ?? defaultName,
+      options: {
+        ...options,
+        ...(formatting ? { formatting } : {}),
+        expression,
+        timeZone,
+        foreignTableId,
+        lookupFieldId,
+      },
+      cellValueType,
+      isComputed: true,
+      isMultipleCellValue,
+      dbFieldType: this.getDbFieldType(
+        field.type,
+        cellValueType as CellValueType,
+        isMultipleCellValue
+      ),
+    };
+  }
+
   private async prepareUpdateRollupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     const newOptions = fieldRo.options as IRollupFieldOptions;
     const oldOptions = oldFieldVo.options as IRollupFieldOptions;
@@ -1081,6 +1167,8 @@ export class FieldSupplementService {
         return this.prepareLinkField(tableId, fieldRo);
       case FieldType.Rollup:
         return this.prepareRollupField(fieldRo, batchFieldVos);
+      case FieldType.ReferenceLookup:
+        return this.prepareReferenceLookupField(fieldRo);
       case FieldType.Formula:
         return this.prepareFormulaField(fieldRo, batchFieldVos);
       case FieldType.SingleLineText:
@@ -1144,6 +1232,8 @@ export class FieldSupplementService {
       }
       case FieldType.Rollup:
         return this.prepareUpdateRollupField(fieldRo, oldFieldVo);
+      case FieldType.ReferenceLookup:
+        return this.prepareReferenceLookupField(fieldRo);
       case FieldType.Formula:
         return this.prepareUpdateFormulaField(fieldRo, oldFieldVo);
       case FieldType.SingleLineText:

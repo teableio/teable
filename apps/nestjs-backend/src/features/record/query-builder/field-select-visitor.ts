@@ -15,6 +15,7 @@ import type {
   NumberFieldCore,
   RatingFieldCore,
   RollupFieldCore,
+  ReferenceLookupFieldCore,
   SingleLineTextFieldCore,
   SingleSelectFieldCore,
   UserFieldCore,
@@ -331,6 +332,28 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     // For WHERE clauses, store the CTE column reference
     this.state.setSelection(field.id, `"${cteName}"."rollup_${field.id}"`);
     return rawExpression;
+  }
+
+  visitReferenceLookupField(field: ReferenceLookupFieldCore): IFieldSelectName {
+    if (this.shouldSelectRaw()) {
+      const columnSelector = this.getColumnSelector(field);
+      this.state.setSelection(field.id, columnSelector);
+      return columnSelector;
+    }
+
+    const fieldCteMap = this.state.getFieldCteMap();
+    const cteName = fieldCteMap.get(field.id);
+    if (!cteName) {
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
+      const raw = this.qb.client.raw(nullExpr);
+      this.state.setSelection(field.id, nullExpr);
+      return raw;
+    }
+
+    const columnName = `reference_lookup_${field.id}`;
+    const selectionExpr = `"${cteName}"."${columnName}"`;
+    this.state.setSelection(field.id, selectionExpr);
+    return this.qb.client.raw('??.??', [cteName, columnName]);
   }
 
   // Select field types

@@ -20,6 +20,7 @@ import { linkFieldOptionsRoSchema } from './derivate/link-option.schema';
 import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
 import { numberFieldOptionsRoSchema } from './derivate/number-option.schema';
 import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
+import { referenceLookupFieldOptionsSchema } from './derivate/reference-lookup-option.schema';
 import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
 import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
 import { userFieldOptionsSchema } from './derivate/user-option.schema';
@@ -210,6 +211,8 @@ export const getOptionsSchema = (type: FieldType) => {
       return formulaFieldOptionsSchema;
     case FieldType.Rollup:
       return rollupFieldOptionsSchema;
+    case FieldType.ReferenceLookup:
+      return referenceLookupFieldOptionsSchema;
     case FieldType.Link:
       return linkFieldOptionsRoSchema;
     case FieldType.CreatedTime:

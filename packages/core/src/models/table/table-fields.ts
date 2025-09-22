@@ -1,4 +1,5 @@
 import type { IFieldMap } from '../../formula';
+import type { ReferenceLookupFieldCore } from '../field';
 import { FieldType } from '../field/constant';
 import type { FormulaFieldCore } from '../field/derivate/formula.field';
 import type { LinkFieldCore } from '../field/derivate/link.field';
@@ -83,6 +84,10 @@ export class TableFields {
 
       // Rollup fields also depend on their link field
       if (f.type === FieldType.Rollup && f.lookupOptions?.linkFieldId) {
+        deps = [...deps, f.lookupOptions.linkFieldId];
+      }
+
+      if (f.type === FieldType.ReferenceLookup && f.lookupOptions?.linkFieldId) {
         deps = [...deps, f.lookupOptions.linkFieldId];
       }
 
@@ -309,6 +314,13 @@ export class TableFields {
     const foreignTableIds = new Set<string>();
 
     for (const field of this) {
+      if (field.type === FieldType.ReferenceLookup) {
+        const foreignTableId = (field as ReferenceLookupFieldCore).getForeignTableId?.();
+        if (foreignTableId) {
+          foreignTableIds.add(foreignTableId);
+        }
+        continue;
+      }
       if (!isLinkField(field)) continue;
       // Skip errored link fields to avoid traversing deleted/missing tables
       if (field.hasError) continue;

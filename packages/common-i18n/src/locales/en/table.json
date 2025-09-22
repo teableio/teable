@@ -186,6 +186,10 @@
           "sum": "Sum together the values.",
           "xor": "Returns true if and only if odd number of values are true."
         }
+      },
+      "referenceLookup": {
+        "title": "{{lookupFieldName}} reference",
+        "description": "Reference values from another table using filters."
       }
     },
     "editor": {
@@ -245,6 +249,11 @@
       "linkFieldToLookup": "Linked record field to use for lookup",
       "lookupToTable": "Field from {{tableName}} you want to look up",
       "selectField": "Select a field...",
+      "referenceLookup": {
+        "fieldMapping": "Add field mapping",
+        "selectBaseField": "Select base field",
+        "noMappings": "No field mappings configured yet."
+      },
       "linkTable": "Link table",
       "linkBase": "Link base",
       "tableNoPermission": "No permission table",
@@ -277,6 +286,7 @@
       "rating": "Add a rating on a predefined scale.",
       "formula": "Compute values based on fields.",
       "rollup": "Summarize data from linked records.",
+      "referenceLookup": "Query values from another table using configurable filters.",
       "count": "Count the number of linked records.",
       "createdTime": "See the date and time each record was created.",
       "lastModifiedTime": "See the date and time of the most recent edit to some or all fields in a record.",
@@ -284,7 +294,8 @@
       "lastModifiedBy": "See which user made the most recent edit to some or all fields in a record.",
       "autoNumber": "Automatically generate unique incremental numbers for each record.",
       "button": "Trigger a customized action.",
-      "lookup": "See values from a field in a linked record."
+      "lookup": "See values from a field in a linked record.",
+      "referenceLookup": "Reference values from another table with custom conditions."
     },
     "fieldName": "Field Name",
     "fieldNameOptional": "Field Name (Optional)",

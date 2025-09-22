@@ -1,6 +1,4 @@
-import type { TableDomain } from '../models';
 import type { FieldCore } from '../models/field/field';
-import type { DriverClient } from '../utils/dsn-parser';
 
 /**
  * Generic field map type for formula conversion contexts

@@ -335,6 +335,7 @@ export class TableDuplicateService {
     const nonCommonFieldTypes = [
       FieldType.Link,
       FieldType.Rollup,
+      FieldType.ReferenceLookup,
       FieldType.Formula,
       FieldType.Button,
     ];

@@ -157,6 +157,12 @@ export const useFieldStaticGetter = () => {
             defaultOptions: {},
             Icon: getIcon(RollupIcon),
           };
+        case FieldType.ReferenceLookup:
+          return {
+            title: t('field.title.referenceLookup'),
+            defaultOptions: {},
+            Icon: getIcon(RollupIcon),
+          };
         case FieldType.User: {
           return {
             title: t('field.title.user'),
