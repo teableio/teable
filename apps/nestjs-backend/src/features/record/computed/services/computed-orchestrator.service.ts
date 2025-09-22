@@ -1,20 +1,13 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
-import { IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { isEqual } from 'lodash';
-import { RawOpType } from '../../../../share-db/interface';
-import { BatchService } from '../../../calculation/batch.service';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
 import type {
   IComputedImpactByTable,
   IFieldChangeSource,
 } from './computed-dependency-collector.service';
-import {
-  ComputedEvaluatorService,
-  type IEvaluatedComputedValues,
-} from './computed-evaluator.service';
+import { ComputedEvaluatorService } from './computed-evaluator.service';
 import { buildResultImpact } from './computed-utils';
 
 @Injectable()
@@ -22,7 +15,6 @@ export class ComputedOrchestratorService {
   constructor(
     private readonly collector: ComputedDependencyCollectorService,
     private readonly evaluator: ComputedEvaluatorService,
-    private readonly batchService: BatchService,
     private readonly prismaService: PrismaService
   ) {}
 
@@ -50,9 +42,8 @@ export class ComputedOrchestratorService {
 
   /**
    * Multi-source variant: accepts changes originating from multiple tables.
-   * Computes a unified impact once, optionally executes an update callback
-   * between selecting old values and computing new values, and publishes ops
-   * with both old and new cell values.
+   * Computes a unified impact once, executes the update callback, and then
+   * re-evaluates computed fields in batches while publishing ShareDB ops.
    */
   async computeCellChangesForRecordsMulti(
     sources: Array<{ tableId: string; cellContexts: ICellContext[] }>,
@@ -111,17 +102,13 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
-    // 2) Read old values once
-    const oldValues = await this.evaluator.selectValues(impactMerged);
-
-    // 3) Perform the actual base update(s) if provided
+    // 2) Perform the actual base update(s) if provided
     await update();
 
-    // 4) Evaluate new values + persist computed values where applicable
-    const newValues = await this.evaluator.evaluate(impactMerged);
-
-    // 5) Publish ops with old/new values
-    const total = this.publishOpsWithOldNew(impactMerged, oldValues, newValues, changedFieldIds);
+    // 3) Evaluate and publish computed values
+    const total = await this.evaluator.evaluate(impactMerged, {
+      excludeFieldIds: changedFieldIds,
+    });
 
     return { publishedOps: total, impact: buildResultImpact(impactMerged) };
   }
@@ -129,9 +116,8 @@ export class ComputedOrchestratorService {
   /**
    * Compute and publish cell changes when field definitions are UPDATED.
    * - Collects impacted fields and records based on changed field ids (pre-update)
-   * - Selects old values
    * - Executes the provided update callback within the same tx (schema/meta update)
-   * - Evaluates new values via updateFromSelect and publishes ops
+   * - Recomputes values via updateFromSelect, publishing ops with the latest values
    */
   async computeCellChangesForFields(
     sources: IFieldChangeSource[],
@@ -148,12 +134,10 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
-    const oldValues = await this.evaluator.selectValues(impactPre);
     await update();
-    const newValues = await this.evaluator.evaluate(impactPre, { versionBaseline: 'current' });
-
-    // For field changes, there are no base cell ops to exclude
-    const total = this.publishOpsWithOldNew(impactPre, oldValues, newValues, new Set());
+    const total = await this.evaluator.evaluate(impactPre, {
+      versionBaseline: 'current',
+    });
 
     return { publishedOps: total, impact: buildResultImpact(impactPre) };
   }
@@ -161,7 +145,6 @@ export class ComputedOrchestratorService {
   /**
    * Compute and publish cell changes when fields are being DELETED.
    * - Collects impacted fields and records based on the fields-to-delete (pre-delete)
-   * - Selects old values
    * - Executes the provided update callback within the same tx to delete fields and dependencies
    * - Evaluates new values and publishes ops for impacted fields EXCEPT the deleted ones
    *   (and any fields that no longer exist after the update, e.g., symmetric link fields).
@@ -179,8 +162,6 @@ export class ComputedOrchestratorService {
       await update();
       return { publishedOps: 0, impact: {} };
     }
-
-    const oldValues = await this.evaluator.selectValues(impactPre);
 
     await update();
 
@@ -201,10 +182,12 @@ export class ComputedOrchestratorService {
       }
     }
 
+    if (!Object.keys(impactPost).length) {
+      return { publishedOps: 0, impact: {} };
+    }
+
     // Also exclude the source (deleted) field ids when publishing
     const startFieldIds = new Set<string>(sources.flatMap((s) => s.fieldIds || []));
-
-    const newValues = await this.evaluator.evaluate(impactPost, { versionBaseline: 'current' });
 
     // Determine which impacted fieldIds were actually deleted (no longer exist post-update)
     const actuallyDeleted = new Set<string>();
@@ -221,7 +204,10 @@ export class ComputedOrchestratorService {
 
     const exclude = new Set<string>([...startFieldIds, ...actuallyDeleted]);
 
-    const total = this.publishOpsWithOldNew(impactPost, oldValues, newValues, exclude);
+    const total = await this.evaluator.evaluate(impactPost, {
+      versionBaseline: 'current',
+      excludeFieldIds: exclude,
+    });
 
     return { publishedOps: total, impact: buildResultImpact(impactPost) };
   }
@@ -230,7 +216,7 @@ export class ComputedOrchestratorService {
    * Compute and publish cell changes when new fields are CREATED within the same tx.
    * - Executes the provided update callback first to persist new field definitions.
    * - Collects impacted fields/records post-update (includes the new fields themselves).
-   * - Evaluates new values via updateFromSelect and publishes ops (old values are empty).
+   * - Evaluates new values via updateFromSelect and publishes ops.
    */
   async computeCellChangesForFieldsAfterCreate(
     sources: IFieldChangeSource[],
@@ -244,76 +230,8 @@ export class ComputedOrchestratorService {
     const impact = await this.collector.collectForFieldChanges(sources);
     if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
 
-    const newValues = await this.evaluator.evaluate(impact, { versionBaseline: 'current' });
-
-    // Publish ops comparing against empty old-values map
-    const emptyOld: IEvaluatedComputedValues = {};
-    const total = this.publishOpsWithOldNew(impact, emptyOld, newValues, new Set());
+    const total = await this.evaluator.evaluate(impact, { versionBaseline: 'current' });
 
     return { publishedOps: total, impact: buildResultImpact(impact) };
-  }
-
-  private publishOpsWithOldNew(
-    impact: Awaited<ReturnType<typeof this.collector.collect>>,
-    oldVals: IEvaluatedComputedValues,
-    newVals: IEvaluatedComputedValues,
-    changedFieldIds: Set<string>
-  ) {
-    const tasks = Object.keys(impact).map((tid) => {
-      const recordsNew = newVals[tid] || {};
-      const recordsOld = oldVals[tid] || {};
-      const recordIdSet = new Set<string>([...Object.keys(recordsNew), ...Object.keys(recordsOld)]);
-      if (!recordIdSet.size) return 0;
-
-      const impactedFieldIds = impact[tid]?.fieldIds || new Set<string>();
-
-      const opDataList = Array.from(recordIdSet)
-        .map((rid) => {
-          const version = recordsNew[rid]?.version ?? recordsOld[rid]?.version;
-          const fieldsNew = recordsNew[rid]?.fields || {};
-          const fieldsOld = recordsOld[rid]?.fields || {};
-          // candidate fields: union of new/old keys, further limited to impacted set
-          const unionKeys = new Set<string>([...Object.keys(fieldsNew), ...Object.keys(fieldsOld)]);
-          const fieldIds = Array.from(unionKeys).filter((fid) => impactedFieldIds.has(fid));
-
-          const ops = fieldIds
-            .filter((fid) => !changedFieldIds.has(fid))
-            .map((fid) => {
-              const oldCellValue = fieldsOld[fid];
-              // When new map is missing a field that existed before, treat as null (deletion)
-              const hasNew = Object.prototype.hasOwnProperty.call(fieldsNew, fid);
-              const newCellValue = hasNew
-                ? fieldsNew[fid]
-                : oldCellValue !== undefined
-                  ? null
-                  : undefined;
-              if (newCellValue === undefined && oldCellValue === undefined) return undefined;
-              if (isEqual(newCellValue, oldCellValue)) return undefined;
-              return RecordOpBuilder.editor.setRecord.build({
-                fieldId: fid,
-                oldCellValue,
-                newCellValue,
-              });
-            })
-            .filter(Boolean) as ReturnType<typeof RecordOpBuilder.editor.setRecord.build>[];
-
-          if (version == null || ops.length === 0) return null;
-          return { docId: rid, version, data: ops, count: ops.length } as const;
-        })
-        .filter(Boolean) as { docId: string; version: number; data: unknown; count: number }[];
-
-      if (!opDataList.length) return 0;
-
-      this.batchService.saveRawOps(
-        tid,
-        RawOpType.Edit,
-        IdPrefix.Record,
-        opDataList.map(({ docId, version, data }) => ({ docId, version, data }))
-      );
-
-      return opDataList.reduce((sum, x) => sum + x.count, 0);
-    });
-
-    return tasks.reduce((a, b) => a + b, 0);
   }
 }

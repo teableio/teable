@@ -390,13 +390,22 @@ describe('Large table operations timing (e2e)', () => {
       }
 
       const timings: Record<string, number> = {};
+      const memoryStats: Record<string, number> = {};
+
+      const captureMemory = (label: string) => {
+        const stats = process.memoryUsage();
+        const rssMB = stats.rss / 1024 / 1024;
+        memoryStats[label] = Number(rssMB.toFixed(2));
+      };
 
       const measure = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
         const start = performance.now();
+        captureMemory(`${label}:start`);
         try {
           return await fn();
         } finally {
           timings[label] = performance.now() - start;
+          captureMemory(`${label}:end`);
         }
       };
 
@@ -435,6 +444,8 @@ describe('Large table operations timing (e2e)', () => {
         ),
         total: Number(total.toFixed(2)),
       });
+
+      console.info('[large-table] memory (MB):', memoryStats);
     },
     {
       timeout: 300_000,

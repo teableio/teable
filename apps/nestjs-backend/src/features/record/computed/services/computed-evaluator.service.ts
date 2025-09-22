@@ -1,26 +1,34 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
 import type { FormulaFieldCore } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { RawOpType } from '../../../../share-db/interface';
 import { Timing } from '../../../../utils/timing';
+import { BatchService } from '../../../calculation/batch.service';
+import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../../../field/model/factory';
 import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
 import { IComputedImpactByTable } from './computed-dependency-collector.service';
 import { RecordComputedUpdateService } from './record-computed-update.service';
 
-export interface IEvaluatedComputedValues {
-  [tableId: string]: {
-    [recordId: string]: { version: number; fields: { [fieldId: string]: unknown } };
-  };
-}
+const recordIdBatchSize = 10_000;
+const cursorBatchSize = 10_000;
+
+type IRowResult = {
+  __id: string;
+  __version: number;
+  ['__prev_version']?: number;
+  ['__auto_number']?: number;
+} & Record<string, unknown>;
 
 @Injectable()
 export class ComputedEvaluatorService {
   constructor(
     private readonly prismaService: PrismaService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
-    private readonly recordComputedUpdateService: RecordComputedUpdateService
+    private readonly recordComputedUpdateService: RecordComputedUpdateService,
+    private readonly batchService: BatchService
   ) {}
 
   private async getDbTableName(tableId: string): Promise<string> {
@@ -46,137 +54,179 @@ export class ComputedEvaluatorService {
   @Timing()
   async evaluate(
     impact: IComputedImpactByTable,
-    opts?: { versionBaseline?: 'previous' | 'current' }
-  ): Promise<IEvaluatedComputedValues> {
-    const entries = Object.entries(impact).filter(
-      ([, group]) => group.recordIds.size && group.fieldIds.size
-    );
+    opts?: { versionBaseline?: 'previous' | 'current'; excludeFieldIds?: Set<string> }
+  ): Promise<number> {
+    const excludeFieldIds = opts?.excludeFieldIds ?? new Set<string>();
+    const entries = Object.entries(impact).filter(([, group]) => group.fieldIds.size);
 
-    const tableResults = await Promise.all(
-      entries.map(async ([tableId, group]) => {
+    let totalOps = 0;
+
+    for (const [tableId, group] of entries) {
+      const requestedFieldIds = Array.from(group.fieldIds);
+      const fieldInstances = await this.getFieldInstances(tableId, requestedFieldIds);
+      if (!fieldInstances.length) continue;
+
+      const validFieldIdSet = new Set(fieldInstances.map((f) => f.id));
+      const impactedFieldIds = new Set(requestedFieldIds.filter((fid) => validFieldIdSet.has(fid)));
+      if (!impactedFieldIds.size) continue;
+
+      const dbTableName = await this.getDbTableName(tableId);
+      const { qb, alias } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
+        tableIdOrDbTableName: tableId,
+        projection: Array.from(validFieldIdSet),
+        rawProjection: true,
+      });
+
+      const idCol = alias ? `${alias}.__id` : '__id';
+      const orderCol = alias ? `${alias}.${AUTO_NUMBER_FIELD_NAME}` : AUTO_NUMBER_FIELD_NAME;
+      const baseQb = qb.clone();
+
+      if (group.recordIds.size) {
         const recordIds = Array.from(group.recordIds);
-        const requestedFieldIds = Array.from(group.fieldIds);
+        for (const chunk of this.chunk(recordIds, recordIdBatchSize)) {
+          if (!chunk.length) continue;
+          const batchQb = baseQb.clone().whereIn(idCol, chunk);
+          const rows = await this.recordComputedUpdateService.updateFromSelect(
+            tableId,
+            batchQb,
+            fieldInstances
+          );
+          if (!rows.length) continue;
+          const evaluatedRows = this.buildEvaluatedRows(rows, fieldInstances, opts);
+          totalOps += this.publishBatch(
+            tableId,
+            impactedFieldIds,
+            validFieldIdSet,
+            excludeFieldIds,
+            evaluatedRows
+          );
+        }
+        continue;
+      }
 
-        // Resolve valid field instances on this table
-        const fieldInstances = await this.getFieldInstances(tableId, requestedFieldIds);
-        const validFieldIds = fieldInstances.map((f) => f.id);
-        if (!validFieldIds.length || !recordIds.length) return [tableId, {}] as const;
+      let cursor: number | null = null;
+      // Cursor-based batching for full-table recompute scenarios
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const pagedQb = baseQb.clone().orderBy(orderCol, 'asc').limit(cursorBatchSize);
+        if (cursor != null) pagedQb.where(orderCol, '>', cursor);
 
-        // Build query via record-query-builder with projection (read values via SELECT)
-        const dbTableName = await this.getDbTableName(tableId);
-        const { qb, alias } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
-          tableIdOrDbTableName: tableId,
-          projection: validFieldIds,
-          // Use raw DB projection to avoid formatting (e.g., to_char on timestamptz)
-          rawProjection: true,
-        });
-
-        const idCol = alias ? `${alias}.__id` : '__id';
-        // Use single UPDATE ... FROM ... RETURNING to both persist and fetch values
-        const subQb = qb.whereIn(idCol, recordIds);
         const rows = await this.recordComputedUpdateService.updateFromSelect(
           tableId,
-          subQb,
+          pagedQb,
           fieldInstances
         );
+        if (!rows.length) break;
 
-        // Convert DB row values to cell values keyed by fieldId for ops
-        const tableMap: {
-          [recordId: string]: { version: number; fields: { [fieldId: string]: unknown } };
-        } = {};
-
-        for (const row of rows) {
-          const recordId = row.__id;
-          // Determine version baseline for publishing ops
-          const version =
-            opts?.versionBaseline === 'current'
-              ? (row.__version as number)
-              : (row.__prev_version as number | undefined) ?? (row.__version as number) - 1;
-          const fieldsMap: Record<string, unknown> = {};
-          for (const field of fieldInstances) {
-            // For persisted formulas, the returned column is the generated column name
-            let columnName = field.dbFieldName;
-            if (field.type === FieldType.Formula) {
-              const f: FormulaFieldCore = field;
-              if (f.getIsPersistedAsGeneratedColumn()) {
-                const gen = f.getGeneratedColumnName?.();
-                if (gen) columnName = gen;
-              }
-            }
-            const raw = row[columnName as keyof typeof row] as unknown;
-            const cellValue = field.convertDBValue2CellValue(raw as never);
-            if (cellValue != null) fieldsMap[field.id] = cellValue;
-          }
-          tableMap[recordId] = { version, fields: fieldsMap };
-        }
-
-        return [tableId, tableMap] as const;
-      })
-    );
-
-    return tableResults.reduce<IEvaluatedComputedValues>((acc, [tid, tmap]) => {
-      if (Object.keys(tmap).length) acc[tid] = tmap;
-      return acc;
-    }, {});
-  }
-
-  /**
-   * Select-only evaluation used to capture "old" values before a mutation.
-   * Does NOT write to DB. Mirrors evaluate() but executes a plain SELECT.
-   */
-  async selectValues(impact: IComputedImpactByTable): Promise<IEvaluatedComputedValues> {
-    const entries = Object.entries(impact).filter(
-      ([, group]) => group.recordIds.size && group.fieldIds.size
-    );
-
-    const tableResults = await Promise.all(
-      entries.map(async ([tableId, group]) => {
-        const recordIds = Array.from(group.recordIds);
-        const requestedFieldIds = Array.from(group.fieldIds);
-
-        // Resolve valid field instances on this table
-        const fieldInstances = await this.getFieldInstances(tableId, requestedFieldIds);
-        const validFieldIds = fieldInstances.map((f) => f.id);
-        if (!validFieldIds.length || !recordIds.length) return [tableId, {}] as const;
-
-        // Build query via record-query-builder with projection (pure SELECT)
-        const dbTableName = await this.getDbTableName(tableId);
-        const { qb, alias } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
-          tableIdOrDbTableName: tableId,
-          projection: validFieldIds,
+        const sortedRows = rows.slice().sort((a, b) => {
+          const left = (a[AUTO_NUMBER_FIELD_NAME] as number) ?? 0;
+          const right = (b[AUTO_NUMBER_FIELD_NAME] as number) ?? 0;
+          if (left === right) return 0;
+          return left > right ? 1 : -1;
         });
 
-        const idCol = alias ? `${alias}.__id` : '__id';
-        const rows = await this.prismaService
-          .txClient()
-          .$queryRawUnsafe<
-            Array<{ __id: string; __version: number } & Record<string, unknown>>
-          >(qb.whereIn(idCol, recordIds).toQuery());
+        const evaluatedRows = this.buildEvaluatedRows(sortedRows, fieldInstances, opts);
+        totalOps += this.publishBatch(
+          tableId,
+          impactedFieldIds,
+          validFieldIdSet,
+          excludeFieldIds,
+          evaluatedRows
+        );
 
-        // Convert returned DB values to cell values keyed by fieldId for ops
-        const tableMap: {
-          [recordId: string]: { version: number; fields: { [fieldId: string]: unknown } };
-        } = {};
+        const lastRow = sortedRows[sortedRows.length - 1];
+        const lastCursor = lastRow[AUTO_NUMBER_FIELD_NAME] as number | undefined;
+        if (lastCursor != null) cursor = lastCursor;
+        if (sortedRows.length < cursorBatchSize) break;
+      }
+    }
 
-        for (const row of rows) {
-          const recordId = row.__id;
-          const version = row.__version;
-          const fieldsMap: Record<string, unknown> = {};
-          for (const field of fieldInstances) {
-            const raw = row[field.dbFieldName as keyof typeof row] as unknown;
-            const cellValue = field.convertDBValue2CellValue(raw as never);
-            if (cellValue != null) fieldsMap[field.id] = cellValue;
+    return totalOps;
+  }
+
+  private chunk<T>(arr: T[], size: number): T[][] {
+    if (size <= 0) return [arr];
+    const result: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      result.push(arr.slice(i, i + size));
+    }
+    return result;
+  }
+
+  private buildEvaluatedRows(
+    rows: Array<IRowResult>,
+    fieldInstances: IFieldInstance[],
+    opts?: { versionBaseline?: 'previous' | 'current' }
+  ): Array<{ recordId: string; version: number; fields: Record<string, unknown> }> {
+    return rows.map((row) => {
+      const recordId = row.__id;
+      const version =
+        opts?.versionBaseline === 'current'
+          ? (row.__version as number)
+          : (row.__prev_version as number | undefined) ?? (row.__version as number) - 1;
+
+      const fieldsMap: Record<string, unknown> = {};
+      for (const field of fieldInstances) {
+        let columnName = field.dbFieldName;
+        if (field.type === FieldType.Formula) {
+          const f: FormulaFieldCore = field;
+          if (f.getIsPersistedAsGeneratedColumn()) {
+            const gen = f.getGeneratedColumnName?.();
+            if (gen) columnName = gen;
           }
-          tableMap[recordId] = { version, fields: fieldsMap };
         }
+        const raw = row[columnName as keyof typeof row] as unknown;
+        const cellValue = field.convertDBValue2CellValue(raw as never);
+        if (cellValue != null) fieldsMap[field.id] = cellValue;
+      }
 
-        return [tableId, tableMap] as const;
+      return { recordId, version, fields: fieldsMap };
+    });
+  }
+
+  private publishBatch(
+    tableId: string,
+    impactedFieldIds: Set<string>,
+    validFieldIds: Set<string>,
+    excludeFieldIds: Set<string>,
+    evaluatedRows: Array<{ recordId: string; version: number; fields: Record<string, unknown> }>
+  ): number {
+    if (!evaluatedRows.length) return 0;
+
+    const targetFieldIds = Array.from(impactedFieldIds).filter(
+      (fid) => validFieldIds.has(fid) && !excludeFieldIds.has(fid)
+    );
+    if (!targetFieldIds.length) return 0;
+
+    const opDataList = evaluatedRows
+      .map(({ recordId, version, fields }) => {
+        const ops = targetFieldIds
+          .map((fid) => {
+            const hasValue = Object.prototype.hasOwnProperty.call(fields, fid);
+            const newCellValue = hasValue ? fields[fid] : null;
+            return RecordOpBuilder.editor.setRecord.build({
+              fieldId: fid,
+              newCellValue,
+              oldCellValue: null,
+            });
+          })
+          .filter(Boolean);
+
+        if (!ops.length) return null;
+
+        return { docId: recordId, version, data: ops, count: ops.length } as const;
       })
+      .filter(Boolean) as { docId: string; version: number; data: unknown; count: number }[];
+
+    if (!opDataList.length) return 0;
+
+    this.batchService.saveRawOps(
+      tableId,
+      RawOpType.Edit,
+      IdPrefix.Record,
+      opDataList.map(({ docId, version, data }) => ({ docId, version, data }))
     );
 
-    return tableResults.reduce<IEvaluatedComputedValues>((acc, [tid, tmap]) => {
-      if (Object.keys(tmap).length) acc[tid] = tmap;
-      return acc;
-    }, {});
+    return opDataList.reduce((sum, current) => sum + current.count, 0);
   }
 }
