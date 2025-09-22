@@ -1,3 +1,4 @@
+import { BillingProductLevel } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -9,14 +10,19 @@ export const CommunityPage = ({
   buildBaseWelcomeVisible?: boolean;
 }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { loading, isFetched } = useBaseUsageWithLoading();
+  const { loading, isFetched, baseUsage } = useBaseUsageWithLoading();
+
+  const { level } = baseUsage || {};
+
+  // free user or community user
+  const isCommunityUser = level === BillingProductLevel.Free || level === undefined;
 
   // community user, loading alway be true
   if (loading && isFetched) {
     return null;
   }
 
-  return !buildBaseWelcomeVisible ? (
+  return !buildBaseWelcomeVisible || isCommunityUser ? (
     <div className="h-full flex-col md:flex">
       <div className="flex h-full flex-1 flex-col gap-2 lg:gap-4">
         <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
@@ -48,6 +54,7 @@ export const CommunityPage = ({
       </div>
     </div>
   ) : (
+    // for ai feature user to loading
     <div className="flex h-full min-w-0 items-center justify-center overflow-hidden transition-all md:flex">
       <Spin className="min-w-0" />
     </div>
