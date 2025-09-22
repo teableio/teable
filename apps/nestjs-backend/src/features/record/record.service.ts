@@ -1188,6 +1188,9 @@ export class RecordService {
         }
       }
     }
+    if (thumbnailTokens.length === 0) {
+      return {};
+    }
     const attachments = await this.prismaService.txClient().attachments.findMany({
       where: { token: { in: thumbnailTokens } },
       select: { token: true, thumbnailPath: true },
@@ -1213,6 +1216,9 @@ export class RecordService {
     fields: IFieldInstance[],
     fieldKeyType: FieldKeyType
   ) {
+    if (records.length === 0 || fields.findIndex((f) => f.type === FieldType.Attachment) === -1) {
+      return records;
+    }
     const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(records, fields, fieldKeyType);
     const thumbnailPathTokenMap = await this.getThumbnailPathTokenMap(
       records,

@@ -240,6 +240,9 @@ model AttachmentsTable {
   lastModifiedBy   String?   @map("last_modified_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
+  @@index([tableId, recordId])
+  @@index([tableId, fieldId])
+  @@index([attachmentId])
   @@map("attachments_table")
 }
 
@@ -256,6 +259,8 @@ model Collaborator {
   lastModifiedBy   String?   @map("last_modified_by")
 
   @@unique([resourceType, resourceId, principalId, principalType])
+  @@index([resourceId])
+  @@index([principalId])
   @@map("collaborator")
 }
 
@@ -273,6 +278,8 @@ model Invitation {
   lastModifiedBy   String?   @map("last_modified_by")
   deletedTime      DateTime? @map("deleted_time")
 
+  @@index([baseId])
+  @@index([spaceId])
   @@map("invitation")
 }
 
@@ -286,6 +293,9 @@ model InvitationRecord {
   accepter     String   @map("accepter")
   createdTime  DateTime @default(now()) @map("created_time")
 
+  @@index([invitationId])
+  @@index([baseId])
+  @@index([spaceId])
   @@map("invitation_record")
 }
 
@@ -320,6 +330,8 @@ model AccessToken {
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
+  @@index([userId])
+  @@index([clientId])
   @@map("access_token")
 }
 
@@ -473,6 +485,8 @@ model PluginInstall {
 
   plugin           Plugin    @relation(fields: [pluginId], references: [id], onDelete: Cascade)
 
+  @@index([positionId])
+  @@index([baseId])
   @@map("plugin_install")
 }
 
@@ -486,6 +500,7 @@ model Dashboard {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
+  @@index([baseId])
   @@map("dashboard")
 }
 
@@ -527,6 +542,7 @@ model Integration {
   createdTime       DateTime  @default(now()) @map("created_time")
   lastModifiedTime  DateTime? @updatedAt @map("last_modified_time")
 
+  @@index([resourceId])
   @@map("integration")
 }
 
