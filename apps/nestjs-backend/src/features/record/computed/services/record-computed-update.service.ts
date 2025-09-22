@@ -5,6 +5,7 @@ import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import type { IFieldInstance } from '../../../field/model/factory';
 import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
 
@@ -103,12 +104,16 @@ export class RecordComputedUpdateService {
         >(qb.toQuery());
     }
 
+    const returningWithAutoNumber = Array.from(
+      new Set([...returningNames, AUTO_NUMBER_FIELD_NAME])
+    );
+
     const sql = this.dbProvider.updateFromSelectSql({
       dbTableName,
       idFieldName: '__id',
       subQuery: qb,
       dbFieldNames: columnNames,
-      returningDbFieldNames: returningNames,
+      returningDbFieldNames: returningWithAutoNumber,
     });
     this.logger.debug('updateFromSelect SQL:', sql);
 
