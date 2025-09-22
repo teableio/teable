@@ -1,4 +1,9 @@
-import type { IFieldRo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
+import type {
+  IFieldRo,
+  ILinkFieldOptionsRo,
+  ILookupOptionsRo,
+  IReferenceLookupFieldOptions,
+} from '@teable/core';
 import { FieldType } from '@teable/core';
 import { getField } from '@teable/openapi';
 import { useFields, useTables } from '@teable/sdk/hooks';
@@ -26,6 +31,25 @@ export const useDefaultFieldName = () => {
       };
     },
     [fields]
+  );
+
+  const getReferenceLookupName = useCallback(
+    async (fieldRo: IFieldRo) => {
+      const { foreignTableId, lookupFieldId } = fieldRo.options as IReferenceLookupFieldOptions;
+      if (!foreignTableId || !lookupFieldId) {
+        return;
+      }
+      const lookupField = (await getField(foreignTableId, lookupFieldId)).data;
+      if (!lookupField) {
+        return;
+      }
+      const foreignTable = tables.find((table) => table.id === foreignTableId);
+      return {
+        lookupFieldName: lookupField.name,
+        tableName: foreignTable?.name ?? '',
+      };
+    },
+    [tables]
   );
 
   return useCallback(
@@ -88,10 +112,17 @@ export const useDefaultFieldName = () => {
           }
           return t('field.default.rollup.title', lookupName);
         }
+        case FieldType.ReferenceLookup: {
+          const info = await getReferenceLookupName(fieldRo);
+          if (!info) {
+            return;
+          }
+          return t('field.default.referenceLookup.title', info);
+        }
         default:
           return;
       }
     },
-    [getLookupName, t, tables]
+    [getLookupName, getReferenceLookupName, t, tables]
   );
 };

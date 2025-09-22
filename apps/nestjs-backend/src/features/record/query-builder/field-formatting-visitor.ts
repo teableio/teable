@@ -12,6 +12,7 @@ import {
   type AttachmentFieldCore,
   type LinkFieldCore,
   type RollupFieldCore,
+  type ReferenceLookupFieldCore,
   type FormulaFieldCore,
   CellValueType,
   type CreatedTimeFieldCore,
@@ -132,6 +133,10 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
 
   visitRollupField(_field: RollupFieldCore): string {
     // Rollup fields depend on their result type, for now return as-is
+    return this.fieldExpression;
+  }
+
+  visitReferenceLookupField(_field: ReferenceLookupFieldCore): string {
     return this.fieldExpression;
   }
 

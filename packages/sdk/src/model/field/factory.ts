@@ -17,6 +17,7 @@ import { LongTextField } from './long-text.field';
 import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
 import { RatingField } from './rating.field';
+import { ReferenceLookupField } from './reference-lookup.field';
 import { RollupField } from './rollup.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
@@ -47,6 +48,8 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(CheckboxField, field);
       case FieldType.Rollup:
         return plainToInstance(RollupField, field);
+      case FieldType.ReferenceLookup:
+        return plainToInstance(ReferenceLookupField, field);
       case FieldType.Rating:
         return plainToInstance(RatingField, field);
       case FieldType.AutoNumber:

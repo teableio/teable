@@ -62,7 +62,11 @@ export function getOrderedFieldsByProjection(
     }
 
     // Lookup / Rollup: include its link field via model method
-    if (field.isLookup || field.type === FieldType.Rollup) {
+    if (
+      field.isLookup ||
+      field.type === FieldType.Rollup ||
+      field.type === FieldType.ReferenceLookup
+    ) {
       const link = field.getLinkField(table);
       if (link && !wanted.has(link.id)) {
         wanted.add(link.id);

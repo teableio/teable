@@ -25,6 +25,7 @@ import {
   type NumberFieldCore,
   type RatingFieldCore,
   type RollupFieldCore,
+  type ReferenceLookupFieldCore,
   type SingleLineTextFieldCore,
   type SingleSelectFieldCore,
   type UserFieldCore,
@@ -891,6 +892,15 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     }
     return this.buildAggregateRollup(field, targetLookupField, expression);
   }
+
+  visitReferenceLookupField(field: ReferenceLookupFieldCore): IFieldSelectName {
+    const cteName = this.fieldCteMap.get(field.id);
+    if (!cteName) {
+      return this.dialect.typedNullFor(field.dbFieldType);
+    }
+
+    return `"${cteName}"."reference_lookup_${field.id}"`;
+  }
   visitSingleSelectField(field: SingleSelectFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
   }
@@ -980,6 +990,119 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       }
     })();
     return `(${expression})${castSuffix}`;
+  }
+
+  private parseRollupFunction(expression: string): string {
+    const match = expression.match(/^(\w+)\(\{values\}\)$/);
+    if (!match) {
+      throw new Error(`Invalid rollup expression: ${expression}`);
+    }
+    return match[1].toLowerCase();
+  }
+
+  private buildReferenceLookupAggregation(
+    rollupExpression: string,
+    fieldExpression: string,
+    targetField: FieldCore,
+    foreignAlias: string
+  ): string {
+    const fn = this.parseRollupFunction(rollupExpression);
+    return this.dialect.rollupAggregate(fn, fieldExpression, {
+      targetField,
+      rowPresenceExpr: `"${foreignAlias}"."${ID_FIELD_NAME}"`,
+    });
+  }
+
+  private generateReferenceLookupFieldCte(field: ReferenceLookupFieldCore): void {
+    if (field.hasError) return;
+    if (this.state.getFieldCteMap().has(field.id)) return;
+
+    const {
+      foreignTableId,
+      lookupFieldId,
+      expression = 'countall({values})',
+      filter,
+    } = field.options;
+    if (!foreignTableId || !lookupFieldId) {
+      return;
+    }
+
+    const foreignTable = this.tables.getTable(foreignTableId);
+    if (!foreignTable) {
+      return;
+    }
+
+    const targetField = foreignTable.getField(lookupFieldId);
+    if (!targetField) {
+      return;
+    }
+
+    const cteName = `CTE_REF_${field.id}`;
+    const mainAlias = getTableAliasFromTable(this.table);
+    const foreignAlias = getTableAliasFromTable(foreignTable);
+    const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_ref` : foreignAlias;
+
+    const qb = this.qb.client.queryBuilder();
+    const selectVisitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      foreignTable,
+      new ScopedSelectionState(this.state),
+      this.dialect,
+      foreignAliasUsed,
+      true
+    );
+    const targetSelect = targetField.accept(selectVisitor);
+    const rawExpression =
+      typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+
+    const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
+    const formattedExpression = targetField.accept(formattingVisitor);
+
+    const aggregateExpression = this.buildReferenceLookupAggregation(
+      expression,
+      formattedExpression,
+      targetField,
+      foreignAliasUsed
+    );
+    const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
+
+    const aggregateQuery = this.qb.client
+      .queryBuilder()
+      .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+
+    if (filter) {
+      const fieldMap = foreignTable.fieldList.reduce(
+        (map, f) => {
+          map[f.id] = f as FieldCore;
+          return map;
+        },
+        {} as Record<string, FieldCore>
+      );
+
+      const selectionMap = new Map<string, IFieldSelectName>();
+      for (const f of foreignTable.fields.ordered) {
+        selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+      }
+
+      this.dbProvider
+        .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
+          selectionMap,
+        })
+        .appendQueryBuilder();
+    }
+
+    aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
+
+    this.qb.with(cteName, (cqb) => {
+      cqb
+        .select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`)
+        .select(cqb.client.raw(`(${aggregateQuery.toQuery()}) as "reference_lookup_${field.id}"`))
+        .from(`${this.table.dbTableName} as ${mainAlias}`);
+    });
+
+    this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+    this.state.setFieldCte(field.id, cteName);
   }
 
   public build() {
@@ -1573,6 +1696,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return this.generateLinkFieldCte(field);
   }
   visitRollupField(_field: RollupFieldCore): void {}
+  visitReferenceLookupField(field: ReferenceLookupFieldCore): void {
+    this.generateReferenceLookupFieldCte(field);
+  }
   visitSingleSelectField(_field: SingleSelectFieldCore): void {}
   visitMultipleSelectField(_field: MultipleSelectFieldCore): void {}
   visitFormulaField(_field: FormulaFieldCore): void {}

@@ -1646,6 +1646,7 @@ export class RecordService {
             }
             if (field.type === FieldType.Link) return false;
             if (field.type === FieldType.Rollup) return false;
+            if (field.type === FieldType.ReferenceLookup) return false;
             if (field.isLookup) return false;
             return true;
           })

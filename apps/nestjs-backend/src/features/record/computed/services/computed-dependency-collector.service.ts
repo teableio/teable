@@ -164,7 +164,8 @@ export class ComputedDependencyCollectorService {
           .orWhere('f.is_computed', true)
           .orWhere('f.type', FieldType.Link)
           .orWhere('f.type', FieldType.Formula)
-          .orWhere('f.type', FieldType.Rollup);
+          .orWhere('f.type', FieldType.Rollup)
+          .orWhere('f.type', FieldType.ReferenceLookup);
       });
     if (excludeFieldIds?.length) {
       depBuilder.whereNotIn('dep_graph.to_field_id', excludeFieldIds);

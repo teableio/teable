@@ -736,7 +736,10 @@ export class BaseExportService {
 
     // fields which rely on the cross base link fields
     const relativeFields = fields
-      .filter(({ type, isLookup }) => isLookup || type === FieldType.Rollup)
+      .filter(
+        ({ type, isLookup }) =>
+          isLookup || type === FieldType.Rollup || type === FieldType.ReferenceLookup
+      )
       .filter(({ lookupOptions }) =>
         crossBaseLinkFields
           .map(({ id }) => id)

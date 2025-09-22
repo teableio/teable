@@ -35,6 +35,7 @@ import {
   numberFieldOptionsSchema,
 } from './derivate/number-option.schema';
 import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
+import { referenceLookupFieldOptionsSchema } from './derivate/reference-lookup-option.schema';
 import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
 import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
 import { userFieldOptionsSchema } from './derivate/user-option.schema';
@@ -44,6 +45,7 @@ import { unionShowAsSchema } from './show-as';
 // Union of all field options that don't have read-only variants
 export const unionFieldOptions = z.union([
   rollupFieldOptionsSchema.strict(),
+  referenceLookupFieldOptionsSchema.strict(),
   formulaFieldOptionsSchema.strict(),
   linkFieldOptionsSchema.strict(),
   dateFieldOptionsSchema.strict(),
@@ -66,6 +68,7 @@ export const commonOptionsSchema = z.object({
 // Union of all field options for VO (view object) - includes all options
 export const unionFieldOptionsVoSchema = z.union([
   unionFieldOptions,
+  referenceLookupFieldOptionsSchema.strict(),
   linkFieldOptionsSchema.strict(),
   selectFieldOptionsSchema.strict(),
   numberFieldOptionsSchema.strict(),
@@ -77,6 +80,7 @@ export const unionFieldOptionsVoSchema = z.union([
 // Union of all field options for RO (request object) - includes read-only variants
 export const unionFieldOptionsRoSchema = z.union([
   unionFieldOptions,
+  referenceLookupFieldOptionsSchema.strict(),
   linkFieldOptionsRoSchema.strict(),
   selectFieldOptionsRoSchema.strict(),
   numberFieldOptionsRoSchema.strict(),

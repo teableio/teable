@@ -14,6 +14,7 @@ export const FIELD_TYPE_ORDER = [
   FieldType.Formula,
   FieldType.Link,
   FieldType.Rollup,
+  FieldType.ReferenceLookup,
   FieldType.CreatedTime,
   FieldType.LastModifiedTime,
   FieldType.CreatedBy,

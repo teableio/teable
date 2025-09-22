@@ -266,6 +266,7 @@
       "attachment": "Attachment",
       "checkbox": "Checkbox",
       "rollup": "Rollup",
+      "referenceLookup": "Reference lookup",
       "user": "User",
       "rating": "Rating",
       "autoNumber": "Auto number",
