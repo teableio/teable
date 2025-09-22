@@ -79,7 +79,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         <HoverWrapper size={SIDE_BAR_WIDTH}>
           <HoverWrapper.Trigger>
             <Button
-              className={cn('absolute top-7 p-1 rounded-none -left-0 rounded-r-full z-40', {
+              className={cn('fixed top-7 p-1 rounded-none -left-0 rounded-r-full z-40', {
                 '-left-1': building,
               })}
               variant={'outline'}
