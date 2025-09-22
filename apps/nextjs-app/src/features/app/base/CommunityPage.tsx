@@ -15,14 +15,14 @@ export const CommunityPage = ({
   const { level } = baseUsage || {};
 
   // free user or community user
-  const isCommunityUser = level === BillingProductLevel.Free || level === undefined;
+  const isCommunityOrFreeUser = level === BillingProductLevel.Free || level === undefined;
 
   // community user, loading alway be true
   if (loading && isFetched) {
     return null;
   }
 
-  return !buildBaseWelcomeVisible || isCommunityUser ? (
+  return !buildBaseWelcomeVisible || isCommunityOrFreeUser ? (
     <div className="h-full flex-col md:flex">
       <div className="flex h-full flex-1 flex-col gap-2 lg:gap-4">
         <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
