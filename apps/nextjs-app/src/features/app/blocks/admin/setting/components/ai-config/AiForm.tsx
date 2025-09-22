@@ -104,8 +104,6 @@ export function AIConfigForm({
     });
   };
 
-  const disableAIActions = aiConfig?.disableAIActions || [];
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -163,9 +161,10 @@ export function AIConfigForm({
           }}
         />
         <AIControlCard
-          disableAIActions={disableAIActions}
-          onChange={(value: string[]) => {
-            form.setValue('disableAIActions', value);
+          aiControlEnable={aiConfig?.capabilities?.enabled ?? false}
+          disableActions={aiConfig?.capabilities?.disableActions || []}
+          onChange={(value: { enabled: boolean; disableActions: string[] }) => {
+            form.setValue('capabilities', value);
             onSubmit(form.getValues());
           }}
         />

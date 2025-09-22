@@ -158,14 +158,18 @@ export class AiService {
     });
 
     const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.disableAIActions;
+    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.capabilities?.enabled
+      ? aiIntegrationConfig?.capabilities?.disableActions
+      : null;
 
     // get instance ai setting
     const { aiConfig } = await this.settingService.getSetting();
-    const disableAIActionsFromInstanceAiSetting = aiConfig?.disableAIActions;
+    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.enabled
+      ? aiConfig?.capabilities?.disableActions
+      : null;
 
     return {
-      disableAIActions:
+      disableActions:
         disableAIActionsFromSpaceIntegration || disableAIActionsFromInstanceAiSetting || [],
     };
   }

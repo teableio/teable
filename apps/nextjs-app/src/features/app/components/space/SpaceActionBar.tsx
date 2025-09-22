@@ -2,7 +2,7 @@ import { hasPermission } from '@teable/core';
 import { MoreHorizontal, UserPlus } from '@teable/icons';
 import { type IGetSpaceVo } from '@teable/openapi';
 import type { ButtonProps } from '@teable/ui-lib';
-import { Button, Spin } from '@teable/ui-lib';
+import { Button } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { GUIDE_CREATE_BASE } from '@/components/Guide';

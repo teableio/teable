@@ -6,7 +6,7 @@ import { registerRoute, urlBuilder } from '../utils';
 export const GET_AI_DISABLE_ACTIONS = '/{baseId}/ai/disable-ai-actions';
 
 export const getAIDisableActionsVoSchema = z.object({
-  disableAIActions: z.array(z.string()),
+  disableActions: z.array(z.string()),
 });
 
 export type IGetAIDisableActionsVo = z.infer<typeof getAIDisableActionsVoSchema>;

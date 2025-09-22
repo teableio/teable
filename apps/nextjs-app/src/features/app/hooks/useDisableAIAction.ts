@@ -6,20 +6,20 @@ import { AIActions } from '../blocks/admin/setting/components/ai-config/AIContro
 
 export const useDisableAIAction = () => {
   const baseId = useBaseId();
-  const { data: { disableAIActions } = {} } = useQuery({
+  const { data: { disableActions } = {} } = useQuery({
     queryKey: ['disable-ai-actions', baseId],
     queryFn: () => getAIDisableActions(baseId!).then((res) => res.data),
     enabled: !!baseId,
   });
 
   return useMemo(() => {
-    if (Array.isArray(disableAIActions) && disableAIActions.length > 0) {
+    if (Array.isArray(disableActions) && disableActions.length > 0) {
       return {
-        suggestion: !disableAIActions.includes(AIActions.Suggestion),
-        buildBase: !disableAIActions.includes(AIActions.BuildBase),
-        buildAutomation: !disableAIActions.includes(AIActions.BuildAutomation),
-        baseResource: !disableAIActions.includes(AIActions.BaseResource),
-        buildApp: !disableAIActions.includes(AIActions.BaseApp),
+        suggestion: !disableActions.includes(AIActions.Suggestion),
+        buildBase: !disableActions.includes(AIActions.BuildBase),
+        buildAutomation: !disableActions.includes(AIActions.BuildAutomation),
+        baseResource: !disableActions.includes(AIActions.BaseResource),
+        buildApp: !disableActions.includes(AIActions.BaseApp),
       };
     }
     return {
@@ -29,5 +29,5 @@ export const useDisableAIAction = () => {
       buildAutomation: true,
       buildApp: true,
     };
-  }, [disableAIActions]);
+  }, [disableActions]);
 };

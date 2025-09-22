@@ -95,9 +95,10 @@ export const AIConfig = (props: IAIConfigProps) => {
           onTestChatModelAbility={onTestChatModelAbility}
         />
         <AIControlCard
-          disableAIActions={config?.disableAIActions || []}
-          onChange={(value: string[]) => {
-            form.setValue('disableAIActions', value);
+          aiControlEnable={config?.capabilities?.enabled ?? false}
+          disableActions={config?.capabilities?.disableActions || []}
+          onChange={(value: { enabled: boolean; disableActions: string[] }) => {
+            form.setValue('capabilities', value);
             onSubmit(form.getValues());
           }}
         />
