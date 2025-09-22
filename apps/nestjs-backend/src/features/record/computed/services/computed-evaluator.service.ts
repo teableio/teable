@@ -3,9 +3,10 @@ import { Injectable } from '@nestjs/common';
 import type { FormulaFieldCore } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { Timing } from '../../../../utils/timing';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../../../field/model/factory';
 import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
-import type { IComputedImpactByTable } from './computed-dependency-collector.service';
+import { IComputedImpactByTable } from './computed-dependency-collector.service';
 import { RecordComputedUpdateService } from './record-computed-update.service';
 
 export interface IEvaluatedComputedValues {
@@ -42,6 +43,7 @@ export class ComputedEvaluatorService {
    * For each table, query only the impacted records and dependent fields.
    * Builds a RecordQueryBuilder with projection and converts DB values to cell values.
    */
+  @Timing()
   async evaluate(
     impact: IComputedImpactByTable,
     opts?: { versionBaseline?: 'previous' | 'current' }
