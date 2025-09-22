@@ -5,7 +5,7 @@ import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq } from 'lodash';
+import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
@@ -187,10 +187,11 @@ export class LinkService {
           | ILinkCellValue
           | null;
         if (foreignCellValue) {
-          newForeignRecord[symmetricFieldId] = [foreignCellValue].flat().concat({
+          const newForeignCellValue = [foreignCellValue].flat().concat({
             id: recordId,
             title: sourceRecordTitle,
           });
+          newForeignRecord[symmetricFieldId] = uniqBy(newForeignCellValue, 'id');
         } else {
           newForeignRecord[symmetricFieldId] = [{ id: recordId, title: sourceRecordTitle }];
         }
@@ -252,10 +253,11 @@ export class LinkService {
         | ILinkCellValue
         | null;
       if (foreignCellValue) {
-        newForeignRecord[symmetricFieldId] = [foreignCellValue].flat().concat({
+        const newForeignCellValue = [foreignCellValue].flat().concat({
           id: recordId,
           title: sourceRecordTitle,
         });
+        newForeignRecord[symmetricFieldId] = uniqBy(newForeignCellValue, 'id');
       } else {
         newForeignRecord[symmetricFieldId] = [{ id: recordId, title: sourceRecordTitle }];
       }

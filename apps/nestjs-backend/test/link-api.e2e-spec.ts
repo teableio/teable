@@ -4108,5 +4108,101 @@ describe('OpenAPI link (e2e)', () => {
       const table2Record2ResUpdated = await getRecord(table2.id, table2RecordId2);
       expect(table2Record2ResUpdated.fields[symmetricLinkFieldId]).toBeUndefined();
     });
+
+    it('should update link cellValue with link field Many-One to Many-Many when isOneWay is false', async () => {
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          isOneWay: false,
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      const table1TitleField = table1.fields[0];
+      const table1RecordId1 = table1.records[0].id;
+      const table1RecordId2 = table1.records[1].id;
+
+      const symmetricLinkFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId!;
+      const table2TitleField = table2.fields[0];
+      const table2RecordId1 = table2.records[0].id;
+      const table2RecordId2 = table2.records[1].id;
+
+      await updateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table1RecordId1,
+            fields: {
+              [table1TitleField.id]: 'table1:A1',
+            },
+          },
+          {
+            id: table1RecordId2,
+            fields: {
+              [table1TitleField.id]: 'table1:A2',
+            },
+          },
+        ],
+      });
+
+      await updateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table2RecordId1,
+            fields: {
+              [table2TitleField.id]: 'table2:A1',
+            },
+          },
+          {
+            id: table2RecordId2,
+            fields: {
+              [table2TitleField.id]: 'table2:A2',
+            },
+          },
+        ],
+      });
+
+      const table1Record1Res = await updateRecord(table1.id, table1RecordId1, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [linkField.id]: [{ id: table2RecordId1 }, { id: table2RecordId2 }],
+          },
+        },
+      });
+
+      expect(table1Record1Res.fields[linkField.id]).toEqual([
+        { id: table2RecordId1, title: 'table2:A1' },
+        { id: table2RecordId2, title: 'table2:A2' },
+      ]);
+
+      const table2Record2Res = await getRecord(table2.id, table2RecordId2);
+      expect(table2Record2Res.fields[symmetricLinkFieldId]).toEqual({
+        id: table1RecordId1,
+        title: 'table1:A1',
+      });
+
+      const symmetricLinkField = await getField(table2.id, symmetricLinkFieldId);
+      await convertField(table2.id, symmetricLinkField.id, {
+        type: FieldType.Link,
+        options: {
+          ...symmetricLinkField.options,
+          relationship: Relationship.ManyMany,
+        },
+      });
+
+      const table1Record1ResUpdated = await getRecord(table1.id, table1RecordId1);
+      expect(table1Record1ResUpdated.fields[linkField.id]).toEqual([
+        { id: table2RecordId1, title: 'table2:A1' },
+        { id: table2RecordId2, title: 'table2:A2' },
+      ]);
+
+      const table2Record2ResUpdated = await getRecord(table2.id, table2RecordId2);
+      expect(table2Record2ResUpdated.fields[symmetricLinkFieldId]).toEqual([
+        { id: table1RecordId1, title: 'table1:A1' },
+      ]);
+    });
   });
 });
