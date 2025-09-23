@@ -113,8 +113,8 @@ export class AiService {
           isInstance: true,
         })),
         chatModel: {
-          sm: sm ?? lg,
-          md: md ?? lg,
+          sm: sm || lg,
+          md: md || lg,
           lg: lg,
           ability,
         },
@@ -139,8 +139,8 @@ export class AiService {
         })),
       ],
       chatModel: {
-        sm: sm ?? lg,
-        md: md ?? lg,
+        sm: sm || lg,
+        md: md || lg,
         lg: lg,
         ability,
       },
