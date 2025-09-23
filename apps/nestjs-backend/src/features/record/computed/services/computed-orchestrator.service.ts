@@ -230,7 +230,10 @@ export class ComputedOrchestratorService {
     const impact = await this.collector.collectForFieldChanges(sources);
     if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
 
-    const total = await this.evaluator.evaluate(impact, { versionBaseline: 'current' });
+    const total = await this.evaluator.evaluate(impact, {
+      versionBaseline: 'current',
+      preferAutoNumberPaging: true,
+    });
 
     return { publishedOps: total, impact: buildResultImpact(impact) };
   }
