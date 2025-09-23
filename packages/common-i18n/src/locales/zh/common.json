@@ -687,14 +687,14 @@
         "embeddingModelDescription": "可选，通常模型 ID 包含 \"embedding\"",
         "translationModel": "翻译模型",
         "translationModelDescription": "要使用的翻译模型",
-        "chatModel": "聊天模型",
-        "chatModelDescription": "要使用的聊天模型，提示：中型编码模型默认用于 AI 公式生成和相关功能",
+        "chatModel": "对话模型",
+        "chatModelDescription": "要使用的对话模型，提示：中型编码模型默认用于 AI 公式生成和相关功能",
         "chatModels": {
-          "sm": "小型聊天模型",
+          "sm": "小型对话模型",
           "smDescription": "用于场景推荐和简单快速操作等任务",
-          "md": "中型聊天模型",
+          "md": "中型对话模型",
           "mdDescription": "对于需要速度和质量的场景，如创建数据库，建议使用 GPT-4o",
-          "lg": "高级聊天模型",
+          "lg": "高级对话模型",
           "lgDescription": "对于规划、编码和其他复杂任务场景，建议使用 claude-sonnet-4"
         },
         "actions": {
@@ -726,9 +726,9 @@
         "chatModelTest": {
           "text": "测试模型",
           "description": "测试模型处理图片、PDF 的能力",
-          "notConfigLgModel": "请先配置大型模型",
+          "notConfigLgModel": "请先配置高级对话模型",
           "confirmTitle": "测试模型能力",
-          "confirmDescription": "是否测试大型聊天模型的能力？",
+          "confirmDescription": "是否测试高级对话模型的能力？",
           "confirm": "测试模型",
           "cancel": "取消",
           "missingCapabilitiesWarning": "此模型不支持图片或PDF处理，可能会导致部分功能不可用。",
@@ -742,7 +742,7 @@
           "pdf": "PDF",
           "webSearch": "网络搜索",
           "disabledWebSearch": "禁用网络搜索",
-          "lgModelAbility": "大型模型能力"
+          "lgModelAbility": "高级对话模型能力"
         },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",
@@ -801,8 +801,8 @@
         },
         "llmApi": {
           "title": "LLM API",
-          "description": "您尚未配置 AI LLM API，AI 聊天/AI 自动化将无法使用，<anchor>前往设置</anchor>",
-          "errorTips": "您尚未配置 AI LLM API，AI 聊天/AI 自动化将无法使用"
+          "description": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用，<anchor>前往设置</anchor>",
+          "errorTips": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用"
         },
         "app": {
           "title": "应用生成",
