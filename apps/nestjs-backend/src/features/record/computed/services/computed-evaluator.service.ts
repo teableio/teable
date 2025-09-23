@@ -54,9 +54,14 @@ export class ComputedEvaluatorService {
   @Timing()
   async evaluate(
     impact: IComputedImpactByTable,
-    opts?: { versionBaseline?: 'previous' | 'current'; excludeFieldIds?: Set<string> }
+    opts?: {
+      versionBaseline?: 'previous' | 'current';
+      excludeFieldIds?: Set<string>;
+      preferAutoNumberPaging?: boolean;
+    }
   ): Promise<number> {
     const excludeFieldIds = opts?.excludeFieldIds ?? new Set<string>();
+    const preferAutoNumberPaging = opts?.preferAutoNumberPaging === true;
     const entries = Object.entries(impact).filter(([, group]) => group.fieldIds.size);
 
     let totalOps = 0;
@@ -81,8 +86,11 @@ export class ComputedEvaluatorService {
       const orderCol = alias ? `${alias}.${AUTO_NUMBER_FIELD_NAME}` : AUTO_NUMBER_FIELD_NAME;
       const baseQb = qb.clone();
 
-      if (group.recordIds.size) {
-        const recordIds = Array.from(group.recordIds);
+      const recordIds = Array.from(group.recordIds);
+      const useRecordIdBatch =
+        !preferAutoNumberPaging && recordIds.length > 0 && recordIds.length <= recordIdBatchSize;
+
+      if (useRecordIdBatch) {
         for (const chunk of this.chunk(recordIds, recordIdBatchSize)) {
           if (!chunk.length) continue;
           const batchQb = baseQb.clone().whereIn(idCol, chunk);
