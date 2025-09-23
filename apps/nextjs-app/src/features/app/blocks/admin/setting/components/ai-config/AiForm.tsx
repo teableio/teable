@@ -74,8 +74,17 @@ export function AIConfigForm({
 
   const onTest = async (data: Required<LLMProvider>) => testLLM(data);
 
-  const switchEnable =
-    !aiConfig?.chatModel?.lg || !models.some((model) => model.modelKey === aiConfig?.chatModel?.lg);
+  const enableAi = form.watch('enable');
+
+  const switchEnable = useMemo(() => {
+    if (!aiConfig?.chatModel?.lg && enableAi) {
+      return false;
+    }
+    return (
+      !aiConfig?.chatModel?.lg ||
+      !models.some((model) => model.modelKey === aiConfig?.chatModel?.lg)
+    );
+  }, [aiConfig?.chatModel?.lg, enableAi, models]);
 
   const onTestChatModelAbility = async (chatModel: IAIIntegrationConfig['chatModel']) => {
     const testModelKey = chatModel?.lg;
