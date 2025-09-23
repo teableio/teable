@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import type { FormulaFieldCore } from '@teable/core';
 import { FieldType, IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { Knex } from 'knex';
 import { RawOpType } from '../../../../share-db/interface';
 import { Timing } from '../../../../utils/timing';
 import { BatchService } from '../../../calculation/batch.service';
@@ -10,20 +11,25 @@ import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../../../field/model/factory';
 import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
 import { IComputedImpactByTable } from './computed-dependency-collector.service';
+import {
+  AutoNumberCursorStrategy,
+  RecordIdBatchStrategy,
+  type IComputedRowResult,
+  type IPaginationContext,
+  type IRecordPaginationStrategy,
+} from './computed-pagination.strategy';
 import { RecordComputedUpdateService } from './record-computed-update.service';
 
 const recordIdBatchSize = 10_000;
 const cursorBatchSize = 10_000;
 
-type IRowResult = {
-  __id: string;
-  __version: number;
-  ['__prev_version']?: number;
-  ['__auto_number']?: number;
-} & Record<string, unknown>;
-
 @Injectable()
 export class ComputedEvaluatorService {
+  private readonly paginationStrategies: IRecordPaginationStrategy[] = [
+    new RecordIdBatchStrategy(),
+    new AutoNumberCursorStrategy(),
+  ];
+
   constructor(
     private readonly prismaService: PrismaService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
@@ -87,53 +93,20 @@ export class ComputedEvaluatorService {
       const baseQb = qb.clone();
 
       const recordIds = Array.from(group.recordIds);
-      const useRecordIdBatch =
-        !preferAutoNumberPaging && recordIds.length > 0 && recordIds.length <= recordIdBatchSize;
+      const paginationContext = this.createPaginationContext({
+        tableId,
+        recordIds,
+        preferAutoNumberPaging,
+        baseQueryBuilder: baseQb,
+        idColumn: idCol,
+        orderColumn: orderCol,
+        fieldInstances,
+      });
 
-      if (useRecordIdBatch) {
-        for (const chunk of this.chunk(recordIds, recordIdBatchSize)) {
-          if (!chunk.length) continue;
-          const batchQb = baseQb.clone().whereIn(idCol, chunk);
-          const rows = await this.recordComputedUpdateService.updateFromSelect(
-            tableId,
-            batchQb,
-            fieldInstances
-          );
-          if (!rows.length) continue;
-          const evaluatedRows = this.buildEvaluatedRows(rows, fieldInstances, opts);
-          totalOps += this.publishBatch(
-            tableId,
-            impactedFieldIds,
-            validFieldIdSet,
-            excludeFieldIds,
-            evaluatedRows
-          );
-        }
-        continue;
-      }
-
-      let cursor: number | null = null;
-      // Cursor-based batching for full-table recompute scenarios
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const pagedQb = baseQb.clone().orderBy(orderCol, 'asc').limit(cursorBatchSize);
-        if (cursor != null) pagedQb.where(orderCol, '>', cursor);
-
-        const rows = await this.recordComputedUpdateService.updateFromSelect(
-          tableId,
-          pagedQb,
-          fieldInstances
-        );
-        if (!rows.length) break;
-
-        const sortedRows = rows.slice().sort((a, b) => {
-          const left = (a[AUTO_NUMBER_FIELD_NAME] as number) ?? 0;
-          const right = (b[AUTO_NUMBER_FIELD_NAME] as number) ?? 0;
-          if (left === right) return 0;
-          return left > right ? 1 : -1;
-        });
-
-        const evaluatedRows = this.buildEvaluatedRows(sortedRows, fieldInstances, opts);
+      const strategy = this.selectPaginationStrategy(paginationContext);
+      await strategy.run(paginationContext, async (rows) => {
+        if (!rows.length) return;
+        const evaluatedRows = this.buildEvaluatedRows(rows, fieldInstances, opts);
         totalOps += this.publishBatch(
           tableId,
           impactedFieldIds,
@@ -141,28 +114,14 @@ export class ComputedEvaluatorService {
           excludeFieldIds,
           evaluatedRows
         );
-
-        const lastRow = sortedRows[sortedRows.length - 1];
-        const lastCursor = lastRow[AUTO_NUMBER_FIELD_NAME] as number | undefined;
-        if (lastCursor != null) cursor = lastCursor;
-        if (sortedRows.length < cursorBatchSize) break;
-      }
+      });
     }
 
     return totalOps;
   }
 
-  private chunk<T>(arr: T[], size: number): T[][] {
-    if (size <= 0) return [arr];
-    const result: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) {
-      result.push(arr.slice(i, i + size));
-    }
-    return result;
-  }
-
   private buildEvaluatedRows(
-    rows: Array<IRowResult>,
+    rows: Array<IComputedRowResult>,
     fieldInstances: IFieldInstance[],
     opts?: { versionBaseline?: 'previous' | 'current' }
   ): Array<{ recordId: string; version: number; fields: Record<string, unknown> }> {
@@ -236,5 +195,45 @@ export class ComputedEvaluatorService {
     );
 
     return opDataList.reduce((sum, current) => sum + current.count, 0);
+  }
+
+  private selectPaginationStrategy(context: IPaginationContext): IRecordPaginationStrategy {
+    return (
+      this.paginationStrategies.find((strategy) => strategy.canHandle(context)) ??
+      this.paginationStrategies[this.paginationStrategies.length - 1]
+    );
+  }
+
+  private createPaginationContext(params: {
+    tableId: string;
+    recordIds: string[];
+    preferAutoNumberPaging: boolean;
+    baseQueryBuilder: Knex.QueryBuilder;
+    idColumn: string;
+    orderColumn: string;
+    fieldInstances: IFieldInstance[];
+  }): IPaginationContext {
+    const {
+      tableId,
+      recordIds,
+      preferAutoNumberPaging,
+      baseQueryBuilder,
+      idColumn,
+      orderColumn,
+      fieldInstances,
+    } = params;
+
+    return {
+      tableId,
+      recordIds,
+      preferAutoNumberPaging,
+      recordIdBatchSize,
+      cursorBatchSize,
+      baseQueryBuilder,
+      idColumn,
+      orderColumn,
+      updateRecords: (qb) =>
+        this.recordComputedUpdateService.updateFromSelect(tableId, qb, fieldInstances),
+    };
   }
 }
