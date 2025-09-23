@@ -1,8 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { testIntegrationLLM, type IAIIntegrationConfig } from '@teable/openapi';
 import type { LLMProvider } from '@teable/openapi/src/admin/setting';
-import { aiConfigVoSchema, chatModelAbilityType } from '@teable/openapi/src/admin/setting';
+import {
+  aiConfigVoSchema,
+  chatModelAbilityType,
+  getPublicSetting,
+} from '@teable/openapi/src/admin/setting';
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -84,6 +88,13 @@ export const AIConfig = (props: IAIConfigProps) => {
 
   const onTest = async (data: Required<LLMProvider>) => testIntegrationLLM(spaceId, data);
 
+  const { data: setting } = useQuery({
+    queryKey: ['public-setting'],
+    queryFn: () => getPublicSetting().then(({ data }) => data),
+  });
+
+  const instanceAIDisableActions = setting?.aiConfig?.capabilities?.disableActions || [];
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -95,9 +106,8 @@ export const AIConfig = (props: IAIConfigProps) => {
           onTestChatModelAbility={onTestChatModelAbility}
         />
         <AIControlCard
-          aiControlEnable={config?.capabilities?.enabled ?? false}
-          disableActions={config?.capabilities?.disableActions || []}
-          onChange={(value: { enabled: boolean; disableActions: string[] }) => {
+          disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
+          onChange={(value: { disableActions: string[] }) => {
             form.setValue('capabilities', value);
             onSubmit(form.getValues());
           }}

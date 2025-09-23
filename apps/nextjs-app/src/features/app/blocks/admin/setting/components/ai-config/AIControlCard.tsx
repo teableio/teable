@@ -18,7 +18,7 @@ import { useCallback, useMemo } from 'react';
 
 interface SwitchListProps {
   disableActions: string[];
-  onChange: (value: { enabled: boolean; disableActions: string[] }) => void;
+  onChange: (value: { disableActions: string[] }) => void;
 }
 
 export enum AIActions {
@@ -108,13 +108,13 @@ const SwitchList = (props: SwitchListProps) => {
         if (index !== -1) {
           const newDisableActions = [...disableActions];
           newDisableActions.splice(index, 1);
-          onChange({ enabled: true, disableActions: newDisableActions });
+          onChange({ disableActions: newDisableActions });
         }
       }
 
       if (!open && !disableActions.find((action) => action === actionName)) {
         const newDisableActions = [...disableActions, actionName];
-        onChange({ enabled: true, disableActions: newDisableActions });
+        onChange({ disableActions: newDisableActions });
       }
     },
     [disableActions, onChange]
@@ -147,12 +147,10 @@ const SwitchList = (props: SwitchListProps) => {
 
 export const AIControlCard = ({
   disableActions,
-  aiControlEnable,
   onChange,
 }: {
   disableActions: string[];
-  aiControlEnable: boolean;
-  onChange: (value: { enabled: boolean; disableActions: string[] }) => void;
+  onChange: (value: { disableActions: string[] }) => void;
 }) => {
   const { t } = useTranslation('common');
 
@@ -163,21 +161,12 @@ export const AIControlCard = ({
           <CardTitle>{t('admin.setting.ai.aiAbilitySettings')}</CardTitle>
           <CardDescription>{t('admin.setting.ai.aiAbilitySettingsDescription')}</CardDescription>
         </div>
-
-        <Switch
-          checked={aiControlEnable}
-          onCheckedChange={(checked) => {
-            onChange({ enabled: checked, disableActions: disableActions });
-          }}
-        />
       </CardHeader>
-      {aiControlEnable && (
-        <CardContent>
-          <div className="space-y-2">
-            <SwitchList onChange={onChange} disableActions={disableActions} />
-          </div>
-        </CardContent>
-      )}
+      <CardContent>
+        <div className="space-y-2">
+          <SwitchList onChange={onChange} disableActions={disableActions} />
+        </div>
+      </CardContent>
     </Card>
   );
 };

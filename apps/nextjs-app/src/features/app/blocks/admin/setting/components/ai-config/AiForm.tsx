@@ -170,9 +170,8 @@ export function AIConfigForm({
           }}
         />
         <AIControlCard
-          aiControlEnable={aiConfig?.capabilities?.enabled ?? false}
           disableActions={aiConfig?.capabilities?.disableActions || []}
-          onChange={(value: { enabled: boolean; disableActions: string[] }) => {
+          onChange={(value: { disableActions: string[] }) => {
             form.setValue('capabilities', value);
             onSubmit(form.getValues());
           }}

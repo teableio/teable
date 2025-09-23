@@ -76,6 +76,7 @@ export class SettingOpenApiController {
             models: provider.models,
           })) ?? [],
         chatModel: aiConfig?.chatModel,
+        capabilities: aiConfig?.capabilities,
       },
       appGenerationEnabled: Boolean(appConfig?.apiKey),
       webSearchEnabled: Boolean(webSearchConfig?.apiKey),

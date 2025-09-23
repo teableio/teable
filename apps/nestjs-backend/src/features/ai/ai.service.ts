@@ -158,15 +158,11 @@ export class AiService {
     });
 
     const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.capabilities?.enabled
-      ? aiIntegrationConfig?.capabilities?.disableActions
-      : null;
+    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.capabilities?.disableActions;
 
     // get instance ai setting
     const { aiConfig } = await this.settingService.getSetting();
-    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.enabled
-      ? aiConfig?.capabilities?.disableActions
-      : null;
+    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.disableActions;
 
     return {
       disableActions:

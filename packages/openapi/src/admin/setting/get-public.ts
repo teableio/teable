@@ -18,6 +18,11 @@ const publicAiConfigSchema = z.object({
   enable: z.boolean(),
   llmProviders: z.array(simpleLLMProviderSchema),
   chatModel: chatModelSchema.optional(),
+  capabilities: z
+    .object({
+      disableActions: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 
 export const publicSettingVoSchema = settingVoSchema

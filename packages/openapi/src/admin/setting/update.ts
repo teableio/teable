@@ -58,7 +58,6 @@ export const aiConfigSchema = z.object({
   chatModel: chatModelSchema.optional(),
   capabilities: z
     .object({
-      enabled: z.boolean().optional(),
       disableActions: z.array(z.string()).optional(),
     })
     .optional(),
