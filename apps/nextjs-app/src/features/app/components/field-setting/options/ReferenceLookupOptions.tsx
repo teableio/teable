@@ -2,7 +2,7 @@
 import type { IReferenceLookupFieldOptions, IRollupFieldOptions } from '@teable/core';
 import { CellValueType, ROLLUP_FUNCTIONS } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
-import { useBaseId, useFields } from '@teable/sdk/hooks';
+import { useBaseId, useFields, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { Trans } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
@@ -23,6 +23,7 @@ export const ReferenceLookupOptions = ({
   onChange,
 }: IReferenceLookupOptionsProps) => {
   const baseId = useBaseId();
+  const sourceTableId = useTableId();
 
   const handlePartialChange = useCallback(
     (partial: Partial<IReferenceLookupFieldOptions>) => {
@@ -77,6 +78,7 @@ export const ReferenceLookupOptions = ({
             onOptionsChange={handlePartialChange}
             onLookupFieldChange={handleLookupField}
             rollupOptions={rollupOptions}
+            sourceTableId={sourceTableId}
           />
         </StandaloneViewProvider>
       ) : null}
@@ -90,10 +92,12 @@ interface IReferenceLookupForeignSectionProps {
   onOptionsChange: (options: Partial<IReferenceLookupFieldOptions>) => void;
   onLookupFieldChange: (field: IFieldInstance) => void;
   rollupOptions: Partial<IRollupFieldOptions>;
+  sourceTableId?: string;
 }
 
 const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProps) => {
-  const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions } = props;
+  const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions, sourceTableId } =
+    props;
   const foreignFields = useFields({ withHidden: true, withDenied: true });
 
   const lookupField = useMemo(() => {
@@ -124,6 +128,7 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
         fieldId={fieldId}
         foreignTableId={options.foreignTableId!}
         filter={options.filter ?? null}
+        contextTableId={sourceTableId}
         onChange={(filter) => {
           onOptionsChange({ filter: filter ?? undefined });
         }}

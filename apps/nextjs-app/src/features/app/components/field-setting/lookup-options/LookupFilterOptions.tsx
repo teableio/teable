@@ -14,16 +14,18 @@ interface ILookupFilterOptionsProps {
   fieldId?: string;
   filter?: IFilter | null;
   foreignTableId: string;
+  contextTableId?: string;
   onChange?: (filter: IFilter | null) => void;
 }
 
 export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
-  const { fieldId, foreignTableId, filter, onChange } = props;
+  const { fieldId, foreignTableId, filter, onChange, contextTableId } = props;
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const currentTableId = useTableId() as string;
+  const tableIdForContext = contextTableId ?? currentTableId;
 
-  const context = useFieldFilterLinkContext(currentTableId, fieldId, !fieldId);
+  const context = useFieldFilterLinkContext(tableIdForContext, fieldId, !fieldId);
 
   const { data: totalFields = [] } = useQuery({
     queryKey: ReactQueryKeys.fieldList(foreignTableId),
