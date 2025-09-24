@@ -25,6 +25,7 @@ export const View = (props: IViewBaseProps) => {
     if (!view && views.length > 0) {
       const defaultView = views[0];
       if (defaultView.tableId === tableId) {
+        console.warn('autoJump to default view', defaultView?.id);
         router.push(`/base/${baseId}/${tableId}/${defaultView.id}`);
       }
     }
