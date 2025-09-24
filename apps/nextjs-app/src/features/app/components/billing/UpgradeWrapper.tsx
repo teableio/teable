@@ -65,7 +65,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
       ? BillingProductLevel.Pro
       : targetBillingLevel;
 
-  const currentLevel = useBillingLevel({ baseId });
+  const currentLevel = useBillingLevel(baseId ? { baseId } : { spaceId });
 
   const isLevelSufficientMemo = useMemo(() => {
     return isLevelSufficient(currentLevel, targetBillingLevel);
