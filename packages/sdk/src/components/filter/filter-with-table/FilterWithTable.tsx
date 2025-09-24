@@ -13,16 +13,12 @@ interface IFilterWithTableProps {
   fields: IFieldInstance[];
   context: IViewFilterLinkContext;
   onChange: (value: IFilter | null) => void;
+  selfFields?: IFieldInstance[];
+  selfTableId?: string;
+  enableFieldReference?: boolean;
 }
 
 type ICustomerValueComponentProps = ComponentProps<typeof FieldValue>;
-
-const CustomValueComponent = (props: ICustomerValueComponentProps) => {
-  const components = {
-    [FieldType.Link]: FilterLink,
-  };
-  return <FieldValue {...props} components={components} modal={true} />;
-};
 
 const FilterLinkSelectCom = (props: IFilterLinkProps) => {
   return (
@@ -50,7 +46,23 @@ const FilterLink = (props: IFilterLinkProps) => {
 };
 
 export const FilterWithTable = (props: IFilterWithTableProps) => {
-  const { fields, value, context, onChange } = props;
+  const { fields, value, context, onChange, selfFields, selfTableId, enableFieldReference } = props;
+
+  const CustomValueComponent = (valueProps: ICustomerValueComponentProps) => {
+    const components = {
+      [FieldType.Link]: FilterLink,
+    };
+    return (
+      <FieldValue
+        {...valueProps}
+        components={components}
+        modal={true}
+        selfFields={selfFields}
+        selfTableId={selfTableId}
+        enableFieldReference={enableFieldReference}
+      />
+    );
+  };
 
   return (
     <BaseViewFilter

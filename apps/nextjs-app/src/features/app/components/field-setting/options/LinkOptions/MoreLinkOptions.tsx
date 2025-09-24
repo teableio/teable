@@ -54,15 +54,18 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
     enabled: !!foreignTableId,
   });
 
+  const foreignFieldInstances = useMemo(
+    () => totalFields.map((field) => createFieldInstance(field) as IFieldInstance),
+    [totalFields]
+  );
+
   const primaryField = useMemo(() => {
-    return totalFields.find((field) => field.isPrimary);
-  }, [totalFields]);
+    return foreignFieldInstances.find((field) => field.isPrimary);
+  }, [foreignFieldInstances]);
 
   const fieldInstances = useMemo(() => {
-    return totalFields
-      .filter((field) => PRIMARY_SUPPORTED_TYPES.has(field.type))
-      .map((field) => createFieldInstance(field));
-  }, [totalFields]);
+    return foreignFieldInstances.filter((field) => PRIMARY_SUPPORTED_TYPES.has(field.type));
+  }, [foreignFieldInstances]);
 
   const { data: withViewFields } = useQuery({
     queryKey: ReactQueryKeys.fieldList(foreignTableId, query),
@@ -71,6 +74,23 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
   });
 
   const context = useFieldFilterLinkContext(currentTableId, fieldId, !fieldId);
+
+  const { data: selfFieldVos = [] } = useQuery({
+    queryKey: ReactQueryKeys.fieldList(currentTableId),
+    queryFn: () => getFields(currentTableId).then((res) => res.data),
+    enabled: !!currentTableId,
+  });
+
+  const selfFieldInstances = useMemo(
+    () => selfFieldVos.map((field) => createFieldInstance(field) as IFieldInstance),
+    [selfFieldVos]
+  );
+
+  const viewFieldInstances = useMemo(
+    () =>
+      (withViewFields ?? totalFields).map((field) => createFieldInstance(field) as IFieldInstance),
+    [withViewFields, totalFields]
+  );
 
   const hiddenFieldIds = useMemo(() => {
     // Default all fields are visible
@@ -81,7 +101,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
       .map((field) => field.id);
   }, [totalFields, visibleFieldIds]);
 
-  if (!foreignTableId || !totalFields.length) {
+  if (!foreignTableId || !foreignFieldInstances.length) {
     return null;
   }
 
@@ -131,25 +151,29 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
             </DialogTrigger>
             <DialogContent className="min-w-96 max-w-fit">
               <FilterWithTable
-                fields={totalFields as IFieldInstance[]}
+                fields={foreignFieldInstances}
                 value={filter ?? null}
                 context={context}
+                selfFields={selfFieldInstances}
+                selfTableId={currentTableId}
                 onChange={(value) => onChange?.({ filter: value })}
               />
             </DialogContent>
           </Dialog>
         </div>
         <FilterWithTable
-          fields={totalFields as IFieldInstance[]}
+          fields={foreignFieldInstances}
           value={filter ?? null}
           context={context}
+          selfFields={selfFieldInstances}
+          selfTableId={currentTableId}
           onChange={(value) => onChange?.({ filter: value })}
         />
       </div>
       <div className="flex flex-col gap-2">
         <span>{t('table:field.editor.hideFields')}</span>
         <HideFieldsBase
-          fields={(withViewFields ?? totalFields) as IFieldInstance[]}
+          fields={viewFieldInstances}
           hidden={hiddenFieldIds}
           onChange={onHiddenChange}
         >

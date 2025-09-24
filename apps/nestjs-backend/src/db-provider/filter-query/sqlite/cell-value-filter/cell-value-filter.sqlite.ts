@@ -4,6 +4,8 @@ import {
   contains,
   doesNotContain,
   FieldType,
+  isFieldReferenceValue,
+  isNoneOf,
   literalValueListSchema,
 } from '@teable/core';
 import type { Knex } from 'knex';
@@ -18,6 +20,11 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     const { cellValueType } = this.field;
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') != ${ref}`);
+      return builderClient;
+    }
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
     builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') != ?`, [parseValue]);
@@ -30,6 +37,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, doesNotContain.value);
     builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') not like ?`, [`%${value}%`]);
     return builderClient;
   }
@@ -40,6 +48,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, isNoneOf.value);
     const valueList = literalValueListSchema.parse(value);
 
     const sql = `ifnull(${this.tableColumnRef}, '') not in (${this.createSqlPlaceholders(valueList)})`;

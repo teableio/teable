@@ -97,6 +97,7 @@ export type IRecordQueryContext = 'table' | 'tableCache' | 'view';
 
 export interface IRecordQueryFilterContext {
   selectionMap: IReadonlyRecordSelectionMap;
+  fieldReferenceSelectionMap?: Map<string, string>;
 }
 
 export interface IRecordQuerySortContext {

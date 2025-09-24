@@ -8,6 +8,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
     _operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -22,6 +23,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
     _operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const sql = `not exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -36,6 +38,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
     _operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -50,6 +53,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
     _operator: IFilterOperator,
     value: ILiteralValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const sql = `not exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 

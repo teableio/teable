@@ -128,6 +128,7 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
         fieldId={fieldId}
         foreignTableId={options.foreignTableId!}
         filter={options.filter ?? null}
+        enableFieldReference
         contextTableId={sourceTableId}
         onChange={(filter) => {
           onOptionsChange({ filter: filter ?? undefined });

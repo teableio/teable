@@ -182,6 +182,10 @@
         "isLessEqual": "≤"
       }
     },
+    "referenceLookup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "today",
