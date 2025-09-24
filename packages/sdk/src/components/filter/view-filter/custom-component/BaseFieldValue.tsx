@@ -1,9 +1,19 @@
-import type { IDateFilter, IFilterItem } from '@teable/core';
-import { assertNever, CellValueType, FieldType } from '@teable/core';
-import { useMemo } from 'react';
+import {
+  assertNever,
+  CellValueType,
+  FieldType,
+  is,
+  isNot,
+  isFieldReferenceValue,
+} from '@teable/core';
+import type { IDateFilter, IFilterItem, IFieldReferenceValue } from '@teable/core';
+import { RefreshCcw } from '@teable/icons';
+import { Button } from '@teable/ui-lib';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../../model';
 import { NumberEditor, RatingEditor } from '../../../editor';
+import { FieldSelector } from '../../../field';
 import {
   FileTypeSelect,
   FilterCheckbox,
@@ -26,10 +36,107 @@ interface IBaseFieldValue {
   components?: IFilterComponents;
   linkContext?: ILinkContext;
   modal?: boolean;
+  selfFields?: IFieldInstance[];
+  selfTableId?: string;
+  enableFieldReference?: boolean;
 }
 
+const FIELD_REFERENCE_SUPPORTED_OPERATORS = new Set<string>([is.value, isNot.value]);
+
+interface IReferenceLookupValueProps {
+  literalComponent: JSX.Element;
+  value: unknown;
+  onSelect: (value: IFilterItem['value']) => void;
+  operator: IFilterItem['operator'];
+  selfFields?: IFieldInstance[];
+  selfTableId?: string;
+  modal?: boolean;
+}
+
+const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
+  const { literalComponent, value, onSelect, operator, selfFields, selfTableId, modal } = props;
+  const { t } = useTranslation();
+  const isFieldMode = isFieldReferenceValue(value);
+  const [lastLiteralValue, setLastLiteralValue] = useState<IFilterItem['value'] | null>(
+    isFieldMode ? null : (value as IFilterItem['value'])
+  );
+
+  useEffect(() => {
+    if (!isFieldReferenceValue(value)) {
+      setLastLiteralValue(value as IFilterItem['value']);
+    }
+  }, [value]);
+
+  const toggleDisabled = !selfFields?.length || !FIELD_REFERENCE_SUPPORTED_OPERATORS.has(operator);
+
+  const handleToggle = () => {
+    if (toggleDisabled) {
+      return;
+    }
+    if (isFieldReferenceValue(value)) {
+      onSelect(lastLiteralValue ?? null);
+      return;
+    }
+    const fallbackFieldId = selfFields?.[0]?.id;
+    if (!fallbackFieldId) {
+      return;
+    }
+    onSelect({
+      type: 'field',
+      fieldId: fallbackFieldId,
+      tableId: selfTableId,
+    } satisfies IFieldReferenceValue);
+  };
+
+  const handleFieldSelect = (fieldId: string) => {
+    if (!fieldId) return;
+    onSelect({ type: 'field', fieldId, tableId: selfTableId } satisfies IFieldReferenceValue);
+  };
+
+  const buttonLabel = isFieldReferenceValue(value)
+    ? t('filter.referenceLookup.switchToValue')
+    : t('filter.referenceLookup.switchToField');
+
+  return (
+    <div className="flex items-center gap-1">
+      {isFieldReferenceValue(value) ? (
+        <FieldSelector
+          fields={selfFields}
+          value={value.fieldId}
+          onSelect={handleFieldSelect}
+          className="min-w-28 max-w-40"
+          modal={modal}
+        />
+      ) : (
+        literalComponent
+      )}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-8 shrink-0"
+        onClick={handleToggle}
+        disabled={toggleDisabled}
+        title={toggleDisabled ? undefined : buttonLabel}
+      >
+        <RefreshCcw className="size-4" />
+      </Button>
+    </div>
+  );
+};
+
 export function BaseFieldValue(props: IBaseFieldValue) {
-  const { onSelect, components, field, operator, value, linkContext, modal } = props;
+  const {
+    onSelect,
+    components,
+    field,
+    operator,
+    value,
+    linkContext,
+    modal,
+    selfFields,
+    selfTableId,
+    enableFieldReference,
+  } = props;
   const { t } = useTranslation();
 
   const showEmptyComponent = useMemo(() => {
@@ -81,9 +188,26 @@ export function BaseFieldValue(props: IBaseFieldValue) {
     }
   };
 
+  const wrapWithReference = (component: JSX.Element) => {
+    if (!enableFieldReference || !FIELD_REFERENCE_SUPPORTED_OPERATORS.has(operator)) {
+      return component;
+    }
+    return (
+      <ReferenceLookupValue
+        literalComponent={component}
+        value={value}
+        onSelect={onSelect}
+        operator={operator}
+        selfFields={selfFields}
+        selfTableId={selfTableId}
+        modal={modal}
+      />
+    );
+  };
+
   switch (field?.type) {
     case FieldType.Number:
-      return (
+      return wrapWithReference(
         <NumberEditor
           value={value as number}
           saveOnChange={true}
@@ -127,7 +251,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
     case FieldType.Date:
     case FieldType.CreatedTime:
     case FieldType.LastModifiedTime:
-      return (
+      return wrapWithReference(
         <FilterDatePicker
           field={field as DateField}
           value={value as IDateFilter}
@@ -183,10 +307,10 @@ export function BaseFieldValue(props: IBaseFieldValue) {
     }
     case FieldType.Rollup:
     case FieldType.Formula:
-    case FieldType.ReferenceLookup: {
-      return getFormulaValueComponent(field.cellValueType);
-    }
+      return wrapWithReference(getFormulaValueComponent(field.cellValueType));
+    case FieldType.ReferenceLookup:
+      return wrapWithReference(getFormulaValueComponent(field.cellValueType));
     default:
-      return InputComponent;
+      return wrapWithReference(InputComponent);
   }
 }

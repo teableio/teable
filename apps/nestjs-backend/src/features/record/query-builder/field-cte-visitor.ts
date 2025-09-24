@@ -1085,9 +1085,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
       }
 
+      const fieldReferenceSelectionMap = new Map<string, string>();
+      for (const mainField of this.table.fields.ordered) {
+        fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
+      }
+
       this.dbProvider
         .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
           selectionMap,
+          fieldReferenceSelectionMap,
         })
         .appendQueryBuilder();
     }

@@ -38,6 +38,8 @@ import {
   isOnOrBefore,
   isWithIn,
   literalValueListSchema,
+  isFieldReferenceValue,
+  type IFieldReferenceValue,
 } from '@teable/core';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -61,6 +63,28 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     } else {
       this.tableColumnRef = dbFieldName;
     }
+  }
+
+  protected ensureLiteralValue(value: IFilterValue, operator: IFilterOperator): void {
+    if (isFieldReferenceValue(value)) {
+      throw new BadRequestException(
+        `Operator '${operator}' does not support comparing against another field`
+      );
+    }
+  }
+
+  protected resolveFieldReference(value: IFieldReferenceValue): string {
+    const referenceMap = this.context?.fieldReferenceSelectionMap;
+    if (!referenceMap) {
+      throw new BadRequestException('Field reference comparisons are not available here');
+    }
+    const reference = referenceMap.get(value.fieldId);
+    if (!reference) {
+      throw new BadRequestException(
+        `Field '${value.fieldId}' is not available for reference comparisons`
+      );
+    }
+    return reference;
   }
 
   compiler(
@@ -108,6 +132,12 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      builderClient.whereRaw(`${this.tableColumnRef} = ${ref}`);
+      return builderClient;
+    }
+
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
 
     builderClient.whereRaw(`${this.tableColumnRef} = ?`, [parseValue]);
@@ -136,6 +166,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, contains.value);
     builderClient.whereRaw(`${this.tableColumnRef} LIKE ?`, [`%${value}%`]);
     return builderClient;
   }
@@ -153,6 +184,11 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      builderClient.whereRaw(`${this.tableColumnRef} > ${ref}`);
+      return builderClient;
+    }
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
@@ -166,6 +202,11 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      builderClient.whereRaw(`${this.tableColumnRef} >= ${ref}`);
+      return builderClient;
+    }
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
@@ -179,6 +220,11 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      builderClient.whereRaw(`${this.tableColumnRef} < ${ref}`);
+      return builderClient;
+    }
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
@@ -192,6 +238,11 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      builderClient.whereRaw(`${this.tableColumnRef} <= ${ref}`);
+      return builderClient;
+    }
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
@@ -205,6 +256,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     value: IFilterValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, isAnyOf.value);
     const valueList = literalValueListSchema.parse(value);
 
     builderClient.whereRaw(

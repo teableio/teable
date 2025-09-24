@@ -56,10 +56,27 @@ export type ILiteralValue = z.infer<typeof literalValueSchema>;
 export const literalValueListSchema = literalValueSchema.array().nonempty();
 export type ILiteralValueList = z.infer<typeof literalValueListSchema>;
 
+export const fieldReferenceValueSchema = z.object({
+  type: z.literal('field'),
+  fieldId: z.string(),
+  tableId: z.string().optional(),
+});
+export type IFieldReferenceValue = z.infer<typeof fieldReferenceValueSchema>;
+
 export const filterValueSchema = z
-  .union([literalValueSchema, literalValueListSchema, dateFilterSchema])
+  .union([literalValueSchema, literalValueListSchema, dateFilterSchema, fieldReferenceValueSchema])
   .nullable();
 export type IFilterValue = z.infer<typeof filterValueSchema>;
+
+export const isFieldReferenceValue = (value: unknown): value is IFieldReferenceValue => {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    (value as { type?: string }).type === 'field' &&
+    typeof (value as { fieldId?: unknown }).fieldId === 'string'
+  );
+};
 
 export type IFilterOperator = IOperator;
 export type IFilterSymbolOperator = ISymbol;
@@ -103,14 +120,22 @@ export const refineExtendedFilterOperatorSchema = <
       });
     }
 
-    if (operatorsExpectingArray.includes(val.operator) && !Array.isArray(val.value)) {
+    if (
+      operatorsExpectingArray.includes(val.operator) &&
+      !Array.isArray(val.value) &&
+      !isFieldReferenceValue(val.value)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `For the operator '${val.operator}', the 'value' should be an array`,
       });
     }
 
-    if (!operatorsExpectingArray.includes(val.operator) && Array.isArray(val.value)) {
+    if (
+      !operatorsExpectingArray.includes(val.operator) &&
+      Array.isArray(val.value) &&
+      !isFieldReferenceValue(val.value)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `For the operator '${val.operator}', the 'value' should not be an array`,

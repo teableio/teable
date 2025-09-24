@@ -6,8 +6,10 @@ import { FilterWithTable, useFieldFilterLinkContext } from '@teable/sdk/componen
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
+import { createFieldInstance } from '@teable/sdk/model';
 import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface ILookupFilterOptionsProps {
@@ -16,10 +18,11 @@ interface ILookupFilterOptionsProps {
   foreignTableId: string;
   contextTableId?: string;
   onChange?: (filter: IFilter | null) => void;
+  enableFieldReference?: boolean;
 }
 
 export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
-  const { fieldId, foreignTableId, filter, onChange, contextTableId } = props;
+  const { fieldId, foreignTableId, filter, onChange, contextTableId, enableFieldReference } = props;
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const currentTableId = useTableId() as string;
@@ -33,7 +36,23 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
     enabled: !!foreignTableId,
   });
 
-  if (!foreignTableId || !totalFields.length) {
+  const { data: selfFieldVos = [] } = useQuery({
+    queryKey: ReactQueryKeys.fieldList(tableIdForContext),
+    queryFn: () => getFields(tableIdForContext!).then((res) => res.data),
+    enabled: !!tableIdForContext,
+  });
+
+  const foreignFieldInstances = useMemo(
+    () => totalFields.map((field) => createFieldInstance(field) as IFieldInstance),
+    [totalFields]
+  );
+
+  const selfFieldInstances = useMemo(
+    () => selfFieldVos.map((field) => createFieldInstance(field) as IFieldInstance),
+    [selfFieldVos]
+  );
+
+  if (!foreignTableId || !foreignFieldInstances.length) {
     return null;
   }
 
@@ -50,9 +69,12 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
             </DialogTrigger>
             <DialogContent className="min-w-96 max-w-fit">
               <FilterWithTable
-                fields={totalFields as IFieldInstance[]}
+                fields={foreignFieldInstances}
                 value={filter ?? null}
                 context={context}
+                selfFields={selfFieldInstances}
+                selfTableId={tableIdForContext}
+                enableFieldReference={enableFieldReference}
                 onChange={(value) => onChange?.(value)}
               />
             </DialogContent>
@@ -60,9 +82,12 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
         </div>
 
         <FilterWithTable
-          fields={totalFields as IFieldInstance[]}
+          fields={foreignFieldInstances}
           value={filter ?? null}
           context={context}
+          selfFields={selfFieldInstances}
+          selfTableId={tableIdForContext}
+          enableFieldReference={enableFieldReference}
           onChange={(value) => onChange?.(value)}
         />
       </div>
