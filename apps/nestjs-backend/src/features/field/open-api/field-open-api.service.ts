@@ -16,6 +16,7 @@ import type {
   IOtOperation,
   IColumnMeta,
   ILinkFieldOptions,
+  IReferenceLookupFieldOptions,
   IGetFieldsQuery,
   IFilter,
 } from '@teable/core';
@@ -623,13 +624,27 @@ export class FieldOpenApiService {
   async getFilterLinkRecords(tableId: string, fieldId: string) {
     const field = await this.fieldService.getField(tableId, fieldId);
 
-    if (field.type !== FieldType.Link) return [];
+    if (field.type === FieldType.Link) {
+      const { filter, foreignTableId } = field.options as ILinkFieldOptions;
 
-    const { filter, foreignTableId } = field.options as ILinkFieldOptions;
+      if (!foreignTableId || !filter) {
+        return [];
+      }
 
-    if (!foreignTableId || !filter) return [];
+      return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
+    }
 
-    return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
+    if (field.type === FieldType.ReferenceLookup) {
+      const { filter, foreignTableId } = field.options as IReferenceLookupFieldOptions;
+
+      if (!foreignTableId || !filter) {
+        return [];
+      }
+
+      return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
+    }
+
+    return [];
   }
 
   async duplicateField(

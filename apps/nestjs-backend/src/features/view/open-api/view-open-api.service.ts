@@ -809,14 +809,18 @@ export class ViewOpenApiService {
 
     const lookupFieldIds = linkFieldInstances.reduce((arr, field) => {
       const { lookupFieldId } = field.options as ILinkFieldOptions;
-      arr.push(lookupFieldId);
+      if (lookupFieldId) {
+        arr.push(lookupFieldId);
+      }
       return arr;
     }, [] as string[]);
 
     const linkFieldTableMap = linkFields.reduce(
       (map, field) => {
         const { foreignTableId } = JSON.parse(field.options as string) as ILinkFieldOptions;
-        map[field.id] = foreignTableId;
+        if (foreignTableId) {
+          map[field.id] = foreignTableId;
+        }
         return map;
       },
       {} as Record<string, string>
