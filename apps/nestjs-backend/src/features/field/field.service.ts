@@ -521,13 +521,13 @@ export class FieldService implements IReadonlyAdapterService {
         id: viewId,
         type: curView.type as ViewType,
         options: curView.options ? JSON.parse(curView.options) : curView.options,
-        columnMeta: JSON.parse(curView.columnMeta),
+        columnMeta: curView?.columnMeta ? JSON.parse(curView?.columnMeta) : curView?.columnMeta,
       };
       if (query?.filterHidden) {
         result = result.filter((field) => isNotHiddenField(field.id, view));
       }
       return sortBy(result, (field) => {
-        return view?.columnMeta[field.id].order;
+        return view?.columnMeta?.[field?.id]?.order;
       });
     }
 
