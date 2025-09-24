@@ -1,10 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
-import { getViewList } from '@teable/openapi';
-import { useView, useBaseId, useTableId, ReactQueryKeys } from '@teable/sdk';
-import { useRouter } from 'next/router';
+import { useView, useViews } from '@teable/sdk';
 import { useTranslation } from 'next-i18next';
-import { useEffect } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarView } from './calendar/CalendarView';
 import { FormView } from './form/FormView';
@@ -16,25 +12,9 @@ import type { IViewBaseProps } from './types';
 
 export const View = (props: IViewBaseProps) => {
   const view = useView();
-  const router = useRouter();
-  const baseId = useBaseId();
-  const tableId = useTableId();
+  const views = useViews();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const viewType = view?.type;
-
-  const { data: views = [] } = useQuery({
-    queryKey: ReactQueryKeys.viewList(tableId!),
-    queryFn: () => getViewList(tableId!).then((res) => res.data),
-    enabled: !!tableId,
-  });
-
-  useEffect(() => {
-    const defaultViewId = views?.[0]?.id;
-    if (!view && views.length > 0 && defaultViewId) {
-      console.warn('autoJump to default view', defaultViewId);
-      router.push(`/base/${baseId}/${tableId}/${defaultViewId}`);
-    }
-  }, [router, views, view, baseId, tableId]);
 
   if (!views.length) {
     return (

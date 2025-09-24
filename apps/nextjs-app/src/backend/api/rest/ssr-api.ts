@@ -119,6 +119,12 @@ export class SsrApi {
       .then(({ data }) => data);
   }
 
+  async getViewList(tableId: string) {
+    return this.axios
+      .get<IViewVo[]>(urlBuilder(GET_VIEW_LIST, { tableId }))
+      .then(({ data }) => data);
+  }
+
   async getTables(baseId: string) {
     return this.axios
       .get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }))
