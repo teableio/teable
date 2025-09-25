@@ -1287,6 +1287,33 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   describe('convert select field', () => {
     bfAf();
 
+    it('should convert the dbFieldName and name with options change', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+        dbFieldName: 'selectDbFieldName',
+        name: 'selectFieldName',
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ id: 'choX', name: 'x', color: Colors.Cyan }],
+        },
+        dbFieldName: 'convertSelectDbFieldName',
+        name: 'convertSelectFieldName',
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField.dbFieldName).toEqual('convertSelectDbFieldName');
+      expect(newField.name).toEqual('convertSelectFieldName');
+    });
+
     it('should convert select to number', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.SingleSelect,
@@ -1420,6 +1447,33 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
   describe('convert rating field', () => {
     bfAf();
+
+    it('should convert the dbFieldName and name with options change', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          color: Colors.YellowBright,
+          max: 3,
+        },
+        dbFieldName: 'ratingDbFieldName1',
+        name: 'ratingFieldName1',
+      };
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          color: Colors.RedBright,
+          max: 5,
+        },
+        dbFieldName: 'convertRatingDbFieldName',
+        name: 'convertRatingFieldName',
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [1, 2]);
+      expect(newField.dbFieldName).toEqual('convertRatingDbFieldName');
+      expect(newField.name).toEqual('convertRatingFieldName');
+    });
 
     it('should correctly update and format values when transitioning from a Number field to a Rating field', async () => {
       const sourceFieldRo: IFieldRo = {
@@ -4089,6 +4143,29 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   describe('convert user field', () => {
     bfAf();
 
+    it('should convert the dbFieldName and name with options change', async () => {
+      const oldFieldRo: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'textDbFieldName',
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.User,
+        dbFieldName: 'convertTextDbFieldName',
+        name: 'convertTextFieldName',
+      };
+
+      const { newField } = await expectUpdate(table1, oldFieldRo, newFieldRo, [
+        globalThis.testConfig.userName,
+        globalThis.testConfig.email,
+        globalThis.testConfig.userId,
+      ]);
+      expect(newField.name).toEqual('convertTextFieldName');
+      expect(newField.dbFieldName).toEqual('convertTextDbFieldName');
+    });
+
     it('should convert user field', async () => {
       const oldFieldRo: IFieldRo = {
         name: 'TextField',
@@ -4125,6 +4202,35 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
   describe('convert button field', () => {
     bfAf();
+
+    it('should convert the dbFieldName and name with options change', async () => {
+      const buttonFieldRo: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'buttonField2',
+          color: Colors.Red,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'workflow1',
+            isActive: true,
+          },
+        },
+        dbFieldName: 'buttonDbFieldName',
+        name: 'buttonFieldName',
+      };
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'buttonField2',
+          color: Colors.Red,
+        },
+        dbFieldName: 'convertButtonDbFieldName',
+        name: 'convertButtonFieldName',
+      };
+      const { newField } = await expectUpdate(table1, buttonFieldRo, newFieldRo);
+      expect(newField.name).toEqual('convertButtonFieldName');
+      expect(newField.dbFieldName).toEqual('convertButtonDbFieldName');
+    });
 
     it('should convert button field to text', async () => {
       const buttonFieldRo: IFieldRo = {

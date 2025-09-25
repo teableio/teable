@@ -587,24 +587,27 @@ export class FieldConvertingService {
       return;
     }
 
-    return this.updateOptionsFromSelectField(tableId, updatedChoiceMap, newField);
+    return this.updateOptionsFromSelectField(tableId, updatedChoiceMap, oldField);
   }
 
   private async updateOptionsFromRatingField(
     tableId: string,
-    field: RatingFieldDto
+    field: RatingFieldDto,
+    oldField: RatingFieldDto
   ): Promise<IOpsMap | undefined> {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
 
+    const dbFieldName = oldField.dbFieldName;
+
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const newMax = field.options.max;
 
     const nativeSql = this.knex(dbTableName)
-      .select('__id', field.dbFieldName)
-      .where(field.dbFieldName, '>', newMax)
+      .select('__id', dbFieldName)
+      .where(dbFieldName, '>', newMax)
       .toSQL()
       .toNative();
 
@@ -615,7 +618,7 @@ export class FieldConvertingService {
       >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
-      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as number;
+      const oldCellValue = field.convertDBValue2CellValue(row[dbFieldName]) as number;
 
       opsMap[row.__id] = [
         RecordOpBuilder.editor.setRecord.build({
@@ -639,29 +642,29 @@ export class FieldConvertingService {
 
     if (newMax >= oldMax) return;
 
-    return await this.updateOptionsFromRatingField(tableId, newField);
+    return await this.updateOptionsFromRatingField(tableId, newField, oldField);
   }
 
   private async updateOptionsFromUserField(
     tableId: string,
-    field: UserFieldDto
+    field: UserFieldDto,
+    oldField: UserFieldDto
   ): Promise<IOpsMap | undefined> {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
+    const dbFieldName = oldField.dbFieldName;
 
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
-    const nativeSql = this.knex(dbTableName)
-      .select('__id', field.dbFieldName)
-      .whereNotNull(field.dbFieldName);
+    const nativeSql = this.knex(dbTableName).select('__id', dbFieldName).whereNotNull(dbFieldName);
 
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
 
     for (const row of result) {
-      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]);
+      const oldCellValue = field.convertDBValue2CellValue(row[dbFieldName]);
       let newCellValue;
 
       if (field.isMultipleCellValue && !Array.isArray(oldCellValue)) {
@@ -690,7 +693,7 @@ export class FieldConvertingService {
 
     if (newOption === oldOption) return;
 
-    return await this.updateOptionsFromUserField(tableId, newField);
+    return await this.updateOptionsFromUserField(tableId, newField, oldField);
   }
 
   private async updateOptionsFromButtonField(tableId: string, field: ButtonFieldDto) {
@@ -731,7 +734,7 @@ export class FieldConvertingService {
 
     if (oldWorkflow?.id === newWorkflow?.id) return;
 
-    return await this.updateOptionsFromButtonField(tableId, newField);
+    return await this.updateOptionsFromButtonField(tableId, oldField);
   }
 
   private async modifyOptions(
