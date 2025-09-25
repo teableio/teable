@@ -1440,6 +1440,7 @@ export class FieldSupplementService {
     switch (field.type) {
       case FieldType.Formula:
       case FieldType.Rollup:
+      case FieldType.ReferenceLookup:
       case FieldType.Link:
         return this.createComputedFieldReference(field);
       default:
@@ -1493,7 +1494,7 @@ export class FieldSupplementService {
   }
 
   getFieldReferenceIds(field: IFieldInstance): string[] {
-    if (field.lookupOptions) {
+    if (field.lookupOptions && field.type !== FieldType.ReferenceLookup) {
       // Lookup/Rollup fields depend on BOTH the target lookup field and the link field.
       // This ensures when a link cell changes, the dependent lookup/rollup fields are
       // included in the computed impact and persisted via updateFromSelect.
@@ -1504,6 +1505,18 @@ export class FieldSupplementService {
       };
       if (lookupFieldId) refs.push(lookupFieldId);
       if (linkFieldId) refs.push(linkFieldId);
+      return refs;
+    }
+
+    if (field.type === FieldType.ReferenceLookup) {
+      const refs: string[] = [];
+      const options = field.options as IReferenceLookupFieldOptions | undefined;
+      const lookupFieldId = options?.lookupFieldId;
+      if (lookupFieldId) {
+        refs.push(lookupFieldId);
+      }
+      const filterRefs = extractFieldIdsFromFilter(options?.filter);
+      filterRefs.forEach((fieldId) => refs.push(fieldId));
       return refs;
     }
 
@@ -1528,6 +1541,14 @@ export class FieldSupplementService {
     if (field?.lookupOptions) {
       const filterSetFieldIds = extractFieldIdsFromFilter(field?.lookupOptions.filter);
       filterSetFieldIds.forEach((fieldId) => {
+        fieldIds.push(fieldId);
+      });
+    }
+
+    if (field.type === FieldType.ReferenceLookup) {
+      const options = field.options as IReferenceLookupFieldOptions | undefined;
+      const filterFieldIds = extractFieldIdsFromFilter(options?.filter);
+      filterFieldIds.forEach((fieldId) => {
         fieldIds.push(fieldId);
       });
     }
