@@ -219,13 +219,33 @@ export class FieldConvertingService {
   ): IOtOperation[] {
     const ops: IOtOperation[] = [];
     const lookupFieldId = field.options.lookupFieldId;
-    if (!lookupFieldId) {
+    const referencedFieldIds = this.fieldSupplementService
+      .getFieldReferenceIds(field)
+      .filter((id) => !!id && id !== field.id);
+
+    const hasMissingDependency = !lookupFieldId || referencedFieldIds.some((id) => !fieldMap[id]);
+    const hasErroredDependency = referencedFieldIds.some((id) => fieldMap[id]?.hasError);
+
+    if (hasMissingDependency || hasErroredDependency) {
+      const op = this.buildOpAndMutateField(field, 'hasError', true);
+      if (op) {
+        ops.push(op);
+      }
       return ops;
     }
-    const lookupField = fieldMap[lookupFieldId];
 
+    const lookupField = fieldMap[lookupFieldId];
     if (!lookupField) {
+      const op = this.buildOpAndMutateField(field, 'hasError', true);
+      if (op) {
+        ops.push(op);
+      }
       return ops;
+    }
+
+    const clearErrorOp = this.buildOpAndMutateField(field, 'hasError', null);
+    if (clearErrorOp) {
+      ops.push(clearErrorOp);
     }
 
     const { cellValueType, isMultipleCellValue } = ReferenceLookupFieldDto.getParsedValueType(
@@ -234,13 +254,17 @@ export class FieldConvertingService {
       true
     );
 
-    if (field.cellValueType !== cellValueType) {
-      const op = this.buildOpAndMutateField(field, 'cellValueType', cellValueType);
-      op && ops.push(op);
+    const cellTypeOp = this.buildOpAndMutateField(field, 'cellValueType', cellValueType);
+    if (cellTypeOp) {
+      ops.push(cellTypeOp);
     }
-    if (field.isMultipleCellValue !== isMultipleCellValue) {
-      const op = this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue);
-      op && ops.push(op);
+    const multiValueOp = this.buildOpAndMutateField(
+      field,
+      'isMultipleCellValue',
+      isMultipleCellValue
+    );
+    if (multiValueOp) {
+      ops.push(multiValueOp);
     }
 
     return ops;

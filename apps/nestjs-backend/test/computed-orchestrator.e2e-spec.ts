@@ -993,6 +993,82 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
+    it('marks hasError when referenced lookup or filter fields are removed', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RefLookup_Dependency_Foreign',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Name: 'rowA', Amount: 2, Status: 'active' } },
+          { fields: { Name: 'rowB', Amount: 5, Status: 'inactive' } },
+        ],
+      });
+      const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'RefLookup_Dependency_Host',
+        fields: [
+          { name: 'Primary', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'FilterValue', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [{ fields: { Primary: 'row1', FilterValue: 'active' } }],
+      });
+      const filterFieldId = host.fields.find((f) => f.name === 'FilterValue')!.id;
+
+      const amountLookup = await createField(host.id, {
+        name: 'Total Amount',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+        },
+      } as IFieldRo);
+
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: filterFieldId },
+          },
+        ],
+      } as any;
+
+      const statusLookup = await createField(host.id, {
+        name: 'Active Status Count',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: statusId,
+          expression: 'count({values})',
+          filter,
+        },
+      } as IFieldRo);
+
+      await deleteField(foreign.id, amountId);
+      const hostFieldsAfterLookupDelete = await getFields(host.id);
+      const amountLookupVo = hostFieldsAfterLookupDelete.find(
+        (f) => f.id === amountLookup.id
+      ) as any;
+      expect(amountLookupVo?.hasError).toBe(true);
+
+      await deleteField(foreign.id, statusId);
+      const hostFieldsAfterFilterDelete = await getFields(host.id);
+      const statusLookupVo = hostFieldsAfterFilterDelete.find(
+        (f) => f.id === statusLookup.id
+      ) as any;
+      expect(statusLookupVo?.hasError).toBe(true);
+
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
     it('recomputes when filter compares foreign field to host field and either side changes', async () => {
       const foreign = await createTable(baseId, {
         name: 'RefLookup_FieldRef_Foreign',
