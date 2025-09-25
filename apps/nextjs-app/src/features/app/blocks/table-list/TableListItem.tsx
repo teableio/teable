@@ -32,8 +32,7 @@ export const TableListItem: React.FC<IProps> = ({
   const viewId = router.query.viewId;
 
   const navigateHandler = async () => {
-    const isCurrentTable = router.query.tableId === table.id;
-    router.push(href, undefined, { shallow: Boolean(viewId) && isCurrentTable });
+    router.push(href, undefined, { shallow: Boolean(viewId) });
   };
 
   useEffect(() => {

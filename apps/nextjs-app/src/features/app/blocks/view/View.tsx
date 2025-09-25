@@ -1,6 +1,7 @@
-import { ViewType } from '@teable/core';
-import { useView, useViews } from '@teable/sdk';
+import { IdPrefix, ViewType } from '@teable/core';
+import { useConnection, useTableId, useView } from '@teable/sdk';
 import { useTranslation } from 'next-i18next';
+import type { Query } from 'sharedb';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarView } from './calendar/CalendarView';
 import { FormView } from './form/FormView';
@@ -12,23 +13,30 @@ import type { IViewBaseProps } from './types';
 
 export const View = (props: IViewBaseProps) => {
   const view = useView();
-  const views = useViews();
-  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const viewType = view?.type;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { connection } = useConnection();
+  const tableId = useTableId();
 
-  if (!views.length) {
-    return (
-      <>
-        <div className="flex h-full flex-col items-center justify-center gap-y-4 text-center">
-          <h3 data-testid="not-found-title" className="text-xl font-semibold text-foreground">
-            {t('table:view.noView')}
-          </h3>
-          <p className="max-w-md text-sm text-muted-foreground">
-            {t('common:admin.tips.pleaseContactAdmin')}
-          </p>
-        </div>
-      </>
+  if (tableId && connection?.queries) {
+    const query = Object.values(connection?.queries).find(
+      (query: Query) => query.collection === `${IdPrefix.View}_${tableId}`
     );
+
+    if (query?.ready && !view) {
+      return (
+        <>
+          <div className="flex h-full flex-col items-center justify-center gap-y-4 text-center">
+            <h3 data-testid="not-found-title" className="text-xl font-semibold text-foreground">
+              {t('table:view.noView')}
+            </h3>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {t('common:admin.tips.pleaseContactAdmin')}
+            </p>
+          </div>
+        </>
+      );
+    }
   }
 
   const getViewComponent = () => {
