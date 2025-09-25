@@ -149,7 +149,7 @@ export class GraphService {
       { [field.id]: field },
       { [field.id]: tableMap[tableId].dbTableName }
     );
-
+    const estimateTime = field.isComputed ? this.getEstimateTime(updateCellCount) : 200;
     return {
       graph: {
         nodes,
@@ -157,7 +157,7 @@ export class GraphService {
         combos,
       },
       updateCellCount,
-      estimateTime: this.getEstimateTime(updateCellCount),
+      estimateTime,
     };
   }
 
