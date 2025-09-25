@@ -1000,6 +1000,16 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return match[1].toLowerCase();
   }
 
+  private shouldUseFormattedExpressionForAggregation(fn: string): boolean {
+    switch (fn) {
+      case 'array_join':
+      case 'concatenate':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   private buildReferenceLookupAggregation(
     rollupExpression: string,
     fieldExpression: string,
@@ -1059,9 +1069,16 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
     const formattedExpression = targetField.accept(formattingVisitor);
 
+    const aggregationFn = this.parseRollupFunction(expression);
+    const aggregationInputExpression = this.shouldUseFormattedExpressionForAggregation(
+      aggregationFn
+    )
+      ? formattedExpression
+      : rawExpression;
+
     const aggregateExpression = this.buildReferenceLookupAggregation(
       expression,
-      formattedExpression,
+      aggregationInputExpression,
       targetField,
       foreignAliasUsed
     );
