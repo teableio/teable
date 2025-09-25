@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
+import type { IFilter, ILinkFieldOptions, IReferenceLookupFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -28,6 +28,13 @@ export interface IFieldChangeSource {
   fieldIds: string[];
 }
 
+interface IReferenceLookupAdjacencyEdge {
+  tableId: string;
+  fieldId: string;
+  foreignTableId: string;
+  filter?: IFilter | null;
+}
+
 @Injectable()
 export class ComputedDependencyCollectorService {
   constructor(
@@ -42,6 +49,16 @@ export class ComputedDependencyCollectorService {
       select: { dbTableName: true },
     });
     return dbTableName;
+  }
+
+  private async getAllRecordIds(tableId: string): Promise<string[]> {
+    const dbTable = await this.getDbTableName(tableId);
+    const { schema, table } = this.splitDbTableName(dbTable);
+    const qb = (schema ? this.knex.withSchema(schema) : this.knex).select('__id').from(table);
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Array<{ __id: string }>>(qb.toQuery());
+    return rows.map((r) => r.__id).filter(Boolean);
   }
 
   private splitDbTableName(qualified: string): { schema?: string; table: string } {
@@ -247,12 +264,30 @@ export class ComputedDependencyCollectorService {
     return rows.map((r) => r.id).filter(Boolean);
   }
 
+  private async getReferenceLookupImpactedRecordIds(
+    edge: IReferenceLookupAdjacencyEdge,
+    foreignRecordIds: string[]
+  ): Promise<string[]> {
+    if (!foreignRecordIds.length) {
+      return [];
+    }
+    return this.getAllRecordIds(edge.tableId);
+  }
+
   /**
-   * Build table-level adjacency from link fields among a set of tables.
-   * Edge U -> V exists if table V has a link field whose foreignTableId = U.
+   * Build adjacency maps for link and reference lookup relationships among the supplied tables.
    */
-  private async getTableLinkAdjacency(tables: string[]): Promise<Record<string, Set<string>>> {
-    if (!tables.length) return {};
+  private async getAdjacencyMaps(tables: string[]): Promise<{
+    link: Record<string, Set<string>>;
+    referenceLookup: Record<string, IReferenceLookupAdjacencyEdge[]>;
+  }> {
+    const linkAdj: Record<string, Set<string>> = {};
+    const referenceLookupAdj: Record<string, IReferenceLookupAdjacencyEdge[]> = {};
+
+    if (!tables.length) {
+      return { link: linkAdj, referenceLookup: referenceLookupAdj };
+    }
+
     const linkFields = await this.prismaService.txClient().field.findMany({
       where: {
         tableId: { in: tables },
@@ -262,16 +297,38 @@ export class ComputedDependencyCollectorService {
       },
       select: { id: true, tableId: true, options: true },
     });
-    const adj: Record<string, Set<string>> = {};
+
     for (const lf of linkFields) {
       const opts = this.parseLinkOptions(lf.options);
       if (!opts) continue;
-      const from = opts.foreignTableId; // U
-      const to = lf.tableId; // V
+      const from = opts.foreignTableId;
+      const to = lf.tableId;
       if (!from || !to) continue;
-      (adj[from] ||= new Set<string>()).add(to);
+      (linkAdj[from] ||= new Set<string>()).add(to);
     }
-    return adj;
+
+    const referenceFields = await this.prismaService.txClient().field.findMany({
+      where: {
+        tableId: { in: tables },
+        type: FieldType.ReferenceLookup,
+        deletedTime: null,
+      },
+      select: { id: true, tableId: true, options: true },
+    });
+
+    for (const rf of referenceFields) {
+      const opts = this.parseOptionsLoose<IReferenceLookupFieldOptions>(rf.options);
+      const foreignTableId = opts?.foreignTableId;
+      if (!foreignTableId) continue;
+      (referenceLookupAdj[foreignTableId] ||= []).push({
+        tableId: rf.tableId,
+        fieldId: rf.id,
+        foreignTableId,
+        filter: opts?.filter ?? undefined,
+      });
+    }
+
+    return { link: linkAdj, referenceLookup: referenceLookupAdj };
   }
 
   /**
@@ -318,26 +375,22 @@ export class ComputedDependencyCollectorService {
     const originTableIds = Object.keys(byTable);
     const recordSets: Record<string, Set<string>> = {};
     for (const tid of originTableIds) {
-      const dbTable = await this.getDbTableName(tid);
-      const { schema, table } = this.splitDbTableName(dbTable);
-      const qb = (schema ? this.knex.withSchema(schema) : this.knex).select('__id').from(table);
-      const rows = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<Array<{ __id: string }>>(qb.toQuery());
+      const ids = await this.getAllRecordIds(tid);
       const set = (recordSets[tid] ||= new Set<string>());
-      for (const r of rows) if (r.__id) set.add(r.__id);
+      ids.forEach((id) => set.add(id));
     }
 
     // 3) Build adjacency among impacted + origin tables and propagate via links
     const tablesForAdjacency = Array.from(new Set([...Object.keys(impact), ...originTableIds]));
-    const adj = await this.getTableLinkAdjacency(tablesForAdjacency);
+    const { link: linkAdj, referenceLookup: referenceAdj } =
+      await this.getAdjacencyMaps(tablesForAdjacency);
 
     const queue: string[] = [...originTableIds];
     while (queue.length) {
       const src = queue.shift()!;
       const currentIds = Array.from(recordSets[src] || []);
       if (!currentIds.length) continue;
-      const outs = Array.from(adj[src] || []);
+      const outs = Array.from(linkAdj[src] || []);
       for (const dst of outs) {
         if (!impact[dst]) continue; // only propagate to impacted tables
         const linked = await this.getLinkedRecordIds(dst, src, currentIds);
@@ -351,6 +404,22 @@ export class ComputedDependencyCollectorService {
           }
         }
         if (added) queue.push(dst);
+      }
+
+      const referenceEdges = referenceAdj[src] || [];
+      for (const edge of referenceEdges) {
+        if (!impact[edge.tableId] || !impact[edge.tableId].fieldIds.has(edge.fieldId)) continue;
+        const matched = await this.getReferenceLookupImpactedRecordIds(edge, currentIds);
+        if (!matched.length) continue;
+        const set = (recordSets[edge.tableId] ||= new Set<string>());
+        let added = false;
+        for (const id of matched) {
+          if (!set.has(id)) {
+            set.add(id);
+            added = true;
+          }
+        }
+        if (added) queue.push(edge.tableId);
       }
     }
 
@@ -473,7 +542,8 @@ export class ComputedDependencyCollectorService {
     }
     // Build adjacency restricted to impacted tables + origin
     const impactedTables = Array.from(new Set([...Object.keys(impact), tableId]));
-    const adj = await this.getTableLinkAdjacency(impactedTables);
+    const { link: linkAdj, referenceLookup: referenceAdj } =
+      await this.getAdjacencyMaps(impactedTables);
 
     // BFS-like propagation over table graph
     const queue: string[] = [tableId];
@@ -481,7 +551,7 @@ export class ComputedDependencyCollectorService {
       const src = queue.shift()!;
       const currentIds = Array.from(recordSets[src] || []);
       if (!currentIds.length) continue;
-      const outs = Array.from(adj[src] || []);
+      const outs = Array.from(linkAdj[src] || []);
       for (const dst of outs) {
         // Only care about tables we plan to update
         if (!impact[dst]) continue;
@@ -496,6 +566,22 @@ export class ComputedDependencyCollectorService {
           }
         }
         if (added) queue.push(dst);
+      }
+
+      const referenceEdges = referenceAdj[src] || [];
+      for (const edge of referenceEdges) {
+        if (!impact[edge.tableId] || !impact[edge.tableId].fieldIds.has(edge.fieldId)) continue;
+        const matched = await this.getReferenceLookupImpactedRecordIds(edge, currentIds);
+        if (!matched.length) continue;
+        const set = (recordSets[edge.tableId] ||= new Set<string>());
+        let added = false;
+        for (const id of matched) {
+          if (!set.has(id)) {
+            set.add(id);
+            added = true;
+          }
+        }
+        if (added) queue.push(edge.tableId);
       }
     }
 

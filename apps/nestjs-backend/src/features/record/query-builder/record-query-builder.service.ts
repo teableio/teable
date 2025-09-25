@@ -115,14 +115,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     state: IMutableQueryBuilderState;
   }> {
     const tableRaw = await this.getTableMeta(tableIdOrDbTableName);
-    // if (useQueryModel) {
-    //   try {
-    //     return await this.createQueryBuilderFromTableCache(tableRaw as { id: string });
-    //   } catch (error) {
-    //     this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
-    //     return this.createQueryBuilderFromTable(from, tableRaw, projection);
-    //   }
-    // }
+    if (useQueryModel) {
+      try {
+        return await this.createQueryBuilderFromTableCache(tableRaw as { id: string });
+      } catch (error) {
+        this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
+        return this.createQueryBuilderFromTable(from, tableRaw, projection);
+      }
+    }
 
     return this.createQueryBuilderFromTable(from, tableRaw, projection);
   }
