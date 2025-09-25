@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Logger } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, PrismaHealthIndicator } from '@nestjs/terminus';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Public } from '../auth/decorators/public.decorator';
@@ -6,6 +6,7 @@ import { Public } from '../auth/decorators/public.decorator';
 @Controller('health')
 @Public()
 export class HealthController {
+  private logger = new Logger(HealthController.name);
   constructor(
     private readonly health: HealthCheckService,
     private readonly db: PrismaHealthIndicator,
@@ -15,7 +16,12 @@ export class HealthController {
   @Get()
   @HealthCheck()
   check() {
-    return this.health.check([() => this.db.pingCheck('database', this.prismaService)]);
+    try {
+      return this.health.check([() => this.db.pingCheck('database', this.prismaService)]);
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
 
   @Get('memory')
