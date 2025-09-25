@@ -1172,8 +1172,9 @@ export class FieldConvertingService {
     // for same field with options change
     if (keys.includes('options')) {
       return (
-        (newField.type === FieldType.Rollup || newField.type === FieldType.Formula) &&
-        newField.options.expression !== (oldField as FormulaFieldDto).options.expression
+        ((newField.type === FieldType.Rollup || newField.type === FieldType.Formula) &&
+          newField.options.expression !== (oldField as FormulaFieldDto).options.expression) ||
+        newField.type === FieldType.ReferenceLookup
       );
     }
 
