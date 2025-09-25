@@ -34,8 +34,9 @@ export const NumberOptions = (props: {
   };
 
   return (
-    <div className="form-control space-y-2">
+    <div className="form-control space-y-4">
       <NumberFormatting formatting={options?.formatting} onChange={onFormattingChange} />
+      <hr />
       {!isLookup && (
         <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
           <Input

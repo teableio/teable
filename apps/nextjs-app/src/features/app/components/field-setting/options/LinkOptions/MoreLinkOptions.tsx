@@ -99,14 +99,14 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border px-2 py-3">
+    <div className="mt-2 flex flex-col gap-4 text-sm font-medium">
       <div className="flex flex-col gap-2">
         <span>{t('table:field.editor.showByField')}</span>
         <FieldSelector
           fields={fieldInstances}
           value={lookupFieldId ?? primaryField?.id}
           onSelect={(fieldId) => onChange?.({ lookupFieldId: fieldId ?? undefined })}
-          className="w-full max-w-none "
+          className="h-9 w-full max-w-none"
           modal
         />
       </div>
@@ -117,9 +117,10 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           value={filterByViewId}
           onChange={(viewId) => onChange?.({ filterByViewId: viewId })}
           cancelable
+          className="my-0 h-9 w-full max-w-none"
         />
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 rounded-md border border-border px-3 pt-2">
         <div className="flex items-center justify-between">
           <span>{t('table:field.editor.filter')}</span>
           <Dialog>
@@ -138,7 +139,6 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
             </DialogContent>
           </Dialog>
         </div>
-
         <FilterWithTable
           fields={totalFields as IFieldInstance[]}
           value={filter ?? null}
@@ -154,9 +154,9 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           onChange={onHiddenChange}
         >
           <Button
-            variant={'ghost'}
-            className={cn('font-normal shrink-0 truncate text-[13px]', {
-              'bg-secondary': Boolean(visibleCount),
+            variant={'outline'}
+            className={cn('font-normal shrink-0 truncate text-sm ', {
+              'bg-secondary hover:opacity-80 ': Boolean(visibleCount),
             })}
           >
             <EyeOff className="size-4" />

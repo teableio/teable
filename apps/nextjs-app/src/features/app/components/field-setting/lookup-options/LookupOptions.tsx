@@ -1,5 +1,6 @@
 import type { ILookupOptionsRo, ILookupOptionsVo } from '@teable/core';
 import { FieldType } from '@teable/core';
+import { ChevronDown } from '@teable/icons';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useFields, useTable, useFieldStaticGetter, useBaseId } from '@teable/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
@@ -79,11 +80,11 @@ export const LookupOptions = (props: {
   const existLinkField = linkFields.length > 0;
 
   return (
-    <div className="w-full space-y-2" data-testid="lookup-options">
+    <div className="w-full space-y-4 border-t border-border pt-4" data-testid="lookup-options">
       {existLinkField ? (
         <>
           <div className="space-y-2">
-            <span className="neutral-content label-text">
+            <span className="neutral-content text-sm font-medium">
               {t('table:field.editor.linkFieldToLookup')}
             </span>
             <Selector
@@ -104,7 +105,7 @@ export const LookupOptions = (props: {
             <>
               <StandaloneViewProvider baseId={baseId} tableId={innerOptions.foreignTableId}>
                 <div className="space-y-2">
-                  <span className="neutral-content label-text mb-2">
+                  <span className="neutral-content mb-2 text-sm font-medium">
                     <Trans
                       ns="table"
                       i18nKey="field.editor.lookupToTable"
@@ -125,14 +126,15 @@ export const LookupOptions = (props: {
                 </div>
               </StandaloneViewProvider>
               <>
-                <div className="flex justify-end">
+                <div className="flex justify-start">
                   <Button
                     size="xs"
-                    variant="link"
-                    className="text-xs text-slate-500 underline"
+                    variant="outline"
+                    className=""
                     onClick={() => setMoreVisible(!moreVisible)}
                   >
                     {t('table:field.editor.moreOptions')}
+                    <ChevronDown className="size-3 " />
                   </Button>
                 </div>
                 {moreVisible && (

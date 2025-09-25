@@ -39,7 +39,7 @@ export const TimeZoneFormatting = ({
 
   return (
     <div className="space-y-2">
-      <Label className="font-normal">{t('table:field.default.date.timeZone')}</Label>
+      <Label className="text-sm font-medium">{t('table:field.default.date.timeZone')}</Label>
       <Selector
         className="w-full"
         contentClassName="w-[333px]"

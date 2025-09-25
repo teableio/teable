@@ -46,7 +46,7 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
 
   return (
     <div className="flex flex-col gap-2">
-      <Label className="font-normal">{t('table:field.default.button.automation')}</Label>
+      <Label className="text-sm font-medium">{t('table:field.default.button.automation')}</Label>
       {automationEnable ? (
         <Button
           className="flex items-center "
@@ -87,11 +87,11 @@ export const ButtonOptions = (props: {
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
 
   return (
-    <div className="form-control space-y-2">
+    <div className="form-control space-y-4 border-t border-border pt-4">
       {!isLookup && (
-        <div className="flex w-full flex-col gap-2">
+        <div className="flex w-full flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label className="font-normal">{t('table:field.default.button.label')}</Label>
+            <Label className="text-sm font-medium">{t('table:field.default.button.label')}</Label>
 
             <div className="flex items-center gap-2">
               <Popover>
@@ -113,7 +113,7 @@ export const ButtonOptions = (props: {
               </Popover>
 
               <Input
-                className="h-8 flex-1"
+                className="h-9 flex-1"
                 value={options?.label ?? '123'}
                 onChange={(e) => onChange?.({ ...options, label: e.target.value })}
               />
@@ -123,39 +123,47 @@ export const ButtonOptions = (props: {
           <WorkflowAction options={options} onSave={onSave} />
 
           <div className="flex flex-col gap-2">
-            <Label className="font-normal">{t('table:field.default.button.limitCount')}</Label>
-            <Switch
-              checked={limitClickCount}
-              onCheckedChange={(checked) => {
-                setLimitClickCount(checked);
-                onChange?.({ ...options, maxCount: checked ? 1 : 0 });
-              }}
-            />
-          </div>
-
-          {limitClickCount && (
-            <div className="flex flex-col gap-2">
-              <Label className="font-normal">{t('table:field.default.button.resetCount')}</Label>
+            <div className="flex h-8 items-center gap-2">
               <Switch
-                checked={Boolean(options?.resetCount)}
-                onCheckedChange={(checked) => onChange?.({ ...options, resetCount: checked })}
+                checked={limitClickCount}
+                onCheckedChange={(checked) => {
+                  setLimitClickCount(checked);
+                  onChange?.({ ...options, maxCount: checked ? 1 : 0 });
+                }}
               />
+              <Label className="text-sm font-normal">
+                {t('table:field.default.button.limitCount')}
+              </Label>
             </div>
-          )}
 
-          {limitClickCount && (
-            <div className="flex flex-col gap-2">
-              <Label className="font-normal">{t('table:field.default.button.maxCount')}</Label>
-              <Input
-                className="h-8"
-                type="number"
-                value={options?.maxCount}
-                onChange={(e) =>
-                  onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
-                }
-              />
-            </div>
-          )}
+            {limitClickCount && (
+              <div className="flex h-8 items-center gap-2">
+                <Switch
+                  checked={Boolean(options?.resetCount)}
+                  onCheckedChange={(checked) => onChange?.({ ...options, resetCount: checked })}
+                />
+                <Label className="text-sm font-normal">
+                  {t('table:field.default.button.resetCount')}
+                </Label>
+              </div>
+            )}
+
+            {limitClickCount && (
+              <div className="flex flex-col gap-2">
+                <Label className="font-mediun text-sm">
+                  {t('table:field.default.button.maxCount')}
+                </Label>
+                <Input
+                  className="h-8"
+                  type="number"
+                  value={options?.maxCount}
+                  onChange={(e) =>
+                    onChange?.({ ...options, maxCount: Math.max(0, Number(e.target.value)) })
+                  }
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

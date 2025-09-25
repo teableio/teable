@@ -144,9 +144,9 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
   };
 
   return (
-    <div className="w-full space-y-2">
+    <div className="border-bordr w-full space-y-4 border-t pt-4">
       <div className="space-y-2">
-        <Label className="font-normal">{date.label}</Label>
+        <Label className="text-sm font-medium">{date.label}</Label>
         <Selector
           className="w-full"
           candidates={date.list.map((item) => ({ id: item.value, name: item.text }))}
@@ -155,7 +155,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
         />
       </div>
       <div className="space-y-2">
-        <Label className="font-normal">{time.label}</Label>
+        <Label className="text-sm font-medium">{time.label}</Label>
         <Select
           value={formatting.time}
           onValueChange={(value) => onFormattingChange(value, 'time')}

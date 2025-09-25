@@ -1,4 +1,4 @@
-import { Label } from '@teable/ui-lib/shadcn';
+import { Label, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -8,25 +8,29 @@ export const DefaultValue = (props: { children: React.ReactNode; onReset?: () =>
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   return (
-    <div className="flex w-full flex-col gap-2">
-      <Label className="flex justify-between font-normal">
-        {t('table:field.editor.defaultValue')}
+    <div className="flex w-full flex-col  gap-2">
+      <div className="flex w-full justify-between">
+        <Label className="flex items-center text-sm font-medium">
+          {t('table:field.editor.defaultValue')}
+        </Label>
         {onReset && (
-          <span
+          <Button
+            size="xs"
+            variant="link"
+            onClick={() => {
+              onReset();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 onReset();
               }
             }}
-            onClick={() => onReset()}
-            tabIndex={0}
-            role={'button'}
-            className="cursor-pointer border-b border-solid border-slate-500 text-xs text-slate-500"
+            className="h-5 text-xs text-muted-foreground decoration-muted-foreground"
           >
             {t('table:field.editor.reset')}
-          </span>
+          </Button>
         )}
-      </Label>
+      </div>
       {children}
     </div>
   );

@@ -1,7 +1,7 @@
 import { SingleLineTextDisplayType } from '@teable/core';
 import type { ISingleLineTextShowAs } from '@teable/core';
-import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn/ui/tabs';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -50,26 +50,16 @@ export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) 
 
   return (
     <div className="flex w-full flex-col gap-2" data-testid="text-show-as">
-      <Label className="font-normal">{t('table:field.editor.showAs')}</Label>
-      <div className="grid grid-cols-4 gap-2">
-        {SINGLE_LINE_TEXT_DISPLAY_INFOS.map(({ type, text }) => {
-          return (
-            <Button
-              key={type}
-              variant="outline"
-              size="sm"
-              className={cn(
-                'font-normal',
-                type === selectedType &&
-                  'bg-foreground text-accent hover:bg-foreground hover:text-accent'
-              )}
-              onClick={() => updateDisplayType(type)}
-            >
+      <Label className="text-sm font-medium">{t('table:field.editor.showAs')}</Label>
+      <Tabs value={selectedType} onValueChange={updateDisplayType} className="w-full">
+        <TabsList className="flex w-full gap-2">
+          {SINGLE_LINE_TEXT_DISPLAY_INFOS.map(({ type, text }) => (
+            <TabsTrigger key={type} value={type} className="flex-1 font-normal">
               {text}
-            </Button>
-          );
-        })}
-      </div>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
     </div>
   );
 };

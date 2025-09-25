@@ -157,6 +157,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
 
   return (
     <Fragment>
+      <hr className="border-border" />
       <div
         className={cn('w-full rounded-md border text-sm', fieldAIEnable && 'border-indigo-200/75')}
       >
@@ -211,7 +212,6 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
           </div>
         )}
       </div>
-      <hr className="border-slate-200" />
     </Fragment>
   );
 };

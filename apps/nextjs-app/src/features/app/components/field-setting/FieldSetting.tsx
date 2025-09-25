@@ -265,10 +265,10 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   return (
     <>
       <Sheet open={visible} onOpenChange={onOpenChange}>
-        <SheetContent className="w-[328px] p-2" side="right">
-          <div className="flex h-full flex-col gap-2">
+        <SheetContent className="w-[400px] p-0" side="right">
+          <div className="flex h-full flex-col ">
             {/* Header */}
-            <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
+            <div className="text-md w-full px-4 py-3 border-b font-semibold">{title}</div>
             {/* Content Form */}
             {
               <DynamicFieldEditor
@@ -280,12 +280,12 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
               />
             }
             {/* Footer */}
-            <div className="flex w-full shrink-0 justify-between p-2">
+            <div className="flex w-full shrink-0 justify-between p-4">
               <div>
                 {showGraphButton && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button size={'sm'} variant={'ghost'}>
+                      <Button size={'sm'} variant={'outline'}>
                         <Share2 className="size-4" /> {t('table:field.editor.graph')}
                       </Button>
                     </DialogTrigger>

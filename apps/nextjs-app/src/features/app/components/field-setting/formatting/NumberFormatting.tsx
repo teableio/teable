@@ -87,11 +87,11 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
   ];
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="border-bordr flex w-full flex-col gap-4 border-t pt-4">
       <div className="flex w-full flex-col gap-2">
-        <Label className="font-normal">{t('field.default.number.formatType')}</Label>
+        <Label className="text-sm font-medium">{t('field.default.number.formatType')}</Label>
         <Select value={type} onValueChange={onFormattingTypeChange}>
-          <SelectTrigger className="h-8 w-full">
+          <SelectTrigger className="h-9 w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -106,10 +106,12 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
       <>
         {type === NumberFormattingType.Currency && (
           <div className="flex w-full flex-col gap-2">
-            <Label className="font-normal">{t('field.default.number.currencySymbol')}</Label>
+            <Label className="text-sm font-medium">
+              {t('field.default.number.currencySymbol')}
+            </Label>
             <Input
               placeholder={t('field.default.number.currencySymbol')}
-              className="h-8"
+              className="h-9"
               value={formatting.symbol}
               onChange={onSymbolChange}
             />
@@ -117,9 +119,9 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
         )}
       </>
       <div className="flex w-full flex-col gap-2">
-        <Label className="font-normal">{t('field.default.number.precision')}</Label>
+        <Label className="font-medium ">{t('field.default.number.precision')}</Label>
         <Select value={precision.toString()} onValueChange={onPrecisionChange}>
-          <SelectTrigger className="h-8 w-full">
+          <SelectTrigger className="h-9 w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -4,8 +4,9 @@ import {
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
 } from '@teable/core';
+import { Plus } from '@teable/icons';
 import { useFieldStaticGetter } from '@teable/sdk';
-import { Textarea } from '@teable/ui-lib/shadcn';
+import { Button, Textarea } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useState } from 'react';
@@ -114,7 +115,6 @@ export const FieldEditor = (props: {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
-          <hr className="my-2" />
           <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
         </>
       );
@@ -135,13 +135,13 @@ export const FieldEditor = (props: {
   };
 
   return (
-    <div className="flex w-full flex-1 flex-col gap-2 overflow-y-auto px-2 text-sm">
+    <div className="flex w-full flex-1 flex-col gap-4 overflow-y-auto p-4 text-sm">
       <div className="relative flex w-full flex-col gap-2">
-        <p className="label-text">{t('common:name')}</p>
+        <p className="text-sm font-medium">{t('common:name')}</p>
         <Input
           placeholder={t('table:field.fieldNameOptional')}
           type="text"
-          className="h-8"
+          className="h-9"
           value={field['name'] || ''}
           data-1p-ignore="true"
           autoComplete="off"
@@ -150,29 +150,24 @@ export const FieldEditor = (props: {
         {/* should place after the name input to make sure tab index correct */}
         <SystemInfo field={field as IFieldVo} updateFieldProps={updateFieldProps} />
         {!showDescription && (
-          <p className="text-left text-xs font-medium text-slate-500">
-            <span
-              onClick={() => {
-                setShowDescription(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  setShowDescription(true);
-                }
-              }}
-              tabIndex={0}
-              role={'button'}
-              className="cursor-pointer border-b border-solid border-slate-500 "
+          <div className="text-left text-xs">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              className=""
+              onClick={() => setShowDescription(true)}
             >
+              <Plus className="size-4" />
               {t('table:field.editor.addDescription')}
-            </span>
-          </p>
+            </Button>
+          </div>
         )}
       </div>
       {showDescription && (
         <div className="flex w-full flex-col gap-2">
           <div>
-            <span className="label-text mb-2">{t('common:description')}</span>
+            <span className="mb-2 text-sm font-medium">{t('common:description')}</span>
           </div>
           <Textarea
             className="h-12 resize-none"
@@ -184,20 +179,19 @@ export const FieldEditor = (props: {
       )}
       <div className="flex w-full flex-col gap-2">
         <div>
-          <span className="label-text mb-2">{t('table:field.editor.type')}</span>
+          <span className="mb-2 text-sm font-medium">{t('table:field.editor.type')}</span>
         </div>
         <SelectFieldType
           isPrimary={isPrimary}
           value={field.isLookup ? 'lookup' : field.type}
           onChange={updateFieldTypeWithLookup}
         />
-        <p className="text-left text-xs font-medium text-slate-500">
+        <p className="text-left text-xs font-normal text-muted-foreground">
           {field.isLookup
             ? t('table:field.subTitle.lookup')
             : getFieldSubtitle(field.type as FieldType)}
         </p>
       </div>
-      <hr className="border-slate-200" />
       <FieldValidation field={field} operator={operator} onChange={updateFieldProps} />
       {(isCloud || isEE) && <FieldAiConfig field={field} onChange={updateFieldProps} />}
       {getUnionOptions()}

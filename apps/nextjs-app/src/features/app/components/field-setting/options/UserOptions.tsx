@@ -90,38 +90,42 @@ export const UserOptions = (props: {
   };
 
   return (
-    <div className="form-control space-y-2">
+    <div className="form-control space-y-4 border-t border-bordr pt-4">
       {!isLookup && (
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="field-options-is-multiple"
-              checked={Boolean(isMultiple)}
-              onCheckedChange={onIsMultipleChange}
-            />
-            <Label htmlFor="field-options-is-multiple" className="font-normal">
-              {t('table:field.editor.allowMultiUsers')}
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="field-options-should-notify"
-              checked={Boolean(shouldNotify)}
-              onCheckedChange={onShouldNotifyChange}
-            />
-            <Label htmlFor="field-options-should-notify" className="font-normal">
-              {t('table:field.editor.notifyUsers')}
-            </Label>
+        <div className="space-y-4">
+          <div className="flex w-full flex-col gap-2">
+            <div className="flex h-8 items-center space-x-2">
+              <Switch
+                id="field-options-is-multiple"
+                checked={Boolean(isMultiple)}
+                onCheckedChange={onIsMultipleChange}
+              />
+              <Label htmlFor="field-options-is-multiple" className="font-normal">
+                {t('table:field.editor.allowMultiUsers')}
+              </Label>
+            </div>
+            <div className="flex h-8 items-center space-x-2">
+              <Switch
+                id="field-options-should-notify"
+                checked={Boolean(shouldNotify)}
+                onCheckedChange={onShouldNotifyChange}
+              />
+              <Label htmlFor="field-options-should-notify" className="font-normal">
+                {t('table:field.editor.notifyUsers')}
+              </Label>
+            </div>
           </div>
           {!isLoading && (
-            <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
-              <UserEditor
-                value={defaultValueToUser(options)}
-                onChange={onDefaultValueChange}
-                options={options}
-                includeMe
-              />
-            </DefaultValue>
+            <div className="border-t border-border pt-4">
+              <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
+                <UserEditor
+                  value={defaultValueToUser(options)}
+                  onChange={onDefaultValueChange}
+                  options={options}
+                  includeMe
+                />
+              </DefaultValue>
+            </div>
           )}
         </div>
       )}

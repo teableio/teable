@@ -107,9 +107,11 @@ export const FormulaOptionsInner = (props: {
   );
 
   return (
-    <div className="w-full space-y-2">
+    <div className="border-bordr w-full space-y-4 border-t pt-4">
       <div className="space-y-2">
-        <span className="neutral-content label-text">{t('field.default.formula.formula')}</span>
+        <span className="neutral-content text-sm font-medium">
+          {t('field.default.formula.formula')}
+        </span>
         <Dialog open={visible} onOpenChange={setVisible}>
           <DialogTrigger asChild>
             <code className="block min-h-[36px] cursor-pointer items-center whitespace-pre-wrap break-words rounded-md border border-input bg-background px-3 py-2 ring-offset-background">

@@ -215,13 +215,15 @@ export const RollupOptions = (props: {
   };
 
   return (
-    <div className="w-full space-y-2" data-testid="rollup-options">
+    <div className=" w-full space-y-4 border-t border-border pt-4" data-testid="rollup-options">
       {!isLookup && (
         <div className="space-y-2">
-          <span className="neutral-content label-text">{t('field.default.rollup.rollup')}</span>
+          <span className="neutral-content text-sm font-medium">
+            {t('field.default.rollup.rollup')}
+          </span>
           <BaseSingleSelect
             modal
-            className="m-1 w-full"
+            className="h-9 w-full"
             placeholder={t('field.default.rollup.selectAnRollupFunction')}
             options={candidates}
             value={expression || null}

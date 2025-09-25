@@ -68,7 +68,7 @@ export const ChoiceInput: React.FC<{
   return (
     <Input
       ref={reRef}
-      className="h-7"
+      className="h-8"
       type="text"
       value={value}
       readOnly={readOnly}

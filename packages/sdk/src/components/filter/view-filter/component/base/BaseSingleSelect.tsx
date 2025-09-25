@@ -11,7 +11,7 @@ import {
   cn,
 } from '@teable/ui-lib';
 import { debounce } from 'lodash';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { IOption, IBaseSelect } from './types';
@@ -88,8 +88,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          size="sm"
-          className={cn('justify-between truncate overflow-hidden px-2', className)}
+          className={cn('justify-between truncate overflow-hidden px-3 font-normal', className)}
         >
           {value ? (
             (selectedValue && displayRender?.(selectedValue)) ?? (
@@ -100,7 +99,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
               {t('common.selectPlaceHolder')}
             </span>
           )}
-          <ChevronsUpDown className="ml-2 size-3 shrink-0 opacity-50" />
+          <ChevronDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn('p-1', popoverClassName)}>
@@ -108,7 +107,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           {search ? (
             <CommandInput
               placeholder={placeholder}
-              className="placeholder:text-[13px]"
+              className="placeholder:text-sm"
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={() => setIsComposing(false)}
               onValueChange={(value) => setSearchValue(value)}
@@ -130,7 +129,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
                   onSelect(option.value);
                   setOpen(false);
                 }}
-                className="truncate text-[13px]"
+                className="truncate text-sm"
               >
                 <Check
                   className={cn(

@@ -37,7 +37,7 @@ export const UserEditor = (props: IUserEditorProps) => {
       role="combobox"
       aria-expanded={open}
       className={cn(
-        'w-full h-auto min-h-[32px] sm:min-h-[32px] py-1 flex flex-wrap justify-start hover:bg-transparent gap-1.5',
+        'w-full h-auto min-h-9 sm:min-h-9 py-1 flex flex-wrap justify-start hover:bg-transparent gap-1.5',
         className
       )}
     >

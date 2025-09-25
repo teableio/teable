@@ -1,6 +1,6 @@
 import type { IFieldVo } from '@teable/core';
 import { LocalStorageKeys } from '@teable/sdk/config/local-storage-keys';
-import { Input } from '@teable/ui-lib/shadcn';
+import { Input, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useLocalStorage } from 'react-use';
 
@@ -11,22 +11,24 @@ export const DbFieldName: React.FC<{
   const { t } = useTranslation(['table']);
   return (
     <>
-      <p className="label-text">{t('table:field.editor.dbFieldName')}</p>
-      <Input
-        placeholder={t('table:field.editor.dbFieldName')}
-        type="text"
-        className="h-8"
-        value={field['dbFieldName'] || ''}
-        data-1p-ignore="true"
-        autoComplete="off"
-        onChange={(e) => updateFieldProps({ dbFieldName: e.target.value || undefined })}
-      />
+      <div className="mt-2 flex flex-col space-y-2">
+        <p className="text-sm font-medium">{t('table:field.editor.dbFieldName')}</p>
+        <Input
+          placeholder={t('table:field.editor.dbFieldName')}
+          type="text"
+          className="h-9"
+          value={field['dbFieldName'] || ''}
+          data-1p-ignore="true"
+          autoComplete="off"
+          onChange={(e) => updateFieldProps({ dbFieldName: e.target.value || undefined })}
+        />
+      </div>
     </>
   );
 };
 
 const FieldInfoList: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => (
-  <div className="flex flex-col space-y-1">
+  <div className="mt-2 flex flex-col gap-2 p-3 bg-muted border border-border rounded-md">
     {[
       { label: 'id', value: field.id },
       { label: 'dbFieldType', value: field.dbFieldType },
@@ -36,8 +38,8 @@ const FieldInfoList: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => (
       { label: 'isComputed', value: field.isComputed ? 'true' : 'false' },
       { label: 'isPending', value: field.isPending ? 'true' : 'false' },
     ].map(({ label, value }) => (
-      <p key={label} className="text-xs">
-        <span className="select-none text-slate-400">{label}: </span>
+      <p key={label} className="h-4 text-xs ">
+        <span className="mr-1 select-none text-muted-foreground">{label}: </span>
         {value}
       </p>
     ))}
@@ -56,15 +58,16 @@ const ToggleButton: React.FC<{
   };
 
   return (
-    <span
-      onClick={() => setShow(!show)}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="button"
-      className="cursor-pointer border-b border-solid border-slate-500"
+    <Button
+      size="xs"
+      variant={show ? 'outline' : 'link'}
+      onClick={() => {
+        setShow(!show);
+      }}
+      className={show ? '' : 'h-5 text-xs text-muted-foreground decoration-muted-foreground'}
     >
       {t(show ? 'field.hide' : 'field.advancedProps')}
-    </span>
+    </Button>
   );
 };
 
@@ -76,10 +79,8 @@ export const SystemInfo: React.FC<{
 
   if (!show) {
     return (
-      <div className="absolute right-0">
-        <p className="text-xs font-medium text-slate-500">
-          <ToggleButton show={show} setShow={setShow} />
-        </p>
+      <div className="absolute right-0 top-[2px] cursor-pointer">
+        <ToggleButton show={show} setShow={setShow} />
       </div>
     );
   }
@@ -87,7 +88,7 @@ export const SystemInfo: React.FC<{
   return (
     <>
       {field.id ? (
-        <div className="flex flex-col space-y-1">
+        <div className="flex flex-col space-y-2">
           <p>
             <DbFieldName field={field} updateFieldProps={updateFieldProps} />
           </p>
@@ -98,7 +99,7 @@ export const SystemInfo: React.FC<{
           <DbFieldName field={field} updateFieldProps={updateFieldProps} />
         </div>
       )}
-      <p className="border-b border-slate-200 pb-2 text-xs">
+      <p className="border-b border-border pb-4 text-xs mb-2">
         <ToggleButton show={show} setShow={setShow} />
       </p>
     </>

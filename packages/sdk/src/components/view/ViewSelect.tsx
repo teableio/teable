@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ViewType } from '@teable/core';
 import { getViewList } from '@teable/openapi';
+import { cn } from '@teable/ui-lib';
 import { ReactQueryKeys } from '../../config';
 import { BaseSingleSelect } from '../filter/view-filter/component';
 import { VIEW_ICON_MAP } from './constant';
@@ -8,13 +9,14 @@ import { VIEW_ICON_MAP } from './constant';
 interface ViewSelectProps {
   value?: string | null;
   tableId: string;
+  className?: string;
   typeFilter?: ViewType;
   cancelable?: boolean;
   onChange: (value: string | null) => void;
 }
 
 export const ViewSelect = (props: ViewSelectProps) => {
-  const { value = null, onChange, tableId, typeFilter, cancelable = false } = props;
+  const { value = null, onChange, tableId, className, typeFilter, cancelable = false } = props;
 
   const { data: viewRawData } = useQuery({
     queryKey: ReactQueryKeys.viewList(tableId),
@@ -36,7 +38,7 @@ export const ViewSelect = (props: ViewSelectProps) => {
     return (
       <div className="flex items-center justify-start">
         <div className="shrink-0">{Icon && <Icon className="size-4" />}</div>
-        <div className="truncate pl-2 text-[13px]">{label}</div>
+        <div className="truncate pl-2">{label}</div>
       </div>
     );
   };
@@ -52,7 +54,7 @@ export const ViewSelect = (props: ViewSelectProps) => {
       displayRender={displayRender}
       optionRender={displayRender}
       cancelable={cancelable}
-      className="my-1 h-9"
+      className={cn('my-1 h-9', className)}
       modal
     />
   );

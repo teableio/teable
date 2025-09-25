@@ -221,12 +221,12 @@ export const SelectFieldType = (props: {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('flex gap-2 font-normal px-4')}
+          className={cn('flex gap-1 font-normal px-3')}
         >
           {selected.icon}
           <span className="truncate">{selected.name}</span>
           <div className="grow"></div>
-          <ChevronDown className="size-4 shrink-0 opacity-50" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn('w-96 p-0', 'select-field-type')}>

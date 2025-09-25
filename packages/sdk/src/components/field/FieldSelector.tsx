@@ -1,5 +1,5 @@
 import { FieldType } from '@teable/core';
-import { ChevronsUpDown } from '@teable/icons';
+import { ChevronDown } from '@teable/icons';
 import { Button, Popover, PopoverTrigger, PopoverContent, cn } from '@teable/ui-lib';
 import { useState, useMemo } from 'react';
 import { useFields, useFieldStaticGetter } from '../../hooks';
@@ -64,13 +64,15 @@ export function FieldSelector(props: IFieldSelector) {
             role="combobox"
             tabIndex={-1}
             aria-expanded={open}
-            className={cn('h-8 max-w-[200px] flex items-center', className)}
+            className={cn('h-9 max-w-[200px] px-3 flex items-center', className)}
           >
-            <div className="flex flex-1 items-center truncate">
-              <Icon className="size-4 shrink-0 opacity-50" />
-              <span className="min-w-8 truncate pl-1 text-left">{selectedField?.name}</span>
+            <div className="flex flex-1 items-center gap-1 truncate">
+              <Icon className="size-4 shrink-0" />
+              <span className="min-w-8 truncate pl-1 text-left text-sm font-normal">
+                {selectedField?.name}
+              </span>
             </div>
-            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
           </Button>
         )}
       </PopoverTrigger>

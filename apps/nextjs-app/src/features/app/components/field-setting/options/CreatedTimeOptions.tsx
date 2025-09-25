@@ -20,7 +20,7 @@ export const CreatedTimeOptions = (props: {
   };
 
   return (
-    <div className="form-control w-full space-y-2">
+    <div className="form-control w-full space-y-4">
       <DatetimeFormatting onChange={onFormattingChange} formatting={options.formatting} />
     </div>
   );

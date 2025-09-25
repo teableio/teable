@@ -15,7 +15,7 @@ export const CheckboxOptions = (props: {
   };
 
   return (
-    <div className="form-control space-y-2">
+    <div className="form-control space-y-4 border-t border-border pt-4">
       {!isLookup && (
         <DefaultValue>
           <Checkbox

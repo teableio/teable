@@ -1,13 +1,15 @@
 import { ColorUtils, Colors, SingleNumberDisplayType } from '@teable/core';
 import type { ISingleNumberShowAs } from '@teable/core';
 import {
-  Button,
   Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
   Switch,
   cn,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import { useTranslation } from 'next-i18next';
@@ -88,50 +90,41 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
   ];
 
   return (
-    <div className="flex w-full flex-col gap-2" data-testid="single-number-show-as">
-      <Label className="font-normal">{t('table:field.editor.showAs')}</Label>
-      <div className="flex justify-between">
-        {SINGLE_NUMBER_DISPLAY_INFOS.map(({ type, text }) => {
-          return (
-            <Button
-              key={type}
-              variant="outline"
-              size="sm"
-              className={cn(
-                'font-normal w-20',
-                type === selectedType &&
-                  'bg-foreground text-accent hover:bg-foreground hover:text-accent'
-              )}
-              onClick={() => updateDisplayType(type)}
-            >
-              {text}
-            </Button>
-          );
-        })}
-      </div>
+    <div className="flex w-full flex-col gap-4">
+      <div className="flex w-full flex-col gap-2" data-testid="single-number-show-as">
+        <Label className="font-meidum text-sm">{t('table:field.editor.showAs')}</Label>
+        <Tabs value={selectedType} onValueChange={updateDisplayType} className="w-full">
+          <TabsList className="flex w-full  gap-2">
+            {SINGLE_NUMBER_DISPLAY_INFOS.map(({ type, text }) => (
+              <TabsTrigger key={type} value={type} className="flex-1 font-normal">
+                {text}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>{' '}
       {showAs != null && (
         <>
-          <div className="flex items-center justify-between">
-            <Label className="font-normal">{t('table:field.editor.maxNumber')}</Label>
-            <Input defaultValue={maxValue} onChange={updateMaxValue} className="h-8 w-4/6" />
+          <div className="flex w-full flex-col gap-2">
+            <Label className="font-meidum text-sm">{t('table:field.editor.maxNumber')}</Label>
+            <Input defaultValue={maxValue} onChange={updateMaxValue} className="h-9 w-full" />
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label className="font-normal">{t('table:field.editor.showNumber')}</Label>
+          <div className="flex h-8 items-center gap-2">
             <Switch
               className="h-5 w-9"
               classNameThumb="w-4 h-4 data-[state=checked]:translate-x-4"
               checked={Boolean(showValue)}
               onCheckedChange={updateShowValue}
             />
+            <Label className="text-sm font-normal">{t('table:field.editor.showNumber')}</Label>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label className="font-normal">{t('table:field.editor.color')}</Label>
+          <div className="flex h-8 items-center gap-2">
             <Popover>
               <PopoverTrigger>
                 <div
-                  className="ml-4 size-5 rounded-full p-[2px]"
+                  className="size-5 rounded-full p-[2px]"
                   style={{ border: `1px solid ${ColorUtils.getHexForColor(color)}` }}
                 >
                   <div
@@ -144,6 +137,7 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
                 <ColorPicker color={color} onSelect={updateColor} />
               </PopoverContent>
             </Popover>
+            <Label className="text-sm font-normal">{t('table:field.editor.color')}</Label>
           </div>
         </>
       )}

@@ -34,13 +34,13 @@ export const FieldValidation = (props: IFieldValidationProps) => {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <span className="neutral-content label-text">
+      <div className="flex flex-col gap-2 border-t border-border pt-4">
+        <span className="neutral-content text-sm font-medium">
           {t('table:field.editor.fieldValidationRules')}
         </span>
 
         {isUniqueEnabled && (
-          <div className="flex space-x-2">
+          <div className="flex h-8 items-center space-x-2">
             <Switch
               id={VALIDATION_UNIQUE}
               checked={Boolean(unique)}
@@ -55,7 +55,7 @@ export const FieldValidation = (props: IFieldValidationProps) => {
         )}
 
         {isNotNullEnabled && (
-          <div className="flex space-x-2">
+          <div className="flex h-8 items-center space-x-2">
             <Switch
               id={VALIDATION_NOT_NULL}
               checked={Boolean(notNull)}
@@ -69,7 +69,6 @@ export const FieldValidation = (props: IFieldValidationProps) => {
           </div>
         )}
       </div>
-      <hr className="border-slate-200" />
     </>
   );
 };
