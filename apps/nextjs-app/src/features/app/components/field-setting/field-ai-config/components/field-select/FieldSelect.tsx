@@ -37,6 +37,8 @@ export const FieldSelect: React.FC<IFieldSelectProps> = (props) => {
             icon: <Icon className="size-4 shrink-0" />,
           };
         })}
+      searchTip={t('sdk:common.search.placeholder')}
+      emptyTip={t('sdk:common.search.empty')}
     />
   );
 };

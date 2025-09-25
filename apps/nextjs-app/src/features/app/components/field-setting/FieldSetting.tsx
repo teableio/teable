@@ -1,5 +1,11 @@
 import type { IFieldRo, IFieldVo } from '@teable/core';
-import { convertFieldRoSchema, FieldType, getOptionsSchema } from '@teable/core';
+import {
+  validateFieldOptions,
+  convertFieldRoSchema,
+  createFieldRoSchema,
+  FieldType,
+  getOptionsSchema,
+} from '@teable/core';
 import { Share2 } from '@teable/icons';
 import { type IPlanFieldConvertVo } from '@teable/openapi';
 import { useTable, useTableId, useView, useFieldOperations } from '@teable/sdk/hooks';
@@ -24,8 +30,6 @@ import { DynamicFieldEditor } from './DynamicFieldEditor';
 import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
 import { FieldOperator } from './type';
-import { formatAiConfigError } from './utils/zod-error';
-
 export const FieldSetting = (props: IFieldSetting) => {
   const { operator, order } = props;
 
@@ -57,28 +61,26 @@ export const FieldSetting = (props: IFieldSetting) => {
     let result: IFieldVo | undefined;
     try {
       if (operator === FieldOperator.Add) {
-        result = (await createNewField(field)).data;
+        result = await createNewField(field);
       }
 
       if (operator === FieldOperator.Insert) {
-        result = (
-          await createNewField({
-            ...field,
-            order:
-              view && order != null
-                ? {
-                    viewId: view.id,
-                    orderIndex: order,
-                  }
-                : undefined,
-          })
-        ).data;
+        result = await createNewField({
+          ...field,
+          order:
+            view && order != null
+              ? {
+                  viewId: view.id,
+                  orderIndex: order,
+                }
+              : undefined,
+        });
       }
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
         if (tableId && fieldId) {
-          result = (await convertField({ tableId, fieldId, fieldRo: field })).data;
+          result = await convertField({ tableId, fieldId, fieldRo: field });
         }
       }
 
@@ -96,10 +98,9 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
-      return (await planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo }))
-        .data;
+      return await planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo });
     }
-    return (await planFieldCreate({ tableId, fieldRo })).data;
+    return await planFieldCreate({ tableId, fieldRo });
   };
 
   const onConfirm = async (fieldRo?: IFieldRo) => {
@@ -107,7 +108,7 @@ export const FieldSetting = (props: IFieldSetting) => {
       return onCancel();
     }
 
-    const plan = (await getPlan(fieldRo)) as IPlanFieldConvertVo;
+    const plan = await getPlan(fieldRo);
     setFieldRo(fieldRo);
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
@@ -224,7 +225,26 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
       return;
     }
 
-    const result = convertFieldRoSchema.safeParse(field);
+    const validateRes = validateFieldOptions({
+      type: field.type as FieldType,
+      isLookup: field.isLookup,
+      lookupOptions: field.lookupOptions,
+      options: field.options,
+      aiConfig: field.aiConfig,
+    });
+    if (validateRes.length > 0) {
+      toast.error(
+        t(validateRes[0].i18nKey, {
+          ...validateRes[0].context,
+          defaultValue: validateRes[0].message,
+        })
+      );
+      return;
+    }
+
+    const fieldRoSchema =
+      operator === FieldOperator.Edit ? convertFieldRoSchema : createFieldRoSchema;
+    const result = fieldRoSchema.safeParse(field);
     if (result.success) {
       setIsSaving(true);
       try {
@@ -237,15 +257,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
 
     console.error('fieldConFirm', field);
     console.error('fieldConFirmResult', fromZodError(result.error).message);
-
-    const isAiConfigError = result.error.errors.some(
-      (error) => error.path.includes('aiConfig') || error.path[0] === 'aiConfig'
-    );
-
-    const errorMessage = isAiConfigError
-      ? formatAiConfigError(result.error)
-      : fromZodError(result.error).message;
-
+    const errorMessage = fromZodError(result.error).message;
     toast.error(`Validation Error`, {
       description: errorMessage,
     });

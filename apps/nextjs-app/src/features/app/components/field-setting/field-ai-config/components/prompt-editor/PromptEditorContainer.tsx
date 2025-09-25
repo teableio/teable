@@ -15,15 +15,17 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useMemo } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { PromptEditor, type EditorViewRef, type IPromptEditorProps } from './PromptEditor';
 
 interface IPromptEditorContainerProps extends IPromptEditorProps {
   label?: string;
   excludedFieldId?: string;
+  required?: boolean;
 }
 
 export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
-  const { label, className, excludedFieldId } = props;
+  const { label, className, excludedFieldId, required } = props;
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation('common');
   const [isDialogVisible, setDialogVisible] = useState(false);
@@ -63,7 +65,10 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
     <>
       <div className={cn('flex flex-col overflow-hidden gap-y-2', className)}>
         <div className="flex items-center justify-between">
-          <div className="text-sm">{label}</div>
+          <div className="text-sm">
+            {label}
+            {required && <RequireCom />}
+          </div>
           <div className="flex items-center gap-2">
             {fieldSelector}
             <Button

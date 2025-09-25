@@ -9,6 +9,7 @@ import { Selector } from '@teable/ui-lib/base';
 import { Slider, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
 import { FieldSelect, PromptEditorContainer } from './components';
@@ -114,6 +115,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             onConfigChange('type', id);
           }}
           candidates={candidates}
+          searchTip={t('sdk:common.search.placeholder')}
+          emptyTip={t('sdk:common.search.empty')}
         />
       </div>
 
@@ -127,11 +130,15 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
                 onChange={(value) => onConfigChange('prompt', value)}
                 label={t('table:field.aiConfig.label.prompt')}
                 placeholder={t('table:field.aiConfig.placeholder.prompt')}
+                required={true}
               />
             </div>
           ) : (
             <div className="flex flex-col gap-y-2">
-              <span>{t('table:field.aiConfig.label.sourceFieldForAttachment')}</span>
+              <span>
+                {t('table:field.aiConfig.label.sourceFieldForAttachment')}
+                <RequireCom />
+              </span>
               <FieldSelect
                 excludedIds={id ? [id] : []}
                 excludeTypes={[FieldType.Attachment]}
@@ -148,6 +155,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
               selectedId={(aiConfig as IAttachmentFieldGenerateImageAIConfig)?.size || '1024x1024'}
               onChange={(id) => onConfigChange('size', id)}
               candidates={imageSizeCandidates}
+              searchTip={t('sdk:common.search.placeholder')}
+              emptyTip={t('sdk:common.search.empty')}
             />
           </div>
           <div className="flex flex-col gap-y-2">
@@ -174,6 +183,8 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
               }
               onChange={(id) => onConfigChange('quality', id)}
               candidates={qualityCandidates}
+              searchTip={t('sdk:common.search.placeholder')}
+              emptyTip={t('sdk:common.search.empty')}
             />
           </div>
           {type !== FieldAIActionType.Customization && (

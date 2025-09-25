@@ -18,17 +18,17 @@ export const useFieldOperations = () => {
       tableId: string;
       fieldId: string;
       fieldRo: IFieldRo;
-    }) => convertFieldApi(tableId, fieldId, fieldRo),
+    }) => convertFieldApi(tableId, fieldId, fieldRo).then((res) => res.data),
   });
 
   const { mutateAsync: createField } = useMutation({
     mutationFn: ({ tableId, fieldRo }: { tableId: string; fieldRo: IFieldRo }) =>
-      createFieldApi(tableId, fieldRo),
+      createFieldApi(tableId, fieldRo).then((res) => res.data),
   });
 
   const { mutateAsync: planFieldCreate } = useMutation({
     mutationFn: ({ tableId, fieldRo }: { tableId: string; fieldRo: IFieldRo }) =>
-      planFieldCreateApi(tableId, fieldRo),
+      planFieldCreateApi(tableId, fieldRo).then((res) => res.data),
   });
 
   const { mutateAsync: planFieldConvert } = useMutation({
@@ -40,12 +40,12 @@ export const useFieldOperations = () => {
       tableId: string;
       fieldId: string;
       fieldRo: IFieldRo;
-    }) => planFieldConvertApi(tableId, fieldId, fieldRo),
+    }) => planFieldConvertApi(tableId, fieldId, fieldRo).then((res) => res.data),
   });
 
   const { mutateAsync: deleteField } = useMutation({
     mutationFn: ({ tableId, fieldId }: { tableId: string; fieldId: string }) =>
-      deleteFieldApi(tableId, fieldId),
+      deleteFieldApi(tableId, fieldId).then((res) => res.data),
   });
 
   return { createField, convertField, planFieldCreate, planFieldConvert, deleteField };

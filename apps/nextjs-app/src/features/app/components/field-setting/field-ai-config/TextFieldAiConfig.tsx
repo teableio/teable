@@ -13,6 +13,7 @@ import { Selector } from '@teable/ui-lib/base';
 import { Input, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
 import { AttachmentSelect, FieldSelect, PromptEditorContainer } from './components';
@@ -128,12 +129,17 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
             onConfigChange('type', id);
           }}
           candidates={candidates}
+          searchTip={t('sdk:common.search.placeholder')}
+          emptyTip={t('sdk:common.search.empty')}
         />
       </div>
 
       {type && type !== FieldAIActionType.Customization && (
         <div className="flex flex-col gap-y-2">
-          <span>{t('table:field.aiConfig.label.sourceField')}</span>
+          <span>
+            {t('table:field.aiConfig.label.sourceField')}
+            <RequireCom />
+          </span>
           <FieldSelect
             excludedIds={id ? [id] : []}
             selectedId={(aiConfig as ISingleSelectFieldClassifyAIConfig)?.sourceFieldId}
@@ -144,7 +150,10 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
 
       {type === FieldAIActionType.Translation && (
         <div className="flex flex-col gap-y-2">
-          <span>{t('table:field.aiConfig.label.targetLanguage')}</span>
+          <span>
+            {t('table:field.aiConfig.label.targetLanguage')}
+            <RequireCom />
+          </span>
           <Input
             type="text"
             className="w-full"
@@ -180,6 +189,7 @@ export const TextFieldAiConfig = (props: ITextFieldAiConfigProps) => {
               onChange={(value) => onConfigChange('prompt', value)}
               label={t('table:field.aiConfig.label.prompt')}
               placeholder={t('table:field.aiConfig.placeholder.prompt')}
+              required={true}
             />
           </div>
           <div className="flex flex-col gap-y-2">

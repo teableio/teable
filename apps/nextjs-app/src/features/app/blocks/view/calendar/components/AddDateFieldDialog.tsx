@@ -71,8 +71,8 @@ export const AddDateFieldDialog = () => {
 
     if (view != null && viewUpdatable) {
       await view.updateOption({
-        startDateFieldId: startDateField.data.id,
-        endDateFieldId: endDateField.data.id,
+        startDateFieldId: startDateField.id,
+        endDateFieldId: endDateField.id,
       });
     }
     setOpen(false);
