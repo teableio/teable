@@ -68,7 +68,7 @@ export class ReferenceService {
       .map((fieldId) => {
         const lookupOptions = fieldMap[fieldId].lookupOptions;
         if (lookupOptions && lookupOptions.filter) {
-          return extractFieldIdsFromFilter(lookupOptions.filter);
+          return extractFieldIdsFromFilter(lookupOptions.filter, true);
         }
         return [];
       })

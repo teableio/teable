@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { IConjunction } from './conjunction';
 import { and, conjunctionSchema } from './conjunction';
 import type { IFilterItem } from './filter-item';
-import { filterItemSchema } from './filter-item';
+import { filterItemSchema, isFieldReferenceValue } from './filter-item';
 
 export const baseFilterSetSchema = z.object({
   conjunction: conjunctionSchema,
@@ -93,14 +93,31 @@ export const mergeFilter = (
   } as IFilter;
 };
 
-export const extractFieldIdsFromFilter = (filter?: IFilter): string[] => {
+export const extractFieldIdsFromFilter = (
+  filter?: IFilter,
+  includeValueFieldIds = false
+): string[] => {
   if (!filter) return [];
 
   const fieldIds: string[] = [];
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const traverse = (filterItem: IFilter | IFilterItem) => {
     if (filterItem && 'fieldId' in filterItem) {
       fieldIds.push(filterItem.fieldId);
+
+      if (includeValueFieldIds) {
+        const value = filterItem.value;
+        if (isFieldReferenceValue(value)) {
+          fieldIds.push(value.fieldId);
+        } else if (Array.isArray(value)) {
+          for (const entry of value) {
+            if (isFieldReferenceValue(entry)) {
+              fieldIds.push(entry.fieldId);
+            }
+          }
+        }
+      }
     } else if (filterItem && 'filterSet' in filterItem) {
       filterItem.filterSet.forEach((item) => traverse(item));
     }

@@ -1674,7 +1674,7 @@ export class FieldSupplementService {
       if (lookupFieldId) {
         refs.push(lookupFieldId);
       }
-      const filterRefs = extractFieldIdsFromFilter(options?.filter);
+      const filterRefs = extractFieldIdsFromFilter(options?.filter, true);
       filterRefs.forEach((fieldId) => refs.push(fieldId));
       return refs;
     }
@@ -1706,7 +1706,7 @@ export class FieldSupplementService {
 
     if (field.type === FieldType.ReferenceLookup) {
       const options = field.options as IReferenceLookupFieldOptions | undefined;
-      const filterFieldIds = extractFieldIdsFromFilter(options?.filter);
+      const filterFieldIds = extractFieldIdsFromFilter(options?.filter, true);
       filterFieldIds.forEach((fieldId) => {
         fieldIds.push(fieldId);
       });

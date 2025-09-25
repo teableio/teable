@@ -106,6 +106,25 @@ describe('Computed Orchestrator (e2e)', () => {
     return (recordPayload?.fields ?? {}) as FieldChangeMap;
   };
 
+  const findRecordChangeMap = (
+    events: any[],
+    tableId: string,
+    recordId: string
+  ): FieldChangeMap | undefined => {
+    for (const event of events) {
+      if (!event?.payload || event.payload.tableId !== tableId) continue;
+      const recordPayloads = Array.isArray(event.payload.record)
+        ? event.payload.record
+        : [event.payload.record];
+      for (const rec of recordPayloads) {
+        if (rec?.id === recordId) {
+          return (rec.fields ?? {}) as FieldChangeMap;
+        }
+      }
+    }
+    return undefined;
+  };
+
   // ===== Formula related =====
   describe('Formula', () => {
     it('emits old/new values for formula on same table when base field changes', async () => {
@@ -552,131 +571,6 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, t1.id);
     });
 
-    it('reference lookup count reacts to foreign filter and lookup column changes', async () => {
-      const foreign = await createTable(baseId, {
-        name: 'RefLookup_Foreign',
-        fields: [
-          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
-          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
-          { name: 'Note', type: FieldType.SingleLineText } as IFieldRo,
-        ],
-        records: [
-          { fields: { Title: 'r1', Status: 'include', Note: 'alpha' } },
-          { fields: { Title: 'r2', Status: 'exclude', Note: 'beta' } },
-        ],
-      });
-      const titleId = foreign.fields.find((f) => f.name === 'Title')!.id;
-      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
-
-      const host = await createTable(baseId, {
-        name: 'RefLookup_Host',
-        fields: [],
-        records: [{ fields: {} }],
-      });
-
-      const filter = {
-        conjunction: 'and',
-        filterSet: [
-          {
-            fieldId: statusId,
-            operator: 'is',
-            value: 'include',
-          },
-        ],
-      } as any;
-
-      const { result: referenceLookupField, events: creationEvents } =
-        await runAndCaptureRecordUpdates(async () => {
-          return await createField(host.id, {
-            name: 'Ref Count',
-            type: FieldType.ReferenceLookup,
-            options: {
-              foreignTableId: foreign.id,
-              lookupFieldId: titleId,
-              expression: 'count({values})',
-              filter,
-            },
-          } as IFieldRo);
-        });
-
-      const hostCreateEvent = creationEvents.find((e) => e.payload.tableId === host.id);
-      expect(hostCreateEvent).toBeDefined();
-      const createRecordPayload = Array.isArray(hostCreateEvent!.payload.record)
-        ? hostCreateEvent!.payload.record[0]
-        : hostCreateEvent!.payload.record;
-      const createChanges = createRecordPayload.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      expect(createChanges[referenceLookupField.id]).toBeDefined();
-      expect(createChanges[referenceLookupField.id].newValue).toEqual(1);
-
-      const referenceEdges = await prisma.reference.findMany({
-        where: { toFieldId: referenceLookupField.id },
-        select: { fromFieldId: true },
-      });
-      expect(referenceEdges.map((edge) => edge.fromFieldId)).toEqual(
-        expect.arrayContaining([titleId, statusId])
-      );
-
-      const hostDbTable = await getDbTableName(host.id);
-      const hostFieldVo = (await getFields(host.id)).find(
-        (f) => f.id === referenceLookupField.id
-      )! as any;
-      expect(
-        parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
-      ).toEqual(1);
-
-      const valueBeforeStatus = parseMaybe(
-        (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
-      );
-      expect(valueBeforeStatus).toEqual(1);
-
-      const { events: filterEvents } = await runAndCaptureRecordUpdates(async () => {
-        await updateRecordByApi(foreign.id, foreign.records[1].id, statusId, 'include');
-      });
-      const valueAfterStatus = parseMaybe(
-        (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
-      );
-      expect(valueAfterStatus).toEqual(2);
-      const hostFilterEvent = filterEvents.find((e) => e.payload.tableId === host.id);
-      expect(hostFilterEvent).toBeDefined();
-      const filterRecordPayload = Array.isArray(hostFilterEvent!.payload.record)
-        ? hostFilterEvent!.payload.record[0]
-        : hostFilterEvent!.payload.record;
-      const filterChanges = filterRecordPayload.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      expect(filterChanges[referenceLookupField.id]).toBeDefined();
-      expect(filterChanges[referenceLookupField.id].newValue).toEqual(2);
-
-      const { events: lookupColumnEvents } = await runAndCaptureRecordUpdates(async () => {
-        await updateRecordByApi(foreign.id, foreign.records[0].id, titleId, null);
-      });
-      const valueAfterLookupColumnChange = parseMaybe(
-        (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
-      );
-      expect(valueAfterLookupColumnChange).toEqual(1);
-      const hostLookupEvent = lookupColumnEvents.find((e) => e.payload.tableId === host.id);
-      expect(hostLookupEvent).toBeDefined();
-      const lookupRecordPayload = Array.isArray(hostLookupEvent!.payload.record)
-        ? hostLookupEvent!.payload.record[0]
-        : hostLookupEvent!.payload.record;
-      const lookupChanges = lookupRecordPayload.fields as Record<
-        string,
-        { oldValue: unknown; newValue: unknown }
-      >;
-      expect(lookupChanges[referenceLookupField.id]).toBeDefined();
-      expect(lookupChanges[referenceLookupField.id].newValue).toEqual(1);
-
-      expect(
-        parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
-      ).toEqual(1);
-
-      await permanentDeleteTable(baseId, host.id);
-      await permanentDeleteTable(baseId, foreign.id);
-    });
     it('emits old/new values for lookup across tables when source changes', async () => {
       // T1 with number
       const t1 = await createTable(baseId, {
@@ -914,6 +808,360 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, t3.id);
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
+    });
+  });
+
+  // ===== Reference Lookup =====
+  describe('Reference Lookup', () => {
+    it('reacts to foreign filter and lookup column changes', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RefLookup_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Note', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'r1', Status: 'include', Note: 'alpha' } },
+          { fields: { Title: 'r2', Status: 'exclude', Note: 'beta' } },
+        ],
+      });
+      const titleId = foreign.fields.find((f) => f.name === 'Title')!.id;
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'RefLookup_Host',
+        fields: [],
+        records: [{ fields: {} }],
+      });
+
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: 'include',
+          },
+        ],
+      } as any;
+
+      const { result: referenceLookupField, events: creationEvents } =
+        await runAndCaptureRecordUpdates(async () => {
+          return await createField(host.id, {
+            name: 'Ref Count',
+            type: FieldType.ReferenceLookup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: titleId,
+              expression: 'count({values})',
+              filter,
+            },
+          } as IFieldRo);
+        });
+
+      const hostCreateEvent = creationEvents.find((e) => e.payload.tableId === host.id);
+      expect(hostCreateEvent).toBeDefined();
+      const createRecordPayload = Array.isArray(hostCreateEvent!.payload.record)
+        ? hostCreateEvent!.payload.record[0]
+        : hostCreateEvent!.payload.record;
+      const createChanges = createRecordPayload.fields as Record<
+        string,
+        { oldValue: unknown; newValue: unknown }
+      >;
+      expect(createChanges[referenceLookupField.id]).toBeDefined();
+      expect(createChanges[referenceLookupField.id].newValue).toEqual(1);
+
+      const referenceEdges = await prisma.reference.findMany({
+        where: { toFieldId: referenceLookupField.id },
+        select: { fromFieldId: true },
+      });
+      expect(referenceEdges.map((edge) => edge.fromFieldId)).toEqual(
+        expect.arrayContaining([titleId, statusId])
+      );
+
+      const hostDbTable = await getDbTableName(host.id);
+      const hostFieldVo = (await getFields(host.id)).find(
+        (f) => f.id === referenceLookupField.id
+      )! as any;
+      expect(
+        parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
+      ).toEqual(1);
+
+      const valueBeforeStatus = parseMaybe(
+        (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
+      );
+      expect(valueBeforeStatus).toEqual(1);
+
+      const { events: filterEvents } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(foreign.id, foreign.records[1].id, statusId, 'include');
+      });
+      const valueAfterStatus = parseMaybe(
+        (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
+      );
+      expect(valueAfterStatus).toEqual(2);
+      const hostFilterEvent = filterEvents.find((e) => e.payload.tableId === host.id);
+      expect(hostFilterEvent).toBeDefined();
+      const filterRecordPayload = Array.isArray(hostFilterEvent!.payload.record)
+        ? hostFilterEvent!.payload.record[0]
+        : hostFilterEvent!.payload.record;
+      const filterChanges = filterRecordPayload.fields as Record<
+        string,
+        { oldValue: unknown; newValue: unknown }
+      >;
+      expect(filterChanges[referenceLookupField.id]).toBeDefined();
+      expect(filterChanges[referenceLookupField.id].newValue).toEqual(2);
+
+      const { events: lookupColumnEvents } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(foreign.id, foreign.records[0].id, titleId, null);
+      });
+      const valueAfterLookupColumnChange = parseMaybe(
+        (await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName]
+      );
+      expect(valueAfterLookupColumnChange).toEqual(1);
+      const hostLookupEvent = lookupColumnEvents.find((e) => e.payload.tableId === host.id);
+      expect(hostLookupEvent).toBeDefined();
+      const lookupRecordPayload = Array.isArray(hostLookupEvent!.payload.record)
+        ? hostLookupEvent!.payload.record[0]
+        : hostLookupEvent!.payload.record;
+      const lookupChanges = lookupRecordPayload.fields as Record<
+        string,
+        { oldValue: unknown; newValue: unknown }
+      >;
+      expect(lookupChanges[referenceLookupField.id]).toBeDefined();
+      expect(lookupChanges[referenceLookupField.id].newValue).toEqual(1);
+
+      expect(
+        parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
+      ).toEqual(1);
+
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('recomputes when filter compares foreign field to host field and either side changes', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RefLookup_FieldRef_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'r1', Status: 'A' } },
+          { fields: { Title: 'r2', Status: 'C' } },
+        ],
+      });
+      const titleId = foreign.fields.find((f) => f.name === 'Title')!.id;
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'RefLookup_FieldRef_Host',
+        fields: [{ name: 'Target', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Target: 'A' } }],
+      });
+      const targetFieldId = host.fields.find((f) => f.name === 'Target')!.id;
+      const hostRecordId = host.records[0].id;
+
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: targetFieldId },
+          },
+        ],
+      } as any;
+
+      const { result: referenceLookupField, events: creationEvents } =
+        await runAndCaptureRecordUpdates(async () => {
+          return await createField(host.id, {
+            name: 'Status Matches',
+            type: FieldType.ReferenceLookup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: titleId,
+              expression: 'count({values})',
+              filter,
+            },
+          } as IFieldRo);
+        });
+
+      const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
+      expect(createChange).toBeDefined();
+      expect(createChange?.[referenceLookupField.id]?.newValue).toEqual(1);
+
+      const hostDbTable = await getDbTableName(host.id);
+      const hostFieldVo = (await getFields(host.id)).find(
+        (f) => f.id === referenceLookupField.id
+      )! as any;
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
+      ).toEqual(1);
+
+      const { events: hostFieldChangeEvents } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(host.id, hostRecordId, targetFieldId, 'B');
+      });
+      const hostFieldChange = findRecordChangeMap(hostFieldChangeEvents, host.id, hostRecordId);
+      expect(hostFieldChange).toBeDefined();
+      const hostFieldLookupChange = assertChange(hostFieldChange?.[referenceLookupField.id]);
+      expectNoOldValue(hostFieldLookupChange);
+      expect(hostFieldLookupChange.newValue).toEqual(0);
+
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
+      ).toEqual(0);
+
+      const { events: foreignFieldChangeEvents } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(foreign.id, foreign.records[1].id, statusId, 'B');
+      });
+      const foreignDrivenChange = findRecordChangeMap(
+        foreignFieldChangeEvents,
+        host.id,
+        hostRecordId
+      );
+      expect(foreignDrivenChange).toBeDefined();
+      const foreignLookupChange = assertChange(foreignDrivenChange?.[referenceLookupField.id]);
+      expectNoOldValue(foreignLookupChange);
+      expect(foreignLookupChange.newValue).toEqual(1);
+
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
+      ).toEqual(1);
+
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('recomputes existing records when reference lookup filter expands its matches', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RefLookup_FilterExpansion_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Note', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'r1', Status: 'include', Note: 'alpha' } },
+          { fields: { Title: 'r2', Status: 'exclude', Note: 'beta' } },
+        ],
+      });
+      const titleId = foreign.fields.find((f) => f.name === 'Title')!.id;
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+      const noteId = foreign.fields.find((f) => f.name === 'Note')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'RefLookup_FilterExpansion_Host',
+        fields: [{ name: 'DesiredStatus', type: FieldType.SingleLineText } as IFieldRo],
+        records: [
+          { fields: { DesiredStatus: 'include' } },
+          { fields: { DesiredStatus: 'exclude' } },
+        ],
+      });
+      const desiredStatusId = host.fields.find((f) => f.name === 'DesiredStatus')!.id;
+      const hostRecordAId = host.records[0].id;
+      const hostRecordBId = host.records[1].id;
+
+      const narrowFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: desiredStatusId },
+          },
+          {
+            fieldId: noteId,
+            operator: 'is',
+            value: 'alpha',
+          },
+        ],
+      } as any;
+
+      const { result: referenceLookupField, events: createEvents } =
+        await runAndCaptureRecordUpdates(async () => {
+          return await createField(host.id, {
+            name: 'Matching Rows',
+            type: FieldType.ReferenceLookup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: titleId,
+              expression: 'count({values})',
+              filter: narrowFilter,
+            },
+          } as IFieldRo);
+        });
+
+      const hostDbTable = await getDbTableName(host.id);
+      const hostFieldVo = (await getFields(host.id)).find(
+        (f) => f.id === referenceLookupField.id
+      )! as any;
+
+      const createChangeA = findRecordChangeMap(createEvents, host.id, hostRecordAId);
+      expect(createChangeA).toBeDefined();
+      expect(createChangeA?.[referenceLookupField.id]?.newValue).toEqual(1);
+
+      const createChangeB = findRecordChangeMap(createEvents, host.id, hostRecordBId);
+      expect(createChangeB).toBeDefined();
+      expect(createChangeB?.[referenceLookupField.id]?.newValue).toEqual(0);
+
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordAId))[hostFieldVo.dbFieldName])
+      ).toEqual(1);
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordBId))[hostFieldVo.dbFieldName])
+      ).toEqual(0);
+
+      const wideFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: desiredStatusId },
+          },
+        ],
+      } as any;
+
+      const { events: filterChangeEvents } = await runAndCaptureRecordUpdates(async () => {
+        await convertField(host.id, referenceLookupField.id, {
+          id: referenceLookupField.id,
+          name: referenceLookupField.name,
+          type: FieldType.ReferenceLookup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            expression: 'count({values})',
+            filter: wideFilter,
+          },
+        } as IFieldRo);
+      });
+
+      const updatedChangeA = findRecordChangeMap(filterChangeEvents, host.id, hostRecordAId);
+      if (updatedChangeA?.[referenceLookupField.id]) {
+        const change = assertChange(updatedChangeA[referenceLookupField.id]);
+        expectNoOldValue(change);
+        expect(change.newValue).toEqual(1);
+      }
+
+      const updatedChangeB = findRecordChangeMap(filterChangeEvents, host.id, hostRecordBId);
+      expect(updatedChangeB).toBeDefined();
+      const updatedLookupChangeB = assertChange(updatedChangeB?.[referenceLookupField.id]);
+      expectNoOldValue(updatedLookupChangeB);
+      expect(updatedLookupChangeB.newValue).toEqual(1);
+
+      const valueAfterFilterChangeA = parseMaybe(
+        (await getRow(hostDbTable, hostRecordAId))[hostFieldVo.dbFieldName]
+      );
+      expect(valueAfterFilterChangeA).toEqual(1);
+
+      const valueAfterFilterChangeB = parseMaybe(
+        (await getRow(hostDbTable, hostRecordBId))[hostFieldVo.dbFieldName]
+      );
+      expect(valueAfterFilterChangeB).toEqual(1);
+
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
     });
   });
 
