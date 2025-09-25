@@ -939,6 +939,60 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
+    it('aggregates numeric values with sum rollup expression', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RefLookup_Sum_Foreign',
+        fields: [{ name: 'Amount', type: FieldType.Number } as IFieldRo],
+        records: [{ fields: { Amount: 3 } }, { fields: { Amount: 7 } }],
+      });
+      const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'RefLookup_Sum_Host',
+        fields: [],
+        records: [{ fields: {} }],
+      });
+      const hostRecordId = host.records[0].id;
+
+      const { result: referenceLookupField, events: creationEvents } =
+        await runAndCaptureRecordUpdates(async () => {
+          return await createField(host.id, {
+            name: 'Total Amount',
+            type: FieldType.ReferenceLookup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId: amountId,
+              expression: 'sum({values})',
+            },
+          } as IFieldRo);
+        });
+
+      const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
+      expect(createChange).toBeDefined();
+      expect(createChange?.[referenceLookupField.id]?.newValue).toEqual(10);
+
+      const hostDbTable = await getDbTableName(host.id);
+      const hostFieldVo = (await getFields(host.id)).find(
+        (f) => f.id === referenceLookupField.id
+      )! as any;
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
+      ).toEqual(10);
+
+      const { events: updateEvents } = await runAndCaptureRecordUpdates(async () => {
+        await updateRecordByApi(foreign.id, foreign.records[0].id, amountId, 4);
+      });
+      const updateChange = findRecordChangeMap(updateEvents, host.id, hostRecordId);
+      expect(updateChange).toBeDefined();
+      expect(updateChange?.[referenceLookupField.id]?.newValue).toEqual(11);
+      expect(
+        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
+      ).toEqual(11);
+
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
     it('recomputes when filter compares foreign field to host field and either side changes', async () => {
       const foreign = await createTable(baseId, {
         name: 'RefLookup_FieldRef_Foreign',
