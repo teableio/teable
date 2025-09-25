@@ -87,6 +87,25 @@ describe('Computed Orchestrator (e2e)', () => {
     return v;
   };
 
+  type FieldChangePayload = { oldValue: any; newValue: any };
+  type FieldChangeMap = Record<string, FieldChangePayload>;
+
+  const assertChange = (change: FieldChangePayload | undefined): FieldChangePayload => {
+    expect(change).toBeDefined();
+    return change!;
+  };
+
+  const expectNoOldValue = (change: FieldChangePayload) => {
+    expect(change.oldValue === null || change.oldValue === undefined).toBe(true);
+  };
+
+  const toChangeMap = (event: any): FieldChangeMap => {
+    const recordPayload = Array.isArray(event.payload.record)
+      ? event.payload.record[0]
+      : event.payload.record;
+    return (recordPayload?.fields ?? {}) as FieldChangeMap;
+  };
+
   // ===== Formula related =====
   describe('Formula', () => {
     it('emits old/new values for formula on same table when base field changes', async () => {
@@ -120,9 +139,9 @@ describe('Computed Orchestrator (e2e)', () => {
         { oldValue: unknown; newValue: unknown }
       >;
       // Formula F1 should move from 1 -> 2
-      expect(changes[f1.id]).toBeDefined();
-      expect(changes[f1.id].oldValue).toEqual(1);
-      expect(changes[f1.id].newValue).toEqual(2);
+      const f1Change = assertChange(changes[f1.id]);
+      expectNoOldValue(f1Change);
+      expect(f1Change.newValue).toEqual(2);
 
       // Assert physical column for formula (non-generated) reflects new value
       const tblName = await getDbTableName(table.id);
@@ -133,7 +152,7 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
     });
 
-    it('Formula unchanged should not emit computed change', async () => {
+    it('Formula unchanged publishes computed value with empty oldValue', async () => {
       // T with A and F = {A}*{A}; change A: 1 -> -1, F stays 1
       const table = await createTable(baseId, {
         name: 'NoEvent_Formula_NoChange',
@@ -164,8 +183,10 @@ describe('Computed Orchestrator (e2e)', () => {
       const recs = Array.isArray(event.payload.record)
         ? event.payload.record
         : [event.payload.record];
-      const change = recs[0]?.fields?.[f.id];
-      expect(change).toBeUndefined();
+      const change = recs[0]?.fields?.[f.id] as FieldChangePayload | undefined;
+      const formulaChange = assertChange(change);
+      expectNoOldValue(formulaChange);
+      expect(formulaChange.newValue).toEqual(1);
 
       // DB: F should remain 1
       const tblName = await getDbTableName(table.id);
@@ -218,20 +239,20 @@ describe('Computed Orchestrator (e2e)', () => {
       const rec = Array.isArray(event.payload.record)
         ? event.payload.record[0]
         : event.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+      const changes = rec.fields as FieldChangeMap;
 
       // A: 2 -> 3, so B: 3 -> 4, C: 6 -> 8, D: 4 -> 5
-      expect(changes[b.id]).toBeDefined();
-      expect(changes[b.id].oldValue).toEqual(3);
-      expect(changes[b.id].newValue).toEqual(4);
+      const bChange = assertChange(changes[b.id]);
+      expectNoOldValue(bChange);
+      expect(bChange.newValue).toEqual(4);
 
-      expect(changes[c.id]).toBeDefined();
-      expect(changes[c.id].oldValue).toEqual(6);
-      expect(changes[c.id].newValue).toEqual(8);
+      const cChange = assertChange(changes[c.id]);
+      expectNoOldValue(cChange);
+      expect(cChange.newValue).toEqual(8);
 
-      expect(changes[d.id]).toBeDefined();
-      expect(changes[d.id].oldValue).toEqual(4);
-      expect(changes[d.id].newValue).toEqual(5);
+      const dChange = assertChange(changes[d.id]);
+      expectNoOldValue(dChange);
+      expect(dChange.newValue).toEqual(5);
 
       // DB: B=4, C=8, D=5
       const dbName = await getDbTableName(table.id);
@@ -287,10 +308,10 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const evt = events.find((e) => e.payload.tableId === t2.id)!;
       const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[lkp.id]).toBeDefined();
-      expect(changes[lkp.id].oldValue).toEqual(123);
-      expect(changes[lkp.id].newValue).toEqual(456);
+      const changes = rec.fields as FieldChangeMap;
+      const lkpChange = assertChange(changes[lkp.id]);
+      expectNoOldValue(lkpChange);
+      expect(lkpChange.newValue).toEqual(456);
 
       const t2Db = await getDbTableName(t2.id);
       const t2Row = await getRow(t2Db, t2.records[0].id);
@@ -412,10 +433,10 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const evt = events.find((e) => e.payload.tableId === t1.id)!;
       const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[lkp.id]).toBeDefined();
-      expect(changes[lkp.id].oldValue).toEqual([123, 456]);
-      expect(changes[lkp.id].newValue).toEqual([123]);
+      const changes = rec.fields as FieldChangeMap;
+      const lkpChange = assertChange(changes[lkp.id]);
+      expectNoOldValue(lkpChange);
+      expect(lkpChange.newValue).toEqual([123]);
 
       const t1Db = await getDbTableName(t1.id);
       const t1Row = await getRow(t1Db, t1.records[0].id);
@@ -466,10 +487,10 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const evt = events.find((e) => e.payload.tableId === t1.id)!;
       const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[lkp.id]).toBeDefined();
-      expect(changes[lkp.id].oldValue).toEqual([11, 22]);
-      expect(changes[lkp.id].newValue).toBeNull();
+      const changes = rec.fields as FieldChangeMap;
+      const lkpChange = assertChange(changes[lkp.id]);
+      expectNoOldValue(lkpChange);
+      expect(lkpChange.newValue).toBeNull();
 
       const t1Db = await getDbTableName(t1.id);
       const t1Row = await getRow(t1Db, t1.records[0].id);
@@ -517,10 +538,10 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const evt = events.find((e) => e.payload.tableId === t2.id)!;
       const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[lkp.id]).toBeDefined();
-      expect(changes[lkp.id].oldValue).toEqual([5]);
-      expect(changes[lkp.id].newValue).toEqual([7]);
+      const changes = rec.fields as FieldChangeMap;
+      const lkpChange = assertChange(changes[lkp.id]);
+      expectNoOldValue(lkpChange);
+      expect(lkpChange.newValue).toEqual([7]);
 
       const t2Db = await getDbTableName(t2.id);
       const t2Row = await getRow(t2Db, t2.records[0].id);
@@ -577,9 +598,9 @@ describe('Computed Orchestrator (e2e)', () => {
         string,
         { oldValue: unknown; newValue: unknown }
       >;
-      expect(changes[lkp2.id]).toBeDefined();
-      expect(changes[lkp2.id].oldValue).toEqual([10]);
-      expect(changes[lkp2.id].newValue).toEqual([20]);
+      const lkpChange = assertChange(changes[lkp2.id]);
+      expectNoOldValue(lkpChange);
+      expect(lkpChange.newValue).toEqual([20]);
 
       // DB: lookup column should be [20]
       const t2Db = await getDbTableName(t2.id);
@@ -642,9 +663,9 @@ describe('Computed Orchestrator (e2e)', () => {
         string,
         { oldValue: unknown; newValue: unknown }
       >;
-      expect(changes[roll2.id]).toBeDefined();
-      expect(changes[roll2.id].oldValue).toEqual(10);
-      expect(changes[roll2.id].newValue).toEqual(11);
+      const rollChange = assertChange(changes[roll2.id]);
+      expectNoOldValue(rollChange);
+      expect(rollChange.newValue).toEqual(11);
 
       // DB: rollup column should be 11
       const t2Db = await getDbTableName(t2.id);
@@ -727,28 +748,28 @@ describe('Computed Orchestrator (e2e)', () => {
       const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
       const t1Changes = (
         Array.isArray(t1Event.payload.record) ? t1Event.payload.record[0] : t1Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(t1Changes[f1.id]).toBeDefined();
-      expect(t1Changes[f1.id].oldValue).toEqual(12);
-      expect(t1Changes[f1.id].newValue).toEqual(15);
+      ).fields as FieldChangeMap;
+      const t1Change = assertChange(t1Changes[f1.id]);
+      expectNoOldValue(t1Change);
+      expect(t1Change.newValue).toEqual(15);
 
       // T2
       const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
       const t2Changes = (
         Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(t2Changes[lkp2.id]).toBeDefined();
-      expect(t2Changes[lkp2.id].oldValue).toEqual([12]);
-      expect(t2Changes[lkp2.id].newValue).toEqual([15]);
+      ).fields as FieldChangeMap;
+      const t2Change = assertChange(t2Changes[lkp2.id]);
+      expectNoOldValue(t2Change);
+      expect(t2Change.newValue).toEqual([15]);
 
       // T3
       const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
       const t3Changes = (
         Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(t3Changes[lkp3.id]).toBeDefined();
-      expect(t3Changes[lkp3.id].oldValue).toEqual([12]);
-      expect(t3Changes[lkp3.id].newValue).toEqual([15]);
+      ).fields as FieldChangeMap;
+      const t3Change = assertChange(t3Changes[lkp3.id]);
+      expectNoOldValue(t3Change);
+      expect(t3Change.newValue).toEqual([15]);
 
       // DB: T1.F=15, T2.LKP2=[15], T3.LKP3=[15]
       const t1Db = await getDbTableName(t1.id);
@@ -804,10 +825,10 @@ describe('Computed Orchestrator (e2e)', () => {
       const rec = Array.isArray(event.payload.record)
         ? event.payload.record[0]
         : event.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[f.id]).toBeDefined();
-      expect(changes[f.id].oldValue).toEqual(6);
-      expect(changes[f.id].newValue).toBeNull();
+      const changes = rec.fields as FieldChangeMap;
+      const formulaChange = assertChange(changes[f.id]);
+      expectNoOldValue(formulaChange);
+      expect(formulaChange.newValue).toBeNull();
 
       // DB: F should be null after delete of dependency
       const dbName = await getDbTableName(table.id);
@@ -853,15 +874,15 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const evt = payloads[0];
       const rec = Array.isArray(evt.payload.record) ? evt.payload.record[0] : evt.payload.record;
-      const changes = rec.fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+      const changes = rec.fields as FieldChangeMap;
 
       // A: 2; B: 3; C: 6 -> null after delete
-      expect(changes[b.id]).toBeDefined();
-      expect(changes[b.id].oldValue).toEqual(3);
-      expect(changes[b.id].newValue).toBeNull();
-      expect(changes[c.id]).toBeDefined();
-      expect(changes[c.id].oldValue).toEqual(6);
-      expect(changes[c.id].newValue).toBeNull();
+      const bChange = assertChange(changes[b.id]);
+      expectNoOldValue(bChange);
+      expect(bChange.newValue).toBeNull();
+      const cChange = assertChange(changes[c.id]);
+      expectNoOldValue(cChange);
+      expect(cChange.newValue).toBeNull();
 
       // DB: B and C should be null
       const dbName = await getDbTableName(table.id);
@@ -938,19 +959,19 @@ describe('Computed Orchestrator (e2e)', () => {
       const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
       const t2Changes = (
         Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(t2Changes[l2.id]).toBeDefined();
-      expect(t2Changes[l2.id].oldValue).toEqual([10]);
-      expect(t2Changes[l2.id].newValue).toBeNull();
+      ).fields as FieldChangeMap;
+      const t2Change = assertChange(t2Changes[l2.id]);
+      expectNoOldValue(t2Change);
+      expect(t2Change.newValue).toBeNull();
 
       // T3
       const t3Event = (payloads as any[]).find((e) => e.payload.tableId === t3.id)!;
       const t3Changes = (
         Array.isArray(t3Event.payload.record) ? t3Event.payload.record[0] : t3Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(t3Changes[l3.id]).toBeDefined();
-      expect(t3Changes[l3.id].oldValue).toEqual([10]);
-      expect(t3Changes[l3.id].newValue).toBeNull();
+      ).fields as FieldChangeMap;
+      const t3Change = assertChange(t3Changes[l3.id]);
+      expectNoOldValue(t3Change);
+      expect(t3Change.newValue).toBeNull();
 
       // DB: L2 and L3 should be null
       const t2Db = await getDbTableName(t2.id);
@@ -1011,10 +1032,10 @@ describe('Computed Orchestrator (e2e)', () => {
       const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
       const changes = (
         Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[lkp.id]).toBeDefined();
-      expect(changes[lkp.id].oldValue).toEqual([10]);
-      expect(changes[lkp.id].newValue).toBeNull();
+      ).fields as FieldChangeMap;
+      const lkpChange = assertChange(changes[lkp.id]);
+      expectNoOldValue(lkpChange);
+      expect(lkpChange.newValue).toBeNull();
 
       // DB: LKP should be null
       const t2Db = await getDbTableName(t2.id);
@@ -1072,11 +1093,10 @@ describe('Computed Orchestrator (e2e)', () => {
       const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
       const changes = (
         Array.isArray(t2Event.payload.record) ? t2Event.payload.record[0] : t2Event.payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changes[roll.id]).toBeDefined();
-      // Known follow-up: ensure rollup column participates in updateFromSelect on delete
-      // expect(changes[roll.id].oldValue).toEqual(10);
-      // expect(changes[roll.id].newValue).toBeNull();
+      ).fields as FieldChangeMap;
+      const rollChange = assertChange(changes[roll.id]);
+      expectNoOldValue(rollChange);
+      expect(rollChange.newValue).toBeNull();
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
@@ -1100,7 +1120,12 @@ describe('Computed Orchestrator (e2e)', () => {
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await createField(table.id, { name: 'B', type: FieldType.SingleLineText } as IFieldRo);
         });
-        expect(events.length).toBe(0);
+        expect(events.length).toBe(1);
+        const baseField = (await getFields(table.id)).find((f) => f.name === 'B')!;
+        const changeMap = toChangeMap(events[0]);
+        const bChange = assertChange(changeMap[baseField.id]);
+        expectNoOldValue(bChange);
+        expect(bChange.newValue).toBeNull();
       }
 
       // 2) formula referencing A -> expect 1 update with newValue
@@ -1113,15 +1138,11 @@ describe('Computed Orchestrator (e2e)', () => {
           } as IFieldRo);
         });
         expect(events.length).toBe(1);
-        const changeMap = (
-          Array.isArray(events[0].payload.record)
-            ? events[0].payload.record[0]
-            : events[0].payload.record
-        ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+        const changeMap = toChangeMap(events[0]);
         const fId = (await getFields(table.id)).find((f) => f.name === 'F')!.id;
-        expect(changeMap[fId]).toBeDefined();
-        expect(changeMap[fId].oldValue).toBeUndefined();
-        expect(changeMap[fId].newValue).toEqual(2);
+        const fChange = assertChange(changeMap[fId]);
+        expectNoOldValue(fChange);
+        expect(fChange.newValue).toEqual(2);
 
         // DB: F should equal 2
         const tbl = await getDbTableName(table.id);
@@ -1169,13 +1190,18 @@ describe('Computed Orchestrator (e2e)', () => {
             } as any,
           } as any);
         });
-        expect(events.length).toBe(0);
+        expect(events.length).toBe(1);
+        const lkpField = (await getFields(t2.id)).find((f) => f.name === 'LK')!;
+        const changeMap = toChangeMap(events[0]);
+        const lkpChange = assertChange(changeMap[lkpField.id]);
+        expectNoOldValue(lkpChange);
+        expect(lkpChange.newValue).toBeNull();
 
         // DB: LK should be null when there is no link
         const t2Db = await getDbTableName(t2.id);
         const t2Row = await getRow(t2Db, t2.records[0].id);
-        const lkpField = (await getFields(t2.id)).find((f) => f.name === 'LK') as any;
-        expect((t2Row as any)[lkpField.dbFieldName]).toBeNull();
+        const lkpFull = lkpField as any;
+        expect((t2Row as any)[lkpFull.dbFieldName]).toBeNull();
       }
 
       // Establish link and then create rollup -> expect 1 update
@@ -1194,15 +1220,11 @@ describe('Computed Orchestrator (e2e)', () => {
           } as any);
         });
         expect(events.length).toBe(1);
-        const changeMap = (
-          Array.isArray(events[0].payload.record)
-            ? events[0].payload.record[0]
-            : events[0].payload.record
-        ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+        const changeMap = toChangeMap(events[0]);
         const rId = (await getFields(t2.id)).find((f) => f.name === 'R')!.id;
-        expect(changeMap[rId]).toBeDefined();
-        expect(changeMap[rId].oldValue).toBeUndefined();
-        expect(changeMap[rId].newValue).toEqual(10);
+        const rChange = assertChange(changeMap[rId]);
+        expectNoOldValue(rChange);
+        expect(rChange.newValue).toEqual(10);
 
         // DB: R should equal 10
         const t2Db = await getDbTableName(t2.id);
@@ -1239,14 +1261,10 @@ describe('Computed Orchestrator (e2e)', () => {
         } as any);
       });
       expect(events.length).toBe(1);
-      const changeMap = (
-        Array.isArray(events[0].payload.record)
-          ? events[0].payload.record[0]
-          : events[0].payload.record
-      ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
-      expect(changeMap[f.id]).toBeDefined();
-      expect(changeMap[f.id].oldValue).toEqual(2);
-      expect(changeMap[f.id].newValue).toEqual(7);
+      const changeMap = toChangeMap(events[0]);
+      const fChange = assertChange(changeMap[f.id]);
+      expectNoOldValue(fChange);
+      expect(fChange.newValue).toEqual(7);
 
       // DB: F should be 7 after convert
       const tbl = await getDbTableName(table.id);
@@ -1275,7 +1293,12 @@ describe('Computed Orchestrator (e2e)', () => {
         const { events } = await runAndCaptureRecordUpdates(async () => {
           await duplicateField(table.id, textField.id, { name: 'Text_copy' });
         });
-        expect(events.length).toBe(0);
+        expect(events.length).toBe(1);
+        const textCopyField = (await getFields(table.id)).find((f) => f.name === 'Text_copy')!;
+        const changeMap = toChangeMap(events[0]);
+        const textCopyChange = assertChange(changeMap[textCopyField.id]);
+        expectNoOldValue(textCopyChange);
+        expect(textCopyChange.newValue).toBeNull();
       }
 
       // Add formula F = Num + 1; duplicate it -> expect updates for computed values
@@ -1289,15 +1312,11 @@ describe('Computed Orchestrator (e2e)', () => {
           await duplicateField(table.id, f.id, { name: 'F_copy' });
         });
         expect(events.length).toBe(1);
-        const changeMap = (
-          Array.isArray(events[0].payload.record)
-            ? events[0].payload.record[0]
-            : events[0].payload.record
-        ).fields as Record<string, { oldValue: unknown; newValue: unknown }>;
+        const changeMap = toChangeMap(events[0]);
         const fCopyId = (await getFields(table.id)).find((x) => x.name === 'F_copy')!.id;
-        expect(changeMap[fCopyId]).toBeDefined();
-        expect(changeMap[fCopyId].oldValue).toBeUndefined();
-        expect(changeMap[fCopyId].newValue).toEqual(4);
+        const fCopyChange = assertChange(changeMap[fCopyId]);
+        expectNoOldValue(fCopyChange);
+        expect(fCopyChange.newValue).toEqual(4);
 
         // DB: F_copy should equal 4
         const tbl = await getDbTableName(table.id);
@@ -1347,13 +1366,10 @@ describe('Computed Orchestrator (e2e)', () => {
 
       // Find T2 event
       const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-      const changes = t2Event.payload.record.fields as Record<
-        string,
-        { oldValue: any; newValue: any }
-      >;
-      expect(changes[link2.id]).toBeDefined();
-      expect([changes[link2.id].oldValue]?.flat()?.[0]?.title).toEqual('Foo');
-      expect([changes[link2.id].newValue]?.flat()?.[0]?.title).toEqual('Bar');
+      const changes = t2Event.payload.record.fields as FieldChangeMap;
+      const linkChange = assertChange(changes[link2.id]);
+      expectNoOldValue(linkChange);
+      expect([linkChange.newValue]?.flat()?.[0]?.title).toEqual('Bar');
 
       // DB: link cell title should be updated to 'Bar'
       const t2Db = await getDbTableName(t2.id);
@@ -1445,7 +1461,7 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, t1.id);
     });
 
-    it('ManyMany bidirectional link: set 1-1 -> 2-1 emits two ops with empty oldValue', async () => {
+    it('ManyMany bidirectional link: set 1-1 -> 2-1 publishes newValue on both sides', async () => {
       // T1 with title and 3 records: 1-1, 1-2, 1-3
       const t1 = await createTable(baseId, {
         name: 'MM_Bidir_T1',
@@ -1504,23 +1520,17 @@ describe('Computed Orchestrator (e2e)', () => {
       const t1Event = (payloads as any[]).find((e) => e.payload.tableId === t1.id)!;
       const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
 
-      // Assert T1 event: linkOnT1 oldValue empty -> newValue [2-1]
-      const t1Changes = t1Event.payload.record.fields as Record<
-        string,
-        { oldValue: any; newValue: any }
-      >;
-      expect(t1Changes[linkOnT1.id]).toBeDefined();
-      expect(norm(t1Changes[linkOnT1.id].oldValue).length).toBe(0);
-      expect(new Set(idsOf(t1Changes[linkOnT1.id].newValue))).toEqual(new Set([r2_1]));
+      // Assert T1 event: linkOnT1 newValue [2-1]
+      const t1Changes = t1Event.payload.record.fields as FieldChangeMap;
+      const t1Change = assertChange(t1Changes[linkOnT1.id]);
+      expectNoOldValue(t1Change);
+      expect(new Set(idsOf(t1Change.newValue))).toEqual(new Set([r2_1]));
 
-      // Assert T2 event: symmetric link oldValue empty -> newValue [1-1]
-      const t2Changes = t2Event.payload.record.fields as Record<
-        string,
-        { oldValue: any; newValue: any }
-      >;
-      expect(t2Changes[linkOnT2.id]).toBeDefined();
-      expect(norm(t2Changes[linkOnT2.id].oldValue).length).toBe(0);
-      expect(new Set(idsOf(t2Changes[linkOnT2.id].newValue))).toEqual(new Set([r1_1]));
+      // Assert T2 event: symmetric link newValue [1-1]
+      const t2Changes = t2Event.payload.record.fields as FieldChangeMap;
+      const t2Change = assertChange(t2Changes[linkOnT2.id]);
+      expectNoOldValue(t2Change);
+      expect(new Set(idsOf(t2Change.newValue))).toEqual(new Set([r1_1]));
 
       // DB: verify both sides persisted
       const t1Db = await getDbTableName(t1.id);
@@ -1586,7 +1596,7 @@ describe('Computed Orchestrator (e2e)', () => {
         evt: any,
         linkFieldId: string,
         recordId?: string
-      ): { oldValue: any; newValue: any } | undefined => {
+      ): FieldChangePayload | undefined => {
         const recs = Array.isArray(evt.payload.record) ? evt.payload.record : [evt.payload.record];
         const target = recordId ? recs.find((r: any) => r.id === recordId) : recs[0];
         return target?.fields?.[linkFieldId];
@@ -1603,9 +1613,8 @@ describe('Computed Orchestrator (e2e)', () => {
         })) as any;
 
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const change = getChangeFromEvent(t2Event, linkOnT2.id, rB1)!;
-        expect(change).toBeDefined();
-        expect(norm(change.oldValue).length).toBe(0);
+        const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB1));
+        expectNoOldValue(change);
         expect(new Set(idsOf(change.newValue))).toEqual(new Set([rA1]));
       }
 
@@ -1620,9 +1629,8 @@ describe('Computed Orchestrator (e2e)', () => {
         })) as any;
 
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const change = getChangeFromEvent(t2Event, linkOnT2.id, rB2)!;
-        expect(change).toBeDefined();
-        expect(norm(change.oldValue).length).toBe(0);
+        const change = assertChange(getChangeFromEvent(t2Event, linkOnT2.id, rB2));
+        expectNoOldValue(change);
         expect(new Set(idsOf(change.newValue))).toEqual(new Set([rA1]));
       }
 
@@ -1637,11 +1645,11 @@ describe('Computed Orchestrator (e2e)', () => {
         })) as any;
 
         const t2Event = (payloads as any[]).find((e) => e.payload.tableId === t2.id)!;
-        const change =
-          getChangeFromEvent(t2Event, linkOnT2.id, rB1) || getChangeFromEvent(t2Event, linkOnT2.id);
-        expect(change).toBeDefined();
-        expect(new Set(idsOf(change!.oldValue))).toEqual(new Set([rA1]));
-        expect(norm(change!.newValue).length).toBe(0);
+        const change = assertChange(
+          getChangeFromEvent(t2Event, linkOnT2.id, rB1) || getChangeFromEvent(t2Event, linkOnT2.id)
+        );
+        expectNoOldValue(change);
+        expect(norm(change.newValue).length).toBe(0);
       }
 
       // DB: final state T1[A1] -> [B2] and symmetric T2[B2] -> [A1]
@@ -1714,11 +1722,11 @@ describe('Computed Orchestrator (e2e)', () => {
           ? t2Event.payload.record
           : [t2Event.payload.record];
         const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
-          | { oldValue: any; newValue: any }
+          | FieldChangePayload
           | undefined;
-        expect(change).toBeDefined();
-        expect(norm(change!.oldValue).length).toBe(0);
-        expect(new Set(idsOf(change!.newValue))).toEqual(new Set([rA1]));
+        const linkChange = assertChange(change);
+        expectNoOldValue(linkChange);
+        expect(new Set(idsOf(linkChange.newValue))).toEqual(new Set([rA1]));
       }
 
       // Switch A1 -> B2 (removes from B1, adds to B2)
@@ -1734,14 +1742,17 @@ describe('Computed Orchestrator (e2e)', () => {
         const recs = Array.isArray(t2Event.payload.record)
           ? t2Event.payload.record
           : [t2Event.payload.record];
-        const changeB1 =
-          recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] ||
-          recs.find((r: any) => new Set(idsOf(r?.fields?.[linkOnT2.id]?.oldValue)).has(rA1))
-            ?.fields?.[linkOnT2.id];
-        expect(changeB1).toBeDefined();
-        // removal from B1
-        expect(new Set(idsOf(changeB1!.oldValue))).toEqual(new Set([rA1]));
-        expect(norm(changeB1!.newValue).length).toBe(0);
+        const changeFor = (recordId: string) =>
+          recs.find((r: any) => r.id === recordId)?.fields?.[linkOnT2.id] as
+            | FieldChangePayload
+            | undefined;
+        const removal = assertChange(changeFor(rB1));
+        expectNoOldValue(removal);
+        expect(norm(removal.newValue).length).toBe(0);
+
+        const addition = assertChange(changeFor(rB2));
+        expectNoOldValue(addition);
+        expect(new Set(idsOf(addition.newValue))).toEqual(new Set([rA1]));
       }
 
       // DB: final state T1[A1] -> {id: B2} and symmetric on T2
@@ -1808,11 +1819,11 @@ describe('Computed Orchestrator (e2e)', () => {
           ? t2Event.payload.record
           : [t2Event.payload.record];
         const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
-          | { oldValue: any; newValue: any }
+          | FieldChangePayload
           | undefined;
-        expect(change).toBeDefined();
-        expect(change!.oldValue == null).toBe(true);
-        expect(change!.newValue?.id).toBe(rA1);
+        const addChange = assertChange(change);
+        expectNoOldValue(addChange);
+        expect(addChange.newValue?.id).toBe(rA1);
       }
 
       // Add B2 -> [B1, B2]; expect symmetric add on B2
@@ -1829,11 +1840,11 @@ describe('Computed Orchestrator (e2e)', () => {
           ? t2Event.payload.record
           : [t2Event.payload.record];
         const change = recs.find((r: any) => r.id === rB2)?.fields?.[linkOnT2.id] as
-          | { oldValue: any; newValue: any }
+          | FieldChangePayload
           | undefined;
-        expect(change).toBeDefined();
-        expect(change!.oldValue == null).toBe(true);
-        expect(change!.newValue?.id).toBe(rA1);
+        const addChange = assertChange(change);
+        expectNoOldValue(addChange);
+        expect(addChange.newValue?.id).toBe(rA1);
       }
 
       // Remove B1 -> [B2]; expect symmetric removal on B1
@@ -1849,14 +1860,12 @@ describe('Computed Orchestrator (e2e)', () => {
         const recs = Array.isArray(t2Event.payload.record)
           ? t2Event.payload.record
           : [t2Event.payload.record];
-        const change =
-          recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] ||
-          recs.find((r: any) => r?.fields?.[linkOnT2.id]?.oldValue?.id === rA1)?.fields?.[
-            linkOnT2.id
-          ];
-        expect(change).toBeDefined();
-        expect(change!.oldValue?.id).toBe(rA1);
-        expect(change!.newValue).toBeNull();
+        const change = recs.find((r: any) => r.id === rB1)?.fields?.[linkOnT2.id] as
+          | FieldChangePayload
+          | undefined;
+        const removalChange = assertChange(change);
+        expectNoOldValue(removalChange);
+        expect(removalChange.newValue).toBeNull();
       }
 
       // DB: final state T1[A1] -> [B2] and symmetric T2[B2] -> {id: A1}
@@ -1885,7 +1894,7 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, t1.id);
     });
 
-    it('ManyMany: removing unrelated item should not emit event for unchanged counterpart', async () => {
+    it('ManyMany: removing unrelated item still republishes unchanged counterpart with newValue only', async () => {
       // T1 with two records: 1-1, 1-2
       const t1 = await createTable(baseId, {
         name: 'MM_NoChange_T1',
@@ -1935,7 +1944,7 @@ describe('Computed Orchestrator (e2e)', () => {
       // 3) Remove 1-2, keep only 1-1; expect:
       //    - T2[2-1] changed
       //    - T1[1-2] changed (removed)
-      //    - T1[1-1] unchanged => SHOULD NOT have a change entry
+      //    - T1[1-1] re-published with same newValue (oldValue missing)
       const { payloads } = (await createAwaitWithEventWithResultWithCount(
         eventEmitterService,
         Events.TABLE_RECORD_UPDATE,
@@ -1949,11 +1958,22 @@ describe('Computed Orchestrator (e2e)', () => {
         ? t1Event.payload.record
         : [t1Event.payload.record];
 
-      const changeOn11 = recs.find((r: any) => r.id === r1_1)?.fields?.[linkOnT1.id];
-      const changeOn12 = recs.find((r: any) => r.id === r1_2)?.fields?.[linkOnT1.id];
+      const changeOn11 = recs.find((r: any) => r.id === r1_1)?.fields?.[linkOnT1.id] as
+        | FieldChangePayload
+        | undefined;
+      const changeOn12 = recs.find((r: any) => r.id === r1_2)?.fields?.[linkOnT1.id] as
+        | FieldChangePayload
+        | undefined;
 
-      expect(changeOn12).toBeDefined(); // 1-2 removed 2-1
-      expect(changeOn11).toBeUndefined(); // 1-1 unchanged should not have event
+      const removalChange = assertChange(changeOn12); // 1-2 removed 2-1
+      expectNoOldValue(removalChange);
+      expect(removalChange.newValue).toBeNull();
+
+      const unchangedRepublish = assertChange(changeOn11);
+      expectNoOldValue(unchangedRepublish);
+      const idsOf = (v: any) =>
+        (Array.isArray(v) ? v : v ? [v] : []).map((item: any) => item?.id).filter(Boolean);
+      expect(new Set(idsOf(unchangedRepublish.newValue))).toEqual(new Set([r2_1]));
 
       await permanentDeleteTable(baseId, t2.id);
       await permanentDeleteTable(baseId, t1.id);
