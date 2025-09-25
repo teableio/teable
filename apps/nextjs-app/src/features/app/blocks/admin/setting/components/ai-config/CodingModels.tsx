@@ -144,9 +144,14 @@ export const CodingModels = ({
       return;
     }
     setTestChatModelAbilityLoading(true);
-    const res = await onTestChatModelAbility?.(data);
-    setTestChatModelAbilityLoading(false);
-    return res;
+    try {
+      const res = await onTestChatModelAbility?.(data);
+      setTestChatModelAbilityLoading(false);
+      return res;
+    } catch (error) {
+      setTestChatModelAbilityLoading(false);
+      throw error;
+    }
   };
 
   return (

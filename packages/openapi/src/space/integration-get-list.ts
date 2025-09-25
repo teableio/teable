@@ -1,5 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { aiConfigSchema, simpleLLMProviderSchema } from '../admin';
+import {
+  aiConfigSchema,
+  appConfigSchema,
+  simpleLLMProviderSchema,
+  webSearchConfigSchema,
+} from '../admin';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -10,7 +15,10 @@ export enum IntegrationType {
 
 export const GET_INTEGRATION_LIST = '/space/{spaceId}/integration';
 
-export const aiIntegrationConfigSchema = aiConfigSchema;
+export const aiIntegrationConfigSchema = aiConfigSchema.extend({
+  appConfig: appConfigSchema.optional(),
+  webSearchConfig: webSearchConfigSchema.optional(),
+});
 
 export type IAIIntegrationConfig = z.infer<typeof aiIntegrationConfigSchema>;
 

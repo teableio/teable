@@ -2,7 +2,7 @@ import type { OpenAIProvider } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider, LLMProviderType } from '@teable/openapi';
-import { IntegrationType, Task } from '@teable/openapi';
+import { IntegrationType, SettingKey, Task } from '@teable/openapi';
 import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
@@ -167,6 +167,24 @@ export class AiService {
     return {
       disableActions:
         disableAIActionsFromSpaceIntegration || disableAIActionsFromInstanceAiSetting || [],
+    };
+  }
+
+  async getToolApiKeys(baseId: string) {
+    const { webSearchConfig, appConfig } = await this.settingService.getSetting([
+      SettingKey.WEB_SEARCH_CONFIG,
+      SettingKey.APP_CONFIG,
+    ]);
+    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
+      where: { id: baseId },
+    });
+    const aiIntegration = await this.prismaService.integration.findFirst({
+      where: { resourceId: spaceId, type: IntegrationType.AI },
+    });
+    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
+    return {
+      webSearchApiKey: aiIntegrationConfig?.webSearchConfig?.apiKey || webSearchConfig?.apiKey,
+      v0ApiKey: aiIntegrationConfig?.appConfig?.apiKey || appConfig?.apiKey,
     };
   }
 
