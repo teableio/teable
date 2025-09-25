@@ -91,7 +91,7 @@ export function AIModelSelect({
 
   const onLinkIntegration = () => {
     router.push({
-      pathname: '/space/[spaceId]/setting/integration',
+      pathname: '/space/[spaceId]/setting/ai-setting',
       query: { spaceId: base.spaceId },
     });
   };
