@@ -1,6 +1,6 @@
 import { join } from 'path';
 import type { OpenAIProvider } from '@ai-sdk/openai';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ISetSettingMailTransportConfigRo,
@@ -198,10 +198,8 @@ export class SettingOpenApiService {
         ability: supportAbilities,
       };
     } catch (error) {
-      return {
-        success: false,
-        response: error instanceof Error ? error.message : undefined,
-      };
+      const message = error instanceof Error ? error.message : 'unknown error';
+      throw new BadGatewayException(message);
     }
   }
 
