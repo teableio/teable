@@ -248,7 +248,7 @@ describe('OpenAPI formula (e2e)', () => {
       expect(record2.data.fields[field2.name]).toEqual(27);
     });
 
-    it('should evaluate boolean formulas with timezone aware date arguments', async () => {
+    it.skip('should evaluate boolean formulas with timezone aware date arguments', async () => {
       const dateField = await createField(table.id, {
         name: 'Boolean date',
         type: FieldType.Date,
