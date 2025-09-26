@@ -265,8 +265,8 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   return (
     <>
       <Sheet open={visible} onOpenChange={onOpenChange}>
-        <SheetContent className="w-screen p-0 sm:w-[400px]" side="right">
-          <div className="flex h-full flex-col ">
+        <SheetContent className="w-screen p-0 sm:w-[400px] sm:max-w-[400px]" side="right">
+          <div className="flex h-full flex-col">
             {/* Header */}
             <div className="text-md w-full border-b px-4 py-3 font-semibold">{title}</div>
             {/* Content Form */}
