@@ -26,9 +26,10 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
   // runId => status
   const [statusMap, setStatusMap] = useState<Record<string, IButtonClickStatus>>({});
   const toastMapRef = useRef<Record<string, number | string | undefined>>({});
+  const complatedMapRef = useRef<Record<string, boolean>>({});
   const { t } = useTranslation();
 
-  const { mutateAsync: buttonClick } = useMutation({
+  const { mutateAsync: buttonClickFn } = useMutation({
     mutationFn: (ro: { tableId: string; recordId: string; fieldId: string; name: string }) =>
       shareId
         ? shareViewButtonClickApi(shareId, ro.recordId, ro.fieldId)
@@ -42,6 +43,15 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
         name: ro.name,
       });
     },
+    onError: (_error, ro) => {
+      setComplated({
+        runId: '',
+        recordId: ro.recordId,
+        fieldId: ro.fieldId,
+        loading: false,
+        name: ro.name,
+      });
+    },
   });
 
   const checkLoading = useCallback(
@@ -51,47 +61,76 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
     [statusMap]
   );
 
-  const setStatus = useCallback(
+  const setRunning = useCallback(
     (status: IButtonClickStatus) => {
-      const { runId } = status;
-      if (!runId) {
-        return;
-      }
-      const toastId = toastMapRef.current[runId];
-      const { loading, name, errorMessage, recordId, fieldId } = status;
-
+      const { runId, loading, name, recordId, fieldId } = status;
       setStatusMap((prev) => ({
         ...prev,
         [`${recordId}-${fieldId}`]: status,
       }));
+
+      if (!runId) {
+        return;
+      }
+      const toastId = toastMapRef.current[runId];
       if (loading) {
         const newToastId = toast.loading(t('common.runStatus.running', { name }), {
           id: toastId ?? undefined,
         });
         toastMapRef.current[runId] = newToastId;
-        return;
       }
+    },
+    [t]
+  );
+
+  const setComplated = useCallback(
+    (status: IButtonClickStatus) => {
+      const { runId, recordId, fieldId, errorMessage, name } = status;
       setStatusMap((prev) => {
         const newMap = { ...prev };
         delete newMap[`${recordId}-${fieldId}`];
         return newMap;
       });
-      if (toastId && errorMessage) {
+
+      if (!runId) {
+        return;
+      }
+      complatedMapRef.current[runId] = true;
+      const toastId = toastMapRef.current[runId];
+      if (!toastId) {
+        return;
+      }
+      delete toastMapRef.current[runId];
+      if (errorMessage) {
         toast.error(t('common.runStatus.failed', { name }), {
           id: toastId,
         });
-        toastMapRef.current[runId] = undefined;
-        return;
-      }
-
-      if (toastId && !loading) {
+      } else {
         toast.success(t('common.runStatus.success', { name }), {
           id: toastId,
         });
-        toastMapRef.current[runId] = undefined;
       }
     },
-    [t]
+    [setStatusMap, t]
+  );
+
+  /**
+   * socket may fast then http, so we need to check isComplated
+   */
+  const setStatus = useCallback(
+    (status: IButtonClickStatus) => {
+      const { loading, runId, name } = status;
+      const isComplated = complatedMapRef.current[runId];
+      if (isComplated) {
+        toast.success(t('common.runStatus.success', { name }));
+        delete complatedMapRef.current[runId];
+      } else if (loading) {
+        setRunning(status);
+      } else {
+        setComplated(status);
+      }
+    },
+    [setComplated, setRunning, t]
   );
 
   useEffect(() => {
@@ -110,7 +149,7 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
       if (!isEmpty(remotePresences)) {
         const remoteStatus = get(remotePresences, channel);
         if (remoteStatus) {
-          setStatus(remoteStatus);
+          setComplated(remoteStatus);
         }
       }
     };
@@ -122,11 +161,25 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
       presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
       presence?.listenerCount('receive') === 0 && presence?.destroy();
     };
-  }, [connection, presence, channel, setStatus]);
+  }, [connection, presence, channel, setComplated]);
+
+  const buttonClick = useCallback(
+    (ro: { tableId: string; recordId: string; fieldId: string; name: string }) => {
+      setRunning({
+        runId: '',
+        recordId: ro.recordId,
+        fieldId: ro.fieldId,
+        loading: true,
+        name: ro.name,
+      });
+      return buttonClickFn(ro);
+    },
+    [buttonClickFn, setRunning]
+  );
 
   return useMemo(() => {
-    return { checkLoading, setStatus, buttonClick };
-  }, [checkLoading, setStatus, buttonClick]);
+    return { checkLoading, buttonClick };
+  }, [checkLoading, buttonClick]);
 };
 
 export type IButtonClickStatusHook = ReturnType<typeof useButtonClickStatus>;

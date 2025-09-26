@@ -11,6 +11,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  Spin,
 } from '@teable/ui-lib';
 import { XIcon } from 'lucide-react';
 import { forwardRef, lazy, Suspense, useImperativeHandle, useRef, useState } from 'react';
@@ -82,7 +83,6 @@ interface WorkFlowPanelRef {
 export const WorkFlowPanelModal = () => {
   const { baseId = '', workflowId = '', closeModal, open } = useWorkFlowPanelStore();
   const isHydrated = useIsHydrated();
-  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const workflowRef = useRef<WorkFlowPanelRef>(null);
   const alertCloseWorkflowDialogRef = useRef<AlertCloseDialogRef>(null);
   if (!isHydrated || !baseId || !workflowId || !open) {
@@ -110,7 +110,13 @@ export const WorkFlowPanelModal = () => {
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
       >
         <div className="flex-1">
-          <Suspense fallback={<div>{t('common.loading')}</div>}>
+          <Suspense
+            fallback={
+              <div className="flex size-full items-center justify-center">
+                <Spin />
+              </div>
+            }
+          >
             <WorkFlowPanelLazy
               baseId={baseId}
               workflowId={workflowId}
