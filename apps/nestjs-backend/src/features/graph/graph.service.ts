@@ -586,6 +586,7 @@ export class GraphService {
         type: true,
         options: true,
         isLookup: true,
+        lookupLinkedFieldId: true,
       },
       orderBy: {
         order: 'asc',
@@ -672,12 +673,18 @@ export class GraphService {
       options: ILinkFieldOptions;
     })[];
     tableMap: Record<string, Pick<TableMeta, 'id' | 'name' | 'icon'>>;
-    fieldMap: Record<string, Pick<Field, 'id' | 'tableId' | 'name' | 'type' | 'isLookup'>>;
+    fieldMap: Record<
+      string,
+      Pick<Field, 'id' | 'tableId' | 'name' | 'type' | 'isLookup' | 'lookupLinkedFieldId'>
+    >;
     crossBaseLinkFieldRaws: (Pick<Field, 'id' | 'name' | 'type' | 'tableId'> & {
       options: ILinkFieldOptions;
     })[];
     crossBaseTableMap: Record<string, Pick<TableMeta, 'id' | 'name' | 'icon'>>;
-    crossBaseFieldMap: Record<string, Pick<Field, 'id' | 'tableId' | 'name' | 'type' | 'isLookup'>>;
+    crossBaseFieldMap: Record<
+      string,
+      Pick<Field, 'id' | 'tableId' | 'name' | 'type' | 'isLookup' | 'lookupLinkedFieldId'>
+    >;
     references: { fromFieldId: string; toFieldId: string }[];
   }) {
     const {
@@ -735,13 +742,26 @@ export class GraphService {
 
     for (const { fromFieldId, toFieldId } of references) {
       const fromField = fieldMap[fromFieldId] ?? crossBaseFieldMap[fromFieldId];
-      const fromTable = tableMap[fromField.tableId] ?? crossBaseTableMap[fromField.tableId];
       const toField = fieldMap[toFieldId] ?? crossBaseFieldMap[toFieldId];
+
+      if (!fromField || !toField) {
+        continue;
+      }
+
+      const fromTable = tableMap[fromField.tableId] ?? crossBaseTableMap[fromField.tableId];
       const toTable = tableMap[toField.tableId] ?? crossBaseTableMap[toField.tableId];
+
+      if (!fromTable || !toTable) {
+        continue;
+      }
 
       const key = `${fromField.id}-${toField.id}`;
       const reverseKey = `${toField.id}-${fromField.id}`;
       if (fieldEdgeMap.has(key) || fieldEdgeMap.has(reverseKey)) {
+        continue;
+      }
+
+      if (toField.lookupLinkedFieldId && toField.lookupLinkedFieldId === fromField.id) {
         continue;
       }
 
@@ -761,6 +781,7 @@ export class GraphService {
         type: toField.isLookup ? 'lookup' : (toField.type as FieldType),
       };
       edges.push(edge);
+      fieldEdgeMap.set(key, true);
     }
 
     return edges.map((edge) => {
