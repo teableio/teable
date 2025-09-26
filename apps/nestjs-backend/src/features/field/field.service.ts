@@ -409,6 +409,26 @@ export class FieldService implements IReadonlyAdapterService {
     // Physically rename the underlying column for all field types, including non-lookup Link fields.
     // Link fields in Teable maintain a persisted display column on the host table; skipping
     // the physical rename causes mismatches during computed updates (e.g., UPDATE ... FROM ...).
+    const columnInfoQuery = this.dbProvider.columnInfo(table.dbTableName);
+    const columns = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+    const columnNames = new Set(columns.map((column) => column.name));
+
+    if (columnNames.has(newDbFieldName)) {
+      // Column already renamed (e.g. modifyColumnSchema recreated it with the new name)
+      return;
+    }
+
+    if (!columnNames.has(dbFieldName)) {
+      // Nothing left to rename—likely dropped during type conversion before this step ran
+      this.logger.debug(
+        `Skip renaming column for field ${fieldId} (${table.dbTableName}): ` +
+          `missing source column ${dbFieldName}`
+      );
+      return;
+    }
+
     const alterTableSql = this.dbProvider.renameColumn(
       table.dbTableName,
       dbFieldName,
