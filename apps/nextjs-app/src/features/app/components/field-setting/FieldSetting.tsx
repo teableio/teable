@@ -265,10 +265,10 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   return (
     <>
       <Sheet open={visible} onOpenChange={onOpenChange}>
-        <SheetContent className="max-w-[400px] min-w-[320px] p-0" side="right">
+        <SheetContent className="min-w-[320px] max-w-[400px] p-0" side="right">
           <div className="flex h-full flex-col ">
             {/* Header */}
-            <div className="text-md w-full px-4 py-3 border-b font-semibold">{title}</div>
+            <div className="text-md w-full border-b px-4 py-3 font-semibold">{title}</div>
             {/* Content Form */}
             {
               <DynamicFieldEditor

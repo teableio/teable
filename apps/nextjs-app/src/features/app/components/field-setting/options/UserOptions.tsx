@@ -90,7 +90,7 @@ export const UserOptions = (props: {
   };
 
   return (
-    <div className="form-control space-y-4 border-t border-bordr pt-4">
+    <div className="form-control border-bordr space-y-4 border-t pt-4">
       {!isLookup && (
         <div className="space-y-4">
           <div className="flex w-full flex-col gap-2">

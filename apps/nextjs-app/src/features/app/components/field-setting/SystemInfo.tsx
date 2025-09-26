@@ -28,7 +28,7 @@ export const DbFieldName: React.FC<{
 };
 
 const FieldInfoList: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => (
-  <div className="mt-2 flex flex-col gap-2 p-3 bg-muted border rounded-md">
+  <div className="mt-2 flex flex-col gap-2 rounded-md border bg-muted p-3">
     {[
       { label: 'id', value: field.id },
       { label: 'dbFieldType', value: field.dbFieldType },
@@ -99,7 +99,7 @@ export const SystemInfo: React.FC<{
           <DbFieldName field={field} updateFieldProps={updateFieldProps} />
         </div>
       )}
-      <p className="border-b pb-4 text-xs mb-2">
+      <p className="mb-2 border-b pb-4 text-xs">
         <ToggleButton show={show} setShow={setShow} />
       </p>
     </>
