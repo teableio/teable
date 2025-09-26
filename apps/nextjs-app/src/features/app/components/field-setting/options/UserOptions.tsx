@@ -116,7 +116,7 @@ export const UserOptions = (props: {
             </div>
           </div>
           {!isLoading && (
-            <div className="border-t border-border pt-4">
+            <div className="border-t pt-4">
               <DefaultValue onReset={() => onDefaultValueChange(undefined)}>
                 <UserEditor
                   value={defaultValueToUser(options)}

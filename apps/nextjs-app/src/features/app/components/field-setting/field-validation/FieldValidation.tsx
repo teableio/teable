@@ -34,7 +34,7 @@ export const FieldValidation = (props: IFieldValidationProps) => {
 
   return (
     <>
-      <div className="flex flex-col gap-2 border-t border-border pt-4">
+      <div className="flex flex-col gap-2 border-t pt-4">
         <span className="neutral-content text-sm font-medium">
           {t('table:field.editor.fieldValidationRules')}
         </span>

@@ -227,7 +227,7 @@ export const SelectOptions = (props: {
             </Label>
           </div>
 
-          <div className="flex items-center justify-between border-t border-border pt-4">
+          <div className="flex items-center justify-between border-t pt-4">
             <SelectDefaultValue
               isMultiple={isMultiple}
               onChange={onDefaultValueChange}

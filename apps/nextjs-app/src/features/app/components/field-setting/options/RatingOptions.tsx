@@ -87,10 +87,10 @@ export const RatingOptions = (props: {
   if (isLookup) return null;
 
   return (
-    <div className="form-control space-y-4 border-t border-border pt-4">
+    <div className="form-control space-y-4 border-t pt-4">
       <div className="flex w-full flex-col gap-2">
         <Label className="text-sm font-medium">{t('field.editor.style')}</Label>
-        <div className="flex w-full flex-col items-center rounded-md border border-border px-4 py-3">
+        <div className="flex w-full flex-col items-center rounded-md border px-4 py-3">
           {RATING_ICON_LIST.map((group, index) => {
             return (
               <div key={index} className=" my-1 flex w-full justify-between">

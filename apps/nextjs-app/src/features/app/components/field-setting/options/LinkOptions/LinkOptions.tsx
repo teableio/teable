@@ -85,7 +85,7 @@ export const LinkOptions = (props: {
   }
 
   return (
-    <div className="flex w-full flex-col gap-4 border-t border-border pt-4">
+    <div className="flex w-full flex-col gap-4 border-t pt-4">
       <SelectTable
         baseId={options?.baseId}
         tableId={options?.foreignTableId}
@@ -130,7 +130,7 @@ export const LinkOptions = (props: {
         </div>
       )}
       {foreignTableId && (
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
+        <div className="flex flex-col gap-2 border-t pt-4">
           <div className="flex h-8 items-center space-x-2">
             <Switch
               id="field-options-one-way-link"
@@ -170,7 +170,7 @@ export const LinkOptions = (props: {
                 : t('table:field.editor.allowSymmetricFieldLinkMultipleRecords')}
             </Label>
           </div>
-          <div className="border-1 flex flex-col items-end gap-2 rounded-md border border-border bg-muted p-3 text-sm">
+          <div className="border-1 flex flex-col items-end gap-2 rounded-md border bg-muted p-3 text-sm">
             <div className="flex w-full items-center justify-between">
               <p className="text-sm font-semibold">{t('table:field.editor.tips')}</p>
               <Link

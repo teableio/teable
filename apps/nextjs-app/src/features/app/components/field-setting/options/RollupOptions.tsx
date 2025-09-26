@@ -215,7 +215,7 @@ export const RollupOptions = (props: {
   };
 
   return (
-    <div className=" w-full space-y-4 border-t border-border pt-4" data-testid="rollup-options">
+    <div className=" w-full space-y-4 border-t pt-4" data-testid="rollup-options">
       {!isLookup && (
         <div className="space-y-2">
           <span className="neutral-content text-sm font-medium">

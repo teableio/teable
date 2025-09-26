@@ -87,7 +87,7 @@ export const ButtonOptions = (props: {
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
 
   return (
-    <div className="form-control space-y-4 border-t border-border pt-4">
+    <div className="form-control space-y-4 border-t pt-4">
       {!isLookup && (
         <div className="flex w-full flex-col gap-4">
           <div className="flex flex-col gap-2">
