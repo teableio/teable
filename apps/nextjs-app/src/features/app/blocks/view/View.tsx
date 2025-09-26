@@ -1,5 +1,5 @@
 import { IdPrefix, ViewType } from '@teable/core';
-import { useConnection, useTableId, useView } from '@teable/sdk';
+import { useConnection, useTableId, useView, useViews } from '@teable/sdk';
 import { useTranslation } from 'next-i18next';
 import type { Query } from 'sharedb';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -13,6 +13,7 @@ import type { IViewBaseProps } from './types';
 
 export const View = (props: IViewBaseProps) => {
   const view = useView();
+  const views = useViews();
   const viewType = view?.type;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { connection } = useConnection();
@@ -23,7 +24,7 @@ export const View = (props: IViewBaseProps) => {
       (query: Query) => query.collection === `${IdPrefix.View}_${tableId}`
     );
 
-    if (query?.ready && !view) {
+    if (query?.ready && !views.length) {
       return (
         <>
           <div className="flex h-full flex-col items-center justify-center gap-y-4 text-center">
