@@ -37,3 +37,7 @@ export function generateAccessTokenCacheKey(id: string) {
 export function generateSettingCacheKey() {
   return `instance:setting` as const;
 }
+
+export function generateIntegrationCacheKey(spaceId: string) {
+  return `integration:${spaceId}` as const;
+}

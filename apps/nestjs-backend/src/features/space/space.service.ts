@@ -21,6 +21,8 @@ import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '
 import { map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
+import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
@@ -38,6 +40,7 @@ export class SpaceService {
     private readonly permissionService: PermissionService,
     private readonly settingService: SettingService,
     private readonly settingOpenApiService: SettingOpenApiService,
+    private readonly performanceCacheService: PerformanceCacheService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -310,6 +313,11 @@ export class SpaceService {
     });
   }
 
+  @PerformanceCache({
+    ttl: 60 * 60 * 24 * 7, // 7 day
+    keyGenerator: generateIntegrationCacheKey,
+    statsType: 'integration',
+  })
   async getIntegrationList(spaceId: string): Promise<IIntegrationItemVo[]> {
     const integrationList = await this.prismaService.integration.findMany({
       where: { resourceId: spaceId },
@@ -366,7 +374,7 @@ export class SpaceService {
       });
     }
 
-    return await this.prismaService.integration.create({
+    const res = await this.prismaService.integration.create({
       data: {
         id: generateIntegrationId(),
         resourceId: spaceId,
@@ -375,10 +383,12 @@ export class SpaceService {
         config: JSON.stringify(config),
       },
     });
+    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    return res;
   }
 
   async createDefaultAIIntegration(spaceId: string) {
-    return await this.prismaService.integration.create({
+    const res = await this.prismaService.integration.create({
       data: {
         id: generateIntegrationId(),
         resourceId: spaceId,
@@ -389,9 +399,15 @@ export class SpaceService {
         }),
       },
     });
+    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    return res;
   }
 
-  async updateIntegration(integrationId: string, updateIntegrationRo: IUpdateIntegrationRo) {
+  async updateIntegration(
+    integrationId: string,
+    updateIntegrationRo: IUpdateIntegrationRo,
+    spaceId: string
+  ) {
     const { enable, config } = updateIntegrationRo;
     const updateData: Record<string, unknown> = {};
     if (enable != null) {
@@ -400,16 +416,19 @@ export class SpaceService {
     if (config) {
       updateData.config = JSON.stringify(config);
     }
-    return await this.prismaService.integration.update({
+    const res = await this.prismaService.integration.update({
       where: { id: integrationId },
       data: updateData,
     });
+    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
+    return res;
   }
 
-  async deleteIntegration(integrationId: string) {
+  async deleteIntegration(integrationId: string, spaceId: string) {
     await this.prismaService.integration.delete({
       where: { id: integrationId },
     });
+    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
   }
 
   async testIntegrationLLM(testLLMRo: ITestLLMRo) {

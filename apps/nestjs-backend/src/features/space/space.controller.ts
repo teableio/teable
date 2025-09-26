@@ -294,7 +294,7 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateIntegrationRoSchema))
     updateIntegrationRo: IUpdateIntegrationRo
   ) {
-    return this.spaceService.updateIntegration(integrationId, updateIntegrationRo);
+    return this.spaceService.updateIntegration(integrationId, updateIntegrationRo, spaceId);
   }
 
   @Permissions('space|update')
@@ -303,7 +303,7 @@ export class SpaceController {
     @Param('spaceId') spaceId: string,
     @Param('integrationId') integrationId: string
   ) {
-    return this.spaceService.deleteIntegration(integrationId);
+    return this.spaceService.deleteIntegration(integrationId, spaceId);
   }
 
   @Permissions('space|update')
