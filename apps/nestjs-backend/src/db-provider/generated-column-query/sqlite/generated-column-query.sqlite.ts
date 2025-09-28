@@ -172,15 +172,15 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
 
   // Text Functions
   concatenate(params: string[]): string {
-    // Handle NULL values by converting them to 'null' string for CONCATENATE function
-    // This matches the behavior expected by the formula evaluation engine
-    const nullSafeParams = params.map((param) => `COALESCE(${param}, 'null')`);
+    // Handle NULL values by converting them to empty strings for CONCATENATE function
+    // This mirrors the behavior of the formula evaluation engine
+    const nullSafeParams = params.map((param) => `COALESCE(${param}, '')`);
     return `(${this.joinParams(nullSafeParams, ' || ')})`;
   }
 
-  // String concatenation for + operator (converts NULL to 'null' string)
+  // String concatenation for + operator (treats NULL as empty string)
   stringConcat(left: string, right: string): string {
-    return `(COALESCE(${left}, 'null') || COALESCE(${right}, 'null'))`;
+    return `(COALESCE(${left}, '') || COALESCE(${right}, ''))`;
   }
 
   find(searchText: string, withinText: string, startNum?: string): string {

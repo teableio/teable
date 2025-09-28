@@ -148,6 +148,81 @@ describe('OpenAPI formula (e2e)', () => {
     expect(record2.fields[formulaFieldRo.name]).toEqual('1x');
   });
 
+  it('should concatenate strings with plus operator when operands are blank', async () => {
+    const plusNumberSuffixField = await createField(table1Id, {
+      name: 'plus-number-suffix',
+      type: FieldType.Formula,
+      options: {
+        expression: `{${numberFieldRo.id}} + ''`,
+      },
+    });
+
+    const plusNumberPrefixField = await createField(table1Id, {
+      name: 'plus-number-prefix',
+      type: FieldType.Formula,
+      options: {
+        expression: `'' + {${numberFieldRo.id}}`,
+      },
+    });
+
+    const plusTextSuffixField = await createField(table1Id, {
+      name: 'plus-text-suffix',
+      type: FieldType.Formula,
+      options: {
+        expression: `{${textFieldRo.id}} + ''`,
+      },
+    });
+
+    const plusTextPrefixField = await createField(table1Id, {
+      name: 'plus-text-prefix',
+      type: FieldType.Formula,
+      options: {
+        expression: `'' + {${textFieldRo.id}}`,
+      },
+    });
+
+    const plusMixedField = await createField(table1Id, {
+      name: 'plus-mixed-field',
+      type: FieldType.Formula,
+      options: {
+        expression: `{${numberFieldRo.id}} + {${textFieldRo.id}}`,
+      },
+    });
+
+    const { records } = await createRecords(table1Id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          fields: {
+            [numberFieldRo.name]: 1,
+          },
+        },
+      ],
+    });
+
+    const createdRecord = records[0];
+    expect(createdRecord.fields[plusNumberSuffixField.name]).toEqual('1');
+    expect(createdRecord.fields[plusNumberPrefixField.name]).toEqual('1');
+    expect(createdRecord.fields[plusTextSuffixField.name]).toEqual('');
+    expect(createdRecord.fields[plusTextPrefixField.name]).toEqual('');
+    expect(createdRecord.fields[plusMixedField.name]).toEqual('1');
+
+    const updatedRecord = await updateRecord(table1Id, createdRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [textFieldRo.name]: 'x',
+        },
+      },
+    });
+
+    expect(updatedRecord.fields[plusNumberSuffixField.name]).toEqual('1');
+    expect(updatedRecord.fields[plusNumberPrefixField.name]).toEqual('1');
+    expect(updatedRecord.fields[plusTextSuffixField.name]).toEqual('x');
+    expect(updatedRecord.fields[plusTextPrefixField.name]).toEqual('x');
+    expect(updatedRecord.fields[plusMixedField.name]).toEqual('1x');
+  });
+
   it('should calculate formula containing question mark literal', async () => {
     const urlFormulaField = await createField(table1Id, {
       name: 'url formula',

@@ -101,15 +101,15 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   concatenate(params: string[]): string {
     // Use || operator instead of CONCAT for immutable generated columns
     // CONCAT is stable, not immutable, which causes issues with generated columns
-    // Convert NULL values to 'null' string for consistent behavior
-    const nullSafeParams = params.map((param) => `COALESCE(${param}::text, 'null')`);
+    // Treat NULL values as empty strings to mirror client-side evaluation
+    const nullSafeParams = params.map((param) => `COALESCE(${param}::text, '')`);
     return `(${this.joinParams(nullSafeParams, ' || ')})`;
   }
 
-  // String concatenation for + operator (converts NULL to 'null' string)
+  // String concatenation for + operator (treats NULL as empty string)
   // Use explicit text casting to handle mixed types and NULL values
   stringConcat(left: string, right: string): string {
-    return `(COALESCE(${left}::text, 'null') || COALESCE(${right}::text, 'null'))`;
+    return `(COALESCE(${left}::text, '') || COALESCE(${right}::text, ''))`;
   }
 
   // Override bitwiseAnd to handle PostgreSQL-specific type conversion

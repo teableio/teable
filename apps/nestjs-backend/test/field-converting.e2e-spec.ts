@@ -614,8 +614,32 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
+      const plusEmptySuffixField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${bField.id}} + ''`,
+        },
+      });
+
+      const plusEmptyPrefixField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `'' + {${bField.id}}`,
+        },
+      });
+
+      const plusNullField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${eField.id}} + ''`,
+        },
+      });
+
       const record1 = await getRecord(table1.id, table1.records[0].id);
-      expect(record1.fields[cField.id]).toEqual('1null');
+      expect(record1.fields[cField.id]).toEqual('1');
+      expect(record1.fields[plusEmptySuffixField.id]).toEqual('1');
+      expect(record1.fields[plusEmptyPrefixField.id]).toEqual('1');
+      expect(record1.fields[plusNullField.id]).toEqual('');
     });
 
     it('should modify options of button field', async () => {

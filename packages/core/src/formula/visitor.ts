@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
@@ -242,7 +243,13 @@ export class EvalVisitor
         break;
       }
       case Boolean(ctx.PLUS()): {
-        value = lv + rv;
+        if (valueType === CellValueType.Number) {
+          value = lv + rv;
+        } else {
+          const leftString = lv == null ? '' : lv;
+          const rightString = rv == null ? '' : rv;
+          value = String(leftString) + String(rightString);
+        }
         break;
       }
       case Boolean(ctx.PERCENT()): {
