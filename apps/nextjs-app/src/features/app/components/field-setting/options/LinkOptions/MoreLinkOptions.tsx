@@ -86,6 +86,11 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
     [selfFieldVos]
   );
 
+  const referenceSource = useMemo(
+    () => ({ fields: selfFieldInstances, tableId: currentTableId }),
+    [selfFieldInstances, currentTableId]
+  );
+
   const viewFieldInstances = useMemo(
     () =>
       (withViewFields ?? totalFields).map((field) => createFieldInstance(field) as IFieldInstance),
@@ -154,8 +159,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
                 fields={foreignFieldInstances}
                 value={filter ?? null}
                 context={context}
-                selfFields={selfFieldInstances}
-                selfTableId={currentTableId}
+                referenceSource={referenceSource}
                 onChange={(value) => onChange?.({ filter: value })}
               />
             </DialogContent>
@@ -165,8 +169,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           fields={foreignFieldInstances}
           value={filter ?? null}
           context={context}
-          selfFields={selfFieldInstances}
-          selfTableId={currentTableId}
+          referenceSource={referenceSource}
           onChange={(value) => onChange?.({ filter: value })}
         />
       </div>

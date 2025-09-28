@@ -28,6 +28,11 @@ import type { ILinkContext } from '../component/filter-link/context';
 import { EMPTY_OPERATORS, ARRAY_OPERATORS } from '../constant';
 import type { IFilterComponents } from '../types';
 
+export interface IFilterReferenceSource {
+  fields: IFieldInstance[];
+  tableId?: string;
+}
+
 interface IBaseFieldValue {
   value: unknown;
   operator: IFilterItem['operator'];
@@ -36,9 +41,7 @@ interface IBaseFieldValue {
   components?: IFilterComponents;
   linkContext?: ILinkContext;
   modal?: boolean;
-  selfFields?: IFieldInstance[];
-  selfTableId?: string;
-  enableFieldReference?: boolean;
+  referenceSource?: IFilterReferenceSource;
 }
 
 const FIELD_REFERENCE_SUPPORTED_OPERATORS = new Set<string>([is.value, isNot.value]);
@@ -48,14 +51,14 @@ interface IReferenceLookupValueProps {
   value: unknown;
   onSelect: (value: IFilterItem['value']) => void;
   operator: IFilterItem['operator'];
-  selfFields?: IFieldInstance[];
-  selfTableId?: string;
+  referenceSource?: IFilterReferenceSource;
   modal?: boolean;
 }
 
 const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
-  const { literalComponent, value, onSelect, operator, selfFields, selfTableId, modal } = props;
+  const { literalComponent, value, onSelect, operator, referenceSource, modal } = props;
   const { t } = useTranslation();
+  const referenceFields = referenceSource?.fields ?? [];
   const isFieldMode = isFieldReferenceValue(value);
   const [lastLiteralValue, setLastLiteralValue] = useState<IFilterItem['value'] | null>(
     isFieldMode ? null : (value as IFilterItem['value'])
@@ -67,7 +70,8 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
     }
   }, [value]);
 
-  const toggleDisabled = !selfFields?.length || !FIELD_REFERENCE_SUPPORTED_OPERATORS.has(operator);
+  const toggleDisabled =
+    !referenceFields.length || !FIELD_REFERENCE_SUPPORTED_OPERATORS.has(operator);
 
   const handleToggle = () => {
     if (toggleDisabled) {
@@ -77,20 +81,24 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
       onSelect(lastLiteralValue ?? null);
       return;
     }
-    const fallbackFieldId = selfFields?.[0]?.id;
+    const fallbackFieldId = referenceFields[0]?.id;
     if (!fallbackFieldId) {
       return;
     }
     onSelect({
       type: 'field',
       fieldId: fallbackFieldId,
-      tableId: selfTableId,
+      tableId: referenceSource?.tableId,
     } satisfies IFieldReferenceValue);
   };
 
   const handleFieldSelect = (fieldId: string) => {
     if (!fieldId) return;
-    onSelect({ type: 'field', fieldId, tableId: selfTableId } satisfies IFieldReferenceValue);
+    onSelect({
+      type: 'field',
+      fieldId,
+      tableId: referenceSource?.tableId,
+    } satisfies IFieldReferenceValue);
   };
 
   const buttonLabel = isFieldReferenceValue(value)
@@ -101,17 +109,17 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
     <div className="flex items-center gap-1">
       {isFieldReferenceValue(value) ? (
         <FieldSelector
-          fields={selfFields}
+          fields={referenceFields}
           value={value.fieldId}
           onSelect={handleFieldSelect}
-          className="min-w-28 max-w-40"
+          className="min-w-28 max-w-40 px-2 text-xs [&>div]:gap-1 [&_span]:pl-0.5 [&_span]:text-xs [&_svg]:size-3 [&_svg]:opacity-60"
           modal={modal}
         />
       ) : (
         literalComponent
       )}
       <Button
-        size="icon"
+        size="xs"
         variant="ghost"
         className="size-8 shrink-0"
         onClick={handleToggle}
@@ -125,18 +133,8 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
 };
 
 export function BaseFieldValue(props: IBaseFieldValue) {
-  const {
-    onSelect,
-    components,
-    field,
-    operator,
-    value,
-    linkContext,
-    modal,
-    selfFields,
-    selfTableId,
-    enableFieldReference,
-  } = props;
+  const { onSelect, components, field, operator, value, linkContext, modal, referenceSource } =
+    props;
   const { t } = useTranslation();
 
   const showEmptyComponent = useMemo(() => {
@@ -189,7 +187,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
   };
 
   const wrapWithReference = (component: JSX.Element) => {
-    if (!enableFieldReference || !FIELD_REFERENCE_SUPPORTED_OPERATORS.has(operator)) {
+    if (!referenceSource?.fields?.length || !FIELD_REFERENCE_SUPPORTED_OPERATORS.has(operator)) {
       return component;
     }
     return (
@@ -198,8 +196,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         value={value}
         onSelect={onSelect}
         operator={operator}
-        selfFields={selfFields}
-        selfTableId={selfTableId}
+        referenceSource={referenceSource}
         modal={modal}
       />
     );

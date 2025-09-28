@@ -7,15 +7,14 @@ import { BaseViewFilter, FieldValue } from '../view-filter';
 import { FilterLinkBase, FilterLinkSelect, StandDefaultList } from '../view-filter/component';
 import { FilterLinkContext } from '../view-filter/component/filter-link/context';
 import type { IFilterLinkProps } from '../view-filter/component/filter-link/types';
+import type { IFilterReferenceSource } from '../view-filter/custom-component/BaseFieldValue';
 
 interface IFilterWithTableProps {
   value: IFilter | null;
   fields: IFieldInstance[];
   context: IViewFilterLinkContext;
   onChange: (value: IFilter | null) => void;
-  selfFields?: IFieldInstance[];
-  selfTableId?: string;
-  enableFieldReference?: boolean;
+  referenceSource?: IFilterReferenceSource;
 }
 
 type ICustomerValueComponentProps = ComponentProps<typeof FieldValue>;
@@ -46,7 +45,7 @@ const FilterLink = (props: IFilterLinkProps) => {
 };
 
 export const FilterWithTable = (props: IFilterWithTableProps) => {
-  const { fields, value, context, onChange, selfFields, selfTableId, enableFieldReference } = props;
+  const { fields, value, context, onChange, referenceSource } = props;
 
   const CustomValueComponent = (valueProps: ICustomerValueComponentProps) => {
     const components = {
@@ -57,9 +56,7 @@ export const FilterWithTable = (props: IFilterWithTableProps) => {
         {...valueProps}
         components={components}
         modal={true}
-        selfFields={selfFields}
-        selfTableId={selfTableId}
-        enableFieldReference={enableFieldReference}
+        referenceSource={referenceSource}
       />
     );
   };

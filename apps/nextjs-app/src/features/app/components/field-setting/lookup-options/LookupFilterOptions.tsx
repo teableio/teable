@@ -52,6 +52,13 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
     [selfFieldVos]
   );
 
+  const referenceSource = useMemo(() => {
+    if (!enableFieldReference) {
+      return undefined;
+    }
+    return { fields: selfFieldInstances, tableId: tableIdForContext };
+  }, [enableFieldReference, selfFieldInstances, tableIdForContext]);
+
   if (!foreignTableId || !foreignFieldInstances.length) {
     return null;
   }
@@ -72,9 +79,7 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
                 fields={foreignFieldInstances}
                 value={filter ?? null}
                 context={context}
-                selfFields={selfFieldInstances}
-                selfTableId={tableIdForContext}
-                enableFieldReference={enableFieldReference}
+                referenceSource={referenceSource}
                 onChange={(value) => onChange?.(value)}
               />
             </DialogContent>
@@ -85,9 +90,7 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
           fields={foreignFieldInstances}
           value={filter ?? null}
           context={context}
-          selfFields={selfFieldInstances}
-          selfTableId={tableIdForContext}
-          enableFieldReference={enableFieldReference}
+          referenceSource={referenceSource}
           onChange={(value) => onChange?.(value)}
         />
       </div>
