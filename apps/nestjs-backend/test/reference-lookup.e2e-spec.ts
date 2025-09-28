@@ -2,11 +2,17 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILookupOptionsRo } from '@teable/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  ILookupOptionsRo,
+  IReferenceLookupFieldOptions,
+} from '@teable/core';
 import {
   Colors,
   FieldKeyType,
   FieldType,
+  NumberFormattingType,
   Relationship,
   generateFieldId,
   isGreater,
@@ -635,7 +641,13 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
     let tierWindowField: IFieldVo;
     let tagAllCountField: IFieldVo;
     let tagNoneCountField: IFieldVo;
+    let concatNameField: IFieldVo;
+    let uniqueTierField: IFieldVo;
+    let compactRatingField: IFieldVo;
+    let currencyScoreField: IFieldVo;
+    let percentScoreField: IFieldVo;
     let tierId: string;
+    let nameId: string;
     let tagsId: string;
     let ratingId: string;
     let scoreId: string;
@@ -721,9 +733,20 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
               Score: 55,
             },
           },
+          {
+            fields: {
+              Name: 'Epsilon',
+              Tier: 'Pro',
+              Tags: ['Review'],
+              IsActive: true,
+              Rating: null,
+              Score: 25,
+            },
+          },
         ],
       });
 
+      nameId = foreign.fields.find((f) => f.name === 'Name')!.id;
       tierId = foreign.fields.find((f) => f.name === 'Tier')!.id;
       tagsId = foreign.fields.find((f) => f.name === 'Tags')!.id;
       ratingId = foreign.fields.find((f) => f.name === 'Rating')!.id;
@@ -853,6 +876,65 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
           },
         },
       } as IFieldRo);
+
+      concatNameField = await createField(host.id, {
+        name: 'Concatenated Names',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: nameId,
+          expression: 'concatenate({values})',
+        },
+      } as IFieldRo);
+
+      uniqueTierField = await createField(host.id, {
+        name: 'Unique Tier List',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: tierId,
+          expression: 'array_unique({values})',
+        },
+      } as IFieldRo);
+
+      compactRatingField = await createField(host.id, {
+        name: 'Compact Rating Values',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: ratingId,
+          expression: 'array_compact({values})',
+        },
+      } as IFieldRo);
+
+      currencyScoreField = await createField(host.id, {
+        name: 'Currency Score Total',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'sum({values})',
+          formatting: {
+            type: NumberFormattingType.Currency,
+            precision: 1,
+            symbol: '¥',
+          },
+        },
+      } as IFieldRo);
+
+      percentScoreField = await createField(host.id, {
+        name: 'Percent Score Total',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'sum({values})',
+          formatting: {
+            type: NumberFormattingType.Percent,
+            precision: 2,
+          },
+        },
+      } as IFieldRo);
     });
 
     afterAll(async () => {
@@ -871,19 +953,46 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       expect(row3.fields[tierWindowField.id]).toEqual(0);
     });
 
+    it('should support concatenate and unique aggregations', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const row1 = records.records.find((record) => record.id === hostRow1Id)!;
+      const row2 = records.records.find((record) => record.id === hostRow2Id)!;
+
+      const namesRow1 = (row1.fields[concatNameField.id] as string).split(', ').sort();
+      const namesRow2 = (row2.fields[concatNameField.id] as string).split(', ').sort();
+      const expectedNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].sort();
+      expect(namesRow1).toEqual(expectedNames);
+      expect(namesRow2).toEqual(expectedNames);
+
+      const uniqueTierList = [...(row1.fields[uniqueTierField.id] as string[])].sort();
+      expect(uniqueTierList).toEqual(['Basic', 'Enterprise', 'Pro']);
+      expect((row2.fields[uniqueTierField.id] as string[]).sort()).toEqual(uniqueTierList);
+    });
+
+    it('should remove null values when compacting arrays', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const row1 = records.records.find((record) => record.id === hostRow1Id)!;
+
+      const compactRatings = row1.fields[compactRatingField.id] as unknown[];
+      expect(Array.isArray(compactRatings)).toBe(true);
+      expect(compactRatings).toEqual(expect.arrayContaining([4, 5, 2, 4]));
+      expect(compactRatings).toHaveLength(4);
+      expect(compactRatings).not.toContain(null);
+    });
+
     it('should evaluate multi-select operators with field references', async () => {
       const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
       const row1 = records.records.find((record) => record.id === hostRow1Id)!;
       const row2 = records.records.find((record) => record.id === hostRow2Id)!;
       const row3 = records.records.find((record) => record.id === hostRow3Id)!;
 
-      expect(row1.fields[tagAllCountField.id]).toEqual(3);
-      expect(row2.fields[tagAllCountField.id]).toEqual(3);
-      expect(row3.fields[tagAllCountField.id]).toEqual(3);
+      expect(row1.fields[tagAllCountField.id]).toEqual(4);
+      expect(row2.fields[tagAllCountField.id]).toEqual(4);
+      expect(row3.fields[tagAllCountField.id]).toEqual(4);
 
-      expect(row1.fields[tagNoneCountField.id]).toEqual(3);
-      expect(row2.fields[tagNoneCountField.id]).toEqual(3);
-      expect(row3.fields[tagNoneCountField.id]).toEqual(3);
+      expect(row1.fields[tagNoneCountField.id]).toEqual(4);
+      expect(row2.fields[tagNoneCountField.id]).toEqual(4);
+      expect(row3.fields[tagNoneCountField.id]).toEqual(4);
     });
 
     it('should recompute results when host filters change', async () => {
@@ -915,6 +1024,25 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       await updateRecordByApi(foreign.id, foreign.records[1].id, ratingId, 5);
       const reset = await getRecord(host.id, hostRow2Id);
       expect(reset.fields[tierWindowField.id]).toEqual(1);
+    });
+
+    it('should persist numeric formatting options', async () => {
+      const currencyFieldMeta = await getField(host.id, currencyScoreField.id);
+      expect((currencyFieldMeta.options as IReferenceLookupFieldOptions)?.formatting).toEqual({
+        type: NumberFormattingType.Currency,
+        precision: 1,
+        symbol: '¥',
+      });
+
+      const percentFieldMeta = await getField(host.id, percentScoreField.id);
+      expect((percentFieldMeta.options as IReferenceLookupFieldOptions)?.formatting).toEqual({
+        type: NumberFormattingType.Percent,
+        precision: 2,
+      });
+
+      const record = await getRecord(host.id, hostRow1Id);
+      expect(record.fields[currencyScoreField.id]).toEqual(45 + 80 + 30 + 55 + 25);
+      expect(record.fields[percentScoreField.id]).toEqual(45 + 80 + 30 + 55 + 25);
     });
   });
 
