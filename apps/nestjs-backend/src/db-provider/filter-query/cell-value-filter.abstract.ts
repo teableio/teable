@@ -217,8 +217,18 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _value: IFilterValue
   ): Knex.QueryBuilder {
     const tableColumnRef = this.tableColumnRef;
+    const { cellValueType, isStructuredCellValue, isMultipleCellValue } = this.field;
+
     builderClient.where(function () {
-      this.whereNull(tableColumnRef).orWhere(tableColumnRef, '=', '');
+      this.whereNull(tableColumnRef);
+
+      if (
+        cellValueType === CellValueType.String &&
+        !isStructuredCellValue &&
+        !isMultipleCellValue
+      ) {
+        this.orWhere(tableColumnRef, '=', '');
+      }
     });
     return builderClient;
   }
@@ -228,7 +238,13 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _operator: IFilterOperator,
     _value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.whereNotNull(this.tableColumnRef).where(this.tableColumnRef, '!=', '');
+    const { cellValueType, isStructuredCellValue, isMultipleCellValue } = this.field;
+
+    builderClient.whereNotNull(this.tableColumnRef);
+
+    if (cellValueType === CellValueType.String && !isStructuredCellValue && !isMultipleCellValue) {
+      builderClient.where(this.tableColumnRef, '!=', '');
+    }
     return builderClient;
   }
 
