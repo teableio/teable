@@ -1,9 +1,9 @@
 import { Role } from '@teable/core';
 import { BillingProductLevel } from '@teable/openapi';
+import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
 import { useBase } from '@teable/sdk/hooks';
 import type { Base } from '@teable/sdk/model';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useCallback, type ReactElement, cloneElement } from 'react';
 import { useBillingLevel } from '../../hooks/useBillingLevel';
@@ -51,12 +51,12 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   targetBillingLevel,
   onUpgradeClick,
 }) => {
-  const router = useRouter();
   const isCloud = useIsCloud();
   const isCommunity = useIsCommunity();
   const isEE = useIsEE();
   const base = useBase() as Base | undefined;
   const { t } = useTranslation('common');
+  const { openModal } = useUsageLimitModalStore();
   spaceId = base?.spaceId ?? spaceId;
   const baseId = base?.id;
   // EE starts from pro level
@@ -95,15 +95,14 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
         return;
       }
 
-      router.push(`/space/${spaceId}/setting/plan`);
+      openModal(UsageLimitModalType.Upgrade);
     } else {
       window.open('https://app.teable.ai/public/pricing?host=self-hosted', '_blank');
     }
-  }, [onUpgradeClick, isCloud, spaceId, isSpaceOwner, t, router]);
+  }, [isCloud, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
 
   const billingConfig = useBillingLevelConfig(targetBillingLevel);
 
-  // 创建badge组件
   const badge = useMemo(() => {
     if (!needsUpgrade) {
       return null;
