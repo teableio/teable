@@ -97,7 +97,8 @@
       "notify": "Повідомити користувачів, коли їх буде вибрано"
     },
     "select": {
-      "addOption": "Додайте опцію '{{option}}'"
+      "addOption": "Додайте опцію '{{option}}'",
+      "choicesNameRequired": "Назва вибору не може бути порожньою"
     },
     "lookup": {
       "lookupFieldIdRequired": "Поле пошуку обов'язкове",

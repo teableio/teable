@@ -97,7 +97,8 @@
       "notify": "Benutzer benachrichtigen, sobald sie ausgewählt wurden"
     },
     "select": {
-      "addOption": "Option '{{option}}' hinzufügen"
+      "addOption": "Option '{{option}}' hinzufügen",
+      "choicesNameRequired": "Auswahlname darf nicht leer sein"
     },
     "lookup": {
       "lookupFieldIdRequired": "Lookup-Feld ist erforderlich",

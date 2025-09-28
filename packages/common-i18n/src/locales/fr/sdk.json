@@ -83,7 +83,8 @@
       "notify": "Notifier les utilisateurs une fois qu'ils sont sélectionnés"
     },
     "select": {
-      "addOption": "Ajouter une option '{{option}}'"
+      "addOption": "Ajouter une option '{{option}}'",
+      "choicesNameRequired": "Le nom du choix ne peut pas être vide"
     },
     "lookup": {
       "lookupFieldIdRequired": "Le champ de recherche est requis",

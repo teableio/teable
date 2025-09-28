@@ -100,7 +100,8 @@
       "notify": "Notify users once they're selected"
     },
     "select": {
-      "addOption": "Add an option '{{option}}'"
+      "addOption": "Add an option '{{option}}'",
+      "choicesNameRequired": "Choice name is not empty"
     },
     "lookup": {
       "lookupFieldIdRequired": "Lookup field is required",

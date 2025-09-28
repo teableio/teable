@@ -95,7 +95,8 @@
       "notify": "Уведомить пользователей, когда они будут выбраны"
     },
     "select": {
-      "addOption": "Добавить вариант '{{option}}'"
+      "addOption": "Добавить вариант '{{option}}'",
+      "choicesNameRequired": "Имя выбора не может быть пустым"
     },
     "lookup": {
       "lookupFieldIdRequired": "Поле поиска обязательно",

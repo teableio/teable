@@ -96,7 +96,8 @@
       "notify": "Notifique a los usuarios una vez que sean seleccionados"
     },
     "select": {
-      "addOption": "Agregar una opción '{{option}}'"
+      "addOption": "Agregar una opción '{{option}}'",
+      "choicesNameRequired": "El nombre de la opción no puede estar vacío"
     },
     "lookup": {
       "lookupFieldIdRequired": "El campo de búsqueda es obligatorio",

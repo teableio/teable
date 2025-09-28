@@ -114,7 +114,8 @@
       "notify": "通知被选择的用户"
     },
     "select": {
-      "addOption": "添加选项 '{{option}}'"
+      "addOption": "添加选项 '{{option}}'",
+      "choicesNameRequired": "选项名称不能为空"
     },
     "lookup": {
       "lookupFieldIdRequired": "查找字段不能为空",

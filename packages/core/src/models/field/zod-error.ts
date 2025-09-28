@@ -2,7 +2,12 @@ import { isString } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import { FieldAIActionType, getAiConfigSchema, type IFieldAIConfig } from './ai-config';
 import { FieldType } from './constant';
-import type { IFormulaFieldOptions, ILinkFieldOptions, IRollupFieldOptions } from './derivate';
+import type {
+  IFormulaFieldOptions,
+  ILinkFieldOptions,
+  IRollupFieldOptions,
+  ISelectFieldOptions,
+} from './derivate';
 import {
   commonOptionsSchema,
   getOptionsSchema,
@@ -118,6 +123,20 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
       path: ['options'],
       message: 'expression is required when type is formula',
       i18nKey: 'sdk:editor.formula.expressionRequired',
+    });
+  }
+
+  const isSelect = type === FieldType.SingleSelect || type === FieldType.MultipleSelect;
+  if (
+    isSelect &&
+    (options as ISelectFieldOptions)?.choices.some(
+      (choice) => !isString(choice.name) || choice.name.trim() === ''
+    )
+  ) {
+    res.push({
+      path: ['options'],
+      message: 'choice name is not empty when type is singleSelect or multipleSelect',
+      i18nKey: 'sdk:editor.select.choicesNameRequired',
     });
   }
 

@@ -97,7 +97,8 @@
       "notify": "Seçildiklerinde kullanıcıları bilgilendir"
     },
     "select": {
-      "addOption": "'{{option}}' seçeneğini ekle"
+      "addOption": "'{{option}}' seçeneğini ekle",
+      "choicesNameRequired": "Seçenek adı boş olamaz"
     },
     "lookup": {
       "lookupFieldIdRequired": "Arama alanı gereklidir",

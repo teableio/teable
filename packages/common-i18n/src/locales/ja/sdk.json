@@ -83,7 +83,8 @@
       "notify": "選択されたらユーザーに通知する"
     },
     "select": {
-      "addOption": "オプション '{{option}}' を追加"
+      "addOption": "オプション '{{option}}' を追加",
+      "choicesNameRequired": "選択肢名は空にできません"
     },
     "lookup": {
       "lookupFieldIdRequired": "ルックアップフィールドは必須です",
