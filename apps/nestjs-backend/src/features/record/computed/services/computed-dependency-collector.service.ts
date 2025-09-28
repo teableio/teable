@@ -415,7 +415,15 @@ export class ComputedDependencyCollectorService {
         if (!impact[dst]) continue; // only propagate to impacted tables
         const linked = await this.getLinkedRecordIds(dst, src, currentIds);
         if (!linked.length) continue;
-        const set = (recordSets[dst] ||= new Set<string>());
+        const existingDst = recordSets[dst];
+        if (existingDst === ALL_RECORDS) {
+          continue;
+        }
+        let set = existingDst;
+        if (!set) {
+          set = new Set<string>();
+          recordSets[dst] = set;
+        }
         let added = false;
         for (const id of linked) {
           if (!set.has(id)) {
@@ -438,11 +446,15 @@ export class ComputedDependencyCollectorService {
           continue;
         }
         if (!matched.length) continue;
-        const existing = recordSets[edge.tableId];
-        if (existing === ALL_RECORDS) {
+        const currentTargetSet = recordSets[edge.tableId];
+        if (currentTargetSet === ALL_RECORDS) {
           continue;
         }
-        const set = (recordSets[edge.tableId] ||= new Set<string>());
+        let set = currentTargetSet;
+        if (!set) {
+          set = new Set<string>();
+          recordSets[edge.tableId] = set;
+        }
         let added = false;
         for (const id of matched) {
           if (!set.has(id)) {
@@ -574,9 +586,15 @@ export class ComputedDependencyCollectorService {
     // Seed foreign tables with planned link targets so impact includes them even before DB write
     for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
       if (!ids.size) continue;
-      const existing = recordSets[tid];
-      if (existing === ALL_RECORDS) continue;
-      const set = (recordSets[tid] ||= new Set<string>());
+      const currentSet = recordSets[tid];
+      if (currentSet === ALL_RECORDS) {
+        continue;
+      }
+      let set = currentSet;
+      if (!set) {
+        set = new Set<string>();
+        recordSets[tid] = set;
+      }
       ids.forEach((id) => set.add(id));
     }
     // Build adjacency restricted to impacted tables + origin
@@ -608,7 +626,15 @@ export class ComputedDependencyCollectorService {
         if (!impact[dst]) continue;
         const linked = await this.getLinkedRecordIds(dst, src, currentIds);
         if (!linked.length) continue;
-        const set = (recordSets[dst] ||= new Set<string>());
+        const existingDst = recordSets[dst];
+        if (existingDst === ALL_RECORDS) {
+          continue;
+        }
+        let set = existingDst;
+        if (!set) {
+          set = new Set<string>();
+          recordSets[dst] = set;
+        }
         let added = false;
         for (const id of linked) {
           if (!set.has(id)) {
@@ -631,11 +657,15 @@ export class ComputedDependencyCollectorService {
           continue;
         }
         if (!matched.length) continue;
-        const existing = recordSets[edge.tableId];
-        if (existing === ALL_RECORDS) {
+        const currentTargetSet = recordSets[edge.tableId];
+        if (currentTargetSet === ALL_RECORDS) {
           continue;
         }
-        const set = (recordSets[edge.tableId] ||= new Set<string>());
+        let set = currentTargetSet;
+        if (!set) {
+          set = new Set<string>();
+          recordSets[edge.tableId] = set;
+        }
         let added = false;
         for (const id of matched) {
           if (!set.has(id)) {
