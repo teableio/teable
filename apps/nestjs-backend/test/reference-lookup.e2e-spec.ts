@@ -3,7 +3,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILookupOptionsRo } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship, generateFieldId, isGreater } from '@teable/core';
+import {
+  Colors,
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  generateFieldId,
+  isGreater,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -331,6 +338,583 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       await updateRecordByApi(host.id, servicesRecordId, minimumAmountFieldId, 10);
       const reset = await getRecord(host.id, servicesRecordId);
       expect(reset.fields[dynamicActiveCountField.id]).toEqual(1);
+    });
+  });
+
+  describe('field and literal comparison matrix', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let fieldDrivenCountField: IFieldVo;
+    let literalMixCountField: IFieldVo;
+    let quantityWindowSumField: IFieldVo;
+    let categoryId: string;
+    let amountId: string;
+    let quantityId: string;
+    let statusId: string;
+    let categoryPickId: string;
+    let amountFloorId: string;
+    let quantityMaxId: string;
+    let statusTargetId: string;
+    let hostHardwareActiveId: string;
+    let hostOfficeActiveId: string;
+    let hostHardwareInactiveId: string;
+    let foreignLaptopId: string;
+    let foreignMonitorId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'RefLookup_FieldMatrix_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          { name: 'Quantity', type: FieldType.Number } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Title: 'Laptop',
+              Category: 'Hardware',
+              Amount: 80,
+              Quantity: 5,
+              Status: 'Active',
+            },
+          },
+          {
+            fields: {
+              Title: 'Monitor',
+              Category: 'Hardware',
+              Amount: 20,
+              Quantity: 2,
+              Status: 'Inactive',
+            },
+          },
+          {
+            fields: {
+              Title: 'Subscription',
+              Category: 'Office',
+              Amount: 60,
+              Quantity: 10,
+              Status: 'Active',
+            },
+          },
+          {
+            fields: {
+              Title: 'Upgrade',
+              Category: 'Office',
+              Amount: 35,
+              Quantity: 3,
+              Status: 'Active',
+            },
+          },
+        ],
+      });
+
+      categoryId = foreign.fields.find((f) => f.name === 'Category')!.id;
+      amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+      quantityId = foreign.fields.find((f) => f.name === 'Quantity')!.id;
+      statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+      foreignLaptopId = foreign.records.find((record) => record.fields.Title === 'Laptop')!.id;
+      foreignMonitorId = foreign.records.find((record) => record.fields.Title === 'Monitor')!.id;
+
+      host = await createTable(baseId, {
+        name: 'RefLookup_FieldMatrix_Host',
+        fields: [
+          { name: 'CategoryPick', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'AmountFloor', type: FieldType.Number } as IFieldRo,
+          { name: 'QuantityMax', type: FieldType.Number } as IFieldRo,
+          { name: 'StatusTarget', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              CategoryPick: 'Hardware',
+              AmountFloor: 60,
+              QuantityMax: 10,
+              StatusTarget: 'Active',
+            },
+          },
+          {
+            fields: {
+              CategoryPick: 'Office',
+              AmountFloor: 30,
+              QuantityMax: 12,
+              StatusTarget: 'Active',
+            },
+          },
+          {
+            fields: {
+              CategoryPick: 'Hardware',
+              AmountFloor: 10,
+              QuantityMax: 4,
+              StatusTarget: 'Inactive',
+            },
+          },
+        ],
+      });
+
+      categoryPickId = host.fields.find((f) => f.name === 'CategoryPick')!.id;
+      amountFloorId = host.fields.find((f) => f.name === 'AmountFloor')!.id;
+      quantityMaxId = host.fields.find((f) => f.name === 'QuantityMax')!.id;
+      statusTargetId = host.fields.find((f) => f.name === 'StatusTarget')!.id;
+      hostHardwareActiveId = host.records[0].id;
+      hostOfficeActiveId = host.records[1].id;
+      hostHardwareInactiveId = host.records[2].id;
+
+      const fieldDrivenFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: categoryPickId },
+          },
+          {
+            fieldId: amountId,
+            operator: 'isGreaterEqual',
+            value: { type: 'field', fieldId: amountFloorId },
+          },
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusTargetId },
+          },
+        ],
+      } as any;
+
+      fieldDrivenCountField = await createField(host.id, {
+        name: 'Field Driven Matches',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'count({values})',
+          filter: fieldDrivenFilter,
+        },
+      } as IFieldRo);
+
+      const literalMixFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: 'Hardware',
+          },
+          {
+            fieldId: statusId,
+            operator: 'isNot',
+            value: { type: 'field', fieldId: statusTargetId },
+          },
+          {
+            fieldId: amountId,
+            operator: 'isGreater',
+            value: 15,
+          },
+        ],
+      } as any;
+
+      literalMixCountField = await createField(host.id, {
+        name: 'Literal Mix Count',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'count({values})',
+          filter: literalMixFilter,
+        },
+      } as IFieldRo);
+
+      const quantityWindowFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: categoryPickId },
+          },
+          {
+            fieldId: quantityId,
+            operator: 'isLessEqual',
+            value: { type: 'field', fieldId: quantityMaxId },
+          },
+        ],
+      } as any;
+
+      quantityWindowSumField = await createField(host.id, {
+        name: 'Quantity Window Sum',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: quantityId,
+          expression: 'sum({values})',
+          filter: quantityWindowFilter,
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should evaluate field-to-field comparisons across operators', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareActive = records.records.find((record) => record.id === hostHardwareActiveId)!;
+      const officeActive = records.records.find((record) => record.id === hostOfficeActiveId)!;
+      const hardwareInactive = records.records.find(
+        (record) => record.id === hostHardwareInactiveId
+      )!;
+
+      expect(hardwareActive.fields[fieldDrivenCountField.id]).toEqual(1);
+      expect(officeActive.fields[fieldDrivenCountField.id]).toEqual(2);
+      expect(hardwareInactive.fields[fieldDrivenCountField.id]).toEqual(1);
+    });
+
+    it('should mix literal and field referenced criteria', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareActive = records.records.find((record) => record.id === hostHardwareActiveId)!;
+      const officeActive = records.records.find((record) => record.id === hostOfficeActiveId)!;
+      const hardwareInactive = records.records.find(
+        (record) => record.id === hostHardwareInactiveId
+      )!;
+
+      expect(hardwareActive.fields[literalMixCountField.id]).toEqual(1);
+      expect(officeActive.fields[literalMixCountField.id]).toEqual(1);
+      expect(hardwareInactive.fields[literalMixCountField.id]).toEqual(1);
+    });
+
+    it('should support field referenced numeric windows with aggregations', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareActive = records.records.find((record) => record.id === hostHardwareActiveId)!;
+      const officeActive = records.records.find((record) => record.id === hostOfficeActiveId)!;
+      const hardwareInactive = records.records.find(
+        (record) => record.id === hostHardwareInactiveId
+      )!;
+
+      expect(hardwareActive.fields[quantityWindowSumField.id]).toEqual(7);
+      expect(officeActive.fields[quantityWindowSumField.id]).toEqual(13);
+      expect(hardwareInactive.fields[quantityWindowSumField.id]).toEqual(2);
+    });
+
+    it('should recompute when host thresholds change', async () => {
+      await updateRecordByApi(host.id, hostHardwareActiveId, amountFloorId, 90);
+      const tightened = await getRecord(host.id, hostHardwareActiveId);
+      expect(tightened.fields[fieldDrivenCountField.id]).toEqual(0);
+
+      await updateRecordByApi(host.id, hostHardwareActiveId, amountFloorId, 60);
+      const restored = await getRecord(host.id, hostHardwareActiveId);
+      expect(restored.fields[fieldDrivenCountField.id]).toEqual(1);
+    });
+
+    it('should react to foreign table updates referenced by filters', async () => {
+      await updateRecordByApi(foreign.id, foreignLaptopId, statusId, 'Inactive');
+      const afterStatusChange = await getRecord(host.id, hostHardwareActiveId);
+      expect(afterStatusChange.fields[fieldDrivenCountField.id]).toEqual(0);
+      expect(afterStatusChange.fields[literalMixCountField.id]).toEqual(2);
+
+      await updateRecordByApi(foreign.id, foreignLaptopId, statusId, 'Active');
+      const restored = await getRecord(host.id, hostHardwareActiveId);
+      expect(restored.fields[fieldDrivenCountField.id]).toEqual(1);
+      expect(restored.fields[literalMixCountField.id]).toEqual(1);
+
+      await updateRecordByApi(foreign.id, foreignMonitorId, quantityId, 4);
+      const quantityAdjusted = await getRecord(host.id, hostHardwareInactiveId);
+      expect(quantityAdjusted.fields[quantityWindowSumField.id]).toEqual(4);
+
+      await updateRecordByApi(foreign.id, foreignMonitorId, quantityId, 2);
+      const quantityRestored = await getRecord(host.id, hostHardwareInactiveId);
+      expect(quantityRestored.fields[quantityWindowSumField.id]).toEqual(2);
+    });
+  });
+
+  describe('advanced operator coverage', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let tierWindowField: IFieldVo;
+    let tagAllCountField: IFieldVo;
+    let tagNoneCountField: IFieldVo;
+    let tierId: string;
+    let tagsId: string;
+    let ratingId: string;
+    let scoreId: string;
+    let targetTierId: string;
+    let minRatingId: string;
+    let maxScoreId: string;
+    let hostRow1Id: string;
+    let hostRow2Id: string;
+    let hostRow3Id: string;
+
+    beforeAll(async () => {
+      const tierChoices = [
+        { id: 'tier-basic', name: 'Basic', color: Colors.Blue },
+        { id: 'tier-pro', name: 'Pro', color: Colors.Green },
+        { id: 'tier-enterprise', name: 'Enterprise', color: Colors.Orange },
+      ];
+      const tagChoices = [
+        { id: 'tag-urgent', name: 'Urgent', color: Colors.Red },
+        { id: 'tag-review', name: 'Review', color: Colors.Blue },
+        { id: 'tag-backlog', name: 'Backlog', color: Colors.Purple },
+      ];
+
+      foreign = await createTable(baseId, {
+        name: 'RefLookup_AdvancedOps_Foreign',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+          {
+            name: 'Tier',
+            type: FieldType.SingleSelect,
+            options: { choices: tierChoices },
+          } as IFieldRo,
+          {
+            name: 'Tags',
+            type: FieldType.MultipleSelect,
+            options: { choices: tagChoices },
+          } as IFieldRo,
+          { name: 'IsActive', type: FieldType.Checkbox } as IFieldRo,
+          {
+            name: 'Rating',
+            type: FieldType.Rating,
+            options: { icon: 'star', color: 'yellowBright', max: 5 },
+          } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Name: 'Alpha',
+              Tier: 'Basic',
+              Tags: ['Urgent', 'Review'],
+              IsActive: true,
+              Rating: 4,
+              Score: 45,
+            },
+          },
+          {
+            fields: {
+              Name: 'Beta',
+              Tier: 'Pro',
+              Tags: ['Review'],
+              IsActive: false,
+              Rating: 5,
+              Score: 80,
+            },
+          },
+          {
+            fields: {
+              Name: 'Gamma',
+              Tier: 'Pro',
+              Tags: ['Urgent'],
+              IsActive: true,
+              Rating: 2,
+              Score: 30,
+            },
+          },
+          {
+            fields: {
+              Name: 'Delta',
+              Tier: 'Enterprise',
+              Tags: ['Review', 'Backlog'],
+              IsActive: true,
+              Rating: 4,
+              Score: 55,
+            },
+          },
+        ],
+      });
+
+      tierId = foreign.fields.find((f) => f.name === 'Tier')!.id;
+      tagsId = foreign.fields.find((f) => f.name === 'Tags')!.id;
+      ratingId = foreign.fields.find((f) => f.name === 'Rating')!.id;
+      scoreId = foreign.fields.find((f) => f.name === 'Score')!.id;
+
+      host = await createTable(baseId, {
+        name: 'RefLookup_AdvancedOps_Host',
+        fields: [
+          {
+            name: 'TargetTier',
+            type: FieldType.SingleSelect,
+            options: { choices: tierChoices },
+          } as IFieldRo,
+          { name: 'MinRating', type: FieldType.Number } as IFieldRo,
+          { name: 'MaxScore', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              TargetTier: 'Basic',
+              MinRating: 3,
+              MaxScore: 60,
+            },
+          },
+          {
+            fields: {
+              TargetTier: 'Pro',
+              MinRating: 4,
+              MaxScore: 90,
+            },
+          },
+          {
+            fields: {
+              TargetTier: 'Enterprise',
+              MinRating: 4,
+              MaxScore: 70,
+            },
+          },
+        ],
+      });
+
+      targetTierId = host.fields.find((f) => f.name === 'TargetTier')!.id;
+      minRatingId = host.fields.find((f) => f.name === 'MinRating')!.id;
+      maxScoreId = host.fields.find((f) => f.name === 'MaxScore')!.id;
+      hostRow1Id = host.records[0].id;
+      hostRow2Id = host.records[1].id;
+      hostRow3Id = host.records[2].id;
+
+      const tierWindowFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: tierId,
+            operator: 'is',
+            value: { type: 'field', fieldId: targetTierId },
+          },
+          {
+            fieldId: tagsId,
+            operator: 'hasAllOf',
+            value: ['Review'],
+          },
+          {
+            fieldId: tagsId,
+            operator: 'hasNoneOf',
+            value: ['Backlog'],
+          },
+          {
+            fieldId: ratingId,
+            operator: 'isGreaterEqual',
+            value: { type: 'field', fieldId: minRatingId },
+          },
+          {
+            fieldId: scoreId,
+            operator: 'isLessEqual',
+            value: { type: 'field', fieldId: maxScoreId },
+          },
+        ],
+      } as any;
+
+      tierWindowField = await createField(host.id, {
+        name: 'Tier Window Matches',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'count({values})',
+          filter: tierWindowFilter,
+        },
+      } as IFieldRo);
+
+      tagAllCountField = await createField(host.id, {
+        name: 'Tag All Count',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'count({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: tagsId,
+                operator: 'hasAllOf',
+                value: ['Review'],
+              },
+            ],
+          },
+        },
+      } as IFieldRo);
+
+      tagNoneCountField = await createField(host.id, {
+        name: 'Tag None Count',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'count({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: tagsId,
+                operator: 'hasNoneOf',
+                value: ['Backlog'],
+              },
+            ],
+          },
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should evaluate combined field-referenced conditions across types', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const row1 = records.records.find((record) => record.id === hostRow1Id)!;
+      const row2 = records.records.find((record) => record.id === hostRow2Id)!;
+      const row3 = records.records.find((record) => record.id === hostRow3Id)!;
+
+      expect(row1.fields[tierWindowField.id]).toEqual(1);
+      expect(row2.fields[tierWindowField.id]).toEqual(1);
+      expect(row3.fields[tierWindowField.id]).toEqual(0);
+    });
+
+    it('should evaluate multi-select operators with field references', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const row1 = records.records.find((record) => record.id === hostRow1Id)!;
+      const row2 = records.records.find((record) => record.id === hostRow2Id)!;
+      const row3 = records.records.find((record) => record.id === hostRow3Id)!;
+
+      expect(row1.fields[tagAllCountField.id]).toEqual(3);
+      expect(row2.fields[tagAllCountField.id]).toEqual(3);
+      expect(row3.fields[tagAllCountField.id]).toEqual(3);
+
+      expect(row1.fields[tagNoneCountField.id]).toEqual(3);
+      expect(row2.fields[tagNoneCountField.id]).toEqual(3);
+      expect(row3.fields[tagNoneCountField.id]).toEqual(3);
+    });
+
+    it('should recompute results when host filters change', async () => {
+      await updateRecordByApi(host.id, hostRow1Id, maxScoreId, 40);
+      const tightened = await getRecord(host.id, hostRow1Id);
+      expect(tightened.fields[tierWindowField.id]).toEqual(0);
+
+      await updateRecordByApi(host.id, hostRow1Id, maxScoreId, 60);
+      const restored = await getRecord(host.id, hostRow1Id);
+      expect(restored.fields[tierWindowField.id]).toEqual(1);
+
+      await updateRecordByApi(host.id, hostRow2Id, minRatingId, 6);
+      const stricter = await getRecord(host.id, hostRow2Id);
+      expect(stricter.fields[tierWindowField.id]).toEqual(0);
+
+      await updateRecordByApi(host.id, hostRow2Id, minRatingId, 4);
+      const ratingRestored = await getRecord(host.id, hostRow2Id);
+      expect(ratingRestored.fields[tierWindowField.id]).toEqual(1);
+    });
+
+    it('should respond to foreign changes impacting multi-type comparisons', async () => {
+      const baseline = await getRecord(host.id, hostRow2Id);
+      expect(baseline.fields[tierWindowField.id]).toEqual(1);
+
+      await updateRecordByApi(foreign.id, foreign.records[1].id, ratingId, 3);
+      const lowered = await getRecord(host.id, hostRow2Id);
+      expect(lowered.fields[tierWindowField.id]).toEqual(0);
+
+      await updateRecordByApi(foreign.id, foreign.records[1].id, ratingId, 5);
+      const reset = await getRecord(host.id, hostRow2Id);
+      expect(reset.fields[tierWindowField.id]).toEqual(1);
     });
   });
 
