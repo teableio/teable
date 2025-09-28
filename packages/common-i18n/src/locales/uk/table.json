@@ -229,7 +229,7 @@
       "self": "Я",
       "selectTable": "Виберіть таблицю...",
       "selectBase": "Виберіть базу...",
-      "linkFromExternalBase": "Посилання із зовнішньої бази",
+      "linkFromAnotherBase": "Посилання із зовнішньої бази",
       "inSelfLink": "у власному посиланні",
       "betweenTwoTables": "між двома столами",
       "tips": "Поради",

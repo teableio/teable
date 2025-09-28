@@ -229,7 +229,7 @@
       "self": "Se stesso",
       "selectTable": "Seleziona tabella...",
       "selectBase": "Seleziona una base...",
-      "linkFromExternalBase": "Collega da base esterna",
+      "linkFromAnotherBase": "Collega da base esterna",
       "inSelfLink": "in auto-collegamento",
       "betweenTwoTables": "tra due tabelle",
       "tips": "Suggerimenti",

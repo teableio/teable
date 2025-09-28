@@ -233,7 +233,7 @@
       "self": "Self",
       "selectTable": "Select table...",
       "selectBase": "Select a base...",
-      "linkFromExternalBase": "Link from external base",
+      "linkFromAnotherBase": "Link from another base",
       "inSelfLink": "in self-link",
       "betweenTwoTables": "between two tables",
       "tips": "Tips",

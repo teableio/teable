@@ -226,7 +226,7 @@
       "self": "Ser",
       "selectTable": "Seleccionar tabla ...",
       "selectBase": "Seleccione una base ...",
-      "linkFromExternalBase": "Enlace desde la base externa",
+      "linkFromAnotherBase": "Enlace desde la base externa",
       "inSelfLink": "en retroceso",
       "betweenTwoTables": "Entre dos mesas",
       "style": "Estilo",

@@ -232,7 +232,7 @@
       "self": "本表",
       "selectTable": "选择一张表...",
       "selectBase": "选择一个数据库...",
-      "linkFromExternalBase": "从其他数据库关联",
+      "linkFromAnotherBase": "从其他数据库关联",
       "inSelfLink": "自关联",
       "betweenTwoTables": "关联",
       "tips": "提示",

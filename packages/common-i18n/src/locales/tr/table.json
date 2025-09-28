@@ -218,7 +218,7 @@
       "self": "Kendisi",
       "selectTable": "Tablo seç...",
       "selectBase": "Veritabanı seç...",
-      "linkFromExternalBase": "Harici veritabanından bağlantı",
+      "linkFromAnotherBase": "Harici veritabanından bağlantı",
       "inSelfLink": "kendi içinde bağlantı",
       "betweenTwoTables": "iki tablo arasında",
       "linkTipMessage": "İpucu: bu yapılandırma<br></br> <b>{{relationship}}</b> ilişkisini temsil eder <span>{{linkType}}</span>",
