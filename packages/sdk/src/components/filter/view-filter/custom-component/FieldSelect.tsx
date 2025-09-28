@@ -1,4 +1,4 @@
-import { getValidFilterOperators } from '@teable/core';
+import { getValidFilterOperators, isFieldReferenceValue } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useMemo } from 'react';
 import { useFieldStaticGetter } from '../../../../hooks';
@@ -16,7 +16,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
   props: IFieldSelectProps<T>
 ) => {
   const fields = useFields();
-  const { path, value, modal = true } = props;
+  const { path, value, modal = true, item } = props;
   const { onChange } = useCrud();
   const options = useMemo(() => {
     return fields.map((field) => ({
@@ -54,11 +54,13 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
           return;
         }
         const operators = getValidFilterOperators(field);
-        // change the field, meanwhile, reset the operator and value
+        const currentValue = item?.value;
+        const nextValue = isFieldReferenceValue(currentValue) ? currentValue : null;
+        // change the field, meanwhile, reset the operator and value (keep field reference)
         onChange(newPath, {
           field: value,
           operator: operators[0] || null,
-          value: null,
+          value: nextValue,
         });
       }}
       value={value}
