@@ -21,7 +21,7 @@ export const SpaceSettingContainer = ({
 }: SpaceSettingContainerProps) => {
   return (
     <div className={cn('h-screen w-full overflow-y-auto overflow-x-hidden', wrapperClassName)}>
-      <div className={cn('w-full px-8 py-6', headerClassName)}>
+      <div className={cn('w-full px-4 py-6 sm:px-8', headerClassName)}>
         <div className={cn('border-b pb-4', titleClassName)}>
           <h1 className="text-3xl font-semibold">{title}</h1>
           {description && <div className="mt-3 text-sm text-slate-500">{description}</div>}
