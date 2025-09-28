@@ -343,22 +343,20 @@ export const SettingPage = (props: ISettingPageProps) => {
                 />
               </div>
 
-              {instanceUsage?.limit.automationEnable && (
-                <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
-                  <div className="space-y-1">
-                    <Label>{t('email.automation')}</Label>
-                    <div className="text-xs text-zinc-500">
-                      {setting.automationMailTransportConfig
-                        ? setting.automationMailTransportConfig.host
-                        : t('email.customAutomationConfig')}
-                    </div>
+              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
+                <div className="space-y-1">
+                  <Label>{t('email.automation')}</Label>
+                  <div className="text-xs text-zinc-500">
+                    {setting.automationMailTransportConfig
+                      ? setting.automationMailTransportConfig.host
+                      : t('email.customAutomationConfig')}
                   </div>
-                  <MailConfigDialog
-                    name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
-                    emailConfig={setting.automationMailTransportConfig ?? undefined}
-                  />
                 </div>
-              )}
+                <MailConfigDialog
+                  name={SettingKey.AUTOMATION_MAIL_TRANSPORT_CONFIG}
+                  emailConfig={setting.automationMailTransportConfig ?? undefined}
+                />
+              </div>
             </div>
             {!setting.notifyMailTransportConfig && (
               <div className="pt-2 text-xs text-red-500">
