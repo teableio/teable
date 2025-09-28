@@ -808,6 +808,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",
+      "deleteRecords": "Vous n'avez pas la permission de supprimer les enregistrements({{recordIds}})",
+      "readRecordWithDeniedFields": "Vous n'avez pas la permission de lire les champs({{fields}}) dans l'enregistrement({{recordId}})",
+      "updateRecordWithDeniedFields": "Vous n'avez pas la permission de mettre à jour les champs({{fields}}) dans l'enregistrement({{recordId}})"
     }
   }
 }

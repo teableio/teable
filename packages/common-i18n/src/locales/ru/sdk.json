@@ -809,6 +809,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Это поле кнопки уже связано с {{name}}[{{id}}] этот процесс автоматизации, пожалуйста, выберите другое поле кнопки"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",
+      "deleteRecords": "У вас нет разрешения на удаление записей({{recordIds}})",
+      "readRecordWithDeniedFields": "У вас нет разрешения на чтение полей({{fields}}) в записи({{recordId}})",
+      "updateRecordWithDeniedFields": "У вас нет разрешения на обновление полей({{fields}}) в записи({{recordId}})"
     }
   }
 }

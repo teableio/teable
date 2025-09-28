@@ -835,6 +835,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
+      "deleteRecords": "Sie haben keine Berechtigung, Datensätze({{recordIds}}) zu löschen",
+      "readRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu lesen",
+      "updateRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu aktualisieren"
     }
   }
 }

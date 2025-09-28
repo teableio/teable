@@ -809,6 +809,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
+      "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",
+      "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
+      "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok"
     }
   }
 }

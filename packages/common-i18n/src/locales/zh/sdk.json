@@ -839,6 +839,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",
+      "deleteRecords": "没有权限删除记录({{recordIds}})",
+      "readRecordWithDeniedFields": "没有权限在记录({{recordId}})中读取字段({{fields}})",
+      "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})"
     }
   }
 }

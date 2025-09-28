@@ -835,6 +835,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",
+      "deleteRecords": "У вас немає дозволу на видалення записів({{recordIds}})",
+      "readRecordWithDeniedFields": "У вас немає дозволу на читання полів({{fields}}) у записі({{recordId}})",
+      "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})"
     }
   }
 }

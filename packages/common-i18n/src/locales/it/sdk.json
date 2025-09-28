@@ -835,6 +835,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "Non hai il permesso di creare record con campi({{fields}})",
+      "deleteRecords": "Non hai il permesso di eliminare i record({{recordIds}})",
+      "readRecordWithDeniedFields": "Non hai il permesso di leggere i campi({{fields}}) nel record({{recordId}})",
+      "updateRecordWithDeniedFields": "Non hai il permesso di aggiornare i campi({{fields}}) nel record({{recordId}})"
     }
   }
 }

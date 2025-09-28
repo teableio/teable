@@ -797,6 +797,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",
+      "deleteRecords": "レコード({{recordIds}})を削除する権限がありません",
+      "readRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を読み取る権限がありません",
+      "updateRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を更新する権限がありません"
     }
   }
 }

@@ -839,6 +839,12 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",
+      "deleteRecords": "You don't have permission to delete records({{recordIds}})",
+      "readRecordWithDeniedFields": "You don't have permission to read fields({{fields}}) in record({{recordId}})",
+      "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})"
     }
   }
 }

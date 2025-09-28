@@ -15,6 +15,7 @@ import {
   CellValueType,
   FieldKeyType,
   FieldType,
+  HttpErrorCode,
   datetimeFormattingSchema,
   defaultDatetimeFormatting,
   defaultNumberFormatting,
@@ -41,6 +42,7 @@ import { IdReturnType, RangeType } from '@teable/openapi';
 import { difference, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
@@ -870,7 +872,16 @@ export class SelectionService {
     const filteredRecordIds = permissionFilter ? await permissionFilter(recordIds) : recordIds;
     const diffRecordIds = difference(recordIds, filteredRecordIds);
     if (diffRecordIds.length) {
-      throw new ForbiddenException(`You don't have permission to delete records: ${diffRecordIds}`);
+      throw new CustomHttpException(
+        `You don't have permission to delete records: ${diffRecordIds}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.deleteRecords',
+            context: { recordIds: diffRecordIds.join(',') },
+          },
+        }
+      );
     }
     await this.recordOpenApiService.deleteRecords(tableId, filteredRecordIds, windowId);
     return { ids: filteredRecordIds };
