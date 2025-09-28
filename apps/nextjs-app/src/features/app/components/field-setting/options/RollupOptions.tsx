@@ -42,6 +42,7 @@ export const RollupOptions = (props: {
   cellValueType?: CellValueType;
   isMultipleCellValue?: boolean;
   isLookup?: boolean;
+  availableExpressions?: IRollupFieldOptions['expression'][];
   onChange?: (options: Partial<IRollupFieldOptions>) => void;
 }) => {
   const {
@@ -49,6 +50,7 @@ export const RollupOptions = (props: {
     isLookup,
     cellValueType = CellValueType.String,
     isMultipleCellValue,
+    availableExpressions,
     onChange,
   } = props;
   const { expression, formatting, showAs } = options;
@@ -123,7 +125,8 @@ export const RollupOptions = (props: {
   );
 
   const candidates = useMemo(() => {
-    return ROLLUP_FUNCTIONS.map((f) => {
+    const expressions = availableExpressions ?? ROLLUP_FUNCTIONS;
+    return expressions.map((f) => {
       let name;
       let description;
       switch (f) {
@@ -188,7 +191,7 @@ export const RollupOptions = (props: {
         description,
       };
     });
-  }, [t]);
+  }, [availableExpressions, t]);
 
   const displayRender = (option: (typeof candidates)[number]) => {
     const { label } = option;

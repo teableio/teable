@@ -1,6 +1,10 @@
 /* eslint-disable sonarjs/cognitive-complexity */
-import type { IReferenceLookupFieldOptions, IRollupFieldOptions } from '@teable/core';
-import { CellValueType, ROLLUP_FUNCTIONS } from '@teable/core';
+import type {
+  IReferenceLookupFieldOptions,
+  RollupFunction,
+  IRollupFieldOptions,
+} from '@teable/core';
+import { CellValueType, getRollupFunctionsByCellValueType, ROLLUP_FUNCTIONS } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useFields, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
@@ -46,9 +50,17 @@ export const ReferenceLookupOptions = ({
 
   const handleLookupField = useCallback(
     (lookupField: IFieldInstance) => {
+      const cellValueType = lookupField?.cellValueType ?? CellValueType.String;
+      const allowedExpressions = getRollupFunctionsByCellValueType(cellValueType);
+      const fallbackExpression = allowedExpressions[0] ?? ROLLUP_FUNCTIONS[0];
+      const currentExpression = options.expression as RollupFunction | undefined;
+      const expressionToUse = allowedExpressions.includes(currentExpression as RollupFunction)
+        ? currentExpression!
+        : fallbackExpression;
+
       handlePartialChange({
         lookupFieldId: lookupField.id,
-        expression: options.expression ?? ROLLUP_FUNCTIONS[0],
+        expression: expressionToUse,
       });
     },
     [handlePartialChange, options.expression]
@@ -108,6 +120,11 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
   const cellValueType = lookupField?.cellValueType ?? CellValueType.String;
   const isMultipleCellValue = lookupField?.isMultipleCellValue ?? false;
 
+  const availableExpressions = useMemo(
+    () => getRollupFunctionsByCellValueType(cellValueType),
+    [cellValueType]
+  );
+
   return (
     <div className="space-y-3">
       <div className="space-y-2">
@@ -121,6 +138,7 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
         options={rollupOptions}
         cellValueType={cellValueType}
         isMultipleCellValue={isMultipleCellValue}
+        availableExpressions={availableExpressions}
         onChange={(partial) => onOptionsChange(partial)}
       />
 

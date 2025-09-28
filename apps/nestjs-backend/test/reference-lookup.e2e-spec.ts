@@ -1151,6 +1151,39 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       const erroredField = hostFields.find((field) => field.id === lookupField.id)!;
       expect(erroredField.hasError).toBe(true);
     });
+
+    it('marks reference lookup error when aggregation becomes incompatible after foreign conversion', async () => {
+      const standaloneLookupField = await createField(host.id, {
+        name: 'Standalone Sum',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+        },
+      } as IFieldRo);
+
+      const baseline = await getRecord(host.id, hostRecordId);
+      expect(baseline.fields[standaloneLookupField.id]).toEqual(17);
+
+      await convertField(foreign.id, amountId, {
+        name: 'Amount (Single Select)',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { name: '2', color: Colors.Blue },
+            { name: '4', color: Colors.Green },
+            { name: '6', color: Colors.Orange },
+          ],
+        },
+      } as IFieldRo);
+
+      const fieldsAfterConversion = await getFields(host.id);
+      const erroredField = fieldsAfterConversion.find(
+        (field) => field.id === standaloneLookupField.id
+      )!;
+      expect(erroredField.hasError).toBe(true);
+    });
   });
 
   describe('interoperability with standard lookup fields', () => {

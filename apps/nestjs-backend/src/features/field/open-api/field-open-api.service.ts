@@ -8,6 +8,7 @@ import {
   generateOperationId,
   IFieldRo,
   StatisticsFunc,
+  isRollupFunctionSupportedForCellValueType,
 } from '@teable/core';
 import type {
   IFieldVo,
@@ -129,6 +130,34 @@ export class FieldOpenApiService {
     return true;
   }
 
+  private async validateReferenceLookupAggregation(field: IFieldInstance) {
+    const options = field.options as IReferenceLookupFieldOptions | undefined;
+    const expression = options?.expression;
+    const lookupFieldId = options?.lookupFieldId;
+    const foreignTableId = options?.foreignTableId;
+
+    if (!expression || !lookupFieldId || !foreignTableId) {
+      return false;
+    }
+
+    const foreignField = await this.prismaService.txClient().field.findFirst({
+      where: { id: lookupFieldId, tableId: foreignTableId, deletedTime: null },
+      select: { cellValueType: true },
+    });
+
+    if (!foreignField?.cellValueType) {
+      return false;
+    }
+
+    const rawCellType = foreignField.cellValueType as string;
+    const availableTypes = new Set<string>(Object.values(CellValueType));
+    const cellValueType = availableTypes.has(rawCellType)
+      ? (rawCellType as CellValueType)
+      : CellValueType.String;
+
+    return isRollupFunctionSupportedForCellValueType(expression, cellValueType);
+  }
+
   private async markError(tableId: string, field: IFieldInstance, hasError: boolean) {
     if (hasError) {
       !field.hasError && (await this.fieldService.markError(tableId, [field.id], true));
@@ -167,12 +196,17 @@ export class FieldOpenApiService {
       });
     }
 
-    if (field.lookupOptions) {
+    let hasError = false;
+
+    if (field.lookupOptions && field.type !== FieldType.ReferenceLookup) {
       const isValid = await this.validateLookupField(field);
-      await this.markError(tableId, field, !isValid);
-    } else {
-      await this.markError(tableId, field, false);
+      hasError = !isValid;
+    } else if (field.type === FieldType.ReferenceLookup) {
+      const isValid = await this.validateReferenceLookupAggregation(field);
+      hasError = !isValid;
     }
+
+    await this.markError(tableId, field, hasError);
   }
 
   async restoreReference(references: string[]) {
