@@ -8,7 +8,7 @@ import {
 } from '@teable/core';
 import type { IDateFilter, IFilterItem, IFieldReferenceValue } from '@teable/core';
 import { RefreshCcw } from '@teable/icons';
-import { Button } from '@teable/ui-lib';
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../../model';
@@ -101,9 +101,9 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
     } satisfies IFieldReferenceValue);
   };
 
-  const buttonLabel = isFieldReferenceValue(value)
-    ? t('filter.referenceLookup.switchToValue')
-    : t('filter.referenceLookup.switchToField');
+  const fieldModeTooltip = t('filter.referenceLookup.switchToValue');
+  const literalModeTooltip = t('filter.referenceLookup.switchToField');
+  const tooltipLabel = isFieldReferenceValue(value) ? fieldModeTooltip : literalModeTooltip;
 
   return (
     <div className="flex items-center gap-1">
@@ -118,16 +118,26 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
       ) : (
         literalComponent
       )}
-      <Button
-        size="xs"
-        variant="ghost"
-        className="size-8 shrink-0"
-        onClick={handleToggle}
-        disabled={toggleDisabled}
-        title={toggleDisabled ? undefined : buttonLabel}
-      >
-        <RefreshCcw className="size-4" />
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="xs"
+              variant="ghost"
+              className="size-8 shrink-0"
+              onClick={handleToggle}
+              disabled={toggleDisabled}
+            >
+              <RefreshCcw className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          {!toggleDisabled ? (
+            <TooltipContent>
+              <span>{tooltipLabel}</span>
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };
