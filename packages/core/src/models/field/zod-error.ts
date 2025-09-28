@@ -8,12 +8,10 @@ import type {
   IRollupFieldOptions,
   ISelectFieldOptions,
 } from './derivate';
-import {
-  commonOptionsSchema,
-  getOptionsSchema,
-  type IFieldOptionsRo,
-  type ILookupOptionsRo,
-} from './field.schema';
+import type { IFieldOptionsRo } from './field-unions.schema';
+import { commonOptionsSchema } from './field-unions.schema';
+import { getOptionsSchema } from './field.schema';
+import type { ILookupOptionsRo } from './lookup-options-base.schema';
 
 interface IFieldValidateData {
   message: string;

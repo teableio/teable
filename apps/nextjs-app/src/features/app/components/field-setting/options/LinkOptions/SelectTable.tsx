@@ -76,7 +76,7 @@ export const SelectTable = ({ baseId, tableId, onChange }: ISelectTableProps) =>
                 onClick={() => setEnableSelectBase(true)}
                 className="h-5 text-xs text-muted-foreground decoration-muted-foreground hover:underline"
               >
-                {t('table:field.editor.linkFromExternalBase')}
+                {t('table:field.editor.linkFromAnotherBase')}
               </Button>
             )}
           </div>

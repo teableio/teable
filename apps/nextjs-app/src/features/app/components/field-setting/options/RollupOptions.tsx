@@ -1,4 +1,9 @@
-import type { IRollupFieldOptions, IUnionFormatting, IUnionShowAs } from '@teable/core';
+import type {
+  IRollupFieldOptions,
+  IUnionFormatting,
+  IUnionShowAs,
+  RollupFunction,
+} from '@teable/core';
 import {
   assertNever,
   ROLLUP_FUNCTIONS,
@@ -43,6 +48,9 @@ export const RollupOptions = (props: {
   isMultipleCellValue?: boolean;
   isLookup?: boolean;
   availableExpressions?: IRollupFieldOptions['expression'][];
+  expressionLabelOverrides?: Partial<
+    Record<RollupFunction, { label?: string; description?: string }>
+  >;
   onChange?: (options: Partial<IRollupFieldOptions>) => void;
 }) => {
   const {
@@ -51,6 +59,7 @@ export const RollupOptions = (props: {
     cellValueType = CellValueType.String,
     isMultipleCellValue,
     availableExpressions,
+    expressionLabelOverrides,
     onChange,
   } = props;
   const { expression, formatting, showAs } = options;
@@ -185,13 +194,21 @@ export const RollupOptions = (props: {
         default:
           assertNever(f);
       }
+
+      const override = expressionLabelOverrides?.[f];
+      if (override?.label) {
+        name = override.label;
+      }
+      if (override?.description) {
+        description = override.description;
+      }
       return {
         value: f,
         label: name,
         description,
       };
     });
-  }, [availableExpressions, t]);
+  }, [availableExpressions, expressionLabelOverrides, t]);
 
   const displayRender = (option: (typeof candidates)[number]) => {
     const { label } = option;

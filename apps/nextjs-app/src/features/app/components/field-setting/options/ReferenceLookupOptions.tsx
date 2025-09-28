@@ -8,7 +8,7 @@ import { CellValueType, getRollupFunctionsByCellValueType, ROLLUP_FUNCTIONS } fr
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useFields, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
-import { Trans } from 'next-i18next';
+import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
 import { LookupFilterOptions } from '../lookup-options/LookupFilterOptions';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
@@ -111,6 +111,7 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
   const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions, sourceTableId } =
     props;
   const foreignFields = useFields({ withHidden: true, withDenied: true });
+  const { t } = useTranslation('table');
 
   const lookupField = useMemo(() => {
     if (!options.lookupFieldId) return undefined;
@@ -120,9 +121,22 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
   const cellValueType = lookupField?.cellValueType ?? CellValueType.String;
   const isMultipleCellValue = lookupField?.isMultipleCellValue ?? false;
 
-  const availableExpressions = useMemo(
-    () => getRollupFunctionsByCellValueType(cellValueType),
-    [cellValueType]
+  const availableExpressions = useMemo(() => {
+    const expressions = getRollupFunctionsByCellValueType(cellValueType);
+    const rawValue = 'concatenate({values})' as RollupFunction;
+    if (!expressions.includes(rawValue)) {
+      return expressions;
+    }
+    return [rawValue, ...expressions.filter((expr) => expr !== rawValue)];
+  }, [cellValueType]);
+
+  const expressionLabelOverrides = useMemo(
+    () => ({
+      ['concatenate({values})' as RollupFunction]: {
+        label: t('field.default.rollup.func.rawValue', { defaultValue: '原值' }),
+      },
+    }),
+    [t]
   );
 
   return (
@@ -139,6 +153,7 @@ const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProp
         cellValueType={cellValueType}
         isMultipleCellValue={isMultipleCellValue}
         availableExpressions={availableExpressions}
+        expressionLabelOverrides={expressionLabelOverrides}
         onChange={(partial) => onOptionsChange(partial)}
       />
 
