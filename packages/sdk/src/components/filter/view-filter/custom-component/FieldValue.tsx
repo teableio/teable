@@ -6,21 +6,18 @@ import { useViewFilterContext } from '../hooks';
 import { useFields } from '../hooks/useFields';
 import type { IViewFilterConditionItem } from '../types';
 import { BaseFieldValue } from './BaseFieldValue';
-import type { IFieldInstance } from '../../../../model';
+import type { IFilterReferenceSource } from './BaseFieldValue';
 
 interface IFieldValue<T extends IConditionItemProperty = IViewFilterConditionItem>
   extends IBaseFilterCustomComponentProps<T, T['value']> {
   components?: IFilterComponents;
-  selfFields?: IFieldInstance[];
-  selfTableId?: string;
-  enableFieldReference?: boolean;
+  referenceSource?: IFilterReferenceSource;
 }
 
 export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditionItem>(
   props: IFieldValue<T>
 ) => {
-  const { path, components, value, item, modal, selfFields, selfTableId, enableFieldReference } =
-    props;
+  const { path, components, value, item, modal, referenceSource } = props;
   const fields = useFields();
   const { onChange } = useCrud();
   const linkContext = useViewFilterContext();
@@ -41,9 +38,7 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
         onChange(path, newValue);
       }}
       linkContext={linkContext}
-      selfFields={selfFields}
-      selfTableId={selfTableId}
-      enableFieldReference={enableFieldReference}
+      referenceSource={referenceSource}
     />
   );
 };
