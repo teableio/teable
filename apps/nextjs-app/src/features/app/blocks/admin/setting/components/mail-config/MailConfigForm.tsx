@@ -226,7 +226,7 @@ export const MailConfigForm = (props: {
           </FormItem>
         )}
       />
-      <div className="flex items-center gap-2 ">
+      <div className="mt-2 flex items-center gap-2">
         <Input
           className="flex-1"
           type="email"

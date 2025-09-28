@@ -62,12 +62,14 @@ export const MailConfigDialog = (props: {
           {props.emailConfig ? <PencilIcon className="size-4" /> : <PlusIcon className="size-4" />}
         </Button>
       </DialogTrigger>
-      <DialogContent className="h-4/5 overflow-y-auto overflow-x-hidden sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="px-1">
           <DialogTitle>{t('email.config')}</DialogTitle>
         </DialogHeader>
-        <MailConfigForm value={emailConfig} onChange={setEmailConfig} />
-        <DialogFooter className="flex justify-end">
+        <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-1">
+          <MailConfigForm value={emailConfig} onChange={setEmailConfig} />
+        </div>
+        <DialogFooter className="flex justify-end px-1">
           <Button variant="secondary" onClick={cancel}>
             {t('actions.cancel')}
           </Button>
