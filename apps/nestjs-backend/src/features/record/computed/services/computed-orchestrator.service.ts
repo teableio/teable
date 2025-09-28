@@ -81,6 +81,9 @@ export class ComputedOrchestratorService {
           });
           group.fieldIds.forEach((f) => target.fieldIds.add(f));
           group.recordIds.forEach((r) => target.recordIds.add(r));
+          if (group.preferAutoNumberPaging) {
+            target.preferAutoNumberPaging = true;
+          }
         }
         return acc;
       },
@@ -95,7 +98,9 @@ export class ComputedOrchestratorService {
 
     for (const tid of impactedTables) {
       const group = impactMerged[tid];
-      if (!group.fieldIds.size || !group.recordIds.size) delete impactMerged[tid];
+      if (!group.fieldIds.size || (!group.recordIds.size && !group.preferAutoNumberPaging)) {
+        delete impactMerged[tid];
+      }
     }
     if (!Object.keys(impactMerged).length) {
       await update();
@@ -177,8 +182,14 @@ export class ComputedOrchestratorService {
       });
       const existing = new Set(rows.map((r) => r.id));
       const kept = new Set(Array.from(group.fieldIds).filter((fid) => existing.has(fid)));
-      if (kept.size && group.recordIds.size) {
-        impactPost[tid] = { fieldIds: kept, recordIds: new Set(group.recordIds) };
+      const hasRecords = group.recordIds.size > 0;
+      const preferAuto = group.preferAutoNumberPaging === true;
+      if (kept.size && (hasRecords || preferAuto)) {
+        impactPost[tid] = {
+          fieldIds: kept,
+          recordIds: new Set(group.recordIds),
+          ...(preferAuto ? { preferAutoNumberPaging: true } : {}),
+        };
       }
     }
 

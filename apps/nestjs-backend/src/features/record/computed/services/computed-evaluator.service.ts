@@ -67,13 +67,15 @@ export class ComputedEvaluatorService {
     }
   ): Promise<number> {
     const excludeFieldIds = opts?.excludeFieldIds ?? new Set<string>();
-    const preferAutoNumberPaging = opts?.preferAutoNumberPaging === true;
+    const globalPreferAutoNumberPaging = opts?.preferAutoNumberPaging === true;
     const entries = Object.entries(impact).filter(([, group]) => group.fieldIds.size);
 
     let totalOps = 0;
 
     for (const [tableId, group] of entries) {
       const requestedFieldIds = Array.from(group.fieldIds);
+      const preferAutoNumberPaging =
+        globalPreferAutoNumberPaging || group.preferAutoNumberPaging === true;
       const fieldInstances = await this.getFieldInstances(tableId, requestedFieldIds);
       if (!fieldInstances.length) continue;
 

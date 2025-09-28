@@ -16,11 +16,14 @@ export interface ICellBasicContext {
   fieldId: string;
 }
 
+interface IComputedImpactGroup {
+  fieldIds: Set<string>;
+  recordIds: Set<string>;
+  preferAutoNumberPaging?: boolean;
+}
+
 export interface IComputedImpactByTable {
-  [tableId: string]: {
-    fieldIds: Set<string>;
-    recordIds: Set<string>;
-  };
+  [tableId: string]: IComputedImpactGroup;
 }
 
 export interface IFieldChangeSource {
@@ -34,6 +37,8 @@ interface IReferenceLookupAdjacencyEdge {
   foreignTableId: string;
   filter?: IFilter | null;
 }
+
+const ALL_RECORDS = Symbol('ALL_RECORDS');
 
 @Injectable()
 export class ComputedDependencyCollectorService {
@@ -267,11 +272,14 @@ export class ComputedDependencyCollectorService {
   private async getReferenceLookupImpactedRecordIds(
     edge: IReferenceLookupAdjacencyEdge,
     foreignRecordIds: string[]
-  ): Promise<string[]> {
+  ): Promise<string[] | typeof ALL_RECORDS> {
     if (!foreignRecordIds.length) {
       return [];
     }
-    return this.getAllRecordIds(edge.tableId);
+    // Without additional context (old/new values), any change to the foreign
+    // records may affect an arbitrary subset of host records. Mark the host
+    // table for a full recompute instead of eagerly selecting every __id.
+    return ALL_RECORDS;
   }
 
   /**
@@ -373,11 +381,11 @@ export class ComputedDependencyCollectorService {
 
     // 2) Seed recordIds for origin tables with ALL record ids
     const originTableIds = Object.keys(byTable);
-    const recordSets: Record<string, Set<string>> = {};
+    const recordSets: Record<string, Set<string> | typeof ALL_RECORDS> = {};
     for (const tid of originTableIds) {
-      const ids = await this.getAllRecordIds(tid);
-      const set = (recordSets[tid] ||= new Set<string>());
-      ids.forEach((id) => set.add(id));
+      recordSets[tid] = ALL_RECORDS;
+      const group = impact[tid];
+      if (group) group.preferAutoNumberPaging = true;
     }
 
     // 3) Build adjacency among impacted + origin tables and propagate via links
@@ -388,7 +396,19 @@ export class ComputedDependencyCollectorService {
     const queue: string[] = [...originTableIds];
     while (queue.length) {
       const src = queue.shift()!;
-      const currentIds = Array.from(recordSets[src] || []);
+      const rawSet = recordSets[src];
+      const hasOutgoing = (linkAdj[src]?.size || 0) > 0 || (referenceAdj[src]?.length || 0) > 0;
+      let currentIds: string[] = [];
+      if (rawSet === ALL_RECORDS) {
+        if (!hasOutgoing) {
+          continue;
+        }
+        const ids = await this.getAllRecordIds(src);
+        currentIds = ids;
+        recordSets[src] = new Set(ids);
+      } else if (rawSet) {
+        currentIds = Array.from(rawSet);
+      }
       if (!currentIds.length) continue;
       const outs = Array.from(linkAdj[src] || []);
       for (const dst of outs) {
@@ -408,9 +428,20 @@ export class ComputedDependencyCollectorService {
 
       const referenceEdges = referenceAdj[src] || [];
       for (const edge of referenceEdges) {
-        if (!impact[edge.tableId] || !impact[edge.tableId].fieldIds.has(edge.fieldId)) continue;
+        const targetGroup = impact[edge.tableId];
+        if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
         const matched = await this.getReferenceLookupImpactedRecordIds(edge, currentIds);
+        if (matched === ALL_RECORDS) {
+          targetGroup.preferAutoNumberPaging = true;
+          recordSets[edge.tableId] = ALL_RECORDS;
+          queue.push(edge.tableId);
+          continue;
+        }
         if (!matched.length) continue;
+        const existing = recordSets[edge.tableId];
+        if (existing === ALL_RECORDS) {
+          continue;
+        }
         const set = (recordSets[edge.tableId] ||= new Set<string>());
         let added = false;
         for (const id of matched) {
@@ -425,14 +456,18 @@ export class ComputedDependencyCollectorService {
 
     // 4) Assign recordIds into impact
     for (const [tid, group] of Object.entries(impact)) {
-      const ids = recordSets[tid];
-      if (ids && ids.size) ids.forEach((id) => group.recordIds.add(id));
+      const raw = recordSets[tid];
+      if (raw === ALL_RECORDS) {
+        group.preferAutoNumberPaging = true;
+        continue;
+      }
+      if (raw && raw.size) raw.forEach((id) => group.recordIds.add(id));
     }
 
     // Remove tables with no records or fields after filtering
     for (const tid of Object.keys(impact)) {
       const g = impact[tid];
-      if (!g.fieldIds.size || !g.recordIds.size) delete impact[tid];
+      if (!g.fieldIds.size || (!g.recordIds.size && !g.preferAutoNumberPaging)) delete impact[tid];
     }
 
     return impact;
@@ -533,10 +568,14 @@ export class ComputedDependencyCollectorService {
 
     // 3) Compute impacted recordIds per table with multi-hop propagation
     // Seed with origin changed records
-    const recordSets: Record<string, Set<string>> = { [tableId]: new Set(changedRecordIds) };
+    const recordSets: Record<string, Set<string> | typeof ALL_RECORDS> = {
+      [tableId]: new Set(changedRecordIds),
+    };
     // Seed foreign tables with planned link targets so impact includes them even before DB write
     for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
       if (!ids.size) continue;
+      const existing = recordSets[tid];
+      if (existing === ALL_RECORDS) continue;
       const set = (recordSets[tid] ||= new Set<string>());
       ids.forEach((id) => set.add(id));
     }
@@ -549,7 +588,19 @@ export class ComputedDependencyCollectorService {
     const queue: string[] = [tableId];
     while (queue.length) {
       const src = queue.shift()!;
-      const currentIds = Array.from(recordSets[src] || []);
+      const rawSet = recordSets[src];
+      const hasOutgoing = (linkAdj[src]?.size || 0) > 0 || (referenceAdj[src]?.length || 0) > 0;
+      let currentIds: string[] = [];
+      if (rawSet === ALL_RECORDS) {
+        if (!hasOutgoing) {
+          continue;
+        }
+        const ids = await this.getAllRecordIds(src);
+        currentIds = ids;
+        recordSets[src] = new Set(ids);
+      } else if (rawSet) {
+        currentIds = Array.from(rawSet);
+      }
       if (!currentIds.length) continue;
       const outs = Array.from(linkAdj[src] || []);
       for (const dst of outs) {
@@ -570,9 +621,20 @@ export class ComputedDependencyCollectorService {
 
       const referenceEdges = referenceAdj[src] || [];
       for (const edge of referenceEdges) {
-        if (!impact[edge.tableId] || !impact[edge.tableId].fieldIds.has(edge.fieldId)) continue;
+        const targetGroup = impact[edge.tableId];
+        if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
         const matched = await this.getReferenceLookupImpactedRecordIds(edge, currentIds);
+        if (matched === ALL_RECORDS) {
+          targetGroup.preferAutoNumberPaging = true;
+          recordSets[edge.tableId] = ALL_RECORDS;
+          queue.push(edge.tableId);
+          continue;
+        }
         if (!matched.length) continue;
+        const existing = recordSets[edge.tableId];
+        if (existing === ALL_RECORDS) {
+          continue;
+        }
         const set = (recordSets[edge.tableId] ||= new Set<string>());
         let added = false;
         for (const id of matched) {
@@ -587,9 +649,13 @@ export class ComputedDependencyCollectorService {
 
     // Assign results into impact
     for (const [tid, group] of Object.entries(impact)) {
-      const ids = recordSets[tid];
-      if (ids && ids.size) {
-        ids.forEach((id) => group.recordIds.add(id));
+      const raw = recordSets[tid];
+      if (raw === ALL_RECORDS) {
+        group.preferAutoNumberPaging = true;
+        continue;
+      }
+      if (raw && raw.size) {
+        raw.forEach((id) => group.recordIds.add(id));
       }
     }
 
