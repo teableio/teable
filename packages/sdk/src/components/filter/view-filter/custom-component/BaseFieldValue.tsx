@@ -224,33 +224,35 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         />
       );
     case FieldType.SingleSelect:
-      return ARRAY_OPERATORS.includes(operator) ? (
-        <FilterMultipleSelect
-          field={field}
-          modal={modal}
-          value={value as string[]}
-          onSelect={(value) => onSelect(value as IFilterItem['value'])}
-          className="min-w-28 max-w-64"
-          popoverClassName="max-w-64 min-w-28"
-        />
-      ) : (
-        <FilterSingleSelect
-          field={field}
-          modal={modal}
-          value={value as string}
-          onSelect={onSelect}
-          operator={operator}
-          className="min-w-28 max-w-64"
-          popoverClassName="max-w-64 min-w-28"
-        />
+      return wrapWithReference(
+        ARRAY_OPERATORS.includes(operator) ? (
+          <FilterMultipleSelect
+            field={field}
+            modal={modal}
+            value={value as string[]}
+            onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
+            className="min-w-28 max-w-64"
+            popoverClassName="max-w-64 min-w-28"
+          />
+        ) : (
+          <FilterSingleSelect
+            field={field}
+            modal={modal}
+            value={value as string}
+            onSelect={onSelect}
+            operator={operator}
+            className="min-w-28 max-w-64"
+            popoverClassName="max-w-64 min-w-28"
+          />
+        )
       );
     case FieldType.MultipleSelect:
-      return (
+      return wrapWithReference(
         <FilterMultipleSelect
           field={field}
           modal={modal}
           value={value as string[]}
-          onSelect={(value) => onSelect(value as IFilterItem['value'])}
+          onSelect={(newValue) => onSelect(newValue as IFilterItem['value'])}
           className="min-w-28 max-w-64"
           popoverClassName="min-w-28 max-w-64"
         />
@@ -268,7 +270,9 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         />
       );
     case FieldType.Checkbox:
-      return <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-10" />;
+      return wrapWithReference(
+        <FilterCheckbox value={value as boolean} onChange={onSelect} className="w-10" />
+      );
     case FieldType.Link: {
       const linkProps = {
         field,
@@ -287,7 +291,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
     case FieldType.Attachment:
       return <FileTypeSelect value={value as string} onSelect={onSelect} />;
     case FieldType.Rating:
-      return (
+      return wrapWithReference(
         <RatingEditor
           value={value as number}
           options={field.options}
@@ -308,9 +312,9 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       };
       if (components && components[FieldType.User]) {
         const UserComponents = components[FieldType.User];
-        return <UserComponents {...props} />;
+        return wrapWithReference(<UserComponents {...props} />);
       }
-      return <FilterUserSelect {...props} modal={modal} />;
+      return wrapWithReference(<FilterUserSelect {...props} modal={modal} />);
     }
     case FieldType.Rollup:
     case FieldType.Formula:
