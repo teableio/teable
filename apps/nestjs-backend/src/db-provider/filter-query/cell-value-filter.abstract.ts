@@ -216,7 +216,10 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _operator: IFilterOperator,
     _value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.whereNull(this.tableColumnRef);
+    const tableColumnRef = this.tableColumnRef;
+    builderClient.where(function () {
+      this.whereNull(tableColumnRef).orWhere(tableColumnRef, '=', '');
+    });
     return builderClient;
   }
 
@@ -225,7 +228,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _operator: IFilterOperator,
     _value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.whereNotNull(this.tableColumnRef);
+    builderClient.whereNotNull(this.tableColumnRef).where(this.tableColumnRef, '!=', '');
     return builderClient;
   }
 
