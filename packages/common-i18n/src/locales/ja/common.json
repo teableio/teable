@@ -37,7 +37,9 @@
     "more": "もっと",
     "move": "移動先",
     "turnOn": "有効にする",
-    "exit": "ログアウト"
+    "exit": "ログアウト",
+    "next": "次へ",
+    "previous": "前へ"
   },
   "quickAction": {
     "title": "クイックアクション...",

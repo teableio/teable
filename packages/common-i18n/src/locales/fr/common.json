@@ -38,7 +38,9 @@
     "more": "Plus",
     "move": "Déplacer vers",
     "turnOn": "Activer",
-    "exit": "Déconnexion"
+    "exit": "Déconnexion",
+    "next": "Suivant",
+    "previous": "Précédent"
   },
   "quickAction": {
     "title": "Actions rapides...",

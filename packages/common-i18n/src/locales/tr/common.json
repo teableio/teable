@@ -41,7 +41,9 @@
     "hideNotMatchRow": "Eşleşmeyen satırları gizle",
     "move": "Taşı",
     "turnOn": "Aç",
-    "exit": "Çıkış"
+    "exit": "Çıkış",
+    "next": "Sonraki",
+    "previous": "Önceki"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",

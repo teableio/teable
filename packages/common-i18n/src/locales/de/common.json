@@ -45,7 +45,9 @@
     "more": "Mehr",
     "move": "Verschieben nach",
     "turnOn": "Einschalten",
-    "exit": "Ausloggen"
+    "exit": "Ausloggen",
+    "next": "Nächste",
+    "previous": "Vorherige"
   },
   "quickAction": {
     "title": "Schnelle Aktionen...",

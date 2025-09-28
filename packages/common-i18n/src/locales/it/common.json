@@ -45,7 +45,9 @@
     "more": "Altro",
     "move": "Sposta in",
     "turnOn": "Attiva",
-    "exit": "Esci"
+    "exit": "Esci",
+    "next": "Successivo",
+    "previous": "Precedente"
   },
   "quickAction": {
     "title": "Azioni rapide...",

@@ -49,7 +49,9 @@
     "deleteTip": "Are you sure you want to delete \"{{name}}\"?",
     "move": "Move to",
     "turnOn": "Turn on",
-    "exit": "Exit"
+    "exit": "Exit",
+    "next": "Next",
+    "previous": "Previous"
   },
   "quickAction": {
     "title": "Quick Actions...",

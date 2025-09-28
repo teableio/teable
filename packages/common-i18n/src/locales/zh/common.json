@@ -49,7 +49,9 @@
     "deleteTip": "确定要删除 \"{{name}}\" 吗？",
     "move": "移动至",
     "turnOn": "开启",
-    "exit": "退出"
+    "exit": "退出",
+    "next": "下一页",
+    "previous": "上一页"
   },
   "quickAction": {
     "title": "快捷搜索...",

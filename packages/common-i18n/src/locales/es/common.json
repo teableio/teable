@@ -45,7 +45,9 @@
     "more": "Más",
     "move": "Mover a",
     "turnOn": "Activar",
-    "exit": "Cerrar sesión"
+    "exit": "Cerrar sesión",
+    "next": "Siguiente",
+    "previous": "Anterior"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
