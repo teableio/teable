@@ -153,6 +153,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     return `CAST(${sql} AS DOUBLE PRECISION)`;
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   rollupAggregate(
     fn: string,
     fieldExpression: string,

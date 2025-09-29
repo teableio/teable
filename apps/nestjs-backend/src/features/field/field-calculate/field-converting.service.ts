@@ -108,8 +108,25 @@ export class FieldConvertingService {
   private updateLookupField(field: IFieldInstance, fieldMap: IFieldMap): IOtOperation[] {
     const ops: (IOtOperation | undefined)[] = [];
     const lookupOptions = field.lookupOptions as ILookupOptionsVo;
-    const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
+    const linkField = fieldMap[lookupOptions.linkFieldId];
     const lookupField = fieldMap[lookupOptions.lookupFieldId];
+
+    const linkFieldIsValid =
+      linkField &&
+      !linkField.isLookup &&
+      linkField.type === FieldType.Link &&
+      (linkField.options as ILinkFieldOptions | undefined)?.foreignTableId ===
+        lookupOptions.foreignTableId;
+
+    if (!linkFieldIsValid || !lookupField) {
+      const errorOp = this.buildOpAndMutateField(field, 'hasError', true);
+      if (errorOp) {
+        ops.push(errorOp);
+      }
+      return ops.filter(Boolean) as IOtOperation[];
+    }
+
+    const linkFieldDto = linkField as LinkFieldDto;
     const { showAs: _, ...inheritableOptions } = lookupField.options as Record<string, unknown>;
     const {
       formatting = inheritableOptions.formatting,
@@ -117,6 +134,11 @@ export class FieldConvertingService {
       ...inheritOptions
     } = field.options as Record<string, unknown>;
     const cellValueTypeChanged = field.cellValueType !== lookupField.cellValueType;
+
+    const clearErrorOp = this.buildOpAndMutateField(field, 'hasError', null);
+    if (clearErrorOp) {
+      ops.push(clearErrorOp);
+    }
 
     if (field.type !== lookupField.type) {
       ops.push(this.buildOpAndMutateField(field, 'type', lookupField.type));
@@ -127,15 +149,15 @@ export class FieldConvertingService {
     // relationship and linkage metadata so clients can still introspect prior config
     // while the lookup is marked as errored.
     // eslint-disable-next-line sonarjs/no-collapsible-if
-    if (linkField.type === FieldType.Link) {
-      if (lookupOptions.relationship !== linkField.options.relationship) {
+    if (linkFieldDto.type === FieldType.Link) {
+      if (lookupOptions.relationship !== linkFieldDto.options.relationship) {
         ops.push(
           this.buildOpAndMutateField(field, 'lookupOptions', {
             ...lookupOptions,
-            relationship: linkField.options.relationship,
-            fkHostTableName: linkField.options.fkHostTableName,
-            selfKeyName: linkField.options.selfKeyName,
-            foreignKeyName: linkField.options.foreignKeyName,
+            relationship: linkFieldDto.options.relationship,
+            fkHostTableName: linkFieldDto.options.fkHostTableName,
+            selfKeyName: linkFieldDto.options.selfKeyName,
+            foreignKeyName: linkFieldDto.options.foreignKeyName,
           } as ILookupOptionsVo)
         );
       }
@@ -160,7 +182,7 @@ export class FieldConvertingService {
 
     const isMultipleCellValue =
       lookupField.isMultipleCellValue ||
-      (linkField.type === FieldType.Link && linkField.isMultipleCellValue) ||
+      (linkFieldDto.type === FieldType.Link && linkFieldDto.isMultipleCellValue) ||
       false;
     if (field.isMultipleCellValue !== isMultipleCellValue) {
       ops.push(this.buildOpAndMutateField(field, 'isMultipleCellValue', isMultipleCellValue));

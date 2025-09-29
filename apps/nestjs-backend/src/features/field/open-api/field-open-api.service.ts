@@ -119,9 +119,9 @@ export class FieldOpenApiService {
       }
       const linkField = await this.prismaService.txClient().field.findFirst({
         where: { id: linkFieldId, deletedTime: null },
-        select: { id: true, options: true },
+        select: { id: true, options: true, type: true, isLookup: true },
       });
-      if (!linkField) {
+      if (!linkField || linkField.type !== FieldType.Link || linkField.isLookup) {
         return false;
       }
       const linkOptions = JSON.parse(linkField?.options as string) as ILinkFieldOptions;
@@ -615,6 +615,7 @@ export class FieldOpenApiService {
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async convertField(
     tableId: string,
     fieldId: string,
@@ -632,6 +633,14 @@ export class FieldOpenApiService {
       modifiedOps,
       supplementChange,
     });
+
+    const shouldForceLookupError =
+      oldField.type === FieldType.Link &&
+      !oldField.isLookup &&
+      !newField.isLookup &&
+      (newField.type !== FieldType.Link ||
+        ((newField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null) !==
+          ((oldField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null));
 
     const dependentRefs = await this.prismaService.reference.findMany({
       where: { fromFieldId: fieldId },
@@ -654,6 +663,26 @@ export class FieldOpenApiService {
             ? await this.validateConditionalRollupAggregation(instance)
             : true;
           await this.markError(raw.tableId, instance, !isValid);
+        }
+
+        if (shouldForceLookupError) {
+          const lookupFieldsToMark = dependentFieldRaws.filter(
+            (raw) =>
+              raw.id !== fieldId &&
+              (raw.isLookup ||
+                raw.type === FieldType.Rollup ||
+                raw.type === FieldType.ConditionalRollup)
+          );
+          if (lookupFieldsToMark.length) {
+            const grouped = groupBy(lookupFieldsToMark, 'tableId');
+            for (const [lookupTableId, fields] of Object.entries(grouped)) {
+              await this.fieldService.markError(
+                lookupTableId,
+                fields.map((f) => f.id),
+                true
+              );
+            }
+          }
         }
       } catch (e) {
         this.logger.warn(
