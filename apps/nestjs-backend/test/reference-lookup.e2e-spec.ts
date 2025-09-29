@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -9,7 +10,9 @@ import type {
   IReferenceLookupFieldOptions,
 } from '@teable/core';
 import {
+  CellValueType,
   Colors,
+  DbFieldType,
   FieldKeyType,
   FieldType,
   NumberFormattingType,
@@ -1183,6 +1186,110 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
         (field) => field.id === standaloneLookupField.id
       )!;
       expect(erroredField.hasError).toBe(true);
+    });
+  });
+
+  describe('datetime aggregation conversions', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let lookupField: IFieldVo;
+    let occurredOnId: string;
+    let statusId: string;
+    let hostRecordId: string;
+    let activeFilter: any;
+
+    const ACTIVE_LATEST_DATE = '2024-01-15T08:00:00.000Z';
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'RefLookup_Date_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'OccurredOn', type: FieldType.Date } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Title: 'Alpha',
+              Status: 'Active',
+              OccurredOn: '2024-01-10T08:00:00.000Z',
+            },
+          },
+          {
+            fields: {
+              Title: 'Beta',
+              Status: 'Active',
+              OccurredOn: ACTIVE_LATEST_DATE,
+            },
+          },
+          {
+            fields: {
+              Title: 'Gamma',
+              Status: 'Closed',
+              OccurredOn: '2024-01-01T08:00:00.000Z',
+            },
+          },
+        ],
+      });
+      occurredOnId = foreign.fields.find((f) => f.name === 'OccurredOn')!.id;
+      statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+
+      host = await createTable(baseId, {
+        name: 'RefLookup_Date_Host',
+        fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Label: 'Row 1' } }],
+      });
+      hostRecordId = host.records[0].id;
+
+      activeFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: 'Active',
+          },
+        ],
+      } as any;
+
+      lookupField = await createField(host.id, {
+        name: 'Active Event Count',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: occurredOnId,
+          expression: 'count({values})',
+          filter: activeFilter,
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('converts to datetime aggregation without casting errors', async () => {
+      const baseline = await getRecord(host.id, hostRecordId);
+      expect(baseline.fields[lookupField.id]).toEqual(2);
+
+      lookupField = await convertField(host.id, lookupField.id, {
+        name: 'Latest Active Event',
+        type: FieldType.ReferenceLookup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: occurredOnId,
+          expression: 'max({values})',
+          filter: activeFilter,
+        },
+      } as IFieldRo);
+
+      expect(lookupField.cellValueType).toBe(CellValueType.DateTime);
+      expect(lookupField.dbFieldType).toBe(DbFieldType.DateTime);
+
+      const afterConversion = await getRecord(host.id, hostRecordId);
+      expect(afterConversion.fields[lookupField.id]).toEqual(ACTIVE_LATEST_DATE);
     });
   });
 

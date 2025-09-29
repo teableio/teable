@@ -186,10 +186,20 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       }
       case 'counta':
         return this.castAgg(`COALESCE(COUNT(${fieldExpression}), 0)`);
-      case 'max':
-        return this.castAgg(`MAX(${fieldExpression})`);
-      case 'min':
-        return this.castAgg(`MIN(${fieldExpression})`);
+      case 'max': {
+        const isDateTimeTarget =
+          targetField?.cellValueType === CellValueType.DateTime ||
+          targetField?.dbFieldType === DbFieldType.DateTime;
+        const aggregate = `MAX(${fieldExpression})`;
+        return isDateTimeTarget ? aggregate : this.castAgg(aggregate);
+      }
+      case 'min': {
+        const isDateTimeTarget =
+          targetField?.cellValueType === CellValueType.DateTime ||
+          targetField?.dbFieldType === DbFieldType.DateTime;
+        const aggregate = `MIN(${fieldExpression})`;
+        return isDateTimeTarget ? aggregate : this.castAgg(aggregate);
+      }
       case 'and':
         return `BOOL_AND(${fieldExpression}::boolean)`;
       case 'or':
