@@ -13,6 +13,7 @@ import {
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { getRandomString } from '@teable/core';
 import * as fse from 'fs-extra';
 import ms from 'ms';
@@ -28,26 +29,25 @@ export class S3Storage implements StorageAdapter {
   private s3ClientPrivateNetwork: S3Client;
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endpoint, region, accessKey, secretKey, internalEndpoint } = this.config.s3;
+    const { endpoint, region, accessKey, secretKey, maxSockets } = this.config.s3;
     this.checkConfig();
+    const requestHandler = maxSockets
+      ? new NodeHttpHandler({
+          httpsAgent: {
+            maxSockets: maxSockets,
+          },
+        })
+      : undefined;
     this.s3Client = new S3Client({
       region,
       endpoint,
+      requestHandler,
       credentials: {
         accessKeyId: accessKey,
         secretAccessKey: secretKey,
       },
     });
-    this.s3ClientPrivateNetwork = internalEndpoint
-      ? new S3Client({
-          region,
-          endpoint: internalEndpoint,
-          credentials: {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey,
-          },
-        })
-      : this.s3Client;
+    this.s3ClientPrivateNetwork = this.s3Client;
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
   }
 
