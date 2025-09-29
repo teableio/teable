@@ -320,6 +320,29 @@
       "createdBy": "创建人",
       "lastModifiedBy": "最近修改人"
     },
+    "description": {
+      "singleLineText": "存储简短的文本，如名称或标题。",
+      "longText": "记录较长的备注和描述。",
+      "singleSelect": "从预设列表中选择一个选项。",
+      "number": "跟踪带格式的数值。",
+      "multipleSelect": "为记录添加多个标签选项。",
+      "link": "在表格之间关联记录。",
+      "formula": "用表达式计算字段值。",
+      "date": "记录特定日期或时间。",
+      "createdTime": "显示记录的创建时间。",
+      "lastModifiedTime": "显示记录最近的更新时间。",
+      "attachment": "上传文件或图片。",
+      "checkbox": "用开关标记是否完成。",
+      "rollup": "对关联记录进行汇总计算。",
+      "conditionalRollup": "根据条件汇总数据。",
+      "user": "将记录分配给工作区成员。",
+      "rating": "用可配置的图标为项目评分。",
+      "autoNumber": "自动分配递增编号。",
+      "lookup": "显示来自关联记录的字段值。",
+      "button": "通过可点击按钮触发操作。",
+      "createdBy": "显示是谁创建了记录。",
+      "lastModifiedBy": "显示最近编辑记录的人。"
+    },
     "link": {
       "oneWay": "单向",
       "twoWay": "双向"

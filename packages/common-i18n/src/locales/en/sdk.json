@@ -306,6 +306,29 @@
       "createdBy": "Created by",
       "lastModifiedBy": "Last modified by"
     },
+    "description": {
+      "singleLineText": "Store short text like names or titles.",
+      "longText": "Capture longer notes and descriptions.",
+      "singleSelect": "Choose one option from a list.",
+      "number": "Track numeric values with formatting.",
+      "multipleSelect": "Tag records with multiple choices.",
+      "link": "Link this record to another table.",
+      "formula": "Calculate values from other fields.",
+      "date": "Record dates or times.",
+      "createdTime": "Show when a record was created.",
+      "lastModifiedTime": "Show the most recent update time.",
+      "attachment": "Upload files or images.",
+      "checkbox": "Toggle a simple yes or no.",
+      "rollup": "Summarize linked records with formulas.",
+      "conditionalRollup": "Summarize data from conditions.",
+      "user": "Assign records to workspace members.",
+      "rating": "Score items with configurable icons.",
+      "autoNumber": "Give each record a unique sequence.",
+      "lookup": "Display values from linked records.",
+      "button": "Run actions with a clickable button.",
+      "createdBy": "Show who created the record.",
+      "lastModifiedBy": "Show who last modified the record."
+    },
     "link": {
       "oneWay": "One Way",
       "twoWay": "Two Way"
