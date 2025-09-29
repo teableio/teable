@@ -1501,6 +1501,13 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       await permanentDeleteTable(baseId, suppliers.id);
     });
 
+    it('aggregates lookup-derived conditional rollup values', async () => {
+      const hostRecord = await getRecord(host.id, host.records[0].id);
+      expect(hostRecord.fields[conditionalRollupMax.id]).toEqual(5);
+      expect(hostRecord.fields[referenceRollupSum.id]).toEqual(13);
+      expect(hostRecord.fields[referenceLinkCount.id]).toEqual(3);
+    });
+
     it('tracks dependencies when conditional rollup targets derived fields', async () => {
       const initialHostFields = await getFields(host.id);
       const initialLookupMax = initialHostFields.find(

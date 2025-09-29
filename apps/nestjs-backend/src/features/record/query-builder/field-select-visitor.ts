@@ -157,6 +157,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return rawExpression;
       }
 
+      if (this.rawProjection) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
+
       const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
       const raw = this.qb.client.raw(nullExpr);
       this.state.setSelection(field.id, nullExpr);
@@ -275,6 +281,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         this.state.setSelection(field.id, columnSelector);
         return columnSelector;
       }
+      if (this.rawProjection) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
       // When building directly from base table and no CTE is available
       // (e.g., foreign table deleted or errored), return a dialect-typed NULL
       // to avoid type mismatch when assigning into persisted columns.
@@ -301,6 +312,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const fieldCteMap = this.state.getFieldCteMap();
     if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
+      if (this.rawProjection) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
       // From base table context, without CTE, return dialect-typed NULL to match column type
       const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
       const raw = this.qb.client.raw(nullExpr);
@@ -320,6 +336,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const linkField = field.getLinkField(this.table);
     if (!linkField) {
+      if (this.rawProjection) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
       const raw = this.qb.client.raw('NULL');
       this.state.setSelection(field.id, 'NULL');
       return raw;
