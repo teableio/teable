@@ -15,8 +15,10 @@ import type {
   IViewVo,
   IFilterRo,
   IViewRo,
+  IConditionalRollupFieldOptions,
+  IFilter,
 } from '@teable/core';
-import { FieldKeyType } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
@@ -398,13 +400,51 @@ export async function createRecords(
   }
 }
 
+const createDefaultConditionalRollupFilter = (fieldId: string): IFilter => ({
+  conjunction: 'and',
+  filterSet: [
+    {
+      fieldId,
+      operator: 'isNotEmpty',
+      value: null,
+    },
+  ],
+});
+
+const ensureConditionalRollupOptions = (fieldRo: IFieldRo): IFieldRo => {
+  if (fieldRo.type !== FieldType.ConditionalRollup) {
+    return fieldRo;
+  }
+
+  const options = fieldRo.options as Partial<IConditionalRollupFieldOptions> | undefined;
+  if (!options?.lookupFieldId) {
+    return fieldRo;
+  }
+
+  const hasFilterConditions =
+    options.filter?.filterSet != null && options.filter.filterSet.length > 0;
+
+  if (hasFilterConditions) {
+    return fieldRo;
+  }
+
+  return {
+    ...fieldRo,
+    options: {
+      ...options,
+      filter: createDefaultConditionalRollupFilter(options.lookupFieldId),
+    } as IConditionalRollupFieldOptions,
+  };
+};
+
 export async function createField(
   tableId: string,
   fieldRo: IFieldRo,
   expectStatus = 201
 ): Promise<IFieldVo> {
   try {
-    const res = await apiCreateField(tableId, fieldRo);
+    const normalizedField = ensureConditionalRollupOptions(fieldRo);
+    const res = await apiCreateField(tableId, normalizedField);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;
@@ -434,7 +474,8 @@ export async function convertField(
   expectStatus = 200
 ): Promise<IFieldVo> {
   try {
-    const res = await apiConvertField(tableId, fieldId, fieldRo);
+    const normalizedField = ensureConditionalRollupOptions(fieldRo);
+    const res = await apiConvertField(tableId, fieldId, normalizedField);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;
