@@ -22,9 +22,11 @@ import {
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
+  createBase,
   createField,
   convertField,
   createTable,
+  deleteBase,
   deleteField,
   getField,
   getFields,
@@ -1535,6 +1537,89 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       await deleteField(products.id, linkToSupplierField.id);
       const afterLinkDelete = await getFields(host.id);
       expect(afterLinkDelete.find((f) => f.id === referenceLinkCount.id)?.hasError).toBe(true);
+    });
+  });
+
+  describe('conditional rollup across bases', () => {
+    let foreignBaseId: string;
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let crossBaseRollup: IFieldVo;
+    let foreignCategoryId: string;
+    let foreignAmountId: string;
+    let hostCategoryId: string;
+    let hardwareRecordId: string;
+    let softwareRecordId: string;
+
+    beforeAll(async () => {
+      const spaceId = globalThis.testConfig.spaceId;
+      const createdBase = await createBase({ spaceId, name: 'Conditional Rollup Cross Base' });
+      foreignBaseId = createdBase.id;
+
+      foreign = await createTable(foreignBaseId, {
+        name: 'CrossBase_Foreign',
+        fields: [
+          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Category: 'Hardware', Amount: 100 } },
+          { fields: { Category: 'Hardware', Amount: 50 } },
+          { fields: { Category: 'Software', Amount: 70 } },
+        ],
+      });
+      foreignCategoryId = foreign.fields.find((f) => f.name === 'Category')!.id;
+      foreignAmountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+
+      host = await createTable(baseId, {
+        name: 'CrossBase_Host',
+        fields: [{ name: 'CategoryMatch', type: FieldType.SingleLineText } as IFieldRo],
+        records: [
+          { fields: { CategoryMatch: 'Hardware' } },
+          { fields: { CategoryMatch: 'Software' } },
+        ],
+      });
+      hostCategoryId = host.fields.find((f) => f.name === 'CategoryMatch')!.id;
+      hardwareRecordId = host.records[0].id;
+      softwareRecordId = host.records[1].id;
+
+      const categoryFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: foreignCategoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostCategoryId },
+          },
+        ],
+      } as any;
+
+      crossBaseRollup = await createField(host.id, {
+        name: 'Cross Base Amount Total',
+        type: FieldType.ConditionalRollup,
+        options: {
+          baseId: foreignBaseId,
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignAmountId,
+          expression: 'sum({values})',
+          filter: categoryFilter,
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(foreignBaseId, foreign.id);
+      await deleteBase(foreignBaseId);
+    });
+
+    it('aggregates values when referencing a foreign base', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareRecord = records.records.find((record) => record.id === hardwareRecordId)!;
+      const softwareRecord = records.records.find((record) => record.id === softwareRecordId)!;
+
+      expect(hardwareRecord.fields[crossBaseRollup.id]).toEqual(150);
+      expect(softwareRecord.fields[crossBaseRollup.id]).toEqual(70);
     });
   });
 
