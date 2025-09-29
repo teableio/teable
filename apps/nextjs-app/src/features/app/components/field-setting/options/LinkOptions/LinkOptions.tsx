@@ -1,14 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ILinkFieldOptionsRo } from '@teable/core';
 import { Relationship } from '@teable/core';
 import { ArrowUpRight, ChevronDown } from '@teable/icons';
-import { getTablePermission } from '@teable/openapi';
+import { getFields, getTablePermission } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useTableId } from '@teable/sdk/hooks';
 import { Button, Label, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { Trans, useTranslation } from 'next-i18next';
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { MoreLinkOptions } from './MoreLinkOptions';
 import { SelectTable } from './SelectTable';
@@ -80,6 +80,22 @@ export const LinkOptions = (props: {
     return relationship === Relationship.ManyMany || relationship === Relationship.ManyOne;
   };
 
+  const queryClient = useQueryClient();
+
+  const { mutate: getFieldListMutate } = useMutation({
+    mutationFn: (foreignTableId: string) => {
+      return getFields(foreignTableId).then((res) => res.data);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(ReactQueryKeys.fieldList(foreignTableId!), data);
+      const primaryField = data.find((field) => field.isPrimary);
+      onChange?.({
+        ...options,
+        lookupFieldId: primaryField?.id,
+      });
+    },
+  });
+
   if (isLookup) {
     return <></>;
   }
@@ -89,7 +105,7 @@ export const LinkOptions = (props: {
       <SelectTable
         baseId={options?.baseId}
         tableId={options?.foreignTableId}
-        onChange={(baseId, tableId) => {
+        onChange={async (baseId, tableId) => {
           onChange?.({
             baseId,
             foreignTableId: tableId,
@@ -99,6 +115,9 @@ export const LinkOptions = (props: {
             visibleFieldIds: null,
             filter: null,
           });
+          if (tableId) {
+            await getFieldListMutate(tableId);
+          }
         }}
       />
       {options?.foreignTableId && (
