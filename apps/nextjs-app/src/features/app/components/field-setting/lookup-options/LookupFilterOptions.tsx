@@ -10,6 +10,7 @@ import { createFieldInstance } from '@teable/sdk/model';
 import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface ILookupFilterOptionsProps {
@@ -19,10 +20,19 @@ interface ILookupFilterOptionsProps {
   contextTableId?: string;
   onChange?: (filter: IFilter | null) => void;
   enableFieldReference?: boolean;
+  required?: boolean;
 }
 
 export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
-  const { fieldId, foreignTableId, filter, onChange, contextTableId, enableFieldReference } = props;
+  const {
+    fieldId,
+    foreignTableId,
+    filter,
+    onChange,
+    contextTableId,
+    enableFieldReference,
+    required,
+  } = props;
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const currentTableId = useTableId() as string;
@@ -67,7 +77,10 @@ export const LookupFilterOptions = (props: ILookupFilterOptionsProps) => {
     <div className="flex flex-col gap-2 rounded-md border px-2 py-3">
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span>{t('table:field.editor.filter')}</span>
+          <span className="flex items-center gap-0.5">
+            {t('table:field.editor.filter')}
+            {required ? <RequireCom /> : null}
+          </span>
           <Dialog>
             <DialogTrigger asChild>
               <Button size={'xs'} variant={'ghost'}>

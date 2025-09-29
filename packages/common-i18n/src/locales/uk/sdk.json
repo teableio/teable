@@ -115,6 +115,9 @@
       "expressionRequired": "Вираз обов'язковий",
       "unsupportedTip": "Rollup підтримує лише поля зв'язку та rollup"
     },
+    "conditionalRollup": {
+      "filterRequired": "Фільтр має містити щонайменше одну умову"
+    },
     "aiConfig": {
       "modelKeyRequired": "Модель обов'язкова",
       "typeNotSupported": "Непідтримуваний тип AI",

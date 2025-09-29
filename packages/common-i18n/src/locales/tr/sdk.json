@@ -115,6 +115,9 @@
       "expressionRequired": "İfade gereklidir",
       "unsupportedTip": "Rollup yalnızca bağlantı ve rollup alanlarını destekler"
     },
+    "conditionalRollup": {
+      "filterRequired": "Filtre en az bir koşul içermelidir"
+    },
     "aiConfig": {
       "modelKeyRequired": "Model gereklidir",
       "typeNotSupported": "Desteklenmeyen AI türü",

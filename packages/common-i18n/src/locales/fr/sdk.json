@@ -103,6 +103,9 @@
       "expressionRequired": "L'expression est requise",
       "unsupportedTip": "Le rollup ne prend en charge que les champs de lien et de rollup"
     },
+    "conditionalRollup": {
+      "filterRequired": "Le filtre doit contenir au moins une condition"
+    },
     "aiConfig": {
       "modelKeyRequired": "Le modèle est requis",
       "typeNotSupported": "Type d'AI non pris en charge",

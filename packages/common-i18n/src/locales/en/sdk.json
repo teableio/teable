@@ -115,6 +115,9 @@
       "expressionRequired": "Expression is required",
       "unsupportedTip": "Rollup only support link and rollup field"
     },
+    "conditionalRollup": {
+      "filterRequired": "Filter must contain at least one condition"
+    },
     "aiConfig": {
       "modelKeyRequired": "Model is required",
       "typeNotSupported": "Unsupported AI type",

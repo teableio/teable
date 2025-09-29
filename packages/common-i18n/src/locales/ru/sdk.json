@@ -115,6 +115,9 @@
       "expressionRequired": "Выражение обязательно",
       "unsupportedTip": "Rollup поддерживает только поля связи и rollup"
     },
+    "conditionalRollup": {
+      "filterRequired": "Фильтр должен содержать как минимум одно условие"
+    },
     "aiConfig": {
       "modelKeyRequired": "Модель обязательна",
       "typeNotSupported": "Неподдерживаемый тип AI",

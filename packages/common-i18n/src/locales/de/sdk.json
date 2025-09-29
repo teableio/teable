@@ -115,6 +115,9 @@
       "expressionRequired": "Ausdruck ist erforderlich",
       "unsupportedTip": "Rollup unterstützt nur Verknüpfungs- und Rollup-Felder"
     },
+    "conditionalRollup": {
+      "filterRequired": "Der Filter muss mindestens eine Bedingung enthalten"
+    },
     "aiConfig": {
       "modelKeyRequired": "Modell ist erforderlich",
       "typeNotSupported": "Nicht unterstützter AI-Typ",

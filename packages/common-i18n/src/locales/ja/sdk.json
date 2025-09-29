@@ -103,6 +103,9 @@
       "expressionRequired": "式は必須です",
       "unsupportedTip": "ロールアップはリンクフィールドとロールアップフィールドのみサポートします"
     },
+    "conditionalRollup": {
+      "filterRequired": "フィルターには少なくとも1つの条件が必要です"
+    },
     "aiConfig": {
       "modelKeyRequired": "モデルは必須です",
       "typeNotSupported": "サポートされていないAIタイプ",

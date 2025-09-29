@@ -1,8 +1,10 @@
 import { isString } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
+import { extractFieldIdsFromFilter } from '../view/filter/filter';
 import { FieldAIActionType, getAiConfigSchema, type IFieldAIConfig } from './ai-config';
 import { FieldType } from './constant';
 import type {
+  IConditionalRollupFieldOptions,
   IFormulaFieldOptions,
   ILinkFieldOptions,
   IRollupFieldOptions,
@@ -92,6 +94,7 @@ const validateLookupOptions = (data: IValidateFieldOptionProps) => {
   return res;
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const validateOptions = (data: IValidateFieldOptionProps) => {
   const res: IFieldValidateData[] = [];
   const { type, options, isLookup } = data;
@@ -122,6 +125,19 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
       message: 'expression is required when type is formula',
       i18nKey: 'sdk:editor.formula.expressionRequired',
     });
+  }
+
+  if (type === FieldType.ConditionalRollup) {
+    const filter = (options as IConditionalRollupFieldOptions)?.filter;
+    const hasFilterConditions = !!filter && extractFieldIdsFromFilter(filter).length > 0;
+
+    if (!hasFilterConditions) {
+      res.push({
+        path: ['options'],
+        message: 'filter is required when type is conditionalRollup',
+        i18nKey: 'sdk:editor.conditionalRollup.filterRequired',
+      });
+    }
   }
 
   const isSelect = type === FieldType.SingleSelect || type === FieldType.MultipleSelect;

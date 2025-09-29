@@ -148,6 +148,18 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
         <SelectFieldByTableId selectedId={options.lookupFieldId} onChange={onLookupFieldChange} />
       </div>
 
+      <LookupFilterOptions
+        fieldId={fieldId}
+        foreignTableId={options.foreignTableId!}
+        filter={options.filter ?? null}
+        enableFieldReference
+        contextTableId={sourceTableId}
+        required
+        onChange={(filter) => {
+          onOptionsChange({ filter: filter ?? undefined });
+        }}
+      />
+
       <RollupOptions
         options={rollupOptions}
         cellValueType={cellValueType}
@@ -155,17 +167,6 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
         availableExpressions={availableExpressions}
         expressionLabelOverrides={expressionLabelOverrides}
         onChange={(partial) => onOptionsChange(partial)}
-      />
-
-      <LookupFilterOptions
-        fieldId={fieldId}
-        foreignTableId={options.foreignTableId!}
-        filter={options.filter ?? null}
-        enableFieldReference
-        contextTableId={sourceTableId}
-        onChange={(filter) => {
-          onOptionsChange({ filter: filter ?? undefined });
-        }}
       />
     </div>
   );

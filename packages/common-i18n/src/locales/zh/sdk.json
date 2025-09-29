@@ -129,6 +129,9 @@
       "expressionRequired": "公式不能为空",
       "unsupportedTip": "汇总只支持关联和汇总字段"
     },
+    "conditionalRollup": {
+      "filterRequired": "筛选条件至少需要包含一个条件"
+    },
     "aiConfig": {
       "modelKeyRequired": "模型不能为空",
       "typeNotSupported": "不支持的 AI 类型",

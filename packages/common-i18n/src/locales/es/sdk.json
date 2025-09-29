@@ -115,6 +115,9 @@
       "expressionRequired": "La expresión es obligatoria",
       "unsupportedTip": "El rollup solo admite campos de enlace y rollup"
     },
+    "conditionalRollup": {
+      "filterRequired": "El filtro debe contener al menos una condición"
+    },
     "aiConfig": {
       "modelKeyRequired": "El modelo es obligatorio",
       "typeNotSupported": "Tipo de AI no compatible",
