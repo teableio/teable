@@ -50,7 +50,7 @@ export const validateCellValue = (field: IFieldVo, cellValue: unknown) => {
     case FieldType.LastModifiedBy:
       return validateWithSchema(userCellValueSchema, cellValue);
     case FieldType.Rollup:
-    case FieldType.ReferenceLookup:
+    case FieldType.ConditionalRollup:
     case FieldType.Formula: {
       const schema = getFormulaCellValueSchema(cellValueType);
       return validateWithSchema(schema, cellValue);

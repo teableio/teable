@@ -46,7 +46,7 @@ interface IBaseFieldValue {
 
 const FIELD_REFERENCE_SUPPORTED_OPERATORS = new Set<string>([is.value, isNot.value]);
 
-interface IReferenceLookupValueProps {
+interface IConditionalRollupValueProps {
   literalComponent: JSX.Element;
   value: unknown;
   onSelect: (value: IFilterItem['value']) => void;
@@ -55,7 +55,7 @@ interface IReferenceLookupValueProps {
   modal?: boolean;
 }
 
-const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
+const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   const { literalComponent, value, onSelect, operator, referenceSource, modal } = props;
   const { t } = useTranslation();
   const referenceFields = referenceSource?.fields ?? [];
@@ -101,8 +101,8 @@ const ReferenceLookupValue = (props: IReferenceLookupValueProps) => {
     } satisfies IFieldReferenceValue);
   };
 
-  const fieldModeTooltip = t('filter.referenceLookup.switchToValue');
-  const literalModeTooltip = t('filter.referenceLookup.switchToField');
+  const fieldModeTooltip = t('filter.conditionalRollup.switchToValue');
+  const literalModeTooltip = t('filter.conditionalRollup.switchToField');
   const tooltipLabel = isFieldReferenceValue(value) ? fieldModeTooltip : literalModeTooltip;
 
   return (
@@ -201,7 +201,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       return component;
     }
     return (
-      <ReferenceLookupValue
+      <ConditionalRollupValue
         literalComponent={component}
         value={value}
         onSelect={onSelect}
@@ -319,7 +319,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
     case FieldType.Rollup:
     case FieldType.Formula:
       return wrapWithReference(getFormulaValueComponent(field.cellValueType));
-    case FieldType.ReferenceLookup:
+    case FieldType.ConditionalRollup:
       return wrapWithReference(getFormulaValueComponent(field.cellValueType));
     default:
       return wrapWithReference(InputComponent);

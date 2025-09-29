@@ -2,7 +2,7 @@ import type {
   IFieldRo,
   ILinkFieldOptionsRo,
   ILookupOptionsRo,
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { getField } from '@teable/openapi';
@@ -33,9 +33,9 @@ export const useDefaultFieldName = () => {
     [fields]
   );
 
-  const getReferenceLookupName = useCallback(
+  const getConditionalRollupName = useCallback(
     async (fieldRo: IFieldRo) => {
-      const { foreignTableId, lookupFieldId } = fieldRo.options as IReferenceLookupFieldOptions;
+      const { foreignTableId, lookupFieldId } = fieldRo.options as IConditionalRollupFieldOptions;
       if (!foreignTableId || !lookupFieldId) {
         return;
       }
@@ -112,17 +112,17 @@ export const useDefaultFieldName = () => {
           }
           return t('field.default.rollup.title', lookupName);
         }
-        case FieldType.ReferenceLookup: {
-          const info = await getReferenceLookupName(fieldRo);
+        case FieldType.ConditionalRollup: {
+          const info = await getConditionalRollupName(fieldRo);
           if (!info) {
             return;
           }
-          return t('field.default.referenceLookup.title', info);
+          return t('field.default.conditionalRollup.title', info);
         }
         default:
           return;
       }
     },
-    [getLookupName, getReferenceLookupName, t, tables]
+    [getLookupName, getConditionalRollupName, t, tables]
   );
 };

@@ -157,9 +157,9 @@ export const useFieldStaticGetter = () => {
             defaultOptions: {},
             Icon: getIcon(RollupIcon),
           };
-        case FieldType.ReferenceLookup:
+        case FieldType.ConditionalRollup:
           return {
-            title: t('field.title.referenceLookup'),
+            title: t('field.title.conditionalRollup'),
             defaultOptions: {},
             Icon: getIcon(RollupIcon),
           };

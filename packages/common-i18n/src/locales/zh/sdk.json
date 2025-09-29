@@ -196,7 +196,7 @@
         "isLessEqual": "≤"
       }
     },
-    "referenceLookup": {
+    "conditionalRollup": {
       "switchToField": "使用字段值",
       "switchToValue": "输入固定值"
     },
@@ -311,7 +311,7 @@
       "attachment": "附件",
       "checkbox": "勾选",
       "rollup": "汇总",
-      "referenceLookup": "引用查找",
+      "conditionalRollup": "条件汇总",
       "user": "用户",
       "rating": "评分",
       "autoNumber": "自增数字",

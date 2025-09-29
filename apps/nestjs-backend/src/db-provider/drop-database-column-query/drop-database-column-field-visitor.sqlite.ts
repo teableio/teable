@@ -15,7 +15,7 @@ import type {
   NumberFieldCore,
   RatingFieldCore,
   RollupFieldCore,
-  ReferenceLookupFieldCore,
+  ConditionalRollupFieldCore,
   SingleLineTextFieldCore,
   SingleSelectFieldCore,
   UserFieldCore,
@@ -181,7 +181,7 @@ export class DropSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<strin
     return this.dropStandardColumn(field);
   }
 
-  visitReferenceLookupField(field: ReferenceLookupFieldCore): string[] {
+  visitConditionalRollupField(field: ConditionalRollupFieldCore): string[] {
     return this.dropStandardColumn(field);
   }
 

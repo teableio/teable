@@ -14,7 +14,7 @@ import type {
   NumberFieldCore,
   RatingFieldCore,
   RollupFieldCore,
-  ReferenceLookupFieldCore,
+  ConditionalRollupFieldCore,
   SingleLineTextFieldCore,
   SingleSelectFieldCore,
   UserFieldCore,
@@ -347,7 +347,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
     this.createStandardColumn(field);
   }
 
-  visitReferenceLookupField(field: ReferenceLookupFieldCore): void {
+  visitConditionalRollupField(field: ConditionalRollupFieldCore): void {
     this.createStandardColumn(field);
   }
 

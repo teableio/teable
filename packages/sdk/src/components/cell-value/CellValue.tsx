@@ -135,7 +135,7 @@ export const CellValue = (props: ICellValueContainer) => {
     }
     case FieldType.Formula:
     case FieldType.Rollup:
-    case FieldType.ReferenceLookup: {
+    case FieldType.ConditionalRollup: {
       if (cellValueType === CellValueType.Boolean) {
         return <CellCheckbox value={value as boolean | boolean[]} className={className} />;
       }

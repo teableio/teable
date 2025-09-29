@@ -186,9 +186,9 @@
           "xor": "如果奇数个值为真，则返回真"
         }
       },
-      "referenceLookup": {
-        "title": "{{lookupFieldName}} 引用",
-        "description": "通过筛选条件引用其他表的数据。"
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} 条件汇总",
+        "description": "通过筛选条件聚合其他表的数据。"
       }
     },
     "editor": {
@@ -248,7 +248,7 @@
       "linkFieldToLookup": "用于查找的已链接记录字段",
       "lookupToTable": "从{{tableName}}表中选择要进行查找的字段",
       "selectField": "选择一个字段...",
-      "referenceLookup": {
+      "conditionalRollup": {
         "fieldMapping": "字段映射",
         "selectBaseField": "选择当前表字段",
         "noMappings": "尚未配置字段映射"
@@ -285,7 +285,7 @@
       "rating": "在预定分值上添加评分。",
       "formula": "基于字段进行动态公式计算。",
       "rollup": "汇总来自关联记录的数据。",
-      "referenceLookup": "通过筛选条件，从其他表中引用数据。",
+      "conditionalRollup": "通过条件筛选汇总来自其他表的数据。",
       "count": "计算关联记录的数量。",
       "createdTime": "查看每条记录创建的日期和时间。",
       "lastModifiedTime": "查看每条记录的最近编辑日期和时间。",

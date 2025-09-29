@@ -300,7 +300,7 @@ export const useCreateCellValue2GridDisplay = (
           case FieldType.Number:
           case FieldType.Rollup:
           case FieldType.Formula:
-          case FieldType.ReferenceLookup: {
+          case FieldType.ConditionalRollup: {
             if (cellValueType === CellValueType.Boolean) {
               return {
                 ...baseCellProps,

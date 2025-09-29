@@ -4,7 +4,7 @@ import type {
   IFormulaFieldOptions,
   ILinkFieldOptions,
   ILookupOptionsRo,
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
 } from '@teable/core';
 import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -681,8 +681,8 @@ export class FieldDuplicateService {
     );
     const lookupFields = targetFields.filter((field) => field.isLookup);
     const rollupFields = targetFields.filter((field) => field.type === FieldType.Rollup);
-    const referenceLookupFields = targetFields.filter(
-      (field) => field.type === FieldType.ReferenceLookup
+    const conditionalRollupFields = targetFields.filter(
+      (field) => field.type === FieldType.ConditionalRollup
     );
 
     for (const field of linkFields) {
@@ -715,7 +715,7 @@ export class FieldDuplicateService {
         },
       });
     }
-    for (const field of referenceLookupFields) {
+    for (const field of conditionalRollupFields) {
       const { options, id } = field;
       const newOptions = replaceStringByMap(options, { tableIdMap, fieldIdMap, viewIdMap }, false);
 
@@ -837,7 +837,7 @@ export class FieldDuplicateService {
     const isAiConfig = field.aiConfig && !field.isLookup;
     const isLookup = field.isLookup;
     const isRollup = field.type === FieldType.Rollup && !field.isLookup;
-    const isReferenceLookup = field.type === FieldType.ReferenceLookup;
+    const isConditionalRollup = field.type === FieldType.ConditionalRollup;
     const isFormula = field.type === FieldType.Formula && !field.isLookup;
 
     switch (true) {
@@ -866,8 +866,8 @@ export class FieldDuplicateService {
           sourceToTargetFieldMap
         );
         break;
-      case isReferenceLookup:
-        await this.duplicateReferenceLookupField(
+      case isConditionalRollup:
+        await this.duplicateConditionalRollupField(
           sourceTableId,
           targetTableId,
           field,
@@ -1025,7 +1025,7 @@ export class FieldDuplicateService {
     }
   }
 
-  async duplicateReferenceLookupField(
+  async duplicateConditionalRollupField(
     _sourceTableId: string,
     targetTableId: string,
     fieldInstance: IFieldWithTableIdJson,
@@ -1045,7 +1045,7 @@ export class FieldDuplicateService {
       type,
     } = fieldInstance;
 
-    const referenceOptions = options as IReferenceLookupFieldOptions;
+    const referenceOptions = options as IConditionalRollupFieldOptions;
     const mockFieldId = Object.values(sourceToTargetFieldMap)[0];
 
     const remappedOptions = replaceStringByMap(
@@ -1060,10 +1060,10 @@ export class FieldDuplicateService {
       },
       { tableIdMap, fieldIdMap: sourceToTargetFieldMap },
       false
-    ) as IReferenceLookupFieldOptions;
+    ) as IConditionalRollupFieldOptions;
 
     const newField = await this.fieldOpenApiService.createField(targetTableId, {
-      type: FieldType.ReferenceLookup,
+      type: FieldType.ConditionalRollup,
       dbFieldName,
       description,
       options: remappedOptions,

@@ -14,11 +14,12 @@ import type {
   ICheckboxFieldOptions,
   ILongTextFieldOptions,
   IButtonFieldOptions,
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { ButtonOptions } from './options/ButtonOptions';
 import { CheckboxOptions } from './options/CheckboxOptions';
+import { ConditionalRollupOptions } from './options/ConditionalRollupOptions';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
@@ -26,7 +27,6 @@ import { LinkOptions } from './options/LinkOptions';
 import { LongTextOptions } from './options/LongTextOptions';
 import { NumberOptions } from './options/NumberOptions';
 import { RatingOptions } from './options/RatingOptions';
-import { ReferenceLookupOptions } from './options/ReferenceLookupOptions';
 import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions/SelectOptions';
 import { SingleLineTextOptions } from './options/SingleLineTextOptions';
@@ -149,11 +149,11 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
           onChange={onChange}
         />
       );
-    case FieldType.ReferenceLookup:
+    case FieldType.ConditionalRollup:
       return (
-        <ReferenceLookupOptions
+        <ConditionalRollupOptions
           fieldId={id}
-          options={options as IReferenceLookupFieldOptions}
+          options={options as IConditionalRollupFieldOptions}
           onChange={onChange}
         />
       );

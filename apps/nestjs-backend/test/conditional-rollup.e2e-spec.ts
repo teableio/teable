@@ -7,7 +7,7 @@ import type {
   IFieldRo,
   IFieldVo,
   ILookupOptionsRo,
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
 } from '@teable/core';
 import {
   CellValueType,
@@ -36,7 +36,7 @@ import {
   updateRecordByApi,
 } from './utils/init-app';
 
-describe('OpenAPI Reference Lookup field (e2e)', () => {
+describe('OpenAPI Conditional Rollup field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
 
@@ -94,7 +94,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       lookupField = await createField(host.id, {
         name: 'Matching Orders',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: orderId,
@@ -109,13 +109,13 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
-    it('should expose reference lookup via table and field endpoints', async () => {
+    it('should expose conditional rollup via table and field endpoints', async () => {
       const tableInfo = await getTable(baseId, host.id);
       expect(tableInfo.id).toBe(host.id);
 
       const fields = await getFields(host.id);
       const retrieved = fields.find((field) => field.id === lookupField.id)!;
-      expect(retrieved.type).toBe(FieldType.ReferenceLookup);
+      expect(retrieved.type).toBe(FieldType.ConditionalRollup);
       expect((retrieved.options as any).lookupFieldId).toBe(orderId);
       expect((retrieved.options as any).foreignTableId).toBe(foreign.id);
 
@@ -204,7 +204,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       categorySumField = await createField(host.id, {
         name: 'Category Total',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -236,7 +236,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       dynamicActiveCountField = await createField(host.id, {
         name: 'Dynamic Active Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -268,7 +268,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       highValueActiveCountField = await createField(host.id, {
         name: 'High Value Active Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -318,7 +318,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       expect(servicesRecord.fields[highValueActiveCountField.id]).toEqual(0);
     });
 
-    it('should filter host records by reference lookup values', async () => {
+    it('should filter host records by conditional rollup values', async () => {
       const filtered = await getRecords(host.id, {
         fieldKeyType: FieldKeyType.Id,
         filter: {
@@ -494,7 +494,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       fieldDrivenCountField = await createField(host.id, {
         name: 'Field Driven Matches',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -526,7 +526,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       literalMixCountField = await createField(host.id, {
         name: 'Literal Mix Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -553,7 +553,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       quantityWindowSumField = await createField(host.id, {
         name: 'Quantity Window Sum',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: quantityId,
@@ -831,7 +831,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       tierWindowField = await createField(host.id, {
         name: 'Tier Window Matches',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: scoreId,
@@ -842,7 +842,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       tagAllCountField = await createField(host.id, {
         name: 'Tag All Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: scoreId,
@@ -862,7 +862,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       tagNoneCountField = await createField(host.id, {
         name: 'Tag None Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: scoreId,
@@ -882,7 +882,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       concatNameField = await createField(host.id, {
         name: 'Concatenated Names',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: nameId,
@@ -892,7 +892,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       uniqueTierField = await createField(host.id, {
         name: 'Unique Tier List',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: tierId,
@@ -902,7 +902,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       compactRatingField = await createField(host.id, {
         name: 'Compact Rating Values',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: ratingId,
@@ -912,7 +912,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       currencyScoreField = await createField(host.id, {
         name: 'Currency Score Total',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: scoreId,
@@ -927,7 +927,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       percentScoreField = await createField(host.id, {
         name: 'Percent Score Total',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: scoreId,
@@ -1031,14 +1031,14 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
     it('should persist numeric formatting options', async () => {
       const currencyFieldMeta = await getField(host.id, currencyScoreField.id);
-      expect((currencyFieldMeta.options as IReferenceLookupFieldOptions)?.formatting).toEqual({
+      expect((currencyFieldMeta.options as IConditionalRollupFieldOptions)?.formatting).toEqual({
         type: NumberFormattingType.Currency,
         precision: 1,
         symbol: '¥',
       });
 
       const percentFieldMeta = await getField(host.id, percentScoreField.id);
-      expect((percentFieldMeta.options as IReferenceLookupFieldOptions)?.formatting).toEqual({
+      expect((percentFieldMeta.options as IConditionalRollupFieldOptions)?.formatting).toEqual({
         type: NumberFormattingType.Percent,
         precision: 2,
       });
@@ -1083,7 +1083,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       lookupField = await createField(host.id, {
         name: 'Total Amount',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -1103,7 +1103,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       lookupField = await convertField(host.id, lookupField.id, {
         name: lookupField.name,
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -1129,7 +1129,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       lookupField = await convertField(host.id, lookupField.id, {
         name: 'Active Total Amount',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -1155,10 +1155,10 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       expect(erroredField.hasError).toBe(true);
     });
 
-    it('marks reference lookup error when aggregation becomes incompatible after foreign conversion', async () => {
+    it('marks conditional rollup error when aggregation becomes incompatible after foreign conversion', async () => {
       const standaloneLookupField = await createField(host.id, {
         name: 'Standalone Sum',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -1257,7 +1257,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       lookupField = await createField(host.id, {
         name: 'Active Event Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: occurredOnId,
@@ -1278,7 +1278,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       lookupField = await convertField(host.id, lookupField.id, {
         name: 'Latest Active Event',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: occurredOnId,
@@ -1300,7 +1300,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
     let host: ITableFullVo;
     let consumer: ITableFullVo;
     let foreignAmountFieldId: string;
-    let referenceLookupField: IFieldVo;
+    let conditionalRollupField: IFieldVo;
     let consumerLinkField: IFieldVo;
 
     beforeAll(async () => {
@@ -1321,9 +1321,9 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
         records: [{ fields: { Label: 'Totals' } }],
       });
 
-      referenceLookupField = await createField(host.id, {
+      conditionalRollupField = await createField(host.id, {
         name: 'Category Amount Total',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: foreignAmountFieldId,
@@ -1357,26 +1357,26 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
-    it('rejects creating a standard lookup targeting a reference lookup field', async () => {
+    it('rejects creating a standard lookup targeting a conditional rollup field', async () => {
       const hostRecord = await getRecord(host.id, host.records[0].id);
-      expect(hostRecord.fields[referenceLookupField.id]).toEqual(130);
+      expect(hostRecord.fields[conditionalRollupField.id]).toEqual(130);
 
       await expect(
         createField(consumer.id, {
           name: 'Lookup Category Total',
-          type: FieldType.ReferenceLookup,
+          type: FieldType.ConditionalRollup,
           isLookup: true,
           lookupOptions: {
             foreignTableId: host.id,
             linkFieldId: consumerLinkField.id,
-            lookupFieldId: referenceLookupField.id,
+            lookupFieldId: conditionalRollupField.id,
           } as ILookupOptionsRo,
         } as IFieldRo)
       ).rejects.toMatchObject({ status: 500 });
     });
   });
 
-  describe('reference lookup targeting derived fields', () => {
+  describe('conditional rollup targeting derived fields', () => {
     let suppliers: ITableFullVo;
     let products: ITableFullVo;
     let host: ITableFullVo;
@@ -1384,7 +1384,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
     let linkToSupplierField: IFieldVo;
     let supplierRatingLookup: IFieldVo;
     let supplierRatingRollup: IFieldVo;
-    let referenceLookupMax: IFieldVo;
+    let conditionalRollupMax: IFieldVo;
     let referenceRollupSum: IFieldVo;
     let referenceLinkCount: IFieldVo;
 
@@ -1464,9 +1464,9 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
         records: [{ fields: { Summary: 'Global' } }],
       });
 
-      referenceLookupMax = await createField(host.id, {
+      conditionalRollupMax = await createField(host.id, {
         name: 'Supplier Rating Max (Lookup)',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: products.id,
           lookupFieldId: supplierRatingLookup.id,
@@ -1476,7 +1476,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       referenceRollupSum = await createField(host.id, {
         name: 'Supplier Rating Total (Rollup)',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: products.id,
           lookupFieldId: supplierRatingRollup.id,
@@ -1486,7 +1486,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       referenceLinkCount = await createField(host.id, {
         name: 'Linked Supplier Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: products.id,
           lookupFieldId: linkToSupplierField.id,
@@ -1501,10 +1501,10 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       await permanentDeleteTable(baseId, suppliers.id);
     });
 
-    it('tracks dependencies when reference lookup targets derived fields', async () => {
+    it('tracks dependencies when conditional rollup targets derived fields', async () => {
       const initialHostFields = await getFields(host.id);
       const initialLookupMax = initialHostFields.find(
-        (f) => f.id === referenceLookupMax.id
+        (f) => f.id === conditionalRollupMax.id
       )! as IFieldVo;
       const initialRollupSum = initialHostFields.find(
         (f) => f.id === referenceRollupSum.id
@@ -1519,7 +1519,7 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
 
       await deleteField(products.id, supplierRatingLookup.id);
       const afterLookupDelete = await getFields(host.id);
-      expect(afterLookupDelete.find((f) => f.id === referenceLookupMax.id)?.hasError).toBe(true);
+      expect(afterLookupDelete.find((f) => f.id === conditionalRollupMax.id)?.hasError).toBe(true);
 
       await deleteField(products.id, supplierRatingRollup.id);
       const afterRollupDelete = await getFields(host.id);
@@ -1531,10 +1531,10 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
     });
   });
 
-  describe('reference lookup aggregating formula fields', () => {
+  describe('conditional rollup aggregating formula fields', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;
-    let referenceLookupField: IFieldVo;
+    let conditionalRollupField: IFieldVo;
     let baseFieldId: string;
     let taxFieldId: string;
     let totalFormulaFieldId: string;
@@ -1605,9 +1605,9 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
         ],
       } as any;
 
-      referenceLookupField = await createField(host.id, {
+      conditionalRollupField = await createField(host.id, {
         name: 'Total Formula Sum',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: totalFormulaFieldId,
@@ -1627,16 +1627,16 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
       const hardwareRecord = records.records.find((record) => record.id === hardwareHostRecordId)!;
       const softwareRecord = records.records.find((record) => record.id === softwareHostRecordId)!;
 
-      expect(hardwareRecord.fields[referenceLookupField.id]).toEqual('110');
-      expect(softwareRecord.fields[referenceLookupField.id]).toEqual('55');
+      expect(hardwareRecord.fields[conditionalRollupField.id]).toEqual('110');
+      expect(softwareRecord.fields[conditionalRollupField.id]).toEqual('55');
 
       await updateRecordByApi(foreign.id, foreign.records[0].id, baseFieldId, 120);
 
       const updatedHardware = await getRecord(host.id, hardwareHostRecordId);
-      expect(updatedHardware.fields[referenceLookupField.id]).toEqual('130');
+      expect(updatedHardware.fields[conditionalRollupField.id]).toEqual('130');
 
       const updatedSoftware = await getRecord(host.id, softwareHostRecordId);
-      expect(updatedSoftware.fields[referenceLookupField.id]).toEqual('55');
+      expect(updatedSoftware.fields[conditionalRollupField.id]).toEqual('55');
     });
   });
 });

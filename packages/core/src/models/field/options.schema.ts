@@ -5,6 +5,7 @@ import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schem
 import { autoNumberFieldOptionsSchema } from './derivate/auto-number-option.schema';
 import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { conditionalRollupFieldOptionsSchema } from './derivate/conditional-rollup-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import { createdTimeFieldOptionsSchema } from './derivate/created-time-option.schema';
 import { dateFieldOptionsSchema } from './derivate/date-option.schema';
@@ -15,7 +16,6 @@ import { linkFieldOptionsSchema } from './derivate/link-option.schema';
 import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
 import { numberFieldOptionsSchema } from './derivate/number-option.schema';
 import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
-import { referenceLookupFieldOptionsSchema } from './derivate/reference-lookup-option.schema';
 import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
 import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
 import { userFieldOptionsSchema } from './derivate/user-option.schema';
@@ -58,8 +58,8 @@ export function safeParseOptions(fieldType: FieldType, value: unknown) {
       return lastModifiedByFieldOptionsSchema.safeParse(value);
     case FieldType.Rollup:
       return rollupFieldOptionsSchema.safeParse(value);
-    case FieldType.ReferenceLookup:
-      return referenceLookupFieldOptionsSchema.safeParse(value);
+    case FieldType.ConditionalRollup:
+      return conditionalRollupFieldOptionsSchema.safeParse(value);
     case FieldType.Button:
       return buttonFieldOptionsSchema.safeParse(value);
     default:

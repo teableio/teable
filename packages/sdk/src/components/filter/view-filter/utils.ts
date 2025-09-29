@@ -103,7 +103,7 @@ export const shouldFilterByDefaultValue = (
   const { type, cellValueType } = field;
   return (
     type === FieldType.Checkbox ||
-    ((type === FieldType.Formula || type === FieldType.ReferenceLookup) &&
+    ((type === FieldType.Formula || type === FieldType.ConditionalRollup) &&
       cellValueType === CellValueType.Boolean)
   );
 };

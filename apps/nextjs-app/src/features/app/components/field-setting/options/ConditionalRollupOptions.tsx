@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type {
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
   RollupFunction,
   IRollupFieldOptions,
 } from '@teable/core';
@@ -15,22 +15,22 @@ import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
 import { SelectTable } from './LinkOptions/SelectTable';
 import { RollupOptions } from './RollupOptions';
 
-interface IReferenceLookupOptionsProps {
+interface IConditionalRollupOptionsProps {
   fieldId?: string;
-  options?: Partial<IReferenceLookupFieldOptions>;
-  onChange?: (options: Partial<IReferenceLookupFieldOptions>) => void;
+  options?: Partial<IConditionalRollupFieldOptions>;
+  onChange?: (options: Partial<IConditionalRollupFieldOptions>) => void;
 }
 
-export const ReferenceLookupOptions = ({
+export const ConditionalRollupOptions = ({
   fieldId,
   options = {},
   onChange,
-}: IReferenceLookupOptionsProps) => {
+}: IConditionalRollupOptionsProps) => {
   const baseId = useBaseId();
   const sourceTableId = useTableId();
 
   const handlePartialChange = useCallback(
-    (partial: Partial<IReferenceLookupFieldOptions>) => {
+    (partial: Partial<IConditionalRollupFieldOptions>) => {
       onChange?.({ ...options, ...partial });
     },
     [onChange, options]
@@ -79,12 +79,12 @@ export const ReferenceLookupOptions = ({
   const foreignTableId = options.foreignTableId;
 
   return (
-    <div className="flex w-full flex-col gap-3" data-testid="reference-lookup-options">
+    <div className="flex w-full flex-col gap-3" data-testid="conditional-rollup-options">
       <SelectTable baseId={options.baseId} tableId={foreignTableId} onChange={handleTableChange} />
 
       {foreignTableId ? (
         <StandaloneViewProvider baseId={effectiveBaseId} tableId={foreignTableId}>
-          <ReferenceLookupForeignSection
+          <ConditionalRollupForeignSection
             fieldId={fieldId}
             options={options}
             onOptionsChange={handlePartialChange}
@@ -98,16 +98,16 @@ export const ReferenceLookupOptions = ({
   );
 };
 
-interface IReferenceLookupForeignSectionProps {
+interface IConditionalRollupForeignSectionProps {
   fieldId?: string;
-  options: Partial<IReferenceLookupFieldOptions>;
-  onOptionsChange: (options: Partial<IReferenceLookupFieldOptions>) => void;
+  options: Partial<IConditionalRollupFieldOptions>;
+  onOptionsChange: (options: Partial<IConditionalRollupFieldOptions>) => void;
   onLookupFieldChange: (field: IFieldInstance) => void;
   rollupOptions: Partial<IRollupFieldOptions>;
   sourceTableId?: string;
 }
 
-const ReferenceLookupForeignSection = (props: IReferenceLookupForeignSectionProps) => {
+const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSectionProps) => {
   const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions, sourceTableId } =
     props;
   const foreignFields = useFields({ withHidden: true, withDenied: true });

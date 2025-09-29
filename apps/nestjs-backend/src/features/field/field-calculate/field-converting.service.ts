@@ -49,7 +49,7 @@ import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-field.dto';
 import type { RatingFieldDto } from '../model/field-dto/rating-field.dto';
-import { ReferenceLookupFieldDto } from '../model/field-dto/reference-lookup-field.dto';
+import { ConditionalRollupFieldDto } from '../model/field-dto/conditional-rollup-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 import type { SingleSelectFieldDto } from '../model/field-dto/single-select-field.dto';
 import type { UserFieldDto } from '../model/field-dto/user-field.dto';
@@ -213,8 +213,8 @@ export class FieldConvertingService {
     return ops.filter(Boolean) as IOtOperation[];
   }
 
-  private updateReferenceLookupField(
-    field: ReferenceLookupFieldDto,
+  private updateConditionalRollupField(
+    field: ConditionalRollupFieldDto,
     fieldMap: IFieldMap
   ): IOtOperation[] {
     const ops: IOtOperation[] = [];
@@ -248,7 +248,7 @@ export class FieldConvertingService {
       ops.push(clearErrorOp);
     }
 
-    const { cellValueType, isMultipleCellValue } = ReferenceLookupFieldDto.getParsedValueType(
+    const { cellValueType, isMultipleCellValue } = ConditionalRollupFieldDto.getParsedValueType(
       field.options.expression,
       lookupField.cellValueType,
       true
@@ -328,8 +328,8 @@ export class FieldConvertingService {
         pushOpsMap(tableId, curField.id, this.updateFormulaField(curField, fieldMap));
       } else if (curField.type === FieldType.Rollup) {
         pushOpsMap(tableId, curField.id, this.updateRollupField(curField, fieldMap));
-      } else if (curField.type === FieldType.ReferenceLookup) {
-        pushOpsMap(tableId, curField.id, this.updateReferenceLookupField(curField, fieldMap));
+      } else if (curField.type === FieldType.ConditionalRollup) {
+        pushOpsMap(tableId, curField.id, this.updateConditionalRollupField(curField, fieldMap));
       }
       pushOpsMap(tableId, curField.id, this.updateDbFieldType(curField));
     }
@@ -1221,7 +1221,7 @@ export class FieldConvertingService {
       return (
         ((newField.type === FieldType.Rollup || newField.type === FieldType.Formula) &&
           newField.options.expression !== (oldField as FormulaFieldDto).options.expression) ||
-        newField.type === FieldType.ReferenceLookup
+        newField.type === FieldType.ConditionalRollup
       );
     }
 

@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import type { IFilter, ILinkFieldOptions, IReferenceLookupFieldOptions } from '@teable/core';
+import type { IFilter, ILinkFieldOptions, IConditionalRollupFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -31,7 +31,7 @@ export interface IFieldChangeSource {
   fieldIds: string[];
 }
 
-interface IReferenceLookupAdjacencyEdge {
+interface IConditionalRollupAdjacencyEdge {
   tableId: string;
   fieldId: string;
   foreignTableId: string;
@@ -187,7 +187,7 @@ export class ComputedDependencyCollectorService {
           .orWhere('f.type', FieldType.Link)
           .orWhere('f.type', FieldType.Formula)
           .orWhere('f.type', FieldType.Rollup)
-          .orWhere('f.type', FieldType.ReferenceLookup);
+          .orWhere('f.type', FieldType.ConditionalRollup);
       });
     if (excludeFieldIds?.length) {
       depBuilder.whereNotIn('dep_graph.to_field_id', excludeFieldIds);
@@ -269,8 +269,8 @@ export class ComputedDependencyCollectorService {
     return rows.map((r) => r.id).filter(Boolean);
   }
 
-  private async getReferenceLookupImpactedRecordIds(
-    edge: IReferenceLookupAdjacencyEdge,
+  private async getConditionalRollupImpactedRecordIds(
+    edge: IConditionalRollupAdjacencyEdge,
     foreignRecordIds: string[]
   ): Promise<string[] | typeof ALL_RECORDS> {
     if (!foreignRecordIds.length) {
@@ -283,17 +283,17 @@ export class ComputedDependencyCollectorService {
   }
 
   /**
-   * Build adjacency maps for link and reference lookup relationships among the supplied tables.
+   * Build adjacency maps for link and conditional rollup relationships among the supplied tables.
    */
   private async getAdjacencyMaps(tables: string[]): Promise<{
     link: Record<string, Set<string>>;
-    referenceLookup: Record<string, IReferenceLookupAdjacencyEdge[]>;
+    conditionalRollup: Record<string, IConditionalRollupAdjacencyEdge[]>;
   }> {
     const linkAdj: Record<string, Set<string>> = {};
-    const referenceLookupAdj: Record<string, IReferenceLookupAdjacencyEdge[]> = {};
+    const conditionalRollupAdj: Record<string, IConditionalRollupAdjacencyEdge[]> = {};
 
     if (!tables.length) {
-      return { link: linkAdj, referenceLookup: referenceLookupAdj };
+      return { link: linkAdj, conditionalRollup: conditionalRollupAdj };
     }
 
     const linkFields = await this.prismaService.txClient().field.findMany({
@@ -318,17 +318,17 @@ export class ComputedDependencyCollectorService {
     const referenceFields = await this.prismaService.txClient().field.findMany({
       where: {
         tableId: { in: tables },
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         deletedTime: null,
       },
       select: { id: true, tableId: true, options: true },
     });
 
     for (const rf of referenceFields) {
-      const opts = this.parseOptionsLoose<IReferenceLookupFieldOptions>(rf.options);
+      const opts = this.parseOptionsLoose<IConditionalRollupFieldOptions>(rf.options);
       const foreignTableId = opts?.foreignTableId;
       if (!foreignTableId) continue;
-      (referenceLookupAdj[foreignTableId] ||= []).push({
+      (conditionalRollupAdj[foreignTableId] ||= []).push({
         tableId: rf.tableId,
         fieldId: rf.id,
         foreignTableId,
@@ -336,7 +336,7 @@ export class ComputedDependencyCollectorService {
       });
     }
 
-    return { link: linkAdj, referenceLookup: referenceLookupAdj };
+    return { link: linkAdj, conditionalRollup: conditionalRollupAdj };
   }
 
   /**
@@ -390,7 +390,7 @@ export class ComputedDependencyCollectorService {
 
     // 3) Build adjacency among impacted + origin tables and propagate via links
     const tablesForAdjacency = Array.from(new Set([...Object.keys(impact), ...originTableIds]));
-    const { link: linkAdj, referenceLookup: referenceAdj } =
+    const { link: linkAdj, conditionalRollup: referenceAdj } =
       await this.getAdjacencyMaps(tablesForAdjacency);
 
     const queue: string[] = [...originTableIds];
@@ -438,7 +438,7 @@ export class ComputedDependencyCollectorService {
       for (const edge of referenceEdges) {
         const targetGroup = impact[edge.tableId];
         if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
-        const matched = await this.getReferenceLookupImpactedRecordIds(edge, currentIds);
+        const matched = await this.getConditionalRollupImpactedRecordIds(edge, currentIds);
         if (matched === ALL_RECORDS) {
           targetGroup.preferAutoNumberPaging = true;
           recordSets[edge.tableId] = ALL_RECORDS;
@@ -599,7 +599,7 @@ export class ComputedDependencyCollectorService {
     }
     // Build adjacency restricted to impacted tables + origin
     const impactedTables = Array.from(new Set([...Object.keys(impact), tableId]));
-    const { link: linkAdj, referenceLookup: referenceAdj } =
+    const { link: linkAdj, conditionalRollup: referenceAdj } =
       await this.getAdjacencyMaps(impactedTables);
 
     // BFS-like propagation over table graph
@@ -649,7 +649,7 @@ export class ComputedDependencyCollectorService {
       for (const edge of referenceEdges) {
         const targetGroup = impact[edge.tableId];
         if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
-        const matched = await this.getReferenceLookupImpactedRecordIds(edge, currentIds);
+        const matched = await this.getConditionalRollupImpactedRecordIds(edge, currentIds);
         if (matched === ALL_RECORDS) {
           targetGroup.preferAutoNumberPaging = true;
           recordSets[edge.tableId] = ALL_RECORDS;

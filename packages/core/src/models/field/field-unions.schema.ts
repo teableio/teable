@@ -10,6 +10,7 @@ import {
 } from './derivate/auto-number-option.schema';
 import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { conditionalRollupFieldOptionsSchema } from './derivate/conditional-rollup-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import {
   createdTimeFieldOptionsRoSchema,
@@ -35,7 +36,6 @@ import {
   numberFieldOptionsSchema,
 } from './derivate/number-option.schema';
 import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
-import { referenceLookupFieldOptionsSchema } from './derivate/reference-lookup-option.schema';
 import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
 import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
 import { userFieldOptionsSchema } from './derivate/user-option.schema';
@@ -45,7 +45,7 @@ import { unionShowAsSchema } from './show-as';
 // Union of all field options that don't have read-only variants
 export const unionFieldOptions = z.union([
   rollupFieldOptionsSchema.strict(),
-  referenceLookupFieldOptionsSchema.strict(),
+  conditionalRollupFieldOptionsSchema.strict(),
   formulaFieldOptionsSchema.strict(),
   linkFieldOptionsSchema.strict(),
   dateFieldOptionsSchema.strict(),
@@ -68,7 +68,7 @@ export const commonOptionsSchema = z.object({
 // Union of all field options for VO (view object) - includes all options
 export const unionFieldOptionsVoSchema = z.union([
   unionFieldOptions,
-  referenceLookupFieldOptionsSchema.strict(),
+  conditionalRollupFieldOptionsSchema.strict(),
   linkFieldOptionsSchema.strict(),
   selectFieldOptionsSchema.strict(),
   numberFieldOptionsSchema.strict(),
@@ -80,14 +80,14 @@ export const unionFieldOptionsVoSchema = z.union([
 // Union of all field options for RO (request object) - includes read-only variants
 export const unionFieldOptionsRoSchema = z.union([
   unionFieldOptions,
-  referenceLookupFieldOptionsSchema.strict(),
+  conditionalRollupFieldOptionsSchema.strict(),
   linkFieldOptionsRoSchema.strict(),
   selectFieldOptionsRoSchema.strict(),
   numberFieldOptionsRoSchema.strict(),
   autoNumberFieldOptionsRoSchema.strict(),
   createdTimeFieldOptionsRoSchema.strict(),
   lastModifiedTimeFieldOptionsRoSchema.strict(),
-  commonOptionsSchema.strict(), // For lookup fields
+  commonOptionsSchema.strict(),
 ]);
 
 // Union field meta schema

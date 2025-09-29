@@ -35,8 +35,8 @@ export const useFieldTypeSubtitle = () => {
           return t('table:field.subTitle.formula');
         case FieldType.Rollup:
           return t('table:field.subTitle.rollup');
-        case FieldType.ReferenceLookup:
-          return t('table:field.subTitle.referenceLookup');
+        case FieldType.ConditionalRollup:
+          return t('table:field.subTitle.conditionalRollup');
         case FieldType.CreatedTime:
           return t('table:field.subTitle.createdTime');
         case FieldType.LastModifiedTime:

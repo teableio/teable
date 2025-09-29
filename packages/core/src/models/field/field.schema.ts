@@ -10,6 +10,7 @@ import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schem
 import { autoNumberFieldOptionsRoSchema } from './derivate/auto-number-option.schema';
 import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { conditionalRollupFieldOptionsSchema } from './derivate/conditional-rollup-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import { createdTimeFieldOptionsRoSchema } from './derivate/created-time-option.schema';
 import { dateFieldOptionsSchema } from './derivate/date-option.schema';
@@ -20,7 +21,6 @@ import { linkFieldOptionsRoSchema } from './derivate/link-option.schema';
 import { longTextFieldOptionsSchema } from './derivate/long-text-option.schema';
 import { numberFieldOptionsRoSchema } from './derivate/number-option.schema';
 import { ratingFieldOptionsSchema } from './derivate/rating-option.schema';
-import { referenceLookupFieldOptionsSchema } from './derivate/reference-lookup-option.schema';
 import { rollupFieldOptionsSchema } from './derivate/rollup-option.schema';
 import { singlelineTextFieldOptionsSchema } from './derivate/single-line-text-option.schema';
 import { userFieldOptionsSchema } from './derivate/user-option.schema';
@@ -177,7 +177,7 @@ export const FIELD_VO_PROPERTIES = [
 
 /**
  * make sure FIELD_VO_PROPERTIES is exactly equals IFieldVo
- * if here shows lint error, you should update FIELD_VO_PROPERTIES
+ * if here shows lint error, you should update FIELD_VO_PROPERTI ES
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _validator2: IEnsureKeysMatchInterface<
@@ -211,8 +211,8 @@ export const getOptionsSchema = (type: FieldType) => {
       return formulaFieldOptionsSchema;
     case FieldType.Rollup:
       return rollupFieldOptionsSchema;
-    case FieldType.ReferenceLookup:
-      return referenceLookupFieldOptionsSchema;
+    case FieldType.ConditionalRollup:
+      return conditionalRollupFieldOptionsSchema;
     case FieldType.Link:
       return linkFieldOptionsRoSchema;
     case FieldType.CreatedTime:

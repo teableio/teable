@@ -182,7 +182,7 @@
         "isLessEqual": "≤"
       }
     },
-    "referenceLookup": {
+    "conditionalRollup": {
       "switchToField": "Use field value",
       "switchToValue": "Use manual value"
     },
@@ -297,7 +297,7 @@
       "attachment": "Attachment",
       "checkbox": "Checkbox",
       "rollup": "Rollup",
-      "referenceLookup": "Reference lookup",
+      "conditionalRollup": "Conditional rollup",
       "user": "User",
       "rating": "Rating",
       "autoNumber": "Auto number",

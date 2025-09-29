@@ -22,7 +22,7 @@ import { LongTextFieldDto } from './field-dto/long-text-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
 import { RatingFieldDto } from './field-dto/rating-field.dto';
-import { ReferenceLookupFieldDto } from './field-dto/reference-lookup-field.dto';
+import { ConditionalRollupFieldDto } from './field-dto/conditional-rollup-field.dto';
 import { RollupFieldDto } from './field-dto/rollup-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
@@ -82,8 +82,8 @@ export function createFieldInstanceByVo(field: IFieldVo) {
       return plainToInstance(CheckboxFieldDto, field);
     case FieldType.Rollup:
       return plainToInstance(RollupFieldDto, field);
-    case FieldType.ReferenceLookup:
-      return plainToInstance(ReferenceLookupFieldDto, field);
+    case FieldType.ConditionalRollup:
+      return plainToInstance(ConditionalRollupFieldDto, field);
     case FieldType.Rating:
       return plainToInstance(RatingFieldDto, field);
     case FieldType.AutoNumber:

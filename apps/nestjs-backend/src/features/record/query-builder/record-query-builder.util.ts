@@ -65,7 +65,7 @@ export function getOrderedFieldsByProjection(
     if (
       field.isLookup ||
       field.type === FieldType.Rollup ||
-      field.type === FieldType.ReferenceLookup
+      field.type === FieldType.ConditionalRollup
     ) {
       const link = field.getLinkField(table);
       if (link && !wanted.has(link.id)) {

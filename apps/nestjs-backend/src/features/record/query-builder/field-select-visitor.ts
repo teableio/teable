@@ -15,7 +15,7 @@ import type {
   NumberFieldCore,
   RatingFieldCore,
   RollupFieldCore,
-  ReferenceLookupFieldCore,
+  ConditionalRollupFieldCore,
   SingleLineTextFieldCore,
   SingleSelectFieldCore,
   UserFieldCore,
@@ -334,7 +334,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     return rawExpression;
   }
 
-  visitReferenceLookupField(field: ReferenceLookupFieldCore): IFieldSelectName {
+  visitConditionalRollupField(field: ConditionalRollupFieldCore): IFieldSelectName {
     if (this.shouldSelectRaw()) {
       const columnSelector = this.getColumnSelector(field);
       this.state.setSelection(field.id, columnSelector);

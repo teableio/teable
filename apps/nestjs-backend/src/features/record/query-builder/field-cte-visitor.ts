@@ -25,7 +25,7 @@ import {
   type NumberFieldCore,
   type RatingFieldCore,
   type RollupFieldCore,
-  type ReferenceLookupFieldCore,
+  type ConditionalRollupFieldCore,
   type SingleLineTextFieldCore,
   type SingleSelectFieldCore,
   type UserFieldCore,
@@ -893,7 +893,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     return this.buildAggregateRollup(field, targetLookupField, expression);
   }
 
-  visitReferenceLookupField(field: ReferenceLookupFieldCore): IFieldSelectName {
+  visitConditionalRollupField(field: ConditionalRollupFieldCore): IFieldSelectName {
     const cteName = this.fieldCteMap.get(field.id);
     if (!cteName) {
       return this.dialect.typedNullFor(field.dbFieldType);
@@ -1010,7 +1010,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
   }
 
-  private buildReferenceLookupAggregation(
+  private buildConditionalRollupAggregation(
     rollupExpression: string,
     fieldExpression: string,
     targetField: FieldCore,
@@ -1023,7 +1023,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     });
   }
 
-  private generateReferenceLookupFieldCte(field: ReferenceLookupFieldCore): void {
+  private generateConditionalRollupFieldCte(field: ConditionalRollupFieldCore): void {
     if (field.hasError) return;
     if (this.state.getFieldCteMap().has(field.id)) return;
 
@@ -1076,7 +1076,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       ? formattedExpression
       : rawExpression;
 
-    const aggregateExpression = this.buildReferenceLookupAggregation(
+    const aggregateExpression = this.buildConditionalRollupAggregation(
       expression,
       aggregationInputExpression,
       targetField,
@@ -1719,8 +1719,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return this.generateLinkFieldCte(field);
   }
   visitRollupField(_field: RollupFieldCore): void {}
-  visitReferenceLookupField(field: ReferenceLookupFieldCore): void {
-    this.generateReferenceLookupFieldCte(field);
+  visitConditionalRollupField(field: ConditionalRollupFieldCore): void {
+    this.generateConditionalRollupFieldCte(field);
   }
   visitSingleSelectField(_field: SingleSelectFieldCore): void {}
   visitMultipleSelectField(_field: MultipleSelectFieldCore): void {}

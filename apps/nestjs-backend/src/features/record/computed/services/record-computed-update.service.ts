@@ -38,7 +38,7 @@ export class RecordComputedUpdateService {
         // NULL for errored lookups/rollups ensuring safe assignment.
         const hasError = (f as unknown as { hasError?: boolean }).hasError;
         const isLookupStyle = (f as unknown as { isLookup?: boolean }).isLookup === true;
-        const isRollup = f.type === FieldType.Rollup || f.type === FieldType.ReferenceLookup;
+        const isRollup = f.type === FieldType.Rollup || f.type === FieldType.ConditionalRollup;
         if (hasError && !isLookupStyle && !isRollup) return false;
         // Persist lookup-of-link as well (computed link columns should be stored).
         // We rely on query builder to ensure subquery column types match target columns (e.g., jsonb).

@@ -17,7 +17,7 @@ import type {
   IOtOperation,
   IColumnMeta,
   ILinkFieldOptions,
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
   IGetFieldsQuery,
   IFilter,
 } from '@teable/core';
@@ -130,8 +130,8 @@ export class FieldOpenApiService {
     return true;
   }
 
-  private async validateReferenceLookupAggregation(field: IFieldInstance) {
-    const options = field.options as IReferenceLookupFieldOptions | undefined;
+  private async validateConditionalRollupAggregation(field: IFieldInstance) {
+    const options = field.options as IConditionalRollupFieldOptions | undefined;
     const expression = options?.expression;
     const lookupFieldId = options?.lookupFieldId;
     const foreignTableId = options?.foreignTableId;
@@ -198,11 +198,11 @@ export class FieldOpenApiService {
 
     let hasError = false;
 
-    if (field.lookupOptions && field.type !== FieldType.ReferenceLookup) {
+    if (field.lookupOptions && field.type !== FieldType.ConditionalRollup) {
       const isValid = await this.validateLookupField(field);
       hasError = !isValid;
-    } else if (field.type === FieldType.ReferenceLookup) {
-      const isValid = await this.validateReferenceLookupAggregation(field);
+    } else if (field.type === FieldType.ConditionalRollup) {
+      const isValid = await this.validateConditionalRollupAggregation(field);
       hasError = !isValid;
     }
 
@@ -649,9 +649,9 @@ export class FieldOpenApiService {
         });
         for (const raw of dependentFieldRaws) {
           const instance = createFieldInstanceByRaw(raw);
-          const requiresValidation = instance.type === FieldType.ReferenceLookup;
+          const requiresValidation = instance.type === FieldType.ConditionalRollup;
           const isValid = requiresValidation
-            ? await this.validateReferenceLookupAggregation(instance)
+            ? await this.validateConditionalRollupAggregation(instance)
             : true;
           await this.markError(raw.tableId, instance, !isValid);
         }
@@ -697,8 +697,8 @@ export class FieldOpenApiService {
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 
-    if (field.type === FieldType.ReferenceLookup) {
-      const { filter, foreignTableId } = field.options as IReferenceLookupFieldOptions;
+    if (field.type === FieldType.ConditionalRollup) {
+      const { filter, foreignTableId } = field.options as IConditionalRollupFieldOptions;
 
       if (!foreignTableId || !filter) {
         return [];
@@ -794,7 +794,7 @@ export class FieldOpenApiService {
     if (
       fieldInstance.isLookup ||
       fieldInstance.type === FieldType.Rollup ||
-      fieldInstance.type === FieldType.ReferenceLookup
+      fieldInstance.type === FieldType.ConditionalRollup
     ) {
       newFieldInstance.lookupOptions = {
         ...pick(fieldInstance.lookupOptions, [

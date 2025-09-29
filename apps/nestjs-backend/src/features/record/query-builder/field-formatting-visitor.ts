@@ -12,7 +12,7 @@ import {
   type AttachmentFieldCore,
   type LinkFieldCore,
   type RollupFieldCore,
-  type ReferenceLookupFieldCore,
+  type ConditionalRollupFieldCore,
   type FormulaFieldCore,
   CellValueType,
   type CreatedTimeFieldCore,
@@ -136,7 +136,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
     return this.fieldExpression;
   }
 
-  visitReferenceLookupField(_field: ReferenceLookupFieldCore): string {
+  visitConditionalRollupField(_field: ConditionalRollupFieldCore): string {
     return this.fieldExpression;
   }
 

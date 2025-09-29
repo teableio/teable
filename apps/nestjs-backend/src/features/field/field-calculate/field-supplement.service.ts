@@ -9,7 +9,7 @@ import type {
   ILinkFieldMeta,
   ILookupOptionsRo,
   ILookupOptionsVo,
-  IReferenceLookupFieldOptions,
+  IConditionalRollupFieldOptions,
   IRollupFieldOptions,
   ISelectFieldOptionsRo,
   IConvertFieldRo,
@@ -67,9 +67,9 @@ import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
+import { ConditionalRollupFieldDto } from '../model/field-dto/conditional-rollup-field.dto';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
-import { ReferenceLookupFieldDto } from '../model/field-dto/reference-lookup-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
 @Injectable()
@@ -785,20 +785,20 @@ export class FieldSupplementService {
     };
   }
 
-  private async prepareReferenceLookupField(field: IFieldRo) {
-    const options = field.options as IReferenceLookupFieldOptions | undefined;
+  private async prepareConditionalRollupField(field: IFieldRo) {
+    const options = field.options as IConditionalRollupFieldOptions | undefined;
     if (!options) {
-      throw new BadRequestException('reference lookup field options is required');
+      throw new BadRequestException('Conditional rollup field options are required');
     }
 
     const { foreignTableId, lookupFieldId } = options;
 
     if (!foreignTableId) {
-      throw new BadRequestException('reference lookup field foreignTableId is required');
+      throw new BadRequestException('Conditional rollup field foreignTableId is required');
     }
 
     if (!lookupFieldId) {
-      throw new BadRequestException('reference lookup field lookupFieldId is required');
+      throw new BadRequestException('Conditional rollup field lookupFieldId is required');
     }
 
     const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
@@ -806,12 +806,12 @@ export class FieldSupplementService {
     });
 
     if (!lookupFieldRaw) {
-      throw new BadRequestException(`Reference lookup field ${lookupFieldId} is not exist`);
+      throw new BadRequestException(`Conditional rollup field ${lookupFieldId} is not exist`);
     }
 
     if (lookupFieldRaw.tableId !== foreignTableId) {
       throw new BadRequestException(
-        `Reference lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+        `Conditional rollup field ${lookupFieldId} does not belong to table ${foreignTableId}`
       );
     }
 
@@ -819,18 +819,18 @@ export class FieldSupplementService {
 
     const expression =
       options.expression ??
-      ReferenceLookupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
+      ConditionalRollupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
 
     let valueType;
     try {
-      valueType = ReferenceLookupFieldDto.getParsedValueType(
+      valueType = ConditionalRollupFieldDto.getParsedValueType(
         expression,
         lookupField.cellValueType,
         lookupField.isMultipleCellValue ?? false
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`Parse reference lookup error: ${e.message}`);
+      throw new BadRequestException(`Conditional rollup parse error: ${e.message}`);
     }
 
     const { cellValueType, isMultipleCellValue } = valueType;
@@ -1167,8 +1167,8 @@ export class FieldSupplementService {
         return this.prepareLinkField(tableId, fieldRo);
       case FieldType.Rollup:
         return this.prepareRollupField(fieldRo, batchFieldVos);
-      case FieldType.ReferenceLookup:
-        return this.prepareReferenceLookupField(fieldRo);
+      case FieldType.ConditionalRollup:
+        return this.prepareConditionalRollupField(fieldRo);
       case FieldType.Formula:
         return this.prepareFormulaField(fieldRo, batchFieldVos);
       case FieldType.SingleLineText:
@@ -1232,8 +1232,8 @@ export class FieldSupplementService {
       }
       case FieldType.Rollup:
         return this.prepareUpdateRollupField(fieldRo, oldFieldVo);
-      case FieldType.ReferenceLookup:
-        return this.prepareReferenceLookupField(fieldRo);
+      case FieldType.ConditionalRollup:
+        return this.prepareConditionalRollupField(fieldRo);
       case FieldType.Formula:
         return this.prepareUpdateFormulaField(fieldRo, oldFieldVo);
       case FieldType.SingleLineText:
@@ -1599,7 +1599,7 @@ export class FieldSupplementService {
     switch (field.type) {
       case FieldType.Formula:
       case FieldType.Rollup:
-      case FieldType.ReferenceLookup:
+      case FieldType.ConditionalRollup:
       case FieldType.Link:
         return this.createComputedFieldReference(field);
       default:
@@ -1653,7 +1653,7 @@ export class FieldSupplementService {
   }
 
   getFieldReferenceIds(field: IFieldInstance): string[] {
-    if (field.lookupOptions && field.type !== FieldType.ReferenceLookup) {
+    if (field.lookupOptions && field.type !== FieldType.ConditionalRollup) {
       // Lookup/Rollup fields depend on BOTH the target lookup field and the link field.
       // This ensures when a link cell changes, the dependent lookup/rollup fields are
       // included in the computed impact and persisted via updateFromSelect.
@@ -1667,9 +1667,9 @@ export class FieldSupplementService {
       return refs;
     }
 
-    if (field.type === FieldType.ReferenceLookup) {
+    if (field.type === FieldType.ConditionalRollup) {
       const refs: string[] = [];
-      const options = field.options as IReferenceLookupFieldOptions | undefined;
+      const options = field.options as IConditionalRollupFieldOptions | undefined;
       const lookupFieldId = options?.lookupFieldId;
       if (lookupFieldId) {
         refs.push(lookupFieldId);
@@ -1704,8 +1704,8 @@ export class FieldSupplementService {
       });
     }
 
-    if (field.type === FieldType.ReferenceLookup) {
-      const options = field.options as IReferenceLookupFieldOptions | undefined;
+    if (field.type === FieldType.ConditionalRollup) {
+      const options = field.options as IConditionalRollupFieldOptions | undefined;
       const filterFieldIds = extractFieldIdsFromFilter(options?.filter, true);
       filterFieldIds.forEach((fieldId) => {
         fieldIds.push(fieldId);

@@ -1,7 +1,7 @@
-import { ReferenceLookupFieldCore } from '@teable/core';
+import { ConditionalRollupFieldCore } from '@teable/core';
 import type { FieldBase } from '../field-base';
 
-export class ReferenceLookupFieldDto extends ReferenceLookupFieldCore implements FieldBase {
+export class ConditionalRollupFieldDto extends ConditionalRollupFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

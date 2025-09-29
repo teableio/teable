@@ -3060,7 +3060,7 @@ describe('OpenAPI link (e2e)', () => {
         },
       });
 
-      // Formula: reference lookup to produce number[]; its formatting should be applied when used as Link title
+      // Formula: conditional rollup to produce number[]; its formatting should be applied when used as Link title
       const formula = await createField(table1.id, {
         name: 'Amounts Formula',
         type: FieldType.Formula,

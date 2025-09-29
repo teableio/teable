@@ -1,5 +1,5 @@
 import type { IFieldMap } from '../../formula';
-import type { ReferenceLookupFieldCore } from '../field';
+import type { ConditionalRollupFieldCore } from '../field';
 import { FieldType } from '../field/constant';
 import type { FormulaFieldCore } from '../field/derivate/formula.field';
 import type { LinkFieldCore } from '../field/derivate/link.field';
@@ -87,7 +87,7 @@ export class TableFields {
         deps = [...deps, f.lookupOptions.linkFieldId];
       }
 
-      if (f.type === FieldType.ReferenceLookup && f.lookupOptions?.linkFieldId) {
+      if (f.type === FieldType.ConditionalRollup && f.lookupOptions?.linkFieldId) {
         deps = [...deps, f.lookupOptions.linkFieldId];
       }
 
@@ -314,8 +314,8 @@ export class TableFields {
     const foreignTableIds = new Set<string>();
 
     for (const field of this) {
-      if (field.type === FieldType.ReferenceLookup) {
-        const foreignTableId = (field as ReferenceLookupFieldCore).getForeignTableId?.();
+      if (field.type === FieldType.ConditionalRollup) {
+        const foreignTableId = (field as ConditionalRollupFieldCore).getForeignTableId?.();
         if (foreignTableId) {
           foreignTableIds.add(foreignTableId);
         }

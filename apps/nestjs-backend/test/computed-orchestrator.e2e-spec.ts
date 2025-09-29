@@ -811,8 +811,8 @@ describe('Computed Orchestrator (e2e)', () => {
     });
   });
 
-  // ===== Reference Lookup =====
-  describe('Reference Lookup', () => {
+  // ===== Conditional Rollup =====
+  describe('Conditional Rollup', () => {
     it('reacts to foreign filter and lookup column changes', async () => {
       const foreign = await createTable(baseId, {
         name: 'RefLookup_Foreign',
@@ -846,11 +846,11 @@ describe('Computed Orchestrator (e2e)', () => {
         ],
       } as any;
 
-      const { result: referenceLookupField, events: creationEvents } =
+      const { result: conditionalRollupField, events: creationEvents } =
         await runAndCaptureRecordUpdates(async () => {
           return await createField(host.id, {
             name: 'Ref Count',
-            type: FieldType.ReferenceLookup,
+            type: FieldType.ConditionalRollup,
             options: {
               foreignTableId: foreign.id,
               lookupFieldId: titleId,
@@ -869,11 +869,11 @@ describe('Computed Orchestrator (e2e)', () => {
         string,
         { oldValue: unknown; newValue: unknown }
       >;
-      expect(createChanges[referenceLookupField.id]).toBeDefined();
-      expect(createChanges[referenceLookupField.id].newValue).toEqual(1);
+      expect(createChanges[conditionalRollupField.id]).toBeDefined();
+      expect(createChanges[conditionalRollupField.id].newValue).toEqual(1);
 
       const referenceEdges = await prisma.reference.findMany({
-        where: { toFieldId: referenceLookupField.id },
+        where: { toFieldId: conditionalRollupField.id },
         select: { fromFieldId: true },
       });
       expect(referenceEdges.map((edge) => edge.fromFieldId)).toEqual(
@@ -882,7 +882,7 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find(
-        (f) => f.id === referenceLookupField.id
+        (f) => f.id === conditionalRollupField.id
       )! as any;
       expect(
         parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
@@ -909,8 +909,8 @@ describe('Computed Orchestrator (e2e)', () => {
         string,
         { oldValue: unknown; newValue: unknown }
       >;
-      expect(filterChanges[referenceLookupField.id]).toBeDefined();
-      expect(filterChanges[referenceLookupField.id].newValue).toEqual(2);
+      expect(filterChanges[conditionalRollupField.id]).toBeDefined();
+      expect(filterChanges[conditionalRollupField.id].newValue).toEqual(2);
 
       const { events: lookupColumnEvents } = await runAndCaptureRecordUpdates(async () => {
         await updateRecordByApi(foreign.id, foreign.records[0].id, titleId, null);
@@ -928,8 +928,8 @@ describe('Computed Orchestrator (e2e)', () => {
         string,
         { oldValue: unknown; newValue: unknown }
       >;
-      expect(lookupChanges[referenceLookupField.id]).toBeDefined();
-      expect(lookupChanges[referenceLookupField.id].newValue).toEqual(1);
+      expect(lookupChanges[conditionalRollupField.id]).toBeDefined();
+      expect(lookupChanges[conditionalRollupField.id].newValue).toEqual(1);
 
       expect(
         parseMaybe((await getRow(hostDbTable, host.records[0].id))[hostFieldVo.dbFieldName])
@@ -954,11 +954,11 @@ describe('Computed Orchestrator (e2e)', () => {
       });
       const hostRecordId = host.records[0].id;
 
-      const { result: referenceLookupField, events: creationEvents } =
+      const { result: conditionalRollupField, events: creationEvents } =
         await runAndCaptureRecordUpdates(async () => {
           return await createField(host.id, {
             name: 'Total Amount',
-            type: FieldType.ReferenceLookup,
+            type: FieldType.ConditionalRollup,
             options: {
               foreignTableId: foreign.id,
               lookupFieldId: amountId,
@@ -969,11 +969,11 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
       expect(createChange).toBeDefined();
-      expect(createChange?.[referenceLookupField.id]?.newValue).toEqual(10);
+      expect(createChange?.[conditionalRollupField.id]?.newValue).toEqual(10);
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find(
-        (f) => f.id === referenceLookupField.id
+        (f) => f.id === conditionalRollupField.id
       )! as any;
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
@@ -984,7 +984,7 @@ describe('Computed Orchestrator (e2e)', () => {
       });
       const updateChange = findRecordChangeMap(updateEvents, host.id, hostRecordId);
       expect(updateChange).toBeDefined();
-      expect(updateChange?.[referenceLookupField.id]?.newValue).toEqual(11);
+      expect(updateChange?.[conditionalRollupField.id]?.newValue).toEqual(11);
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
       ).toEqual(11);
@@ -1021,7 +1021,7 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const amountLookup = await createField(host.id, {
         name: 'Total Amount',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
@@ -1042,7 +1042,7 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const statusLookup = await createField(host.id, {
         name: 'Active Status Count',
-        type: FieldType.ReferenceLookup,
+        type: FieldType.ConditionalRollup,
         options: {
           foreignTableId: foreign.id,
           lookupFieldId: statusId,
@@ -1103,11 +1103,11 @@ describe('Computed Orchestrator (e2e)', () => {
         ],
       } as any;
 
-      const { result: referenceLookupField, events: creationEvents } =
+      const { result: conditionalRollupField, events: creationEvents } =
         await runAndCaptureRecordUpdates(async () => {
           return await createField(host.id, {
             name: 'Status Matches',
-            type: FieldType.ReferenceLookup,
+            type: FieldType.ConditionalRollup,
             options: {
               foreignTableId: foreign.id,
               lookupFieldId: titleId,
@@ -1119,11 +1119,11 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
       expect(createChange).toBeDefined();
-      expect(createChange?.[referenceLookupField.id]?.newValue).toEqual(1);
+      expect(createChange?.[conditionalRollupField.id]?.newValue).toEqual(1);
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find(
-        (f) => f.id === referenceLookupField.id
+        (f) => f.id === conditionalRollupField.id
       )! as any;
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
@@ -1134,7 +1134,7 @@ describe('Computed Orchestrator (e2e)', () => {
       });
       const hostFieldChange = findRecordChangeMap(hostFieldChangeEvents, host.id, hostRecordId);
       expect(hostFieldChange).toBeDefined();
-      const hostFieldLookupChange = assertChange(hostFieldChange?.[referenceLookupField.id]);
+      const hostFieldLookupChange = assertChange(hostFieldChange?.[conditionalRollupField.id]);
       expectNoOldValue(hostFieldLookupChange);
       expect(hostFieldLookupChange.newValue).toEqual(0);
 
@@ -1151,7 +1151,7 @@ describe('Computed Orchestrator (e2e)', () => {
         hostRecordId
       );
       expect(foreignDrivenChange).toBeDefined();
-      const foreignLookupChange = assertChange(foreignDrivenChange?.[referenceLookupField.id]);
+      const foreignLookupChange = assertChange(foreignDrivenChange?.[conditionalRollupField.id]);
       expectNoOldValue(foreignLookupChange);
       expect(foreignLookupChange.newValue).toEqual(1);
 
@@ -1163,7 +1163,7 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
-    it('recomputes existing records when reference lookup filter expands its matches', async () => {
+    it('recomputes existing records when conditional rollup filter expands its matches', async () => {
       const foreign = await createTable(baseId, {
         name: 'RefLookup_FilterExpansion_Foreign',
         fields: [
@@ -1208,11 +1208,11 @@ describe('Computed Orchestrator (e2e)', () => {
         ],
       } as any;
 
-      const { result: referenceLookupField, events: createEvents } =
+      const { result: conditionalRollupField, events: createEvents } =
         await runAndCaptureRecordUpdates(async () => {
           return await createField(host.id, {
             name: 'Matching Rows',
-            type: FieldType.ReferenceLookup,
+            type: FieldType.ConditionalRollup,
             options: {
               foreignTableId: foreign.id,
               lookupFieldId: titleId,
@@ -1224,16 +1224,16 @@ describe('Computed Orchestrator (e2e)', () => {
 
       const hostDbTable = await getDbTableName(host.id);
       const hostFieldVo = (await getFields(host.id)).find(
-        (f) => f.id === referenceLookupField.id
+        (f) => f.id === conditionalRollupField.id
       )! as any;
 
       const createChangeA = findRecordChangeMap(createEvents, host.id, hostRecordAId);
       expect(createChangeA).toBeDefined();
-      expect(createChangeA?.[referenceLookupField.id]?.newValue).toEqual(1);
+      expect(createChangeA?.[conditionalRollupField.id]?.newValue).toEqual(1);
 
       const createChangeB = findRecordChangeMap(createEvents, host.id, hostRecordBId);
       expect(createChangeB).toBeDefined();
-      expect(createChangeB?.[referenceLookupField.id]?.newValue).toEqual(0);
+      expect(createChangeB?.[conditionalRollupField.id]?.newValue).toEqual(0);
 
       expect(
         parseMaybe((await getRow(hostDbTable, hostRecordAId))[hostFieldVo.dbFieldName])
@@ -1254,10 +1254,10 @@ describe('Computed Orchestrator (e2e)', () => {
       } as any;
 
       const { events: filterChangeEvents } = await runAndCaptureRecordUpdates(async () => {
-        await convertField(host.id, referenceLookupField.id, {
-          id: referenceLookupField.id,
-          name: referenceLookupField.name,
-          type: FieldType.ReferenceLookup,
+        await convertField(host.id, conditionalRollupField.id, {
+          id: conditionalRollupField.id,
+          name: conditionalRollupField.name,
+          type: FieldType.ConditionalRollup,
           options: {
             foreignTableId: foreign.id,
             lookupFieldId: titleId,
@@ -1268,15 +1268,15 @@ describe('Computed Orchestrator (e2e)', () => {
       });
 
       const updatedChangeA = findRecordChangeMap(filterChangeEvents, host.id, hostRecordAId);
-      if (updatedChangeA?.[referenceLookupField.id]) {
-        const change = assertChange(updatedChangeA[referenceLookupField.id]);
+      if (updatedChangeA?.[conditionalRollupField.id]) {
+        const change = assertChange(updatedChangeA[conditionalRollupField.id]);
         expectNoOldValue(change);
         expect(change.newValue).toEqual(1);
       }
 
       const updatedChangeB = findRecordChangeMap(filterChangeEvents, host.id, hostRecordBId);
       expect(updatedChangeB).toBeDefined();
-      const updatedLookupChangeB = assertChange(updatedChangeB?.[referenceLookupField.id]);
+      const updatedLookupChangeB = assertChange(updatedChangeB?.[conditionalRollupField.id]);
       expectNoOldValue(updatedLookupChangeB);
       expect(updatedLookupChangeB.newValue).toEqual(1);
 

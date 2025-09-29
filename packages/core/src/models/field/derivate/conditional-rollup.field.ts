@@ -5,14 +5,14 @@ import { getDefaultFormatting, getFormattingSchema } from '../formatting';
 import { getShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 import {
-  referenceLookupFieldOptionsSchema,
-  type IReferenceLookupFieldOptions,
-} from './reference-lookup-option.schema';
+  conditionalRollupFieldOptionsSchema,
+  type IConditionalRollupFieldOptions,
+} from './conditional-rollup-option.schema';
 import { ROLLUP_FUNCTIONS } from './rollup-option.schema';
 import { RollupFieldCore } from './rollup.field';
 
-export class ReferenceLookupFieldCore extends FormulaAbstractCore {
-  static defaultOptions(cellValueType: CellValueType): Partial<IReferenceLookupFieldOptions> {
+export class ConditionalRollupFieldCore extends FormulaAbstractCore {
+  static defaultOptions(cellValueType: CellValueType): Partial<IConditionalRollupFieldOptions> {
     return {
       expression: ROLLUP_FUNCTIONS[0],
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as string,
@@ -28,9 +28,9 @@ export class ReferenceLookupFieldCore extends FormulaAbstractCore {
     return RollupFieldCore.getParsedValueType(expression, cellValueType, isMultipleCellValue);
   }
 
-  type!: FieldType.ReferenceLookup;
+  type!: FieldType.ConditionalRollup;
 
-  declare options: IReferenceLookupFieldOptions;
+  declare options: IConditionalRollupFieldOptions;
 
   meta?: undefined;
 
@@ -39,7 +39,7 @@ export class ReferenceLookupFieldCore extends FormulaAbstractCore {
   }
 
   validateOptions() {
-    return referenceLookupFieldOptionsSchema
+    return conditionalRollupFieldOptionsSchema
       .extend({
         formatting: getFormattingSchema(this.cellValueType),
         showAs: getShowAsSchema(this.cellValueType, this.isMultipleCellValue),
@@ -52,6 +52,6 @@ export class ReferenceLookupFieldCore extends FormulaAbstractCore {
   }
 
   accept<T>(visitor: IFieldVisitor<T>): T {
-    return visitor.visitReferenceLookupField(this);
+    return visitor.visitConditionalRollupField(this);
   }
 }

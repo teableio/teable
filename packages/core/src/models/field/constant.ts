@@ -12,7 +12,7 @@ export enum FieldType {
   Rating = 'rating',
   Formula = 'formula',
   Rollup = 'rollup',
-  ReferenceLookup = 'referenceLookup',
+  ConditionalRollup = 'conditionalRollup',
   Link = 'link',
   CreatedTime = 'createdTime',
   LastModifiedTime = 'lastModifiedTime',
