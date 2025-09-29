@@ -172,7 +172,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
           return this.castAgg(`COALESCE(SUM(${fieldExpression}), 0)`);
         }
         // Non-numeric target: avoid SUM() casting errors
-        return this.castAgg('0');
+        return this.castAgg('SUM(0)');
       case 'count':
         return this.castAgg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'countall': {
@@ -187,14 +187,24 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'counta':
         return this.castAgg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'max': {
+        const isDateFieldType =
+          targetField?.type === FieldType.Date ||
+          targetField?.type === FieldType.CreatedTime ||
+          targetField?.type === FieldType.LastModifiedTime;
         const isDateTimeTarget =
+          isDateFieldType ||
           targetField?.cellValueType === CellValueType.DateTime ||
           targetField?.dbFieldType === DbFieldType.DateTime;
         const aggregate = `MAX(${fieldExpression})`;
         return isDateTimeTarget ? aggregate : this.castAgg(aggregate);
       }
       case 'min': {
+        const isDateFieldType =
+          targetField?.type === FieldType.Date ||
+          targetField?.type === FieldType.CreatedTime ||
+          targetField?.type === FieldType.LastModifiedTime;
         const isDateTimeTarget =
+          isDateFieldType ||
           targetField?.cellValueType === CellValueType.DateTime ||
           targetField?.dbFieldType === DbFieldType.DateTime;
         const aggregate = `MIN(${fieldExpression})`;

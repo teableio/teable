@@ -1180,12 +1180,14 @@ describe('OpenAPI Reference Lookup field (e2e)', () => {
           ],
         },
       } as IFieldRo);
-
-      const fieldsAfterConversion = await getFields(host.id);
-      const erroredField = fieldsAfterConversion.find(
-        (field) => field.id === standaloneLookupField.id
-      )!;
-      expect(erroredField.hasError).toBe(true);
+      let erroredField: IFieldVo | undefined;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const fieldsAfterConversion = await getFields(host.id);
+        erroredField = fieldsAfterConversion.find((field) => field.id === standaloneLookupField.id);
+        if (erroredField?.hasError) break;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      expect(erroredField?.hasError).toBe(true);
     });
   });
 

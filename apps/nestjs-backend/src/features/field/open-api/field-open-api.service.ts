@@ -633,6 +633,35 @@ export class FieldOpenApiService {
       supplementChange,
     });
 
+    const dependentRefs = await this.prismaService.reference.findMany({
+      where: { fromFieldId: fieldId },
+      select: { toFieldId: true },
+    });
+    const dependentFieldIds = Array.from(
+      new Set([...(references ?? []), ...dependentRefs.map((ref) => ref.toFieldId)])
+    );
+
+    if (dependentFieldIds.length) {
+      try {
+        await this.restoreReference(dependentFieldIds);
+        const dependentFieldRaws = await this.prismaService.field.findMany({
+          where: { id: { in: dependentFieldIds }, deletedTime: null },
+        });
+        for (const raw of dependentFieldRaws) {
+          const instance = createFieldInstanceByRaw(raw);
+          const requiresValidation = instance.type === FieldType.ReferenceLookup;
+          const isValid = requiresValidation
+            ? await this.validateReferenceLookupAggregation(instance)
+            : true;
+          await this.markError(raw.tableId, instance, !isValid);
+        }
+      } catch (e) {
+        this.logger.warn(
+          `convertField: restoreReference/checkError failed for ${fieldId}: ${String(e)}`
+        );
+      }
+    }
+
     const oldFieldVo = instanceToPlain(oldField, { excludePrefixes: ['_'] }) as IFieldVo;
     const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
 
