@@ -107,7 +107,8 @@
       "alreadyOpen": "此记录已被打开",
       "goToForeignTable": "跳转至关联表",
       "foreignTableIdRequired": "关联表不能为空",
-      "linkFieldIdRequired": "关联字段不能为空"
+      "linkFieldIdRequired": "关联字段不能为空",
+      "selectTooManyRecords": "选择的记录不应超过 {{maxCount}}"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",

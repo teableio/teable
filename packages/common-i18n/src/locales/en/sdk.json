@@ -93,7 +93,8 @@
       "alreadyOpen": "This record is already open.",
       "goToForeignTable": "Go to foreign table",
       "foreignTableIdRequired": "Foreign table is required",
-      "linkFieldIdRequired": "Link field is required"
+      "linkFieldIdRequired": "Link field is required",
+      "selectTooManyRecords": "The selected records should not exceed {{maxCount}}"
     },
     "user": {
       "searchPlaceholder": "Find users by name",
