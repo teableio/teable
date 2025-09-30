@@ -81,6 +81,29 @@
     "user": {
       "searchPlaceholder": "名前でユーザーを検索する",
       "notify": "選択されたらユーザーに通知する"
+    },
+    "select": {
+      "addOption": "オプション '{{option}}' を追加",
+      "choicesNameRequired": "選択肢名は空にできません"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "ルックアップフィールドは必須です",
+      "lookupOptionsNotAllowed": "isLookup属性がtrueまたはフィールドタイプがrollupの場合、ルックアップオプションは許可されません。",
+      "lookupOptionsRequired": "isLookup属性がtrueまたはフィールドタイプがrollupの場合、ルックアップオプションが必要です。",
+      "refineOptionsError": "ルックアップオプションの解析エラー {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "式は必須です"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "モデルは必須です",
+      "typeNotSupported": "サポートされていないAIタイプ",
+      "sourceFieldIdRequired": "ソースフィールドは必須です",
+      "targetLanguageRequired": "対象言語は必須です",
+      "promptRequired": "プロンプトは必須です"
+    },
+    "error": {
+      "refineOptionsError": "フィールドオプションの解析エラー {{message}}"
     }
   },
   "filter": {

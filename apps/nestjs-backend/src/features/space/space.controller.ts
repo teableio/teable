@@ -255,27 +255,6 @@ export class SpaceController {
     return this.spaceService.getIntegrationList(spaceId);
   }
 
-  @Public()
-  @Get(':spaceId/public/ai-setting')
-  async getAIPublicSetting(
-    @Param('spaceId') spaceId: string
-  ): Promise<IAIIntegrationAISetting | null> {
-    const integration = await this.spaceService.getIntegrationList(spaceId);
-    const aiIntegration = integration.find(
-      (integration) => integration.type === IntegrationType.AI
-    );
-
-    if (!aiIntegration) {
-      return null;
-    }
-
-    return {
-      enable: aiIntegration.enable,
-      llmProviders: aiIntegration.config.llmProviders.map((provider) => omit(provider, 'apiKey')),
-      chatModel: aiIntegration.config.chatModel,
-    };
-  }
-
   @Permissions('space|update')
   @Post(':spaceId/integration')
   async createIntegration(
@@ -294,7 +273,7 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateIntegrationRoSchema))
     updateIntegrationRo: IUpdateIntegrationRo
   ) {
-    return this.spaceService.updateIntegration(integrationId, updateIntegrationRo);
+    return this.spaceService.updateIntegration(integrationId, updateIntegrationRo, spaceId);
   }
 
   @Permissions('space|update')
@@ -303,7 +282,7 @@ export class SpaceController {
     @Param('spaceId') spaceId: string,
     @Param('integrationId') integrationId: string
   ) {
-    return this.spaceService.deleteIntegration(integrationId);
+    return this.spaceService.deleteIntegration(integrationId, spaceId);
   }
 
   @Permissions('space|update')

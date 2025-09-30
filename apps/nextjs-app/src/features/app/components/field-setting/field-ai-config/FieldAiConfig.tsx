@@ -18,6 +18,7 @@ import { useTranslation } from 'next-i18next';
 import React, { Fragment, useState } from 'react';
 import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai-config/AiModelSelect';
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 import { UpgradeWrapper } from '../../billing/UpgradeWrapper';
@@ -169,7 +170,10 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
             {type && (
               <Fragment>
                 <div className="flex flex-col gap-y-2">
-                  <span>{t('table:field.aiConfig.label.model')}</span>
+                  <span>
+                    {t('table:field.aiConfig.label.model')}
+                    <RequireCom />
+                  </span>
                   <AIModelSelect
                     value={aiConfig?.modelKey || ''}
                     onValueChange={(newValue) => {

@@ -1,4 +1,5 @@
 import { ThemeProvider } from '@teable/next-themes';
+import { ConfirmModalProvider } from '@teable/ui-lib';
 import { Toaster as SoonerToaster } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Toaster } from '@teable/ui-lib/shadcn/ui/toaster';
 import { useRouter } from 'next/router';
@@ -23,9 +24,11 @@ export const AppProviders: FC<Props & { env: IServerEnv }> = (props) => {
       forcedTheme={theme}
     >
       <EnvContext.Provider value={env}>
-        {children}
-        <Toaster />
-        <SoonerToaster />
+        <ConfirmModalProvider>
+          {children}
+          <Toaster />
+          <SoonerToaster />
+        </ConfirmModalProvider>
       </EnvContext.Provider>
     </ThemeProvider>
   );

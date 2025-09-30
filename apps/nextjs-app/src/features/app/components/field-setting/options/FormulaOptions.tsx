@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { isEmpty, isEqual, keyBy } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { useAI } from '@/features/app/hooks/useAI';
 import { TimeZoneFormatting } from '../formatting/TimeZoneFormatting';
 import { UnionFormatting } from '../formatting/UnionFormatting';
@@ -111,6 +112,7 @@ export const FormulaOptionsInner = (props: {
       <div className="space-y-2">
         <span className="neutral-content text-sm font-medium">
           {t('field.default.formula.formula')}
+          <RequireCom />
         </span>
         <Dialog open={visible} onOpenChange={setVisible}>
           <DialogTrigger asChild>

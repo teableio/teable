@@ -95,7 +95,29 @@
       "searchPlaceholder": "Encuentra usuarios por nombre",
       "notify": "Notifique a los usuarios una vez que sean seleccionados"
     },
-    "select": {}
+    "select": {
+      "addOption": "Agregar una opción '{{option}}'",
+      "choicesNameRequired": "El nombre de la opción no puede estar vacío"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "El campo de búsqueda es obligatorio",
+      "lookupOptionsNotAllowed": "Las opciones de búsqueda no están permitidas cuando el atributo isLookup es verdadero o el tipo de campo es rollup.",
+      "lookupOptionsRequired": "Las opciones de búsqueda son obligatorias cuando el atributo isLookup es verdadero o el tipo de campo es rollup.",
+      "refineOptionsError": "Error al analizar las opciones de búsqueda {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "La expresión es obligatoria"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "El modelo es obligatorio",
+      "typeNotSupported": "Tipo de AI no compatible",
+      "sourceFieldIdRequired": "El campo de origen es obligatorio",
+      "targetLanguageRequired": "El idioma de destino es obligatorio",
+      "promptRequired": "El prompt es obligatorio"
+    },
+    "error": {
+      "refineOptionsError": "Error al analizar las opciones del campo {{message}}"
+    }
   },
   "filter": {
     "label": "Filtro",

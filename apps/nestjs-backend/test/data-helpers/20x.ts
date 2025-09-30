@@ -135,7 +135,9 @@ export const x_20 = {
   // actual number of items: 23
   records: [
     {
-      fields: {},
+      fields: {
+        [textField.name]: '',
+      },
     },
     {
       fields: {

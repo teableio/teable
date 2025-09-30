@@ -97,7 +97,27 @@
       "notify": "Notifica agli utenti una volta selezionati"
     },
     "select": {
-      "addOption": "Aggiungi un'opzione '{{option}}'"
+      "addOption": "Aggiungi un'opzione '{{option}}'",
+      "choicesNameRequired": "Il nome della scelta non può essere vuoto"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Il campo di ricerca è obbligatorio",
+      "lookupOptionsNotAllowed": "Le opzioni di ricerca non sono consentite quando l'attributo isLookup è vero o il tipo di campo è rollup.",
+      "lookupOptionsRequired": "Le opzioni di ricerca sono richieste quando l'attributo isLookup è vero o il tipo di campo è rollup.",
+      "refineOptionsError": "Errore nell'analisi delle opzioni di ricerca {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "L'espressione è obbligatoria"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Il modello è obbligatorio",
+      "typeNotSupported": "Tipo di AI non supportato",
+      "sourceFieldIdRequired": "Il campo sorgente è obbligatorio",
+      "targetLanguageRequired": "La lingua di destinazione è obbligatoria",
+      "promptRequired": "Il prompt è obbligatorio"
+    },
+    "error": {
+      "refineOptionsError": "Errore nell'analisi delle opzioni del campo {{message}}"
     }
   },
   "filter": {

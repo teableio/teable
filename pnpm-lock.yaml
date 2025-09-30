@@ -186,6 +186,9 @@ importers:
       '@prisma/instrumentation':
         specifier: 6.2.1
         version: 6.2.1(@opentelemetry/api@1.9.0)
+      '@smithy/node-http-handler':
+        specifier: ^3.1.1
+        version: 3.3.3
       '@teable/common-i18n':
         specifier: workspace:^
         version: link:../../packages/common-i18n
@@ -1100,6 +1103,9 @@ importers:
       zod:
         specifier: 3.25.76
         version: 3.25.76
+      zod-validation-error:
+        specifier: 3.0.3
+        version: 3.0.3(zod@3.25.76)
     devDependencies:
       '@size-limit/file':
         specifier: 11.1.2
@@ -8382,7 +8388,6 @@ packages:
 
   '@univerjs/sheets-thread-comment-base@0.3.0':
     resolution: {integrity: sha512-JNAMb52Nqf6KY5Usa3tTqilM0lz76xXEFnkDCOqt6Zv7rbLOpgKw1j9MriEov9lCQVFSnmTmabTOdR7iOXzW6w==}
-    deprecated: Package no longer supported.
     peerDependencies:
       '@univerjs/core': 0.3.0
       '@univerjs/engine-formula': 0.3.0

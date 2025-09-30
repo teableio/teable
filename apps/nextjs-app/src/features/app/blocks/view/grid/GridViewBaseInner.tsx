@@ -392,6 +392,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [recordMap, columns, t]
   );
 
+  // const { confirm } = useConfirm();
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onContextMenu = (selection: CombinedSelection, position: IPosition) => {
     const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
@@ -417,6 +419,27 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           isMultipleSelected,
           deleteRecords: async () => {
+            // const [startRange, endRange] = selection.ranges;
+
+            // if (startRange && endRange) {
+            //   const [, startRow] = startRange;
+            //   const [, endRow] = endRange;
+            //   const deleteRows = endRow - startRow + 1;
+
+            //   if (deleteRows >= 10) {
+            //     const confirmed = await confirm({
+            //       title: t('table:table.actionTips.deleteRecordConfirmTitle'),
+            //       description: t('table:table.actionTips.deleteRecordConfirmDescription', {
+            //         recordCount: deleteRows,
+            //       }),
+            //       confirmText: t('table:table.actionTips.deleteRecord'),
+            //       cancelText: t('common:actions.cancel'),
+            //       confirmButtonVariant: 'destructive',
+            //     });
+            //     if (!confirmed) return;
+            //   }
+            // }
+
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
           },
@@ -681,11 +704,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     syncCopy(e, { getCopyData });
   };
 
-  const onPaste = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+  const onPaste = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
       return toast({ title: 'Unable to paste' });
     }
-    paste(e, selection, recordMap);
+    await paste(e, selection, recordMap);
   };
 
   const onPasteForPrefilling = (selection: CombinedSelection, e: React.ClipboardEvent) => {

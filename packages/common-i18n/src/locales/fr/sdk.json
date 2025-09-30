@@ -81,6 +81,29 @@
     "user": {
       "searchPlaceholder": "Trouver des utilisateurs par nom",
       "notify": "Notifier les utilisateurs une fois qu'ils sont sélectionnés"
+    },
+    "select": {
+      "addOption": "Ajouter une option '{{option}}'",
+      "choicesNameRequired": "Le nom du choix ne peut pas être vide"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Le champ de recherche est requis",
+      "lookupOptionsNotAllowed": "Les options de recherche ne sont pas autorisées lorsque l'attribut isLookup est vrai ou que le type de champ est rollup.",
+      "lookupOptionsRequired": "Les options de recherche sont requises lorsque l'attribut isLookup est vrai ou que le type de champ est rollup.",
+      "refineOptionsError": "Erreur lors de l'analyse des options de recherche {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "L'expression est requise"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Le modèle est requis",
+      "typeNotSupported": "Type d'AI non pris en charge",
+      "sourceFieldIdRequired": "Le champ source est requis",
+      "targetLanguageRequired": "La langue cible est requise",
+      "promptRequired": "L'invite est requise"
+    },
+    "error": {
+      "refineOptionsError": "Erreur lors de l'analyse des options de champ {{message}}"
     }
   },
   "filter": {

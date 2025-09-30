@@ -8,6 +8,7 @@ import { Button } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import { LookupFilterOptions } from './LookupFilterOptions';
 
@@ -86,6 +87,7 @@ export const LookupOptions = (props: {
           <div className="space-y-2">
             <span className="neutral-content text-sm font-medium">
               {t('table:field.editor.linkFieldToLookup')}
+              <RequireCom />
             </span>
             <Selector
               className="w-full"
@@ -113,6 +115,7 @@ export const LookupOptions = (props: {
                         tableName: table?.name,
                       }}
                     />
+                    <RequireCom />
                   </span>
                   <SelectFieldByTableId
                     selectedId={innerOptions.lookupFieldId}

@@ -93,7 +93,8 @@
         "generating": "生成中...",
         "generate": "生成",
         "apply": "应用"
-      }
+      },
+      "expressionRequired": "公式不能为空"
     },
     "link": {
       "placeholder": "选择要链接的记录",
@@ -104,14 +105,36 @@
       "selected": "已选择",
       "expandRecordError": "无权查看此记录",
       "alreadyOpen": "此记录已被打开",
-      "goToForeignTable": "跳转至关联表"
+      "goToForeignTable": "跳转至关联表",
+      "foreignTableIdRequired": "关联表不能为空",
+      "linkFieldIdRequired": "关联字段不能为空"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
       "notify": "通知被选择的用户"
     },
     "select": {
-      "addOption": "添加选项 '{{option}}'"
+      "addOption": "添加选项 '{{option}}'",
+      "choicesNameRequired": "选项名称不能为空"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "查找字段不能为空",
+      "lookupOptionsNotAllowed": "非从关联的表中查找或者汇总时，不能配置查找选项",
+      "lookupOptionsRequired": "从关联的表中查找或者汇总时，必须配置查找选项",
+      "refineOptionsError": "解析查找选项配置错误 {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "公式不能为空"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "模型不能为空",
+      "typeNotSupported": "不支持的 AI 类型",
+      "sourceFieldIdRequired": "来源字段不能为空",
+      "targetLanguageRequired": "目标语言不能为空",
+      "promptRequired": "提示词不能为空"
+    },
+    "error": {
+      "refineOptionsError": "解析字段配置错误 {{message}}"
     }
   },
   "filter": {

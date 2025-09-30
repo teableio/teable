@@ -62,6 +62,7 @@ export const useSelectionOperation = (props?: {
   const view = useView();
   const { searchQuery: search } = useSearch();
   const { personalViewCommonQuery } = usePersonalView();
+
   // Parameters for retrieving selected records in plugins
   useSyncSelectionStore({
     groupBy: view?.group,
@@ -77,7 +78,7 @@ export const useSelectionOperation = (props?: {
 
   const { mutateAsync: defaultCopyReq } = useMutation({
     mutationFn: async (copyRo: IRangesRo) => {
-      const { collapsedGroupIds: originalCollapsedGroupIds, ...rest } = copyRo;
+      const { collapsedGroupIds: _originalCollapsedGroupIds, ...rest } = copyRo;
       const params = {
         ...rest,
         ...personalViewCommonQuery,
@@ -133,7 +134,7 @@ export const useSelectionOperation = (props?: {
 
   const { mutateAsync: deleteReq } = useMutation({
     mutationFn: async (deleteRo: IRangesRo) => {
-      const { collapsedGroupIds: originalCollapsedGroupIds, ...rest } = deleteRo;
+      const { collapsedGroupIds: _originalCollapsedGroupIds, ...rest } = deleteRo;
       const params = {
         ...rest,
         ...personalViewCommonQuery,
@@ -212,6 +213,22 @@ export const useSelectionOperation = (props?: {
     [checkCopyAndPasteEnvironment, viewId, tableId, copyRequest, t]
   );
 
+  // const getPasteDescription = useCallback(
+  //   (cellCount: number, selectionRows: number, expandRowCount: number, expandColCount: number) => {
+  //     const isExpandRow = expandRowCount > 0;
+  //     const isExpandCol = expandColCount > 0;
+  //     const isExpand = isExpandRow || isExpandCol;
+  //     return isExpand
+  //       ? `${t('table:table.actionTips.expandCommonDescription')} ${isExpandRow ? t('table:table.actionTips.expandRowDescription', { count: expandRowCount }) : ''} ${isExpandRow && isExpandCol ? t('table:table.actionTips.conjunction') : ''} ${isExpandCol ? t('table:table.actionTips.expandColDescription', { count: expandColCount }) : ''}`
+  //       : `
+  //       ${t('table:table.actionTips.pasteConfirmDescription', {
+  //         cellCount: cellCount,
+  //         recordCount: selectionRows,
+  //       })}`;
+  //   },
+  //   [t]
+  // );
+
   const doPaste = useCallback(
     async (
       e: React.ClipboardEvent,
@@ -220,6 +237,48 @@ export const useSelectionOperation = (props?: {
       updateTemporaryData?: (records: ITemporaryPasteVo) => void
     ) => {
       if (!viewId || !tableId) return;
+
+      // const [startRange, endRange] = selection.ranges;
+      // const [startCol, startRow] = startRange;
+      // const [, endRow] = endRange;
+      // const selectionRows = endRow - startRow + 1;
+      // const cellCount = getEffectCellCount(selection, fields);
+      // const { cellValues } = getCellPasteInfo(e);
+
+      // const computedFieldIndexes = [] as number[];
+      // fields.forEach((field, index) => {
+      //   if (field.isComputed && index >= startCol) {
+      //     computedFieldIndexes.push(index);
+      //   }
+      // });
+
+      // const pasteRecordLength = cellValues?.length ?? 0;
+
+      // const { isExpand, expandRowCount, expandColCount } = getExpandInfo(
+      //   rowCount,
+      //   startRow,
+      //   startCol,
+      //   fields,
+      //   computedFieldIndexes,
+      //   cellValues
+      // );
+
+      // if (isExpand || pasteRecordLength >= 10) {
+      //   const description = getPasteDescription(
+      //     cellCount,
+      //     selectionRows,
+      //     expandRowCount,
+      //     expandColCount
+      //   );
+      //   const confirmed = await confirm({
+      //     title: t('table:table.actionTips.pasteConfirmTitle'),
+      //     description,
+      //     confirmText: t('table:table.actionTips.paste'),
+      //     cancelText: t('common:actions.cancel'),
+      //     confirmButtonVariant: 'destructive',
+      //   });
+      //   if (!confirmed) return;
+      // }
 
       const { files, types } = e.clipboardData;
       const toastId = toast.loading(t('table:table.actionTips.pasting'));
@@ -277,12 +336,41 @@ export const useSelectionOperation = (props?: {
         console.error('Paste error: ', error);
       }
     },
-    [baseId, viewId, tableId, fields, temporaryPasteReq, pasteReq, t]
+    [viewId, tableId, fields, t, baseId, temporaryPasteReq, pasteReq]
   );
 
   const doClear = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
+      // const calFieldsIndex = [] as number[];
+      // fields.forEach((field, index) => {
+      //   if (field.isComputed) {
+      //     calFieldsIndex.push(index);
+      //   }
+      // });
+      // const [startRange, endRange] = selection.ranges;
+
+      // if (startRange && endRange) {
+      //   const [, startRow] = startRange;
+      //   const [, endRow] = endRange;
+      //   const deleteRows = endRow - startRow + 1;
+
+      //   const cellCount = getEffectCellCount(selection, fields);
+
+      //   if (deleteRows >= 10 && cellCount) {
+      //     const confirmed = await confirm({
+      //       title: t('table:table.actionTips.clearConfirmTitle'),
+      //       description: t('table:table.actionTips.clearConfirmDescription', {
+      //         cellCount: cellCount,
+      //         rowCount: deleteRows,
+      //       }),
+      //       confirmText: t('table:table.actionTips.clear'),
+      //       cancelText: t('common:actions.cancel'),
+      //       confirmButtonVariant: 'destructive',
+      //     });
+      //     if (!confirmed) return;
+      //   }
+      // }
 
       const toastId = toast.loading(t('table:table.actionTips.clearing'), { id: clearToastId });
       const ranges = selection.serialize();
@@ -295,7 +383,7 @@ export const useSelectionOperation = (props?: {
 
       toast.success(t('table:table.actionTips.clearSuccessful'), { id: toastId });
     },
-    [tableId, viewId, t, clearReq]
+    [viewId, tableId, t, clearReq]
   );
 
   const doDelete = useCallback(

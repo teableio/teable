@@ -13,6 +13,7 @@ import { RollupField } from '@teable/sdk/model';
 import { isEmpty, isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { TimeZoneFormatting } from '../formatting/TimeZoneFormatting';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
@@ -220,6 +221,7 @@ export const RollupOptions = (props: {
         <div className="space-y-2">
           <span className="neutral-content text-sm font-medium">
             {t('field.default.rollup.rollup')}
+            <RequireCom />
           </span>
           <BaseSingleSelect
             modal

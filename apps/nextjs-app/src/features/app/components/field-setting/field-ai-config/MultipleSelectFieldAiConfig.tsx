@@ -11,6 +11,7 @@ import { Textarea } from '@teable/ui-lib/shadcn';
 import { TagIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IFieldEditorRo } from '../type';
 import { AttachmentSelect, FieldSelect, PromptEditorContainer } from './components';
@@ -91,13 +92,18 @@ export const MultipleSelectFieldAiConfig = (props: IMultipleSelectFieldAiConfigP
             onConfigChange('type', id);
           }}
           candidates={candidates}
+          searchTip={t('sdk:common.search.placeholder')}
+          emptyTip={t('sdk:common.search.empty')}
         />
       </div>
 
       {type && type !== FieldAIActionType.Customization && (
         <Fragment>
           <div className="flex flex-col gap-y-2">
-            <span>{t('table:field.aiConfig.label.sourceFieldForTag')}</span>
+            <span>
+              {t('table:field.aiConfig.label.sourceFieldForTag')}
+              <RequireCom />
+            </span>
             <FieldSelect
               excludedIds={id ? [id] : []}
               selectedId={(aiConfig as IMultipleSelectFieldTagAIConfig)?.sourceFieldId}
@@ -127,6 +133,7 @@ export const MultipleSelectFieldAiConfig = (props: IMultipleSelectFieldAiConfigP
               onChange={(value) => onConfigChange('prompt', value)}
               label={t('table:field.aiConfig.label.prompt')}
               placeholder={t('table:field.aiConfig.placeholder.prompt')}
+              required={true}
             />
           </div>
           <div className="flex flex-col gap-y-2">

@@ -20,4 +20,3 @@ export * from './integration-create';
 export * from './integration-update';
 export * from './integration-delete';
 export * from './test-llm-integration';
-export * from './get-public-ai-setting';

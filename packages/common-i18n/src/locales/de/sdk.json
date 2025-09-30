@@ -97,7 +97,27 @@
       "notify": "Benutzer benachrichtigen, sobald sie ausgewählt wurden"
     },
     "select": {
-      "addOption": "Option '{{option}}' hinzufügen"
+      "addOption": "Option '{{option}}' hinzufügen",
+      "choicesNameRequired": "Auswahlname darf nicht leer sein"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Lookup-Feld ist erforderlich",
+      "lookupOptionsNotAllowed": "Lookup-Optionen sind nicht erlaubt, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
+      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
+      "refineOptionsError": "Fehler beim Parsen der Lookup-Optionen {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "Ausdruck ist erforderlich"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Modell ist erforderlich",
+      "typeNotSupported": "Nicht unterstützter AI-Typ",
+      "sourceFieldIdRequired": "Quellfeld ist erforderlich",
+      "targetLanguageRequired": "Zielsprache ist erforderlich",
+      "promptRequired": "Eingabeaufforderung ist erforderlich"
+    },
+    "error": {
+      "refineOptionsError": "Fehler beim Parsen der Feldoptionen {{message}}"
     }
   },
   "filter": {

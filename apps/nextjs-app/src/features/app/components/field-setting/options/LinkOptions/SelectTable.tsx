@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { Selector } from '@/components/Selector';
+import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface ISelectTableProps {
@@ -59,8 +60,9 @@ export const SelectTable = ({ baseId, tableId, onChange }: ISelectTableProps) =>
       <AnchorContext.Provider value={{ baseId: selectedBaseId }}>
         <div className="flex w-full flex-col gap-2">
           <div className="neutral-content flex h-5 items-center justify-between text-sm font-medium">
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 ">
               {t('table:field.editor.linkTable')}
+              <RequireCom />
               {tableId && (
                 <Link href={`/base/${selectedBaseId}/${tableId}`} target="_blank">
                   <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />

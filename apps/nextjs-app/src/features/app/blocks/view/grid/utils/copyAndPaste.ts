@@ -130,3 +130,49 @@ export const textPasteHandler = async (
     header.result
   );
 };
+
+export const getCellPasteInfo = (e: React.ClipboardEvent) => {
+  const hasHtml = e.clipboardData.types.includes(ClipboardTypes.html);
+  const html = hasHtml ? e.clipboardData.getData(ClipboardTypes.html) : '';
+  const header = extractHtmlHeader(html);
+
+  return {
+    cellValues: hasHtml
+      ? isTeableHTML(html)
+        ? extractTableContent(html)
+        : parseNormalHtml(html)
+      : [],
+    header,
+  };
+};
+
+export const getExpandInfo = (
+  rowCount: number | null,
+  startRow: number,
+  startCol: number,
+  fields: Field[],
+  computedFieldIndexes: number[],
+  cellValues?: unknown[][]
+) => {
+  if (!rowCount || !cellValues) {
+    return {
+      isExpand: false,
+      expandRowCount: 0,
+      expandColCount: 0,
+    };
+  }
+
+  const pasteRecordLength = cellValues?.length ?? 0;
+  const pasteFieldsLength = cellValues?.[0]?.length ?? 0;
+  const additionRecordsLength = rowCount ? pasteRecordLength - (rowCount - startRow) : 0;
+  const additionFieldsLength =
+    pasteFieldsLength - (fields.length - startCol - computedFieldIndexes.length);
+
+  const isExpand = additionRecordsLength > 0 || additionFieldsLength > 0;
+
+  return {
+    isExpand,
+    expandRowCount: additionRecordsLength,
+    expandColCount: additionFieldsLength,
+  };
+};

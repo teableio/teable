@@ -97,7 +97,27 @@
       "notify": "Seçildiklerinde kullanıcıları bilgilendir"
     },
     "select": {
-      "addOption": "'{{option}}' seçeneğini ekle"
+      "addOption": "'{{option}}' seçeneğini ekle",
+      "choicesNameRequired": "Seçenek adı boş olamaz"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Arama alanı gereklidir",
+      "lookupOptionsNotAllowed": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri izin verilmez.",
+      "lookupOptionsRequired": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri gereklidir.",
+      "refineOptionsError": "Arama seçenekleri ayrıştırma hatası {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "İfade gereklidir"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Model gereklidir",
+      "typeNotSupported": "Desteklenmeyen AI türü",
+      "sourceFieldIdRequired": "Kaynak alan gereklidir",
+      "targetLanguageRequired": "Hedef dil gereklidir",
+      "promptRequired": "İstem gereklidir"
+    },
+    "error": {
+      "refineOptionsError": "Alan seçenekleri ayrıştırma hatası {{message}}"
     }
   },
   "filter": {

@@ -79,7 +79,8 @@
         "generating": "Generating...",
         "generate": "Generate",
         "apply": "Apply"
-      }
+      },
+      "expressionRequired": "Expression is required"
     },
     "link": {
       "placeholder": "Select records to link",
@@ -90,14 +91,36 @@
       "selected": "Selected",
       "expandRecordError": "No permission to view this record.",
       "alreadyOpen": "This record is already open.",
-      "goToForeignTable": "Go to foreign table"
+      "goToForeignTable": "Go to foreign table",
+      "foreignTableIdRequired": "Foreign table is required",
+      "linkFieldIdRequired": "Link field is required"
     },
     "user": {
       "searchPlaceholder": "Find users by name",
       "notify": "Notify users once they're selected"
     },
     "select": {
-      "addOption": "Add an option '{{option}}'"
+      "addOption": "Add an option '{{option}}'",
+      "choicesNameRequired": "Choice name is not empty"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Lookup field is required",
+      "lookupOptionsNotAllowed": "Lookup options are not allowed when isLookup attribute is true or field type is rollup.",
+      "lookupOptionsRequired": "Lookup options are required when isLookup attribute is true or field type is rollup.",
+      "refineOptionsError": "Parse lookup options error {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "Expression is required"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Model is required",
+      "typeNotSupported": "Unsupported AI type",
+      "sourceFieldIdRequired": "Source field is required",
+      "targetLanguageRequired": "Target language is required",
+      "promptRequired": "Prompt is required"
+    },
+    "error": {
+      "refineOptionsError": "Parse field options error {{message}}"
     }
   },
   "filter": {

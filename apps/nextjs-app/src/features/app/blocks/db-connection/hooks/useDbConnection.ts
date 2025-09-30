@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { getDbConnection } from '@teable/openapi';
-import { useBaseId } from '@teable/sdk/hooks';
+import { BillingProductLevel, getDbConnection } from '@teable/openapi';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 
 export const useDbConnection = () => {
   const baseId = useBaseId() as string;
+  const permissions = useBasePermission();
+  const hasPermission = permissions?.['base|db_connection'];
+  const isCloud = useIsCloud();
+  const usage = useBaseUsage();
+  const isUnavailable = isCloud && usage?.level !== BillingProductLevel.Enterprise;
 
   const { data, isLoading } = useQuery({
     queryKey: ['connection', baseId],
     queryFn: ({ queryKey }) => getDbConnection(queryKey[1]).then((data) => data.data),
+    enabled: hasPermission && !isUnavailable,
   });
 
   const dataArray = data?.dsn

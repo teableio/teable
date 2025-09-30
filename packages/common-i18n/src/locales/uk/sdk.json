@@ -97,7 +97,27 @@
       "notify": "Повідомити користувачів, коли їх буде вибрано"
     },
     "select": {
-      "addOption": "Додайте опцію '{{option}}'"
+      "addOption": "Додайте опцію '{{option}}'",
+      "choicesNameRequired": "Назва вибору не може бути порожньою"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Поле пошуку обов'язкове",
+      "lookupOptionsNotAllowed": "Опції пошуку не дозволені, коли атрибут isLookup істинний або тип поля rollup.",
+      "lookupOptionsRequired": "Опції пошуку обов'язкові, коли атрибут isLookup істинний або тип поля rollup.",
+      "refineOptionsError": "Помилка парсингу опцій пошуку {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "Вираз обов'язковий"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Модель обов'язкова",
+      "typeNotSupported": "Непідтримуваний тип AI",
+      "sourceFieldIdRequired": "Вихідне поле обов'язкове",
+      "targetLanguageRequired": "Цільова мова обов'язкова",
+      "promptRequired": "Запит обов'язковий"
+    },
+    "error": {
+      "refineOptionsError": "Помилка парсингу опцій поля {{message}}"
     }
   },
   "filter": {

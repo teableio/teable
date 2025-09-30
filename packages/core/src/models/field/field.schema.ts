@@ -34,6 +34,7 @@ import {
 
 import { unionFormattingSchema } from './formatting';
 import { unionShowAsSchema } from './show-as';
+import { validateFieldOptions } from './zod-error';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
   .pick({
@@ -304,47 +305,14 @@ const refineOptions = (
   },
   ctx: RefinementCtx
 ) => {
-  const { type, isLookup, lookupOptions, options } = data;
-  if (isLookup && !lookupOptions) {
+  const validateRes = validateFieldOptions(data);
+  validateRes.forEach((item) => {
     ctx.addIssue({
+      path: item.path,
       code: z.ZodIssueCode.custom,
-      message: 'lookupOptions is required when isLookup is true.',
+      message: item.message,
     });
-  }
-
-  if (!isLookup && lookupOptions && type !== FieldType.Rollup) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'lookupOptions is not allowed when isLookup is not true.',
-    });
-  }
-
-  if (!options) {
-    return;
-  }
-
-  if (isLookup) {
-    const result = commonOptionsSchema.safeParse(options);
-    if (!result.success) {
-      ctx.addIssue({
-        path: ['options'],
-        code: z.ZodIssueCode.custom,
-        message: `RefineOptionsInLookupError: ${result.error.message}`,
-      });
-    }
-    return;
-  }
-
-  const schema = getOptionsSchema(type);
-  const result = schema && schema.safeParse(options);
-
-  if (result && !result.success) {
-    ctx.addIssue({
-      path: ['options'],
-      code: z.ZodIssueCode.custom,
-      message: `RefineOptionsError: ${result.error.message}`,
-    });
-  }
+  });
 };
 
 const baseFieldRoSchema = fieldVoSchema

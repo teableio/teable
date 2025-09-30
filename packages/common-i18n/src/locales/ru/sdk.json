@@ -95,7 +95,27 @@
       "notify": "Уведомить пользователей, когда они будут выбраны"
     },
     "select": {
-      "addOption": "Добавить вариант '{{option}}'"
+      "addOption": "Добавить вариант '{{option}}'",
+      "choicesNameRequired": "Имя выбора не может быть пустым"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Поле поиска обязательно",
+      "lookupOptionsNotAllowed": "Опции поиска не разрешены, когда атрибут isLookup истинный или тип поля rollup.",
+      "lookupOptionsRequired": "Опции поиска обязательны, когда атрибут isLookup истинный или тип поля rollup.",
+      "refineOptionsError": "Ошибка парсинга опций поиска {{message}}"
+    },
+    "rollup": {
+      "expressionRequired": "Выражение обязательно"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Модель обязательна",
+      "typeNotSupported": "Неподдерживаемый тип AI",
+      "sourceFieldIdRequired": "Исходное поле обязательно",
+      "targetLanguageRequired": "Целевой язык обязателен",
+      "promptRequired": "Запрос обязателен"
+    },
+    "error": {
+      "refineOptionsError": "Ошибка парсинга опций поля {{message}}"
     }
   },
   "filter": {
