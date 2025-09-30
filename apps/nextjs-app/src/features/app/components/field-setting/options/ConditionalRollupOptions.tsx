@@ -8,12 +8,14 @@ import { CellValueType, getRollupFunctionsByCellValueType, ROLLUP_FUNCTIONS } fr
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useFields, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
-import { Trans, useTranslation } from 'next-i18next';
+import { Trans } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
 import { LookupFilterOptions } from '../lookup-options/LookupFilterOptions';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
 import { SelectTable } from './LinkOptions/SelectTable';
 import { RollupOptions } from './RollupOptions';
+
+const RAW_VALUE_EXPRESSION = 'concatenate({values})' as RollupFunction;
 
 interface IConditionalRollupOptionsProps {
   fieldId?: string;
@@ -51,12 +53,17 @@ export const ConditionalRollupOptions = ({
   const handleLookupField = useCallback(
     (lookupField: IFieldInstance) => {
       const cellValueType = lookupField?.cellValueType ?? CellValueType.String;
-      const allowedExpressions = getRollupFunctionsByCellValueType(cellValueType);
-      const fallbackExpression = allowedExpressions[0] ?? ROLLUP_FUNCTIONS[0];
+      const allowedExpressions = getRollupFunctionsByCellValueType(cellValueType).filter(
+        (expr) => expr !== RAW_VALUE_EXPRESSION
+      );
+      const fallbackExpression =
+        allowedExpressions[0] ??
+        ROLLUP_FUNCTIONS.find((expr) => expr !== RAW_VALUE_EXPRESSION) ??
+        ROLLUP_FUNCTIONS[0];
       const currentExpression = options.expression as RollupFunction | undefined;
-      const expressionToUse = allowedExpressions.includes(currentExpression as RollupFunction)
-        ? currentExpression!
-        : fallbackExpression;
+      const isCurrentAllowed =
+        currentExpression !== undefined && allowedExpressions.includes(currentExpression);
+      const expressionToUse = isCurrentAllowed ? currentExpression : fallbackExpression;
 
       handlePartialChange({
         lookupFieldId: lookupField.id,
@@ -111,7 +118,6 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
   const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions, sourceTableId } =
     props;
   const foreignFields = useFields({ withHidden: true, withDenied: true });
-  const { t } = useTranslation('table');
 
   const lookupField = useMemo(() => {
     if (!options.lookupFieldId) return undefined;
@@ -122,22 +128,10 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
   const isMultipleCellValue = lookupField?.isMultipleCellValue ?? false;
 
   const availableExpressions = useMemo(() => {
-    const expressions = getRollupFunctionsByCellValueType(cellValueType);
-    const rawValue = 'concatenate({values})' as RollupFunction;
-    if (!expressions.includes(rawValue)) {
-      return expressions;
-    }
-    return [rawValue, ...expressions.filter((expr) => expr !== rawValue)];
+    return getRollupFunctionsByCellValueType(cellValueType).filter(
+      (expr) => expr !== RAW_VALUE_EXPRESSION
+    );
   }, [cellValueType]);
-
-  const expressionLabelOverrides = useMemo(
-    () => ({
-      ['concatenate({values})' as RollupFunction]: {
-        label: t('field.default.rollup.func.rawValue', { defaultValue: '原值' }),
-      },
-    }),
-    [t]
-  );
 
   return (
     <div className="space-y-3">
@@ -165,7 +159,6 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
         cellValueType={cellValueType}
         isMultipleCellValue={isMultipleCellValue}
         availableExpressions={availableExpressions}
-        expressionLabelOverrides={expressionLabelOverrides}
         onChange={(partial) => onOptionsChange(partial)}
       />
     </div>
