@@ -78,7 +78,7 @@ import {
   useRecordOperations,
   useButtonClickStatus,
 } from '@teable/sdk/hooks';
-import { ConfirmDialog, useToast } from '@teable/ui-lib';
+import { ConfirmDialog, useConfirm, useToast } from '@teable/ui-lib';
 import { toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
@@ -102,6 +102,7 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
+import { getEffectRows } from './utils';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo;
@@ -392,7 +393,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     [recordMap, columns, t]
   );
 
-  // const { confirm } = useConfirm();
+  const { confirm } = useConfirm();
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onContextMenu = (selection: CombinedSelection, position: IPosition) => {
@@ -419,26 +420,20 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           isMultipleSelected,
           deleteRecords: async () => {
-            // const [startRange, endRange] = selection.ranges;
+            const deleteRows = getEffectRows(selection);
 
-            // if (startRange && endRange) {
-            //   const [, startRow] = startRange;
-            //   const [, endRow] = endRange;
-            //   const deleteRows = endRow - startRow + 1;
-
-            //   if (deleteRows >= 10) {
-            //     const confirmed = await confirm({
-            //       title: t('table:table.actionTips.deleteRecordConfirmTitle'),
-            //       description: t('table:table.actionTips.deleteRecordConfirmDescription', {
-            //         recordCount: deleteRows,
-            //       }),
-            //       confirmText: t('table:table.actionTips.deleteRecord'),
-            //       cancelText: t('common:actions.cancel'),
-            //       confirmButtonVariant: 'destructive',
-            //     });
-            //     if (!confirmed) return;
-            //   }
-            // }
+            if (deleteRows >= 10) {
+              const confirmed = await confirm({
+                title: t('table:table.actionTips.deleteRecordConfirmTitle'),
+                description: t('table:table.actionTips.deleteRecordConfirmDescription', {
+                  recordCount: deleteRows,
+                }),
+                confirmText: t('table:table.actionTips.deleteRecord'),
+                cancelText: t('common:actions.cancel'),
+                confirmButtonVariant: 'destructive',
+              });
+              if (!confirmed) return;
+            }
 
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);

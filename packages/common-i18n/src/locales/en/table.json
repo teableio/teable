@@ -384,7 +384,7 @@
       "deleteRecordConfirmTitle": "Delete records",
       "deleteRecordConfirmDescription": "This action will delete {{recordCount}} records. Are you sure you want to continue?",
       "pasteConfirmTitle": "Perform paste",
-      "pasteConfirmDescription": "You are about to perform a paste that overwrites {{cellCount}} cells in {{recordCount}} records. Are you sure you want to continue?",
+      "pasteConfirmDescription": "You are about to perform a paste that overwrites {{recordCount}} records. Are you sure you want to continue?",
       "expandCommonDescription": "To fit your pasted data into the table, we need to add",
       "expandColDescription": "{{count}} fields",
       "expandRowDescription": "{{count}} records",
