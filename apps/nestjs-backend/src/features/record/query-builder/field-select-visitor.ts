@@ -371,7 +371,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return raw;
     }
 
-    const columnName = `reference_lookup_${field.id}`;
+    const columnName = `conditional_rollup_${field.id}`;
     const selectionExpr = `"${cteName}"."${columnName}"`;
     this.state.setSelection(field.id, selectionExpr);
     return this.qb.client.raw('??.??', [cteName, columnName]);

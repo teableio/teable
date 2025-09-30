@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable/core';
+import type { IDateFieldOptions, IDateFilter, IFilterOperator, IFilterValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -7,11 +7,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
     );
@@ -21,11 +25,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `(NOT ${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")' OR ${this.tableColumnRef} IS NULL)`
     );
@@ -36,11 +44,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isGreaterOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`
     );
@@ -50,11 +62,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isGreaterEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`
     );
@@ -64,11 +80,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isLessOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`
     );
@@ -78,11 +98,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isLessEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`
     );
@@ -92,11 +116,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
   isWithInOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(
       `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`
     );

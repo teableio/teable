@@ -352,6 +352,142 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('date field reference filters', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let dueDateId: string;
+    let amountId: string;
+    let targetDateId: string;
+    let onTargetCountField: IFieldVo;
+    let afterTargetSumField: IFieldVo;
+    let targetTenRecordId: string;
+    let targetElevenRecordId: string;
+    let targetThirteenRecordId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalRollup_Date_Foreign',
+        fields: [
+          { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Due Date', type: FieldType.Date } as IFieldRo,
+          { name: 'Hours', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Task: 'Spec Draft', 'Due Date': '2024-09-10', Hours: 5 } },
+          { fields: { Task: 'Review', 'Due Date': '2024-09-11', Hours: 3 } },
+          { fields: { Task: 'Finalize', 'Due Date': '2024-09-12', Hours: 7 } },
+        ],
+      });
+
+      dueDateId = foreign.fields.find((field) => field.name === 'Due Date')!.id;
+      amountId = foreign.fields.find((field) => field.name === 'Hours')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalRollup_Date_Host',
+        fields: [{ name: 'Target Date', type: FieldType.Date } as IFieldRo],
+        records: [
+          { fields: { 'Target Date': '2024-09-10' } },
+          { fields: { 'Target Date': '2024-09-11' } },
+          { fields: { 'Target Date': '2024-09-13' } },
+        ],
+      });
+
+      targetDateId = host.fields.find((field) => field.name === 'Target Date')!.id;
+      targetTenRecordId = host.records[0].id;
+      targetElevenRecordId = host.records[1].id;
+      targetThirteenRecordId = host.records[2].id;
+
+      await updateRecordByApi(host.id, targetTenRecordId, targetDateId, '2024-09-10T12:34:56.000Z');
+      await updateRecordByApi(
+        host.id,
+        targetElevenRecordId,
+        targetDateId,
+        '2024-09-11T12:50:00.000Z'
+      );
+      await updateRecordByApi(
+        host.id,
+        targetThirteenRecordId,
+        targetDateId,
+        '2024-09-13T12:15:00.000Z'
+      );
+
+      const onTargetFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dueDateId,
+            operator: 'is',
+            value: { type: 'field', fieldId: targetDateId },
+          },
+        ],
+      } as any;
+
+      onTargetCountField = await createField(host.id, {
+        name: 'On Target Count',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'count({values})',
+          filter: onTargetFilter,
+        },
+      } as IFieldRo);
+
+      const afterTargetFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dueDateId,
+            operator: 'isAfter',
+            value: { type: 'field', fieldId: targetDateId },
+          },
+        ],
+      } as any;
+
+      afterTargetSumField = await createField(host.id, {
+        name: 'After Target Hours',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+          filter: afterTargetFilter,
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should aggregate by matching host date fields', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
+      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
+      const targetThirteen = records.records.find(
+        (record) => record.id === targetThirteenRecordId
+      )!;
+
+      expect(targetTen.fields[onTargetCountField.id]).toEqual(1);
+      expect(targetEleven.fields[onTargetCountField.id]).toEqual(1);
+      expect(targetThirteen.fields[onTargetCountField.id]).toEqual(0);
+    });
+
+    it('should support field-referenced date comparisons for ranges', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
+      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
+      const targetThirteen = records.records.find(
+        (record) => record.id === targetThirteenRecordId
+      )!;
+
+      expect(targetTen.fields[afterTargetSumField.id]).toEqual(10);
+      expect(targetEleven.fields[afterTargetSumField.id]).toEqual(7);
+      expect(targetThirteen.fields[afterTargetSumField.id]).toEqual(0);
+    });
+  });
+
   describe('field and literal comparison matrix', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;

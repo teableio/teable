@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable/core';
+import type { IDateFieldOptions, IDateFilter, IFilterOperator, IFilterValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 
@@ -7,11 +7,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -24,11 +28,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `not exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -41,11 +49,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isGreaterOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -58,11 +70,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isGreaterEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -75,11 +91,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isLessOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -92,11 +112,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isLessEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 
@@ -109,11 +133,15 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlit
   isWithInOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue
   ): Knex.QueryBuilder {
+    this.ensureLiteralValue(value, _operator);
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     const sql = `exists ( 
       select 1 from 
         json_each(${this.tableColumnRef}) 

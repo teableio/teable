@@ -1,4 +1,4 @@
-import type { IFilter, IGroup, ISortItem, TableDomain } from '@teable/core';
+import type { FieldCore, IFilter, IGroup, ISortItem, TableDomain } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from './field-select.type';
@@ -98,6 +98,7 @@ export type IRecordQueryContext = 'table' | 'tableCache' | 'view';
 export interface IRecordQueryFilterContext {
   selectionMap: IReadonlyRecordSelectionMap;
   fieldReferenceSelectionMap?: Map<string, string>;
+  fieldReferenceFieldMap?: Map<string, FieldCore>;
 }
 
 export interface IRecordQuerySortContext {

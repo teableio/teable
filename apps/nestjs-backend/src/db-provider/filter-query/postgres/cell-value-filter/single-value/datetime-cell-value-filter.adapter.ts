@@ -1,17 +1,35 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable/core';
+import {
+  DateFormattingPreset,
+  isFieldReferenceValue,
+  type IDateFieldOptions,
+  type IDateFilter,
+  type IDatetimeFormatting,
+  type IFilterOperator,
+  type IFilterValue,
+} from '@teable/core';
 import type { Knex } from 'knex';
+import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      return this.applyFieldReferenceEquality(builderClient, ref, 'is');
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(`${this.tableColumnRef} BETWEEN ? AND ?`, dateTimeRange);
     return builderClient;
   }
@@ -19,11 +37,20 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isNotOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      const ref = this.resolveFieldReference(value);
+      return this.applyFieldReferenceEquality(builderClient, ref, 'isNot');
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
 
     // Wrap conditions in a nested `.whereRaw()` to ensure proper SQL grouping with parentheses,
     // generating `WHERE ("data" NOT BETWEEN ... OR "data" IS NULL) AND other_query`.
@@ -37,11 +64,19 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isGreaterOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      return super.isGreaterOperatorHandler(builderClient, _operator, value, dbProvider);
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(`${this.tableColumnRef} > ?`, [dateTimeRange[1]]);
     return builderClient;
   }
@@ -49,11 +84,19 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isGreaterEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      return super.isGreaterEqualOperatorHandler(builderClient, _operator, value, dbProvider);
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(`${this.tableColumnRef} >= ?`, [dateTimeRange[0]]);
     return builderClient;
   }
@@ -61,11 +104,19 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isLessOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      return super.isLessOperatorHandler(builderClient, _operator, value, dbProvider);
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(`${this.tableColumnRef} < ?`, [dateTimeRange[0]]);
     return builderClient;
   }
@@ -73,11 +124,19 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isLessEqualOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      return super.isLessEqualOperatorHandler(builderClient, _operator, value, dbProvider);
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(`${this.tableColumnRef} <= ?`, [dateTimeRange[1]]);
     return builderClient;
   }
@@ -85,12 +144,63 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isWithInOperatorHandler(
     builderClient: Knex.QueryBuilder,
     _operator: IFilterOperator,
-    value: IDateFilter
+    value: IFilterValue,
+    dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      return super.isOperatorHandler(builderClient, _operator, value, dbProvider);
+    }
+
     const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(
+      options as IDateFieldOptions,
+      value as IDateFilter
+    );
     builderClient.whereRaw(`${this.tableColumnRef} BETWEEN ? AND ?`, dateTimeRange);
+    return builderClient;
+  }
+
+  private extractFormatting(): IDatetimeFormatting | undefined {
+    const options = this.field.options as { formatting?: IDatetimeFormatting } | undefined;
+    return options?.formatting;
+  }
+
+  private determineDateUnit(formatting?: IDatetimeFormatting): 'day' | 'month' | 'year' {
+    const dateFormat = formatting?.date as DateFormattingPreset | undefined;
+    switch (dateFormat) {
+      case DateFormattingPreset.Y:
+        return 'year';
+      case DateFormattingPreset.YM:
+      case DateFormattingPreset.M:
+        return 'month';
+      default:
+        return 'day';
+    }
+  }
+
+  private wrapWithTimeZone(expr: string, formatting?: IDatetimeFormatting): string {
+    const tz = (formatting?.timeZone || 'UTC').replace(/'/g, "''");
+    return `(${expr}) AT TIME ZONE '${tz}'`;
+  }
+
+  private applyFieldReferenceEquality(
+    builderClient: Knex.QueryBuilder,
+    referenceExpression: string,
+    mode: 'is' | 'isNot'
+  ): Knex.QueryBuilder {
+    const formatting = this.extractFormatting();
+    const unit = this.determineDateUnit(formatting);
+
+    const left = `DATE_TRUNC('${unit}', ${this.wrapWithTimeZone(this.tableColumnRef, formatting)})`;
+    const right = `DATE_TRUNC('${unit}', ${this.wrapWithTimeZone(referenceExpression, formatting)})`;
+
+    if (mode === 'is') {
+      builderClient.whereRaw(`${left} = ${right}`);
+    } else {
+      builderClient.whereRaw(`${left} IS DISTINCT FROM ${right}`);
+    }
+
     return builderClient;
   }
 }

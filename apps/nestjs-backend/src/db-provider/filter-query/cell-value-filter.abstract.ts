@@ -87,6 +87,10 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     return reference;
   }
 
+  protected getFieldReferenceMetadata(fieldId: string): FieldCore | undefined {
+    return this.context?.fieldReferenceFieldMap?.get(fieldId);
+  }
+
   compiler(
     builderClient: Knex.QueryBuilder,
     operator: IFilterOperator,

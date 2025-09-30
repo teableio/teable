@@ -899,7 +899,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.dialect.typedNullFor(field.dbFieldType);
     }
 
-    return `"${cteName}"."reference_lookup_${field.id}"`;
+    return `"${cteName}"."conditional_rollup_${field.id}"`;
   }
   visitSingleSelectField(field: SingleSelectFieldCore): IFieldSelectName {
     return this.visitLookupField(field);
@@ -1103,14 +1103,17 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       }
 
       const fieldReferenceSelectionMap = new Map<string, string>();
+      const fieldReferenceFieldMap = new Map<string, FieldCore>();
       for (const mainField of this.table.fields.ordered) {
         fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
+        fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
       }
 
       this.dbProvider
         .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
           selectionMap,
           fieldReferenceSelectionMap,
+          fieldReferenceFieldMap,
         })
         .appendQueryBuilder();
     }
@@ -1120,7 +1123,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     this.qb.with(cteName, (cqb) => {
       cqb
         .select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`)
-        .select(cqb.client.raw(`(${aggregateQuery.toQuery()}) as "reference_lookup_${field.id}"`))
+        .select(cqb.client.raw(`(${aggregateQuery.toQuery()}) as "conditional_rollup_${field.id}"`))
         .from(`${this.table.dbTableName} as ${mainAlias}`);
     });
 
