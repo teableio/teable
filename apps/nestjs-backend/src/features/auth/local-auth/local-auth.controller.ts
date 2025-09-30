@@ -51,7 +51,7 @@ export class LocalAuthController {
   @UseGuards(LocalAuthGuard)
   @HttpCode(200)
   @Post('signin')
-  async signin(@Req() req: Express.Request): Promise<IUserMeVo> {
+  async signin(@Req() req: Request): Promise<IUserMeVo> {
     return req.user as IUserMeVo;
   }
 
@@ -60,9 +60,11 @@ export class LocalAuthController {
   async signup(
     @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
     @Res({ passthrough: true }) res: Response,
-    @Req() req: Express.Request
+    @Req() req: Request
   ): Promise<IUserMeVo> {
-    const user = pickUserMe(await this.authService.signup(body));
+    const remoteIp =
+      req.ip || req.connection.remoteAddress || (req.headers['x-forwarded-for'] as string);
+    const user = pickUserMe(await this.authService.signup(body, remoteIp));
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {
       req.login(user, (err) => (err ? reject(err) : resolve()));

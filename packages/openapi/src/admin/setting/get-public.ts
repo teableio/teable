@@ -42,6 +42,7 @@ export const publicSettingVoSchema = settingVoSchema
       aiConfig: publicAiConfigSchema.nullable(),
       webSearchEnabled: z.boolean().optional(),
       appGenerationEnabled: z.boolean().optional(),
+      turnstileSiteKey: z.string().nullable().optional(),
     })
   );
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;

@@ -2,6 +2,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { HttpErrorCode } from '@teable/core';
+import type { Request } from 'express';
 import { Strategy } from 'passport-local';
 import { CacheService } from '../../../cache/cache.service';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
@@ -21,12 +22,21 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     super({
       usernameField: 'email',
       passwordField: 'password',
+      passReqToCallback: true,
     });
   }
 
-  async validate(email: string, password: string) {
+  async validate(req: Request, email: string, password: string) {
     try {
-      const user = await this.authService.validateUserByEmail(email, password);
+      const turnstileToken = req.body?.turnstileToken;
+      const remoteIp =
+        req.ip || req.connection.remoteAddress || (req.headers['x-forwarded-for'] as string);
+      const user = await this.authService.validateUserByEmailWithTurnstile(
+        email,
+        password,
+        turnstileToken,
+        remoteIp
+      );
       if (!user) {
         throw new CustomHttpException(
           'Email or password is incorrect',

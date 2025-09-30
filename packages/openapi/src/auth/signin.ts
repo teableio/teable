@@ -11,6 +11,7 @@ export const SIGN_IN = '/auth/signin';
 export const signinSchema = z.object({
   email: z.string().email().toLowerCase(),
   password: passwordSchema,
+  turnstileToken: z.string().optional(),
 });
 
 export type ISignin = z.infer<typeof signinSchema>;

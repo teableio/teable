@@ -22,6 +22,7 @@ import type { ZodIssue } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { authConfig } from '../../i18n/auth.config';
 import { SendVerificationButton } from './SendVerificationButton';
+import TurnstileWidget from './TurnstileWidget';
 
 export interface ISignForm {
   className?: string;
@@ -37,13 +38,14 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [inviteCode, setInviteCode] = useState<string>(router.query.inviteCode as string);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
+  const [turnstileToken, setTurnstileToken] = useState<string>();
   const emailRef = useRef<HTMLInputElement>(null);
 
   const { data: setting } = useQuery({
     queryKey: ReactQueryKeys.getPublicSetting(),
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
-  const { enableWaitlist = false, disallowSignUp = false } = setting ?? {};
+  const { enableWaitlist = false, disallowSignUp = false, turnstileSiteKey } = setting ?? {};
 
   const joinWaitlist = useCallback(() => {
     if (enableWaitlist) {
@@ -57,6 +59,7 @@ export const SignForm: FC<ISignForm> = (props) => {
     setSignupVerificationCode(undefined);
     setSignupVerificationToken(undefined);
     setError(undefined);
+    setTurnstileToken(undefined);
   }, [type]);
 
   const { mutate: submitMutation } = useMutation({
@@ -163,6 +166,21 @@ export const SignForm: FC<ISignForm> = (props) => {
 
   const showVerificationCode = type === 'signup' && signupVerificationToken;
 
+  // Turnstile callbacks
+  const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
+  const handleTurnstileError = useCallback(() => {
+    setTurnstileToken(undefined);
+    setError(t('auth:signError.turnstileError'));
+  }, [t]);
+  const handleTurnstileExpire = useCallback(() => {
+    setTurnstileToken(undefined);
+    setError(t('auth:signError.turnstileExpired'));
+  }, [t]);
+  const handleTurnstileTimeout = useCallback(() => {
+    setTurnstileToken(undefined);
+    setError(t('auth:signError.turnstileTimeout'));
+  }, [t]);
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -178,6 +196,7 @@ export const SignForm: FC<ISignForm> = (props) => {
       password,
       verification: code ? { code, token: signupVerificationToken } : undefined,
       inviteCode: enableWaitlist ? inviteCode : undefined,
+      turnstileToken: turnstileToken,
     };
 
     const { error } = validation(form);
@@ -188,6 +207,12 @@ export const SignForm: FC<ISignForm> = (props) => {
 
     if (showVerificationCode && !signupVerificationCode) {
       setError(t('auth:signupError.verificationCodeRequired'));
+      return;
+    }
+
+    // Check Turnstile verification if enabled
+    if (turnstileSiteKey && !turnstileToken) {
+      setError(t('auth:signError.turnstileRequired'));
       return;
     }
 
@@ -315,6 +340,23 @@ export const SignForm: FC<ISignForm> = (props) => {
               </div>
             )}
           </div>
+
+          {/* Turnstile Widget */}
+          {turnstileSiteKey && (
+            <div className="flex justify-center">
+              <TurnstileWidget
+                siteKey={turnstileSiteKey}
+                onVerify={handleTurnstileVerify}
+                onError={handleTurnstileError}
+                onExpire={handleTurnstileExpire}
+                onTimeout={handleTurnstileTimeout}
+                action={type}
+                theme="auto"
+                size="normal"
+              />
+            </div>
+          )}
+
           <div>
             <Button className="w-full" disabled={isLoading}>
               {isLoading && <Spin />}
