@@ -205,7 +205,9 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
           if (hasError) {
             reject(new Error('upload attachments error'));
           } else {
-            resolve(true);
+            parser.end();
+            parser.destroy();
+            zipStream.destroy();
           }
         }
       };
@@ -213,7 +215,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
       parser.on('close', () => {
         this.logger.log(`import attachments success`);
         if (processingFiles === 0) {
-          checkComplete();
+          resolve(true);
         }
       });
 
