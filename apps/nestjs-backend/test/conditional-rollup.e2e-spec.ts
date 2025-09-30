@@ -488,6 +488,97 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('boolean field reference filters', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let statusFieldId: string;
+    let hostFlagFieldId: string;
+    let matchCountField: IFieldVo;
+    let hostTrueRecordId: string;
+    let hostFalseRecordId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalRollup_Bool_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'IsActive', type: FieldType.Checkbox } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', IsActive: true } },
+          { fields: { Title: 'Beta', IsActive: false } },
+          { fields: { Title: 'Gamma', IsActive: true } },
+        ],
+      });
+
+      statusFieldId = foreign.fields.find((field) => field.name === 'IsActive')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalRollup_Bool_Host',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'TargetActive', type: FieldType.Checkbox } as IFieldRo,
+        ],
+        records: [
+          { fields: { Name: 'Should Match True', TargetActive: true } },
+          { fields: { Name: 'Should Match False' } },
+        ],
+      });
+
+      hostFlagFieldId = host.fields.find((field) => field.name === 'TargetActive')!.id;
+      hostTrueRecordId = host.records[0].id;
+      hostFalseRecordId = host.records[1].id;
+
+      const matchFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusFieldId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostFlagFieldId },
+          },
+        ],
+      } as any;
+
+      matchCountField = await createField(host.id, {
+        name: 'Matching Actives',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: statusFieldId,
+          expression: 'count({values})',
+          filter: matchFilter,
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should aggregate based on host boolean field references', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hostTrueRecord = records.records.find((record) => record.id === hostTrueRecordId)!;
+      const hostFalseRecord = records.records.find((record) => record.id === hostFalseRecordId)!;
+
+      expect(hostTrueRecord.fields[matchCountField.id]).toEqual(2);
+      expect(hostFalseRecord.fields[matchCountField.id]).toEqual(0);
+    });
+
+    it('should react to host boolean changes', async () => {
+      await updateRecordByApi(host.id, hostTrueRecordId, hostFlagFieldId, null);
+      await updateRecordByApi(host.id, hostFalseRecordId, hostFlagFieldId, true);
+
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hostTrueRecord = records.records.find((record) => record.id === hostTrueRecordId)!;
+      const hostFalseRecord = records.records.find((record) => record.id === hostFalseRecordId)!;
+
+      expect(hostTrueRecord.fields[matchCountField.id]).toEqual(0);
+      expect(hostFalseRecord.fields[matchCountField.id]).toEqual(2);
+    });
+  });
+
   describe('field and literal comparison matrix', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;

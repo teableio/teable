@@ -1,3 +1,4 @@
+import { isFieldReferenceValue } from '@teable/core';
 import type { IFilterOperator, IFilterValue } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../../db.provider.interface';
@@ -10,6 +11,9 @@ export class BooleanCellValueFilterAdapter extends CellValueFilterSqlite {
     value: IFilterValue,
     dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    if (isFieldReferenceValue(value)) {
+      return super.isOperatorHandler(builderClient, operator, value, dbProvider);
+    }
     return (value ? super.isNotEmptyOperatorHandler : super.isEmptyOperatorHandler).bind(this)(
       builderClient,
       operator,
