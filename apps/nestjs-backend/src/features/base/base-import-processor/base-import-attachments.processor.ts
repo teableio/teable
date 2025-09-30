@@ -209,6 +209,10 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
             parser.destroy();
             zipStream.destroy();
           }
+
+          if (parser.closed) {
+            resolve(true);
+          }
         }
       };
 
