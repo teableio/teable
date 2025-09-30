@@ -360,6 +360,9 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     let targetDateId: string;
     let onTargetCountField: IFieldVo;
     let afterTargetSumField: IFieldVo;
+    let beforeTargetSumField: IFieldVo;
+    let onOrBeforeTargetCountField: IFieldVo;
+    let onOrAfterTargetCountField: IFieldVo;
     let targetTenRecordId: string;
     let targetElevenRecordId: string;
     let targetThirteenRecordId: string;
@@ -454,6 +457,72 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
           filter: afterTargetFilter,
         },
       } as IFieldRo);
+
+      const beforeTargetFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dueDateId,
+            operator: 'isBefore',
+            value: { type: 'field', fieldId: targetDateId },
+          },
+        ],
+      } as any;
+
+      beforeTargetSumField = await createField(host.id, {
+        name: 'Before Target Hours',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'sum({values})',
+          filter: beforeTargetFilter,
+        },
+      } as IFieldRo);
+
+      const onOrBeforeFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dueDateId,
+            operator: 'isOnOrBefore',
+            value: { type: 'field', fieldId: targetDateId },
+          },
+        ],
+      } as any;
+
+      onOrBeforeTargetCountField = await createField(host.id, {
+        name: 'On Or Before Target Count',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'count({values})',
+          filter: onOrBeforeFilter,
+        },
+      } as IFieldRo);
+
+      const onOrAfterFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dueDateId,
+            operator: 'isOnOrAfter',
+            value: { type: 'field', fieldId: targetDateId },
+          },
+        ],
+      } as any;
+
+      onOrAfterTargetCountField = await createField(host.id, {
+        name: 'On Or After Target Count',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'count({values})',
+          filter: onOrAfterFilter,
+        },
+      } as IFieldRo);
     });
 
     afterAll(async () => {
@@ -485,6 +554,36 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(targetTen.fields[afterTargetSumField.id]).toEqual(10);
       expect(targetEleven.fields[afterTargetSumField.id]).toEqual(7);
       expect(targetThirteen.fields[afterTargetSumField.id]).toEqual(0);
+    });
+
+    it('should evaluate before/after comparisons using host fields', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
+      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
+      const targetThirteen = records.records.find(
+        (record) => record.id === targetThirteenRecordId
+      )!;
+
+      expect(targetTen.fields[beforeTargetSumField.id]).toEqual(0);
+      expect(targetEleven.fields[beforeTargetSumField.id]).toEqual(5);
+      expect(targetThirteen.fields[beforeTargetSumField.id]).toEqual(15);
+
+      expect(targetTen.fields[onOrAfterTargetCountField.id]).toEqual(3);
+      expect(targetEleven.fields[onOrAfterTargetCountField.id]).toEqual(2);
+      expect(targetThirteen.fields[onOrAfterTargetCountField.id]).toEqual(0);
+    });
+
+    it('should aggregate inclusive comparisons with host fields', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
+      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
+      const targetThirteen = records.records.find(
+        (record) => record.id === targetThirteenRecordId
+      )!;
+
+      expect(targetTen.fields[onOrBeforeTargetCountField.id]).toEqual(1);
+      expect(targetEleven.fields[onOrBeforeTargetCountField.id]).toEqual(2);
+      expect(targetThirteen.fields[onOrBeforeTargetCountField.id]).toEqual(3);
     });
   });
 

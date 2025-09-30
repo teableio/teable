@@ -68,7 +68,8 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     if (isFieldReferenceValue(value)) {
-      return super.isGreaterOperatorHandler(builderClient, _operator, value, dbProvider);
+      const ref = this.resolveFieldReference(value);
+      return this.applyFieldReferenceComparison(builderClient, ref, 'gt');
     }
 
     const { options } = this.field;
@@ -88,7 +89,8 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     if (isFieldReferenceValue(value)) {
-      return super.isGreaterEqualOperatorHandler(builderClient, _operator, value, dbProvider);
+      const ref = this.resolveFieldReference(value);
+      return this.applyFieldReferenceComparison(builderClient, ref, 'gte');
     }
 
     const { options } = this.field;
@@ -108,7 +110,8 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     if (isFieldReferenceValue(value)) {
-      return super.isLessOperatorHandler(builderClient, _operator, value, dbProvider);
+      const ref = this.resolveFieldReference(value);
+      return this.applyFieldReferenceComparison(builderClient, ref, 'lt');
     }
 
     const { options } = this.field;
@@ -128,7 +131,8 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     if (isFieldReferenceValue(value)) {
-      return super.isLessEqualOperatorHandler(builderClient, _operator, value, dbProvider);
+      const ref = this.resolveFieldReference(value);
+      return this.applyFieldReferenceComparison(builderClient, ref, 'lte');
     }
 
     const { options } = this.field;
@@ -192,8 +196,8 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const formatting = this.extractFormatting();
     const unit = this.determineDateUnit(formatting);
 
-    const left = `DATE_TRUNC('${unit}', ${this.wrapWithTimeZone(this.tableColumnRef, formatting)})`;
-    const right = `DATE_TRUNC('${unit}', ${this.wrapWithTimeZone(referenceExpression, formatting)})`;
+    const left = this.buildTruncatedExpression(this.tableColumnRef, unit, formatting);
+    const right = this.buildTruncatedExpression(referenceExpression, unit, formatting);
 
     if (mode === 'is') {
       builderClient.whereRaw(`${left} = ${right}`);
@@ -202,5 +206,35 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     }
 
     return builderClient;
+  }
+
+  private applyFieldReferenceComparison(
+    builderClient: Knex.QueryBuilder,
+    referenceExpression: string,
+    comparator: 'gt' | 'gte' | 'lt' | 'lte'
+  ): Knex.QueryBuilder {
+    const formatting = this.extractFormatting();
+    const unit = this.determineDateUnit(formatting);
+
+    const left = this.buildTruncatedExpression(this.tableColumnRef, unit, formatting);
+    const right = this.buildTruncatedExpression(referenceExpression, unit, formatting);
+
+    const comparatorMap = {
+      gt: '>',
+      gte: '>=',
+      lt: '<',
+      lte: '<=',
+    } as const;
+
+    builderClient.whereRaw(`${left} ${comparatorMap[comparator]} ${right}`);
+    return builderClient;
+  }
+
+  private buildTruncatedExpression(
+    expression: string,
+    unit: 'day' | 'month' | 'year',
+    formatting?: IDatetimeFormatting
+  ): string {
+    return `DATE_TRUNC('${unit}', ${this.wrapWithTimeZone(expression, formatting)})`;
   }
 }
