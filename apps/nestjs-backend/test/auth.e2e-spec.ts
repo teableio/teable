@@ -60,6 +60,9 @@ describe('Auth Controller (e2e)', () => {
   const authTestEmail = 'auth@test-auth.com';
 
   beforeAll(async () => {
+    // Disable signup verification code rate limit for E2E tests
+    process.env.BACKEND_SIGNUP_VERIFICATION_CODE_RATE_LIMIT_SECONDS = '0';
+
     const appCtx = await initApp();
     app = appCtx.app;
     clsService = app.get(ClsService);

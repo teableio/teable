@@ -43,6 +43,7 @@ export const publicSettingVoSchema = settingVoSchema
       webSearchEnabled: z.boolean().optional(),
       appGenerationEnabled: z.boolean().optional(),
       turnstileSiteKey: z.string().nullable().optional(),
+      signupVerificationCodeRateLimitSeconds: z.number().optional(),
     })
   );
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;

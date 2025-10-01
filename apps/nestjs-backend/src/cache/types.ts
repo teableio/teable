@@ -31,6 +31,7 @@ export interface ICacheStore {
     mailType: MailType;
   })[];
   [key: `waitlist:invite-code:${string}`]: number;
+  [key: `signup-verification-rate-limit:${string}`]: { email: string; timestamp: number };
 }
 
 export interface IAttachmentSignatureCache {

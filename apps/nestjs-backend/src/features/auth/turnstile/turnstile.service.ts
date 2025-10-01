@@ -33,10 +33,14 @@ export class TurnstileService {
     this.turnstileSiteKey = this.configService.get<string>('TURNSTILE_SITE_KEY') || '';
     this.isEnabled = Boolean(this.turnstileSiteKey && this.turnstileSecretKey);
 
+    this.logger.log(
+      `Turnstile Service Initialization - isEnabled: ${this.isEnabled}, hasSiteKey: ${!!this.turnstileSiteKey}, hasSecretKey: ${!!this.turnstileSecretKey}, siteKeyLength: ${this.turnstileSiteKey?.length}, secretKeyLength: ${this.turnstileSecretKey?.length}`
+    );
+
     if (this.isEnabled) {
       this.logger.log('Turnstile validation is enabled');
     } else {
-      this.logger.log('Turnstile validation is disabled - missing site key or secret key');
+      this.logger.warn('Turnstile validation is disabled - missing site key or secret key');
     }
   }
 

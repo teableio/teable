@@ -39,13 +39,20 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const [turnstileToken, setTurnstileToken] = useState<string>();
+  const [countdown, setCountdown] = useState<number>(0);
+  const [turnstileKey, setTurnstileKey] = useState<number>(0);
   const emailRef = useRef<HTMLInputElement>(null);
 
   const { data: setting } = useQuery({
     queryKey: ReactQueryKeys.getPublicSetting(),
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
-  const { enableWaitlist = false, disallowSignUp = false, turnstileSiteKey } = setting ?? {};
+  const {
+    enableWaitlist = false,
+    disallowSignUp = false,
+    turnstileSiteKey,
+    signupVerificationCodeRateLimitSeconds,
+  } = setting ?? {};
 
   const joinWaitlist = useCallback(() => {
     if (enableWaitlist) {
@@ -60,7 +67,17 @@ export const SignForm: FC<ISignForm> = (props) => {
     setSignupVerificationToken(undefined);
     setError(undefined);
     setTurnstileToken(undefined);
+    setCountdown(0);
   }, [type]);
+
+  // Countdown timer for send verification code button
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   const { mutate: submitMutation } = useMutation({
     mutationFn: ({ type, form }: { type: 'signin' | 'signup'; form: ISignin }) => {
@@ -86,6 +103,13 @@ export const SignForm: FC<ISignForm> = (props) => {
           if (error.data && typeof error.data === 'object' && 'token' in error.data) {
             setSignupVerificationToken(error.data.token as string);
             setError(undefined);
+            // Start countdown based on configured rate limit (only if configured)
+            if (
+              typeof signupVerificationCodeRateLimitSeconds === 'number' &&
+              signupVerificationCodeRateLimitSeconds > 0
+            ) {
+              setCountdown(signupVerificationCodeRateLimitSeconds);
+            }
           } else {
             setError(error.message);
           }
@@ -109,6 +133,9 @@ export const SignForm: FC<ISignForm> = (props) => {
         default:
           setError(error.message);
       }
+      // Reset turnstile token on any error to force re-verification
+      setTurnstileToken(undefined);
+      setTurnstileKey((prev) => prev + 1);
       setIsLoading(false);
       return true;
     },
@@ -116,6 +143,9 @@ export const SignForm: FC<ISignForm> = (props) => {
       preventGlobalError: true,
     },
     onSuccess: () => {
+      // Reset turnstile token after successful submission
+      setTurnstileToken(undefined);
+      setTurnstileKey((prev) => prev + 1);
       onSuccess?.();
     },
   });
@@ -124,9 +154,29 @@ export const SignForm: FC<ISignForm> = (props) => {
     mutate: sendSignupVerificationCodeMutation,
     isLoading: sendSignupVerificationCodeLoading,
   } = useMutation({
-    mutationFn: (email: string) => sendSignupVerificationCode(email),
+    mutationFn: ({ email, turnstileToken }: { email: string; turnstileToken?: string }) =>
+      sendSignupVerificationCode(email, turnstileToken),
     onSuccess: (data) => {
       setSignupVerificationToken(data.data.token);
+      // Start countdown based on configured rate limit (only if configured)
+      if (
+        typeof signupVerificationCodeRateLimitSeconds === 'number' &&
+        signupVerificationCodeRateLimitSeconds > 0
+      ) {
+        setCountdown(signupVerificationCodeRateLimitSeconds);
+      }
+      // Reset turnstile token and force widget refresh
+      setTurnstileToken(undefined);
+      setTurnstileKey((prev) => prev + 1);
+    },
+    onError: (error: HttpError) => {
+      // Reset turnstile on error
+      setTurnstileToken(undefined);
+      setTurnstileKey((prev) => prev + 1);
+      setError(error.message);
+    },
+    meta: {
+      preventGlobalError: true,
     },
   });
 
@@ -317,7 +367,7 @@ export const SignForm: FC<ISignForm> = (props) => {
                   onChange={(e) => setSignupVerificationCode(e.target.value)}
                 />
                 <SendVerificationButton
-                  disabled={sendSignupVerificationCodeLoading}
+                  disabled={sendSignupVerificationCodeLoading || countdown > 0}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -328,14 +378,25 @@ export const SignForm: FC<ISignForm> = (props) => {
                     if (!email) {
                       return;
                     }
-                    const res = sendSignupVerificationCodeRoSchema.safeParse({ email });
+
+                    // Check Turnstile verification if enabled
+                    if (turnstileSiteKey && !turnstileToken) {
+                      setError(t('auth:signError.turnstileRequired'));
+                      return;
+                    }
+
+                    const res = sendSignupVerificationCodeRoSchema.safeParse({
+                      email,
+                      turnstileToken,
+                    });
                     if (!res.success) {
                       setError(fromZodError(res.error).message);
                       return;
                     }
-                    sendSignupVerificationCodeMutation(email);
+                    sendSignupVerificationCodeMutation({ email, turnstileToken });
                   }}
                   loading={sendSignupVerificationCodeLoading}
+                  countdown={countdown}
                 />
               </div>
             )}
@@ -345,6 +406,7 @@ export const SignForm: FC<ISignForm> = (props) => {
           {turnstileSiteKey && (
             <div className="flex justify-center">
               <TurnstileWidget
+                key={turnstileKey}
                 siteKey={turnstileSiteKey}
                 onVerify={handleTurnstileVerify}
                 onError={handleTurnstileError}

@@ -31,7 +31,7 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   async setDetail<TKey extends keyof T>(
     key: TKey,
     value: T[TKey],
-    ttl?: number | string
+    ttl?: number | string // seconds
   ): Promise<void> {
     const numberTTL = typeof ttl === 'string' ? second(ttl) : ttl;
     await this.cacheManager.set(key as string, value, numberTTL ? numberTTL * 1000 : undefined);

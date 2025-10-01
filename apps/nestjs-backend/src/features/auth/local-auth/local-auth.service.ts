@@ -17,6 +17,7 @@ import { isEmpty } from 'lodash';
 import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
+import type { ICacheStore } from '../../../cache/types';
 import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { MailConfig, type IMailConfig } from '../../../configs/mail.config';
@@ -161,11 +162,20 @@ export class LocalAuthService {
     turnstileToken?: string,
     remoteIp?: string
   ): Promise<void> {
-    if (!this.turnstileService.isTurnstileEnabled()) {
-      return; // Turnstile is not enabled, skip validation
+    const isTurnstileEnabled = this.turnstileService.isTurnstileEnabled();
+
+    this.logger.log(
+      `Turnstile validation check - enabled: ${isTurnstileEnabled}, hasToken: ${!!turnstileToken}, tokenLength: ${turnstileToken?.length}, remoteIp: ${remoteIp}`
+    );
+
+    if (!isTurnstileEnabled) {
+      return;
     }
 
     if (!turnstileToken) {
+      this.logger.error(
+        `Turnstile token is missing - enabled: ${isTurnstileEnabled}, remoteIp: ${remoteIp}`
+      );
       throw new BadRequestException('Turnstile token is required');
     }
 
@@ -202,17 +212,15 @@ export class LocalAuthService {
 
       throw new BadRequestException(errorMessage);
     }
-
-    this.logger.debug('Turnstile validation successful', {
-      hostname: validation.data?.hostname,
-      action: validation.data?.action,
-    });
   }
 
   async signup(body: ISignup, remoteIp?: string) {
     const { email, password, defaultSpaceName, refMeta, inviteCode, turnstileToken } = body;
 
-    // Validate Turnstile token if enabled
+    this.logger.log(
+      `Signup attempt - email: ${email}, hasPassword: ${!!password}, hasTurnstileToken: ${!!turnstileToken}, tokenLength: ${turnstileToken?.length}, hasVerification: ${!!body.verification}, remoteIp: ${remoteIp}`
+    );
+
     await this.validateTurnstileIfEnabled(turnstileToken, remoteIp);
 
     await this.verifySignup(body);
@@ -251,18 +259,54 @@ export class LocalAuthService {
     return res;
   }
 
-  async sendSignupVerificationCode(email: string) {
+  async sendSignupVerificationCode(email: string, turnstileToken?: string, remoteIp?: string) {
+    this.logger.log(
+      `Send verification code attempt - email: ${email}, hasTurnstileToken: ${!!turnstileToken}, tokenLength: ${turnstileToken?.length}, remoteIp: ${remoteIp}`
+    );
+
+    // Validate Turnstile token if enabled
+    await this.validateTurnstileIfEnabled(turnstileToken, remoteIp);
+
+    // Check rate limit: ensure interval between emails for the same address
+    // Backend rate limit is configured limit - 2 seconds (to account for network latency)
+    // If configured limit is 0, skip rate limiting entirely
+    const configuredLimit = this.authConfig.signupVerificationCodeRateLimitSeconds;
+    const backendRateLimit = configuredLimit > 0 ? configuredLimit - 2 : 0;
+
+    if (backendRateLimit > 0) {
+      const rateLimitKey = `signup-verification-rate-limit:${email}` as keyof ICacheStore;
+      const existingRateLimit = await this.cacheService.get(rateLimitKey);
+
+      if (existingRateLimit) {
+        this.logger.warn(
+          `Signup verification rate limit exceeded - email: ${email}, remoteIp: ${remoteIp}, timestamp: ${new Date().toISOString()}`
+        );
+        throw new BadRequestException(
+          `Please wait ${configuredLimit} seconds before requesting a new code`
+        );
+      }
+    }
+
     const code = getRandomString(4, RandomType.Number);
     const token = await this.jwtSignupCode(email, code);
+
     if (this.baseConfig.enableEmailCodeConsole) {
       console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
     }
+
     const user = await this.userService.getUserByEmail(email);
     this.isRegisteredValidate(user);
+
+    // Log verification code sending
+    this.logger.log(
+      `Sending signup verification code - email: ${email}, remoteIp: ${remoteIp}, timestamp: ${new Date().toISOString()}, turnstileVerified: ${!!turnstileToken}`
+    );
+
     const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
       title: 'Signup verification',
       message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
     });
+
     await this.mailSenderService.sendMail(
       {
         to: email,
@@ -274,6 +318,17 @@ export class LocalAuthService {
         transporterName: MailTransporterType.Notify,
       }
     );
+
+    // Set rate limit using setDetail for exact TTL without random addition
+    if (backendRateLimit > 0) {
+      const rateLimitKey = `signup-verification-rate-limit:${email}` as keyof ICacheStore;
+      await this.cacheService.setDetail(
+        rateLimitKey,
+        { email, timestamp: Date.now() },
+        backendRateLimit
+      );
+    }
+
     return {
       token,
       expiresTime: new Date(

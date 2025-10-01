@@ -117,9 +117,13 @@ export class LocalAuthController {
   @HttpCode(200)
   async sendSignupVerificationCode(
     @Body(new ZodValidationPipe(sendSignupVerificationCodeRoSchema))
-    body: ISendSignupVerificationCodeRo
+    body: ISendSignupVerificationCodeRo,
+    @Req() req: Request
   ) {
-    return this.authService.sendSignupVerificationCode(body.email);
+    const remoteIp =
+      req.ip || req.connection.remoteAddress || (req.headers['x-forwarded-for'] as string);
+
+    return this.authService.sendSignupVerificationCode(body.email, body.turnstileToken, remoteIp);
   }
 
   @Patch('/change-password')

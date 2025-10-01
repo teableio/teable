@@ -27,6 +27,7 @@ import {
   ISetSettingMailTransportConfigRo,
   SettingKey,
 } from '@teable/openapi';
+import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
@@ -37,7 +38,8 @@ import { SettingOpenApiService } from './setting-open-api.service';
 export class SettingOpenApiController {
   constructor(
     private readonly settingOpenApiService: SettingOpenApiService,
-    private readonly turnstileService: TurnstileService
+    private readonly turnstileService: TurnstileService,
+    @AuthConfig() private readonly authConfig: IAuthConfig
   ) {}
 
   /**
@@ -85,6 +87,8 @@ export class SettingOpenApiController {
       appGenerationEnabled: Boolean(appConfig?.apiKey),
       webSearchEnabled: Boolean(webSearchConfig?.apiKey),
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
+      signupVerificationCodeRateLimitSeconds:
+        this.authConfig.signupVerificationCodeRateLimitSeconds,
     };
   }
 
