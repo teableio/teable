@@ -490,6 +490,7 @@
     "hostDescription": "Будь ласка, введіть адресу SMTP поштового сервера, наприклад: smtp.example.com",
     "port": "Порт",
     "secure": "SSL/TLS",
+    "auth": "Автентифікація",
     "username": "Ім'я користувача",
     "password": "Пароль",
     "sender": "Адреса відправника",

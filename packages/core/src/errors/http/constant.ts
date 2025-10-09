@@ -21,4 +21,7 @@ export const ErrorCodeToStatusMap: Record<HttpErrorCode, number> = {
   [HttpErrorCode.GATEWAY_TIMEOUT]: 504,
   [HttpErrorCode.UNKNOWN_ERROR_CODE]: 500,
   [HttpErrorCode.VIEW_NOT_FOUND]: 404,
+  [HttpErrorCode.AUTOMATION_NODE_PARSE_ERROR]: 400,
+  [HttpErrorCode.AUTOMATION_NODE_NEED_TEST]: 400,
+  [HttpErrorCode.AUTOMATION_NODE_TEST_OUTDATED]: 400,
 };

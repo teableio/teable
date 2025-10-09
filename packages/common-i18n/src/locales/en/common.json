@@ -903,6 +903,7 @@
     "hostDescription": "Please enter the SMTP mail server address, for example: smtp.example.com",
     "port": "Port",
     "secure": "SSL/TLS",
+    "auth": "Authentication",
     "username": "Username",
     "password": "Password",
     "sender": "Sender",

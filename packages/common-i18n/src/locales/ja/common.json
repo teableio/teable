@@ -450,6 +450,7 @@
     "hostDescription": "SMTPメールサーバーアドレスを入力してください。例：smtp.example.com",
     "port": "ポート",
     "secure": "SSL/TLS",
+    "auth": "認証",
     "username": "ユーザー名",
     "password": "パスワード",
     "sender": "送信者アドレス",

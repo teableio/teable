@@ -494,6 +494,7 @@
     "hostDescription": "Inserisci l'indirizzo del server email SMTP, ad esempio: smtp.example.com",
     "port": "Porta",
     "secure": "SSL/TLS",
+    "auth": "Autenticazione",
     "username": "Nome Utente",
     "password": "Password",
     "sender": "Indirizzo del Mittente",

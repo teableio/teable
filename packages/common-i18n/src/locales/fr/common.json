@@ -429,6 +429,7 @@
     "hostDescription": "Veuillez saisir l'adresse du serveur email SMTP, par exemple : smtp.example.com",
     "port": "Port",
     "secure": "SSL/TLS",
+    "auth": "Authentification",
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
     "sender": "Adresse de l'Expéditeur",

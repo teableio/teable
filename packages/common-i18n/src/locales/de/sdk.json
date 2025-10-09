@@ -832,6 +832,9 @@
     "viewNotFound": "Ansicht nicht gefunden",
     "requestTimeout": "Operationen außerhalb des Bereichs",
     "failedDependency": "Abhängigkeitsfehler",
+    "automationNodeParseError": "Automatisierungsknoten-Analysefehler",
+    "automationNodeNeedTest": "Automatisierungsknoten benötigt Test",
+    "automationNodeTestOutdated": "Automatisierungsknoten-Test veraltet",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
       "fieldValueDuplicate": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
@@ -840,8 +843,19 @@
       "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
       "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden"
     },
+    "email": {
+      "testEmailError": "E-Mail-Konfigurationsfehler {{message}}"
+    },
     "automation": {
-      "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld"
+      "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld",
+      "triggerNotFound": "Trigger nicht gefunden",
+      "nodeNotFound": "{{nodeId}} Knoten nicht gefunden",
+      "workflowNotFound": "{{workflowId}} Workflow nicht gefunden",
+      "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
+      "workflowTestFailed": "Workflow-Test fehlgeschlagen, bitte überprüfen Sie die Workflow-Konfiguration",
+      "nodeParseError": "{{name}}[{{id}}] Knoten-Konfiguration Analysefehler",
+      "nodeNeedTest": "{{name}}[{{id}}] Knoten muss getestet werden",
+      "nodeTestOutdated": "{{name}}[{{id}}] Knotentest ist veraltet"
     },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",

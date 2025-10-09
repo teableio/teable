@@ -796,6 +796,9 @@
     "viewNotFound": "ビューが見つかりません",
     "requestTimeout": "要求タイムアウト",
     "failedDependency": "依存操作失敗",
+    "automationNodeParseError": "自動化ノード解析エラー",
+    "automationNodeNeedTest": "自動化ノードはテストが必要です",
+    "automationNodeTestOutdated": "自動化ノードのテストが古くなっています",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
       "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
@@ -804,8 +807,19 @@
       "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
       "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。"
     },
+    "email": {
+      "testEmailError": "メール設定エラー {{message}}"
+    },
     "automation": {
-      "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください"
+      "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
+      "triggerNotFound": "トリガーが見つかりません",
+      "nodeNotFound": "{{nodeId}} ノードが見つかりません",
+      "workflowNotFound": "{{workflowId}} ワークフローが見つかりません",
+      "triggerTestFailed": "トリガーテストが失敗しました。トリガーの設定を確認してください",
+      "workflowTestFailed": "ワークフローテストが失敗しました。ワークフローの設定を確認してください",
+      "nodeParseError": "{{name}}[{{id}}] ノード設定解析エラー",
+      "nodeNeedTest": "{{name}}[{{id}}] ノードはテストが必要です",
+      "nodeTestOutdated": "{{name}}[{{id}}] ノードのテストは古くなっています"
     },
     "permission": {
       "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",

@@ -808,16 +808,30 @@
     "viewNotFound": "Не найден вид",
     "requestTimeout": "Таймаут запроса",
     "failedDependency": "Ошибка зависимости",
+    "automationNodeParseError": "Ошибка разбора узла автоматизации",
+    "automationNodeNeedTest": "Узел автоматизации требует тестирования",
+    "automationNodeTestOutdated": "Тест узла автоматизации устарел",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускает пустые значения, пожалуйста, заполните его полностью перед отправкой.",
       "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускает дубликаты значений, пожалуйста, заполните уникальное значение перед отправкой.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускает дубликаты связей с одним и тем же записью",
       "requestTimeout": "Текущая операция слишком велика, пожалуйста, попробуйте снова с меньшим диапазоном.",
       "searchTimeOut": "Поиск завершился, уменьшите область поиска и повторите.",
-      "dependencyNodeRequire": "Залежність не виконана"
+      "dependencyNodeRequire": "Зависимый узел не протестирован, пожалуйста, проверьте, протестированы ли все предыдущие узлы"
+    },
+    "email": {
+      "testEmailError": "Ошибка конфигурации почты {{message}}"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Это поле кнопки уже связано с {{name}}[{{id}}] этот процесс автоматизации, пожалуйста, выберите другое поле кнопки"
+      "buttonClickTriggerDuplicated": "Это поле кнопки уже связано с {{name}}[{{id}}] этот процесс автоматизации, пожалуйста, выберите другое поле кнопки",
+      "triggerNotFound": "Триггер не найден",
+      "nodeNotFound": "{{nodeId}} узел не найден",
+      "workflowNotFound": "{{workflowId}} рабочий процесс не найден",
+      "triggerTestFailed": "Тест триггера провалился, пожалуйста, проверьте конфигурацию триггера",
+      "workflowTestFailed": "Тест рабочего процесса провалился, пожалуйста, проверьте конфигурацию рабочего процесса",
+      "nodeParseError": "{{name}}[{{id}}] ошибка разбора конфигурации узла",
+      "nodeNeedTest": "{{name}}[{{id}}] узел требует тестирования",
+      "nodeTestOutdated": "{{name}}[{{id}}] тест узла устарел"
     },
     "permission": {
       "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",

@@ -497,6 +497,7 @@
     "hostDescription": "Bitte SMTP-E-Mail-Server-Adresse eingeben, zum Beispiel: smtp.example.com",
     "port": "Port",
     "secure": "SSL/TLS",
+    "auth": "Authentifizierung",
     "username": "Benutzername",
     "password": "Passwort",
     "sender": "Absender-Adresse",

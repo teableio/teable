@@ -808,15 +808,31 @@
     "unknownErrorCode": "Code d'erreur inconnu",
     "viewNotFound": "Vue non trouvée",
     "requestTimeout": "Temps d'attente de la requête dépassé",
+    "failedDependency": "Échec de dépendance",
+    "automationNodeParseError": "Erreur d'analyse du nœud d'automatisation",
+    "automationNodeNeedTest": "Le nœud d'automatisation nécessite un test",
+    "automationNodeTestOutdated": "Test du nœud d'automatisation obsolète",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
       "fieldValueDuplicate": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs dupliquées, veuillez remplir une valeur unique avant de soumettre.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" champ ne permet pas les associations dupliquées avec le même enregistrement",
       "requestTimeout": "L'action actuelle est trop grande, veuillez réessayer avec un étendue plus petite.",
-      "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer."
+      "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer.",
+      "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés"
+    },
+    "email": {
+      "testEmailError": "Erreur de configuration du courrier {{message}}"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton"
+      "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton",
+      "triggerNotFound": "Déclencheur non trouvé",
+      "nodeNotFound": "{{nodeId}} nœud non trouvé",
+      "workflowNotFound": "{{workflowId}} flux de travail non trouvé",
+      "triggerTestFailed": "Test du déclencheur échoué, veuillez vérifier la configuration du déclencheur",
+      "workflowTestFailed": "Test du flux de travail échoué, veuillez vérifier la configuration du flux de travail",
+      "nodeParseError": "{{name}}[{{id}}] erreur d'analyse de configuration du nœud",
+      "nodeNeedTest": "{{name}}[{{id}}] le nœud doit être testé",
+      "nodeTestOutdated": "{{name}}[{{id}}] le test du nœud est obsolète"
     },
     "permission": {
       "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",

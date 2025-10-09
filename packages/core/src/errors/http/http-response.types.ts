@@ -50,6 +50,12 @@ export enum HttpErrorCode {
   UNKNOWN_ERROR_CODE = 'unknown_error_code',
   /** view */
   VIEW_NOT_FOUND = 'view_not_found',
+  /** automation */
+  AUTOMATION_NODE_PARSE_ERROR = 'automation_node_parse_error',
+  // 400 - The automation node needs test.
+  AUTOMATION_NODE_NEED_TEST = 'automation_node_need_test',
+  // 400 - The automation node is outdated.
+  AUTOMATION_NODE_TEST_OUTDATED = 'automation_node_test_outdated',
 }
 
 export type ICustomHttpExceptionLocalization<T = string> = {

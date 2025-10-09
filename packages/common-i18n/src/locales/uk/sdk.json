@@ -832,6 +832,9 @@
     "viewNotFound": "Не знайдено вид",
     "requestTimeout": "Таймаут запиту",
     "failedDependency": "Залежність не виконана",
+    "automationNodeParseError": "Помилка аналізу вузла автоматизації",
+    "automationNodeNeedTest": "Вузол автоматизації потребує тестування",
+    "automationNodeTestOutdated": "Тест вузла автоматизації застарів",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає пусті значення, будь ласка, заповніть його повністю перед відправкою.",
       "fieldValueDuplicate": "\"{{tableName}}\" поле \"{{fieldName}}\" не допускає дублікатів значень, будь ласка, заповніть унікальне значення перед відправкою.",
@@ -840,8 +843,19 @@
       "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
       "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані"
     },
+    "email": {
+      "testEmailError": "Помилка конфігурації пошти {{message}}"
+    },
     "automation": {
-      "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки"
+      "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
+      "triggerNotFound": "Тригер не знайдено",
+      "nodeNotFound": "{{nodeId}} вузол не знайдено",
+      "workflowNotFound": "{{workflowId}} робочий процес не знайдено",
+      "triggerTestFailed": "Тест тригера провалився, будь ласка, перевірте конфігурацію тригера",
+      "workflowTestFailed": "Тест робочого процесу провалився, будь ласка, перевірте конфігурацію робочого процесу",
+      "nodeParseError": "{{name}}[{{id}}] помилка аналізу конфігурації вузла",
+      "nodeNeedTest": "{{name}}[{{id}}] вузол потребує тестування",
+      "nodeTestOutdated": "{{name}}[{{id}}] тест вузла застарів"
     },
     "permission": {
       "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",

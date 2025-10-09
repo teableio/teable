@@ -477,6 +477,7 @@
     "hostDescription": "Por favor ingrese la dirección del servidor de correo SMTP, por ejemplo: smtp.example.com",
     "port": "Puerto",
     "secure": "SSL/TLS",
+    "auth": "Autenticación",
     "username": "Nombre de Usuario",
     "password": "Contraseña",
     "sender": "Dirección del Remitente",

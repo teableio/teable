@@ -832,17 +832,27 @@
     "requestTimeout": "请求超时",
     "viewNotFound": "请求的视图不存在",
     "failedDependency": "依赖操作失败",
+    "automationNodeParseError": "自动化节点解析错误",
+    "automationNodeNeedTest": "自动化节点需要测试",
+    "automationNodeTestOutdated": "自动化节点测试已过期",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
       "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
-      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试",
-      "invalidOperation": "无效操作"
+      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段"
+      "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段",
+      "triggerNotFound": "触发器未找到",
+      "nodeNotFound": "{{nodeId}} 节点未找到",
+      "workflowNotFound": "{{workflowId}} 工作流未找到",
+      "triggerTestFailed": "触发器测试失败, 请检查触发器配置",
+      "workflowTestFailed": "工作流测试失败, 请检查工作流配置",
+      "nodeParseError": "{{name}}[{{id}}] 节点配置解析错误",
+      "nodeNeedTest": "{{name}}[{{id}}] 节点需要测试",
+      "nodeTestOutdated": "{{name}}[{{id}}] 节点测试已过期"
     },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",

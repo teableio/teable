@@ -900,6 +900,7 @@
     "hostDescription": "请输入 SMTP 邮件服务器地址，例如：smtp.example.com",
     "port": "端口",
     "secure": "SSL/TLS",
+    "auth": "认证",
     "username": "用户名",
     "password": "密码",
     "sender": "发件人地址",

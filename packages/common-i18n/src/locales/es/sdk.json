@@ -818,15 +818,31 @@
     "unknownErrorCode": "Código de error desconocido",
     "viewNotFound": "Vista no encontrada",
     "requestTimeout": "El tiempo de espera de la solicitud ha excedido",
+    "failedDependency": "Dependencia fallida",
+    "automationNodeParseError": "Error de análisis del nodo de automatización",
+    "automationNodeNeedTest": "El nodo de automatización necesita prueba",
+    "automationNodeTestOutdated": "Prueba del nodo de automatización desactualizada",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" no permite valores vacíos, por favor complete antes de enviar.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" no permite valores duplicados, por favor complete un valor único antes de enviar.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" campo no permite asociaciones duplicadas con el mismo registro",
       "requestTimeout": "El ámbito de la operación actual es demasiado grande, por favor intente con un ámbito más pequeño.",
-      "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo."
+      "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo.",
+      "dependencyNodeRequire": "Nodo de dependencia no probado, por favor verifica si todos los nodos anteriores han sido probados"
+    },
+    "email": {
+      "testEmailError": "Error de configuración de correo {{message}}"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a {{name}}[{{id}}] este proceso de automatización, por favor seleccione otro campo de botón"
+      "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a {{name}}[{{id}}] este proceso de automatización, por favor seleccione otro campo de botón",
+      "triggerNotFound": "Trigger no encontrado",
+      "nodeNotFound": "{{nodeId}} nodo no encontrado",
+      "workflowNotFound": "{{workflowId}} flujo de trabajo no encontrado",
+      "triggerTestFailed": "Prueba de trigger falló, por favor verifica la configuración del trigger",
+      "workflowTestFailed": "Prueba de flujo de trabajo falló, por favor verifica la configuración del flujo de trabajo",
+      "nodeParseError": "{{name}}[{{id}}] error de análisis de configuración del nodo",
+      "nodeNeedTest": "{{name}}[{{id}}] el nodo necesita ser probado",
+      "nodeTestOutdated": "{{name}}[{{id}}] la prueba del nodo está desactualizada"
     },
     "permission": {
       "createRecordWithDeniedFields": "No tienes permiso para crear registros con campos({{fields}})",

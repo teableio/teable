@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import type { IMailTransportConfig, ITestMailTransportConfigRo } from '@teable/openapi';
 import { mailTransportConfigSchema, testMailTransportConfig, z } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
 import {
   FormField,
   FormItem,
@@ -53,7 +54,7 @@ export const MailConfigForm = (props: {
 
   const [testEmail, setTestEmail] = useState<string | null>(null);
 
-  const { mutateAsync: testEmailConfig } = useMutation({
+  const { mutateAsync: testEmailConfig, isLoading: isTestEmailLoading } = useMutation({
     mutationFn: (ro: ITestMailTransportConfigRo) => testMailTransportConfig(ro),
     onSuccess: () => {
       toast.success(t('email.testEmailSend'));
@@ -234,8 +235,12 @@ export const MailConfigForm = (props: {
           onChange={(e) => setTestEmail(e.target.value)}
           placeholder={t('email.testEmailPlaceholder')}
         />
-        <Button variant="outline" onClick={testEmailSend} disabled={!testEmail}>
-          <SendIcon className="size-4" />
+        <Button
+          variant="outline"
+          onClick={testEmailSend}
+          disabled={!testEmail || isTestEmailLoading}
+        >
+          {isTestEmailLoading ? <Spin className="size-4" /> : <SendIcon className="size-4" />}
           {t('email.send')}
         </Button>
       </div>

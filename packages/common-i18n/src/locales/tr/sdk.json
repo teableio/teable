@@ -806,6 +806,9 @@
     "viewNotFound": "Görünüm Bulunamadı",
     "requestTimeout": "İstek Zaman Aşımı",
     "failedDependency": "Bağımlılık Hatası",
+    "automationNodeParseError": "Otomasyon Düğümü Ayrıştırma Hatası",
+    "automationNodeNeedTest": "Otomasyon Düğümü Test Gereksinimi",
+    "automationNodeTestOutdated": "Otomasyon Düğümü Testi Güncel Değil",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" alanı \"{{fieldName}}\" boş değerlere izin vermiyor, lütfen tamamlayınız ve gönderimden önce doldurun.",
       "fieldValueDuplicate": "\"{{tableName}}\" alanı \"{{fieldName}}\" tekrarlayan değerlere izin vermiyor, lütfen benzersiz bir değer doldurun ve gönderimden önce doldurun.",
@@ -814,8 +817,19 @@
       "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
       "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin"
     },
+    "email": {
+      "testEmailError": "Posta yapılandırma hatası {{message}}"
+    },
     "automation": {
-      "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin"
+      "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
+      "triggerNotFound": "Tetikleyici bulunamadı",
+      "nodeNotFound": "{{nodeId}} düğümü bulunamadı",
+      "workflowNotFound": "{{workflowId}} iş akışı bulunamadı",
+      "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
+      "workflowTestFailed": "İş akışı testi başarısız, lütfen iş akışı yapılandırmasını kontrol edin",
+      "nodeParseError": "{{name}}[{{id}}] düğüm yapılandırması ayrıştırma hatası",
+      "nodeNeedTest": "{{name}}[{{id}}] düğümün test edilmesi gerekiyor",
+      "nodeTestOutdated": "{{name}}[{{id}}] düğüm testi güncel değil"
     },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",

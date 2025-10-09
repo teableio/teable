@@ -832,6 +832,9 @@
     "viewNotFound": "Vista non trovata",
     "requestTimeout": "Timeout della richiesta",
     "failedDependency": "Errore di dipendenza",
+    "automationNodeParseError": "Errore di analisi del nodo di automazione",
+    "automationNodeNeedTest": "Il nodo di automazione ha bisogno di test",
+    "automationNodeTestOutdated": "Test del nodo di automazione obsoleto",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori vuoti, per favore riempilo completamente prima di inviare.",
       "fieldValueDuplicate": "\"{{tableName}}\" campo \"{{fieldName}}\" non consente valori duplicati, per favore riempilo con un valore unico prima di inviare.",
@@ -840,8 +843,19 @@
       "searchTimeOut": "La ricerca ha scaduto, per favore ridurre l'ambito di ricerca e riprova.",
       "dependencyNodeRequire": "Il nodo dipendente non è stato testato, per favore controlla se tutti i nodi precedenti sono stati testati"
     },
+    "email": {
+      "testEmailError": "Errore di configurazione della posta {{message}}"
+    },
     "automation": {
-      "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante"
+      "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante",
+      "triggerNotFound": "Trigger non trovato",
+      "nodeNotFound": "{{nodeId}} nodo non trovato",
+      "workflowNotFound": "{{workflowId}} flusso di lavoro non trovato",
+      "triggerTestFailed": "Test del trigger fallito, per favore controlla la configurazione del trigger",
+      "workflowTestFailed": "Test del flusso di lavoro fallito, per favore controlla la configurazione del flusso di lavoro",
+      "nodeParseError": "{{name}}[{{id}}] errore di analisi della configurazione del nodo",
+      "nodeNeedTest": "{{name}}[{{id}}] il nodo deve essere testato",
+      "nodeTestOutdated": "{{name}}[{{id}}] il test del nodo è obsoleto"
     },
     "permission": {
       "createRecordWithDeniedFields": "Non hai il permesso di creare record con campi({{fields}})",

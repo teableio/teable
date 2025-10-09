@@ -832,17 +832,30 @@
     "viewNotFound": "View Not Found",
     "requestTimeout": "Request Timeout",
     "failedDependency": "Failed Dependency",
+    "automationNodeParseError": "Automation Node Parse Error",
+    "automationNodeNeedTest": "Automation Node Need Test",
+    "automationNodeTestOutdated": "Automation Node Test Outdated",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
       "searchTimeOut": "search timeout, please decrease the search scope and try again",
-      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested",
-      "invalidOperation": "Invalid operation"
+      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
+    },
+    "email": {
+      "testEmailError": "Mail config error {{message}}"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field"
+      "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field",
+      "triggerNotFound": "trigger not found",
+      "nodeNotFound": "{{nodeId}} node not found",
+      "workflowNotFound": "{{workflowId}} workflow not found",
+      "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
+      "workflowTestFailed": "Workflow test failed, please check the workflow configuration",
+      "nodeParseError": "{{name}}[{{id}}] node config parse error",
+      "nodeNeedTest": "{{name}}[{{id}}] node need test",
+      "nodeTestOutdated": "{{name}}[{{id}}] node test outdated"
     },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",

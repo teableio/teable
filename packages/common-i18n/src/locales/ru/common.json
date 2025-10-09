@@ -452,6 +452,7 @@
     "hostDescription": "Пожалуйста, введите адрес SMTP почтового сервера, например: smtp.example.com",
     "port": "Порт",
     "secure": "SSL/TLS",
+    "auth": "Аутентификация",
     "username": "Имя пользователя",
     "password": "Пароль",
     "sender": "Адрес отправителя",

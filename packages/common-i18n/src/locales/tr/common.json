@@ -467,6 +467,7 @@
     "hostDescription": "Lütfen SMTP e-posta sunucu adresini girin, örneğin: smtp.example.com",
     "port": "Port",
     "secure": "SSL/TLS",
+    "auth": "Kimlik Doğrulama",
     "username": "Kullanıcı Adı",
     "password": "Şifre",
     "sender": "Gönderen Adresi",
