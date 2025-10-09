@@ -132,6 +132,9 @@
     "conditionalRollup": {
       "filterRequired": "筛选条件至少需要包含一个条件"
     },
+    "conditionalLookup": {
+      "filterRequired": "条件查找必须至少配置一个筛选条件"
+    },
     "aiConfig": {
       "modelKeyRequired": "模型不能为空",
       "typeNotSupported": "不支持的 AI 类型",
@@ -319,6 +322,7 @@
       "rating": "评分",
       "autoNumber": "自增数字",
       "lookup": "从关联的表中查找",
+      "conditionalLookup": "条件查找",
       "button": "按钮",
       "createdBy": "创建人",
       "lastModifiedBy": "最近修改人"
@@ -342,6 +346,7 @@
       "rating": "用可配置的图标为项目评分。",
       "autoNumber": "自动分配递增编号。",
       "lookup": "显示来自关联记录的字段值。",
+      "conditionalLookup": "显示符合筛选条件的关联记录值。",
       "button": "通过可点击按钮触发操作。",
       "createdBy": "显示是谁创建了记录。",
       "lastModifiedBy": "显示最近编辑记录的人。"

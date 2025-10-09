@@ -1,22 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type {
-  IFieldRo,
-  IFieldVo,
-  IFormulaFieldOptions,
-  ILinkFieldOptions,
-  ILinkFieldOptionsRo,
-  ILinkFieldMeta,
-  ILookupOptionsRo,
-  ILookupOptionsVo,
-  IConditionalRollupFieldOptions,
-  IRollupFieldOptions,
-  ISelectFieldOptionsRo,
-  IConvertFieldRo,
-  IUserFieldOptions,
-  ITextFieldCustomizeAIConfig,
-  ITextFieldSummarizeAIConfig,
-} from '@teable/core';
 import {
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -40,6 +23,8 @@ import {
   getShowAsSchema,
   getUniqName,
   isMultiValueLink,
+  isConditionalLookupOptions,
+  isLinkLookupOptions,
   LastModifiedTimeFieldCore,
   LongTextFieldCore,
   NumberFieldCore,
@@ -51,9 +36,27 @@ import {
   UserFieldCore,
   HttpErrorCode,
 } from '@teable/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  IFormulaFieldOptions,
+  ILinkFieldOptions,
+  ILinkFieldOptionsRo,
+  ILinkFieldMeta,
+  ILookupOptionsRo,
+  ILookupOptionsVo,
+  IConditionalRollupFieldOptions,
+  IRollupFieldOptions,
+  ISelectFieldOptionsRo,
+  IConvertFieldRo,
+  IUserFieldOptions,
+  ITextFieldCustomizeAIConfig,
+  ITextFieldSummarizeAIConfig,
+  IConditionalLookupOptions,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { uniq, keyBy, mergeWith, get } from 'lodash';
+import { uniq, keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -472,6 +475,10 @@ export class FieldSupplementService {
       });
     }
 
+    if (!isLinkLookupOptions(lookupOptions)) {
+      throw new BadRequestException('lookupOptions.linkFieldId is required for lookup fields');
+    }
+
     const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
     const linkFieldRaw = await this.prismaService.txClient().field.findFirst({
       where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
@@ -579,6 +586,10 @@ export class FieldSupplementService {
   }
 
   private async prepareLookupField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
+    if (fieldRo.isConditionalLookup) {
+      return this.prepareConditionalLookupField(fieldRo);
+    }
+
     const { lookupOptions, lookupFieldRaw, linkFieldRaw } = await this.prepareLookupOptions(
       fieldRo,
       batchFieldVos
@@ -622,8 +633,20 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateLookupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo;
-    const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo;
+    if (fieldRo.isConditionalLookup) {
+      return this.prepareConditionalLookupField(fieldRo);
+    }
+
+    const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo | undefined;
+    const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo | undefined;
+
+    if (!newLookupOptions || !isLinkLookupOptions(newLookupOptions)) {
+      return this.prepareLookupField(fieldRo);
+    }
+
+    if (!oldLookupOptions || !isLinkLookupOptions(oldLookupOptions)) {
+      return this.prepareLookupField(fieldRo);
+    }
     if (
       oldFieldVo.isLookup &&
       newLookupOptions.lookupFieldId === oldLookupOptions.lookupFieldId &&
@@ -869,6 +892,81 @@ export class FieldSupplementService {
     };
   }
 
+  private async prepareConditionalLookupField(field: IFieldRo) {
+    const lookupOptions = field.lookupOptions as ILookupOptionsRo | undefined;
+    const conditionalLookup = isConditionalLookupOptions(lookupOptions)
+      ? (lookupOptions as IConditionalLookupOptions)
+      : undefined;
+    if (!conditionalLookup) {
+      throw new BadRequestException('Conditional lookup configuration is required');
+    }
+
+    const { foreignTableId, lookupFieldId } = conditionalLookup;
+
+    if (!foreignTableId) {
+      throw new BadRequestException('Conditional lookup foreignTableId is required');
+    }
+
+    if (!lookupFieldId) {
+      throw new BadRequestException('Conditional lookup lookupFieldId is required');
+    }
+
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
+      where: { id: lookupFieldId, deletedTime: null },
+    });
+
+    if (!lookupFieldRaw) {
+      throw new BadRequestException(`Conditional lookup field ${lookupFieldId} is not exist`);
+    }
+
+    if (lookupFieldRaw.tableId !== foreignTableId) {
+      throw new BadRequestException(
+        `Conditional lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+      );
+    }
+
+    if (lookupFieldRaw.type !== field.type) {
+      throw new BadRequestException(
+        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`
+      );
+    }
+
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
+    const cellValueType = lookupField.cellValueType as CellValueType;
+
+    const formatting = this.prepareFormattingShowAs(
+      field.options,
+      JSON.parse(lookupFieldRaw.options as string),
+      cellValueType,
+      true
+    );
+
+    const foreignTable = await this.prismaService.txClient().tableMeta.findUnique({
+      where: { id: foreignTableId },
+      select: { name: true },
+    });
+
+    const defaultName = foreignTable?.name
+      ? `${lookupFieldRaw.name} (${foreignTable.name})`
+      : `${lookupFieldRaw.name} Conditional Lookup`;
+
+    return {
+      ...field,
+      name: field.name ?? defaultName,
+      options: formatting,
+      lookupOptions: {
+        baseId: conditionalLookup.baseId,
+        foreignTableId,
+        lookupFieldId,
+        filter: conditionalLookup.filter,
+      },
+      isMultipleCellValue: true,
+      isComputed: true,
+      cellValueType,
+      dbFieldType: this.getDbFieldType(field.type, cellValueType, true),
+    };
+  }
+
   private async prepareUpdateRollupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     const newOptions = fieldRo.options as IRollupFieldOptions;
     const oldOptions = oldFieldVo.options as IRollupFieldOptions;
@@ -877,8 +975,17 @@ export class FieldSupplementService {
       return { ...oldFieldVo, ...fieldRo };
     }
 
-    const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo;
-    const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo;
+    const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo | undefined;
+    const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo | undefined;
+
+    if (
+      !newLookupOptions ||
+      !oldLookupOptions ||
+      !isLinkLookupOptions(newLookupOptions) ||
+      !isLinkLookupOptions(oldLookupOptions)
+    ) {
+      return this.prepareRollupField(fieldRo);
+    }
     if (
       newOptions.expression === oldOptions.expression &&
       newLookupOptions.lookupFieldId === oldLookupOptions.lookupFieldId &&
@@ -1652,18 +1759,30 @@ export class FieldSupplementService {
     return lookupFieldIds;
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   getFieldReferenceIds(field: IFieldInstance): string[] {
     if (field.lookupOptions && field.type !== FieldType.ConditionalRollup) {
       // Lookup/Rollup fields depend on BOTH the target lookup field and the link field.
       // This ensures when a link cell changes, the dependent lookup/rollup fields are
       // included in the computed impact and persisted via updateFromSelect.
       const refs: string[] = [];
-      const { lookupFieldId, linkFieldId } = field.lookupOptions as {
-        lookupFieldId?: string;
-        linkFieldId?: string;
-      };
-      if (lookupFieldId) refs.push(lookupFieldId);
-      if (linkFieldId) refs.push(linkFieldId);
+      if (isLinkLookupOptions(field.lookupOptions)) {
+        const { lookupFieldId, linkFieldId } = field.lookupOptions;
+        if (lookupFieldId) refs.push(lookupFieldId);
+        if (linkFieldId) refs.push(linkFieldId);
+        return refs;
+      }
+    }
+
+    if (field.isConditionalLookup) {
+      const refs: string[] = [];
+      const meta = field.getConditionalLookupOptions();
+      const lookupFieldId = meta?.lookupFieldId;
+      if (lookupFieldId) {
+        refs.push(lookupFieldId);
+      }
+      const filterRefs = extractFieldIdsFromFilter(meta?.filter, true);
+      filterRefs.forEach((fieldId) => refs.push(fieldId));
       return refs;
     }
 
@@ -1698,8 +1817,19 @@ export class FieldSupplementService {
 
     // add lookupOptions filter fieldIds to reference
     if (field?.lookupOptions) {
-      const filterSetFieldIds = extractFieldIdsFromFilter(field?.lookupOptions.filter);
-      filterSetFieldIds.forEach((fieldId) => {
+      const lookupOptions = field.lookupOptions;
+      if (isLinkLookupOptions(lookupOptions)) {
+        const filterSetFieldIds = extractFieldIdsFromFilter(lookupOptions.filter);
+        filterSetFieldIds.forEach((fieldId) => {
+          fieldIds.push(fieldId);
+        });
+      }
+    }
+
+    const conditionalLookupOptions = field.getConditionalLookupOptions?.();
+    if (conditionalLookupOptions) {
+      const filterFieldIds = extractFieldIdsFromFilter(conditionalLookupOptions.filter, true);
+      filterFieldIds.forEach((fieldId) => {
         fieldIds.push(fieldId);
       });
     }

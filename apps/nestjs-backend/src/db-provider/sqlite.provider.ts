@@ -1,6 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ILookupOptionsVo, ISortItem, FieldCore, TableDomain } from '@teable/core';
+import type {
+  IFilter,
+  ILookupLinkOptionsVo,
+  ILookupOptionsVo,
+  ISortItem,
+  FieldCore,
+  TableDomain,
+} from '@teable/core';
 import { DriverClient, parseFormulaToSQL, FieldType } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
@@ -592,7 +599,7 @@ export class SqliteProvider implements IDbProvider {
 
   // select id and lookup_options for "field" table options is a json saved in string format, match optionsKey and value
   // please use json method in sqlite
-  lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string {
+  lookupOptionsQuery(optionsKey: keyof ILookupLinkOptionsVo, value: string): string {
     return this.knex('field')
       .select({
         tableId: 'table_id',

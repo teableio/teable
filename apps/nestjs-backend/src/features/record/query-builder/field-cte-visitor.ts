@@ -26,6 +26,7 @@ import {
   type RatingFieldCore,
   type RollupFieldCore,
   type ConditionalRollupFieldCore,
+  type IConditionalLookupOptions,
   type SingleLineTextFieldCore,
   type SingleSelectFieldCore,
   type UserFieldCore,
@@ -36,6 +37,7 @@ import {
   type FieldCore,
   type IRollupFieldOptions,
   DbFieldType,
+  isLinkLookupOptions,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -224,6 +226,14 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       return 'NULL';
     }
 
+    if (field.isConditionalLookup) {
+      const cteName = this.fieldCteMap.get(field.id);
+      if (!cteName) {
+        return 'NULL';
+      }
+      return `"${cteName}"."conditional_lookup_${field.id}"`;
+    }
+
     const qb = this.qb.client.queryBuilder();
     const selectVisitor = new FieldSelectVisitor(
       qb,
@@ -241,7 +251,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     if (!targetLookupField) {
       // Try to fetch via the CTE of the foreign link if present
-      const nestedLinkFieldId = field.lookupOptions?.linkFieldId;
+      const nestedLinkFieldId = getLinkFieldId(field.lookupOptions);
       const fieldCteMap = this.state.getFieldCteMap();
       // Guard against self-referencing the CTE being defined (would require WITH RECURSIVE)
       if (
@@ -325,8 +335,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // If the target is itself a lookup, reference its precomputed value from the JOINed CTE or subquery
     let expression: string;
-    if (targetLookupField.isLookup && targetLookupField.lookupOptions) {
-      const nestedLinkFieldId = targetLookupField.lookupOptions.linkFieldId;
+    if (targetLookupField.isLookup) {
+      const nestedLinkFieldId = getLinkFieldId(targetLookupField.lookupOptions);
       const fieldCteMap = this.state.getFieldCteMap();
       // Prefer nested CTE if available; otherwise, derive CTE name and use subquery
       if (nestedLinkFieldId) {
@@ -376,7 +386,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       }
     }
     // Build deterministic order-by for multi-value lookups using the link field configuration
-    const linkForOrderingId = field.lookupOptions?.linkFieldId;
+    const linkForOrderingId = getLinkFieldId(field.lookupOptions);
     let orderByClause: string | undefined;
     if (linkForOrderingId) {
       try {
@@ -411,7 +421,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       // For SQLite, ensure deterministic ordering by aggregating from an ordered correlated subquery
       if (this.dbProvider.driver === DriverClient.Sqlite) {
         try {
-          const linkForOrderingId = field.lookupOptions?.linkFieldId;
+          const linkForOrderingId = getLinkFieldId(field.lookupOptions);
           const fieldCteMap = this.state.getFieldCteMap();
           const mainAlias = getTableAliasFromTable(this.table);
           const foreignDb = this.foreignTable.dbTableName;
@@ -501,7 +511,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // SQLite: use a correlated, ordered subquery to produce deterministic ordering
     try {
-      const linkForOrderingId = field.lookupOptions?.linkFieldId;
+      const linkForOrderingId = getLinkFieldId(field.lookupOptions);
       const fieldCteMap = this.state.getFieldCteMap();
       const mainAlias = getTableAliasFromTable(this.table);
       const foreignDb = this.foreignTable.dbTableName;
@@ -848,9 +858,9 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     // If the target of rollup depends on a foreign link CTE, reference the JOINed CTE columns or use subquery
     let expression: string;
-    if (targetLookupField.lookupOptions) {
-      const nestedLinkFieldId = targetLookupField.lookupOptions.linkFieldId;
-      if (nestedLinkFieldId && this.fieldCteMap.has(nestedLinkFieldId)) {
+    const nestedLinkFieldId = getLinkFieldId(targetLookupField.lookupOptions);
+    if (nestedLinkFieldId) {
+      if (this.fieldCteMap.has(nestedLinkFieldId)) {
         const nestedCteName = this.fieldCteMap.get(nestedLinkFieldId)!;
         const columnName = targetLookupField.isLookup
           ? `lookup_${targetLookupField.id}`
@@ -1131,6 +1141,100 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     this.state.setFieldCte(field.id, cteName);
   }
 
+  private generateConditionalLookupFieldCte(field: FieldCore, options: IConditionalLookupOptions) {
+    if (field.hasError) return;
+    if (this.state.getFieldCteMap().has(field.id)) return;
+
+    const { foreignTableId, lookupFieldId, filter } = options;
+    if (!foreignTableId || !lookupFieldId) {
+      return;
+    }
+
+    const foreignTable = this.tables.getTable(foreignTableId);
+    if (!foreignTable) {
+      return;
+    }
+
+    const targetField = foreignTable.getField(lookupFieldId);
+    if (!targetField) {
+      return;
+    }
+
+    const cteName = `CTE_CONDITIONAL_LOOKUP_${field.id}`;
+    const mainAlias = getTableAliasFromTable(this.table);
+    const foreignAlias = getTableAliasFromTable(foreignTable);
+    const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_ref` : foreignAlias;
+
+    const qb = this.qb.client.queryBuilder();
+    const selectVisitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      foreignTable,
+      new ScopedSelectionState(this.state),
+      this.dialect,
+      foreignAliasUsed,
+      true
+    );
+
+    const targetSelect = targetField.accept(selectVisitor);
+    const rawExpression =
+      typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+
+    const aggregateExpression = this.buildConditionalRollupAggregation(
+      'array_compact({values})',
+      rawExpression,
+      targetField,
+      foreignAliasUsed
+    );
+    const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
+
+    const aggregateQuery = this.qb.client
+      .queryBuilder()
+      .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+
+    if (filter) {
+      const fieldMap = foreignTable.fieldList.reduce(
+        (map, f) => {
+          map[f.id] = f as FieldCore;
+          return map;
+        },
+        {} as Record<string, FieldCore>
+      );
+
+      const selectionMap = new Map<string, IFieldSelectName>();
+      for (const f of foreignTable.fields.ordered) {
+        selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+      }
+
+      const fieldReferenceSelectionMap = new Map<string, string>();
+      const fieldReferenceFieldMap = new Map<string, FieldCore>();
+      for (const mainField of this.table.fields.ordered) {
+        fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
+        fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
+      }
+
+      this.dbProvider
+        .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
+          selectionMap,
+          fieldReferenceSelectionMap,
+          fieldReferenceFieldMap,
+        })
+        .appendQueryBuilder();
+    }
+
+    aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
+
+    this.qb.with(cteName, (cqb) => {
+      cqb
+        .select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`)
+        .select(cqb.client.raw(`(${aggregateQuery.toQuery()}) as "conditional_lookup_${field.id}"`))
+        .from(`${this.table.dbTableName} as ${mainAlias}`);
+    });
+
+    this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+    this.state.setFieldCte(field.id, cteName);
+  }
+
   public build() {
     const list = getOrderedFieldsByProjection(this.table, this.projection) as FieldCore[];
     this.filteredIdSet = new Set(list.map((f) => f.id));
@@ -1144,6 +1248,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         if (!lf) continue;
         if (!this.state.getFieldCteMap().has(lf.id)) {
           this.generateLinkFieldCte(lf);
+        }
+      }
+
+      if (field.isConditionalLookup) {
+        const options = field.getConditionalLookupOptions?.();
+        if (options) {
+          this.generateConditionalLookupFieldCte(field, options);
         }
       }
     }
@@ -1192,7 +1303,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     // foreign link CTE used by that target lookup is generated before referencing it.
     for (const lk of lookupFields) {
       const target = lk.getForeignLookupField(foreignTable);
-      const nestedLinkId = target?.lookupOptions?.linkFieldId;
+      const nestedLinkId = target ? getLinkFieldId(target.lookupOptions) : undefined;
       if (nestedLinkId) {
         const nestedLink = foreignTable.getField(nestedLinkId) as LinkFieldCore | undefined;
         if (nestedLink && !this.state.getFieldCteMap().has(nestedLink.id)) {
@@ -1520,11 +1631,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             nestedJoins.add(lf.id);
           }
         }
-        if (
-          target.lookupOptions?.linkFieldId &&
-          this.fieldCteMap.has(target.lookupOptions.linkFieldId)
-        ) {
-          nestedJoins.add(target.lookupOptions.linkFieldId);
+        const nestedLinkFieldId = getLinkFieldId(target.lookupOptions);
+        if (nestedLinkFieldId && this.fieldCteMap.has(nestedLinkFieldId)) {
+          nestedJoins.add(nestedLinkFieldId);
         }
       }
     }
@@ -1538,11 +1647,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             nestedJoins.add(lf.id);
           }
         }
-        if (
-          target.lookupOptions?.linkFieldId &&
-          this.fieldCteMap.has(target.lookupOptions.linkFieldId)
-        ) {
-          nestedJoins.add(target.lookupOptions.linkFieldId);
+        const nestedLinkFieldId = getLinkFieldId(target.lookupOptions);
+        if (nestedLinkFieldId && this.fieldCteMap.has(nestedLinkFieldId)) {
+          nestedJoins.add(nestedLinkFieldId);
         }
       }
     }
@@ -1735,3 +1842,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   visitLastModifiedByField(_field: LastModifiedByFieldCore): void {}
   visitButtonField(_field: ButtonFieldCore): void {}
 }
+const getLinkFieldId = (options: FieldCore['lookupOptions']): string | undefined => {
+  return options && isLinkLookupOptions(options) ? options.linkFieldId : undefined;
+};

@@ -9,7 +9,7 @@ import type {
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
-  ILookupOptionsVo,
+  ILookupLinkOptionsVo,
   LinkFieldCore,
 } from '@teable/core';
 import {
@@ -21,6 +21,7 @@ import {
   NumberFormattingType,
   RatingIcon,
   Relationship,
+  isLinkLookupOptions,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -3628,8 +3629,9 @@ describe('OpenAPI link (e2e)', () => {
         'bseTestBaseId',
         'newAwesomeName',
       ]);
+      expect(isLinkLookupOptions(updatedLookupField.lookupOptions)).toBe(true);
       expect(
-        (updatedLookupField.lookupOptions as ILookupOptionsVo).fkHostTableName.split(/[._]/)
+        (updatedLookupField.lookupOptions as ILookupLinkOptionsVo).fkHostTableName.split(/[._]/)
       ).toEqual(['bseTestBaseId', 'newAwesomeName']);
     });
   });
@@ -3740,8 +3742,9 @@ describe('OpenAPI link (e2e)', () => {
         'bseTestBaseId',
         'newAwesomeName',
       ]);
+      expect(isLinkLookupOptions(updatedLookupField.lookupOptions)).toBe(true);
       expect(
-        (updatedLookupField.lookupOptions as ILookupOptionsVo).fkHostTableName.split(/[._]/)
+        (updatedLookupField.lookupOptions as ILookupLinkOptionsVo).fkHostTableName.split(/[._]/)
       ).toEqual(['bseTestBaseId', 'newAwesomeName']);
     });
   });

@@ -150,6 +150,9 @@
       "lookup": {
         "title": "{{lookupFieldName}} (from {{linkFieldName}})"
       },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (filtered from {{tableName}})"
+      },
       "rollup": {
         "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
         "rollup": "Rollup",
@@ -287,6 +290,7 @@
       "formula": "Compute values based on fields.",
       "rollup": "Summarize data from linked records.",
       "conditionalRollup": "Summarize values from a linked table with conditional filters.",
+      "conditionalLookup": "Show linked values that meet your filter conditions.",
       "count": "Count the number of linked records.",
       "createdTime": "See the date and time each record was created.",
       "lastModifiedTime": "See the date and time of the most recent edit to some or all fields in a record.",

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { isString } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import { extractFieldIdsFromFilter } from '../view/filter/filter';
@@ -10,10 +11,9 @@ import type {
   IRollupFieldOptions,
   ISelectFieldOptions,
 } from './derivate';
-import type { IFieldOptionsRo } from './field-unions.schema';
-import { commonOptionsSchema } from './field-unions.schema';
+import type { IFieldMetaVo, IFieldOptionsRo } from './field-unions.schema';
 import { getOptionsSchema } from './field.schema';
-import type { ILookupOptionsRo } from './lookup-options-base.schema';
+import { isLinkLookupOptions, type ILookupOptionsRo } from './lookup-options-base.schema';
 
 interface IFieldValidateData {
   message: string;
@@ -25,17 +25,24 @@ interface IFieldValidateData {
 interface IValidateFieldOptionProps {
   type: FieldType;
   isLookup?: boolean;
+  isConditionalLookup?: boolean;
   options?: IFieldOptionsRo;
   aiConfig?: IFieldAIConfig | null;
   lookupOptions?: ILookupOptionsRo;
+  meta?: IFieldMetaVo;
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const validateLookupOptions = (data: IValidateFieldOptionProps) => {
-  const { isLookup, lookupOptions, type, options } = data;
+  const { isLookup, isConditionalLookup, lookupOptions, type, options } = data;
   const res: IFieldValidateData[] = [];
 
   const isRollup = type === FieldType.Rollup;
-  if (lookupOptions && !isLookup && !isRollup) {
+  const needsStandardLookupOptions = (isLookup && !isConditionalLookup) || isRollup;
+  const needsConditionalLookupOptions = Boolean(isConditionalLookup);
+  const allowsLookupOptions = needsStandardLookupOptions || needsConditionalLookupOptions;
+
+  if (lookupOptions && !allowsLookupOptions) {
     res.push({
       message:
         'lookupOptions is not allowed when isLookup attribute is true or field type is rollup.',
@@ -43,51 +50,93 @@ const validateLookupOptions = (data: IValidateFieldOptionProps) => {
     });
   }
 
-  const isLookupOrRollup = isLookup || isRollup;
-  if (isLookupOrRollup && !lookupOptions) {
+  if (needsStandardLookupOptions && !lookupOptions) {
     res.push({
       message: 'lookupOptions is required when isLookup attribute is true or field type is rollup.',
       i18nKey: 'sdk:editor.lookup.lookupOptionsRequired',
     });
+  }
+
+  if (needsConditionalLookupOptions && !lookupOptions) {
+    res.push({
+      message: 'lookupOptions is required when lookup is marked as conditional.',
+      i18nKey: 'sdk:editor.lookup.lookupOptionsRequired',
+    });
+  }
+
+  if (!lookupOptions) {
     return res;
   }
 
-  if (isLookupOrRollup && !isString(lookupOptions?.foreignTableId)) {
-    res.push({
-      path: ['lookupOptions'],
-      message:
-        'foreignTableId is required when isLookup attribute is true or field type is rollup.',
-      i18nKey: 'sdk:editor.link.foreignTableIdRequired',
-    });
-  }
-
-  if (isLookupOrRollup && !isString(lookupOptions?.linkFieldId)) {
-    res.push({
-      path: ['lookupOptions'],
-      message: 'linkFieldId is required when isLookup attribute is true or field type is rollup.',
-      i18nKey: 'sdk:editor.link.linkFieldIdRequired',
-    });
-  }
-
-  if (isLookupOrRollup && !isString(lookupOptions?.lookupFieldId)) {
-    res.push({
-      path: ['lookupOptions'],
-      message: 'lookupFieldId is required when isLookup attribute is true or field type is rollup.',
-      i18nKey: 'sdk:editor.lookup.lookupFieldIdRequired',
-    });
-  }
-
-  if (options) {
-    const result = commonOptionsSchema.safeParse(options);
-    if (!result.success) {
+  if (needsStandardLookupOptions) {
+    if (!isLinkLookupOptions(lookupOptions)) {
       res.push({
-        path: ['options'],
-        message: `RefineOptionsInLookupError: ${fromZodError(result.error).message}`,
-        i18nKey: 'sdk:editor.lookup.refineOptionsError',
-        context: {
-          message: fromZodError(result.error).message,
-        },
+        path: ['lookupOptions'],
+        message: 'linkFieldId is required when isLookup attribute is true or field type is rollup.',
+        i18nKey: 'sdk:editor.link.linkFieldIdRequired',
       });
+    } else {
+      if (!isString(lookupOptions.foreignTableId)) {
+        res.push({
+          path: ['lookupOptions'],
+          message:
+            'foreignTableId is required when isLookup attribute is true or field type is rollup.',
+          i18nKey: 'sdk:editor.link.foreignTableIdRequired',
+        });
+      }
+
+      if (!isString(lookupOptions.linkFieldId)) {
+        res.push({
+          path: ['lookupOptions'],
+          message:
+            'linkFieldId is required when isLookup attribute is true or field type is rollup.',
+          i18nKey: 'sdk:editor.link.linkFieldIdRequired',
+        });
+      }
+
+      if (!isString(lookupOptions.lookupFieldId)) {
+        res.push({
+          path: ['lookupOptions'],
+          message:
+            'lookupFieldId is required when isLookup attribute is true or field type is rollup.',
+          i18nKey: 'sdk:editor.lookup.lookupFieldIdRequired',
+        });
+      }
+    }
+  }
+
+  if (needsConditionalLookupOptions) {
+    if (isLinkLookupOptions(lookupOptions)) {
+      res.push({
+        path: ['lookupOptions'],
+        message: 'linkFieldId is not allowed when lookup is marked as conditional.',
+        i18nKey: 'sdk:editor.lookup.lookupOptionsNotAllowed',
+      });
+    } else {
+      if (!isString(lookupOptions.foreignTableId)) {
+        res.push({
+          path: ['lookupOptions'],
+          message: 'foreignTableId is required when lookup is marked as conditional.',
+          i18nKey: 'sdk:editor.link.foreignTableIdRequired',
+        });
+      }
+
+      if (!isString(lookupOptions.lookupFieldId)) {
+        res.push({
+          path: ['lookupOptions'],
+          message: 'lookupFieldId is required when lookup is marked as conditional.',
+          i18nKey: 'sdk:editor.lookup.lookupFieldIdRequired',
+        });
+      }
+
+      const filterFieldIds = extractFieldIdsFromFilter(lookupOptions.filter);
+      if (!lookupOptions.filter || filterFieldIds.length === 0) {
+        res.push({
+          path: ['lookupOptions', 'filter'],
+          message: 'filter is required when lookup is marked as conditional.',
+          i18nKey: 'sdk:editor.conditionalLookup.filterRequired',
+        });
+      }
     }
   }
 
@@ -96,10 +145,10 @@ const validateLookupOptions = (data: IValidateFieldOptionProps) => {
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 const validateOptions = (data: IValidateFieldOptionProps) => {
-  const res: IFieldValidateData[] = [];
   const { type, options, isLookup } = data;
+  const res: IFieldValidateData[] = [];
 
-  if (!options || isLookup) {
+  if (isLookup) {
     return res;
   }
 
@@ -155,7 +204,8 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
   }
 
   const schema = getOptionsSchema(type);
-  const result = schema && schema.safeParse(options);
+  const shouldValidateSchema = schema && options !== undefined;
+  const result = shouldValidateSchema ? schema.safeParse(options) : undefined;
   if (result && !result.success) {
     res.push({
       path: ['options'],
@@ -258,9 +308,8 @@ const validateAIConfig = (data: IValidateFieldOptionProps) => {
 };
 
 export const validateFieldOptions = (data: IValidateFieldOptionProps): IFieldValidateData[] => {
-  const { type, aiConfig } = data;
   const validateLookupOptionsRes = validateLookupOptions(data);
   const validateOptionsRes = validateOptions(data);
-  const validateAIConfigRes = validateAIConfig({ aiConfig, type });
+  const validateAIConfigRes = validateAIConfig(data);
   return [...validateLookupOptionsRes, ...validateOptionsRes, ...validateAIConfigRes];
 };

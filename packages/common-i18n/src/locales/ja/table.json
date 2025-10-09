@@ -148,6 +148,9 @@
       "lookup": {
         "title": "{{linkFieldName}} から {{lookupFieldName}} を見つける"
       },
+      "conditionalLookup": {
+        "title": "{{tableName}} から {{lookupFieldName}} をフィルター表示"
+      },
       "rollup": {
         "title": "{{linkFieldName}} の {{lookupFieldName}} の要約",
         "rollup": "ロールアップ",
@@ -268,6 +271,7 @@
       "rating": "事前に定義された尺度で評価を追加します。",
       "formula": "フィールドに基づいて値を計算します。",
       "rollup": "リンクされたレコードからデータを要約します。",
+      "conditionalLookup": "設定したフィルターに一致する関連値を表示します。",
       "count": "リンクされたレコードの数をカウントします。",
       "createdTime": "各レコードが作成された日時を確認します。",
       "lastModifiedTime": "レコード内の一部またはすべてのフィールドに対する最新の編集の日時を表示します。",

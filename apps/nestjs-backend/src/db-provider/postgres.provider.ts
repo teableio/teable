@@ -1,6 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ILookupOptionsVo, ISortItem, TableDomain, FieldCore } from '@teable/core';
+import type {
+  IFilter,
+  ILookupLinkOptionsVo,
+  ILookupOptionsVo,
+  ISortItem,
+  TableDomain,
+  FieldCore,
+} from '@teable/core';
 import { DriverClient, parseFormulaToSQL, FieldType } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
 import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
@@ -687,7 +694,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 
   // select id and lookup_options for "field" table options is a json saved in string format, match optionsKey and value
   // please use json method in postgres
-  lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string {
+  lookupOptionsQuery(optionsKey: keyof ILookupLinkOptionsVo, value: string): string {
     return this.knex('field')
       .select({
         tableId: 'table_id',

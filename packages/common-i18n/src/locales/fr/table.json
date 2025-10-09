@@ -148,6 +148,9 @@
       "lookup": {
         "title": "{{lookupFieldName}} (depuis {{linkFieldName}})"
       },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (filtré depuis {{tableName}})"
+      },
       "rollup": {
         "title": "{{lookupFieldName}} Rollup (depuis {{linkFieldName}})",
         "rollup": "Rollup",
@@ -268,6 +271,7 @@
       "rating": "Ajoutez une évaluation sur une échelle prédéfinie.",
       "formula": "Calculez des valeurs basées sur des champs.",
       "rollup": "Résumez les données des enregistrements liés.",
+      "conditionalLookup": "Affiche les valeurs liées correspondant aux filtres définis.",
       "count": "Comptez le nombre d'enregistrements liés.",
       "createdTime": "Voir la date et l'heure de création de chaque enregistrement.",
       "lastModifiedTime": "Voir la date et l'heure de la modification la plus récente de certains ou de tous les champs d'un enregistrement.",

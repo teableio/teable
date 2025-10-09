@@ -3,8 +3,9 @@ import type {
   ILinkFieldOptionsRo,
   ILookupOptionsRo,
   IConditionalRollupFieldOptions,
+  IConditionalLookupOptions,
 } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, isConditionalLookupOptions } from '@teable/core';
 import { getField } from '@teable/openapi';
 import { useFields, useTables } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
@@ -52,10 +53,42 @@ export const useDefaultFieldName = () => {
     [tables]
   );
 
+  const getConditionalLookupName = useCallback(
+    async (fieldRo: IFieldRo) => {
+      const lookupOptions = fieldRo.lookupOptions as ILookupOptionsRo | undefined;
+      const conditionalOptions = isConditionalLookupOptions(lookupOptions)
+        ? (lookupOptions as IConditionalLookupOptions)
+        : undefined;
+      const foreignTableId = conditionalOptions?.foreignTableId;
+      const lookupFieldId = conditionalOptions?.lookupFieldId;
+      if (!foreignTableId || !lookupFieldId) {
+        return;
+      }
+      const lookupField = (await getField(foreignTableId, lookupFieldId)).data;
+      if (!lookupField) {
+        return;
+      }
+      const foreignTable = tables.find((table) => table.id === foreignTableId);
+      return {
+        lookupFieldName: lookupField.name,
+        tableName: foreignTable?.name ?? '',
+      };
+    },
+    [tables]
+  );
+
   return useCallback(
     async (fieldRo: IFieldRo) => {
       const fieldType = fieldRo.type;
       if (fieldRo.isLookup) {
+        if (fieldRo.isConditionalLookup) {
+          const info = await getConditionalLookupName(fieldRo);
+          if (!info) {
+            return;
+          }
+          return t('field.default.conditionalLookup.title', info);
+        }
+
         const lookupName = await getLookupName(fieldRo);
         if (!lookupName) {
           return;
@@ -123,6 +156,6 @@ export const useDefaultFieldName = () => {
           return;
       }
     },
-    [getLookupName, getConditionalRollupName, t, tables]
+    [getLookupName, getConditionalRollupName, getConditionalLookupName, t, tables]
   );
 };

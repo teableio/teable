@@ -75,6 +75,11 @@ export const fieldVoSchema = z.object({
       'Whether this field is lookup field. witch means cellValue and [fieldType] is looked up from the linked table.',
   }),
 
+  isConditionalLookup: z.boolean().optional().openapi({
+    description:
+      'Whether this lookup field applies a conditional filter when resolving linked records.',
+  }),
+
   lookupOptions: lookupOptionsVoSchema.optional().openapi({
     description: 'field lookup options.',
   }),
@@ -147,6 +152,7 @@ export const FIELD_RO_PROPERTIES = [
   'name',
   'dbFieldName',
   'isLookup',
+  'isConditionalLookup',
   'description',
   'lookupOptions',
   'options',
@@ -160,6 +166,7 @@ export const FIELD_VO_PROPERTIES = [
   'aiConfig',
   'name',
   'isLookup',
+  'isConditionalLookup',
   'lookupOptions',
   'notNull',
   'unique',
@@ -236,11 +243,20 @@ const refineOptions = (
   data: {
     type: FieldType;
     isLookup?: boolean;
+    isConditionalLookup?: boolean;
     lookupOptions?: ILookupOptionsRo;
     options?: IFieldOptionsRo;
   },
   ctx: RefinementCtx
 ) => {
+  if (data.isConditionalLookup && !data.isLookup) {
+    ctx.addIssue({
+      path: ['isConditionalLookup'],
+      code: z.ZodIssueCode.custom,
+      message: 'isConditionalLookup requires isLookup to be true.',
+    });
+  }
+
   const validateRes = validateFieldOptions(data);
   validateRes.forEach((item) => {
     ctx.addIssue({
@@ -260,6 +276,7 @@ const baseFieldRoSchema = fieldVoSchema
     notNull: true,
     dbFieldName: true,
     isLookup: true,
+    isConditionalLookup: true,
     description: true,
   })
   .required({

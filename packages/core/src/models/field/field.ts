@@ -5,7 +5,7 @@ import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { LinkFieldCore } from './derivate/link.field';
 import type { IFieldVisitor } from './field-visitor.interface';
 import type { IFieldVo } from './field.schema';
-import type { ILookupOptionsVo } from './lookup-options-base.schema';
+import type { IConditionalLookupOptions, ILookupOptionsVo } from './lookup-options-base.schema';
 import { getDbFieldType } from './utils/get-db-field-type';
 
 export abstract class FieldCore implements IFieldVo {
@@ -52,6 +52,9 @@ export abstract class FieldCore implements IFieldVo {
 
   // if this field is lookup field
   isLookup?: boolean;
+
+  // indicates lookup field applies conditional filtering when resolving values
+  isConditionalLookup?: boolean;
 
   lookupOptions?: ILookupOptionsVo;
 
@@ -126,15 +129,11 @@ export abstract class FieldCore implements IFieldVo {
   }
 
   getLinkField(table: TableDomain): LinkFieldCore | undefined {
-    if (!this.lookupOptions) {
+    const options = this.lookupOptions;
+    if (!options || !('linkFieldId' in options)) {
       return undefined;
     }
-
-    const linkFieldId = this.lookupOptions?.linkFieldId;
-    if (!linkFieldId) {
-      return undefined;
-    }
-
+    const linkFieldId = options.linkFieldId;
     return table.getField(linkFieldId) as LinkFieldCore | undefined;
   }
 
@@ -148,6 +147,19 @@ export abstract class FieldCore implements IFieldVo {
 
   get isStructuredCellValue(): boolean {
     return false;
+  }
+
+  getConditionalLookupOptions(): IConditionalLookupOptions | undefined {
+    if (!this.isConditionalLookup) {
+      return undefined;
+    }
+
+    const options = this.lookupOptions;
+    if (!options || 'linkFieldId' in options) {
+      return undefined;
+    }
+
+    return options as IConditionalLookupOptions;
   }
 
   /**

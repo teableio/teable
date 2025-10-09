@@ -161,13 +161,20 @@ export class LinkFieldCore extends FieldCore {
   getLookupFields(tableDomain: TableDomain) {
     return tableDomain.filterFields(
       (field) =>
-        !!field.isLookup && !!field.lookupOptions && field.lookupOptions.linkFieldId === this.id
+        !!field.isLookup &&
+        !!field.lookupOptions &&
+        'linkFieldId' in field.lookupOptions &&
+        field.lookupOptions.linkFieldId === this.id
     );
   }
 
   getRollupFields(tableDomain: TableDomain) {
     return tableDomain.filterFields(
-      (field) => field.type === FieldType.Rollup && field.lookupOptions?.linkFieldId === this.id
+      (field) =>
+        field.type === FieldType.Rollup &&
+        !!field.lookupOptions &&
+        'linkFieldId' in field.lookupOptions &&
+        field.lookupOptions.linkFieldId === this.id
     );
   }
 

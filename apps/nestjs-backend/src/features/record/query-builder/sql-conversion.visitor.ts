@@ -22,6 +22,7 @@ import {
   isLinkField,
   parseFormula,
   isFieldHasExpression,
+  isLinkLookupOptions,
 } from '@teable/core';
 import type {
   FormulaVisitor,
@@ -864,12 +865,12 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     // If this is a lookup or rollup and CTE map is available, use it
-    if (
-      cteMap &&
-      fieldInfo.lookupOptions?.linkFieldId &&
-      cteMap.has(fieldInfo.lookupOptions.linkFieldId)
-    ) {
-      const cteName = cteMap.get(fieldInfo.lookupOptions.linkFieldId)!;
+    const linkLookupOptions =
+      fieldInfo.lookupOptions && isLinkLookupOptions(fieldInfo.lookupOptions)
+        ? fieldInfo.lookupOptions
+        : undefined;
+    if (cteMap && linkLookupOptions && cteMap.has(linkLookupOptions.linkFieldId)) {
+      const cteName = cteMap.get(linkLookupOptions.linkFieldId)!;
       const columnName = fieldInfo.isLookup
         ? `lookup_${fieldInfo.id}`
         : (fieldInfo as unknown as { type?: string }).type === 'rollup'

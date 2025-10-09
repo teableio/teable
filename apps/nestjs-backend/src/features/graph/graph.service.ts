@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, IConvertFieldRo } from '@teable/core';
-import { FieldType, Relationship } from '@teable/core';
+import { FieldType, Relationship, isLinkLookupOptions } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -38,6 +38,7 @@ interface ITinyField {
   type: string;
   tableId: string;
   isLookup?: boolean | null;
+  isConditionalLookup?: boolean | null;
 }
 
 interface ITinyTable {
@@ -82,6 +83,7 @@ export class GraphService {
             comboId: tableId,
             fieldType: field.type,
             isLookup: field.isLookup,
+            isConditionalLookup: field.isConditionalLookup,
             isSelected: field.id === fieldId,
           });
         }
@@ -113,7 +115,14 @@ export class GraphService {
     );
     const fieldRaws = await this.prismaService.field.findMany({
       where: { id: { in: allFieldIds } },
-      select: { id: true, name: true, type: true, isLookup: true, tableId: true },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        isLookup: true,
+        isConditionalLookup: true,
+        tableId: true,
+      },
     });
 
     fieldRaws.push({
@@ -121,6 +130,7 @@ export class GraphService {
       name: field.name,
       type: field.type,
       isLookup: field.isLookup || null,
+      isConditionalLookup: field.isConditionalLookup || null,
       tableId,
     });
 
@@ -138,10 +148,12 @@ export class GraphService {
     const seen = new Set<string>();
     const filteredGraph = directedGraph.filter(({ fromFieldId, toFieldId }) => {
       // Hide the link -> lookup edge for readability in graph
+      const lookupOptions = field.lookupOptions;
       if (
         toFieldId === field.id &&
-        field.lookupOptions &&
-        fromFieldId === field.lookupOptions.linkFieldId
+        lookupOptions &&
+        isLinkLookupOptions(lookupOptions) &&
+        fromFieldId === lookupOptions.linkFieldId
       ) {
         return false;
       }
@@ -304,7 +316,12 @@ export class GraphService {
     const edgeSeen = new Set<string>();
     const filtered = directedGraph.filter(({ fromFieldId, toFieldId }) => {
       const to = fieldMap[toFieldId];
-      if (to?.lookupOptions && fromFieldId === to.lookupOptions.linkFieldId) {
+      const lookupOptions = to?.lookupOptions;
+      if (
+        lookupOptions &&
+        isLinkLookupOptions(lookupOptions) &&
+        fromFieldId === lookupOptions.linkFieldId
+      ) {
         // Hide the link field as a dependency in the display graph
         return false;
       }
@@ -440,19 +457,33 @@ export class GraphService {
   ): Promise<number> {
     const queries = fieldIds.map((fieldId) => {
       const field = fieldMap[fieldId];
-      if (field.id !== hostFieldId && (field.lookupOptions || field.type === FieldType.Link)) {
-        const options = field.lookupOptions || (field.options as ILinkFieldOptions);
-        const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = options;
-        const query =
-          relationship === Relationship.OneOne || relationship === Relationship.ManyOne
-            ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
-            : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
+      const lookupOptions = field.lookupOptions;
 
-        return query.toQuery();
-      } else {
-        const dbTableName = fieldId2DbTableName[fieldId];
-        return this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
+      if (field.id !== hostFieldId) {
+        if (field.type === FieldType.Link) {
+          const { relationship, fkHostTableName, selfKeyName, foreignKeyName } =
+            field.options as ILinkFieldOptions;
+          const query =
+            relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+              ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
+              : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
+
+          return query.toQuery();
+        }
+
+        if (lookupOptions && isLinkLookupOptions(lookupOptions)) {
+          const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = lookupOptions;
+          const query =
+            relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+              ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
+              : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
+
+          return query.toQuery();
+        }
       }
+
+      const dbTableName = fieldId2DbTableName[fieldId];
+      return this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
     });
     // console.log('queries', queries);
 

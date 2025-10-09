@@ -38,6 +38,7 @@ const fieldSnapshotItemVoSchema = z.object({
   name: z.string(),
   type: z.nativeEnum(FieldType),
   isLookup: z.boolean().nullable(),
+  isConditionalLookup: z.boolean().nullable().optional(),
   options: z.array(z.string()).nullish(),
 });
 

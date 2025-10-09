@@ -23,7 +23,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 
-type InnerFieldType = FieldType | 'lookup';
+type InnerFieldType = FieldType | 'lookup' | 'conditionalLookup';
 
 interface ISelectorItem {
   id: InnerFieldType;
@@ -180,6 +180,12 @@ export const SelectFieldType = (props: {
         description: t('sdk:field.description.lookup'),
         icon: <SearchIcon className="size-4" />,
       });
+      list.push({
+        id: 'conditionalLookup',
+        name: t('sdk:field.title.conditionalLookup'),
+        description: t('sdk:field.description.conditionalLookup'),
+        icon: <SearchIcon className="size-4" />,
+      });
     }
     return list;
   }, [getFieldStatic, isPrimary, t]);
@@ -221,12 +227,20 @@ export const SelectFieldType = (props: {
 
     return isPrimary
       ? result
-      : result.concat({
-          id: 'lookup',
-          name: t('sdk:field.title.lookup'),
-          description: t('sdk:field.description.lookup'),
-          icon: <SearchIcon className="size-4" />,
-        });
+      : result.concat(
+          {
+            id: 'lookup',
+            name: t('sdk:field.title.lookup'),
+            description: t('sdk:field.description.lookup'),
+            icon: <SearchIcon className="size-4" />,
+          },
+          {
+            id: 'conditionalLookup',
+            name: t('sdk:field.title.conditionalLookup'),
+            description: t('sdk:field.description.conditionalLookup'),
+            icon: <SearchIcon className="size-4" />,
+          }
+        );
   }, [getFieldStatic, t, isPrimary]);
 
   const candidatesMap = useMemo(

@@ -79,13 +79,51 @@ describe('TableFields', () => {
     isComputed: false,
   };
 
+  const conditionalLookupFieldJson: IFieldVo = {
+    id: 'fldconditionallookup',
+    dbFieldName: 'fldconditionallookup',
+    name: 'Conditional Lookup Field',
+    options: {},
+    type: FieldType.SingleLineText,
+    dbFieldType: DbFieldType.Text,
+    cellValueType: CellValueType.String,
+    isMultipleCellValue: true,
+    isComputed: true,
+    isLookup: true,
+    isConditionalLookup: true,
+    lookupOptions: {
+      foreignTableId: 'tblforeign4',
+      lookupFieldId: 'fldlookup4',
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: 'fldtext1',
+            operator: 'is',
+            value: 'foo',
+          },
+        ],
+      },
+    },
+  };
+
   beforeEach(() => {
     const linkField1 = plainToInstance(LinkFieldCore, linkFieldJson);
     const linkField2 = plainToInstance(LinkFieldCore, linkField2Json);
     const lookupField = plainToInstance(LinkFieldCore, lookupFieldJson);
     const textField = plainToInstance(SingleLineTextFieldCore, textFieldJson);
+    const conditionalLookupField = plainToInstance(
+      SingleLineTextFieldCore,
+      conditionalLookupFieldJson
+    );
 
-    fields = new TableFields([linkField1, linkField2, lookupField, textField]);
+    fields = new TableFields([
+      linkField1,
+      linkField2,
+      lookupField,
+      textField,
+      conditionalLookupField,
+    ]);
   });
 
   describe('getAllForeignTableIds', () => {
@@ -93,9 +131,10 @@ describe('TableFields', () => {
       const relatedTableIds = fields.getAllForeignTableIds();
 
       expect(relatedTableIds).toBeInstanceOf(Set);
-      expect(relatedTableIds.size).toBe(2);
+      expect(relatedTableIds.size).toBe(3);
       expect(relatedTableIds.has('tblforeign1')).toBe(true);
       expect(relatedTableIds.has('tblforeign2')).toBe(true);
+      expect(relatedTableIds.has('tblforeign4')).toBe(true);
     });
 
     it('should exclude lookup fields', () => {
@@ -108,8 +147,8 @@ describe('TableFields', () => {
     it('should exclude non-link fields', () => {
       const relatedTableIds = fields.getAllForeignTableIds();
 
-      // Should only include link field foreign table IDs
-      expect(relatedTableIds.size).toBe(2);
+      // Should only include link field and conditional lookup foreign table IDs
+      expect(relatedTableIds.size).toBe(3);
     });
 
     it('should return empty set when no link fields exist', () => {

@@ -17,6 +17,7 @@ import {
   generateChoiceId,
   HttpErrorCode,
   isMultiValueLink,
+  isLinkLookupOptions,
   PRIMARY_SUPPORTED_TYPES,
   RecordOpBuilder,
 } from '@teable/core';
@@ -107,7 +108,11 @@ export class FieldConvertingService {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private updateLookupField(field: IFieldInstance, fieldMap: IFieldMap): IOtOperation[] {
     const ops: (IOtOperation | undefined)[] = [];
-    const lookupOptions = field.lookupOptions as ILookupOptionsVo;
+    const lookupOptions = field.lookupOptions;
+    if (!lookupOptions || !isLinkLookupOptions(lookupOptions)) {
+      return [];
+    }
+
     const linkField = fieldMap[lookupOptions.linkFieldId];
     const lookupField = fieldMap[lookupOptions.lookupFieldId];
 
@@ -218,7 +223,12 @@ export class FieldConvertingService {
 
   private updateRollupField(field: RollupFieldDto, fieldMap: IFieldMap) {
     const ops: (IOtOperation | undefined)[] = [];
-    const { lookupFieldId, relationship } = field.lookupOptions;
+    const { lookupOptions } = field;
+    if (!isLinkLookupOptions(lookupOptions)) {
+      return ops.filter(Boolean) as IOtOperation[];
+    }
+
+    const { lookupFieldId, relationship } = lookupOptions;
     const lookupField = fieldMap[lookupFieldId];
     const { cellValueType, isMultipleCellValue } = RollupFieldDto.getParsedValueType(
       field.options.expression,

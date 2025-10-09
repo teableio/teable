@@ -1,8 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
-import { FieldType, getRandomString, ViewType } from '@teable/core';
+import type { ILinkFieldOptions } from '@teable/core';
+import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
@@ -45,7 +45,9 @@ export class BaseExportService {
     'order',
     'lookupOptions',
     'isLookup',
+    'isConditionalLookup',
     'aiConfig',
+    'meta',
     // for formula field
     'dbFieldType',
     'cellValueType',
@@ -731,7 +733,13 @@ export class BaseExportService {
 
         return allowCrossBase
           ? res
-          : omit(res, ['options', 'lookupOptions', 'isLookup', 'isMultipleCellValue']);
+          : omit(res, [
+              'options',
+              'lookupOptions',
+              'isLookup',
+              'isConditionalLookup',
+              'isMultipleCellValue',
+            ]);
       });
 
     // fields which rely on the cross base link fields
@@ -740,11 +748,12 @@ export class BaseExportService {
         ({ type, isLookup }) =>
           isLookup || type === FieldType.Rollup || type === FieldType.ConditionalRollup
       )
-      .filter(({ lookupOptions }) =>
-        crossBaseLinkFields
-          .map(({ id }) => id)
-          .includes((lookupOptions as ILookupOptionsVo)?.linkFieldId)
-      )
+      .filter(({ lookupOptions }) => {
+        if (!lookupOptions || !isLinkLookupOptions(lookupOptions)) {
+          return false;
+        }
+        return crossBaseLinkFields.map(({ id }) => id).includes(lookupOptions.linkFieldId);
+      })
       .map((field, index) => {
         const res = {
           ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
@@ -757,7 +766,13 @@ export class BaseExportService {
 
         return allowCrossBase
           ? res
-          : omit(res, ['options', 'lookupOptions', 'isLookup', 'isMultipleCellValue']);
+          : omit(res, [
+              'options',
+              'lookupOptions',
+              'isLookup',
+              'isConditionalLookup',
+              'isMultipleCellValue',
+            ]);
       });
 
     return [...crossBaseLinkFields, ...relativeFields] as IBaseJson['tables'][number]['fields'];

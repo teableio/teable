@@ -147,7 +147,12 @@
         "title": "Cálculo",
         "formula": "Fórmula"
       },
-      "lookup": {},
+      "lookup": {
+        "title": "{{lookupFieldName}} (de {{linkFieldName}})"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (filtrado de {{tableName}})"
+      },
       "rollup": {
         "rollup": "Acurrucado",
         "selectAnRollupFunction": "Seleccione una función enrollable",
@@ -272,6 +277,7 @@
       "rating": "Agregue una calificación en una escala predefinida.",
       "formula": "Calcule los valores basados ​​en los campos.",
       "rollup": "Resumir los datos de los registros vinculados.",
+      "conditionalLookup": "Muestra valores vinculados que cumplen sus filtros.",
       "count": "Cuente el número de registros vinculados.",
       "createdTime": "Vea la fecha y hora en que se creó cada registro.",
       "lastModifiedTime": "Vea la fecha y hora de la edición más reciente a algunos o todos los campos en un registro.",

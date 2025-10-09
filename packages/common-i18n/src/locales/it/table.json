@@ -150,6 +150,9 @@
       "lookup": {
         "title": "{{lookupFieldName}} (da {{linkFieldName}})"
       },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (filtrato da {{tableName}})"
+      },
       "rollup": {
         "title": "Rollup {{lookupFieldName}} (da {{linkFieldName}})",
         "rollup": "Rollup",
@@ -277,6 +280,7 @@
       "rating": "Aggiungi una valutazione su una scala predefinita.",
       "formula": "Calcola valori basati sui campi.",
       "rollup": "Riepiloga dati da record collegati.",
+      "conditionalLookup": "Mostra valori collegati che rispettano i filtri impostati.",
       "count": "Conta il numero di record collegati.",
       "createdTime": "Visualizza la data e l'ora in cui ogni record è stato creato.",
       "lastModifiedTime": "Visualizza la data e l'ora dell'ultima modifica a uno o tutti i campi in un record.",

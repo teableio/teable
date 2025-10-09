@@ -6,7 +6,7 @@ import { useFields, useTable, useFieldStaticGetter, useBaseId } from '@teable/sd
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
 import { Button } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -47,13 +47,14 @@ export const SelectFieldByTableId: React.FC<{
 export const LookupOptions = (props: {
   options: Partial<ILookupOptionsVo> | undefined;
   fieldId?: string;
+  requireFilter?: boolean;
   onChange?: (
     options: Partial<ILookupOptionsRo>,
     linkField?: LinkField,
     lookupField?: IFieldInstance
   ) => void;
 }) => {
-  const { fieldId, options = {}, onChange } = props;
+  const { fieldId, options = {}, onChange, requireFilter = false } = props;
   const table = useTable();
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -64,7 +65,15 @@ export const LookupOptions = (props: {
   });
   const baseId = useBaseId();
 
-  const [moreVisible, setMoreVisible] = useState(Boolean(options?.filter));
+  const [moreVisible, setMoreVisible] = useState<boolean>(
+    requireFilter || Boolean(options?.filter)
+  );
+
+  useEffect(() => {
+    if (requireFilter) {
+      setMoreVisible(true);
+    }
+  }, [requireFilter]);
 
   const setOptions = useCallback(
     (options: Partial<ILookupOptionsRo>, linkField?: LinkField, lookupField?: IFieldInstance) => {
@@ -140,11 +149,14 @@ export const LookupOptions = (props: {
                     <ChevronDown className="size-3 " />
                   </Button>
                 </div>
-                {moreVisible && (
+                {(requireFilter || moreVisible) && (
                   <LookupFilterOptions
                     fieldId={fieldId}
                     foreignTableId={innerOptions.foreignTableId}
                     filter={options.filter}
+                    enableFieldReference={requireFilter}
+                    contextTableId={table?.id}
+                    required={requireFilter}
                     onChange={(filter) => {
                       setOptions?.({ filter });
                     }}

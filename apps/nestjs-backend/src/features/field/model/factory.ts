@@ -45,6 +45,7 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     isPrimary: fieldRaw.isPrimary || undefined,
     isPending: fieldRaw.isPending || undefined,
     isLookup: fieldRaw.isLookup || undefined,
+    isConditionalLookup: fieldRaw.isConditionalLookup || undefined,
     hasError: fieldRaw.hasError || undefined,
     lookupOptions:
       (fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string)) || undefined,

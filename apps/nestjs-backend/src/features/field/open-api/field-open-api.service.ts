@@ -9,6 +9,7 @@ import {
   IFieldRo,
   StatisticsFunc,
   isRollupFunctionSupportedForCellValueType,
+  isLinkLookupOptions,
 } from '@teable/core';
 import type {
   IFieldVo,
@@ -107,7 +108,7 @@ export class FieldOpenApiService {
   }
 
   private async validateLookupField(field: IFieldInstance) {
-    if (field.lookupOptions) {
+    if (field.lookupOptions && isLinkLookupOptions(field.lookupOptions)) {
       const { foreignTableId, lookupFieldId, linkFieldId } = field.lookupOptions;
       const foreignField = await this.prismaService.txClient().field.findFirst({
         where: { tableId: foreignTableId, id: lookupFieldId, deletedTime: null },
@@ -158,6 +159,27 @@ export class FieldOpenApiService {
     return isRollupFunctionSupportedForCellValueType(expression, cellValueType);
   }
 
+  private async validateConditionalLookup(field: IFieldInstance) {
+    const meta = field.getConditionalLookupOptions?.();
+    const lookupFieldId = meta?.lookupFieldId;
+    const foreignTableId = meta?.foreignTableId;
+
+    if (!lookupFieldId || !foreignTableId) {
+      return false;
+    }
+
+    const foreignField = await this.prismaService.txClient().field.findFirst({
+      where: { id: lookupFieldId, tableId: foreignTableId, deletedTime: null },
+      select: { id: true, type: true },
+    });
+
+    if (!foreignField) {
+      return false;
+    }
+
+    return foreignField.type === field.type;
+  }
+
   private async markError(tableId: string, field: IFieldInstance, hasError: boolean) {
     if (hasError) {
       !field.hasError && (await this.fieldService.markError(tableId, [field.id], true));
@@ -198,11 +220,18 @@ export class FieldOpenApiService {
 
     let hasError = false;
 
-    if (field.lookupOptions && field.type !== FieldType.ConditionalRollup) {
+    if (
+      field.lookupOptions &&
+      field.type !== FieldType.ConditionalRollup &&
+      !field.isConditionalLookup
+    ) {
       const isValid = await this.validateLookupField(field);
       hasError = !isValid;
     } else if (field.type === FieldType.ConditionalRollup) {
       const isValid = await this.validateConditionalRollupAggregation(field);
+      hasError = !isValid;
+    } else if (field.isConditionalLookup) {
+      const isValid = await this.validateConditionalLookup(field);
       hasError = !isValid;
     }
 

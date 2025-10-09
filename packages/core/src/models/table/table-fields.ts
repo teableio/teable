@@ -5,6 +5,10 @@ import type { FormulaFieldCore } from '../field/derivate/formula.field';
 import type { LinkFieldCore } from '../field/derivate/link.field';
 import type { FieldCore } from '../field/field';
 import { isLinkField } from '../field/field.util';
+import {
+  isConditionalLookupOptions,
+  isLinkLookupOptions,
+} from '../field/lookup-options-base.schema';
 
 /**
  * TableFields represents a collection of fields within a table
@@ -78,17 +82,26 @@ export class TableFields {
       }
 
       // Lookup fields depend on their link field
-      if (f.isLookup && f.lookupOptions?.linkFieldId) {
-        deps = [...deps, f.lookupOptions.linkFieldId];
+      if (f.isLookup) {
+        const linkFieldId = getLinkLookupFieldId(f.lookupOptions);
+        if (linkFieldId) {
+          deps = [...deps, linkFieldId];
+        }
       }
 
       // Rollup fields also depend on their link field
-      if (f.type === FieldType.Rollup && f.lookupOptions?.linkFieldId) {
-        deps = [...deps, f.lookupOptions.linkFieldId];
+      if (f.type === FieldType.Rollup) {
+        const linkFieldId = getLinkLookupFieldId(f.lookupOptions);
+        if (linkFieldId) {
+          deps = [...deps, linkFieldId];
+        }
       }
 
-      if (f.type === FieldType.ConditionalRollup && f.lookupOptions?.linkFieldId) {
-        deps = [...deps, f.lookupOptions.linkFieldId];
+      if (f.type === FieldType.ConditionalRollup) {
+        const linkFieldId = getLinkLookupFieldId(f.lookupOptions);
+        if (linkFieldId) {
+          deps = [...deps, linkFieldId];
+        }
       }
 
       // Create edges dep -> f.id
@@ -310,12 +323,24 @@ export class TableFields {
   /**
    * Get all foreign table ids from link fields
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   getAllForeignTableIds(): Set<string> {
     const foreignTableIds = new Set<string>();
 
     for (const field of this) {
       if (field.type === FieldType.ConditionalRollup) {
         const foreignTableId = (field as ConditionalRollupFieldCore).getForeignTableId?.();
+        if (foreignTableId) {
+          foreignTableIds.add(foreignTableId);
+        }
+        continue;
+      }
+
+      if (field.isConditionalLookup) {
+        const options = field.lookupOptions;
+        const foreignTableId = isConditionalLookupOptions(options)
+          ? options.foreignTableId
+          : undefined;
         if (foreignTableId) {
           foreignTableIds.add(foreignTableId);
         }
@@ -342,3 +367,6 @@ export class TableFields {
     }
   }
 }
+const getLinkLookupFieldId = (options: FieldCore['lookupOptions']): string | undefined => {
+  return options && isLinkLookupOptions(options) ? options.linkFieldId : undefined;
+};

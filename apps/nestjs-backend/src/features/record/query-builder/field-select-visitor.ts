@@ -23,6 +23,7 @@ import type {
   ButtonFieldCore,
   TableDomain,
 } from '@teable/core';
+import { isLinkLookupOptions } from '@teable/core';
 // no driver-specific logic here; use dialect for differences
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -138,23 +139,34 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return raw;
       }
 
-      // For regular lookup fields, use the corresponding link field CTE
-      const { linkFieldId } = field.lookupOptions as { linkFieldId: string };
-      if (linkFieldId && fieldCteMap.has(linkFieldId)) {
-        const cteName = fieldCteMap.get(linkFieldId)!;
-        const flattenedExpr = this.dialect.flattenLookupCteValue(
-          cteName,
-          field.id,
-          !!field.isMultipleCellValue
-        );
-        if (flattenedExpr) {
-          this.state.setSelection(field.id, flattenedExpr);
-          return this.qb.client.raw(flattenedExpr);
-        }
-        // Default: return CTE column directly
-        const rawExpression = this.qb.client.raw(`??."lookup_${field.id}"`, [cteName]);
-        this.state.setSelection(field.id, `"${cteName}"."lookup_${field.id}"`);
+      // Conditional lookup CTEs are stored against the field itself.
+      if (field.isConditionalLookup && fieldCteMap.has(field.id)) {
+        const conditionalCteName = fieldCteMap.get(field.id)!;
+        const column = `conditional_lookup_${field.id}`;
+        const rawExpression = this.qb.client.raw(`??."${column}"`, [conditionalCteName]);
+        this.state.setSelection(field.id, `"${conditionalCteName}"."${column}"`);
         return rawExpression;
+      }
+
+      // For regular lookup fields, use the corresponding link field CTE
+      if (field.lookupOptions && isLinkLookupOptions(field.lookupOptions)) {
+        const { linkFieldId } = field.lookupOptions;
+        if (linkFieldId && fieldCteMap.has(linkFieldId)) {
+          const cteName = fieldCteMap.get(linkFieldId)!;
+          const flattenedExpr = this.dialect.flattenLookupCteValue(
+            cteName,
+            field.id,
+            !!field.isMultipleCellValue
+          );
+          if (flattenedExpr) {
+            this.state.setSelection(field.id, flattenedExpr);
+            return this.qb.client.raw(flattenedExpr);
+          }
+          // Default: return CTE column directly
+          const rawExpression = this.qb.client.raw(`??."lookup_${field.id}"`, [cteName]);
+          this.state.setSelection(field.id, `"${cteName}"."lookup_${field.id}"`);
+          return rawExpression;
+        }
       }
 
       if (this.rawProjection) {
@@ -311,7 +323,22 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     }
 
     const fieldCteMap = this.state.getFieldCteMap();
-    if (!fieldCteMap?.has(field.lookupOptions.linkFieldId)) {
+    if (!isLinkLookupOptions(field.lookupOptions)) {
+      if (this.rawProjection) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
+
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
+      const raw = this.qb.client.raw(nullExpr);
+      this.state.setSelection(field.id, nullExpr);
+      return raw;
+    }
+
+    const linkLookupOptions = field.lookupOptions;
+
+    if (!fieldCteMap?.has(linkLookupOptions.linkFieldId)) {
       if (this.rawProjection) {
         const columnSelector = this.getColumnSelector(field);
         this.state.setSelection(field.id, columnSelector);
@@ -345,8 +372,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       this.state.setSelection(field.id, 'NULL');
       return raw;
     }
-
-    const cteName = fieldCteMap.get(field.lookupOptions.linkFieldId)!;
+    const cteName = fieldCteMap.get(linkLookupOptions.linkFieldId)!;
 
     // Return Raw expression for selecting pre-computed rollup value from link CTE
     const rawExpression = this.qb.client.raw(`??."rollup_${field.id}"`, [cteName]);

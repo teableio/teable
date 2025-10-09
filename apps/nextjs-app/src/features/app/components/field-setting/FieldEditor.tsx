@@ -3,6 +3,7 @@ import {
   FieldType,
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
+  isConditionalLookupOptions,
 } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { useFieldStaticGetter } from '@teable/sdk';
@@ -17,8 +18,10 @@ import { FieldAiConfig } from './field-ai-config';
 import { FieldValidation } from './field-validation/FieldValidation';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
+import { useUpdateConditionalLookupOptions } from './hooks/useUpdateConditionalLookupOptions';
 import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
 import { LookupOptions } from './lookup-options/LookupOptions';
+import { ConditionalLookupOptions } from './options/ConditionalLookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { SystemInfo } from './SystemInfo';
 import { FieldOperator } from './type';
@@ -54,7 +57,7 @@ export const FieldEditor = (props: {
     });
   };
 
-  const updateFieldTypeWithLookup = (type: FieldType | 'lookup') => {
+  const updateFieldTypeWithLookup = (type: FieldType | 'lookup' | 'conditionalLookup') => {
     if (type === 'lookup') {
       return setFieldFn({
         ...field,
@@ -62,8 +65,23 @@ export const FieldEditor = (props: {
         options: undefined, // reset options
         aiConfig: undefined,
         isLookup: true,
+        isConditionalLookup: undefined,
         unique: undefined,
         notNull: undefined,
+      });
+    }
+
+    if (type === 'conditionalLookup') {
+      return setFieldFn({
+        ...field,
+        type: FieldType.SingleLineText,
+        options: undefined,
+        aiConfig: undefined,
+        isLookup: true,
+        isConditionalLookup: true,
+        unique: undefined,
+        notNull: undefined,
+        lookupOptions: undefined,
       });
     }
 
@@ -84,6 +102,7 @@ export const FieldEditor = (props: {
       ...field,
       type,
       isLookup: undefined,
+      isConditionalLookup: undefined,
       lookupOptions: undefined,
       aiConfig: undefined,
       options,
@@ -109,12 +128,34 @@ export const FieldEditor = (props: {
   );
 
   const updateLookupOptions = useUpdateLookupOptions(field, setFieldFn);
+  const updateConditionalLookupOptions = useUpdateConditionalLookupOptions(field, setFieldFn);
 
   const getUnionOptions = () => {
     if (field.isLookup) {
+      if (field.isConditionalLookup) {
+        const conditionalLookupOptions = isConditionalLookupOptions(field.lookupOptions)
+          ? field.lookupOptions
+          : undefined;
+
+        return (
+          <>
+            <ConditionalLookupOptions
+              fieldId={field.id}
+              options={conditionalLookupOptions}
+              onOptionsChange={updateConditionalLookupOptions}
+            />
+            <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
+          </>
+        );
+      }
+
       return (
         <>
-          <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
+          <LookupOptions
+            fieldId={field.id}
+            options={field.lookupOptions}
+            onChange={updateLookupOptions}
+          />
           <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
         </>
       );
@@ -183,12 +224,20 @@ export const FieldEditor = (props: {
         </div>
         <SelectFieldType
           isPrimary={isPrimary}
-          value={field.isLookup ? 'lookup' : field.type}
+          value={
+            field.isLookup
+              ? field.isConditionalLookup
+                ? 'conditionalLookup'
+                : 'lookup'
+              : field.type
+          }
           onChange={updateFieldTypeWithLookup}
         />
         <p className="text-left text-xs font-normal text-muted-foreground">
           {field.isLookup
-            ? t('table:field.subTitle.lookup')
+            ? field.isConditionalLookup
+              ? t('table:field.subTitle.conditionalLookup')
+              : t('table:field.subTitle.lookup')
             : getFieldSubtitle(field.type as FieldType)}
         </p>
       </div>

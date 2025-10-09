@@ -118,6 +118,9 @@
     "conditionalRollup": {
       "filterRequired": "Filtre en az bir koşul içermelidir"
     },
+    "conditionalLookup": {
+      "filterRequired": "Koşullu arama için en az bir filtre koşulu gereklidir"
+    },
     "aiConfig": {
       "modelKeyRequired": "Model gereklidir",
       "typeNotSupported": "Desteklenmeyen AI türü",
@@ -292,6 +295,7 @@
       "rating": "Değerlendirme",
       "autoNumber": "Otomatik sayı",
       "lookup": "Arama",
+      "conditionalLookup": "Koşullu arama",
       "button": "Düğme",
       "createdBy": "Oluşturan",
       "lastModifiedBy": "Son değiştiren"
@@ -315,6 +319,7 @@
       "rating": "Ögeleri ayarlanabilir simgelerle puanlar.",
       "autoNumber": "Her kayda benzersiz bir sıra numarası verir.",
       "lookup": "Bağlı kayıtlardan değerleri gösterir.",
+      "conditionalLookup": "Tanımladığınız filtrelere uyan bağlı değerleri gösterir.",
       "button": "Tıklanabilir bir düğmeyle eylemler çalıştırır.",
       "createdBy": "Kaydı kimin oluşturduğunu gösterir.",
       "lastModifiedBy": "Kaydı en son kimin değiştirdiğini gösterir."

@@ -99,6 +99,7 @@ model Field {
   isPrimary           Boolean?  @map("is_primary")
   isComputed          Boolean?  @map("is_computed")
   isLookup            Boolean?  @map("is_lookup")
+  isConditionalLookup Boolean?  @map("is_conditional_lookup")
   isPending           Boolean?  @map("is_pending")
   hasError            Boolean?  @map("has_error")
   // the link field id that a lookup field is linked to

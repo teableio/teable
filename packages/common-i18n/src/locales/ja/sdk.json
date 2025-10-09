@@ -106,6 +106,9 @@
     "conditionalRollup": {
       "filterRequired": "フィルターには少なくとも1つの条件が必要です"
     },
+    "conditionalLookup": {
+      "filterRequired": "条件付き検索には少なくとも1つのフィルター条件が必要です"
+    },
     "aiConfig": {
       "modelKeyRequired": "モデルは必須です",
       "typeNotSupported": "サポートされていないAIタイプ",
@@ -279,6 +282,7 @@
       "rating": "評価",
       "autoNumber": "自動番号",
       "lookup": "関連テーブルから検索",
+      "conditionalLookup": "条件付き検索",
       "button": "ボタン",
       "createdBy": "作成者",
       "lastModifiedBy": "最終更新者"
@@ -302,6 +306,7 @@
       "rating": "カスタムアイコンで項目に評価を付けます。",
       "autoNumber": "各レコードに連番を付与します。",
       "lookup": "関連レコードの値を表示します。",
+      "conditionalLookup": "設定したフィルター条件に合致する関連値を表示します。",
       "button": "クリック可能なボタンでアクションを実行します。",
       "createdBy": "レコードを作成したユーザーを表示します。",
       "lastModifiedBy": "最後に編集したユーザーを表示します。"

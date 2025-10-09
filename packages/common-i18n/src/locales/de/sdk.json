@@ -118,6 +118,9 @@
     "conditionalRollup": {
       "filterRequired": "Der Filter muss mindestens eine Bedingung enthalten"
     },
+    "conditionalLookup": {
+      "filterRequired": "Conditional Lookup requires at least one filter condition"
+    },
     "aiConfig": {
       "modelKeyRequired": "Modell ist erforderlich",
       "typeNotSupported": "Nicht unterstützter AI-Typ",
@@ -301,6 +304,7 @@
       "rating": "Bewertung",
       "autoNumber": "Automatische Nummer",
       "lookup": "Nachschlag",
+      "conditionalLookup": "Conditional Lookup",
       "button": "Button",
       "createdBy": "Erstellt von",
       "lastModifiedBy": "Letzte Änderung von"
@@ -324,6 +328,7 @@
       "rating": "Elemente mit konfigurierbaren Symbolen bewerten.",
       "autoNumber": "Jedem Datensatz eine eindeutige Sequenz geben.",
       "lookup": "Werte aus verknüpften Datensätzen anzeigen.",
+      "conditionalLookup": "Zeigt verknüpfte Werte an, die Ihren Filtern entsprechen.",
       "button": "Aktionen über einen klickbaren Button ausführen.",
       "createdBy": "Anzeigen, wer den Datensatz erstellt hat.",
       "lastModifiedBy": "Anzeigen, wer den Datensatz zuletzt bearbeitet hat."

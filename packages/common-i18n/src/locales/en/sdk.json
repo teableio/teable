@@ -118,6 +118,9 @@
     "conditionalRollup": {
       "filterRequired": "Filter must contain at least one condition"
     },
+    "conditionalLookup": {
+      "filterRequired": "Conditional lookup requires at least one filter condition"
+    },
     "aiConfig": {
       "modelKeyRequired": "Model is required",
       "typeNotSupported": "Unsupported AI type",
@@ -305,6 +308,7 @@
       "rating": "Rating",
       "autoNumber": "Auto number",
       "lookup": "Lookup",
+      "conditionalLookup": "Conditional lookup",
       "button": "Button",
       "createdBy": "Created by",
       "lastModifiedBy": "Last modified by"
@@ -328,6 +332,7 @@
       "rating": "Score items with configurable icons.",
       "autoNumber": "Give each record a unique sequence.",
       "lookup": "Display values from linked records.",
+      "conditionalLookup": "Show linked values that match filters you define.",
       "button": "Run actions with a clickable button.",
       "createdBy": "Show who created the record.",
       "lastModifiedBy": "Show who last modified the record."

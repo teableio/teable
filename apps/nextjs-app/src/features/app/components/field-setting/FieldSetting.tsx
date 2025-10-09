@@ -228,6 +228,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
     const validateRes = validateFieldOptions({
       type: field.type as FieldType,
       isLookup: field.isLookup,
+      isConditionalLookup: field.isConditionalLookup,
       lookupOptions: field.lookupOptions,
       options: field.options,
       aiConfig: field.aiConfig,

@@ -69,6 +69,7 @@ export class RecordCreateService {
         notNull: true,
         isComputed: true,
         isLookup: true,
+        isConditionalLookup: true,
         dbFieldName: true,
       },
     });

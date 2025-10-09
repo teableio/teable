@@ -118,6 +118,9 @@
     "conditionalRollup": {
       "filterRequired": "Il filtro deve contenere almeno una condizione"
     },
+    "conditionalLookup": {
+      "filterRequired": "La ricerca condizionale richiede almeno un filtro"
+    },
     "aiConfig": {
       "modelKeyRequired": "Il modello è obbligatorio",
       "typeNotSupported": "Tipo di AI non supportato",
@@ -301,6 +304,7 @@
       "rating": "Valutazione",
       "autoNumber": "Numero automatico",
       "lookup": "Ricerca",
+      "conditionalLookup": "Ricerca condizionale",
       "button": "Pulsante",
       "createdBy": "Creato da",
       "lastModifiedBy": "Ultima modifica di"
@@ -324,6 +328,7 @@
       "rating": "Valuta gli elementi con icone configurabili.",
       "autoNumber": "Assegna a ogni record una sequenza unica.",
       "lookup": "Mostra valori provenienti da record collegati.",
+      "conditionalLookup": "Mostra valori collegati che soddisfano i filtri definiti.",
       "button": "Esegui azioni con un pulsante cliccabile.",
       "createdBy": "Mostra chi ha creato il record.",
       "lastModifiedBy": "Mostra chi lo ha modificato per ultimo."

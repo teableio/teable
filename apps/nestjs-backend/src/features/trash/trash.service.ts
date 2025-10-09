@@ -241,15 +241,17 @@ export class TrashService {
             type: true,
             options: true,
             isLookup: true,
+            isConditionalLookup: true,
           },
         });
-        return fields.reduce((acc, { id, name, type, options, isLookup }) => {
+        return fields.reduce((acc, { id, name, type, options, isLookup, isConditionalLookup }) => {
           acc[id] = {
             id,
             name,
             type: type as FieldType,
             options: options ? JSON.parse(options) : undefined,
             isLookup,
+            isConditionalLookup,
           };
           return acc;
         }, {} as IResourceMapVo);

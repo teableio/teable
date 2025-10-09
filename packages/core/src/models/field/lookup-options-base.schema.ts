@@ -2,7 +2,7 @@ import { z } from '../../zod';
 import { filterSchema } from '../view/filter';
 import { Relationship } from './constant';
 
-export const lookupOptionsVoSchema = z.object({
+const lookupLinkOptionsVoSchema = z.object({
   baseId: z.string().optional().openapi({
     description:
       'the base id of the table that this field is linked to, only required for cross base link',
@@ -32,12 +32,57 @@ export const lookupOptionsVoSchema = z.object({
   }),
 });
 
-export const lookupOptionsRoSchema = lookupOptionsVoSchema.pick({
+const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
   foreignTableId: true,
   lookupFieldId: true,
   linkFieldId: true,
   filter: true,
 });
 
+const lookupConditionalOptionsVoSchema = z.object({
+  baseId: z.string().optional().openapi({
+    description:
+      'the base id of the table that this field is linked to, only required for cross base link',
+  }),
+  foreignTableId: z.string().openapi({
+    description: 'the table this field is linked to',
+  }),
+  lookupFieldId: z.string().openapi({
+    description: 'the field in the foreign table that will be displayed as the current field',
+  }),
+  filter: filterSchema.openapi({
+    description: 'Filter to apply when resolving conditional lookup values.',
+  }),
+});
+
+const lookupConditionalOptionsRoSchema = lookupConditionalOptionsVoSchema;
+
+export const lookupOptionsVoSchema = z.union([
+  lookupLinkOptionsVoSchema.strict(),
+  lookupConditionalOptionsVoSchema.strict(),
+]);
+
+export const lookupOptionsRoSchema = z.union([
+  lookupLinkOptionsRoSchema.strict(),
+  lookupConditionalOptionsRoSchema.strict(),
+]);
+
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
+export type ILookupLinkOptions = z.infer<typeof lookupLinkOptionsRoSchema>;
+export type ILookupConditionalOptions = z.infer<typeof lookupConditionalOptionsRoSchema>;
+export type IConditionalLookupOptions = ILookupConditionalOptions;
+export type ILookupLinkOptionsVo = z.infer<typeof lookupLinkOptionsVoSchema>;
+export type ILookupConditionalOptionsVo = z.infer<typeof lookupConditionalOptionsVoSchema>;
+
+export const isLinkLookupOptions = <T extends ILookupOptionsRo | ILookupOptionsVo | undefined>(
+  options: T
+): options is Extract<T, ILookupLinkOptions | ILookupLinkOptionsVo> => {
+  return Boolean(options && typeof options === 'object' && 'linkFieldId' in options);
+};
+
+export const isConditionalLookupOptions = (
+  options: ILookupOptionsRo | ILookupOptionsVo | undefined
+): options is ILookupConditionalOptions | ILookupConditionalOptionsVo => {
+  return Boolean(options && typeof options === 'object' && !('linkFieldId' in options));
+};

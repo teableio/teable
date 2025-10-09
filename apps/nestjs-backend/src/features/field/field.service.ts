@@ -7,6 +7,7 @@ import {
   checkFieldUniqueValidationEnabled,
   checkFieldValidationEnabled,
   FieldType,
+  isLinkLookupOptions,
 } from '@teable/core';
 import type {
   IFieldVo,
@@ -117,6 +118,7 @@ export class FieldService implements IReadonlyAdapterService {
       cellValueType,
       isMultipleCellValue,
       isLookup,
+      isConditionalLookup,
     } = fieldInstance;
 
     const agg = await this.prismaService.txClient().field.aggregate({
@@ -148,12 +150,14 @@ export class FieldService implements IReadonlyAdapterService {
       isLookup,
       hasError,
       // add lookupLinkedFieldId for indexing
-      lookupLinkedFieldId: lookupOptions?.linkFieldId,
+      lookupLinkedFieldId:
+        lookupOptions && isLinkLookupOptions(lookupOptions) ? lookupOptions.linkFieldId : undefined,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,
       dbFieldType,
       cellValueType,
       isMultipleCellValue,
+      isConditionalLookup,
       createdBy: userId,
     };
 
@@ -200,6 +204,7 @@ export class FieldService implements IReadonlyAdapterService {
             cellValueType,
             isMultipleCellValue,
             isLookup,
+            isConditionalLookup,
             meta,
           },
           index
@@ -216,9 +221,13 @@ export class FieldService implements IReadonlyAdapterService {
           version: 1,
           isComputed,
           isLookup,
+          isConditionalLookup,
           hasError,
           // add lookupLinkedFieldId for indexing
-          lookupLinkedFieldId: lookupOptions?.linkFieldId,
+          lookupLinkedFieldId:
+            lookupOptions && isLinkLookupOptions(lookupOptions)
+              ? lookupOptions.linkFieldId
+              : undefined,
           lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
           dbFieldName,
           dbFieldType,
@@ -1085,7 +1094,10 @@ export class FieldService implements IReadonlyAdapterService {
       return {
         lookupOptions: newValue ? JSON.stringify(newValue) : null,
         // update lookupLinkedFieldId for indexing
-        lookupLinkedFieldId: (newValue as ILookupOptionsVo | null)?.linkFieldId || null,
+        lookupLinkedFieldId: (() => {
+          const nextOptions = newValue as ILookupOptionsVo | null;
+          return nextOptions && isLinkLookupOptions(nextOptions) ? nextOptions.linkFieldId : null;
+        })(),
       };
     }
 

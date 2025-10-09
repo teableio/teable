@@ -24,6 +24,7 @@ import {
   IdPrefix,
   actionPrefixMap,
   getBasePermission,
+  isLinkLookupOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
@@ -569,6 +570,9 @@ export class TableOpenApiService {
 
       for (const field of lookupFieldsRaw) {
         const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
+        if (!isLinkLookupOptions(lookupOptions)) {
+          continue;
+        }
         await prisma.field.update({
           where: { id: field.id },
           data: {

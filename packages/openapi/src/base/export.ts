@@ -43,6 +43,8 @@ export const fieldJsonSchema = fieldVoSchema
     isPrimary: true,
     hasError: true,
     isLookup: true,
+    meta: true,
+    isConditionalLookup: true,
     lookupOptions: true,
     dbFieldType: true,
     aiConfig: true,

@@ -58,6 +58,8 @@ function applyFieldPropertyOperation(
       return { ...fieldVo, hasError: newValue as boolean | undefined };
     case 'isLookup':
       return { ...fieldVo, isLookup: newValue as boolean | undefined };
+    case 'isConditionalLookup':
+      return { ...fieldVo, isConditionalLookup: newValue as boolean | undefined };
     case 'lookupOptions':
       return { ...fieldVo, lookupOptions: newValue as IFieldVo['lookupOptions'] };
     case 'cellValueType':

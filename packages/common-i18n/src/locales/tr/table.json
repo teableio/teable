@@ -140,6 +140,9 @@
       "lookup": {
         "title": "{{lookupFieldName}} ({{linkFieldName}} üzerinden)"
       },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} ({{tableName}} üzerinden filtrelenmiş)"
+      },
       "rollup": {
         "title": "{{lookupFieldName}} Toplama ({{linkFieldName}} üzerinden)",
         "rollup": "Toplama",
@@ -265,6 +268,7 @@
       "rating": "Önceden tanımlanmış bir ölçekte değerlendirme ekleyin.",
       "formula": "Alanlara dayalı değerler hesaplayın.",
       "rollup": "Bağlantılı kayıtlardan veri özetleyin.",
+      "conditionalLookup": "Tanımladığınız filtreleri karşılayan bağlı değerleri gösterir.",
       "count": "Bağlantılı kayıtların sayısını sayın.",
       "createdTime": "Her kaydın oluşturulduğu tarih ve saati görün.",
       "lastModifiedTime": "Bir kayıttaki bazı veya tüm alanlarda yapılan en son düzenlemenin tarih ve saatini görün.",

@@ -151,6 +151,9 @@
       "lookup": {
         "title": "从{{linkFieldName}}查找{{lookupFieldName}}"
       },
+      "conditionalLookup": {
+        "title": "从{{tableName}}筛选{{lookupFieldName}}"
+      },
       "rollup": {
         "title": "{{linkFieldName}}的{{lookupFieldName}}汇总",
         "rollup": "汇总",
@@ -286,6 +289,7 @@
       "formula": "基于字段进行动态公式计算。",
       "rollup": "汇总来自关联记录的数据。",
       "conditionalRollup": "通过条件筛选汇总来自其他表的数据。",
+      "conditionalLookup": "通过筛选条件显示关联记录中的字段值。",
       "count": "计算关联记录的数量。",
       "createdTime": "查看每条记录创建的日期和时间。",
       "lastModifiedTime": "查看每条记录的最近编辑日期和时间。",

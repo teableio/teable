@@ -1720,8 +1720,17 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       suppliers = await createTable(baseId, {
         name: 'RefLookup_Supplier',
         fields: [
-          { name: 'SupplierName', type: FieldType.SingleLineText } as IFieldRo,
-          { name: 'Rating', type: FieldType.Number } as IFieldRo,
+          { name: 'SupplierName', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+          {
+            name: 'Rating',
+            type: FieldType.Number,
+            options: {
+              formatting: {
+                type: NumberFormattingType.Decimal,
+                precision: 2,
+              },
+            },
+          } as IFieldRo,
         ],
         records: [
           { fields: { SupplierName: 'Supplier A', Rating: 5 } },
@@ -1733,8 +1742,8 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       products = await createTable(baseId, {
         name: 'RefLookup_Product',
         fields: [
-          { name: 'ProductName', type: FieldType.SingleLineText } as IFieldRo,
-          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'ProductName', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText, options: {} } as IFieldRo,
         ],
         records: [
           { fields: { ProductName: 'Laptop', Category: 'Hardware' } },
@@ -1788,7 +1797,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
 
       host = await createTable(baseId, {
         name: 'RefLookup_Derived_Host',
-        fields: [{ name: 'Summary', type: FieldType.SingleLineText } as IFieldRo],
+        fields: [{ name: 'Summary', type: FieldType.SingleLineText, options: {} } as IFieldRo],
         records: [{ fields: { Summary: 'Global' } }],
       });
 
@@ -1885,8 +1894,17 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       foreign = await createTable(foreignBaseId, {
         name: 'CrossBase_Foreign',
         fields: [
-          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
-          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+          {
+            name: 'Amount',
+            type: FieldType.Number,
+            options: {
+              formatting: {
+                type: NumberFormattingType.Decimal,
+                precision: 2,
+              },
+            },
+          } as IFieldRo,
         ],
         records: [
           { fields: { Category: 'Hardware', Amount: 100 } },
@@ -1899,7 +1917,9 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
 
       host = await createTable(baseId, {
         name: 'CrossBase_Host',
-        fields: [{ name: 'CategoryMatch', type: FieldType.SingleLineText } as IFieldRo],
+        fields: [
+          { name: 'CategoryMatch', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+        ],
         records: [
           { fields: { CategoryMatch: 'Hardware' } },
           { fields: { CategoryMatch: 'Software' } },
@@ -1970,11 +1990,23 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         id: baseFieldId,
         name: 'Base',
         type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
       };
       const taxField: IFieldRo = {
         id: taxFieldId,
         name: 'Tax',
         type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
       };
       const totalFormulaField: IFieldRo = {
         id: totalFormulaFieldId,
@@ -1988,7 +2020,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       foreign = await createTable(baseId, {
         name: 'RefLookup_Formula_Foreign',
         fields: [
-          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText, options: {} } as IFieldRo,
           baseField,
           taxField,
           totalFormulaField,
@@ -2002,7 +2034,9 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
 
       host = await createTable(baseId, {
         name: 'RefLookup_Formula_Host',
-        fields: [{ name: 'CategoryFilter', type: FieldType.SingleLineText } as IFieldRo],
+        fields: [
+          { name: 'CategoryFilter', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+        ],
         records: [
           { fields: { CategoryFilter: 'Hardware' } },
           { fields: { CategoryFilter: 'Software' } },

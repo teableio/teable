@@ -1,10 +1,11 @@
 import type {
   DriverClient,
+  FieldCore,
   FieldType,
   IFilter,
+  ILookupLinkOptionsVo,
   ILookupOptionsVo,
   ISortItem,
-  FieldCore,
   TableDomain,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
@@ -243,7 +244,7 @@ export interface IDbProvider {
     props: ICalendarDailyCollectionQueryProps
   ): Knex.QueryBuilder;
 
-  lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string;
+  lookupOptionsQuery(optionsKey: keyof ILookupLinkOptionsVo, value: string): string;
 
   optionsQuery(type: FieldType, optionsKey: string, value: string): string;
 

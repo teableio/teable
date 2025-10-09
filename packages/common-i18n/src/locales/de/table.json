@@ -150,6 +150,9 @@
       "lookup": {
         "title": "{{lookupFieldName}} (von {{linkFieldName}})"
       },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (gefiltert aus {{tableName}})"
+      },
       "rollup": {
         "title": "{{lookupFieldName}} Rollup (von {{linkFieldName}})",
         "rollup": "Rollup",
@@ -277,6 +280,7 @@
       "rating": "Bewertung auf einer vordefinierten Skala hinzufügen.",
       "formula": "Werte auf der Basis von Feldern berechnen.",
       "rollup": "Daten aus verknüpften Datensätzen zusammenfassen.",
+      "conditionalLookup": "Zeigt verknüpfte Werte, die Ihren Filtern entsprechen.",
       "count": "Anzahl der verknüpften Datensätze zählen.",
       "createdTime": "Sehen Sie das Datum und die Uhrzeit, zu der jeder Datensatz erstellt wurde.",
       "lastModifiedTime": "Zeigt das Datum und die Uhrzeit der letzten Bearbeitung einiger oder aller Felder eines Datensatzes an.",
