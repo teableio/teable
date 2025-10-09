@@ -117,27 +117,6 @@ export const getEffectCellCount = (
   return 0;
 };
 
-export const getEffectRowCount = (selection: CombinedSelection, rowCount: number | null) => {
-  const { type, ranges } = selection;
-
-  if (type === SelectionRegionType.Rows) {
-    return ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
-  }
-
-  if (type === SelectionRegionType.Columns && rowCount) {
-    return rowCount;
-  }
-
-  if (type === SelectionRegionType.Cells) {
-    const [startRange, endRange] = selection.ranges;
-    const [, startRow] = startRange;
-    const [, endRow] = endRange;
-    return endRow - startRow + 1;
-  }
-
-  return 0;
-};
-
 export const getEffectRows = (selection: CombinedSelection) => {
   const { type, ranges } = selection;
   if (type === SelectionRegionType.Rows) {

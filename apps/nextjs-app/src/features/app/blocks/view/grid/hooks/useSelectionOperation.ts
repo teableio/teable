@@ -38,12 +38,7 @@ import { useCallback } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
 import { serializerCellValueHtml, serializerHtml } from '@/features/app/utils/clipboard';
 import { tableConfig } from '@/features/i18n/table.config';
-import {
-  getEffectCellCount,
-  getEffectRowCount,
-  getEffectRows,
-  selectionCoverAttachments,
-} from '../utils';
+import { getEffectCellCount, getEffectRows, selectionCoverAttachments } from '../utils';
 import {
   ClipboardTypes,
   copyHandler,
@@ -224,37 +219,6 @@ export const useSelectionOperation = (props?: {
 
   const { confirm } = useConfirm();
 
-  // const getPasteDescription = useCallback(
-  //   (
-  //     cellCount: number,
-  //     selectionRows: number,
-  //     expandRowCount: number,
-  //     expandColCount: number,
-  //     selectionType: SelectionRegionType
-  //   ) => {
-  //     const isExpandRow = expandRowCount > 0;
-  //     const isExpandCol = expandColCount > 0;
-  //     const isExpand = isExpandRow || isExpandCol;
-
-  //     if (selectionType === SelectionRegionType.Columns) {
-  //       return `
-  //       ${t('table:table.actionTips.pasteConfirmDescription', {
-  //         cellCount: cellCount,
-  //         recordCount: selectionRows,
-  //       })}`;
-  //     }
-
-  //     return isExpand
-  //       ? `${t('table:table.actionTips.expandCommonDescription')} ${isExpandRow ? t('table:table.actionTips.expandRowDescription', { count: expandRowCount }) : ''} ${isExpandRow && isExpandCol ? t('table:table.actionTips.conjunction') : ''} ${isExpandCol ? t('table:table.actionTips.expandColDescription', { count: expandColCount }) : ''}`
-  //       : `
-  //       ${t('table:table.actionTips.pasteConfirmDescription', {
-  //         cellCount: cellCount,
-  //         recordCount: selectionRows,
-  //       })}`;
-  //   },
-  //   [t]
-  // );
-
   const doPaste = useCallback(
     async (
       e: React.ClipboardEvent,
@@ -270,29 +234,13 @@ export const useSelectionOperation = (props?: {
       const text = types.includes(ClipboardTypes.text)
         ? e.clipboardData.getData(ClipboardTypes.text)
         : '';
-      const fileArray = Array.from(files);
+      const fileArray = Array.from(files) as unknown as FileList;
 
-      const selectionRows = getEffectRowCount(selection, rowCount);
-      // const cellCount = getEffectCellCount(selection, fields, rowCount);
       const { cellValues } = getCellPasteInfo(e);
 
       const pasteRecordLength = cellValues?.length ?? 0;
 
-      // const { isExpand, expandRowCount, expandColCount } = getExpandInfo(
-      //   selection,
-      //   rowCount,
-      //   fields,
-      //   cellValues
-      // );
-
       if (pasteRecordLength >= 10) {
-        // const description = getPasteDescription(
-        //   cellCount,
-        //   selectionRows,
-        //   expandRowCount,
-        //   expandColCount,
-        //   selection.type
-        // );
         const confirmed = await confirm({
           title: t('table:table.actionTips.pasteConfirmTitle'),
           description: t('table:table.actionTips.pasteConfirmDescription', {
@@ -364,7 +312,7 @@ export const useSelectionOperation = (props?: {
         console.error('Paste error: ', error);
       }
     },
-    [viewId, tableId, fields, rowCount, t, confirm, baseId, temporaryPasteReq, pasteReq]
+    [viewId, tableId, fields, t, confirm, baseId, temporaryPasteReq, pasteReq]
   );
 
   const doClear = useCallback(
