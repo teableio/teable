@@ -4,6 +4,7 @@ import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';
 import { useTranslation } from 'next-i18next';
 import React, { Fragment } from 'react';
+import { LicenseExpiryBanner } from '@/features/app/components/LicenseExpiryBanner';
 import { AppLayout } from '@/features/app/layouts';
 import { SpaceSideBar } from '../blocks/space/space-side-bar/SpaceSideBar';
 import { Sidebar } from '../components/sidebar/Sidebar';
@@ -26,6 +27,7 @@ export const SpaceLayout: React.FC<{
       <AppProvider locale={sdkLocale} lang={i18n.language} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
           <NotificationProvider>
+            <LicenseExpiryBanner />
             <div id="portal" className="relative flex h-screen w-full items-start">
               <Sidebar headerLeft={<SidebarHeaderLeft />}>
                 <Fragment>

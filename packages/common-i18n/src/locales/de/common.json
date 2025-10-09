@@ -252,6 +252,7 @@
     "unavailableInPlanTips": "Der aktuelle Abonnementplan unterstützt diese Funktion nicht",
     "unavailableConnectionTips": "Die Datenbankverbindungsfunktion wird in Zukunft entfernt und ist nur in der Enterprise-Edition von öffentlicher Cloud und selbstgehosteten Versionen verfügbar.",
     "levelTips": "Dieser Space befindet sich derzeit auf dem {{level}} Plan",
+    "licenseExpiredGracePeriod": "Ihre Self-Hosted-Lizenz ist abgelaufen und wird am {{expiredTime}} auf den kostenlosen Plan herabgestuft. Bitte aktualisieren Sie Ihre Lizenz umgehend, um Zugriff auf Premium-Funktionen zu behalten.",
     "spaceSubscriptionModal": {
       "title": "Upgrade des Space-Abonnementplans",
       "description": "Sie können nur Arbeitsbereiche aktualisieren, deren Eigentümer Sie sind."

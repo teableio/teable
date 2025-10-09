@@ -209,6 +209,8 @@ export const ReactQueryKeys = {
 
   getPublicSetting: () => ['public-setting'] as const,
 
+  getEnterpriseLicenseStatus: () => ['enterprise-license-status'] as const,
+
   userLastVisitMap: (baseId: string) => ['user-last-visit-map', baseId] as const,
 
   getTaskStatusCollection: (tableId: string) => ['task-status-collection', tableId] as const,

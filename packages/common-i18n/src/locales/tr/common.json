@@ -222,6 +222,7 @@
     "unavailableInPlanTips": "Mevcut abonelik planı bu özelliği desteklemiyor",
     "unavailableConnectionTips": "Veritabanı bağlantısı özelliği gelecekte kaldırılacak ve yalnızca Kurumsal Plan ve kendi sunucu sürümleri için kullanılabilir olacak.",
     "levelTips": "Bu alan şu anda {{level}} planında",
+    "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
     "spaceSubscriptionModal": {
       "title": "Alan abonelik planını yükselt",
       "description": "Yalnızca sahibi olduğunuz çalışma alanlarını yükseltebilirsiniz"
