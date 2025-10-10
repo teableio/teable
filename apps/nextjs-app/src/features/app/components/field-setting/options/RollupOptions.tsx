@@ -246,12 +246,6 @@ export const RollupOptions = (props: {
               onChange={onFormattingChange}
             />
           </div>
-          {!isLookup && cellValueType !== CellValueType.DateTime && (
-            <TimeZoneFormatting
-              timeZone={options?.timeZone}
-              onChange={(value) => setTimeZone(value)}
-            />
-          )}
           <div className="space-y-2">
             <UnionShowAs
               showAs={options?.showAs}
