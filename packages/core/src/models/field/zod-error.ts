@@ -129,7 +129,7 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
   const isSelect = type === FieldType.SingleSelect || type === FieldType.MultipleSelect;
   if (
     isSelect &&
-    (options as ISelectFieldOptions)?.choices.some(
+    (options as ISelectFieldOptions)?.choices?.some(
       (choice) => !isString(choice.name) || choice.name.trim() === ''
     )
   ) {
