@@ -3,8 +3,14 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IFilter, ILookupOptionsRo } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship } from '@teable/core';
+import type {
+  IConditionalRollupFieldOptions,
+  IFieldRo,
+  IFieldVo,
+  IFilter,
+  ILookupOptionsRo,
+} from '@teable/core';
+import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -561,7 +567,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
   });
 
-  describe('conditional lookup targeting derived fields', () => {
+  describe('conditional lookup referencing derived field types', () => {
     let suppliers: ITableFullVo;
     let products: ITableFullVo;
     let host: ITableFullVo;
@@ -569,9 +575,18 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let linkToSupplierField: IFieldVo;
     let supplierRatingLookup: IFieldVo;
     let supplierRatingRollup: IFieldVo;
-    let supplierRatingTotalFormula: IFieldVo;
+    let supplierRatingConditionalLookup: IFieldVo;
+    let supplierRatingConditionalRollup: IFieldVo;
+    let supplierRatingDoubleFormula: IFieldVo;
     let ratingValuesLookupField: IFieldVo;
+    let ratingFormulaLookupField: IFieldVo;
+    let supplierLinkLookupField: IFieldVo;
+    let conditionalLookupMirrorField: IFieldVo;
+    let conditionalRollupMirrorField: IFieldVo;
     let hostProductsLinkField: IFieldVo;
+    let minSupplierRatingFieldId: string;
+    let supplierNameFieldId: string;
+    let productSupplierNameFieldId: string;
 
     beforeAll(async () => {
       suppliers = await createTable(baseId, {
@@ -586,16 +601,21 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         ],
       });
       supplierRatingId = suppliers.fields.find((f) => f.name === 'Rating')!.id;
+      supplierNameFieldId = suppliers.fields.find((f) => f.name === 'SupplierName')!.id;
 
       products = await createTable(baseId, {
         name: 'ConditionalLookup_Product',
-        fields: [{ name: 'ProductName', type: FieldType.SingleLineText } as IFieldRo],
+        fields: [
+          { name: 'ProductName', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Supplier Name', type: FieldType.SingleLineText } as IFieldRo,
+        ],
         records: [
-          { fields: { ProductName: 'Laptop' } },
-          { fields: { ProductName: 'Mouse' } },
-          { fields: { ProductName: 'Subscription' } },
+          { fields: { ProductName: 'Laptop', 'Supplier Name': 'Supplier A' } },
+          { fields: { ProductName: 'Mouse', 'Supplier Name': 'Supplier B' } },
+          { fields: { ProductName: 'Subscription', 'Supplier Name': 'Supplier B' } },
         ],
       });
+      productSupplierNameFieldId = products.fields.find((f) => f.name === 'Supplier Name')!.id;
 
       linkToSupplierField = await createField(products.id, {
         name: 'Supplier Link',
@@ -638,6 +658,89 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         options: {
           expression: 'sum({values})',
         },
+      } as IFieldRo);
+
+      const minSupplierRatingField = await createField(products.id, {
+        name: 'Minimum Supplier Rating',
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 1,
+          },
+        },
+      } as IFieldRo);
+      minSupplierRatingFieldId = minSupplierRatingField.id;
+
+      await updateRecordByApi(products.id, products.records[0].id, minSupplierRatingFieldId, 4.5);
+      await updateRecordByApi(products.id, products.records[1].id, minSupplierRatingFieldId, 3.5);
+      await updateRecordByApi(products.id, products.records[2].id, minSupplierRatingFieldId, 4.5);
+
+      supplierRatingConditionalLookup = await createField(products.id, {
+        name: 'Supplier Rating Conditional Lookup',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 1,
+          },
+        },
+        lookupOptions: {
+          foreignTableId: suppliers.id,
+          lookupFieldId: supplierRatingId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: supplierNameFieldId,
+                operator: 'is',
+                value: { type: 'field', fieldId: productSupplierNameFieldId },
+              },
+              {
+                fieldId: supplierRatingId,
+                operator: 'isGreaterEqual',
+                value: { type: 'field', fieldId: minSupplierRatingFieldId },
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      supplierRatingDoubleFormula = await createField(products.id, {
+        name: 'Supplier Rating Double',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${supplierRatingLookup.id}} * 2`,
+        },
+      } as IFieldRo);
+
+      const supplierRatingConditionalRollupOptions: IConditionalRollupFieldOptions = {
+        foreignTableId: suppliers.id,
+        lookupFieldId: supplierRatingId,
+        expression: 'sum({values})',
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: supplierNameFieldId,
+              operator: 'is',
+              value: { type: 'field', fieldId: productSupplierNameFieldId },
+            },
+            {
+              fieldId: supplierRatingId,
+              operator: 'isGreaterEqual',
+              value: { type: 'field', fieldId: minSupplierRatingFieldId },
+            },
+          ],
+        },
+      };
+
+      supplierRatingConditionalRollup = await createField(products.id, {
+        name: 'Supplier Rating Conditional Sum',
+        type: FieldType.ConditionalRollup,
+        options: supplierRatingConditionalRollupOptions,
       } as IFieldRo);
 
       host = await createTable(baseId, {
@@ -684,6 +787,76 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
           filter: ratingPresentFilter,
         } as ILookupOptionsRo,
       } as IFieldRo);
+
+      ratingFormulaLookupField = await createField(host.id, {
+        name: 'Supplier Ratings Doubled (Lookup)',
+        type: FieldType.Formula,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: products.id,
+          lookupFieldId: supplierRatingDoubleFormula.id,
+          filter: ratingPresentFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      supplierLinkLookupField = await createField(host.id, {
+        name: 'Supplier Links (Lookup)',
+        type: FieldType.Link,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: products.id,
+          lookupFieldId: linkToSupplierField.id,
+          filter: ratingPresentFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const conditionalLookupHasValueFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: supplierRatingConditionalLookup.id,
+            operator: 'isNotEmpty',
+            value: null,
+          },
+        ],
+      };
+
+      conditionalLookupMirrorField = await createField(host.id, {
+        name: 'Supplier Ratings (Conditional Lookup Source)',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: products.id,
+          lookupFieldId: supplierRatingConditionalLookup.id,
+          filter: conditionalLookupHasValueFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const positiveConditionalRollupFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: supplierRatingConditionalRollup.id,
+            operator: 'isGreater',
+            value: 0,
+          },
+        ],
+      };
+
+      conditionalRollupMirrorField = await createField(host.id, {
+        name: 'Supplier Rating Conditional Sums (Lookup)',
+        type: FieldType.ConditionalRollup,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: products.id,
+          lookupFieldId: supplierRatingConditionalRollup.id,
+          filter: positiveConditionalRollupFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
     });
 
     afterAll(async () => {
@@ -692,9 +865,56 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       await permanentDeleteTable(baseId, suppliers.id);
     });
 
-    it('aggregates lookup values from derived fields', async () => {
-      const hostRecord = await getRecord(host.id, host.records[0].id);
-      expect(hostRecord.fields[ratingValuesLookupField.id]).toEqual([5, 4, 4]);
+    describe('standard lookup source', () => {
+      it('returns lookup values from lookup fields', async () => {
+        const hostRecord = await getRecord(host.id, host.records[0].id);
+        expect(hostRecord.fields[ratingValuesLookupField.id]).toEqual([5, 4, 4]);
+      });
+    });
+
+    describe('formula source', () => {
+      it('projects formula results from foreign fields', async () => {
+        const hostRecord = await getRecord(host.id, host.records[0].id);
+        expect(hostRecord.fields[ratingFormulaLookupField.id]).toEqual([10, 8, 8]);
+      });
+    });
+
+    describe('link source', () => {
+      it('includes link metadata for targeted link fields', async () => {
+        const hostRecord = await getRecord(host.id, host.records[0].id);
+        const linkValues = hostRecord.fields[supplierLinkLookupField.id] as Array<{
+          id: string;
+          title: string;
+        }>;
+        expect(Array.isArray(linkValues)).toBe(true);
+        expect(linkValues).toHaveLength(3);
+        const supplierIds = linkValues.map((link) => link.id).sort();
+        expect(supplierIds).toEqual(
+          [suppliers.records[0].id, suppliers.records[1].id, suppliers.records[1].id].sort()
+        );
+        linkValues.forEach((link) => {
+          expect(typeof link.title).toBe('string');
+          expect(link.title.length).toBeGreaterThan(0);
+        });
+      });
+    });
+
+    describe('conditional lookup source', () => {
+      it('retrieves filtered values and mirrors formatting', async () => {
+        const hostRecord = await getRecord(host.id, host.records[0].id);
+        expect(hostRecord.fields[conditionalLookupMirrorField.id]).toEqual([5, 4]);
+
+        const hostFieldDetail = await getField(host.id, conditionalLookupMirrorField.id);
+        const foreignFieldDetail = await getField(products.id, supplierRatingConditionalLookup.id);
+        expect(hostFieldDetail.options).toEqual(foreignFieldDetail.options);
+      });
+    });
+
+    describe('conditional rollup source', () => {
+      it('collects aggregates from conditional rollup fields', async () => {
+        const hostRecord = await getRecord(host.id, host.records[0].id);
+        expect(hostRecord.fields[conditionalRollupMirrorField.id]).toEqual([5, 4]);
+      });
     });
 
     it('marks lookup dependencies as errored when source fields are removed', async () => {

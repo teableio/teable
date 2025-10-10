@@ -245,7 +245,12 @@ export interface IRecordQueryDialectProvider {
   rollupAggregate(
     fn: string,
     fieldExpression: string,
-    opts: { targetField?: FieldCore; orderByField?: string; rowPresenceExpr?: string }
+    opts: {
+      targetField?: FieldCore;
+      orderByField?: string;
+      rowPresenceExpr?: string;
+      flattenNestedArray?: boolean;
+    }
   ): string;
 
   /**

@@ -23,7 +23,7 @@ import type {
   ButtonFieldCore,
   TableDomain,
 } from '@teable/core';
-import { isLinkLookupOptions } from '@teable/core';
+import { FieldType, isLinkLookupOptions } from '@teable/core';
 // no driver-specific logic here; use dialect for differences
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -142,7 +142,10 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // Conditional lookup CTEs are stored against the field itself.
       if (field.isConditionalLookup && fieldCteMap.has(field.id)) {
         const conditionalCteName = fieldCteMap.get(field.id)!;
-        const column = `conditional_lookup_${field.id}`;
+        const column =
+          field.type === FieldType.ConditionalRollup
+            ? `conditional_rollup_${field.id}`
+            : `conditional_lookup_${field.id}`;
         const rawExpression = this.qb.client.raw(`??."${column}"`, [conditionalCteName]);
         this.state.setSelection(field.id, `"${conditionalCteName}"."${column}"`);
         return rawExpression;
@@ -224,6 +227,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return columnSelector;
     }
     // For lookup formula fields, use table alias if provided
+    if (field.hasError) {
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
+      const rawNull = this.qb.client.raw(nullExpr);
+      this.state.setSelection(field.id, nullExpr);
+      return rawNull;
+    }
     const lookupSelector = this.generateColumnSelect(field.dbFieldName);
     this.state.setSelection(field.id, lookupSelector);
     return lookupSelector;
@@ -382,6 +391,10 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   }
 
   visitConditionalRollupField(field: ConditionalRollupFieldCore): IFieldSelectName {
+    if (field.isLookup) {
+      return this.checkAndSelectLookupField(field);
+    }
+
     if (this.shouldSelectRaw()) {
       const columnSelector = this.getColumnSelector(field);
       this.state.setSelection(field.id, columnSelector);
@@ -420,8 +433,9 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
   visitFormulaField(field: FormulaFieldCore): IFieldSelectName {
     // If the formula field has an error (e.g., referenced field deleted), return NULL
     if (field.hasError) {
-      const rawExpression = this.qb.client.raw(`NULL`);
-      this.state.setSelection(field.id, 'NULL');
+      const nullExpr = this.dialect.typedNullFor(field.dbFieldType);
+      const rawExpression = this.qb.client.raw(nullExpr);
+      this.state.setSelection(field.id, nullExpr);
       return rawExpression;
     }
 

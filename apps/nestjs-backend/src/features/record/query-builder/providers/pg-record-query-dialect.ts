@@ -157,9 +157,14 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
   rollupAggregate(
     fn: string,
     fieldExpression: string,
-    opts: { targetField?: FieldCore; orderByField?: string; rowPresenceExpr?: string }
+    opts: {
+      targetField?: FieldCore;
+      orderByField?: string;
+      rowPresenceExpr?: string;
+      flattenNestedArray?: boolean;
+    }
   ): string {
-    const { targetField, orderByField, rowPresenceExpr } = opts;
+    const { targetField, orderByField, rowPresenceExpr, flattenNestedArray } = opts;
     switch (fn) {
       case 'sum':
         // Prefer numeric targets: number field or formula resolving to number
@@ -224,8 +229,21 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
           : `STRING_AGG(${fieldExpression}::text, ', ')`;
       case 'array_unique':
         return `json_agg(DISTINCT ${fieldExpression})`;
-      case 'array_compact':
-        return `json_agg(${fieldExpression}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`;
+      case 'array_compact': {
+        const baseAggregate = `jsonb_agg(${fieldExpression}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`;
+        if (flattenNestedArray) {
+          return `(WITH RECURSIVE flattened(val) AS (
+              SELECT COALESCE(${baseAggregate}, '[]'::jsonb)
+              UNION ALL
+              SELECT elem
+              FROM flattened
+              CROSS JOIN LATERAL jsonb_array_elements(flattened.val) AS elem
+              WHERE jsonb_typeof(flattened.val) = 'array'
+            )
+            SELECT jsonb_agg(val) FILTER (WHERE jsonb_typeof(val) <> 'array') FROM flattened)`;
+        }
+        return baseAggregate;
+      }
       default:
         throw new Error(`Unsupported rollup function: ${fn}`);
     }

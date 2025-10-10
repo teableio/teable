@@ -247,7 +247,6 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const foreignAlias = this.getForeignAlias();
     const targetLookupField = field.getForeignLookupField(this.foreignTable);
-    // 依赖解析交由 SQL 转换器通过 CTE map 处理（不再注入 selection 覆盖）
 
     if (!targetLookupField) {
       // Try to fetch via the CTE of the foreign link if present
@@ -1030,6 +1029,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return this.dialect.rollupAggregate(fn, fieldExpression, {
       targetField,
       rowPresenceExpr: `"${foreignAlias}"."${ID_FIELD_NAME}"`,
+      flattenNestedArray: fn === 'array_compact' && !!targetField.isConditionalLookup,
     });
   }
 
@@ -1072,9 +1072,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       foreignAliasUsed,
       true
     );
-    const targetSelect = targetField.accept(selectVisitor);
-    const rawExpression =
-      typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+    let rawExpression: string;
+    if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
+      rawExpression = `"${foreignAliasUsed}"."${targetField.dbFieldName}"`;
+    } else {
+      const targetSelect = targetField.accept(selectVisitor);
+      rawExpression = typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+    }
 
     const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
     const formattedExpression = targetField.accept(formattingVisitor);
@@ -1176,16 +1180,23 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       true
     );
 
-    const targetSelect = targetField.accept(selectVisitor);
-    const rawExpression =
-      typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+    let rawExpression: string;
+    if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
+      rawExpression = `"${foreignAliasUsed}"."${targetField.dbFieldName}"`;
+    } else {
+      const targetSelect = targetField.accept(selectVisitor);
+      rawExpression = typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+    }
 
-    const aggregateExpression = this.buildConditionalRollupAggregation(
-      'array_compact({values})',
-      rawExpression,
-      targetField,
-      foreignAliasUsed
-    );
+    const aggregateExpression =
+      field.type === FieldType.ConditionalRollup
+        ? this.dialect.jsonAggregateNonNull(rawExpression)
+        : this.buildConditionalRollupAggregation(
+            'array_compact({values})',
+            rawExpression,
+            targetField,
+            foreignAliasUsed
+          );
     const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
 
     const aggregateQuery = this.qb.client
@@ -1224,11 +1235,17 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
     aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
 
+    const aggregateSql = aggregateQuery.toQuery();
+    const lookupAlias = `conditional_lookup_${field.id}`;
+    const rollupAlias = `conditional_rollup_${field.id}`;
+
     this.qb.with(cteName, (cqb) => {
-      cqb
-        .select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`)
-        .select(cqb.client.raw(`(${aggregateQuery.toQuery()}) as "conditional_lookup_${field.id}"`))
-        .from(`${this.table.dbTableName} as ${mainAlias}`);
+      cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
+      cqb.select(cqb.client.raw(`(${aggregateSql}) as "${lookupAlias}"`));
+      if (field.type === FieldType.ConditionalRollup) {
+        cqb.select(cqb.client.raw(`(${aggregateSql}) as "${rollupAlias}"`));
+      }
+      cqb.from(`${this.table.dbTableName} as ${mainAlias}`);
     });
 
     this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);

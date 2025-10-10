@@ -128,7 +128,12 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
   rollupAggregate(
     fn: string,
     fieldExpression: string,
-    opts: { targetField?: FieldCore; orderByField?: string; rowPresenceExpr?: string }
+    opts: {
+      targetField?: FieldCore;
+      orderByField?: string;
+      rowPresenceExpr?: string;
+      flattenNestedArray?: boolean;
+    }
   ): string {
     const { targetField } = opts;
     switch (fn) {
