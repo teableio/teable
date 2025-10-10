@@ -52,14 +52,14 @@ export const LLM_PROVIDERS = [
   {
     value: LLMProviderType.ANTHROPIC,
     label: 'Anthropic',
-    baseUrlPlaceholder: 'https://api.anthropic.com',
+    baseUrlPlaceholder: 'https://api.anthropic.com/v1',
     modelsPlaceholder: 'claude-3-opus-20240229,claude-3-5-sonnet-20241022',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.ANTHROPIC],
   },
   {
     value: LLMProviderType.GOOGLE,
     label: 'Google',
-    baseUrlPlaceholder: 'https://generativelanguage.googleapis.com',
+    baseUrlPlaceholder: 'https://generativelanguage.googleapis.com/v1beta',
     modelsPlaceholder: 'gemini-pro-vision,gemini-1.5-flash-002',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.GOOGLE],
   },
