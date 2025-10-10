@@ -642,6 +642,7 @@
   },
   "admin": {
     "setting": {
+      "instanceTitle": "Instance Settings",
       "description": "Change the settings for your current instance",
       "allowSignUp": "Allow creating new accounts",
       "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
@@ -666,8 +667,8 @@
       "ai": {
         "name": "Name",
         "nameDescription": "The name of the LLM provider",
-        "enable": "Enable AI",
-        "enableDescription": "Enable AI for current instance, all users will be able to use AI features",
+        "customModel": "Custom model",
+        "customModelDescription": "AI ability will be used with your custom model and consume your own tokens",
         "updateLLMProvider": "Update LLM provider",
         "addProvider": "Add LLM provider",
         "addProviderDescription": "Add a new LLM provider to the list",

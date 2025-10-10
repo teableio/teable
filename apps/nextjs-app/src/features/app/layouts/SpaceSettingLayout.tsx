@@ -1,5 +1,5 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { Component, Home, Integration, Users } from '@teable/icons';
+import { Component, Home, Users } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, ReactQueryKeys, SessionProvider } from '@teable/sdk';
@@ -54,12 +54,12 @@ export const SpaceSettingLayout: React.FC<{
         route: `/space/[spaceId]/setting/collaborator`,
         pathTo: `/space/${spaceId}/setting/collaborator`,
       },
-      {
-        Icon: Integration,
-        label: t('space:integration.title'),
-        route: `/space/[spaceId]/setting/integration`,
-        pathTo: `/space/${spaceId}/setting/integration`,
-      },
+      // {
+      //   Icon: MagicAi,
+      //   label: t('space:aiSetting.title'),
+      //   route: `/space/[spaceId]/setting/ai-setting`,
+      //   pathTo: `/space/${spaceId}/setting/ai-setting`,
+      // },
     ];
   }, [spaceId, t]);
 

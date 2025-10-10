@@ -116,15 +116,25 @@ export function AIConfigForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <h2 className="mb-4 text-lg font-medium">{t('admin.setting.ai.aiAbilitySettings')}</h2>
+        <AIControlCard
+          disableActions={aiConfig?.capabilities?.disableActions || []}
+          onChange={(value: { disableActions: string[] }) => {
+            form.setValue('capabilities', value);
+            onSubmit(form.getValues());
+          }}
+        />
         <FormField
           control={form.control}
           name="enable"
           render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+            <FormItem className="flex flex-row items-center justify-between py-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">{t('admin.setting.ai.enable')}</FormLabel>
+                <FormLabel className="text-lg font-medium">
+                  {t('admin.setting.ai.customModel')}
+                </FormLabel>
                 <FormDescription className="text-left text-xs text-zinc-500">
-                  {t('admin.setting.ai.enableDescription')}
+                  {t('admin.setting.ai.customModelDescription')}
                 </FormDescription>
               </div>
               <FormControl>
@@ -153,29 +163,31 @@ export function AIConfigForm({
             </FormItem>
           )}
         />
-        <AIProviderCard control={form.control} onChange={updateProviders} onTest={onTest} />
+        <div>
+          <div className="pb-2 text-lg font-medium">{t('admin.setting.ai.provider')}</div>
+          <AIProviderCard control={form.control} onChange={updateProviders} onTest={onTest} />
+        </div>
         {!enable && (
           <div className="!mt-2 text-xs text-red-500">
             {t('admin.configuration.list.llmApi.errorTips')}
           </div>
         )}
-        <AIModelPreferencesCard
-          control={form.control}
-          models={models}
-          onChange={() => onSubmit(form.getValues())}
-          onTestChatModelAbility={onTestChatModelAbility}
-          onEnableAI={() => {
-            form.setValue('enable', true);
-            onSubmit(form.getValues());
-          }}
-        />
-        <AIControlCard
-          disableActions={aiConfig?.capabilities?.disableActions || []}
-          onChange={(value: { disableActions: string[] }) => {
-            form.setValue('capabilities', value);
-            onSubmit(form.getValues());
-          }}
-        />
+
+        <div className="flex flex-col gap-y-4">
+          <div className="text-lg font-medium">{t('admin.setting.ai.modelPreferences')}</div>
+          <div className="text-base font-medium">{t(`admin.setting.ai.chatModel`)}</div>
+          <AIModelPreferencesCard
+            control={form.control}
+            models={models}
+            onChange={() => onSubmit(form.getValues())}
+            onTestChatModelAbility={onTestChatModelAbility}
+            onEnableAI={() => {
+              form.setValue('enable', true);
+              onSubmit(form.getValues());
+            }}
+          />
+        </div>
+
         {!llmProviders?.length && (
           <div className="!mt-2 text-xs text-red-500">
             {t('admin.configuration.list.llmApi.errorTips')}

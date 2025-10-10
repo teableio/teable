@@ -639,6 +639,7 @@
   },
   "admin": {
     "setting": {
+      "instanceTitle": "实例设置",
       "description": "更改当前实例的设置",
       "allowSignUp": "允许新用户注册",
       "allowSignUpDescription": "关闭此选项将禁止新用户注册，登录页面将不再显示注册按钮。",
@@ -663,8 +664,8 @@
       "ai": {
         "name": "名称",
         "nameDescription": "名称可自定义，用于区分不同的模型提供商",
-        "enable": "启用 AI",
-        "enableDescription": "启用当前实例的 AI 功能，所有用户将能够使用 AI 功能",
+        "customModel": "自定义模型",
+        "customModelDescription": "AI 能力将使用您的自定义模型并消耗您自己的 Token",
         "updateLLMProvider": "更新模型提供商",
         "addProvider": "添加模型提供商",
         "addProviderDescription": "添加一个新的模型提供商到列表",

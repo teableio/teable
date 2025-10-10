@@ -11,6 +11,7 @@ import { Form, Input, toast } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
+import type { ReactElement } from 'react';
 import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
@@ -23,10 +24,11 @@ import { generateModelKeyList } from '../../../admin/setting/components/ai-confi
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
   onChange: (value: IAIIntegrationConfig) => void;
+  children: ReactElement;
 }
 
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange } = props;
+  const { config, onChange, children } = props;
   const router = useRouter();
   const spaceId = router.query.spaceId as string;
 
@@ -103,13 +105,6 @@ export const AIConfig = (props: IAIConfigProps) => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <AIProviderCard control={form.control} onChange={onProvidersUpdate} onTest={onTest} />
-        <AIModelPreferencesCard
-          control={form.control}
-          models={models}
-          onChange={() => onSubmit(form.getValues())}
-          onTestChatModelAbility={onTestChatModelAbility}
-        />
         <AIControlCard
           disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
           onChange={(value: { disableActions: string[] }) => {
@@ -117,14 +112,27 @@ export const AIConfig = (props: IAIConfigProps) => {
             onSubmit(form.getValues());
           }}
         />
+        {children}
+        <div>
+          <div className="pb-2 text-lg font-medium">{t('admin.setting.ai.provider')}</div>
+          <AIProviderCard control={form.control} onChange={onProvidersUpdate} onTest={onTest} />
+        </div>
+        <div className="flex flex-col gap-y-2">
+          <div className="text-lg font-medium">{t('admin.setting.ai.modelPreferences')}</div>
+          <div className="text-base font-medium">{t(`admin.setting.ai.chatModel`)}</div>
+          <AIModelPreferencesCard
+            control={form.control}
+            models={models}
+            onChange={() => onSubmit(form.getValues())}
+            onTestChatModelAbility={onTestChatModelAbility}
+          />
+        </div>
         {/* App Configuration Section */}
         {(isEE || isCloud) && (
           <div className="relative flex flex-col gap-2">
-            <div className="flex flex-col gap-4 overflow-hidden rounded-lg border p-4">
+            <div className="text-left text-lg font-semibold text-zinc-900">{t('app.title')}</div>
+            <div className="flex flex-col gap-4 overflow-hidden">
               <div className="relative flex flex-col gap-1">
-                <div className="text-left text-lg font-semibold text-zinc-900">
-                  {t('app.title')}
-                </div>
                 <div className="text-left text-xs text-zinc-500">
                   <Trans
                     ns="common"
@@ -146,7 +154,7 @@ export const AIConfig = (props: IAIConfigProps) => {
                 <div className="self-stretch text-left text-sm font-medium text-zinc-900">
                   {t('admin.setting.ai.apiKey')}
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 p-0.5">
                   <Input
                     type="password"
                     value={form.watch('appConfig')?.apiKey}
@@ -168,11 +176,11 @@ export const AIConfig = (props: IAIConfigProps) => {
         {/* Web Search Configuration Section */}
         {(isEE || isCloud) && (
           <div className="relative flex flex-col gap-2">
-            <div className="flex flex-col gap-4 overflow-hidden rounded-lg border p-4">
+            <div className="flex flex-col gap-4 overflow-hidden">
+              <div className="text-left text-lg font-semibold text-zinc-900">
+                {t('admin.configuration.list.webSearch.title')}
+              </div>
               <div className="relative flex flex-col gap-1">
-                <div className="text-left text-lg font-semibold text-zinc-900">
-                  {t('admin.configuration.list.webSearch.title')}
-                </div>
                 <div className="text-left text-xs text-zinc-500">
                   <Trans
                     ns="common"
@@ -194,7 +202,7 @@ export const AIConfig = (props: IAIConfigProps) => {
                 <div className="self-stretch text-left text-sm font-medium text-zinc-900">
                   {t('admin.setting.ai.apiKey')}
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 p-0.5">
                   <Input
                     type="password"
                     value={form.watch('webSearchConfig')?.apiKey}

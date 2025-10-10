@@ -8,21 +8,21 @@ import {
   updateSetting,
 } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk/hooks';
-import { Input, Label, Switch } from '@teable/ui-lib/shadcn';
-import Link from 'next/link';
-import { Trans, useTranslation } from 'next-i18next';
-import { useMemo, useRef } from 'react';
+import { Label, Switch } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
+import { useEffect, useMemo, useRef } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
-import { AIConfigForm } from './components/ai-config/AiForm';
 import { Branding } from './components/Branding';
 import type { IList } from './components/ConfigurationList';
 import { ConfigurationList } from './components/ConfigurationList';
 import { MailConfigDialog } from './components/mail-config/MailConfig';
 import { InviteCodeManage } from './components/waitlist/InviteCodeManage';
 import { WaitlistManage } from './components/waitlist/WaitlistManage';
+import { scrollToTarget } from './utils';
 
 export interface ISettingPageProps {
   settingServerData?: ISettingVo;
@@ -58,9 +58,6 @@ export const SettingPage = (props: ISettingPageProps) => {
     mutateUpdateSetting({ [key]: value });
   };
 
-  const llmRef = useRef<HTMLDivElement>(null);
-  const appRef = useRef<HTMLDivElement>(null);
-  const webSearchRef = useRef<HTMLDivElement>(null);
   const emailRef = useRef<HTMLDivElement>(null);
   const { publicOrigin, publicDatabaseProxy } = useEnv();
 
@@ -76,40 +73,44 @@ export const SettingPage = (props: ISettingPageProps) => {
           currentPublicOrigin: isHydrated ? location?.origin : '',
         },
         shouldShow: isHydrated ? location?.origin !== publicOrigin : false,
+        path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.https.title'),
         key: 'https' as const,
         shouldShow: isHydrated ? location?.protocol !== 'https:' : false,
+        path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.databaseProxy.title'),
         key: 'databaseProxy' as const,
         shouldShow: !publicDatabaseProxy,
+        path: '/admin/setting',
       },
       {
         title: t('admin.configuration.list.llmApi.title'),
         key: 'llmApi' as const,
-        anchor: llmRef,
         shouldShow: !setting?.aiConfig?.enable || setting?.aiConfig?.llmProviders.length === 0,
+        path: '/admin/ai-setting?anchor=llm',
       },
       {
         title: t('admin.configuration.list.app.title'),
         key: 'app' as const,
-        anchor: appRef,
         shouldShow: !setting?.appConfig?.apiKey,
+        path: '/admin/ai-setting?anchor=app',
       },
       {
         title: t('admin.configuration.list.webSearch.title'),
         key: 'webSearch' as const,
-        anchor: webSearchRef,
         shouldShow: !setting?.webSearchConfig?.apiKey,
+        path: '/admin/ai-setting?anchor=webSearch',
       },
       {
         title: t('admin.configuration.list.email.title'),
         key: 'email' as const,
         anchor: emailRef,
         shouldShow: !setting?.notifyMailTransportConfig,
+        path: '/admin/setting?anchor=email',
       },
     ],
     [
@@ -124,6 +125,17 @@ export const SettingPage = (props: ISettingPageProps) => {
       t,
     ]
   );
+
+  const router = useRouter();
+
+  useEffect(() => {
+    const { anchor } = router.query;
+    if (anchor === 'email') {
+      setTimeout(() => {
+        emailRef.current && scrollToTarget(emailRef.current);
+      }, 500);
+    }
+  }, [router.query]);
 
   const finalList = useMemo(() => {
     return todoLists.filter((item) => item.shouldShow);
@@ -140,14 +152,12 @@ export const SettingPage = (props: ISettingPageProps) => {
     enableWaitlist,
     brandName,
     brandLogo,
-    appConfig,
-    webSearchConfig,
   } = setting;
 
   return (
     <div className="flex h-screen flex-1 flex-col overflow-y-auto overflow-x-hidden p-4 sm:p-8">
       <div className="pb-6">
-        <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
+        <h1 className="text-2xl font-semibold">{t('admin.setting.instanceTitle')}</h1>
         <div className="mt-2 text-sm text-zinc-500">{t('admin.setting.description')}</div>
       </div>
 
@@ -216,115 +226,45 @@ export const SettingPage = (props: ISettingPageProps) => {
             </div>
           </div>
 
-          {/* AI Configuration Section */}
-          <div className="pb-6" ref={llmRef}>
-            <h2 className="mb-4 text-lg font-medium">{t('admin.setting.aiSettings')}</h2>
-            <AIConfigForm
-              aiConfig={setting.aiConfig}
-              setAiConfig={(value) => onValueChange('aiConfig', value)}
-            />
-          </div>
+          {isCloud && (
+            <div className="pb-6">
+              <h2 className="mb-4 text-lg font-medium">{t('waitlist.title')}</h2>
+              <div className="flex flex-col gap-4 rounded-lg border p-4 shadow-sm">
+                <div className="flex items-center justify-between ">
+                  <div className="space-y-1">
+                    <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
+                    <div className="text-xs text-zinc-500">
+                      {t('admin.setting.enableWaitlistDescription')}
+                    </div>
+                  </div>
+                  <Switch
+                    id="enable-waitlist"
+                    checked={Boolean(enableWaitlist)}
+                    onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
+                  />
+                </div>
+                {enableWaitlist && (
+                  <>
+                    <div className="flex items-center justify-between ">
+                      <div className="space-y-1">
+                        <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
+                      </div>
+                      <WaitlistManage />
+                    </div>
 
-          {/* App Configuration Section */}
-          {(isEE || isCloud) && (
-            <div className="relative flex flex-col gap-2 pb-6" ref={appRef}>
-              <div className="flex flex-col gap-4 overflow-hidden rounded-lg border p-4">
-                <div className="relative flex flex-col gap-1">
-                  <div className="text-left text-lg font-semibold text-zinc-900">
-                    {t('app.title')}
-                  </div>
-                  <div className="text-left text-xs text-zinc-500">
-                    <Trans
-                      ns="common"
-                      i18nKey="app.description"
-                      components={{
-                        a: (
-                          <Link
-                            className="cursor-pointer text-blue-500"
-                            href="https://v0.app/chat/settings/keys"
-                            target="_blank"
-                            rel="noreferrer"
-                          />
-                        ),
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="relative flex flex-col gap-2">
-                  <div className="self-stretch text-left text-sm font-medium text-zinc-900">
-                    {t('admin.setting.ai.apiKey')}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Input
-                      type="password"
-                      value={appConfig?.apiKey}
-                      placeholder={t('admin.action.enterApiKey')}
-                      onChange={(e) => {
-                        const value = e.target.value?.trim();
-                        onValueChange('appConfig', { ...appConfig, apiKey: value });
-                      }}
-                    />
-                  </div>
-                </div>
+                    <div className="flex items-center justify-between ">
+                      <div className="space-y-1">
+                        <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
+                      </div>
+                      <InviteCodeManage />
+                    </div>
+                  </>
+                )}
               </div>
-              {!appConfig?.apiKey && (
-                <div className="h-4 shrink-0 grow-0 text-left text-xs text-red-500">
-                  {t('admin.configuration.list.app.errorTips')}
-                </div>
-              )}
             </div>
           )}
 
-          {/* Web Search Configuration Section */}
-          {(isEE || isCloud) && (
-            <div className="relative flex flex-col gap-2 pb-6" ref={webSearchRef}>
-              <div className="flex flex-col gap-4 overflow-hidden rounded-lg border p-4">
-                <div className="relative flex flex-col gap-1">
-                  <div className="text-left text-lg font-semibold text-zinc-900">
-                    {t('admin.configuration.list.webSearch.title')}
-                  </div>
-                  <div className="text-left text-xs text-zinc-500">
-                    <Trans
-                      ns="common"
-                      i18nKey="admin.setting.webSearch.description"
-                      components={{
-                        a: (
-                          <Link
-                            className="cursor-pointer text-blue-500"
-                            href="https://www.firecrawl.dev/app/api-keys"
-                            target="_blank"
-                            rel="noreferrer"
-                          />
-                        ),
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="relative flex flex-col gap-2">
-                  <div className="self-stretch text-left text-sm font-medium text-zinc-900">
-                    {t('admin.setting.ai.apiKey')}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Input
-                      type="password"
-                      value={webSearchConfig?.apiKey}
-                      placeholder={t('admin.action.enterApiKey')}
-                      onChange={(e) => {
-                        const value = e.target.value?.trim();
-                        onValueChange('webSearchConfig', { apiKey: value });
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              {!webSearchConfig?.apiKey && (
-                <div className="h-4 shrink-0 grow-0 text-left text-xs text-red-500">
-                  {t('admin.configuration.list.webSearch.errorTips')}
-                </div>
-              )}
-            </div>
-          )}
-
+          {/* email config */}
           <div className="pb-6" ref={emailRef}>
             <h2 className="mb-4 text-lg font-medium">{t('email.config')}</h2>
             <div className="flex w-full flex-col space-y-4">
@@ -364,6 +304,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               </div>
             )}
           </div>
+
           {/* Branding Settings Section */}
           {instanceUsage?.level === BillingProductLevel.Enterprise && (
             <Branding
@@ -371,44 +312,6 @@ export const SettingPage = (props: ISettingPageProps) => {
               brandLogo={brandLogo}
               onChange={(brandName) => onValueChange('brandName', brandName)}
             />
-          )}
-
-          {isCloud && (
-            <div className="pb-6">
-              <h2 className="mb-4 text-lg font-medium">{t('waitlist.title')}</h2>
-              <div className="flex flex-col gap-4 rounded-lg border p-4 shadow-sm">
-                <div className="flex items-center justify-between ">
-                  <div className="space-y-1">
-                    <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
-                    <div className="text-xs text-zinc-500">
-                      {t('admin.setting.enableWaitlistDescription')}
-                    </div>
-                  </div>
-                  <Switch
-                    id="enable-waitlist"
-                    checked={Boolean(enableWaitlist)}
-                    onCheckedChange={(checked) => onValueChange('enableWaitlist', checked)}
-                  />
-                </div>
-                {enableWaitlist && (
-                  <>
-                    <div className="flex items-center justify-between ">
-                      <div className="space-y-1">
-                        <Label htmlFor="enable-waitlist">{t('waitlist.title')}</Label>
-                      </div>
-                      <WaitlistManage />
-                    </div>
-
-                    <div className="flex items-center justify-between ">
-                      <div className="space-y-1">
-                        <Label htmlFor="enable-waitlist">{t('waitlist.generateCode')}</Label>
-                      </div>
-                      <InviteCodeManage />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
           )}
 
           <CopyInstance instanceId={instanceId} />

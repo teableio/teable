@@ -1,9 +1,6 @@
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Label,
   Switch,
   Tooltip,
@@ -152,16 +149,8 @@ export const AIControlCard = ({
   disableActions: string[];
   onChange: (value: { disableActions: string[] }) => void;
 }) => {
-  const { t } = useTranslation('common');
-
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex flex-row justify-between">
-        <div>
-          <CardTitle>{t('admin.setting.ai.aiAbilitySettings')}</CardTitle>
-          <CardDescription>{t('admin.setting.ai.aiAbilitySettingsDescription')}</CardDescription>
-        </div>
-      </CardHeader>
+    <Card className="pt-6 shadow-sm">
       <CardContent>
         <div className="space-y-2">
           <SwitchList onChange={onChange} disableActions={disableActions} />

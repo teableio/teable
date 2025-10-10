@@ -1,12 +1,15 @@
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import type { RefObject } from 'react';
+import { scrollToTarget } from '../utils';
 
 export interface IList {
   title: string;
   key: 'publicOrigin' | 'https' | 'databaseProxy' | 'llmApi' | 'app' | 'webSearch' | 'email';
   anchor?: RefObject<HTMLDivElement>;
   values?: Record<string, string>;
+  path: string;
 }
 
 export interface IConfigurationListProps {
@@ -17,23 +20,7 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
   const { list } = props;
   const { t } = useTranslation('common');
 
-  const scrollToTarget = (targetElement: HTMLElement) => {
-    const leftScrollContainer = document.querySelector(
-      '.setting-page-left-container'
-    ) as HTMLElement;
-    if (leftScrollContainer) {
-      const containerRect = leftScrollContainer.getBoundingClientRect();
-      const targetRect = targetElement.getBoundingClientRect();
-      const scrollTop = leftScrollContainer.scrollTop + (targetRect.top - containerRect.top);
-
-      leftScrollContainer.scrollTo({
-        top: scrollTop,
-        behavior: 'smooth',
-      });
-    } else {
-      targetElement?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  const router = useRouter();
 
   return (
     <div>
@@ -62,12 +49,20 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                     <span
                       className="cursor-pointer text-blue-500"
                       onClick={() => {
+                        const { path } = item;
+                        if (path && !path.includes(router.pathname)) {
+                          router.push(path);
+                        }
                         item.anchor?.current && scrollToTarget(item.anchor.current);
                       }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
+                          const { path } = item;
+                          if (path && !path.includes(router.pathname)) {
+                            router.push(path);
+                          }
                           item.anchor?.current && scrollToTarget(item.anchor.current);
                         }
                       }}

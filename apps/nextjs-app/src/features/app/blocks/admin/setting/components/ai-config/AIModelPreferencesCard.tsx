@@ -1,9 +1,5 @@
 import type { IAIIntegrationConfig, IChatModelAbility, ISettingVo } from '@teable/openapi';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
   FormField,
   FormItem,
   FormLabel,
@@ -37,20 +33,14 @@ export const AIModelPreferencesCard = ({
   const { t } = useTranslation('common');
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle>{t('admin.setting.ai.modelPreferences')}</CardTitle>
-        {/* <CardDescription>{t('admin.setting.ai.modelPreferencesDescription')}</CardDescription> */}
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div>
+      <div className="space-y-6">
         <FormField
           control={control}
           name={'chatModel'}
           render={({ field }) => (
             <FormItem>
               <div className="flex w-full flex-col justify-between">
-                <FormLabel className="mb-4 text-base">{t(`admin.setting.ai.chatModel`)}</FormLabel>
-
                 <div className="flex flex-1 space-x-2">
                   <FormControl className="grow ">
                     <CodingModels
@@ -100,7 +90,7 @@ export const AIModelPreferencesCard = ({
             </FormItem>
           )}
         />
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
