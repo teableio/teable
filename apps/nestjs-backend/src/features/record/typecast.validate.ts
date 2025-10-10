@@ -179,12 +179,15 @@ export class TypeCastAndValidate {
       return value.filter((v) => v != null && v !== '').map((v) => String(v).trim());
     }
     if (typeof value === 'string') {
-      return [value.trim()];
+      const trimValue = value.trim();
+      return trimValue ? [trimValue] : null;
     }
     const strValue = String(value);
     if (strValue != null) {
-      return [String(value).trim()];
+      const trimValue = strValue.trim();
+      return trimValue ? [trimValue] : null;
     }
+
     return null;
   }
 
