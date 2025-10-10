@@ -6,6 +6,30 @@ import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract
  * for use in generated columns. All generated SQL must be immutable.
  */
 export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
+  private isEmptyStringLiteral(value: string): boolean {
+    return value.trim() === "''";
+  }
+
+  private normalizeBlankComparable(value: string): string {
+    return `COALESCE(NULLIF((${value})::text, ''), '')`;
+  }
+
+  private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
+    const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
+    if (!shouldNormalize) {
+      return `(${left} ${operator} ${right})`;
+    }
+
+    const normalizedLeft = this.isEmptyStringLiteral(left)
+      ? "''"
+      : this.normalizeBlankComparable(left);
+    const normalizedRight = this.isEmptyStringLiteral(right)
+      ? "''"
+      : this.normalizeBlankComparable(right);
+
+    return `(${normalizedLeft} ${operator} ${normalizedRight})`;
+  }
+
   // Numeric Functions
   sum(params: string[]): string {
     // Use addition instead of SUM() aggregation function for generated columns
@@ -110,6 +134,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Use explicit text casting to handle mixed types and NULL values
   stringConcat(left: string, right: string): string {
     return `(COALESCE(${left}::text, '') || COALESCE(${right}::text, ''))`;
+  }
+
+  equal(left: string, right: string): string {
+    return this.buildBlankAwareComparison('=', left, right);
+  }
+
+  notEqual(left: string, right: string): string {
+    return this.buildBlankAwareComparison('<>', left, right);
   }
 
   // Override bitwiseAnd to handle PostgreSQL-specific type conversion

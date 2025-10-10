@@ -277,11 +277,11 @@ export class EvalVisitor
         break;
       }
       case Boolean(ctx.EQUAL()): {
-        value = lv == rv;
+        value = this.areValuesEqual(left, right, lv, rv);
         break;
       }
       case Boolean(ctx.BANG_EQUAL()): {
-        value = lv != rv;
+        value = this.areValuesNotEqual(left, right, lv, rv);
         break;
       }
       case Boolean(ctx.AMP()): {
@@ -300,6 +300,85 @@ export class EvalVisitor
         throw new Error(`Unsupported binary operation: ${ctx.text}`);
     }
     return new TypedValue(value, valueType);
+  }
+
+  private areValuesEqual(
+    leftTypedValue: TypedValue,
+    rightTypedValue: TypedValue,
+    leftValue: unknown,
+    rightValue: unknown
+  ) {
+    const normalized = this.normalizeEqualityValues(
+      leftTypedValue,
+      rightTypedValue,
+      leftValue,
+      rightValue
+    );
+    return normalized.left == normalized.right;
+  }
+
+  private areValuesNotEqual(
+    leftTypedValue: TypedValue,
+    rightTypedValue: TypedValue,
+    leftValue: unknown,
+    rightValue: unknown
+  ) {
+    const { left: normalizedLeft, right: normalizedRight } = this.normalizeEqualityValues(
+      leftTypedValue,
+      rightTypedValue,
+      leftValue,
+      rightValue
+    );
+
+    return normalizedLeft != normalizedRight;
+  }
+
+  private normalizeEqualityValues(
+    leftTypedValue: TypedValue,
+    rightTypedValue: TypedValue,
+    leftValue: unknown,
+    rightValue: unknown
+  ) {
+    if (!this.shouldNormalizeBlankEquality(leftTypedValue, rightTypedValue)) {
+      return {
+        left: leftValue,
+        right: rightValue,
+      };
+    }
+
+    return {
+      left: this.normalizeBlankEqualityValue(leftTypedValue, leftValue),
+      right: this.normalizeBlankEqualityValue(rightTypedValue, rightValue),
+    };
+  }
+
+  private shouldNormalizeBlankEquality(
+    leftTypedValue: TypedValue,
+    rightTypedValue: TypedValue
+  ): boolean {
+    return (
+      this.isStringLikeTypedValue(leftTypedValue) || this.isStringLikeTypedValue(rightTypedValue)
+    );
+  }
+
+  private normalizeBlankEqualityValue(typedValue: TypedValue, value: unknown) {
+    if (value == null && this.isStringLikeTypedValue(typedValue)) {
+      return '';
+    }
+
+    return value;
+  }
+
+  private isStringLikeTypedValue(typedValue: TypedValue): boolean {
+    if (typedValue.type === CellValueType.String) {
+      return true;
+    }
+
+    if (typedValue.field?.cellValueType === CellValueType.String) {
+      return true;
+    }
+
+    return false;
   }
 
   private createTypedValueByField(field: FieldCore) {

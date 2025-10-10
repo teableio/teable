@@ -58,7 +58,6 @@ export class If extends LogicalFunc {
     params: TypedValue<string | number | boolean | (string | number | boolean | null)[]>[]
   ): string | number | boolean | null | (string | number | boolean | null)[] {
     const condition = params[0].value;
-
     return condition ? params[1]?.value : params[2]?.value;
   }
 }

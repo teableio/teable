@@ -223,6 +223,52 @@ describe('OpenAPI formula (e2e)', () => {
     expect(updatedRecord.fields[plusMixedField.name]).toEqual('1x');
   });
 
+  it('should treat empty string comparison as blank in formula condition', async () => {
+    const equalsEmptyField = await createField(table1Id, {
+      name: 'equals empty string',
+      type: FieldType.Formula,
+      options: {
+        expression: `IF({${textFieldRo.id}}="", 1, 0)`,
+      },
+    });
+
+    const { records } = await createRecords(table1Id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          fields: {},
+        },
+      ],
+    });
+
+    const createdRecord = records[0];
+    const fetchedRecord = await getRecord(table1Id, createdRecord.id);
+    expect(createdRecord.fields[equalsEmptyField.name]).toEqual(1);
+    expect(fetchedRecord.data.fields[equalsEmptyField.name]).toEqual(1);
+
+    const filledRecord = await updateRecord(table1Id, createdRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [textFieldRo.name]: 'value',
+        },
+      },
+    });
+
+    expect(filledRecord.fields[equalsEmptyField.name]).toEqual(0);
+
+    const clearedRecord = await updateRecord(table1Id, createdRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [textFieldRo.name]: '',
+        },
+      },
+    });
+
+    expect(clearedRecord.fields[equalsEmptyField.name]).toEqual(1);
+  });
+
   it('should calculate formula containing question mark literal', async () => {
     const urlFormulaField = await createField(table1Id, {
       name: 'url formula',

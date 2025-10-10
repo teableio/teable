@@ -14,6 +14,31 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     // Cast to DOUBLE PRECISION so pg driver returns JS numbers (not strings as with NUMERIC)
     return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
   }
+
+  private isEmptyStringLiteral(value: string): boolean {
+    return value.trim() === "''";
+  }
+
+  private normalizeBlankComparable(value: string): string {
+    return `COALESCE(NULLIF((${value})::text, ''), '')`;
+  }
+
+  private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
+    const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
+    if (!shouldNormalize) {
+      return `(${left} ${operator} ${right})`;
+    }
+
+    const normalizedLeft = this.isEmptyStringLiteral(left)
+      ? "''"
+      : this.normalizeBlankComparable(left);
+    const normalizedRight = this.isEmptyStringLiteral(right)
+      ? "''"
+      : this.normalizeBlankComparable(right);
+
+    return `(${normalizedLeft} ${operator} ${normalizedRight})`;
+  }
+
   private tzWrap(date: string): string {
     const tz = this.context?.timeZone as string | undefined;
     if (!tz) {
@@ -491,11 +516,11 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   // Comparison Operations
   equal(left: string, right: string): string {
-    return `(${left} = ${right})`;
+    return this.buildBlankAwareComparison('=', left, right);
   }
 
   notEqual(left: string, right: string): string {
-    return `(${left} <> ${right})`;
+    return this.buildBlankAwareComparison('<>', left, right);
   }
 
   greaterThan(left: string, right: string): string {

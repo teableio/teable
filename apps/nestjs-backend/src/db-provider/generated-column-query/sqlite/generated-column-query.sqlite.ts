@@ -7,6 +7,30 @@ import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract
  * for use in generated columns. All generated SQL must be immutable.
  */
 export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
+  private isEmptyStringLiteral(value: string): boolean {
+    return value.trim() === "''";
+  }
+
+  private normalizeBlankComparable(value: string): string {
+    return `COALESCE(NULLIF(CAST((${value}) AS TEXT), ''), '')`;
+  }
+
+  private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
+    const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
+    if (!shouldNormalize) {
+      return `(${left} ${operator} ${right})`;
+    }
+
+    const normalizedLeft = this.isEmptyStringLiteral(left)
+      ? "''"
+      : this.normalizeBlankComparable(left);
+    const normalizedRight = this.isEmptyStringLiteral(right)
+      ? "''"
+      : this.normalizeBlankComparable(right);
+
+    return `(${normalizedLeft} ${operator} ${normalizedRight})`;
+  }
+
   // Numeric Functions
   sum(params: string[]): string {
     if (params.length === 0) {
@@ -181,6 +205,14 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   // String concatenation for + operator (treats NULL as empty string)
   stringConcat(left: string, right: string): string {
     return `(COALESCE(${left}, '') || COALESCE(${right}, ''))`;
+  }
+
+  equal(left: string, right: string): string {
+    return this.buildBlankAwareComparison('=', left, right);
+  }
+
+  notEqual(left: string, right: string): string {
+    return this.buildBlankAwareComparison('<>', left, right);
   }
 
   find(searchText: string, withinText: string, startNum?: string): string {
