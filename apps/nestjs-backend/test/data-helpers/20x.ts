@@ -9,7 +9,7 @@ import {
   TimeFormatting,
 } from '@teable/core';
 
-const textField = {
+export const textField = {
   name: 'text field',
   description: 'the text field',
   type: FieldType.SingleLineText,

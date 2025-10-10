@@ -2,6 +2,7 @@ import type { IFilterOperator, IFilterValue, ILiteralValue, ILiteralValueList } 
 import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import { isUserOrLink } from '../../../../../utils/is-user-or-link';
+import { escapeJsonbRegex } from '../../../../../utils/postgres-regex-escape';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
@@ -92,14 +93,17 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     value: IFilterValue
   ): Knex.QueryBuilder {
     const { type } = this.field;
+    const escapedValue = escapeJsonbRegex(String(value));
 
     if (type === FieldType.Link) {
-      builderClient.whereRaw(`??::jsonb @\\? '$.title \\? (@ like_regex "${value}" flag "i")'`, [
+      builderClient.whereRaw(`??::jsonb @\\? '$.title \\? (@ like_regex ?? flag "i")'`, [
         this.tableColumnRef,
+        escapedValue,
       ]);
     } else {
-      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
+      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex ?? flag "i")'`, [
         this.tableColumnRef,
+        escapedValue,
       ]);
     }
     return builderClient;
@@ -111,15 +115,16 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     value: IFilterValue
   ): Knex.QueryBuilder {
     const { type } = this.field;
+    const escapedValue = escapeJsonbRegex(String(value));
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(
-        `NOT COALESCE(??, '{}')::jsonb @\\? '$.title \\? (@ like_regex "${value}" flag "i")'`,
+        `NOT COALESCE(??, '{}')::jsonb @\\? '$.title \\? (@ like_regex "${escapedValue}" flag "i")'`,
         [this.tableColumnRef]
       );
     } else {
       builderClient.whereRaw(
-        `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
+        `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'`,
         [this.tableColumnRef]
       );
     }

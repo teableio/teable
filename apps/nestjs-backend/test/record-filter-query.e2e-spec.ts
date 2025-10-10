@@ -3,10 +3,10 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
 import type { IFilter, IOperator } from '@teable/core';
-import { and, FieldKeyType } from '@teable/core';
+import { and, FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { getRecords as apiGetRecords, createField, getFields } from '@teable/openapi';
-import { x_20 } from './data-helpers/20x';
+import { getRecords as apiGetRecords, createField, getFields, getRecords } from '@teable/openapi';
+import { textField, x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import {
   CHECKBOX_FIELD_CASES,
@@ -213,6 +213,55 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       test.each(MULTIPLE_SELECT_LOOKUP_FIELD_CASES)(testDesc, async (param) =>
         doTest(subTable, param)
       );
+    });
+  });
+
+  describe('filter record with special characters', () => {
+    let table: ITableFullVo;
+    let subTable: ITableFullVo;
+    beforeAll(async () => {
+      const newRecords = [...x_20.records];
+      newRecords.splice(
+        1,
+        3,
+        ...[
+          { fields: { [textField.name]: 'notepad++' } },
+          { fields: { [textField.name]: 'notepad++@' } },
+          { fields: { [textField.name]: 'notepad++@' } },
+        ]
+      );
+      table = await createTable(baseId, {
+        name: 'special_characters',
+        fields: x_20.fields,
+        records: newRecords,
+      });
+      const x20Link = x_20_link(table);
+      subTable = await createTable(baseId, {
+        name: 'lookup_filter_special_characters',
+        fields: x20Link.fields,
+        records: x20Link.records,
+      });
+
+      const x20LinkFromLookups = x_20_link_from_lookups(table, subTable.fields[2].id);
+      for (const field of x20LinkFromLookups.fields) {
+        await createField(subTable.id, field);
+      }
+
+      table.fields = (await getFields(table.id)).data;
+      subTable.fields = (await getFields(subTable.id)).data;
+    });
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, subTable.id);
+    });
+
+    it('should filter record with special characters', async () => {
+      const linkField = subTable.fields.find((field) => field.type === FieldType.Link)!;
+      const { records } = await getFilterRecord(subTable.id, subTable.views[0].id, {
+        filterSet: [{ fieldId: linkField.id, value: 'notepad++', operator: 'contains' }],
+        conjunction: and.value,
+      });
+      expect(records.length).toBe(8);
     });
   });
 });

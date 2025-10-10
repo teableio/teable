@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { CellValueType, DriverClient, FieldKeyType, FieldType } from '@teable/core';
+import { CellValueType, Colors, DriverClient, FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords as apiGetRecords,
@@ -239,6 +239,60 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
           expect(records.length).toBe(expectResultLength);
         }
       );
+    });
+  });
+
+  describe('search value with special characters', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'special_characters',
+        fields: [
+          {
+            name: 'text',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'user',
+            type: FieldType.User,
+          },
+          {
+            name: 'multipleSelect',
+            type: FieldType.MultipleSelect,
+            options: {
+              choices: [
+                { id: 'choX', name: 'rap', color: Colors.Cyan },
+                { id: 'choY', name: 'rock', color: Colors.Blue },
+                { id: 'choZ', name: 'hiphop', color: Colors.Gray },
+              ],
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              text: 'notepad++',
+              multipleSelect: ['rap', 'rock'],
+            },
+          },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should search value with special characters', async () => {
+      const { records } = (
+        await apiGetRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+          search: ['notepad++', table.fields[0].id, true],
+        })
+      ).data;
+      expect(records.length).toBe(1);
+      expect(1).toBe(1);
     });
   });
 

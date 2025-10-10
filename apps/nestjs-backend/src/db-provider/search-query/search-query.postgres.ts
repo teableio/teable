@@ -5,6 +5,7 @@ import { TableIndex } from '@teable/openapi';
 import { type Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import { escapePostgresRegex } from '../../utils/postgres-regex-escape';
 import { SearchQueryAbstract } from './abstract';
 import { FieldFormatter } from './search-index-builder.postgres';
 import type { ISearchCellValueType } from './types';
@@ -149,6 +150,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected multipleText() {
     const { search, knex } = this;
     const searchValue = search[0];
+    const escapedSearchValue = escapePostgresRegex(searchValue);
     return knex.raw(
       `
       EXISTS (
@@ -160,7 +162,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
         WHERE sub.aggregated ~* ?
       )
     `,
-      [this.dbTableName, this.field.dbFieldName, searchValue]
+      [this.dbTableName, this.field.dbFieldName, escapedSearchValue]
     );
   }
 
@@ -203,6 +205,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected multipleJson() {
     const { search, knex } = this;
     const searchValue = search[0];
+    const escapedSearchValue = escapePostgresRegex(searchValue);
     return knex.raw(
       `
       EXISTS (
@@ -213,7 +216,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
         WHERE sub.aggregated ~* ?
       )
       `,
-      [this.dbTableName, this.field.dbFieldName, searchValue]
+      [this.dbTableName, this.field.dbFieldName, escapedSearchValue]
     );
   }
 }
