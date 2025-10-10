@@ -395,13 +395,20 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.checkAndSelectLookupField(field);
     }
 
+    const fieldCteMap = this.state.getFieldCteMap();
+
+    if (this.rawProjection && !fieldCteMap.has(field.id)) {
+      const columnSelector = this.getColumnSelector(field);
+      this.state.setSelection(field.id, columnSelector);
+      return columnSelector;
+    }
+
     if (this.shouldSelectRaw()) {
       const columnSelector = this.getColumnSelector(field);
       this.state.setSelection(field.id, columnSelector);
       return columnSelector;
     }
 
-    const fieldCteMap = this.state.getFieldCteMap();
     const cteName = fieldCteMap.get(field.id);
     if (!cteName) {
       const nullExpr = this.dialect.typedNullFor(field.dbFieldType);

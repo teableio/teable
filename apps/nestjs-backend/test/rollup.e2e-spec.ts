@@ -1,8 +1,16 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILookupOptionsRo, IRecord, LinkFieldCore } from '@teable/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  IFilter,
+  ILookupOptionsRo,
+  IRecord,
+  LinkFieldCore,
+} from '@teable/core';
 import {
   Colors,
   FieldKeyType,
@@ -503,6 +511,216 @@ describe('OpenAPI Rollup field (e2e)', () => {
     const lookedUpToField2 = getFieldByType(table2.fields, FieldType.SingleLineText);
 
     await rollupFrom(table1, lookedUpToField2.id, 'count({values})');
+  });
+
+  describe('rollup targeting conditional computed fields', () => {
+    let leaf: ITableFullVo;
+    let middle: ITableFullVo;
+    let root: ITableFullVo;
+    let activeScoreConditionalRollup: IFieldVo;
+    let activeItemConditionalLookup: IFieldVo;
+    let rootLinkFieldId: string;
+
+    beforeAll(async () => {
+      leaf = await createTable(baseId, {
+        name: 'RollupConditional_Leaf',
+        fields: [
+          { name: 'Item', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Item: 'Alpha', Category: 'Hardware', Score: 60, Status: 'Active' } },
+          { fields: { Item: 'Beta', Category: 'Hardware', Score: 40, Status: 'Inactive' } },
+          { fields: { Item: 'Gamma', Category: 'Software', Score: 80, Status: 'Active' } },
+        ],
+      });
+
+      const leafItemId = leaf.fields.find((field) => field.name === 'Item')!.id;
+      const leafCategoryId = leaf.fields.find((field) => field.name === 'Category')!.id;
+      const leafScoreId = leaf.fields.find((field) => field.name === 'Score')!.id;
+      const leafStatusId = leaf.fields.find((field) => field.name === 'Status')!.id;
+
+      middle = await createTable(baseId, {
+        name: 'RollupConditional_Middle',
+        fields: [
+          { name: 'Summary', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Target Category', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Summary: 'Hardware Overview', 'Target Category': 'Hardware' } },
+          { fields: { Summary: 'Software Overview', 'Target Category': 'Software' } },
+        ],
+      });
+      const targetCategoryFieldId = middle.fields.find(
+        (field) => field.name === 'Target Category'
+      )!.id;
+
+      const categoryMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: leafCategoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: targetCategoryFieldId },
+          },
+          {
+            fieldId: leafStatusId,
+            operator: 'is',
+            value: 'Active',
+          },
+        ],
+      } as any;
+
+      activeScoreConditionalRollup = await createField(middle.id, {
+        name: 'Active Category Score',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: leaf.id,
+          lookupFieldId: leafScoreId,
+          expression: 'sum({values})',
+          filter: categoryMatchFilter,
+        },
+      } as IFieldRo);
+
+      activeItemConditionalLookup = await createField(middle.id, {
+        name: 'Active Item Names',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: leaf.id,
+          lookupFieldId: leafItemId,
+          filter: categoryMatchFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      await updateTableFields(middle);
+      tables.push(middle);
+
+      root = await createTable(baseId, {
+        name: 'RollupConditional_Root',
+        fields: [{ name: 'Region', type: FieldType.SingleLineText } as IFieldRo],
+        records: [
+          { fields: { Region: 'North' } },
+          { fields: { Region: 'Global' } },
+          { fields: { Region: 'Unlinked' } },
+        ],
+      });
+
+      const rootLinkField = await createField(root.id, {
+        name: 'Middle Connection',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: middle.id,
+        },
+      });
+      rootLinkFieldId = rootLinkField.id;
+
+      await updateTableFields(root);
+      tables.push(root);
+
+      await updateRecordField(root.id, root.records[0].id, rootLinkFieldId, [
+        { id: middle.records[0].id },
+      ]);
+      await updateRecordField(root.id, root.records[1].id, rootLinkFieldId, [
+        { id: middle.records[0].id },
+        { id: middle.records[1].id },
+      ]);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, root.id);
+      await permanentDeleteTable(baseId, middle.id);
+      await permanentDeleteTable(baseId, leaf.id);
+    });
+
+    it('should roll up conditional rollup values across linked tables', async () => {
+      const hardwareSummary = await getRecord(middle.id, middle.records[0].id);
+      const softwareSummary = await getRecord(middle.id, middle.records[1].id);
+      expect(hardwareSummary.fields[activeScoreConditionalRollup.id]).toEqual(60);
+      expect(softwareSummary.fields[activeScoreConditionalRollup.id]).toEqual(80);
+
+      const rollupFieldVo = await rollupFrom(
+        root,
+        activeScoreConditionalRollup.id,
+        'sum({values})'
+      );
+
+      const north = await getRecord(root.id, root.records[0].id);
+      const global = await getRecord(root.id, root.records[1].id);
+      const unlinked = await getRecord(root.id, root.records[2].id);
+
+      expect(north.fields[rollupFieldVo.id]).toEqual(60);
+      expect(global.fields[rollupFieldVo.id]).toEqual(140);
+      expect(unlinked.fields[rollupFieldVo.id]).toEqual(0);
+    });
+
+    it('should aggregate conditional lookup chains with rollup fields', async () => {
+      const hardwareSummary = await getRecord(middle.id, middle.records[0].id);
+      const softwareSummary = await getRecord(middle.id, middle.records[1].id);
+      expect(hardwareSummary.fields[activeItemConditionalLookup.id]).toEqual(['Alpha']);
+      expect(softwareSummary.fields[activeItemConditionalLookup.id]).toEqual(['Gamma']);
+
+      const rollupFieldVo = await rollupFrom(
+        root,
+        activeItemConditionalLookup.id,
+        'countall({values})'
+      );
+
+      const north = await getRecord(root.id, root.records[0].id);
+      const global = await getRecord(root.id, root.records[1].id);
+      const unlinked = await getRecord(root.id, root.records[2].id);
+
+      expect(north.fields[rollupFieldVo.id]).toEqual(1);
+      expect(global.fields[rollupFieldVo.id]).toEqual(2);
+      expect(unlinked.fields[rollupFieldVo.id]).toEqual(0);
+    });
+
+    it('should concatenate conditional lookup values when rolled up', async () => {
+      const decodeRollupValue = (value: unknown) => {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') {
+          if (value === '') return [];
+          const tryParse = (input: string) => {
+            try {
+              return JSON.parse(input);
+            } catch {
+              return undefined;
+            }
+          };
+
+          const direct = tryParse(value);
+          if (direct !== undefined) return direct;
+
+          const parts = value.split('],').map((part) => {
+            const normalized = part.trim();
+            const withBracket = normalized.endsWith(']') ? normalized : `${normalized}]`;
+            const parsed = tryParse(withBracket);
+            return parsed ?? [normalized.replace(/^\[|"|'|\]$/g, '')];
+          });
+          return parts.flat();
+        }
+        return value;
+      };
+
+      const rollupFieldVo = await rollupFrom(
+        root,
+        activeItemConditionalLookup.id,
+        'concatenate({values})'
+      );
+
+      const north = await getRecord(root.id, root.records[0].id);
+      const global = await getRecord(root.id, root.records[1].id);
+      const unlinked = await getRecord(root.id, root.records[2].id);
+
+      expect(decodeRollupValue(north.fields[rollupFieldVo.id])).toEqual(['Alpha']);
+      expect(decodeRollupValue(global.fields[rollupFieldVo.id])).toEqual(['Alpha', 'Gamma']);
+      expect(decodeRollupValue(unlinked.fields[rollupFieldVo.id])).toEqual([]);
+    });
   });
 
   describe('Roll up corner case', () => {

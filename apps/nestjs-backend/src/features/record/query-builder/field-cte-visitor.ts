@@ -891,6 +891,24 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       expression =
         typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
     }
+
+    if (
+      targetLookupField.isConditionalLookup ||
+      (targetLookupField.type === FieldType.ConditionalRollup && !targetLookupField.isLookup)
+    ) {
+      const nestedCteName = this.fieldCteMap.get(targetLookupField.id);
+      if (nestedCteName) {
+        const columnName =
+          targetLookupField.type === FieldType.ConditionalRollup && !targetLookupField.isLookup
+            ? `conditional_rollup_${targetLookupField.id}`
+            : `conditional_lookup_${targetLookupField.id}`;
+        if (this.joinedCtes?.has(targetLookupField.id)) {
+          expression = `"${nestedCteName}"."${columnName}"`;
+        } else {
+          expression = `((SELECT "${columnName}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
+        }
+      }
+    }
     const linkField = field.getLinkField(this.table);
     const options = linkField?.options as ILinkFieldOptions;
     const isSingleValueRelationship =
@@ -948,6 +966,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
   private readonly _table: TableDomain;
   private readonly state: IMutableQueryBuilderState;
+  private readonly conditionalRollupGenerationStack = new Set<string>();
+  private readonly conditionalLookupGenerationStack = new Set<string>();
   private filteredIdSet?: Set<string>;
   private readonly projection?: string[];
 
@@ -1033,223 +1053,295 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     });
   }
 
+  private resolveConditionalComputedTargetExpression(
+    targetField: FieldCore,
+    foreignTable: TableDomain,
+    foreignAlias: string,
+    selectVisitor: FieldSelectVisitor
+  ): string {
+    if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
+      const conditionalTarget = targetField as ConditionalRollupFieldCore;
+      this.generateConditionalRollupFieldCteForScope(foreignTable, conditionalTarget);
+      const nestedCteName = this.state.getFieldCteMap().get(conditionalTarget.id);
+      if (nestedCteName) {
+        return `((SELECT "conditional_rollup_${conditionalTarget.id}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
+      }
+      const fallback = conditionalTarget.accept(selectVisitor);
+      return typeof fallback === 'string' ? fallback : fallback.toSQL().sql;
+    }
+
+    if (targetField.isConditionalLookup) {
+      const options = targetField.getConditionalLookupOptions?.();
+      if (options) {
+        this.generateConditionalLookupFieldCteForScope(foreignTable, targetField, options);
+      }
+      const nestedCteName = this.state.getFieldCteMap().get(targetField.id);
+      if (nestedCteName) {
+        const column =
+          targetField.type === FieldType.ConditionalRollup
+            ? `conditional_rollup_${targetField.id}`
+            : `conditional_lookup_${targetField.id}`;
+        return `((SELECT "${column}" FROM "${nestedCteName}" WHERE "${nestedCteName}"."main_record_id" = "${foreignAlias}"."${ID_FIELD_NAME}"))`;
+      }
+    }
+
+    const targetSelect = targetField.accept(selectVisitor);
+    return typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
+  }
+
   private generateConditionalRollupFieldCte(field: ConditionalRollupFieldCore): void {
+    this.generateConditionalRollupFieldCteForScope(this.table, field);
+  }
+
+  private generateConditionalRollupFieldCteForScope(
+    table: TableDomain,
+    field: ConditionalRollupFieldCore
+  ): void {
     if (field.hasError) return;
     if (this.state.getFieldCteMap().has(field.id)) return;
+    if (this.conditionalRollupGenerationStack.has(field.id)) return;
 
-    const {
-      foreignTableId,
-      lookupFieldId,
-      expression = 'countall({values})',
-      filter,
-    } = field.options;
-    if (!foreignTableId || !lookupFieldId) {
-      return;
-    }
+    this.conditionalRollupGenerationStack.add(field.id);
+    try {
+      const {
+        foreignTableId,
+        lookupFieldId,
+        expression = 'countall({values})',
+        filter,
+      } = field.options;
+      if (!foreignTableId || !lookupFieldId) {
+        return;
+      }
 
-    const foreignTable = this.tables.getTable(foreignTableId);
-    if (!foreignTable) {
-      return;
-    }
+      const foreignTable = this.tables.getTable(foreignTableId);
+      if (!foreignTable) {
+        return;
+      }
 
-    const targetField = foreignTable.getField(lookupFieldId);
-    if (!targetField) {
-      return;
-    }
+      const targetField = foreignTable.getField(lookupFieldId);
+      if (!targetField) {
+        return;
+      }
 
-    const cteName = `CTE_REF_${field.id}`;
-    const mainAlias = getTableAliasFromTable(this.table);
-    const foreignAlias = getTableAliasFromTable(foreignTable);
-    const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_ref` : foreignAlias;
+      const joinToMain = table === this.table;
 
-    const qb = this.qb.client.queryBuilder();
-    const selectVisitor = new FieldSelectVisitor(
-      qb,
-      this.dbProvider,
-      foreignTable,
-      new ScopedSelectionState(this.state),
-      this.dialect,
-      foreignAliasUsed,
-      true
-    );
-    let rawExpression: string;
-    if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
-      rawExpression = `"${foreignAliasUsed}"."${targetField.dbFieldName}"`;
-    } else {
-      const targetSelect = targetField.accept(selectVisitor);
-      rawExpression = typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
-    }
+      const cteName = `CTE_REF_${field.id}`;
+      const mainAlias = getTableAliasFromTable(table);
+      const foreignAlias = getTableAliasFromTable(foreignTable);
+      const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_ref` : foreignAlias;
 
-    const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
-    const formattedExpression = targetField.accept(formattingVisitor);
-
-    const aggregationFn = this.parseRollupFunction(expression);
-    const aggregationInputExpression = this.shouldUseFormattedExpressionForAggregation(
-      aggregationFn
-    )
-      ? formattedExpression
-      : rawExpression;
-
-    const aggregateExpression = this.buildConditionalRollupAggregation(
-      expression,
-      aggregationInputExpression,
-      targetField,
-      foreignAliasUsed
-    );
-    const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
-
-    const aggregateQuery = this.qb.client
-      .queryBuilder()
-      .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
-
-    if (filter) {
-      const fieldMap = foreignTable.fieldList.reduce(
-        (map, f) => {
-          map[f.id] = f as FieldCore;
-          return map;
-        },
-        {} as Record<string, FieldCore>
+      const qb = this.qb.client.queryBuilder();
+      const selectVisitor = new FieldSelectVisitor(
+        qb,
+        this.dbProvider,
+        foreignTable,
+        new ScopedSelectionState(this.state),
+        this.dialect,
+        foreignAliasUsed,
+        true
       );
 
-      const selectionMap = new Map<string, IFieldSelectName>();
-      for (const f of foreignTable.fields.ordered) {
-        selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+      const rawExpression = this.resolveConditionalComputedTargetExpression(
+        targetField,
+        foreignTable,
+        foreignAliasUsed,
+        selectVisitor
+      );
+      const formattingVisitor = new FieldFormattingVisitor(rawExpression, this.dialect);
+      const formattedExpression = targetField.accept(formattingVisitor);
+
+      const aggregationFn = this.parseRollupFunction(expression);
+      const aggregationInputExpression = this.shouldUseFormattedExpressionForAggregation(
+        aggregationFn
+      )
+        ? formattedExpression
+        : rawExpression;
+
+      const aggregateExpression = this.buildConditionalRollupAggregation(
+        expression,
+        aggregationInputExpression,
+        targetField,
+        foreignAliasUsed
+      );
+      const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
+
+      const aggregateQuery = this.qb.client
+        .queryBuilder()
+        .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+
+      if (filter) {
+        const fieldMap = foreignTable.fieldList.reduce(
+          (map, f) => {
+            map[f.id] = f as FieldCore;
+            return map;
+          },
+          {} as Record<string, FieldCore>
+        );
+
+        const selectionMap = new Map<string, IFieldSelectName>();
+        for (const f of foreignTable.fields.ordered) {
+          selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+        }
+
+        const fieldReferenceSelectionMap = new Map<string, string>();
+        const fieldReferenceFieldMap = new Map<string, FieldCore>();
+        for (const mainField of table.fields.ordered) {
+          fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
+          fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
+        }
+
+        this.dbProvider
+          .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
+            selectionMap,
+            fieldReferenceSelectionMap,
+            fieldReferenceFieldMap,
+          })
+          .appendQueryBuilder();
       }
 
-      const fieldReferenceSelectionMap = new Map<string, string>();
-      const fieldReferenceFieldMap = new Map<string, FieldCore>();
-      for (const mainField of this.table.fields.ordered) {
-        fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
-        fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
+      aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
+      const aggregateSql = aggregateQuery.toQuery();
+
+      this.qb.with(cteName, (cqb) => {
+        cqb
+          .select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`)
+          .select(cqb.client.raw(`(${aggregateSql}) as "conditional_rollup_${field.id}"`))
+          .from(`${table.dbTableName} as ${mainAlias}`);
+      });
+
+      if (joinToMain) {
+        this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
       }
 
-      this.dbProvider
-        .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
-          selectionMap,
-          fieldReferenceSelectionMap,
-          fieldReferenceFieldMap,
-        })
-        .appendQueryBuilder();
+      this.state.setFieldCte(field.id, cteName);
+    } finally {
+      this.conditionalRollupGenerationStack.delete(field.id);
     }
-
-    aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
-
-    this.qb.with(cteName, (cqb) => {
-      cqb
-        .select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`)
-        .select(cqb.client.raw(`(${aggregateQuery.toQuery()}) as "conditional_rollup_${field.id}"`))
-        .from(`${this.table.dbTableName} as ${mainAlias}`);
-    });
-
-    this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
-    this.state.setFieldCte(field.id, cteName);
   }
 
   private generateConditionalLookupFieldCte(field: FieldCore, options: IConditionalLookupOptions) {
+    this.generateConditionalLookupFieldCteForScope(this.table, field, options);
+  }
+
+  private generateConditionalLookupFieldCteForScope(
+    table: TableDomain,
+    field: FieldCore,
+    options: IConditionalLookupOptions
+  ): void {
     if (field.hasError) return;
     if (this.state.getFieldCteMap().has(field.id)) return;
+    if (this.conditionalLookupGenerationStack.has(field.id)) return;
 
-    const { foreignTableId, lookupFieldId, filter } = options;
-    if (!foreignTableId || !lookupFieldId) {
-      return;
-    }
+    this.conditionalLookupGenerationStack.add(field.id);
+    try {
+      const { foreignTableId, lookupFieldId, filter } = options;
+      if (!foreignTableId || !lookupFieldId) {
+        return;
+      }
 
-    const foreignTable = this.tables.getTable(foreignTableId);
-    if (!foreignTable) {
-      return;
-    }
+      const foreignTable = this.tables.getTable(foreignTableId);
+      if (!foreignTable) {
+        return;
+      }
 
-    const targetField = foreignTable.getField(lookupFieldId);
-    if (!targetField) {
-      return;
-    }
+      const targetField = foreignTable.getField(lookupFieldId);
+      if (!targetField) {
+        return;
+      }
 
-    const cteName = `CTE_CONDITIONAL_LOOKUP_${field.id}`;
-    const mainAlias = getTableAliasFromTable(this.table);
-    const foreignAlias = getTableAliasFromTable(foreignTable);
-    const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_ref` : foreignAlias;
+      const joinToMain = table === this.table;
 
-    const qb = this.qb.client.queryBuilder();
-    const selectVisitor = new FieldSelectVisitor(
-      qb,
-      this.dbProvider,
-      foreignTable,
-      new ScopedSelectionState(this.state),
-      this.dialect,
-      foreignAliasUsed,
-      true
-    );
+      const cteName = `CTE_CONDITIONAL_LOOKUP_${field.id}`;
+      const mainAlias = getTableAliasFromTable(table);
+      const foreignAlias = getTableAliasFromTable(foreignTable);
+      const foreignAliasUsed = foreignAlias === mainAlias ? `${foreignAlias}_ref` : foreignAlias;
 
-    let rawExpression: string;
-    if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
-      rawExpression = `"${foreignAliasUsed}"."${targetField.dbFieldName}"`;
-    } else {
-      const targetSelect = targetField.accept(selectVisitor);
-      rawExpression = typeof targetSelect === 'string' ? targetSelect : targetSelect.toSQL().sql;
-    }
-
-    const aggregateExpression =
-      field.type === FieldType.ConditionalRollup
-        ? this.dialect.jsonAggregateNonNull(rawExpression)
-        : this.buildConditionalRollupAggregation(
-            'array_compact({values})',
-            rawExpression,
-            targetField,
-            foreignAliasUsed
-          );
-    const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
-
-    const aggregateQuery = this.qb.client
-      .queryBuilder()
-      .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
-
-    if (filter) {
-      const fieldMap = foreignTable.fieldList.reduce(
-        (map, f) => {
-          map[f.id] = f as FieldCore;
-          return map;
-        },
-        {} as Record<string, FieldCore>
+      const qb = this.qb.client.queryBuilder();
+      const selectVisitor = new FieldSelectVisitor(
+        qb,
+        this.dbProvider,
+        foreignTable,
+        new ScopedSelectionState(this.state),
+        this.dialect,
+        foreignAliasUsed,
+        true
       );
 
-      const selectionMap = new Map<string, IFieldSelectName>();
-      for (const f of foreignTable.fields.ordered) {
-        selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+      const rawExpression = this.resolveConditionalComputedTargetExpression(
+        targetField,
+        foreignTable,
+        foreignAliasUsed,
+        selectVisitor
+      );
+
+      const aggregateExpression =
+        field.type === FieldType.ConditionalRollup
+          ? this.dialect.jsonAggregateNonNull(rawExpression)
+          : this.buildConditionalRollupAggregation(
+              'array_compact({values})',
+              rawExpression,
+              targetField,
+              foreignAliasUsed
+            );
+      const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
+
+      const aggregateQuery = this.qb.client
+        .queryBuilder()
+        .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+
+      if (filter) {
+        const fieldMap = foreignTable.fieldList.reduce(
+          (map, f) => {
+            map[f.id] = f as FieldCore;
+            return map;
+          },
+          {} as Record<string, FieldCore>
+        );
+
+        const selectionMap = new Map<string, IFieldSelectName>();
+        for (const f of foreignTable.fields.ordered) {
+          selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+        }
+
+        const fieldReferenceSelectionMap = new Map<string, string>();
+        const fieldReferenceFieldMap = new Map<string, FieldCore>();
+        for (const mainField of table.fields.ordered) {
+          fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
+          fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
+        }
+
+        this.dbProvider
+          .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
+            selectionMap,
+            fieldReferenceSelectionMap,
+            fieldReferenceFieldMap,
+          })
+          .appendQueryBuilder();
       }
 
-      const fieldReferenceSelectionMap = new Map<string, string>();
-      const fieldReferenceFieldMap = new Map<string, FieldCore>();
-      for (const mainField of this.table.fields.ordered) {
-        fieldReferenceSelectionMap.set(mainField.id, `"${mainAlias}"."${mainField.dbFieldName}"`);
-        fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
+      aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
+
+      const aggregateSql = aggregateQuery.toQuery();
+      const lookupAlias = `conditional_lookup_${field.id}`;
+      const rollupAlias = `conditional_rollup_${field.id}`;
+
+      this.qb.with(cteName, (cqb) => {
+        cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
+        cqb.select(cqb.client.raw(`(${aggregateSql}) as "${lookupAlias}"`));
+        if (field.type === FieldType.ConditionalRollup) {
+          cqb.select(cqb.client.raw(`(${aggregateSql}) as "${rollupAlias}"`));
+        }
+        cqb.from(`${table.dbTableName} as ${mainAlias}`);
+      });
+
+      if (joinToMain) {
+        this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
       }
 
-      this.dbProvider
-        .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
-          selectionMap,
-          fieldReferenceSelectionMap,
-          fieldReferenceFieldMap,
-        })
-        .appendQueryBuilder();
+      this.state.setFieldCte(field.id, cteName);
+    } finally {
+      this.conditionalLookupGenerationStack.delete(field.id);
     }
-
-    aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
-
-    const aggregateSql = aggregateQuery.toQuery();
-    const lookupAlias = `conditional_lookup_${field.id}`;
-    const rollupAlias = `conditional_rollup_${field.id}`;
-
-    this.qb.with(cteName, (cqb) => {
-      cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
-      cqb.select(cqb.client.raw(`(${aggregateSql}) as "${lookupAlias}"`));
-      if (field.type === FieldType.ConditionalRollup) {
-        cqb.select(cqb.client.raw(`(${aggregateSql}) as "${rollupAlias}"`));
-      }
-      cqb.from(`${this.table.dbTableName} as ${mainAlias}`);
-    });
-
-    this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
-    this.state.setFieldCte(field.id, cteName);
   }
 
   public build() {
@@ -1336,6 +1428,18 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     const addDepLinksFromTarget = (field: FieldCore) => {
       const targetField = field.getForeignLookupField(foreignTable);
       if (!targetField) return;
+      if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
+        this.generateConditionalRollupFieldCteForScope(
+          foreignTable,
+          targetField as ConditionalRollupFieldCore
+        );
+      }
+      if (targetField.isConditionalLookup) {
+        const options = targetField.getConditionalLookupOptions?.();
+        if (options) {
+          this.generateConditionalLookupFieldCteForScope(foreignTable, targetField, options);
+        }
+      }
       const depLinks = targetField.getLinkFields(foreignTable);
       for (const lf of depLinks) {
         if (!lf?.id) continue;
@@ -1548,6 +1652,21 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     limitRollupIds?: Set<string>
   ): void {
     const nestedLinkFields = new Map<string, LinkFieldCore>();
+    const ensureConditionalComputedCte = (table: TableDomain, targetField?: FieldCore) => {
+      if (!targetField) return;
+      if (targetField.type === FieldType.ConditionalRollup && !targetField.isLookup) {
+        this.generateConditionalRollupFieldCteForScope(
+          table,
+          targetField as ConditionalRollupFieldCore
+        );
+      }
+      if (targetField.isConditionalLookup) {
+        const options = targetField.getConditionalLookupOptions?.();
+        if (options) {
+          this.generateConditionalLookupFieldCteForScope(table, targetField, options);
+        }
+      }
+    };
 
     // Collect lookup fields on main table that depend on this link
     let lookupFields = mainToForeignLinkField.getLookupFields(mainTable);
@@ -1557,6 +1676,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     for (const lookupField of lookupFields) {
       const target = lookupField.getForeignLookupField(foreignTable);
       if (target) {
+        ensureConditionalComputedCte(foreignTable, target);
         if (target.type === FieldType.Link) {
           const lf = target as LinkFieldCore;
           if (!nestedLinkFields.has(lf.id)) nestedLinkFields.set(lf.id, lf);
@@ -1566,12 +1686,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         }
       } else {
         const nestedId = lookupField.lookupOptions?.lookupFieldId;
-        const lf = nestedId
-          ? (foreignTable.getField(nestedId) as LinkFieldCore | undefined)
-          : undefined;
-        if (lf && lf.type === FieldType.Link && !nestedLinkFields.has(lf.id)) {
-          nestedLinkFields.set(lf.id, lf);
+        const nestedField = nestedId ? foreignTable.getField(nestedId) : undefined;
+        if (
+          nestedField &&
+          nestedField.type === FieldType.Link &&
+          !nestedLinkFields.has(nestedField.id)
+        ) {
+          nestedLinkFields.set(nestedField.id, nestedField as LinkFieldCore);
         }
+        ensureConditionalComputedCte(foreignTable, nestedField);
       }
     }
 
@@ -1583,6 +1706,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     for (const rollupField of rollupFields) {
       const target = rollupField.getForeignLookupField(foreignTable);
       if (target) {
+        ensureConditionalComputedCte(foreignTable, target);
         if (target.type === FieldType.Link) {
           const lf = target as LinkFieldCore;
           if (!nestedLinkFields.has(lf.id)) nestedLinkFields.set(lf.id, lf);
@@ -1592,12 +1716,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         }
       } else {
         const nestedId = rollupField.lookupOptions?.lookupFieldId;
-        const lf = nestedId
-          ? (foreignTable.getField(nestedId) as LinkFieldCore | undefined)
-          : undefined;
-        if (lf && lf.type === FieldType.Link && !nestedLinkFields.has(lf.id)) {
-          nestedLinkFields.set(lf.id, lf);
+        const nestedField = nestedId ? foreignTable.getField(nestedId) : undefined;
+        if (
+          nestedField &&
+          nestedField.type === FieldType.Link &&
+          !nestedLinkFields.has(nestedField.id)
+        ) {
+          nestedLinkFields.set(nestedField.id, nestedField as LinkFieldCore);
         }
+        ensureConditionalComputedCte(foreignTable, nestedField);
       }
     }
 
@@ -1642,6 +1769,18 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     for (const lookupField of lookupFields) {
       const target = lookupField.getForeignLookupField(foreignTable);
       if (target) {
+        if (target.type === FieldType.ConditionalRollup && !target.isLookup) {
+          this.generateConditionalRollupFieldCteForScope(
+            foreignTable,
+            target as ConditionalRollupFieldCore
+          );
+        }
+        if (target.isConditionalLookup) {
+          const options = target.getConditionalLookupOptions?.();
+          if (options) {
+            this.generateConditionalLookupFieldCteForScope(foreignTable, target, options);
+          }
+        }
         if (target.type === FieldType.Link) {
           const lf = target as LinkFieldCore;
           if (this.fieldCteMap.has(lf.id)) {
@@ -1658,6 +1797,18 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     for (const rollupField of rollupFields) {
       const target = rollupField.getForeignLookupField(foreignTable);
       if (target) {
+        if (target.type === FieldType.ConditionalRollup && !target.isLookup) {
+          this.generateConditionalRollupFieldCteForScope(
+            foreignTable,
+            target as ConditionalRollupFieldCore
+          );
+        }
+        if (target.isConditionalLookup) {
+          const options = target.getConditionalLookupOptions?.();
+          if (options) {
+            this.generateConditionalLookupFieldCteForScope(foreignTable, target, options);
+          }
+        }
         if (target.type === FieldType.Link) {
           const lf = target as LinkFieldCore;
           if (this.fieldCteMap.has(lf.id)) {
