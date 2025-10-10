@@ -1,4 +1,4 @@
-import type { ILookupOptionsRo, ILookupOptionsVo } from '@teable/core';
+import type { ILookupLinkOptionsVo, ILookupOptionsRo } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { ChevronDown } from '@teable/icons';
 import { StandaloneViewProvider } from '@teable/sdk/context';
@@ -45,11 +45,11 @@ export const SelectFieldByTableId: React.FC<{
 };
 
 export const LookupOptions = (props: {
-  options: Partial<ILookupOptionsVo> | undefined;
+  options: Partial<ILookupLinkOptionsVo> | undefined;
   fieldId?: string;
   requireFilter?: boolean;
   onChange?: (
-    options: Partial<ILookupOptionsRo>,
+    options: Partial<ILookupLinkOptionsVo>,
     linkField?: LinkField,
     lookupField?: IFieldInstance
   ) => void;
@@ -58,7 +58,7 @@ export const LookupOptions = (props: {
   const table = useTable();
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const [innerOptions, setInnerOptions] = useState<Partial<ILookupOptionsRo>>({
+  const [innerOptions, setInnerOptions] = useState<Partial<ILookupLinkOptionsVo>>({
     foreignTableId: options.foreignTableId,
     linkFieldId: options.linkFieldId,
     lookupFieldId: options.lookupFieldId,

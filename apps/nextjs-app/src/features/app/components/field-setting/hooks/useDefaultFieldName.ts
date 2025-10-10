@@ -4,6 +4,7 @@ import type {
   ILookupOptionsRo,
   IConditionalRollupFieldOptions,
   IConditionalLookupOptions,
+  ILookupLinkOptions,
 } from '@teable/core';
 import { FieldType, isConditionalLookupOptions } from '@teable/core';
 import { getField } from '@teable/openapi';
@@ -19,7 +20,7 @@ export const useDefaultFieldName = () => {
   const getLookupName = useCallback(
     async (fieldRo: IFieldRo) => {
       const { foreignTableId, lookupFieldId, linkFieldId } =
-        fieldRo.lookupOptions as ILookupOptionsRo;
+        fieldRo.lookupOptions as ILookupLinkOptions;
 
       const lookupField = (await getField(foreignTableId, lookupFieldId)).data;
       const linkField = fields.find((field) => field.id === linkFieldId);

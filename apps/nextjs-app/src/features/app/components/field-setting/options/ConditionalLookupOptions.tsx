@@ -109,7 +109,7 @@ const ConditionalLookupForeignSection = ({
         enableFieldReference
         contextTableId={sourceTableId}
         required
-        onChange={(nextFilter) => onFilterChange(nextFilter ?? undefined)}
+        onChange={(nextFilter) => onFilterChange(nextFilter ?? null)}
       />
     </div>
   );
