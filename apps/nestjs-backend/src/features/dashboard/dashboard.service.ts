@@ -490,8 +490,7 @@ export class DashboardService {
         baseId,
         [dashboard],
         {},
-        {},
-        true
+        {}
       );
 
       const newDashboardId = dashboardMap[dashboardId];

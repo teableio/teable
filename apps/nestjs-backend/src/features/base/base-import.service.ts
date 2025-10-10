@@ -7,11 +7,10 @@ import {
   generatePluginInstallId,
   generatePluginPanelId,
   generateShareId,
-  Role,
   ViewType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, PluginPosition, PrincipalType, ResourceType } from '@teable/openapi';
+import { UploadType, PluginPosition } from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IBaseJson,
@@ -458,8 +457,7 @@ export class BaseImportService {
     baseId: string,
     plugins: IBaseJson['plugins'][PluginPosition.Dashboard],
     tableMap: Record<string, string>,
-    fieldMap: Record<string, string>,
-    inSameBase: boolean = false
+    fieldMap: Record<string, string>
   ) {
     const dashboardMap: Record<string, string> = {};
     const pluginInstallMap: Record<string, string> = {};
@@ -508,20 +506,6 @@ export class BaseImportService {
         where: { id: dashboardMap[id] },
         data: {
           layout: newLayout,
-        },
-      });
-    }
-
-    if (!inSameBase) {
-      // create char user to collaborator
-      await prisma.collaborator.create({
-        data: {
-          roleName: Role.Owner,
-          createdBy: userId,
-          resourceId: baseId,
-          resourceType: ResourceType.Base,
-          principalType: PrincipalType.User,
-          principalId: 'pluchartuser',
         },
       });
     }
