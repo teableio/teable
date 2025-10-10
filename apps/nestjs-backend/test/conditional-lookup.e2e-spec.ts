@@ -10,7 +10,7 @@ import type {
   IFilter,
   ILookupOptionsRo,
 } from '@teable/core';
-import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import { Colors, FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -564,6 +564,833 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       const hostFieldDetail = await getField(host.id, onOrAfterDueDateField.id);
       const foreignFieldDetail = await getField(foreign.id, dueDateId);
       expect(hostFieldDetail.options).toEqual(foreignFieldDetail.options);
+    });
+  });
+
+  describe('boolean field reference filters', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let booleanLookupField: IFieldVo;
+    let titleFieldId: string;
+    let statusFieldId: string;
+    let hostFlagFieldId: string;
+    let hostTrueRecordId: string;
+    let hostUnsetRecordId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_Bool_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'IsActive', type: FieldType.Checkbox } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', IsActive: true } },
+          { fields: { Title: 'Beta', IsActive: false } },
+          { fields: { Title: 'Gamma', IsActive: true } },
+        ],
+      });
+      titleFieldId = foreign.fields.find((field) => field.name === 'Title')!.id;
+      statusFieldId = foreign.fields.find((field) => field.name === 'IsActive')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_Bool_Host',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'TargetActive', type: FieldType.Checkbox } as IFieldRo,
+        ],
+        records: [
+          { fields: { Name: 'Should Match True', TargetActive: true } },
+          { fields: { Name: 'Should Match Unset' } },
+        ],
+      });
+      hostFlagFieldId = host.fields.find((field) => field.name === 'TargetActive')!.id;
+      hostTrueRecordId = host.records[0].id;
+      hostUnsetRecordId = host.records[1].id;
+
+      const booleanFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusFieldId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostFlagFieldId },
+          },
+        ],
+      };
+
+      booleanLookupField = await createField(host.id, {
+        name: 'Matching Titles',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleFieldId,
+          filter: booleanFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should filter boolean-referenced lookups', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hostTrueRecord = records.records.find((record) => record.id === hostTrueRecordId)!;
+      const hostUnsetRecord = records.records.find((record) => record.id === hostUnsetRecordId)!;
+
+      expect(hostTrueRecord.fields[booleanLookupField.id]).toEqual(['Alpha', 'Gamma']);
+      expect(hostUnsetRecord.fields[booleanLookupField.id] ?? []).toEqual([]);
+    });
+
+    it('should react when host boolean criteria change', async () => {
+      await updateRecordByApi(host.id, hostTrueRecordId, hostFlagFieldId, null);
+      await updateRecordByApi(host.id, hostUnsetRecordId, hostFlagFieldId, true);
+
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hostTrueRecord = records.records.find((record) => record.id === hostTrueRecordId)!;
+      const hostUnsetRecord = records.records.find((record) => record.id === hostUnsetRecordId)!;
+
+      expect(hostTrueRecord.fields[booleanLookupField.id] ?? []).toEqual([]);
+      expect(hostUnsetRecord.fields[booleanLookupField.id]).toEqual(['Alpha', 'Gamma']);
+    });
+  });
+
+  describe('field and literal comparison matrix', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let fieldDrivenTitlesField: IFieldVo;
+    let literalMixTitlesField: IFieldVo;
+    let quantityWindowLookupField: IFieldVo;
+    let titleId: string;
+    let categoryId: string;
+    let amountId: string;
+    let quantityId: string;
+    let statusId: string;
+    let categoryPickId: string;
+    let amountFloorId: string;
+    let quantityMaxId: string;
+    let statusTargetId: string;
+    let hostHardwareActiveId: string;
+    let hostOfficeActiveId: string;
+    let hostHardwareInactiveId: string;
+    let foreignLaptopId: string;
+    let foreignMonitorId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_FieldMatrix_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          { name: 'Quantity', type: FieldType.Number } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Title: 'Laptop',
+              Category: 'Hardware',
+              Amount: 80,
+              Quantity: 5,
+              Status: 'Active',
+            },
+          },
+          {
+            fields: {
+              Title: 'Monitor',
+              Category: 'Hardware',
+              Amount: 20,
+              Quantity: 2,
+              Status: 'Inactive',
+            },
+          },
+          {
+            fields: {
+              Title: 'Subscription',
+              Category: 'Office',
+              Amount: 60,
+              Quantity: 10,
+              Status: 'Active',
+            },
+          },
+          {
+            fields: {
+              Title: 'Upgrade',
+              Category: 'Office',
+              Amount: 35,
+              Quantity: 3,
+              Status: 'Active',
+            },
+          },
+        ],
+      });
+      titleId = foreign.fields.find((f) => f.name === 'Title')!.id;
+      categoryId = foreign.fields.find((f) => f.name === 'Category')!.id;
+      amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+      quantityId = foreign.fields.find((f) => f.name === 'Quantity')!.id;
+      statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+      foreignLaptopId = foreign.records.find((record) => record.fields.Title === 'Laptop')!.id;
+      foreignMonitorId = foreign.records.find((record) => record.fields.Title === 'Monitor')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_FieldMatrix_Host',
+        fields: [
+          { name: 'CategoryPick', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'AmountFloor', type: FieldType.Number } as IFieldRo,
+          { name: 'QuantityMax', type: FieldType.Number } as IFieldRo,
+          { name: 'StatusTarget', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              CategoryPick: 'Hardware',
+              AmountFloor: 60,
+              QuantityMax: 10,
+              StatusTarget: 'Active',
+            },
+          },
+          {
+            fields: {
+              CategoryPick: 'Office',
+              AmountFloor: 30,
+              QuantityMax: 12,
+              StatusTarget: 'Active',
+            },
+          },
+          {
+            fields: {
+              CategoryPick: 'Hardware',
+              AmountFloor: 10,
+              QuantityMax: 4,
+              StatusTarget: 'Inactive',
+            },
+          },
+        ],
+      });
+
+      categoryPickId = host.fields.find((f) => f.name === 'CategoryPick')!.id;
+      amountFloorId = host.fields.find((f) => f.name === 'AmountFloor')!.id;
+      quantityMaxId = host.fields.find((f) => f.name === 'QuantityMax')!.id;
+      statusTargetId = host.fields.find((f) => f.name === 'StatusTarget')!.id;
+      hostHardwareActiveId = host.records[0].id;
+      hostOfficeActiveId = host.records[1].id;
+      hostHardwareInactiveId = host.records[2].id;
+
+      const fieldDrivenFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: categoryPickId },
+          },
+          {
+            fieldId: amountId,
+            operator: 'isGreaterEqual',
+            value: { type: 'field', fieldId: amountFloorId },
+          },
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusTargetId },
+          },
+        ],
+      };
+
+      fieldDrivenTitlesField = await createField(host.id, {
+        name: 'Field Driven Titles',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          filter: fieldDrivenFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const literalMixFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: 'Hardware',
+          },
+          {
+            fieldId: statusId,
+            operator: 'isNot',
+            value: { type: 'field', fieldId: statusTargetId },
+          },
+          {
+            fieldId: amountId,
+            operator: 'isGreater',
+            value: 15,
+          },
+        ],
+      };
+
+      literalMixTitlesField = await createField(host.id, {
+        name: 'Literal Mix Titles',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          filter: literalMixFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const quantityWindowFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: categoryPickId },
+          },
+          {
+            fieldId: quantityId,
+            operator: 'isLessEqual',
+            value: { type: 'field', fieldId: quantityMaxId },
+          },
+        ],
+      };
+
+      quantityWindowLookupField = await createField(host.id, {
+        name: 'Quantity Window Values',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: quantityId,
+          filter: quantityWindowFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should evaluate field-to-field comparisons across operators', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareActive = records.records.find((record) => record.id === hostHardwareActiveId)!;
+      const officeActive = records.records.find((record) => record.id === hostOfficeActiveId)!;
+      const hardwareInactive = records.records.find(
+        (record) => record.id === hostHardwareInactiveId
+      )!;
+
+      expect(hardwareActive.fields[fieldDrivenTitlesField.id]).toEqual(['Laptop']);
+      expect(officeActive.fields[fieldDrivenTitlesField.id]).toEqual(['Subscription', 'Upgrade']);
+      expect(hardwareInactive.fields[fieldDrivenTitlesField.id]).toEqual(['Monitor']);
+    });
+
+    it('should mix literal and field referenced criteria', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareActive = records.records.find((record) => record.id === hostHardwareActiveId)!;
+      const officeActive = records.records.find((record) => record.id === hostOfficeActiveId)!;
+      const hardwareInactive = records.records.find(
+        (record) => record.id === hostHardwareInactiveId
+      )!;
+
+      expect(hardwareActive.fields[literalMixTitlesField.id]).toEqual(['Monitor']);
+      expect(officeActive.fields[literalMixTitlesField.id]).toEqual(['Monitor']);
+      expect(hardwareInactive.fields[literalMixTitlesField.id]).toEqual(['Laptop']);
+    });
+
+    it('should support field referenced numeric windows with lookups', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const hardwareActive = records.records.find((record) => record.id === hostHardwareActiveId)!;
+      const officeActive = records.records.find((record) => record.id === hostOfficeActiveId)!;
+      const hardwareInactive = records.records.find(
+        (record) => record.id === hostHardwareInactiveId
+      )!;
+
+      expect(hardwareActive.fields[quantityWindowLookupField.id]).toEqual([5, 2]);
+      expect(officeActive.fields[quantityWindowLookupField.id]).toEqual([10, 3]);
+      expect(hardwareInactive.fields[quantityWindowLookupField.id]).toEqual([2]);
+    });
+
+    it('should recompute when host thresholds change', async () => {
+      await updateRecordByApi(host.id, hostHardwareActiveId, amountFloorId, 90);
+      const tightened = await getRecord(host.id, hostHardwareActiveId);
+      expect(tightened.fields[fieldDrivenTitlesField.id] ?? []).toEqual([]);
+
+      await updateRecordByApi(host.id, hostHardwareActiveId, amountFloorId, 60);
+      const restored = await getRecord(host.id, hostHardwareActiveId);
+      expect(restored.fields[fieldDrivenTitlesField.id]).toEqual(['Laptop']);
+    });
+  });
+
+  describe('advanced operator coverage', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let tierWindowNamesField: IFieldVo;
+    let tagAllLookupField: IFieldVo;
+    let tagNoneLookupField: IFieldVo;
+    let ratingValuesLookupField: IFieldVo;
+    let currencyScoreLookupField: IFieldVo;
+    let percentScoreLookupField: IFieldVo;
+    let tierSelectLookupField: IFieldVo;
+    let nameId: string;
+    let tierId: string;
+    let tagsId: string;
+    let ratingId: string;
+    let scoreId: string;
+    let targetTierId: string;
+    let minRatingId: string;
+    let maxScoreId: string;
+    let hostRow1Id: string;
+    let hostRow2Id: string;
+    let hostRow3Id: string;
+
+    beforeAll(async () => {
+      const tierChoices = [
+        { id: 'tier-basic', name: 'Basic', color: Colors.Blue },
+        { id: 'tier-pro', name: 'Pro', color: Colors.Green },
+        { id: 'tier-enterprise', name: 'Enterprise', color: Colors.Orange },
+      ];
+      const tagChoices = [
+        { id: 'tag-urgent', name: 'Urgent', color: Colors.Red },
+        { id: 'tag-review', name: 'Review', color: Colors.Blue },
+        { id: 'tag-backlog', name: 'Backlog', color: Colors.Purple },
+      ];
+
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_AdvancedOps_Foreign',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+          {
+            name: 'Tier',
+            type: FieldType.SingleSelect,
+            options: { choices: tierChoices },
+          } as IFieldRo,
+          {
+            name: 'Tags',
+            type: FieldType.MultipleSelect,
+            options: { choices: tagChoices },
+          } as IFieldRo,
+          { name: 'IsActive', type: FieldType.Checkbox } as IFieldRo,
+          {
+            name: 'Rating',
+            type: FieldType.Rating,
+            options: { icon: 'star', color: 'yellowBright', max: 5 },
+          } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Name: 'Alpha',
+              Tier: 'Basic',
+              Tags: ['Urgent', 'Review'],
+              IsActive: true,
+              Rating: 4,
+              Score: 45,
+            },
+          },
+          {
+            fields: {
+              Name: 'Beta',
+              Tier: 'Pro',
+              Tags: ['Review'],
+              IsActive: false,
+              Rating: 5,
+              Score: 80,
+            },
+          },
+          {
+            fields: {
+              Name: 'Gamma',
+              Tier: 'Pro',
+              Tags: ['Urgent'],
+              IsActive: true,
+              Rating: 2,
+              Score: 30,
+            },
+          },
+          {
+            fields: {
+              Name: 'Delta',
+              Tier: 'Enterprise',
+              Tags: ['Review', 'Backlog'],
+              IsActive: true,
+              Rating: 4,
+              Score: 55,
+            },
+          },
+          {
+            fields: {
+              Name: 'Epsilon',
+              Tier: 'Pro',
+              Tags: ['Review'],
+              IsActive: true,
+              Rating: null,
+              Score: 25,
+            },
+          },
+        ],
+      });
+
+      nameId = foreign.fields.find((f) => f.name === 'Name')!.id;
+      tierId = foreign.fields.find((f) => f.name === 'Tier')!.id;
+      tagsId = foreign.fields.find((f) => f.name === 'Tags')!.id;
+      ratingId = foreign.fields.find((f) => f.name === 'Rating')!.id;
+      scoreId = foreign.fields.find((f) => f.name === 'Score')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_AdvancedOps_Host',
+        fields: [
+          {
+            name: 'TargetTier',
+            type: FieldType.SingleSelect,
+            options: { choices: tierChoices },
+          } as IFieldRo,
+          { name: 'MinRating', type: FieldType.Number } as IFieldRo,
+          { name: 'MaxScore', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              TargetTier: 'Basic',
+              MinRating: 3,
+              MaxScore: 60,
+            },
+          },
+          {
+            fields: {
+              TargetTier: 'Pro',
+              MinRating: 4,
+              MaxScore: 90,
+            },
+          },
+          {
+            fields: {
+              TargetTier: 'Enterprise',
+              MinRating: 4,
+              MaxScore: 70,
+            },
+          },
+        ],
+      });
+
+      targetTierId = host.fields.find((f) => f.name === 'TargetTier')!.id;
+      minRatingId = host.fields.find((f) => f.name === 'MinRating')!.id;
+      maxScoreId = host.fields.find((f) => f.name === 'MaxScore')!.id;
+      hostRow1Id = host.records[0].id;
+      hostRow2Id = host.records[1].id;
+      hostRow3Id = host.records[2].id;
+
+      const tierWindowFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: tierId,
+            operator: 'is',
+            value: { type: 'field', fieldId: targetTierId },
+          },
+          {
+            fieldId: tagsId,
+            operator: 'hasAllOf',
+            value: ['Review'],
+          },
+          {
+            fieldId: tagsId,
+            operator: 'hasNoneOf',
+            value: ['Backlog'],
+          },
+          {
+            fieldId: ratingId,
+            operator: 'isGreaterEqual',
+            value: { type: 'field', fieldId: minRatingId },
+          },
+          {
+            fieldId: scoreId,
+            operator: 'isLessEqual',
+            value: { type: 'field', fieldId: maxScoreId },
+          },
+        ],
+      };
+
+      tierWindowNamesField = await createField(host.id, {
+        name: 'Tier Window Names',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: nameId,
+          filter: tierWindowFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      tagAllLookupField = await createField(host.id, {
+        name: 'Tag All Names',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: nameId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: tagsId,
+                operator: 'hasAllOf',
+                value: ['Review'],
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      tagNoneLookupField = await createField(host.id, {
+        name: 'Tag None Names',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: nameId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: tagsId,
+                operator: 'hasNoneOf',
+                value: ['Backlog'],
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      ratingValuesLookupField = await createField(host.id, {
+        name: 'Rating Values',
+        type: FieldType.Rating,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: ratingId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: ratingId,
+                operator: 'isNotEmpty',
+                value: null,
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      currencyScoreLookupField = await createField(host.id, {
+        name: 'Score Currency Lookup',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Currency,
+            symbol: '¥',
+            precision: 1,
+          },
+        },
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: scoreId,
+                operator: 'isNotEmpty',
+                value: null,
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      percentScoreLookupField = await createField(host.id, {
+        name: 'Score Percent Lookup',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Percent,
+            precision: 2,
+          },
+        },
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: scoreId,
+                operator: 'isNotEmpty',
+                value: null,
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      tierSelectLookupField = await createField(host.id, {
+        name: 'Tier Select Lookup',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        isConditionalLookup: true,
+        options: {
+          choices: tierChoices,
+        },
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: tierId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: tagsId,
+                operator: 'hasAllOf',
+                value: ['Review'],
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should evaluate combined field-referenced conditions across heterogeneous types', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const row1 = records.records.find((record) => record.id === hostRow1Id)!;
+      const row2 = records.records.find((record) => record.id === hostRow2Id)!;
+      const row3 = records.records.find((record) => record.id === hostRow3Id)!;
+
+      expect(row1.fields[tierWindowNamesField.id]).toEqual(['Alpha']);
+      expect(row2.fields[tierWindowNamesField.id]).toEqual(['Beta']);
+      expect(row3.fields[tierWindowNamesField.id] ?? []).toEqual([]);
+    });
+
+    it('should evaluate multi-select operators within lookups', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const row1 = records.records.find((record) => record.id === hostRow1Id)!;
+      const row2 = records.records.find((record) => record.id === hostRow2Id)!;
+      const row3 = records.records.find((record) => record.id === hostRow3Id)!;
+
+      const expectedTagAll = ['Alpha', 'Beta', 'Delta', 'Epsilon'].sort();
+      const expectedTagNone = ['Alpha', 'Beta', 'Gamma', 'Epsilon'].sort();
+
+      const row1TagAll = [...(row1.fields[tagAllLookupField.id] as string[])].sort();
+      const row2TagAll = [...(row2.fields[tagAllLookupField.id] as string[])].sort();
+      const row3TagAll = [...(row3.fields[tagAllLookupField.id] as string[])].sort();
+      expect(row1TagAll).toEqual(expectedTagAll);
+      expect(row2TagAll).toEqual(expectedTagAll);
+      expect(row3TagAll).toEqual(expectedTagAll);
+
+      const row1TagNone = [...(row1.fields[tagNoneLookupField.id] as string[])].sort();
+      const row2TagNone = [...(row2.fields[tagNoneLookupField.id] as string[])].sort();
+      const row3TagNone = [...(row3.fields[tagNoneLookupField.id] as string[])].sort();
+      expect(row1TagNone).toEqual(expectedTagNone);
+      expect(row2TagNone).toEqual(expectedTagNone);
+      expect(row3TagNone).toEqual(expectedTagNone);
+    });
+
+    it('should filter rating values while excluding empty entries', async () => {
+      const record = await getRecord(host.id, hostRow1Id);
+      const ratings = [...(record.fields[ratingValuesLookupField.id] as number[])].sort();
+      expect(ratings).toEqual([2, 4, 4, 5]);
+    });
+
+    it('should persist numeric formatting options on lookup fields', async () => {
+      const currencyFieldMeta = await getField(host.id, currencyScoreLookupField.id);
+      const currencyFormatting = currencyFieldMeta.options as {
+        formatting?: { type: NumberFormattingType; precision?: number; symbol?: string };
+      };
+      expect(currencyFormatting.formatting).toEqual({
+        type: NumberFormattingType.Currency,
+        symbol: '¥',
+        precision: 1,
+      });
+
+      const percentFieldMeta = await getField(host.id, percentScoreLookupField.id);
+      const percentFormatting = percentFieldMeta.options as {
+        formatting?: { type: NumberFormattingType; precision?: number };
+      };
+      expect(percentFormatting.formatting).toEqual({
+        type: NumberFormattingType.Percent,
+        precision: 2,
+      });
+
+      const record = await getRecord(host.id, hostRow1Id);
+      const expectedTotals = [25, 30, 45, 55, 80];
+      const currencyValues = [...(record.fields[currencyScoreLookupField.id] as number[])].sort(
+        (a, b) => a - b
+      );
+      const percentValues = [...(record.fields[percentScoreLookupField.id] as number[])].sort(
+        (a, b) => a - b
+      );
+      expect(currencyValues).toEqual(expectedTotals);
+      expect(percentValues).toEqual(expectedTotals);
+    });
+
+    it('should include select metadata within lookup results', async () => {
+      const record = await getRecord(host.id, hostRow1Id);
+      const tiers = record.fields[tierSelectLookupField.id] as Array<
+        string | { id: string; name: string; color: string }
+      >;
+      expect(Array.isArray(tiers)).toBe(true);
+      const tierNames = tiers
+        .map((tier) => (typeof tier === 'string' ? tier : tier.name))
+        .filter((name): name is string => Boolean(name))
+        .sort();
+      expect(tierNames).toEqual(['Basic', 'Enterprise', 'Pro', 'Pro'].sort());
+      tiers.forEach((tier) => {
+        if (typeof tier === 'string') {
+          expect(typeof tier).toBe('string');
+          return;
+        }
+        expect(typeof tier.id).toBe('string');
+        expect(typeof tier.color).toBe('string');
+      });
+    });
+
+    it('should recompute when host filters change', async () => {
+      await updateRecordByApi(host.id, hostRow1Id, maxScoreId, 40);
+      const tightened = await getRecord(host.id, hostRow1Id);
+      expect(tightened.fields[tierWindowNamesField.id] ?? []).toEqual([]);
+
+      await updateRecordByApi(host.id, hostRow1Id, maxScoreId, 60);
+      const restored = await getRecord(host.id, hostRow1Id);
+      expect(restored.fields[tierWindowNamesField.id]).toEqual(['Alpha']);
+
+      await updateRecordByApi(host.id, hostRow2Id, minRatingId, 6);
+      const stricter = await getRecord(host.id, hostRow2Id);
+      expect(stricter.fields[tierWindowNamesField.id] ?? []).toEqual([]);
+
+      await updateRecordByApi(host.id, hostRow2Id, minRatingId, 4);
+      const ratingRestored = await getRecord(host.id, hostRow2Id);
+      expect(ratingRestored.fields[tierWindowNamesField.id]).toEqual(['Beta']);
     });
   });
 
