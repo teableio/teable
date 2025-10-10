@@ -41,6 +41,11 @@ export class PrismaService
 
   private afterTxCb?: () => void;
 
+  // Default transaction options from environment variables
+  // Prisma's built-in defaults: timeout=5000ms, maxWait=2000ms
+  private readonly defaultTxTimeout = Number(process.env.PRISMA_TRANSACTION_TIMEOUT ?? 5000);
+  private readonly defaultTxMaxWait = Number(process.env.PRISMA_TRANSACTION_MAX_WAIT ?? 2000);
+
   constructor(private readonly cls: ClsService<{ tx: ITx }>) {
     const logConfig = {
       log: [
@@ -93,6 +98,13 @@ export class PrismaService
       return await fn(txClient);
     }
 
+    // Apply default timeout and maxWait from environment if not explicitly provided
+    const txOptions = {
+      timeout: options?.timeout ?? this.defaultTxTimeout,
+      maxWait: options?.maxWait ?? this.defaultTxMaxWait,
+      ...(options?.isolationLevel && { isolationLevel: options.isolationLevel }),
+    };
+
     await this.cls.runWith(this.cls.get(), async () => {
       result = await super.$transaction<R>(async (prisma) => {
         prisma = proxyClient(prisma);
@@ -107,7 +119,7 @@ export class PrismaService
           this.cls.set('tx.id', undefined);
           this.cls.set('tx.timeStr', undefined);
         }
-      }, options);
+      }, txOptions);
       this.afterTxCb?.();
     });
 
