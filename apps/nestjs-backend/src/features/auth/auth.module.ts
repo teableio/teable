@@ -18,6 +18,7 @@ import { SocialModule } from './social/social.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
+import { TurnstileModule } from './turnstile/turnstile.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SessionStrategy } from './strategies/session.strategy';
     }),
     SocialModule,
     PermissionModule,
+    TurnstileModule,
     JwtModule.registerAsync({
       useFactory: (config: IAuthConfig) => ({
         secret: config.jwt.secret,

@@ -27,14 +27,20 @@ import {
   ISetSettingMailTransportConfigRo,
   SettingKey,
 } from '@teable/openapi';
+import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
+import { TurnstileService } from '../../auth/turnstile/turnstile.service';
 import { SettingOpenApiService } from './setting-open-api.service';
 
 @Controller('api/admin/setting')
 export class SettingOpenApiController {
-  constructor(private readonly settingOpenApiService: SettingOpenApiService) {}
+  constructor(
+    private readonly settingOpenApiService: SettingOpenApiService,
+    private readonly turnstileService: TurnstileService,
+    @AuthConfig() private readonly authConfig: IAuthConfig
+  ) {}
 
   /**
    * Get the instance settings, now we have config for AI, there are some sensitive fields, we need check the permission before return.
@@ -80,6 +86,9 @@ export class SettingOpenApiController {
       },
       appGenerationEnabled: Boolean(appConfig?.apiKey),
       webSearchEnabled: Boolean(webSearchConfig?.apiKey),
+      turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
+      signupVerificationCodeRateLimitSeconds:
+        this.authConfig.signupVerificationCodeRateLimitSeconds,
     };
   }
 

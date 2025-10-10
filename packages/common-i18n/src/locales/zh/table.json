@@ -383,7 +383,7 @@
       "deleteRecordConfirmTitle": "删除记录",
       "deleteRecordConfirmDescription": "此操作将删除 {{recordCount}} 条记录。确定要继续吗？",
       "pasteConfirmTitle": "执行粘贴",
-      "pasteConfirmDescription": "您将要粘贴 {{cellCount}} 个单元格，{{recordCount}} 条记录。确定要继续吗？",
+      "pasteConfirmDescription": "您粘贴的数据将影响 {{recordCount}} 条记录。确定要继续吗？",
       "expandCommonDescription": " 为了将粘贴的数据插入到表格中，我们需要额外添加",
       "expandColDescription": " {{count}} 个字段",
       "expandRowDescription": " {{count}} 条记录",

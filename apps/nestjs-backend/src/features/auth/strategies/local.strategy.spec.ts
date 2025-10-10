@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { Request } from 'express';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { CacheService } from '../../../cache/cache.service';
 import { GlobalModule } from '../../../global/global.module';
@@ -14,6 +16,15 @@ describe('LocalStrategy', () => {
   const cacheService = mockDeep<CacheService>();
   const testEmail = 'test@test.com';
   const testPassword = '12345678a';
+  const mokeReq = {
+    ip: '127.0.0.1',
+    connection: {
+      remoteAddress: '127.0.0.1',
+    },
+    headers: {
+      'x-forwarded-for': '127.0.0.1',
+    },
+  } as unknown as Request;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,7 +52,7 @@ describe('LocalStrategy', () => {
       maxLoginAttempts: 0,
       accountLockoutMinutes: 0,
     };
-    await expect(localStrategy.validate(testEmail, testPassword)).rejects.toThrow(
+    await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toThrow(
       'Email or password is incorrect'
     );
   });
@@ -57,7 +68,7 @@ describe('LocalStrategy', () => {
       return undefined;
     });
 
-    await expect(localStrategy.validate(testEmail, testPassword)).rejects.toThrow(
+    await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toThrow(
       'Your account has been locked out, please try again after 10 minutes'
     );
   });
@@ -74,7 +85,7 @@ describe('LocalStrategy', () => {
       return undefined;
     });
 
-    await expect(localStrategy.validate(testEmail, testPassword)).rejects.toMatchObject({
+    await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toMatchObject({
       response: 'Email or password is incorrect',
     });
     expect(cacheService.setDetail).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 3, 30);
@@ -92,7 +103,7 @@ describe('LocalStrategy', () => {
       return undefined;
     });
 
-    await expect(localStrategy.validate(testEmail, testPassword)).rejects.toMatchObject({
+    await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toMatchObject({
       response: 'Your account has been locked out, please try again after 10 minutes',
     });
     expect(cacheService.set).toHaveBeenCalledWith(`signin:lockout:${testEmail}`, true, 10);
@@ -106,7 +117,7 @@ describe('LocalStrategy', () => {
     };
     cacheService.get.mockImplementation(async () => undefined);
 
-    await expect(localStrategy.validate(testEmail, testPassword)).rejects.toMatchObject({
+    await expect(localStrategy.validate(mokeReq, testEmail, testPassword)).rejects.toMatchObject({
       response: 'Email or password is incorrect',
     });
     expect(cacheService.setDetail).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 1, 30);

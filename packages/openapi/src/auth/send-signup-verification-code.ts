@@ -7,6 +7,7 @@ export const SEND_SIGNUP_VERIFICATION_CODE = '/auth/send-signup-verification-cod
 
 export const sendSignupVerificationCodeRoSchema = z.object({
   email: z.string().email(),
+  turnstileToken: z.string().optional(),
 });
 
 export type ISendSignupVerificationCodeRo = z.infer<typeof sendSignupVerificationCodeRoSchema>;
@@ -44,5 +45,8 @@ export const sendSignupVerificationCodeRoute: RouteConfig = registerRoute({
   tags: ['auth'],
 });
 
-export const sendSignupVerificationCode = (email: string) =>
-  axios.post<ISendSignupVerificationCodeVo>(SEND_SIGNUP_VERIFICATION_CODE, { email });
+export const sendSignupVerificationCode = (email: string, turnstileToken?: string) =>
+  axios.post<ISendSignupVerificationCodeVo>(SEND_SIGNUP_VERIFICATION_CODE, {
+    email,
+    turnstileToken,
+  });

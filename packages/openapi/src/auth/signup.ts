@@ -28,6 +28,7 @@ export const signupSchema = signinSchema.merge(
       })
       .optional(),
     inviteCode: z.string().optional(),
+    turnstileToken: z.string().optional(),
   })
 );
 

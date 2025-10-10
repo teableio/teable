@@ -3,14 +3,11 @@ import type { ITestLLMVo, LLMProvider } from '@teable/openapi/src/admin/setting'
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
 } from '@teable/ui-lib/shadcn';
-import { useTranslation } from 'next-i18next';
 import type { Control } from 'react-hook-form';
 import { LLMProviderManage } from './LlmproviderManage';
 
@@ -21,13 +18,8 @@ interface IAIProviderCardProps {
 }
 
 export const AIProviderCard = ({ control, onChange, onTest }: IAIProviderCardProps) => {
-  const { t } = useTranslation('common');
-
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle>{t('admin.setting.ai.provider')}</CardTitle>
-      </CardHeader>
+    <Card className="pt-6 shadow-sm">
       <CardContent>
         <FormField
           control={control}

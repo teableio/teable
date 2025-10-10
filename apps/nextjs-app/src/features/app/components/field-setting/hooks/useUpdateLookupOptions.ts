@@ -1,4 +1,4 @@
-import type { ILookupOptionsRo } from '@teable/core';
+import { FieldType, type ILookupOptionsRo } from '@teable/core';
 import { safeParseOptions } from '@teable/core';
 import type { LinkField, IFieldInstance } from '@teable/sdk/model';
 import { useCallback } from 'react';
@@ -18,7 +18,7 @@ export function useUpdateLookupOptions(
         ...field.lookupOptions,
         ...(lookupOptions || {}),
       } as ILookupOptionsRo;
-      if (!field.isLookup) {
+      if (!field.isLookup && field.type !== FieldType.Rollup) {
         setFieldFn({
           ...field,
           lookupOptions: newLookupOptions,

@@ -64,21 +64,71 @@ export const getActiveCell = (selection: CombinedSelection) => {
   }
 };
 
-export const getEffectCellCount = (selection: CombinedSelection, fields: Field[]) => {
+export const getEffectCellCount = (
+  selection: CombinedSelection,
+  fields: Field[],
+  rowCount: number | null
+) => {
   const calFieldsIndex = [] as number[];
   fields.forEach((field, index) => {
     if (field.isComputed) {
       calFieldsIndex.push(index);
     }
   });
-  const [startRange, endRange] = selection.ranges;
-  const [startCol, startRow] = startRange;
-  const [endCol, endRow] = endRange;
-  const selectionRows = endRow - startRow + 1;
 
-  const colWithoutComputedFieldLength = range(startCol, endCol + 1)?.filter(
-    (index) => !calFieldsIndex.includes(index)
-  )?.length;
+  if (selection.type === SelectionRegionType.Columns && rowCount) {
+    const columnWithoutCal = [];
+    selection.ranges.forEach((currentRange) => {
+      const [startCol, endCol] = currentRange;
+      if (startCol === endCol && !calFieldsIndex.includes(startCol)) {
+        columnWithoutCal.push(startCol);
+      }
 
-  return colWithoutComputedFieldLength * selectionRows;
+      if (startCol !== endCol) {
+        const cols = range(startCol, endCol + 1);
+        const finalCols = cols.filter((col) => !calFieldsIndex.includes(col));
+        columnWithoutCal.push(...finalCols);
+      }
+    });
+    return columnWithoutCal.length * rowCount;
+  }
+
+  if (selection.type === SelectionRegionType.Cells) {
+    const [startRange, endRange] = selection.ranges;
+    const [startCol, startRow] = startRange;
+    const [endCol, endRow] = endRange;
+    const selectionRows = endRow - startRow + 1;
+
+    const colWithoutComputedFieldLength = range(startCol, endCol + 1)?.filter(
+      (index) => !calFieldsIndex.includes(index)
+    )?.length;
+
+    return colWithoutComputedFieldLength * selectionRows;
+  }
+
+  if (selection.type === SelectionRegionType.Rows) {
+    // all select
+    const [startRow, endRow] = selection.ranges as unknown as [number, number];
+    const rows = endRow - startRow + 1;
+    const fieldsWithoutCal = fields?.filter((f) => !f.isComputed);
+    return fieldsWithoutCal?.length * rows;
+  }
+
+  return 0;
+};
+
+export const getEffectRows = (selection: CombinedSelection) => {
+  const { type, ranges } = selection;
+  if (type === SelectionRegionType.Rows) {
+    return ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
+  }
+
+  if (type === SelectionRegionType.Cells) {
+    const [startRange, endRange] = selection.ranges;
+    const [, startRow] = startRange;
+    const [, endRow] = endRange;
+    return endRow - startRow + 1;
+  }
+
+  return 0;
 };

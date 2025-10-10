@@ -74,6 +74,10 @@ export const authConfig = registerAs('auth', () => ({
       ? Number(process.env.SIGNIN_ACCOUNT_LOCKOUT_MINUTES)
       : undefined,
   },
+  signupVerificationCodeRateLimitSeconds: process.env
+    .BACKEND_SIGNUP_VERIFICATION_CODE_RATE_LIMIT_SECONDS
+    ? Number(process.env.BACKEND_SIGNUP_VERIFICATION_CODE_RATE_LIMIT_SECONDS)
+    : 30,
 }));
 
 export const AuthConfig = () => Inject(authConfig.KEY);

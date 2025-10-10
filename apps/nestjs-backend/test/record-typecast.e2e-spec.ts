@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
-import { FieldType } from '@teable/core';
-import { uploadAttachment, type ITableFullVo } from '@teable/openapi';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { updateRecord, uploadAttachment, type ITableFullVo } from '@teable/openapi';
 import { pick } from 'lodash';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { getError } from './utils/get-error';
@@ -242,6 +242,44 @@ describe('Record Typecast', () => {
       });
       expect(error?.status).toBe(400);
       expect(error?.message).toContain('Attachment(not-exist-token) not found');
+    });
+  });
+
+  describe('single select field', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+        fields: [
+          {
+            name: 'title',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'singleSelect',
+            type: FieldType.SingleSelect,
+          },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should create a record with typecast', async () => {
+      const record = await updateRecord(table.id, table.records[0].id, {
+        record: {
+          fields: {
+            [table.fields[0].id]: 'select value',
+            [table.fields[1].id]: '',
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      }).then((res) => res.data);
+
+      expect(record.fields[table.fields[1].id]).toBeUndefined();
     });
   });
 });

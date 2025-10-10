@@ -1,7 +1,7 @@
 import type { ISelectFieldChoice } from '@teable/core';
 import { ColorUtils } from '@teable/core';
 import { Popover, PopoverTrigger, Button, PopoverContent, Input } from '@teable/ui-lib/shadcn';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ColorPicker } from './ColorPicker';
 
 interface IOptionItemProps {
@@ -60,6 +60,20 @@ export const ChoiceInput: React.FC<{
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }> = ({ name, readOnly, onChange, onKeyDown, reRef }) => {
   const [value, setValue] = useState<string>(name);
+  const valueRef = useRef<string>(value);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  // Save on unmount (e.g., during virtual scrolling)
+  useEffect(() => {
+    return () => {
+      if (valueRef.current !== name) {
+        onChange(valueRef.current);
+      }
+    };
+  }, [name, onChange]);
+
   const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curValue = e.target.value;
     setValue(curValue);

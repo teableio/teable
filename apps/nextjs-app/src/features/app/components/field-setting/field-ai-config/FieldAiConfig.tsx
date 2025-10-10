@@ -110,11 +110,11 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       className={cn(
         'group flex cursor-pointer select-none items-center justify-between px-3 py-2 rounded-sm gap-x-2',
         `transition-all duration-500 ease-in-out 
-          bg-gradient-to-r from-blue-100/75 via-indigo-100/75 to-purple-100/75
-        hover:from-blue-200/60 hover:via-indigo-200/60 hover:to-purple-200/60 
-        dark:from-blue-900/75 dark:via-indigo-900/75 dark:to-purple-900/75
-        dark:hover:from-blue-800/60 dark:hover:via-indigo-800/60 dark:hover:to-purple-800/60
-        `,
+      bg-gradient-to-r from-teal-100 via-blue-50 to-rose-50 
+    hover:from-teal-100/70 hover:via-blue-50/70 hover:to-rose-50/70
+      dark:bg-[linear-gradient(90deg,rgba(120,182,240,0.30)_0%,rgba(149,122,208,0.30)_50%,rgba(223,86,109,0.30)_100%)]
+      dark:hover:bg-[linear-gradient(90deg,rgba(120,182,240,0.35)_0%,rgba(149,122,208,0.35)_50%,rgba(223,86,109,0.35)_100%)]
+      `,
         isExpanded && 'rounded-b-none'
       )}
       onClick={() => setIsExpanded(!isExpanded)}
@@ -160,12 +160,15 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
     <Fragment>
       <hr className="border-border" />
       <div
-        className={cn('w-full rounded-md border text-sm', fieldAIEnable && 'border-indigo-200/75')}
+        className={cn(
+          'w-full rounded-md border text-sm',
+          fieldAIEnable && 'border-border dark:border-white/20'
+        )}
       >
         {headerComponent}
 
         {isExpanded && (
-          <div className="space-y-2 border-t p-3">
+          <div className="space-y-4 border-t p-4">
             {getAiConfigRenderer()}
             {type && (
               <Fragment>
@@ -186,14 +189,22 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                     onlyImageOutput={fieldType === FieldType.Attachment}
                   />
                 </div>
-                <div className="flex items-center">
+                <div className="flex h-8 items-center">
+                  <Switch
+                    id="autoFill"
+                    className="mr-2"
+                    checked={Boolean(aiConfig?.isAutoFill)}
+                    onCheckedChange={(checked) => {
+                      onConfigChange('isAutoFill', checked);
+                    }}
+                  />
                   <Label htmlFor="autoFill" className="font-normal">
                     {t('table:field.aiConfig.autoFill.title')}
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="ml-1 cursor-pointer">
+                        <div className="ml-2 cursor-pointer text-muted-foreground">
                           <HelpCircle className="size-4" />
                         </div>
                       </TooltipTrigger>
@@ -202,14 +213,6 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  <Switch
-                    id="autoFill"
-                    className="ml-2"
-                    checked={Boolean(aiConfig?.isAutoFill)}
-                    onCheckedChange={(checked) => {
-                      onConfigChange('isAutoFill', checked);
-                    }}
-                  />
                 </div>
               </Fragment>
             )}

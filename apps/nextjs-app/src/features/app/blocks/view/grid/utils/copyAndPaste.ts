@@ -131,6 +131,41 @@ export const textPasteHandler = async (
   );
 };
 
+export const textPasteHandlerWithData = async (
+  clipboardData: {
+    html: string;
+    text: string;
+    hasHtml: boolean;
+  },
+  selection: CombinedSelection,
+  requestPaste: (
+    content: string | unknown[][] | undefined,
+    type: RangeType | undefined,
+    ranges: IPasteRo['ranges'],
+    header: IPasteRo['header']
+  ) => Promise<void>
+) => {
+  const { html, text, hasHtml } = clipboardData;
+  const header = extractHtmlHeader(html);
+
+  const cellValues = hasHtml
+    ? isTeableHTML(html)
+      ? extractTableContent(html)
+      : parseNormalHtml(html)
+    : [];
+
+  if (header.error) {
+    throw new Error(header.error);
+  }
+
+  await requestPaste(
+    hasHtml ? cellValues : text,
+    rangeTypes[selection.type],
+    selection.serialize(),
+    header.result
+  );
+};
+
 export const getCellPasteInfo = (e: React.ClipboardEvent) => {
   const hasHtml = e.clipboardData.types.includes(ClipboardTypes.html);
   const html = hasHtml ? e.clipboardData.getData(ClipboardTypes.html) : '';
@@ -147,11 +182,9 @@ export const getCellPasteInfo = (e: React.ClipboardEvent) => {
 };
 
 export const getExpandInfo = (
+  selection: CombinedSelection,
   rowCount: number | null,
-  startRow: number,
-  startCol: number,
   fields: Field[],
-  computedFieldIndexes: number[],
   cellValues?: unknown[][]
 ) => {
   if (!rowCount || !cellValues) {
@@ -162,17 +195,32 @@ export const getExpandInfo = (
     };
   }
 
-  const pasteRecordLength = cellValues?.length ?? 0;
-  const pasteFieldsLength = cellValues?.[0]?.length ?? 0;
-  const additionRecordsLength = rowCount ? pasteRecordLength - (rowCount - startRow) : 0;
-  const additionFieldsLength =
-    pasteFieldsLength - (fields.length - startCol - computedFieldIndexes.length);
+  const computedFieldIndexes = fields.filter((field) => field.isComputed).map((field) => field.id);
 
-  const isExpand = additionRecordsLength > 0 || additionFieldsLength > 0;
+  if (selection.type === SelectionRegionType.Cells) {
+    const [startRange, endRange] = selection.ranges;
+    const [startCol, startRow] = startRange;
+    const [endCol, endRow] = endRange;
+    const selectionRows = endRow - startRow + 1;
+    const selectionCols = endCol - startCol + 1;
+    const pasteRecordLength = cellValues?.length ?? 0;
+    const pasteFieldsLength = cellValues?.[0]?.length ?? 0;
+    const additionRecordsLength = rowCount ? pasteRecordLength - (rowCount - startRow) : 0;
+    const additionFieldsLength =
+      pasteFieldsLength - (fields.length - startCol - computedFieldIndexes.length);
+
+    const isExpand = additionRecordsLength > 0 || additionFieldsLength > 0;
+
+    return {
+      isExpand,
+      expandRowCount: selectionRows,
+      expandColCount: selectionCols,
+    };
+  }
 
   return {
-    isExpand,
-    expandRowCount: additionRecordsLength,
-    expandColCount: additionFieldsLength,
+    isExpand: false,
+    expandRowCount: 0,
+    expandColCount: 0,
   };
 };
