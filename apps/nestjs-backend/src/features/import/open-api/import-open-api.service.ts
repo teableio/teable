@@ -10,18 +10,12 @@ import type {
 } from '@teable/openapi';
 import { chunk, difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-
-import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
-import { NotificationService } from '../../notification/notification.service';
-import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
-import {
-  ImportTableCsvChunkQueueProcessor,
-  TABLE_IMPORT_CSV_CHUNK_QUEUE,
-} from './import-csv-chunk.processor';
+import { ImportTableCsvChunkJob, TABLE_IMPORT_CSV_CHUNK_QUEUE } from './import-csv-chunk.job';
+import { ImportTableCsvChunkQueueProcessor } from './import-csv-chunk.processor';
 import { importerFactory } from './import.class';
 
 const maxFieldsLength = 500;
@@ -34,10 +28,7 @@ export class ImportOpenApiService {
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly notificationService: NotificationService,
-    private readonly shareDbService: ShareDbService,
-    private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
+    private readonly importTableCsvChunkJob: ImportTableCsvChunkJob,
     private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
@@ -103,7 +94,7 @@ export class ImportOpenApiService {
       const jobId = `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${table.id}:${getRandomString(6)}`;
 
       if (importData && columns.length) {
-        await this.importTableCsvChunkQueueProcessor.queue.add(
+        await this.importTableCsvChunkJob.queue.add(
           `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
           {
             baseId,
@@ -220,7 +211,7 @@ export class ImportOpenApiService {
 
     const jobId = await this.generateChunkJobId(tableId);
 
-    await this.importTableCsvChunkQueueProcessor.queue.add(
+    await this.importTableCsvChunkJob.queue.add(
       `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
       {
         baseId,

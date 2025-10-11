@@ -13,7 +13,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { PerformanceCacheService } from '../../../performance-cache';
 import { Timing } from '../../../utils/timing';
-import { AttachmentsCropQueueProcessor } from '../../attachments/attachments-crop.processor';
+import { AttachmentsCropJob } from '../../attachments/attachments-crop.job';
 import StorageAdapter from '../../attachments/plugins/adapter';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class AdminOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
+    private readonly attachmentsCropJob: AttachmentsCropJob,
     private readonly performanceCacheService: PerformanceCacheService
   ) {}
 
@@ -68,7 +68,7 @@ export class AdminOpenApiService {
         break;
       }
       total += attachments.length;
-      await this.attachmentsCropQueueProcessor.queue.addBulk(
+      await this.attachmentsCropJob.queue.addBulk(
         attachments.map((attachment) => ({
           name: 'admin_attachment_crop_image',
           data: {

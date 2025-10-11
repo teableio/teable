@@ -33,8 +33,8 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
 import { TableService } from '../table/table.service';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
-import { BaseImportAttachmentsQueueProcessor } from './base-import-processor/base-import-attachments.processor';
-import { BaseImportCsvQueueProcessor } from './base-import-processor/base-import-csv.processor';
+import { BaseImportAttachmentsJob } from './base-import-processor/base-import-attachments.job';
+import { BaseImportCsvJob } from './base-import-processor/base-import-csv.job';
 import { replaceStringByMap } from './utils';
 
 @Injectable()
@@ -47,8 +47,8 @@ export class BaseImportService {
     private readonly tableService: TableService,
     private readonly fieldDuplicateService: FieldDuplicateService,
     private readonly viewOpenApiService: ViewOpenApiService,
-    private readonly baseImportAttachmentsQueueProcessor: BaseImportAttachmentsQueueProcessor,
-    private readonly baseImportCsvQueueProcessor: BaseImportCsvQueueProcessor,
+    private readonly baseImportAttachmentsJob: BaseImportAttachmentsJob,
+    private readonly baseImportCsvJob: BaseImportCsvJob,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
@@ -186,7 +186,7 @@ export class BaseImportService {
 
   private async uploadAttachments(path: string) {
     const userId = this.cls.get('user.id');
-    await this.baseImportAttachmentsQueueProcessor.queue.add(
+    await this.baseImportAttachmentsJob.queue.add(
       'import_base_attachments',
       {
         path,
@@ -207,7 +207,7 @@ export class BaseImportService {
     structure: IBaseJson
   ) {
     const userId = this.cls.get('user.id');
-    await this.baseImportCsvQueueProcessor.queue.add(
+    await this.baseImportCsvJob.queue.add(
       'base_import_csv',
       {
         path,

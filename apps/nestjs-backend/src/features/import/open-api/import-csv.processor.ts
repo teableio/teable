@@ -1,22 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { join } from 'path';
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  FieldKeyType,
-  FieldType,
-  getActionTriggerChannel,
-  getRandomString,
-  getTableImportChannel,
-} from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, type IImportColumn } from '@teable/openapi';
-import { Job, Queue } from 'bullmq';
+import { UploadType } from '@teable/openapi';
+import { Job } from 'bullmq';
 import { toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import Papa from 'papaparse';
 import type { CreateOp } from 'sharedb';
-import type { LocalPresence } from 'sharedb/lib/client';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -25,23 +18,9 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import type { ITableImportCsvJob } from './import-csv.job';
+import { ImportTableCsvJob, TABLE_IMPORT_CSV_QUEUE } from './import-csv.job';
 import { parseBoolean } from './import.class';
-
-interface ITableImportCsvJob {
-  baseId: string;
-  userId: string;
-  path: string;
-  columnInfo?: IImportColumn[];
-  fields: { id: string; type: FieldType }[];
-  sourceColumnMap?: Record<string, number | null>;
-  table: { id: string; name: string };
-  range: [number, number];
-  notification?: boolean;
-  lastChunk?: boolean;
-  parentJobId: string;
-}
-
-export const TABLE_IMPORT_CSV_QUEUE = 'import-table-csv-queue';
 
 @Injectable()
 @Processor(TABLE_IMPORT_CSV_QUEUE)
@@ -49,8 +28,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv';
 
   private logger = new Logger(ImportTableCsvQueueProcessor.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private presences: LocalPresence<any>[] = [];
 
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,
@@ -60,15 +37,15 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(TABLE_IMPORT_CSV_QUEUE) public readonly queue: Queue<ITableImportCsvJob>
+    private readonly importTableCsvJob: ImportTableCsvJob
   ) {
     super();
   }
 
   public async process(job: Job<ITableImportCsvJob>) {
     const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range } = job.data;
-    const localPresence = this.createImportPresence(table.id, 'status');
-    this.setImportStatus(localPresence, true);
+    const localPresence = this.importTableCsvJob.createImportPresence(table.id, 'status');
+    this.importTableCsvJob.setImportStatus(localPresence, true);
     try {
       await this.handleImportChunkCsv(job);
       if (lastChunk) {
@@ -85,11 +62,9 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           tableId: table.id,
         });
 
-        this.setImportStatus(localPresence, false);
+        this.importTableCsvJob.setImportStatus(localPresence, false);
         localPresence.destroy();
-        this.presences = this.presences.filter(
-          (presence) => presence.presenceId !== localPresence.presenceId
-        );
+        this.importTableCsvJob.deleteImportPresence(localPresence.presenceId);
 
         const dir = StorageAdapter.getDir(UploadType.Import);
         const fullPath = join(dir, job.data.parentJobId);
@@ -114,8 +89,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   private async cleanRelativeTask(parentJobId: string) {
-    const allJobs = (await this.queue.getJobs(['waiting', 'active'])).filter((job) =>
-      job.id?.startsWith(parentJobId)
+    const allJobs = (await this.importTableCsvJob.queue.getJobs(['waiting', 'active'])).filter(
+      (job) => job.id?.startsWith(parentJobId)
     );
 
     for (const relatedJob of allJobs) {
@@ -195,7 +170,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   private updateRowCount(tableId: string) {
-    const localPresence = this.createImportPresence(tableId, 'rowCount');
+    const localPresence = this.importTableCsvJob.createImportPresence(tableId, 'rowCount');
     localPresence.submit([{ actionKey: 'addRecord' }], (error) => {
       error && this.logger.error(error);
     });
@@ -223,41 +198,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     });
   }
 
-  setImportStatus(presence: LocalPresence<unknown>, loading: boolean) {
-    presence.submit(
-      {
-        loading,
-      },
-      (error) => {
-        error && this.logger.error(error);
-      }
-    );
-  }
-
-  createImportPresence(tableId: string, type: 'rowCount' | 'status' = 'status') {
-    const channel =
-      type === 'rowCount' ? getActionTriggerChannel(tableId) : getTableImportChannel(tableId);
-    const existPresence = this.presences.find(({ presence }) => {
-      return presence.channel === channel;
-    });
-    if (existPresence) {
-      return existPresence;
-    }
-    const presence = this.shareDbService.connect().getPresence(channel);
-    const localPresence = presence.create(channel);
-    this.presences.push(localPresence);
-    return localPresence;
-  }
-
-  public getChunkImportJobIdPrefix(parentId: string) {
-    return `${parentId}_import_${getRandomString(6)}`;
-  }
-
-  public getChunkImportJobId(jobId: string, range: [number, number]) {
-    const prefix = this.getChunkImportJobIdPrefix(jobId);
-    return `${prefix}_[${range[0]},${range[1]}]`;
-  }
-
   @OnWorkerEvent('active')
   onWorkerEvent(job: Job) {
     const { table, range } = job.data;
@@ -273,8 +213,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     const { table, range, parentJobId } = job.data;
     this.logger.error(`import data to ${table.id} job failed, range: [${range}]`);
     this.cleanRelativeTask(parentJobId);
-    const localPresence = this.createImportPresence(table.id, 'status');
-    this.setImportStatus(localPresence, false);
+    const localPresence = this.importTableCsvJob.createImportPresence(table.id, 'status');
+    this.importTableCsvJob.setImportStatus(localPresence, false);
   }
 
   @OnWorkerEvent('completed')

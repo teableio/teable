@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IBaseJson } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
-import { Queue, Job } from 'bullmq';
+import { Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -17,18 +16,9 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { BatchProcessor } from '../BatchProcessor.class';
 import { EXCLUDE_SYSTEM_FIELDS } from '../constant';
-import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
-interface IBaseImportCsvJob {
-  path: string;
-  userId: string;
-  tableIdMap: Record<string, string>;
-  fieldIdMap: Record<string, string>;
-  viewIdMap: Record<string, string>;
-  fkMap: Record<string, string>;
-  structure: IBaseJson;
-}
-
-export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
+import type { IBaseImportCsvJob } from './base-import-csv.job';
+import { BASE_IMPORT_CSV_QUEUE } from './base-import-csv.job';
+import { BaseImportJunctionCsvJob } from './base-import-junction.job';
 
 @Injectable()
 @Processor(BASE_IMPORT_CSV_QUEUE)
@@ -39,10 +29,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly baseImportJunctionCsvQueueProcessor: BaseImportJunctionCsvQueueProcessor,
+    private readonly baseImportJunctionCsvJob: BaseImportJunctionCsvJob,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {
     super();
@@ -360,7 +349,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   @OnWorkerEvent('completed')
   async onCompleted(job: Job) {
     const { fieldIdMap, path, structure, userId } = job.data;
-    await this.baseImportJunctionCsvQueueProcessor.queue.add(
+    await this.baseImportJunctionCsvJob.queue.add(
       'import_base_junction_csv',
       {
         fieldIdMap,
