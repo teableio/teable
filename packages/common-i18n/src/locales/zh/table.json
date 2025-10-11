@@ -251,7 +251,7 @@
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
       "enableValidateFieldUnique": "禁止重复值",
-      "enableValidateFieldNotNull": "禁止空值",
+      "enableValidateFieldNotNull": "必填",
       "knowMore": "了解更多",
       "linkFieldKnowMoreLink": "https://help.teable.cn/zh/basic/field/advanced/link",
       "showByField": "选择展示的列",
