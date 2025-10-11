@@ -133,6 +133,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
     queryKey: [editingCommentId],
     queryFn: () => getCommentDetail(tableId!, recordId!, editingCommentId!).then((res) => res.data),
     enabled: !!tableId && !!recordId && !!editingCommentId,
+    staleTime: 0,
   });
   useEffect(() => {
     // todo replace Standard api to reset to value
